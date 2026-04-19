@@ -30,6 +30,8 @@ public partial class SemanticModel
     private readonly object _diagnosticsCollectionGate = new();
     private readonly object _bindingSetupGate = new();
     private readonly object _expandedRootGate = new();
+    private bool _isCollectingDiagnostics;
+    private int _diagnosticCollectionThreadId;
     private bool _declarationsComplete;
     private bool _rootBinderCreated;
     private bool _isEnsuringDeclarations;
@@ -141,18 +143,36 @@ public partial class SemanticModel
             if (_diagnostics is not null)
                 return;
 
-            var root = SyntaxTree.GetRoot();
-            var binder = GetBinder(root);
+            var currentThreadId = Environment.CurrentManagedThreadId;
+            if (_isCollectingDiagnostics)
+            {
+                if (_diagnosticCollectionThreadId == currentThreadId)
+                    return;
+            }
 
-            Traverse(root, binder);
+            _isCollectingDiagnostics = true;
+            _diagnosticCollectionThreadId = currentThreadId;
 
-            DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
+            try
+            {
+                var root = SyntaxTree.GetRoot();
+                var binder = GetBinder(root);
 
-            _diagnostics = _binderCache.Values
-                .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable())
-                .Concat(_declarationDiagnostics.AsEnumerable())
-                .Distinct()
-                .ToImmutableArray();
+                Traverse(root, binder);
+
+                DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
+
+                _diagnostics = _binderCache.Values
+                    .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable())
+                    .Concat(_declarationDiagnostics.AsEnumerable())
+                    .Distinct()
+                    .ToImmutableArray();
+            }
+            finally
+            {
+                _isCollectingDiagnostics = false;
+                _diagnosticCollectionThreadId = 0;
+            }
         }
 
         void Traverse(SyntaxNode node, Binder currentBinder)
@@ -786,6 +806,10 @@ public partial class SemanticModel
 
             symbol = current switch
             {
+                ParameterSyntax parameter when parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any()
+                    => null!,
+                VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any() == true
+                    => null!,
                 FunctionExpressionSyntax functionExpression when TryGetFunctionExpressionSymbol(functionExpression, out var functionSymbol)
                     => functionSymbol!,
                 _ => GetDeclaredSymbol(current)!
@@ -811,6 +835,20 @@ public partial class SemanticModel
     {
         var declarationReference = symbol.DeclaringSyntaxReferences.FirstOrDefault(reference => reference.SyntaxTree == SyntaxTree);
         if (declarationReference?.GetSyntax() is not SyntaxNode declarationNode)
+        {
+            descriptor = default;
+            return false;
+        }
+
+        if (declarationNode is ParameterSyntax parameter &&
+            parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any())
+        {
+            descriptor = default;
+            return false;
+        }
+
+        if (declarationNode is VariableDeclaratorSyntax variableDeclarator &&
+            variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any() == true)
         {
             descriptor = default;
             return false;
@@ -2819,26 +2857,23 @@ public partial class SemanticModel
 
         try
         {
-            if (TryGetContextualBindingRoot(functionExpression, out var contextualRoot) &&
-                !ReferenceEquals(contextualRoot, functionExpression))
+            if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedLambda &&
+                !IsLikelyStaleFunctionBodyNode(cachedLambda) &&
+                TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, cachedLambda.Parameters, out var cachedParameter))
             {
-                if (TryRebindContextualFunctionExpression(functionExpression, contextualRoot, out var reboundLambda) &&
-                    TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, reboundLambda.Parameters, out var reboundParameter))
-                {
-                    return reboundParameter;
-                }
-            }
-
-            if (TryGetContextualBoundFunctionExpression(functionExpression, out var contextualLambda) &&
-                TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, contextualLambda.Parameters, out var contextualParameter))
-            {
-                return contextualParameter;
+                return cachedParameter;
             }
 
             if (GetBoundNode(functionExpression) is BoundFunctionExpression boundLambda &&
                 TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, boundLambda.Parameters, out var boundParameter))
             {
                 return boundParameter;
+            }
+
+            if (TryGetContextualBoundFunctionExpression(functionExpression, out var contextualLambda) &&
+                TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, contextualLambda.Parameters, out var contextualParameter))
+            {
+                return contextualParameter;
             }
 
             var functionSymbolInfo = GetSymbolInfo(functionExpression);

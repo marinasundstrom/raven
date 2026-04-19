@@ -114,6 +114,8 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         private readonly HashSet<ILocalSymbol> _capturedByClosure =
             new(SymbolEqualityComparer.Default);
 
+        private readonly Stack<HashSet<string>> _closureLocalNames = new();
+
         private int _closureDepth;
 
         public VarRebindingCollector(SemanticModel semanticModel)
@@ -133,11 +135,40 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        private void EnterClosure() => _closureDepth++;
+        private void EnterClosure(IEnumerable<string>? parameterNames = null)
+        {
+            _closureDepth++;
+            var scope = new HashSet<string>();
 
-        private void ExitClosure() => _closureDepth--;
+            if (parameterNames is not null)
+            {
+                foreach (var parameterName in parameterNames)
+                    scope.Add(parameterName);
+            }
+
+            _closureLocalNames.Push(scope);
+        }
+
+        private void ExitClosure()
+        {
+            _closureDepth--;
+
+            if (_closureLocalNames.Count > 0)
+                _closureLocalNames.Pop();
+        }
 
         private bool IsInClosure => _closureDepth > 0;
+
+        private bool IsClosureLocal(string name)
+        {
+            foreach (var scope in _closureLocalNames)
+            {
+                if (scope.Contains(name))
+                    return true;
+            }
+
+            return false;
+        }
 
         public override void DefaultVisit(SyntaxNode node)
         {
@@ -178,7 +209,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         public override void VisitFunctionStatement(FunctionStatementSyntax node)
         {
             // A nested function forms a closure boundary.
-            EnterClosure();
+            EnterClosure(node.ParameterList?.Parameters.Select(static parameter => parameter.Identifier.ValueText));
 
             // Visit body/expression body explicitly to ensure we walk in closure mode.
             VisitMaybe(node.Body);
@@ -200,7 +231,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         private void VisitFunctionExpressionCore(FunctionExpressionSyntax node)
         {
             // Lambda forms a closure boundary.
-            EnterClosure();
+            EnterClosure(GetFunctionExpressionParameterNames(node));
 
             VisitMaybe(node.Body);
             VisitMaybe(node.ExpressionBody);
@@ -224,6 +255,12 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                         _varLocals[local] = new VarCandidate(local, name, node.Declaration.BindingKeyword);
                     }
                 }
+            }
+
+            if (IsInClosure && _closureLocalNames.TryPeek(out var scope))
+            {
+                foreach (var declarator in node.Declaration.Declarators)
+                    scope.Add(declarator.Identifier.ValueText);
             }
 
             // Keep walking initializer expressions etc (if your base walker does it).
@@ -359,6 +396,21 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
             // Only treat name references inside closures as captures.
             if (IsInClosure)
             {
+                if (node.Parent is MemberAccessExpressionSyntax memberAccess &&
+                    ReferenceEquals(memberAccess.Name, node))
+                {
+                    return;
+                }
+
+                if (node.Parent is MemberBindingExpressionSyntax memberBinding &&
+                    ReferenceEquals(memberBinding.Name, node))
+                {
+                    return;
+                }
+
+                if (IsClosureLocal(node.Identifier.ValueText))
+                    return;
+
                 var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
                 if (symbol is ILocalSymbol local)
                     _capturedByClosure.Add(local);
@@ -416,5 +468,13 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
             return false;
         }
+
+        private static IEnumerable<string> GetFunctionExpressionParameterNames(FunctionExpressionSyntax node)
+            => node switch
+            {
+                SimpleFunctionExpressionSyntax simple => [simple.Parameter.Identifier.ValueText],
+                ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.Select(static parameter => parameter.Identifier.ValueText),
+                _ => []
+            };
     }
 }

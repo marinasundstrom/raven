@@ -32,6 +32,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <OutputType>Library</OutputType>
                                             <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
                                             <RavenAllowGlobalStatements>false</RavenAllowGlobalStatements>
+                                            <RavenRunAnalyzers>false</RavenRunAnalyzers>
                                             <MembersPublicByDefault>false</MembersPublicByDefault>
                                             <GenerateDocumentationFile>true</GenerateDocumentationFile>
                                             <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
@@ -54,6 +55,7 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.Equal(OutputKind.DynamicallyLinkedLibrary, project.CompilationOptions!.OutputKind);
             Assert.True(project.CompilationOptions.AllowUnsafe);
             Assert.False(project.CompilationOptions.AllowGlobalStatements);
+            Assert.False(project.CompilationOptions.RunAnalyzers);
             Assert.True(project.CompilationOptions.MembersPublicByDefaultConfigured);
             Assert.False(project.CompilationOptions.MembersPublicByDefault);
             Assert.NotNull(project.DocumentationOptions);

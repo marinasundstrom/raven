@@ -911,7 +911,6 @@ if (projectFileInput is not null)
     {
         options = projectOptions
             .WithSpecificDiagnosticOptions(options.SpecificDiagnosticOptions)
-            .WithRunAnalyzers(options.RunAnalyzers)
             .WithPerformanceInstrumentation(options.PerformanceInstrumentation)
             .WithLoweringTrace(options.LoweringTrace)
             .WithAsyncInvestigation(options.AsyncInvestigation)

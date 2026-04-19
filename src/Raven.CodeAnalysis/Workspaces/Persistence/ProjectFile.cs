@@ -58,6 +58,7 @@ internal static class ProjectFile
             projectElement.Add(new XAttribute("OutputKind", opts.OutputKind));
             projectElement.Add(new XAttribute("AllowUnsafe", opts.AllowUnsafe));
             projectElement.Add(new XAttribute("AllowGlobalStatements", opts.AllowGlobalStatements));
+            projectElement.Add(new XAttribute("RunAnalyzers", opts.RunAnalyzers));
             if (opts.MembersPublicByDefaultConfigured)
                 projectElement.Add(new XAttribute("MembersPublicByDefault", opts.MembersPublicByDefault));
         }
@@ -106,6 +107,7 @@ internal static class ProjectFile
         var outputKindAttr = (string?)root.Attribute("OutputKind");
         var allowUnsafeAttr = (string?)root.Attribute("AllowUnsafe");
         var allowGlobalStatementsAttr = (string?)root.Attribute("AllowGlobalStatements");
+        var runAnalyzersAttr = (string?)root.Attribute("RunAnalyzers");
         var membersPublicByDefaultAttr = (string?)root.Attribute("MembersPublicByDefault");
         CompilationOptions? options = null;
         if (outputKindAttr is string ok && Enum.TryParse<OutputKind>(ok, out var kind))
@@ -118,6 +120,9 @@ internal static class ProjectFile
 
         if (allowGlobalStatementsAttr is string ags && bool.TryParse(ags, out var allowGlobalStatements))
             options = options.WithAllowGlobalStatements(allowGlobalStatements);
+
+        if (runAnalyzersAttr is string ra && bool.TryParse(ra, out var runAnalyzers))
+            options = options.WithRunAnalyzers(runAnalyzers);
 
         if (membersPublicByDefaultAttr is string mpbd && bool.TryParse(mpbd, out var membersPublicByDefault))
             options = options.WithMembersPublicByDefault(membersPublicByDefault);

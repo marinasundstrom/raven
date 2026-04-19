@@ -31,9 +31,6 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
     {
-        if (context.SemanticModel.GetDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
-            return;
-
         if (context.Node is not TypeDeclarationSyntax typeDecl)
             return;
 
@@ -87,39 +84,39 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
             switch (member)
             {
                 case MethodDeclarationSyntax methodDecl:
-                {
-                    if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
-                        break;
+                    {
+                        if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
+                            break;
 
-                    if (!CanBePrivate(methodSymbol, isConsoleApplication))
-                        break;
+                        if (!CanBePrivate(methodSymbol, isConsoleApplication))
+                            break;
 
-                    candidates.Add(new Candidate(methodSymbol, methodDecl.Identifier.GetLocation()));
-                    break;
-                }
+                        candidates.Add(new Candidate(methodSymbol, methodDecl.Identifier.GetLocation()));
+                        break;
+                    }
                 case EventDeclarationSyntax eventDecl:
-                {
-                    if (semanticModel.GetDeclaredSymbol(eventDecl) is not IEventSymbol eventSymbol)
-                        break;
+                    {
+                        if (semanticModel.GetDeclaredSymbol(eventDecl) is not IEventSymbol eventSymbol)
+                            break;
 
-                    if (!CanBePrivate(eventSymbol, isConsoleApplication))
-                        break;
+                        if (!CanBePrivate(eventSymbol, isConsoleApplication))
+                            break;
 
-                    candidates.Add(new Candidate(eventSymbol, eventDecl.Identifier.GetLocation()));
-                    break;
-                }
+                        candidates.Add(new Candidate(eventSymbol, eventDecl.Identifier.GetLocation()));
+                        break;
+                    }
                 case FieldDeclarationSyntax fieldDecl when fieldDecl.Declaration.Declarators.Count == 1:
-                {
-                    var declarator = fieldDecl.Declaration.Declarators[0];
-                    if (semanticModel.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol)
-                        break;
+                    {
+                        var declarator = fieldDecl.Declaration.Declarators[0];
+                        if (semanticModel.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol)
+                            break;
 
-                    if (!CanBePrivate(fieldSymbol, isConsoleApplication))
-                        break;
+                        if (!CanBePrivate(fieldSymbol, isConsoleApplication))
+                            break;
 
-                    candidates.Add(new Candidate(fieldSymbol, declarator.Identifier.GetLocation()));
-                    break;
-                }
+                        candidates.Add(new Candidate(fieldSymbol, declarator.Identifier.GetLocation()));
+                        break;
+                    }
             }
         }
 
@@ -217,6 +214,10 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> referencedAnywhere,
         CancellationToken cancellationToken)
     {
+        var candidateNames = candidateSymbols
+            .Select(static symbol => symbol.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
         foreach (var tree in compilation.SyntaxTrees)
         {
             var model = compilation.GetSemanticModel(tree);
@@ -225,6 +226,9 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
             foreach (var node in root.DescendantNodesAndSelf())
             {
                 if (node is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax))
+                    continue;
+
+                if (!CanReferenceCandidate(node, candidateNames))
                     continue;
 
                 ISymbol? referenced = null;
@@ -255,6 +259,16 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
             }
         }
     }
+
+    private static bool CanReferenceCandidate(SyntaxNode node, HashSet<string> candidateNames)
+        => node switch
+        {
+            IdentifierNameSyntax identifier => candidateNames.Contains(identifier.Identifier.ValueText),
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => candidateNames.Contains(name.Identifier.ValueText),
+            InvocationExpressionSyntax { Expression: IdentifierNameSyntax identifier } => candidateNames.Contains(identifier.Identifier.ValueText),
+            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } } => candidateNames.Contains(name.Identifier.ValueText),
+            _ => false
+        };
 
     private static bool IsInsideContainingType(SyntaxNode node, SemanticModel model, INamedTypeSymbol containingType)
     {

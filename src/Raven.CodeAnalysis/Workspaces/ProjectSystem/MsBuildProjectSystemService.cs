@@ -179,6 +179,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         UpdateProperty(root, "OutputType", MapOutputType(project.CompilationOptions?.OutputKind ?? OutputKind.ConsoleApplication));
         UpdateProperty(root, "AllowUnsafeBlocks", (project.CompilationOptions?.AllowUnsafe ?? false).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenAllowGlobalStatements", (project.CompilationOptions?.AllowGlobalStatements ?? true).ToString().ToLowerInvariant());
+        UpdateProperty(root, "RavenRunAnalyzers", (project.CompilationOptions?.RunAnalyzers ?? true).ToString().ToLowerInvariant());
 
         if (project.CompilationOptions?.MembersPublicByDefaultConfigured == true)
         {

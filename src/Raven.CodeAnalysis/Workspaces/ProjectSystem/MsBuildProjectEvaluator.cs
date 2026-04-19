@@ -99,12 +99,16 @@ internal static class MsBuildProjectEvaluator
         var allowGlobalStatements = GetBooleanProperty(project, "AllowGlobalStatements")
             ?? GetBooleanProperty(project, "RavenAllowGlobalStatements")
             ?? true;
+        var runAnalyzers = GetBooleanProperty(project, "RunAnalyzers")
+            ?? GetBooleanProperty(project, "RavenRunAnalyzers")
+            ?? true;
         var membersPublicByDefault = GetBooleanProperty(project, "MembersPublicByDefault")
             ?? GetBooleanProperty(project, "RavenMembersPublicByDefault");
 
         var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
             .WithAllowUnsafe(allowUnsafe)
-            .WithAllowGlobalStatements(allowGlobalStatements);
+            .WithAllowGlobalStatements(allowGlobalStatements)
+            .WithRunAnalyzers(runAnalyzers);
 
         if (membersPublicByDefault is bool configuredMembersPublicByDefault)
             compilationOptions = compilationOptions.WithMembersPublicByDefault(configuredMembersPublicByDefault);
