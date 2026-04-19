@@ -138,7 +138,7 @@ record class QuoteSummary(
 record class QuoteError(val Message: string)
 
 union Decision {
-    Approve
-    ManualReview(reason: string)
-    Reject(reason: string)
+    case Approve
+    case ManualReview(reason: string)
+    case Reject(reason: string)
 }

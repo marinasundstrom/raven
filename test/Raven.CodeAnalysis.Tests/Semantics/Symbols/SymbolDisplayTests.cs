@@ -135,13 +135,13 @@ record Card(reference: string)
 union Payment(Cash | Card)
 
 union Response<T> {
-    Success(value: T)
-    Failure(message: string)
+    case Success(value: T)
+    case Failure(message: string)
 }
 
 union struct ValueOption<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 """;
 
@@ -166,6 +166,28 @@ union struct ValueOption<T> {
         payment.ToDisplayString(declarationFormat).ShouldBe("union class Payment(Cash | Card)");
         response.ToDisplayString(declarationFormat).ShouldBe("union class Response<T>(Success<T> | Failure)");
         valueOption.ToDisplayString(declarationFormat).ShouldBe("union struct ValueOption<T>(Some<T> | None)");
+    }
+
+    [Fact]
+    public void UnionCaseSymbol_ToDisplayString_UsesCaseMemberKeyword()
+    {
+        const string source = """
+union Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var okClause = tree.GetRoot().DescendantNodes().OfType<UnionCaseClauseSyntax>().First();
+        var okSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(model.GetDeclaredSymbol(okClause));
+
+        var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
+            SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
+            SymbolDisplayKindOptions.IncludeMemberKeyword);
+
+        okSymbol.ToDisplayString(format).ShouldBe("case Ok<T>");
     }
 
     [Fact]

@@ -25,6 +25,6 @@ func describe(result: Result<int, string>) -> string {
 }
 
 union Result<TSuccess, TError> {
-    Success(success: TSuccess)
-    Error(code: int, error: TError)
+    case Success(success: TSuccess)
+    case Error(code: int, error: TError)
 }

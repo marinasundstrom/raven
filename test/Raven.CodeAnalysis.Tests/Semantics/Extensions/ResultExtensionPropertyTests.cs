@@ -12,8 +12,8 @@ public class ResultExtensionPropertyTests : DiagnosticTestBase
             import System.*
 
             union Result<T, E> {
-                Ok(value: T)
-                Error(error: E)
+                case Ok(value: T)
+                case Error(error: E)
             }
 
             extension ResultExtensions<T, E> for Result<T, E> {

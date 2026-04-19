@@ -47,8 +47,8 @@ public class ConversionOperatorBindingTests : CompilationTestBase
 namespace System
 
 public union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 public extension OptionExtensions1<T : class> for Option<T> {
@@ -111,8 +111,8 @@ val result: int? = value
 namespace System
 
 public union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 extension OptionExtensions1<T : class> for Option<T> {
@@ -179,8 +179,8 @@ val result: Option<string> = raw
 namespace System
 
 public union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 public extension OptionExtensions1<T : class> for Option<T> {
@@ -194,8 +194,8 @@ public extension OptionExtensions1<T : class> for Option<T> {
 }
 
 public union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 

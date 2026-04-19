@@ -17,8 +17,8 @@ func f() -> Result<int, Err> {
 }
 
 union Err {
-    MissingUser
-    MissingName
+    case MissingUser
+    case MissingName
 }
 
 record class User(Name: string)

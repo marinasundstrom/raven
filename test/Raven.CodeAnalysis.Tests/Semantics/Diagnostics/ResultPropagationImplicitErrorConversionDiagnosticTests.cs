@@ -12,8 +12,8 @@ public sealed class ResultPropagationImplicitErrorConversionDiagnosticTests : Co
     {
         const string source = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 public extension ResultExtensions<T, E> for Result<T, E> {
@@ -59,8 +59,8 @@ public class Pipeline {
     {
         const string source = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 public extension ResultExtensions<T, E> for Result<T, E> {
@@ -97,8 +97,8 @@ public class Pipeline {
     {
         const string source = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 public class ParserError { }
@@ -141,8 +141,8 @@ public class Pipeline {
     {
         const string source = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 public class ParserError { }

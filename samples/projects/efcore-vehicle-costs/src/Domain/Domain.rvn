@@ -3,9 +3,9 @@ import System.Text.Json.*
 import System.Collections.Generic.*
 
 union VehicleStatus {
-    Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
-    Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
-    Decommissioned(retiredUtc: DateTimeOffset, reason: string)
+    case Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
+    case Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
+    case Decommissioned(retiredUtc: DateTimeOffset, reason: string)
 }
 
 class VehicleEntity {

@@ -497,8 +497,8 @@ text?.Len
     {
         var code = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 val result: Result<string, string> = .Ok("hello")
@@ -524,8 +524,8 @@ result?.
     {
         var code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 val option: Option<string> = .Some("hello")

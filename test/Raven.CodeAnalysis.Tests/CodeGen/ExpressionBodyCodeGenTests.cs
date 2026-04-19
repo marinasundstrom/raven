@@ -69,8 +69,8 @@ class Foo : IDisposable {
     {
         const string code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class Program {
@@ -154,8 +154,8 @@ class Program {
     {
         const string code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class Holder {
@@ -204,8 +204,8 @@ class Program {
     {
         const string code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class Holder {

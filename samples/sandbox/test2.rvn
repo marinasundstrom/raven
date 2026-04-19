@@ -12,9 +12,9 @@ builder.MapPost("/", async (arg: string) -> Task<HttpResult<()>> => {
 })
 
 union HttpResult<T> {
-    Ok
-    Created
-    BadRequest
+    case Ok
+    case Created
+    case BadRequest
 }
 
 class WebAppBuilder {

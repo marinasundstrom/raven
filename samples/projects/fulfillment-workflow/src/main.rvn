@@ -405,20 +405,20 @@ record class FulfillmentPlan(
 )
 
 union Priority {
-    Standard
-    Expedited
+    case Standard
+    case Expedited
 }
 
 union FulfillmentDecision {
-    Reserve(orderId: string, warehouse: string, picks: PickLine[])
-    BackOrder(orderId: string, missingSkus: string[])
-    Reject(orderId: string, reason: string)
+    case Reserve(orderId: string, warehouse: string, picks: PickLine[])
+    case BackOrder(orderId: string, missingSkus: string[])
+    case Reject(orderId: string, reason: string)
 }
 
 union FulfillmentError {
-    InvalidFeed(message: string)
-    Validation(message: string)
-    Service(message: string)
+    case InvalidFeed(message: string)
+    case Validation(message: string)
+    case Service(message: string)
 }
 
 class InboundBatchDto {

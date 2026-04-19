@@ -150,8 +150,8 @@ class C {
 import System.Threading.Tasks.*
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 class C {

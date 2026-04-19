@@ -13,6 +13,6 @@ func f() -> Result<int, Err> {
 }
 
 union Err {
-    MissingUser
-    MissingName
+    case MissingUser
+    case MissingName
 }

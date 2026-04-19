@@ -15,8 +15,8 @@ public class PropagationExpressionTests : DiagnosticTestBase
     {
         var code = """
 union Option<T> {
-    Some(T)
-    None
+    case Some(T)
+    case None
 }
 
 func test() -> Option<int> {
@@ -44,13 +44,13 @@ func test2() -> Option<int> {
     {
         var code = """
 union Result<T, E> {
-    Ok(T)
-    Error(E)
+    case Ok(T)
+    case Error(E)
 }
 
 union Option<T> {
-    Some(T)
-    None
+    case Some(T)
+    case None
 }
 
 func test() -> Result<int, string> {

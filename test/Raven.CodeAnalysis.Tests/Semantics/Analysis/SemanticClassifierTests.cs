@@ -86,7 +86,7 @@ label:
     {
         var source = """
 	union Result {
-	    Case(value: int)
+	    case Case(value: int)
 	}
 
 	func Render(result: Result) -> int {
@@ -115,8 +115,8 @@ label:
     {
         var source = """
 union Option<T> {
-    Some(T)
-    None
+    case Some(T)
+    case None
 }
 
 func Render(input: Option<int>) -> int {

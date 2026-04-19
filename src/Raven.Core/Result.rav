@@ -42,10 +42,10 @@ import System.Text.Json.Serialization.*
 [JsonConverter(typeof(ResultJsonConverterFactory))]
 union class Result<T, E> {
     /// Represents a result value
-    Ok(value: T)
+    case Ok(value: T)
 
     /// Represents an error
-    Error(data: E)
+    case Error(data: E)
 }
 
 class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {

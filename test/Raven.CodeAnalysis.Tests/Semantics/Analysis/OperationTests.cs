@@ -849,7 +849,7 @@ val updated = bob with {
     {
         const string source = """
 union Error {
-    MissingName(message: string)
+    case MissingName(message: string)
 }
 
 val error: Error = MissingName("x")
@@ -921,8 +921,8 @@ func M(name: string?) -> string {
     {
         const string source = """
 union Option<T> {
-    Some(T)
-    None
+    case Some(T)
+    case None
 }
 
 func test() -> Option<int> {

@@ -640,8 +640,8 @@ record class User(Name: string, Item: Option<Item>)
 record class Item(Name: string)
 
 union LookupError {
-    MissingUser
-    MissingItem
+    case MissingUser
+    case MissingItem
 }
 
 func getUser() -> Result<User, LookupError> {
@@ -694,8 +694,8 @@ working together:
 record class User(Name: string)
 
 union LookupError {
-    Io(message: string)
-    InvalidUser
+    case Io(message: string)
+    case InvalidUser
 }
 
 func readNameLength(path: string) -> Result<int, LookupError> {
@@ -4351,7 +4351,7 @@ For non-normative rationale and interop notes, see
 | Form | Syntax | Cases | Typical pattern form |
 | --- | --- | --- | --- |
 | Parenthesized | `union Payment(Cash | Card)` | existing member types | `Cash(...)`, `Card(...)` |
-| Body form | `union LookupResult { Found(id: int) Missing }` | synthesized case types | `Found(...)`, `Missing` |
+| Body form | `union LookupResult { case Found(id: int) case Missing }` | synthesized case types | `Found(...)`, `Missing` |
 
 #### Parenthesized unions
 
@@ -4390,8 +4390,8 @@ clauses.
 
 ```raven
 union LookupResult {
-    Found(id: int)
-    Missing
+    case Found(id: int)
+    case Missing
 }
 
 val found: LookupResult = Found(42)
@@ -4406,7 +4406,7 @@ val missing: LookupResult = Missing
 * A comma or semicolon after a case is optional; when present it terminates that
   case declaration.
 * Generic unions are allowed in both forms, for example
-  `union Result<T, E> { Ok(value: T) Error(error: E) }`.
+  `union Result<T, E> { case Ok(value: T) case Error(error: E) }`.
 
 Line-continuation details for leading-dot case forms are defined in
 [Control flow: Line continuations](control-flow.md#line-continuations).

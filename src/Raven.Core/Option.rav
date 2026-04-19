@@ -42,10 +42,10 @@ import System.Text.Json.Serialization.*
 [JsonConverter(typeof(OptionJsonConverterFactory))]
 union class Option<T> {
     /// Represents some value
-    Some(value: T)
+    case Some(value: T)
 
     /// Represents the absence of a value
-    None
+    case None
 }
 
 class OptionJsonConverter<T> : JsonConverter<Option<T>> {

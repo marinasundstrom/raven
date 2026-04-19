@@ -15,8 +15,8 @@ public class MatchReturnCodeGenTests
     {
         var code = """
 union Flag {
-    On
-    Off
+    case On
+    case Off
 }
 
 class Program {
@@ -95,8 +95,8 @@ func GetErr() -> Outcome<int, string> {
 }
 
 union Outcome<T, E> {
-    Ok(value: T)
-    Err(data: E)
+    case Ok(value: T)
+    case Err(data: E)
 }
 """;
 
@@ -135,8 +135,8 @@ func Compute(flag: bool) -> Outcome<int, string> {
 }
 
 union Outcome<T, E> {
-    Ok(value: T)
-    Err(data: E)
+    case Ok(value: T)
+    case Err(data: E)
 }
 """;
 
@@ -176,8 +176,8 @@ async func Compute(flag: bool) -> Task<Outcome<int, string>> {
 }
 
 union Outcome<T, E> {
-    Ok(value: T)
-    Err(data: E)
+    case Ok(value: T)
+    case Err(data: E)
 }
 """;
 

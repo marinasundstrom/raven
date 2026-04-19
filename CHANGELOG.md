@@ -2,6 +2,16 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
+## 2026-04-19
+
+### Changed
+- Union body declarations now require the `case` keyword for each declared case, and the parser preserves that keyword in the syntax tree for nested union case clauses.
+- Samples, language docs, and compiler-facing symbol displays now reflect the prefixed declaration form, including member-keyword formatting for nested union case types.
+
+Impact:
+- Union declarations now read as `union Result<T> { case Ok(value: T) case Error(error: E) }`, which gives nested case declarations an explicit syntactic marker ahead of larger union-surface changes.
+- Tools and diagnostics that request member keywords now identify nested union case types as `case` members instead of displaying them like ordinary nested types.
+
 ## 2026-04-18
 
 ### Changed

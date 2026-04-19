@@ -109,9 +109,9 @@ record class User(Id: int, Name: string, Email: string?) {
 
 /// A user-defined union (explicit modeling).
 union ApiError {
-    NotFound(id: int)
-    Invalid(message: string)
-    Network(ex: Exception)
+    case NotFound(id: int)
+    case Invalid(message: string)
+    case Network(ex: Exception)
 }
 
 /// OO: interface + class + event + method

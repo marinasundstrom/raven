@@ -768,8 +768,8 @@ import System.*
 import System.Linq.*
 
 public union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class Container {
@@ -797,8 +797,8 @@ import System.*
 import System.Linq.*
 
 public union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 class Container {
@@ -848,8 +848,8 @@ import System.*
 import System.Linq.*
 
 public union Response<T, E> {
-    Success(value: T)
-    Failure(error: E)
+    case Success(value: T)
+    case Failure(error: E)
 }
 
 class Container {
@@ -1199,8 +1199,8 @@ val makeAdder = (x: int) -> (int -> int) => (a: int) => x + a
 import System.*
 
 public union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class Container {

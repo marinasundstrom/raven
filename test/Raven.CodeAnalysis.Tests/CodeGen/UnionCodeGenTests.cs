@@ -18,7 +18,7 @@ public class UnionCodeGenTests
     {
         var code = """
 union Option {
-    Some(value: int, label: string)
+    case Some(value: int, label: string)
 }
 
 class Container {
@@ -61,7 +61,7 @@ class Container {
     {
         const string code = """
 union Option {
-    Some(value: int)
+    case Some(value: int)
 }
 """;
 
@@ -94,8 +94,8 @@ union Option {
 import System.*
 
 public union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -139,8 +139,8 @@ class Runner {
 }
 
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 """;
 
@@ -195,8 +195,8 @@ class Runner {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -225,7 +225,7 @@ union Result<T, E> {
     {
         const string code = """
 union Hidden<T> {
-    Case(value: T)
+    case Case(value: T)
 }
 """;
 
@@ -254,7 +254,7 @@ union Hidden<T> {
     {
         var code = """
 union Option {
-    Some(value: int)
+    case Some(value: int)
 }
 """;
 
@@ -288,7 +288,7 @@ union Option {
     {
         var code = """
 union Option {
-    Some(value: int)
+    case Some(value: int)
 }
 """;
 
@@ -321,7 +321,7 @@ union Option {
     {
         var code = """
 union struct Option {
-    Some(value: int)
+    case Some(value: int)
 }
 """;
 
@@ -353,8 +353,8 @@ union struct Option {
     {
         var code = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -390,8 +390,8 @@ union Option {
     {
         var code = """
 union struct Maybe<T> {
-    None
-    Some(value: T)
+    case None
+    case Some(value: T)
 }
 """;
 
@@ -521,8 +521,8 @@ class Runner {
 }
 
 union struct Maybe<T> {
-    None
-    Some(value: T)
+    case None
+    case Some(value: T)
 }
 """;
 
@@ -890,8 +890,8 @@ union Payment(Cash | Card)
     {
         var code = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -935,8 +935,8 @@ union Option {
     {
         var code = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 
 class Container {
@@ -992,8 +992,8 @@ class Container {
     {
         const string code = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Container {
@@ -1033,8 +1033,8 @@ class Container {
     {
         var code = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -1082,8 +1082,8 @@ union Option {
     {
         var code = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -1117,8 +1117,8 @@ union Result {
     {
         var code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 """;
 
@@ -1153,8 +1153,8 @@ union Option<T> {
     {
         var code = """
 union Option {
-    Some(value: int)
-    None
+    case Some(value: int)
+    case None
 }
 """;
 
@@ -1192,8 +1192,8 @@ union Option {
 import System.*
 
 union Option {
-    Some(value: int)
-    None
+    case Some(value: int)
+    case None
 }
 
 class Container {
@@ -1236,8 +1236,8 @@ class Container {
     {
         var code = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 
 class Container {
@@ -1316,8 +1316,8 @@ class Container {
     {
         var code = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -1359,8 +1359,8 @@ union Result {
     {
         var code = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -1394,8 +1394,8 @@ union Result {
     {
         var code = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 class Container {
@@ -1438,10 +1438,10 @@ class Container {
     {
         var code = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
-    Pair(left: T, right: E)
-    None
+    case Ok(value: T)
+    case Error(message: E)
+    case Pair(left: T, right: E)
+    case None
 }
 """;
 
@@ -1475,8 +1475,8 @@ union Result<T, E> {
     {
         var code = """
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 
 class Container {
@@ -1528,7 +1528,7 @@ class Container {
     {
         var code = """
 union Shape {
-    Rectangle(width: int, height: int)
+    case Rectangle(width: int, height: int)
 }
 """;
 
@@ -1565,8 +1565,8 @@ union Shape {
     {
         var code = """
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 
 class Container {
@@ -1615,8 +1615,8 @@ class Container {
     {
         var code = """
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1649,8 +1649,8 @@ union Result<T> {
     {
         var code = """
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1688,8 +1688,8 @@ union Result<T> {
 import System.*
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Container {
@@ -1731,8 +1731,8 @@ class Container {
     {
         var code = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Container {
@@ -1796,8 +1796,8 @@ class Container {
     {
         var code = """
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1835,7 +1835,7 @@ union Result<T> {
     {
         var code = """
 union Shape {
-    Label(text: string)
+    case Label(text: string)
 }
 
 class Container {
@@ -1887,8 +1887,8 @@ class Container {
     {
         var code = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 record CustomError(message: string)
@@ -1972,8 +1972,8 @@ union Either<T1, T2>(T1 | T2)
     {
         var code = """
 union Maybe<T> {
-    None
-    Some(value: T)
+    case None
+    case Some(value: T)
 }
 """;
 
@@ -2014,8 +2014,8 @@ union Maybe<T> {
 import System.Console.*
 
 union Test {
-    Something(value: string)
-    Nothing
+    case Something(value: string)
+    case Nothing
 }
 """;
 
@@ -2060,8 +2060,8 @@ union Test {
 import System.*
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
@@ -2125,8 +2125,8 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 class Container {
@@ -2276,13 +2276,13 @@ extension WidgetExtensions for Widget {
 import System.*
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 union Outcome<T, E> {
-    Success(value: T)
-    Failure(data: E)
+    case Success(value: T)
+    case Failure(data: E)
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {

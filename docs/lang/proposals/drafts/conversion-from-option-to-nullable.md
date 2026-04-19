@@ -17,8 +17,8 @@ desugars to a conversion from `Option<int>` to `int?` provided by a user- or lib
 
 ```raven
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 extension OptionExtensions<T> for Option<T> {
@@ -67,8 +67,8 @@ Library shape:
 
 ```raven
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 extension OptionExtensions<T> for Option<T> {

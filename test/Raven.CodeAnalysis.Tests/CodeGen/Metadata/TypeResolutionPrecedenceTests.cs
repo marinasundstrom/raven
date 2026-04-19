@@ -19,8 +19,8 @@ public class TypeResolutionPrecedenceTests : CompilationTestBase
         const string metadataSource = """
 namespace System {
     public union Result<T> {
-        Ok(value: T)
-        Error()
+        case Ok(value: T)
+        case Error()
     }
 }
 """;
@@ -49,8 +49,8 @@ class IntHelpers {
 }
 
 public union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -85,8 +85,8 @@ public union Result<T> {
         const string metadataSource = """
 namespace System {
     public union Result<T> {
-        Ok(value: T)
-        Error()
+        case Ok(value: T)
+        case Error()
     }
 }
 """;
@@ -115,8 +115,8 @@ class IntHelpers {
 }
 
 public union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -158,8 +158,8 @@ public union Result<T> {
         const string metadataSource = """
 namespace System {
     public union Result<TOk, TError> {
-        Ok(value: TOk)
-        Error(error: TError)
+        case Ok(value: TOk)
+        case Error(error: TError)
     }
 }
 """;
@@ -194,8 +194,8 @@ func describe(result: Result<int, string>) -> string {
 }
 
 public union Result<TSuccess, TError> {
-    Success(success: TSuccess)
-    Error(code: int, error: TError)
+    case Success(success: TSuccess)
+    case Error(code: int, error: TError)
 }
 """;
 

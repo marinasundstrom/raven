@@ -59,8 +59,8 @@ val value = instance.secret;
     {
         const string source = """
 internal union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 public class Container {

@@ -240,8 +240,8 @@ record class Person(Name: string, Age: int)
     {
         const string code = """
 union UserOrError {
-    Ok(value: int)
-    Error(error: string)
+    case Ok(value: int)
+    case Error(error: string)
 }
 
 func GetUser() -> UserOrError {
@@ -273,8 +273,8 @@ val result = GetUser() match {
     {
         const string code = """
 union UserOrError {
-    Ok(value: int)
-    Error(error: string)
+    case Ok(value: int)
+    case Error(error: string)
 }
 
 func GetUser() -> UserOrError {
@@ -328,8 +328,8 @@ val result = value match {
     {
         const string code = """
 union Value {
-    Flag(value: bool)
-    Pair(flag: bool, text: string)
+    case Flag(value: bool)
+    case Pair(flag: bool, text: string)
 }
 
 val value: Value = .Flag(value: false)
@@ -634,8 +634,8 @@ func ping(name: string) -> PingStatus {
     {
         const string code = """
 union Value {
-    Bool(flag: bool)
-    Pair(a: int, b: string)
+    case Bool(flag: bool)
+    case Pair(a: int, b: string)
 }
 
 val x: Value = .Bool(flag: false)
@@ -1040,8 +1040,8 @@ val result = value match {
     {
         const string code = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 val value: Result<int, string> = Ok(2)
@@ -1237,8 +1237,8 @@ func describe(value: object) -> string? {
     {
         const string code = """
 union State {
-    On
-    Off
+    case On
+    case Off
 }
 
 val state: State = .On
@@ -1307,8 +1307,8 @@ func describe(input: bool) -> string {
     {
         const string code = """
 union State {
-    On
-    Off
+    case On
+    case Off
 }
 
 val state: State = .On
@@ -1336,8 +1336,8 @@ val result = value match {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1353,8 +1353,8 @@ union Result<T, E> {
     {
         const string code = """
 union State {
-    On
-    Off
+    case On
+    case Off
 }
 
 val state: State = .On
@@ -1383,9 +1383,9 @@ val result = state match {
     {
         const string code = """
 union State {
-    On
-    Off
-    Unknown
+    case On
+    case Off
+    case Unknown
 }
 
 val state: State = .On
@@ -1409,9 +1409,9 @@ val result = state match {
     {
         const string code = """
 union State {
-    On
-    Off
-    Unknown
+    case On
+    case Off
+    case Unknown
 }
 
 val state: State = .On
@@ -1442,8 +1442,8 @@ val result = state match {
     {
         const string code = """
 union State {
-    On
-    Off
+    case On
+    case Off
 }
 
 val state: State = .On
@@ -1467,8 +1467,8 @@ val result = state match {
     {
         const string code = """
 union State {
-    On
-    Off
+    case On
+    case Off
 }
 
 val state: State = .On
@@ -1499,8 +1499,8 @@ val result = state match {
     {
         const string code = """
 union State {
-    On
-    Off
+    case On
+    case Off
 }
 
 val state: State = .On
@@ -1530,8 +1530,8 @@ val value = result match {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1555,8 +1555,8 @@ val value = result match {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1579,8 +1579,8 @@ union Result<T> {
     {
         const string code = """
 union Response<T> {
-    Success(value: T)
-    Failure(message: string)
+    case Success(value: T)
+    case Failure(message: string)
 }
 
 func Describe(result: Response<int>) -> string {
@@ -1617,8 +1617,8 @@ extension ExceptionExt for Exception {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -1634,9 +1634,9 @@ union Result<T, E> {
     {
         const string code = """
 union Input {
-    Text(value: string)
-    Number(value: int)
-    Empty
+    case Text(value: string)
+    case Number(value: int)
+    case Empty
 }
 
 val input: Input = .Text(value: "")
@@ -1659,9 +1659,9 @@ val result = input match {
     {
         const string code = """
 union Input {
-    Text(value: string)
-    Number(value: int)
-    Empty
+    case Text(value: string)
+    case Number(value: int)
+    case Empty
 }
 
 val input: Input = .Text(value: "")
@@ -1835,8 +1835,8 @@ val result = input match {
     {
         const string code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 val value: Option<(int, int)> = .Some((1, 2))
@@ -1925,8 +1925,8 @@ val result = value match {
     {
         const string code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class C {
@@ -2025,8 +2025,8 @@ val result = value match {
     {
         const string code = """
 union State {
-    On
-    Off
+    case On
+    case Off
 }
 
 val value: State = .On

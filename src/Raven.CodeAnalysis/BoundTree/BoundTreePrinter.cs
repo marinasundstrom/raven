@@ -64,15 +64,10 @@ public static class BoundTreePrinter
             cache = GetBoundNodeCache(model, view);
         }
 
-        if (cache.Count == 0)
-        {
-            Console.WriteLine("<no bound nodes>");
-            return;
-        }
-
         var nodeToSyntax = BuildNodeToSyntaxMap(cache);
         var roots = GetSyntacticRootNodes(cache);
-        PopulateMissingSyntaxMappings(model, roots, nodeToSyntax);
+        if (cache.Count > 0)
+            PopulateMissingSyntaxMappings(model, roots, nodeToSyntax);
 
         var visitedNodes = new HashSet<BoundNode>(ReferenceEqualityComparer.Instance);
         var visitedSyntaxes = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
@@ -128,6 +123,12 @@ public static class BoundTreePrinter
         var synthesizedRoots = GetSynthesizedMethodRoots(model, view);
         if (synthesizedRoots.Count == 0)
             return;
+
+        if (!printedAny && synthesizedRoots.Count == 0)
+        {
+            Console.WriteLine("<no bound nodes>");
+            return;
+        }
 
         if (printedAny)
             Console.WriteLine();

@@ -214,8 +214,8 @@ for val (2, > 0.5) point in points {
     {
         const string source = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class C {

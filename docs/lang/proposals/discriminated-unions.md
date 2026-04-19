@@ -11,14 +11,14 @@ Discriminated unions are value types that represent a fixed set of alternative s
 
 ```csharp
 union Token {
-    Identifier(text: string)
-    Number(text: string)
-    Unknown
+    case Identifier(text: string)
+    case Number(text: string)
+    case Unknown
 }
 ```
 
 * `union` introduces a discriminated union declaration.
-* Each clause declares a case. A case name followed by a parameter list defines a constructor. A bare case name (e.g. `Unknown`) produces a parameterless constructor.
+* Each clause declares a case and is prefixed with the `case` keyword. A case name followed by a parameter list defines a constructor. A bare case name (e.g. `case Unknown`) produces a parameterless constructor.
 * The compiler emits one nested `struct` per case with a constructor.
 * The outer union struct exposes one constructor per case (`.ctor(CaseType)`), used for case-to-union conversion.
 * The outer union struct exposes `TryGetIdentifier(ref Identifier?)`, `TryGetNumber(ref Number?)`, etc. to interrogate the active case.
@@ -47,8 +47,8 @@ Unions support type parameters declared on the `union`:
 
 ```csharp
 union Result<T> {
-    Ok(result: T)
-    Error(message: string)
+    case Ok(result: T)
+    case Error(message: string)
 }
 ```
 
@@ -95,8 +95,8 @@ case belong to the same union and enforces payload arity at the pattern site.
 
 ```csharp
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 
 func format(result: Result<int, string>) -> string {

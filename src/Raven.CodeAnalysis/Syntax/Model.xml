@@ -970,6 +970,7 @@
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
   <Node Name="UnionCaseClause" Inherits="Node">
+    <Slot Name="CaseKeyword" Type="Token" DefaultToken="CaseKeyword" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />

@@ -45,8 +45,8 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Program {
@@ -130,7 +130,7 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 union ApiError {
-    Network(ex: Exception)
+    case Network(ex: Exception)
 }
 
 class Program {
@@ -193,8 +193,8 @@ import System.Text.Json.*
 import System.Threading.Tasks.*
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Program {
@@ -283,8 +283,8 @@ import System.*
 import System.Threading.Tasks.*
 
 union Err {
-    MissingUser
-    MissingName
+    case MissingUser
+    case MissingName
 }
 
 class User {
@@ -403,9 +403,9 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 union TaskState<T> {
-    Success(value: T)
-    Fault(exception: Exception?)
-    Canceled
+    case Success(value: T)
+    case Fault(exception: Exception?)
+    case Canceled
 }
 
 class Program {

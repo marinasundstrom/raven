@@ -99,8 +99,8 @@ class Program {
     {
         var code = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Program {

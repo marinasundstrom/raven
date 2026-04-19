@@ -245,8 +245,8 @@ let result = token match {
     {
         const string code = """
 union Status {
-    A(value: int)
-    B(value: int)
+    case A(value: int)
+    case B(value: int)
 }
 
 let status: Status = .A(value: 1)

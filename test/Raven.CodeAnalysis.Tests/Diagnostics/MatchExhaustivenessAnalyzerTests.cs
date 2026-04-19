@@ -66,8 +66,8 @@ val text = result match {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -121,14 +121,14 @@ record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
     {
         const string code = """
 union struct Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 val value: Result<int, string> = Ok(42)
 
 val text = value match {
-    Ok(val payload) => payload.ToString()
+    case Ok(val payload) => payload.ToString()
     Error(val message) => message
 }
 """;

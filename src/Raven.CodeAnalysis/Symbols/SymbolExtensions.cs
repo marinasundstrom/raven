@@ -1041,6 +1041,12 @@ public static partial class SymbolExtensions
     {
         var sb = new StringBuilder();
 
+        if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) &&
+            GetMemberKindKeyword(typeSymbol) is { Length: > 0 } memberKeyword)
+        {
+            sb.Append(memberKeyword).Append(' ');
+        }
+
         // Qualification
         if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
         {
@@ -1708,6 +1714,7 @@ public static partial class SymbolExtensions
     {
         return symbol switch
         {
+            IUnionCaseTypeSymbol => "case",
             IFieldSymbol => "field",
             IPropertySymbol property => property.IsMutable ? "var" : "val",
             IEventSymbol => "event",

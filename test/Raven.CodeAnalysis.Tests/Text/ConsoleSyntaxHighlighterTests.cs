@@ -201,9 +201,9 @@ static class VehicleAppServices {
 import System.Text.Json.*
 
 union VehicleStatus {
-    Operational(driverName: string, sinceUtc: int, currentOdometerKm: int)
-    Maintenance(workshop: string, startedUtc: int, expectedReadyUtc: int, reason: string)
-    Decommissioned(retiredUtc: int, reason: string)
+    case Operational(driverName: string, sinceUtc: int, currentOdometerKm: int)
+    case Maintenance(workshop: string, startedUtc: int, expectedReadyUtc: int, reason: string)
+    case Decommissioned(retiredUtc: int, reason: string)
 }
 
 static class VehicleStatusJson {
@@ -545,7 +545,7 @@ class Widget {
     {
         var source = """
 union Result {
-    Case(value: int)
+    case Case(value: int)
 }
 
 func Render(result: Result) -> int {
@@ -574,8 +574,8 @@ func Render(result: Result) -> int {
     {
         var source = """
 union Option<T> {
-    Some(T)
-    None
+    case Some(T)
+    case None
 }
 
 func Render(input: Option<int>) -> int {

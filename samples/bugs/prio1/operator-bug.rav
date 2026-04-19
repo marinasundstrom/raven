@@ -9,8 +9,8 @@ val x: int? = 2
 val opt: Option<int> = x
 
 union Option<T: struct> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 extension OptionExtensions3<T> for T

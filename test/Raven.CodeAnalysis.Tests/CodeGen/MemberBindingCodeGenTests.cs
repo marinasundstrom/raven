@@ -44,13 +44,13 @@ class Program {
     {
         const string code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(value: E)
+    case Ok(value: T)
+    case Error(value: E)
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
@@ -198,8 +198,8 @@ record ContextError<TError: IError>(
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(value: E)
+    case Ok(value: T)
+    case Error(value: E)
 }
 
 extension ErrorExtensions<TError: IError> for TError {
@@ -229,7 +229,7 @@ class Program {
         val wrapped = result.WithMessage("context")
 
         return wrapped match {
-            Ok(val value) => value.ToString()
+            case Ok(val value) => value.ToString()
             Error(val error) => error.Message + ":" + error.Cause.Message
         }
     }

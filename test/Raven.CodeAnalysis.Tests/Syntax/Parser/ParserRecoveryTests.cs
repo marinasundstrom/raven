@@ -261,8 +261,8 @@ public class ParserRecoveryTests
         var source = """
             WriteLine(1)
             union Option<T> {
-                Some(value: T)
-                None
+                case Some(value: T)
+                case None
             }
             func tapIfPositive(opt: Option<int>) -> Option<int> {
                 return opt
@@ -287,8 +287,8 @@ public class ParserRecoveryTests
             namespace N;
             WriteLine(1)
             union Option<T> {
-                Some(value: T)
-                None
+                case Some(value: T)
+                case None
             }
             func tapIfPositive(opt: Option<int>) -> Option<int> {
                 return opt
@@ -314,7 +314,7 @@ public class ParserRecoveryTests
             union Err {
                 MissingUser,
                 MissingName,
-                InactiveUser
+                case InactiveUser
             }
             func Main() -> int {
                 return 0
@@ -338,9 +338,9 @@ public class ParserRecoveryTests
     {
         var source = """
             union Err {
-                MissingUser
-                MissingName
-                InactiveUser
+                case MissingUser
+                case MissingName
+                case InactiveUser
             }
             """;
 

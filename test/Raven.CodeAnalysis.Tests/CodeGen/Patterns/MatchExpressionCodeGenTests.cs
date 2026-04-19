@@ -290,8 +290,8 @@ class Program {
     {
         const string code = """
 union Result<T, TError> {
-    Ok(value: T)
-    Error(message: TError)
+    case Ok(value: T)
+    case Error(message: TError)
 }
 
 class Formatter {
@@ -331,8 +331,8 @@ class Formatter {
     {
         const string code = """
 union Test {
-    Something(value: string)
-    Nothing
+    case Something(value: string)
+    case Nothing
 }
 
 class Formatter {
@@ -381,8 +381,8 @@ func format<T>(result: Result<T, string>) -> string {
 }
 
 union Result<T, TError> {
-    Ok(value: T)
-    Error(message: TError)
+    case Ok(value: T)
+    case Error(message: TError)
 }
 """;
 
@@ -398,8 +398,8 @@ union Result<T, TError> {
     {
         const string code = """
 union Test {
-    Something(value: string)
-    Nothing
+    case Something(value: string)
+    case Nothing
 }
 
 class Program {

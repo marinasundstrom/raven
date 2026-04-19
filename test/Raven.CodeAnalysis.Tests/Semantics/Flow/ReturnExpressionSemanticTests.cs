@@ -15,8 +15,8 @@ public class ReturnExpressionSemanticTests : DiagnosticTestBase
     {
         var code = """
 union MyResult {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 
 func Foo(name: string?) -> MyResult {
@@ -46,8 +46,8 @@ func Foo(name: string?) -> MyResult {
     {
         var code = """
 union MyResult {
-    Ok(value: string)
-    Error(message: string)
+    case Ok(value: string)
+    case Error(message: string)
 }
 
 func Foo(name: string?) -> MyResult {

@@ -192,8 +192,8 @@ public class SemanticFactsTests
     {
         var source = """
 union Response<T> {
-    Success(value: T)
-    Failure(message: string)
+    case Success(value: T)
+    case Failure(message: string)
 }
 """;
 

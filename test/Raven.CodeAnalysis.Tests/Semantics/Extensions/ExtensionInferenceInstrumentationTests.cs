@@ -15,8 +15,8 @@ public sealed class ExtensionInferenceInstrumentationTests : CompilationTestBase
 namespace System
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 namespace System.Linq
@@ -63,8 +63,8 @@ extension EnumerableExt<T> for IEnumerable<T> {
 namespace System
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
@@ -123,8 +123,8 @@ extension EnumerableExt<T> for IEnumerable<T> {
 namespace System
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {

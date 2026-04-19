@@ -19,11 +19,11 @@ WriteLine(test1())
 WriteLine(test2())
 
 union Test1 {
-    A(x: int)
-    B
+    case A(x: int)
+    case B
 }
 
 union Test2<T> {
-    A(value: T)
-    B
+    case A(value: T)
+    case B
 }

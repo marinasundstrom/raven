@@ -17,8 +17,8 @@ public sealed class UnionSemanticTests : CompilationTestBase
     {
         const string source = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -39,8 +39,8 @@ union Option {
     {
         const string source = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -61,8 +61,8 @@ union Option {
     {
         const string source = """
 union struct Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -169,8 +169,8 @@ func create() {
 }
 
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -192,8 +192,8 @@ func build() {
 }
 
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -216,8 +216,8 @@ func build<T>(payload: T) -> Option<T> {
 }
 
 union Option<T> {
-    None
-    Some(value: T)
+    case None
+    case Some(value: T)
 }
 """;
 
@@ -244,8 +244,8 @@ namespace System
 import System.*
 
 union struct Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class C<T> {
@@ -279,8 +279,8 @@ func build() {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -310,8 +310,8 @@ func build() {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -342,8 +342,8 @@ func build<T>(value: T) -> Result<T, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -374,8 +374,8 @@ func build() {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -395,8 +395,8 @@ func build() {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -419,8 +419,8 @@ func format(option: Option<int>) -> string {
 }
 
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 """;
 
@@ -442,8 +442,8 @@ func build() {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -464,8 +464,8 @@ func build() {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -490,13 +490,13 @@ func build() -> Result<int, Err> {
 }
 
 union Err {
-    MissingUser
-    MissingName
+    case MissingUser
+    case MissingName
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -519,8 +519,8 @@ func build(flag: bool) -> Response<int, string> {
 }
 
 union Response<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -548,8 +548,8 @@ func build(flag: bool) -> Response<int, string> {
 }
 
 union Response<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -574,8 +574,8 @@ func build(flag: bool) -> Response<int, string> {
 }
 
 union Response<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -604,8 +604,8 @@ func build(flag: bool) -> Response<int, string> {
 }
 
 union Response<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -635,8 +635,8 @@ func build() {
 }
 
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 """;
 
@@ -657,8 +657,8 @@ async func fetch() -> Task<Result<string>> {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -678,7 +678,7 @@ union Result<T> {
     {
         const string source = """
 union Token {
-    Identifier(text: string)
+    case Identifier(text: string)
 }
 """;
 
@@ -712,8 +712,8 @@ union Token {
     {
         const string source = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -748,8 +748,8 @@ union Result<T, E> {
     {
         const string source = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -782,8 +782,8 @@ union Result {
     {
         const string source = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -815,8 +815,8 @@ union Result {
     {
         const string source = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -842,8 +842,8 @@ union Result {
     {
         const string source = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -874,8 +874,8 @@ union Result {
     {
         const string source = """
 union Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -895,8 +895,8 @@ union Result {
     {
         const string source = """
 union struct Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -934,8 +934,8 @@ union Maybe(string? | int)
     {
         const string source = """
 union struct Result {
-    Ok(value: int)
-    Error(message: string)
+    case Ok(value: int)
+    case Error(message: string)
 }
 """;
 
@@ -967,8 +967,8 @@ func format(result: Result<int>) -> string {
 }
 
 union struct Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -995,8 +995,8 @@ func format(result: Result<int>) -> string {
 }
 
 union struct Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1015,8 +1015,8 @@ union struct Result<T> {
     {
         const string source = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -1059,7 +1059,7 @@ union Option {
     {
         const string source = """
 union Option {
-    Some(value: int, label: string)
+    case Some(value: int, label: string)
 }
 """;
 
@@ -1096,8 +1096,8 @@ union Option {
     {
         const string source = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1127,8 +1127,8 @@ func create() -> Result<int, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1162,8 +1162,8 @@ async func fetch(url: string) -> Task<Result<string, string>> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1184,13 +1184,13 @@ class C {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 union Option<T> {
-    Ok(value: T)
-    None
+    case Ok(value: T)
+    case None
 }
 """;
 
@@ -1213,8 +1213,8 @@ func create() -> Result<int, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1235,13 +1235,13 @@ class C {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 union Option<T> {
-    Ok(value: T)
-    None
+    case Ok(value: T)
+    case None
 }
 """;
 
@@ -1261,15 +1261,15 @@ union Option<T> {
         const string source = """
 namespace A {
     union Result<T, E> {
-        Ok(value: T)
-        Error(message: E)
+        case Ok(value: T)
+        case Error(message: E)
     }
 }
 
 namespace B {
     union Option<T> {
-        Ok(value: T)
-        None
+        case Ok(value: T)
+        case None
     }
 }
 
@@ -1306,13 +1306,13 @@ class C {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 
 union Option<T> {
-    Ok(value: T)
-    None
+    case Ok(value: T)
+    case None
 }
 """;
 
@@ -1339,15 +1339,15 @@ union Option<T> {
         const string source = """
 namespace A {
     union Result<T, E> {
-        Ok(value: T)
-        Error(message: E)
+        case Ok(value: T)
+        case Error(message: E)
     }
 }
 
 namespace B {
     union Result<T> {
-        Ok(value: T)
-        None
+        case Ok(value: T)
+        case None
     }
 }
 
@@ -1387,8 +1387,8 @@ func create() -> Result<int, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1409,8 +1409,8 @@ func create() -> Result<int, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1431,8 +1431,8 @@ func create() -> Result<int, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 
@@ -1447,8 +1447,8 @@ union Result<T, E> {
     {
         const string source = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 """;
 
@@ -1472,9 +1472,9 @@ union Option {
     {
         const string source = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
-    Pending
+    case Ok(value: T)
+    case Error(error: E)
+    case Pending
 }
 """;
 
@@ -1502,8 +1502,8 @@ union Result<T, E> {
     {
         const string source = """
 union Payloads {
-    Callback(fn: (int, string) -> bool)
-    Pair(value: (left: int, right: string))
+    case Callback(fn: (int, string) -> bool)
+    case Pair(value: (left: int, right: string))
 }
 """;
 
@@ -1542,8 +1542,8 @@ union Payloads {
     {
         const string source = """
 union Result {
-    Ok(value: int)
-    Error(error: string)
+    case Ok(value: int)
+    case Error(error: string)
 }
 """;
 
@@ -1574,8 +1574,8 @@ union Result {
     {
         const string source = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -1603,7 +1603,7 @@ union Result<T, E> {
     {
         const string source = """
 union Option {
-    Some(value: int)
+    case Some(value: int)
 }
 """;
 
@@ -1630,7 +1630,7 @@ union Option {
     {
         const string source = """
 union Option {
-    Some(value: int)
+    case Some(value: int)
 }
 """;
 
@@ -1666,8 +1666,8 @@ union Option {
     {
         const string source = """
 union Option<T> {
-    None
-    Some(value: T)
+    case None
+    case Some(value: T)
 }
 
 class Container {
@@ -1700,8 +1700,8 @@ class Container {
     {
         const string source = """
 union Option {
-    None
-    Some(value: int)
+    case None
+    case Some(value: int)
 }
 
 class Container {
@@ -1735,8 +1735,8 @@ class Container {
     {
         const string source = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -1766,8 +1766,8 @@ union Result<T, E> {
     {
         const string source = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -1797,8 +1797,8 @@ func format(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1821,8 +1821,8 @@ func format(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1845,8 +1845,8 @@ func describe(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1869,8 +1869,8 @@ func format(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1892,8 +1892,8 @@ func format(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1916,8 +1916,8 @@ func describe(value: Test) -> string {
 }
 
 union Test {
-    Something(value: string)
-    Nothing
+    case Something(value: string)
+    case Nothing
 }
 """;
 
@@ -1944,8 +1944,8 @@ func describe(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1970,8 +1970,8 @@ func format(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
@@ -1996,8 +1996,8 @@ func area(shape: Shape) -> int {
 }
 
 union Shape {
-    Circle(radius: int)
-    Rectangle(width: int, height: int)
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
 }
 """;
 
@@ -2022,7 +2022,7 @@ func format(result: Result<int>) -> string {
 }
 
 union Result<T> {
-    Ok(value: T)
+    case Ok(value: T)
 }
 """;
 
@@ -2045,8 +2045,8 @@ func build() -> Result<int, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -2067,8 +2067,8 @@ func build() -> Result<int, string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -2091,8 +2091,8 @@ func build() -> Result<(), string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 

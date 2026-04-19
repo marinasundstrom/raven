@@ -13,8 +13,8 @@ public class CompletionServiceUnionCaseTests
     {
         var code = """
 union Result {
-    Ok
-    Err(message: string)
+    case Ok
+    case Err(message: string)
 }
 
 Result.
@@ -42,7 +42,7 @@ Result.
     {
         var code = """
 union ParseResult {
-    Ok
+    case Ok
 }
 
 val value = O

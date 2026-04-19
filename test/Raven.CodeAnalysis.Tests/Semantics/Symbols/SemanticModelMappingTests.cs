@@ -218,8 +218,8 @@ class C {
     {
         const string code = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 class C {

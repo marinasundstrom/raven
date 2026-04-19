@@ -143,8 +143,8 @@ func build() -> Result<(), string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
         // line 2: "    return Ok(1)" — Ok(1) at col 12..16 (end exclusive)
@@ -167,8 +167,8 @@ func build() -> Result<(), string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
         // line 2: "    Ok(1)" — Ok(1) at col 5..9 (end exclusive)
@@ -197,8 +197,8 @@ func build() -> Result<(), AppError> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 record AppError(Message: string)
@@ -214,8 +214,8 @@ public class UnionCaseConversionClassificationTests : CompilationTestBase
 {
     private static readonly string ResultUnionDecl = """
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 
@@ -299,8 +299,8 @@ func build() -> Result<(), string> {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 """;
 

@@ -95,8 +95,8 @@ async func Main(args: string[]) -> Task<int> {
     {
         var code = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Program {
@@ -147,8 +147,8 @@ class Program {
 import System.Threading.Tasks.*
 
 public union Result<T, E> {
-    Ok(value: T)
-    Error(data: E)
+    case Ok(value: T)
+    case Error(data: E)
 }
 
 class Program {
@@ -202,8 +202,8 @@ class Program {
 import System.Threading.Tasks.*
 
 public union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Program {
@@ -246,8 +246,8 @@ class Program {
     {
         var code = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Program {
@@ -297,8 +297,8 @@ class Program {
     {
         var code = """
 public union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 class Program {

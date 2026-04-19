@@ -16,8 +16,8 @@ func Test() {
 }
 
 union Shape {
-    Circle(radius: int)
-    Rectangle(width: int, height: int)
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
 }
 """;
 
@@ -29,8 +29,8 @@ func Test() {
 }
 
 union Shape {
-    Circle(radius: int)
-    Rectangle(width: int, height: int)
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
 }
 """;
 

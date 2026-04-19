@@ -17,6 +17,6 @@ val selected =
 WriteLine(selected)
 
 union DomainError {
-    NotFound
-    Unexpected(exception: Exception)
+    case NotFound
+    case Unexpected(exception: Exception)
 }

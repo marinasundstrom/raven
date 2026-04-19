@@ -49,7 +49,7 @@ func main(x: int, y: int) -> int {
             "import  System.Console.*\n\nfunc  Main( )->() {WriteLine(\"hi\")}",
             "val res= value match{.Ok(val x)=>x,.Error(val e)=>0}",
             "class Foo<T>{public init(x:T){self.x=x} val x:T}",
-            "union Result<T, E> { Ok(value: T)\nError(error: E) }",
+            "union Result<T, E> { case Ok(value: T)\ncase Error(error: E) }",
             "func f(x:int)->int{if(x>0){return x}else{return -x}}"
         };
 

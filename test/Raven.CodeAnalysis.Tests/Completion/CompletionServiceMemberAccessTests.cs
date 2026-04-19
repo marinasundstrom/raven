@@ -848,8 +848,8 @@ func Main() -> unit {
     {
         var code = """
 union Result {
-    Ok
-    Err(message: string)
+    case Ok
+    case Err(message: string)
 }
 
 val value = Result.Ok
@@ -874,8 +874,8 @@ value.
     {
         var code = """
 union Option<T> {
-    None
-    Some(value: T)
+    case None
+    case Some(value: T)
 }
 
 val x = Option<int>.Some(value: 2)

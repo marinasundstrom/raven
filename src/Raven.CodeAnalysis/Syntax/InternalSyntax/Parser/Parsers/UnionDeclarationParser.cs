@@ -176,6 +176,8 @@ internal class UnionDeclarationParser : SyntaxParser
 
     private UnionCaseClauseSyntax ParseCase()
     {
+        var caseKeyword = ExpectToken(SyntaxKind.CaseKeyword);
+
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
         {
@@ -194,7 +196,7 @@ internal class UnionDeclarationParser : SyntaxParser
 
         var terminatorToken = ConsumeOptionalCaseTerminator();
 
-        return UnionCaseClause(identifier, parameterList, terminatorToken);
+        return UnionCaseClause(caseKeyword, identifier, parameterList, terminatorToken);
     }
 
     private SyntaxList ParseModifiers()

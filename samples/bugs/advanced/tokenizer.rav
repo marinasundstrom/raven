@@ -67,8 +67,8 @@ class Lexer {
 }
 
 union Token {
-   Identifier(text: string)
-   Number(text: string, value: int)
-   EOF
-   Unknown
+   case Identifier(text: string)
+   case Number(text: string, value: int)
+   case EOF
+   case Unknown
 }

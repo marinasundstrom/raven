@@ -19,8 +19,8 @@ func GetItem() -> Result<string, Err> {
 }
 
 union Err {
-    MissingUser
-    MissingName
+    case MissingUser
+    case MissingName
 }
 
 record class User(Name: string, Item: Option<Item>)

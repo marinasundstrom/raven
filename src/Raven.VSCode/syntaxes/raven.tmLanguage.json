@@ -374,6 +374,10 @@
                     "match": "\\b(func)\\b"
                 },
                 {
+                    "name": "storage.type.case.raven",
+                    "match": "\\b(case)\\b"
+                },
+                {
                     "name": "meta.conversion-operator.declaration.raven",
                     "match": "\\b(func)(\\s+)(implicit|explicit)\\b",
                     "captures": {

@@ -311,9 +311,9 @@ Raven treats structural data inspection as a core language tool.
 
 ```raven
 union Token {
-    Identifier(text: string)
-    Number(value: int)
-    End
+    case Identifier(text: string)
+    case Number(value: int)
+    case End
 }
 
 func Describe(token: Token) -> string {

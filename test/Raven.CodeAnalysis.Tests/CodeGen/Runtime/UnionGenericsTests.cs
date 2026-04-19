@@ -32,8 +32,8 @@ func format(result: Result<int, string>) -> string {
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(message: E)
+    case Ok(value: T)
+    case Error(message: E)
 }
 """;
 

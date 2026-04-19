@@ -22,7 +22,7 @@ func describe(token: Token) -> string {
 }
 
 union Token {
-    Identifier(text: string)
-    Number(value: int)
-    Unknown
+    case Identifier(text: string)
+    case Number(value: int)
+    case Unknown
 }

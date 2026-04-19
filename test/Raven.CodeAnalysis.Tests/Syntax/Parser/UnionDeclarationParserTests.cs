@@ -11,8 +11,8 @@ public class UnionDeclarationParserTests
     {
         var source = """
             union Token {
-                Identifier(text: string)
-                Unknown
+                case Identifier(text: string)
+                case Unknown
             }
             """;
         var tree = SyntaxTree.ParseText(source);
@@ -25,11 +25,13 @@ public class UnionDeclarationParserTests
             declaration.CaseTypes,
             first =>
             {
+                Assert.Equal(SyntaxKind.CaseKeyword, first.CaseKeyword.Kind);
                 Assert.Equal("Identifier", first.Identifier.Text);
                 Assert.NotNull(first.ParameterList);
             },
             second =>
             {
+                Assert.Equal(SyntaxKind.CaseKeyword, second.CaseKeyword.Kind);
                 Assert.Equal("Unknown", second.Identifier.Text);
                 Assert.Null(second.ParameterList);
             });
@@ -40,7 +42,7 @@ public class UnionDeclarationParserTests
     [Fact]
     public void UnionDeclaration_WithSemicolonSeparatedCases_ParsesCaseList()
     {
-        var source = "union Token { Identifier(text: string); Unknown }";
+        var source = "union Token { case Identifier(text: string); case Unknown }";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
@@ -57,22 +59,19 @@ public class UnionDeclarationParserTests
     [Fact]
     public void UnionDeclaration_OnSameLineWithoutSeparator_ReportsDiagnostic()
     {
-        var source = "union LookupResult { Found(id: int) Missing }";
+        var source = "union LookupResult { case Found(id: int) case Missing }";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 
         var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
         Assert.Equal(2, declaration.CaseTypes.Count);
-
-        Assert.Contains(
-            tree.GetDiagnostics(),
-            d => d.Descriptor == CompilerDiagnostics.ExpectedNewLineBetweenDeclarations);
+        Assert.Empty(tree.GetDiagnostics());
     }
 
     [Fact]
     public void UnionDeclaration_WithTypeParameters_ParsesGenerics()
     {
-        var source = "union Result<T> { Ok(value: T) }";
+        var source = "union Result<T> { case Ok(value: T) }";
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
 

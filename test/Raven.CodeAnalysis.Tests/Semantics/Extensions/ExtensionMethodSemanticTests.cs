@@ -2253,8 +2253,8 @@ val result = value |> 5
     {
         const string source = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 extension OptionExtensionsNested<T> for Option<Option<T>> {
@@ -2297,13 +2297,13 @@ class Container {
     {
         const string source = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 extension OptionExtensions<T> for Option<T> {
@@ -2356,13 +2356,13 @@ class Container {
     {
         const string source = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 extension OptionExtensions<T> for Option<T> {
@@ -2413,13 +2413,13 @@ class Container {
     {
         const string source = """
 union Option<T> {
-    Some(value: T)
-    None
+    case Some(value: T)
+    case None
 }
 
 union Result<T, E> {
-    Ok(value: T)
-    Error(error: E)
+    case Ok(value: T)
+    case Error(error: E)
 }
 
 extension OptionExtensions<T> for Option<T> {

@@ -15,6 +15,6 @@ func area(shape: Shape) -> int {
 }
 
 union Shape {
-    Circle(radius: int)
-    Rectangle(width: int, height: int)
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
 }

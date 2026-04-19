@@ -634,8 +634,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
             record class Pair(Left: int, Right: int)
 
             union Either<L, R> {
-                Left(value: L)
-                Right(value: R)
+                case Left(value: L)
+                case Right(value: R)
             }
             """;
 

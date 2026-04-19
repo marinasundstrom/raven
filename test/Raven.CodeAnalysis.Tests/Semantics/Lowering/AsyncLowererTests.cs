@@ -436,8 +436,8 @@ async func fetch(url: string) -> Task<Result<string, string>> {
 }
 
 union Result<T> {
-    Ok(value: T)
-    Error(message: string)
+    case Ok(value: T)
+    case Error(message: string)
 }
 """;
 
