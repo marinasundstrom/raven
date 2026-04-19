@@ -1,19 +1,33 @@
 import System.*
 import System.Console.*
-import System.Globalization.*
 
-func Main() -> Result<(), IError> {
-    val test = int.parse("42")?
+val foo = Foo(
+    Name: "Foo", 
+    Status: .Inactive(.UtcNow, "Test")
+)
 
-    /*
-    match test {
-        Ok(val v) => WriteLine(v)
-        Error(ParseIntError(.InvalidFormat, _, _) => WriteLine("Ouch! Invalid format")
-        _ => WriteLine("Unhandled error")
+WriteLine(foo)
+
+DisplayStatus(foo)
+
+val (name, _) = foo
+
+WriteLine(name)
+
+func DisplayStatus(foo: Foo) {
+    match foo.Status {
+        Active(val date) => WriteLine("Active at $date")
+        Inactive(val date, val reason) => WriteLine("Inactive at $date - Reason: $reason")
     }
-    */
-
-    WriteLine("Value: $test")
-
-    return Ok
 }
+
+record Foo(
+    val Name: string,
+    val Status: Status
+)
+
+union Status {
+    case Active(Date: DateTimeOffset)
+    case Inactive(Date: DateTimeOffset, Reason: string)
+}
+
