@@ -143,7 +143,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         if (!parameterTypeSymbol.IsValueType)
             return null;
 
-        if (parameterTypeSymbol.TypeKind == TypeKind.Enum)
+        if (IsEnumLikeType(parameterTypeSymbol))
             return Enum.ToObject(parameterRuntimeType, 0);
 
         return parameterTypeSymbol.SpecialType switch
@@ -164,5 +164,15 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
             SpecialType.System_DateTime => default(DateTime),
             _ => Activator.CreateInstance(parameterRuntimeType)
         };
+    }
+
+    private static bool IsEnumLikeType(ITypeSymbol type)
+    {
+        if (type.TypeKind == TypeKind.Enum)
+            return true;
+
+        return type is INamedTypeSymbol named &&
+               (named.EnumUnderlyingType is not null ||
+                named.BaseType?.SpecialType == SpecialType.System_Enum);
     }
 }

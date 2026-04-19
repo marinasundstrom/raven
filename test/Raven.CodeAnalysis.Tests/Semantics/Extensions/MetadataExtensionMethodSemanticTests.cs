@@ -385,6 +385,56 @@ val projection = numbers.Select(value => value.ToString())
     }
 
     [Fact]
+    public void Invocation_WithMetadataExtensionOverloads_AndActionExpressionLambda_UsesSingleParameterOverload()
+    {
+        const string source = """
+import Raven.MetadataFixtures.DependencyInjection.*
+
+class VehicleDbContext {
+}
+
+val services = ServiceCollection()
+services.AddDbContext<VehicleDbContext>(options => options.UseProvider("Host=localhost"))
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithExtensionMethods);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "AddDbContext");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("AddDbContext", selected.Name);
+        Assert.Equal(4, selected.Parameters.Length);
+
+        var optionsParameter = selected.Parameters[1];
+        var optionsDelegateType = optionsParameter.Type is NullableTypeSymbol nullableOptionsDelegate
+            ? nullableOptionsDelegate.UnderlyingType
+            : optionsParameter.Type;
+        var optionsDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(optionsDelegateType);
+        var invoke = optionsDelegate.GetDelegateInvokeMethod();
+        Assert.NotNull(invoke);
+        Assert.Single(invoke.Parameters);
+        Assert.Equal("DbContextOptionsBuilder", invoke.Parameters[0].Type.Name);
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaParameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal("DbContextOptionsBuilder", lambdaParameter.Type.Name);
+        Assert.Equal(SpecialType.System_Unit, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
     public void Invocation_WithWhereLambda_ResolvesSingleParameterOverload()
     {
         const string source = """

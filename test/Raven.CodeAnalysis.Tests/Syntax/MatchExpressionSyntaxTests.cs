@@ -241,6 +241,33 @@ let result = token match {
     }
 
     [Fact]
+    public void MatchExpression_WithArmExpressionOnFollowingLine_ParsesArms()
+    {
+        const string code = """
+union Status {
+    A(value: int)
+    B(value: int)
+}
+
+let status: Status = .A(value: 1)
+
+let result = status match {
+    .A(val value) =>
+        value
+    .B(val value) =>
+        value
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.All(match.Arms, arm => Assert.False(arm.Expression.IsMissing));
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void MatchExpression_InvalidTokenBetweenArms_RecoversAndParsesFollowingArm()
     {
         const string code = """
@@ -351,6 +378,28 @@ let result = 1 match {
         Assert.Equal(2, match.Arms.Count);
         Assert.IsType<BlockSyntax>(match.Arms[0].Expression);
         Assert.IsType<BlockSyntax>(match.Arms[1].Expression);
+    }
+
+    [Fact]
+    public void MatchExpression_WithSelfArmExpression_ParsesSelfExpression()
+    {
+        const string code = """
+class C {
+    func F() -> C {
+        1 match {
+            1 => self
+            _ => self
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.All(match.Arms, arm => Assert.IsType<SelfExpressionSyntax>(arm.Expression));
+        AssertNoErrors(tree);
     }
 
     private static (MatchArmSyntax Arm, SyntaxTree Tree) ParseFirstMatchArm(string patternText)

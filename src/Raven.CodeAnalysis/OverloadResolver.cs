@@ -2213,6 +2213,10 @@ internal sealed class OverloadResolver
         ref int score)
     {
         var argType = argument.Type;
+        var parameterTargetType = parameter.Type is NullableTypeSymbol nullableParameterType
+            ? nullableParameterType.UnderlyingType
+            : parameter.Type;
+
         if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
         {
             if (argumentRefKind != parameter.RefKind)
@@ -2266,7 +2270,7 @@ internal sealed class OverloadResolver
         // Without this, a method group can appear applicable for unrelated delegate types
         // (e.g. RequestDelegate) which breaks overload resolution for APIs that have both
         // RequestDelegate and System.Delegate overloads (like ASP.NET Minimal APIs).
-        if (argument is BoundMethodGroupExpression methodGroup && parameter.Type is INamedTypeSymbol target)
+        if (argument is BoundMethodGroupExpression methodGroup && parameterTargetType is INamedTypeSymbol target)
         {
             if (target.TypeKind == TypeKind.Delegate)
             {
@@ -2290,7 +2294,7 @@ internal sealed class OverloadResolver
         }
 
         bool lambdaCompatible = false;
-        if (argument is BoundFunctionExpression lambda && parameter.Type is INamedTypeSymbol delegateType)
+        if (argument is BoundFunctionExpression lambda && parameterTargetType is INamedTypeSymbol delegateType)
         {
             // Unwrap Expression<TDelegate> — treat it like a delegate parameter for lambda compatibility,
             // using the inner delegate type for signature checking.
@@ -2443,25 +2447,32 @@ internal sealed class OverloadResolver
                 return compatible;
             }
 
-            var result = IsAsyncReturn(delegateReturnType);
-            if (!result)
-                failureDetail = $"delegate return {delegateReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} is not task-shaped";
+            var unit = compilation.GetSpecialType(SpecialType.System_Unit);
 
-            return result;
-
-            static bool IsAsyncReturn(ITypeSymbol type)
+            if (delegateReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
             {
-                if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
+                var compatible = SymbolEqualityComparer.Default.Equals(lambdaAsyncResult, unit);
+                if (!compatible)
+                    failureDetail = $"async lambda result {lambdaAsyncResult?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} does not map to Task";
+
+                return compatible;
+            }
+
+            if (delegateReturnType is INamedTypeSymbol named &&
+                named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
+                named.TypeArguments.Length == 1)
+            {
+                var expectedResult = named.TypeArguments[0];
+                var conversion = compilation.ClassifyConversion(lambdaAsyncResult, expectedResult);
+                if (conversion.Exists && conversion.IsImplicit)
                     return true;
 
-                if (type is INamedTypeSymbol named &&
-                    named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T)
-                {
-                    return true;
-                }
-
+                failureDetail = $"async lambda result {lambdaAsyncResult?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} does not map to {expectedResult.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}";
                 return false;
             }
+
+            failureDetail = $"delegate return {delegateReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} is not task-shaped";
+            return false;
         }
     }
 

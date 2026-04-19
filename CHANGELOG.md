@@ -2,6 +2,16 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
 
+## 2026-04-18
+
+### Changed
+- Top-level binder creation no longer eagerly binds global statements during root-binder setup. Raven now finishes source declaration/member registration across the compilation before top-level statements are bound, which removes file-order sensitivity for top-level code that touches members declared in other source files.
+- Match-expression arms now tolerate the arm expression starting on the line after `=>`, which fixes recovery/binding failures for multiline union matches such as JSON serialization helpers.
+
+Impact:
+- Multi-file Raven projects no longer spuriously report missing members like `RAV0103` / `RAV0117` just because a top-level statement bound before another file had registered its members.
+- Newline-styled `match` arms bind the same way as single-line arms, which makes editor diagnostics and sample projects much less brittle around multiline union handling code.
+
 ## 2026-04-08
 
 ### Changed

@@ -792,7 +792,12 @@ partial class BlockBinder
             expectedBodyType.TypeKind != TypeKind.Error &&
             !hasInvalidAsyncReturnType)
         {
-            if (!IsAssignable(expectedBodyType, inferred, out var conversion))
+            if (ShouldDiscardLambdaBodyResult(expectedBodyType, inferred))
+            {
+                bodyExpr = DiscardLambdaBodyResult(bodyExpr);
+                inferred = unitType;
+            }
+            else if (!IsAssignable(expectedBodyType, inferred, out var conversion))
             {
                 ReportCannotConvertFromTypeToType(
                     inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -806,6 +811,7 @@ partial class BlockBinder
         }
 
         lambdaBinder.SetLambdaBody(bodyExpr);
+        lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntaxNode);
 
         var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
 
@@ -1001,7 +1007,8 @@ partial class BlockBinder
                         var boundMember = BindMemberAccessExpression(memberAccess);
                         if (boundMember is BoundMethodGroupExpression methodGroup)
                         {
-                            extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                            extensionReceiverImplicit = methodGroup.Receiver is not null &&
+                                methodGroup.Methods.All(static method => method.IsExtensionMethod);
                             if (extensionReceiverImplicit)
                                 extensionReceiverType = methodGroup.Receiver?.Type;
                             methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
@@ -1027,7 +1034,8 @@ partial class BlockBinder
                         var boundMember = BindMemberBindingExpression(memberBinding);
                         if (boundMember is BoundMethodGroupExpression methodGroup)
                         {
-                            extensionReceiverImplicit = methodGroup.Receiver is not null && IsExtensionReceiver(methodGroup.Receiver);
+                            extensionReceiverImplicit = methodGroup.Receiver is not null &&
+                                methodGroup.Methods.All(static method => method.IsExtensionMethod);
                             if (extensionReceiverImplicit)
                                 extensionReceiverType = methodGroup.Receiver?.Type;
                             methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
@@ -1086,8 +1094,12 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
+            var parameterType = parameter.Type is NullableTypeSymbol nullableParameterType
+                ? nullableParameterType.UnderlyingType
+                : parameter.Type;
+
             INamedTypeSymbol? delegateToAdd = null;
-            if (parameter.Type is INamedTypeSymbol rawType)
+            if (parameterType is INamedTypeSymbol rawType)
             {
                 if (rawType.TypeKind == TypeKind.Delegate)
                     delegateToAdd = rawType;
@@ -1520,7 +1532,9 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
-            var parameterType = parameter.Type;
+            var parameterType = parameter.Type is NullableTypeSymbol nullableParameterType
+                ? nullableParameterType.UnderlyingType
+                : parameter.Type;
             INamedTypeSymbol? effectiveDelegateType = null;
             if (parameterType is INamedTypeSymbol namedParamType)
             {
@@ -1558,7 +1572,11 @@ partial class BlockBinder
 
     private bool EnsureLambdaCompatible(IParameterSymbol parameter, BoundFunctionExpression lambda)
     {
-        if (parameter.Type is not INamedTypeSymbol delegateType)
+        var parameterType = parameter.Type is NullableTypeSymbol nullableParameterType
+            ? nullableParameterType.UnderlyingType
+            : parameter.Type;
+
+        if (parameterType is not INamedTypeSymbol delegateType)
             return false;
 
         if (ReplayLambda(lambda, delegateType) is not null)
@@ -1968,16 +1986,24 @@ partial class BlockBinder
 
         if (shouldApplyConversion)
         {
-            if (!IsAssignable(expectedBodyType, conversionSource!, out var conversion))
+            if (ShouldDiscardLambdaBodyResult(expectedBodyType, conversionSource!))
+            {
+                body = DiscardLambdaBodyResult(body);
+                conversionSource = unitType;
+            }
+            else if (!IsAssignable(expectedBodyType, conversionSource!, out var conversion))
             {
                 Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
                 return null;
             }
-
-            body = ApplyConversion(body, expectedBodyType, conversion, lambdaBodySyntax);
+            else
+            {
+                body = ApplyConversion(body, expectedBodyType, conversion, lambdaBodySyntax);
+            }
         }
 
         lambdaBinder.SetLambdaBody(body);
+        lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntax);
         var captured = lambdaBinder.AnalyzeCapturedVariables();
 
         var capturedSet = new HashSet<ISymbol>(captured, SymbolEqualityComparer.Default);
@@ -2053,6 +2079,27 @@ partial class BlockBinder
         }
 
         return null;
+    }
+
+    private bool ShouldDiscardLambdaBodyResult(ITypeSymbol expectedBodyType, ITypeSymbol actualBodyType)
+    {
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        if (!SymbolEqualityComparer.Default.Equals(expectedBodyType, unitType) &&
+            expectedBodyType.SpecialType != SpecialType.System_Void)
+        {
+            return false;
+        }
+
+        return !SymbolEqualityComparer.Default.Equals(actualBodyType, unitType) &&
+               actualBodyType.SpecialType != SpecialType.System_Void;
+    }
+
+    private BoundBlockExpression DiscardLambdaBodyResult(BoundExpression body)
+    {
+        return new BoundBlockExpression(
+            [new BoundExpressionStatement(body)],
+            Compilation.GetSpecialType(SpecialType.System_Unit));
     }
 
     private static string GetLambdaParameterSymbolName(ParameterSyntax parameterSyntax, int index)
@@ -2201,11 +2248,9 @@ partial class BlockBinder
     private void ClearCachedLambdaBodyNodes(SyntaxNode bodyNode)
     {
         RemoveCachedBoundNode(bodyNode);
-        RemoveCachedBinder(bodyNode);
         foreach (var child in bodyNode.DescendantNodes())
         {
             RemoveCachedBoundNode(child);
-            RemoveCachedBinder(child);
         }
     }
 

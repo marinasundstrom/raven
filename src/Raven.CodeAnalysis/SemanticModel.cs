@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,7 +18,7 @@ namespace Raven.CodeAnalysis;
 public partial class SemanticModel
 {
     private static readonly CompletionService s_completionService = new();
-    private SemanticBindingState _bindingState = new();
+    private readonly SemanticBindingState _bindingState = new();
     private readonly ConcurrentDictionary<SyntaxNodeMapKey, byte> _asyncLoweringInProgress = new();
     private readonly ConcurrentDictionary<SyntaxNode, ImmutableDictionary<AttributeSyntax, MacroExpansionResult?>> _macroExpansionCache = new();
     private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, FreestandingMacroExpansionResult?> _freestandingMacroExpansionCache = new();
@@ -280,11 +281,7 @@ public partial class SemanticModel
             invokedName.Parent is InvocationExpressionSyntax invokedCall &&
             ReferenceEquals(invokedCall.Expression, invokedName))
         {
-            if (TryBindExactSymbol(invokedCall, out var invocationInfo))
-            {
-                info = invocationInfo;
-            }
-            else if (TryBindInterestRegion(invokedCall, out var regionBoundInvocation))
+            if (TryBindInterestRegion(invokedCall, out var regionBoundInvocation))
             {
                 var regionInfo = regionBoundInvocation.GetSymbolInfo();
                 if (regionInfo.Symbol is not null || !regionInfo.CandidateSymbols.IsDefaultOrEmpty)
@@ -445,7 +442,19 @@ public partial class SemanticModel
         }
         else if (node is ExpressionSyntax expression)
         {
-            if (TryBindExactSymbol(expression, out var exactInfo))
+            if (TryGetCachedBoundNode(expression) is BoundExpression cachedExpression &&
+                !IsLikelyStaleFunctionBodyNode(cachedExpression))
+            {
+                var cachedInfo = cachedExpression.GetSymbolInfo();
+                if (cachedInfo.Symbol is not null || !cachedInfo.CandidateSymbols.IsDefaultOrEmpty)
+                {
+                    info = cachedInfo;
+                    goto Complete;
+                }
+            }
+
+            if (expression is not InvocationExpressionSyntax &&
+                TryBindExactSymbol(expression, out var exactInfo))
             {
                 info = exactInfo;
                 goto Complete;
@@ -3338,6 +3347,9 @@ public partial class SemanticModel
         CacheBinder(node, newBinder);
         return newBinder;
     }
+
+    internal void CacheBinderForNode(SyntaxNode node, Binder binder)
+        => CacheBinder(node, binder);
 
     private void CacheBinder(SyntaxNode node, Binder binder)
     {

@@ -621,12 +621,23 @@ partial class BlockBinder
 
     private void ReportUnreachableStatements(SyntaxNode block)
     {
-        ControlFlowAnalysis? controlFlow = block switch
+        ControlFlowAnalysis? controlFlow;
+        try
         {
-            BlockStatementSyntax statementBlock => SemanticModel.AnalyzeControlFlowInternal(new ControlFlowRegion(statementBlock), statementBlock, analyzeJumpPoints: false),
-            BlockSyntax expressionBlock when expressionBlock.Statements.Count > 0 => SemanticModel.AnalyzeControlFlowInternal(expressionBlock, analyzeJumpPoints: false),
-            _ => null
-        };
+            controlFlow = block switch
+            {
+                BlockStatementSyntax statementBlock => SemanticModel.AnalyzeControlFlowInternal(new ControlFlowRegion(statementBlock), statementBlock, analyzeJumpPoints: false),
+                BlockSyntax expressionBlock when expressionBlock.Statements.Count > 0 => SemanticModel.AnalyzeControlFlowInternal(expressionBlock, analyzeJumpPoints: false),
+                _ => null
+            };
+        }
+        catch (Exception)
+        {
+            // Unreachable-code reporting is a best-effort diagnostic pass. If earlier binding
+            // errors leave the block in a state control-flow analysis cannot handle yet, avoid
+            // crashing the compiler or semantic highlighter and skip the secondary diagnostic.
+            return;
+        }
 
         if (controlFlow is null)
             return;

@@ -14,6 +14,7 @@ class TopLevelBinder : BlockBinder
 {
     private readonly CompilationUnitSyntax _compilationUnit;
     private readonly SourceMethodSymbol _scriptMethod;
+    private bool _globalStatementsBound;
 
     public TopLevelBinder(
         Binder parent,
@@ -39,6 +40,9 @@ class TopLevelBinder : BlockBinder
 
     public void BindGlobalStatements(IEnumerable<GlobalStatementSyntax> statements)
     {
+        if (_globalStatementsBound)
+            return;
+
         var globalStatements = new List<GlobalStatementSyntax>();
         foreach (var stmt in statements)
             globalStatements.Add(stmt);
@@ -88,6 +92,7 @@ class TopLevelBinder : BlockBinder
 
         var block = new BoundBlockStatement(boundStatements, localsToDispose.ToImmutable());
         CacheBoundNode(_compilationUnit, block);
+        _globalStatementsBound = true;
     }
 
     private void ApplyInferredTopLevelReturnTypes(IReadOnlyList<GlobalStatementSyntax> globalStatements)

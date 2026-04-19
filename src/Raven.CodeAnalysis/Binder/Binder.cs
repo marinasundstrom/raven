@@ -1836,6 +1836,11 @@ internal abstract partial class Binder
         SemanticModel?.RemoveCachedBinder(node);
     }
 
+    protected void CacheBinder(SyntaxNode node)
+    {
+        SemanticModel?.CacheBinderForNode(node, this);
+    }
+
     public virtual BoundNode GetOrBind(SyntaxNode node)
     {
         SemanticModel?.Compilation.PerformanceInstrumentation.BinderReentry.RecordInvocation(node);

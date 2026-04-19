@@ -2736,9 +2736,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 ConsumeTokenOrMissing(SyntaxKind.FatArrowToken, out var arrowToken);
 
+                if (HasLineBreakBeforePeekToken())
+                    SkipMatchArmSeparators();
+
                 var previousTreatNewlinesDuringExpression = TreatNewlinesAsTokens;
                 ExpressionSyntax expression;
-                if (HasLineBreakBeforePeekToken() && IsLikelyNextMatchArmHeader())
+                if (PeekToken().IsKind(SyntaxKind.CloseBraceToken) ||
+                    (!CanStartExpressionAfterMatchArrow(PeekToken()) && IsLikelyNextMatchArmHeader()))
                 {
                     expression = IdentifierName(MissingToken(SyntaxKind.IdentifierToken));
                 }
@@ -2828,6 +2832,38 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             break;
         }
+    }
+
+    private static bool CanStartExpressionAfterMatchArrow(SyntaxToken token)
+    {
+        if (CanTokenBeIdentifier(token))
+            return true;
+
+        return token.Kind switch
+        {
+            SyntaxKind.StringLiteralToken or
+            SyntaxKind.CharacterLiteralToken or
+            SyntaxKind.NumericLiteralToken or
+            SyntaxKind.SelfKeyword or
+            SyntaxKind.TrueKeyword or
+            SyntaxKind.FalseKeyword or
+            SyntaxKind.NullKeyword or
+            SyntaxKind.NewKeyword or
+            SyntaxKind.IfKeyword or
+            SyntaxKind.MatchKeyword or
+            SyntaxKind.OpenParenToken or
+            SyntaxKind.OpenBracketToken or
+            SyntaxKind.OpenBraceToken or
+            SyntaxKind.FuncKeyword or
+            SyntaxKind.AsyncKeyword or
+            SyntaxKind.TryKeyword or
+            SyntaxKind.ThrowKeyword or
+            SyntaxKind.AwaitKeyword or
+            SyntaxKind.MinusToken or
+            SyntaxKind.ExclamationToken or
+            SyntaxKind.TildeToken => true,
+            _ => false
+        };
     }
 
     private bool IsLikelyNextMatchArmHeader()

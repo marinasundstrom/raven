@@ -64,12 +64,17 @@ class FunctionExpressionBinder : BlockBinder
     private void ClearCachedBoundNodes(SyntaxNode node)
     {
         RemoveCachedBoundNode(node);
-        RemoveCachedBinder(node);
         foreach (var child in node.DescendantNodes())
         {
             RemoveCachedBoundNode(child);
-            RemoveCachedBinder(child);
         }
+    }
+
+    public void CacheLambdaBodyBinders(SyntaxNode node)
+    {
+        CacheBinder(node);
+        foreach (var child in node.DescendantNodes())
+            CacheBinder(child);
     }
 
     public IReadOnlyList<ISymbol> AnalyzeCapturedVariables()

@@ -238,4 +238,33 @@ class Widget { }
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.FileScopedCodeOutOfOrder);
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
     }
+
+    [Fact]
+    public void GlobalStatements_CanReferenceMembersDeclaredInOtherFiles()
+    {
+        var mainTree = SyntaxTree.ParseText("""
+            val vehicle = Vehicle()
+            vehicle.RegistrationNumber = "RAV-1"
+            vehicle.SetStatus()
+            """, path: "main.rav");
+
+        var vehicleTree = SyntaxTree.ParseText("""
+            class Vehicle {
+                public var RegistrationNumber: string = ""
+
+                public func SetStatus() {
+                }
+            }
+            """, path: "vehicle.rav");
+
+        var compilation = CreateCompilation(
+            [mainTree, vehicleTree],
+            new CompilationOptions(OutputKind.ConsoleApplication),
+            assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV0103");
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV0117");
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
 }

@@ -1350,6 +1350,41 @@ class Container {
     }
 
     [Fact]
+    public void Lambda_TargetingAction_CanDiscardExpressionBodyResult()
+    {
+        const string source = """
+import System.*
+
+class Builder {
+    func Configure() -> int {
+        return 1
+    }
+}
+
+class Container {
+    static func Create(handler: Action<Builder>) -> unit { }
+
+    static func Main() -> unit {
+        Create(builder => builder.Configure())
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambda = tree.GetRoot().DescendantNodes().OfType<SimpleFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal("Builder", parameter.Type.Name);
+        Assert.Equal(SpecialType.System_Unit, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
     public void GenericFunction_ToDictionary_WithTwoLambdas_InfersTypeParameters()
     {
         const string source = """

@@ -5059,15 +5059,26 @@ partial class BlockBinder : Binder
             }
         }
 
-        var thenBinder = SemanticModel.GetBinder(ifExpression, this);
+        Binder? thenBinder;
+        try
+        {
+            thenBinder = SemanticModel.GetBinder(ifExpression, this);
+        }
+        catch (Exception)
+        {
+            thenBinder = this;
+        }
         var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
         _allowReturnsInBlockExpressionsOnly = false;
         BoundExpression thenExpr;
         try
         {
-            thenExpr = thenBinder is BlockBinder bb
-                ? bb.BindExpression(ifExpression.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
-                : thenBinder.BindExpression(ifExpression.Expression);
+            thenExpr = thenBinder switch
+            {
+                BlockBinder bb => bb.BindExpression(ifExpression.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
+                { } binder => binder.BindExpression(ifExpression.Expression),
+                _ => BindExpression(ifExpression.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
+            };
         }
         finally
         {
@@ -5080,15 +5091,26 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.OtherError);
         }
 
-        var elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
+        Binder? elseBinder;
+        try
+        {
+            elseBinder = SemanticModel.GetBinder(ifExpression.ElseClause, this);
+        }
+        catch (Exception)
+        {
+            elseBinder = this;
+        }
         previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
         _allowReturnsInBlockExpressionsOnly = false;
         BoundExpression elseExpr;
         try
         {
-            elseExpr = elseBinder is BlockBinder ebb
-                ? ebb.BindExpression(ifExpression.ElseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
-                : elseBinder.BindExpression(ifExpression.ElseClause.Expression);
+            elseExpr = elseBinder switch
+            {
+                BlockBinder ebb => ebb.BindExpression(ifExpression.ElseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false),
+                { } binder => binder.BindExpression(ifExpression.ElseClause.Expression),
+                _ => BindExpression(ifExpression.ElseClause.Expression, allowReturn: _allowReturnsInExpression, allowReturnInBlockExpressionsOnly: false)
+            };
         }
         finally
         {
@@ -10806,6 +10828,9 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindLambdaToDelegateIfNeeded(BoundExpression expression, ITypeSymbol targetType)
     {
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
+
         var lambda = expression as BoundFunctionExpression;
         if (lambda is null &&
             expression is BoundConversionExpression { Expression: BoundFunctionExpression convertedLambda, IsExplicit: false })
@@ -11228,7 +11253,7 @@ partial class BlockBinder : Binder
 
     private bool TryCreateOptionalLiteral(ITypeSymbol parameterType, object value, out BoundLiteralExpression literal)
     {
-        if (parameterType.TypeKind == TypeKind.Enum &&
+        if (IsEnumLikeType(parameterType) &&
             TryConvertEnumLiteralValue(value, out var enumValue))
         {
             literal = new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, enumValue, parameterType);
@@ -11290,6 +11315,16 @@ partial class BlockBinder : Binder
                 converted = null!;
                 return false;
         }
+    }
+
+    private static bool IsEnumLikeType(ITypeSymbol type)
+    {
+        if (type.TypeKind == TypeKind.Enum)
+            return true;
+
+        return type is INamedTypeSymbol named &&
+               (named.EnumUnderlyingType is not null ||
+                named.BaseType?.SpecialType == SpecialType.System_Enum);
     }
 
     private static BoundLiteralExpressionKind GetOptionalLiteralKind(object value)

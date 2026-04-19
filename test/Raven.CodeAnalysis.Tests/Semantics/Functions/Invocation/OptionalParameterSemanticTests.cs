@@ -10,6 +10,7 @@ using System.Runtime.Loader;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -209,7 +210,7 @@ class C {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.OptionalParameterDefaultValueCannotConvert);
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot()
@@ -221,7 +222,8 @@ class C {
         var arguments = boundInvocation.Arguments.ToArray();
 
         Assert.Single(arguments);
-        Assert.IsType<BoundErrorExpression>(arguments[0]);
+        var synthesizedDefault = Assert.IsType<BoundLiteralExpression>(arguments[0]);
+        Assert.Equal((int)DayOfWeek.Wednesday, synthesizedDefault.Value);
 
         var parameter = boundInvocation.Method.Parameters.Single();
         Assert.True(parameter.HasExplicitDefaultValue);

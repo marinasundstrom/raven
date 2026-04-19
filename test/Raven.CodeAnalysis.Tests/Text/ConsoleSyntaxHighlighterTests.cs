@@ -158,6 +158,77 @@ WriteLine($"Result: {result}")
     }
 
     [Fact]
+    public void InvalidStaticHelperWithGuardedIf_DoesNotCrashHighlighter()
+    {
+        var source = """
+import System.*
+import System.Linq.*
+
+static class VehicleAppServices {
+    static func GetConnectionString() -> string {
+        val environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
+        if environment is string when environment.Trim().Length > 0 {
+            return environment
+        }
+
+        return "Host=localhost"
+    }
+
+    static func PredictCosts(vehicle: VehicleEntity) -> VehicleCostPredictionResponse {
+        val samples = vehicle.FuelConsumptions
+            .Where(entry => entry.DistanceDrivenKm > 0 && entry.LitersFilled > 0 && entry.TotalCost > 0)
+            .OrderByDescending(entry => entry.RecordedAtUtc)
+            .Take(6)
+            .ToArray()
+
+        return VehicleCostPredictionResponse()
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var exception = Record.Exception(() => root.WriteNodeToText(compilation));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void InvalidUnionMatchSerialization_DoesNotCrashHighlighter()
+    {
+        var source = """
+import System.Text.Json.*
+
+union VehicleStatus {
+    Operational(driverName: string, sinceUtc: int, currentOdometerKm: int)
+    Maintenance(workshop: string, startedUtc: int, expectedReadyUtc: int, reason: string)
+    Decommissioned(retiredUtc: int, reason: string)
+}
+
+static class VehicleStatusJson {
+    static func EncodeStatus(status: VehicleStatus) -> string {
+        return status match {
+            .Operational(val driverName, val sinceUtc, val currentOdometerKm) =>
+                JsonSerializer.Serialize(VehicleStatusDto("operational", driverName, sinceUtc, currentOdometerKm, null, null, null, null))
+            .Maintenance(val workshop, val startedUtc, val expectedReadyUtc, val reason) =>
+                JsonSerializer.Serialize(VehicleStatusDto("maintenance", null, startedUtc, null, workshop, expectedReadyUtc, reason, null))
+            .Decommissioned(val retiredUtc, val reason) =>
+                JsonSerializer.Serialize(VehicleStatusDto("decommissioned", null, null, null, null, null, reason, retiredUtc))
+        }
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var root = tree.GetRoot();
+
+        var exception = Record.Exception(() => root.WriteNodeToText(compilation));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void MethodInvocation_UsesMethodColor()
     {
         var source = """
