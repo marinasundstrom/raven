@@ -76,4 +76,47 @@ class Checker {
 
         Assert.DoesNotContain(methods, method => method.Name.Contains("<lambda_", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void ExpressionTree_LambdaInsideAsyncMethod_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+import System.Linq.Expressions.*
+
+class QueryHost {
+    static func Use(selector: Expression<System.Func<int, int>>) -> int {
+        val compiled = selector.Compile()
+        return compiled(41)
+    }
+}
+
+class Demo {
+    async func Run() -> Task<int> {
+        val seed = await Task.FromResult(1)
+        return QueryHost.Use(x => x + seed)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var demoType = loaded.Assembly.GetType("Demo", throwOnError: true)!;
+        var instance = Activator.CreateInstance(demoType)!;
+        var run = demoType.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+        var task = (Task<int>)run.Invoke(instance, Array.Empty<object>())!;
+
+        Assert.Equal(42, task.GetAwaiter().GetResult());
+    }
 }

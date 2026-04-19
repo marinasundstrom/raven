@@ -787,7 +787,8 @@ internal static class AsyncLowerer
             catchClauses,
             finallyBlock: null,
             BoundTryStatementKind.AsyncDispatchGuard);
-        return new BoundBlockStatement(new BoundStatement[] { tryStatement });
+        var moveNextBody = new BoundBlockStatement(new BoundStatement[] { tryStatement });
+        return Lowerer.LowerBlock(stateMachine.MoveNextMethod, moveNextBody);
     }
 
     private static BoundBlockStatement RewriteAsyncBody(
