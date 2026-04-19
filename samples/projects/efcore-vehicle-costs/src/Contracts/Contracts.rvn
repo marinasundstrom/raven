@@ -1,0 +1,125 @@
+import System.*
+
+record class VehicleResponse(
+    val Id: Guid,
+    val RegistrationNumber: string,
+    val Model: string,
+    val FuelType: string,
+    val TypicalMonthlyDistanceKm: decimal,
+    val Status: VehicleStatusDto,
+    val FuelConsumptions: FuelConsumptionResponse[]
+)
+
+record class FuelConsumptionResponse(
+    val Id: int,
+    val RecordedAtUtc: DateTimeOffset,
+    val DistanceDrivenKm: decimal,
+    val LitersFilled: decimal,
+    val TotalCost: decimal
+)
+
+record class VehicleCostPredictionResponse(
+    val VehicleId: Guid,
+    val AverageLitersPer100Km: decimal,
+    val AverageCostPerLiter: decimal,
+    val PredictedMonthlyFuelCost: decimal,
+    val BasedOnDistanceKm: decimal,
+    val SamplesUsed: int
+)
+
+class CreateVehicleRequest {
+    var RegistrationNumber: string = ""
+    var Model: string = ""
+    var FuelType: string = ""
+    var TypicalMonthlyDistanceKm: decimal = 0
+    var Status: VehicleStatusDto = VehicleStatusDto()
+
+    func ToStatus() -> VehicleStatus {
+        return Status.ToStatus()
+    }
+}
+
+class AddFuelConsumptionRequest {
+    var RecordedAtUtc: DateTimeOffset = DateTimeOffset.UtcNow
+    var DistanceDrivenKm: decimal = 0
+    var LitersFilled: decimal = 0
+    var TotalCost: decimal = 0
+}
+
+class VehicleStatusDto {
+    var Kind: string = ""
+    var DriverName: string? = null
+    var SinceUtc: DateTimeOffset? = null
+    var CurrentOdometerKm: decimal? = null
+    var Workshop: string? = null
+    var ExpectedReadyUtc: DateTimeOffset? = null
+    var Reason: string? = null
+    var RetiredUtc: DateTimeOffset? = null
+
+    static func CreateOperational(driverName: string?, sinceUtc: DateTimeOffset?, currentOdometerKm: decimal?) -> VehicleStatusDto {
+        val dto = VehicleStatusDto()
+        dto.Kind = "operational"
+        dto.DriverName = driverName
+        dto.SinceUtc = sinceUtc
+        dto.CurrentOdometerKm = currentOdometerKm
+        return dto
+    }
+
+    static func CreateMaintenance(workshop: string?, startedUtc: DateTimeOffset?, expectedReadyUtc: DateTimeOffset?, reason: string?) -> VehicleStatusDto {
+        val dto = VehicleStatusDto()
+        dto.Kind = "maintenance"
+        dto.Workshop = workshop
+        dto.SinceUtc = startedUtc
+        dto.ExpectedReadyUtc = expectedReadyUtc
+        dto.Reason = reason
+        return dto
+    }
+
+    static func CreateDecommissioned(retiredUtc: DateTimeOffset?, reason: string?) -> VehicleStatusDto {
+        val dto = VehicleStatusDto()
+        dto.Kind = "decommissioned"
+        dto.RetiredUtc = retiredUtc
+        dto.Reason = reason
+        return dto
+    }
+
+    static func FromStatus(status: VehicleStatus) -> VehicleStatusDto {
+        return status match {
+            .Operational(val driverName, val sinceUtc, val currentOdometerKm) => {
+                VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm)
+            }
+            .Maintenance(val workshop, val startedUtc, val expectedReadyUtc, val reason) => {
+                VehicleStatusDto.CreateMaintenance(workshop, startedUtc, expectedReadyUtc, reason)
+            }
+            .Decommissioned(val retiredUtc, val reason) => {
+                VehicleStatusDto.CreateDecommissioned(retiredUtc, reason)
+            }
+        }
+    }
+
+    func ToStatus() -> VehicleStatus {
+        val normalized = Kind.Trim().ToLowerInvariant()
+        return normalized match {
+            "operational" => {
+                val driver = DriverName ?? "Unknown"
+                val since = SinceUtc ?? DateTimeOffset.UtcNow
+                val odometer = CurrentOdometerKm ?? 0m
+                val status: VehicleStatus = .Operational(driverName: driver, sinceUtc: since, currentOdometerKm: odometer)
+                status
+            }
+            "maintenance" => {
+                val workshop = Workshop ?? "Unknown workshop"
+                val started = SinceUtc ?? DateTimeOffset.UtcNow
+                val reason = Reason ?? "Unspecified"
+                val status: VehicleStatus = .Maintenance(workshop: workshop, startedUtc: started, expectedReadyUtc: ExpectedReadyUtc, reason: reason)
+                status
+            }
+            _ => {
+                val retired = RetiredUtc ?? DateTimeOffset.UtcNow
+                val reason = Reason ?? "Unspecified"
+                val status: VehicleStatus = .Decommissioned(retiredUtc: retired, reason: reason)
+                status
+            }
+        }
+    }
+}

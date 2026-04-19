@@ -1,0 +1,9 @@
+import System.Linq.*
+
+static class VehicleAppServices {
+    static func Test(vehicle: VehicleEntity) -> FuelConsumptionRecord[] {
+        return vehicle.FuelConsumptions
+            .OrderByDescending(entry => entry.RecordedAtUtc)
+            .ToArray()
+    }
+}

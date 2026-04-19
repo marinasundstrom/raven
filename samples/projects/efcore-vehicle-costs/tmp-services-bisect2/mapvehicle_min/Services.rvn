@@ -1,0 +1,12 @@
+static class VehicleAppServices {
+    static func Test(vehicle: VehicleEntity, entries: FuelConsumptionResponse[]) -> VehicleResponse {
+        return VehicleResponse(
+            vehicle.Id,
+            vehicle.RegistrationNumber,
+            vehicle.Model,
+            vehicle.FuelType,
+            vehicle.TypicalMonthlyDistanceKm,
+            VehicleStatusDto.FromStatus(vehicle.GetStatus()),
+            entries)
+    }
+}

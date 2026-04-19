@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: vehicle-costs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vehicle_costs
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - vehicle-costs-db:/var/lib/postgresql/data
+
+volumes:
+  vehicle-costs-db:

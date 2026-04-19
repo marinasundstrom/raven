@@ -1,0 +1,63 @@
+import System.*
+import System.Text.Json.*
+import System.Collections.Generic.*
+
+union VehicleStatus {
+    Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
+    Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
+    Decommissioned(retiredUtc: DateTimeOffset, reason: string)
+}
+
+class VehicleEntity {
+    var Id: Guid = Guid.NewGuid()
+    var RegistrationNumber: string = ""
+    var Model: string = ""
+    var FuelType: string = ""
+    var TypicalMonthlyDistanceKm: decimal = 0
+    var StatusJson: string = ""
+    var FuelConsumptions: List<FuelConsumptionRecord> = []
+
+    func GetStatus() -> VehicleStatus {
+        return VehicleStatusJson.DecodeStatus(StatusJson)
+    }
+
+    func SetStatus(status: VehicleStatus) {
+        StatusJson = VehicleStatusJson.EncodeStatus(status)
+    }
+}
+
+class FuelConsumptionRecord {
+    var Id: int = 0
+    var VehicleId: Guid = Guid.Empty
+    var Vehicle: VehicleEntity? = null
+    var RecordedAtUtc: DateTimeOffset = DateTimeOffset.UtcNow
+    var DistanceDrivenKm: decimal = 0
+    var LitersFilled: decimal = 0
+    var TotalCost: decimal = 0
+}
+
+static class VehicleStatusJson {
+    static func EncodeStatus(status: VehicleStatus) -> string {
+        return status match {
+            .Operational(val driverName, val sinceUtc, val currentOdometerKm) => {
+                JsonSerializer.Serialize(VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm))
+            }
+            .Maintenance(val workshop, val startedUtc, val expectedReadyUtc, val reason) => {
+                JsonSerializer.Serialize(VehicleStatusDto.CreateMaintenance(workshop, startedUtc, expectedReadyUtc, reason))
+            }
+            .Decommissioned(val retiredUtc, val reason) => {
+                JsonSerializer.Serialize(VehicleStatusDto.CreateDecommissioned(retiredUtc, reason))
+            }
+        }
+    }
+
+    static func DecodeStatus(json: string) -> VehicleStatus {
+        val dto = JsonSerializer.Deserialize<VehicleStatusDto>(json)
+        if dto is null {
+            val fallback: VehicleStatus = .Decommissioned(DateTimeOffset.UtcNow, "Failed to deserialize status")
+            return fallback
+        }
+
+        return dto.ToStatus()
+    }
+}

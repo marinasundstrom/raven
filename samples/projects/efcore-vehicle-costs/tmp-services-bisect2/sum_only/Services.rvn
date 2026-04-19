@@ -1,0 +1,7 @@
+import System.Linq.*
+
+static class VehicleAppServices {
+    static func Test(samples: FuelConsumptionRecord[]) -> decimal {
+        return samples.Sum(entry => entry.DistanceDrivenKm)
+    }
+}

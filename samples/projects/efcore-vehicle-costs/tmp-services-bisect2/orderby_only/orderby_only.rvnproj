@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>orderby_only</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="../../src/Contracts/Contracts.rvn" />
+    <RavenCompile Include="../../src/Domain/Domain.rvn" />
+    <RavenCompile Include="Main.rvn" />
+    <RavenCompile Include="Services.rvn" />
+  </ItemGroup>
+</Project>

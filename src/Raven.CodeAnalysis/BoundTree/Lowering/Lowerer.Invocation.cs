@@ -95,8 +95,11 @@ internal sealed partial class Lowerer
         var statements = new List<BoundStatement>();
 
         BoundExpression? hoistedReceiver = null;
-        if (receiver is not null)
+        if (receiver is not null &&
+            !(invocation.Method.IsStatic && receiver is BoundTypeExpression))
             hoistedReceiver = HoistToTemp(receiver, "callReceiver", statements, compilation);
+        else
+            hoistedReceiver = receiver;
 
         var hoistedArguments = new BoundExpression[arguments.Length];
         for (var i = 0; i < arguments.Length; i++)

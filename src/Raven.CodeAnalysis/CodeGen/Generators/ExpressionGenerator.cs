@@ -115,6 +115,12 @@ internal partial class ExpressionGenerator : Generator
             if (addressInfo.Kind != EmitValueKind.None)
                 return addressInfo;
 
+            if (expression is BoundTypeExpression)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot take the address of type expression '{expression.Type?.ToDisplayString() ?? "<type>"}'.");
+            }
+
             // Fallback: evaluate the value once, spill to a temp, then load its managed address.
             var tmpType = ResolveClrType(expression.Type);
             var tmp = ILGenerator.DeclareLocal(tmpType);

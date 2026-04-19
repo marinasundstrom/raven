@@ -197,8 +197,18 @@ internal sealed partial class Lowerer
             case BoundParameterAccess parameterAccess:
                 if (!parameterLocals.TryGetValue(parameterAccess.Parameter, out var parameterLocal))
                 {
-                    context.MarkUnsupported(expression, "parameter is not part of the expression-tree lambda signature");
-                    return false;
+                    var value = (BoundExpression)parameterAccess;
+                    var boxedValue = parameterAccess.Type.IsValueType
+                        ? new BoundConversionExpression(value, objectType, compilation.ClassifyConversion(parameterAccess.Type, objectType))
+                        : value;
+
+                    var valueTypeOf = new BoundTypeOfExpression(parameterAccess.Type, systemType);
+                    if (!TryCreateExpressionFactoryCall("Constant", [boxedValue, valueTypeOf], expressionType, out var capturedConstant))
+                        return false;
+
+                    lowered = capturedConstant;
+                    context.MarkLowered(expression, lowered);
+                    return true;
                 }
 
                 lowered = new BoundLocalAccess(parameterLocal);
@@ -233,6 +243,25 @@ internal sealed partial class Lowerer
                     }
 
                     var valueTypeOf = new BoundTypeOfExpression(literal.Type, systemType);
+                    if (!TryCreateExpressionFactoryCall("Constant", [valueExpr, valueTypeOf], expressionType, out var constant))
+                        return false;
+
+                    lowered = constant;
+                    context.MarkLowered(expression, lowered);
+                    return true;
+                }
+
+            case BoundSelfExpression selfExpression:
+                {
+                    BoundExpression valueExpr = selfExpression;
+                    if (selfExpression.Type.IsValueType)
+                    {
+                        var boxing = compilation.ClassifyConversion(selfExpression.Type, objectType);
+                        if (boxing.Exists && !boxing.IsIdentity)
+                            valueExpr = new BoundConversionExpression(selfExpression, objectType, boxing);
+                    }
+
+                    var valueTypeOf = new BoundTypeOfExpression(selfExpression.Type, systemType);
                     if (!TryCreateExpressionFactoryCall("Constant", [valueExpr, valueTypeOf], expressionType, out var constant))
                         return false;
 

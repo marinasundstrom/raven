@@ -1,0 +1,25 @@
+import System.*
+import System.Linq.*
+
+static class VehicleAppServices {
+    static func MapVehicle(vehicle: VehicleEntity) -> VehicleResponse {
+        val entries = vehicle.FuelConsumptions
+            .OrderByDescending(entry => entry.RecordedAtUtc)
+            .Select(entry => FuelConsumptionResponse(
+                entry.Id,
+                entry.RecordedAtUtc,
+                entry.DistanceDrivenKm,
+                entry.LitersFilled,
+                entry.TotalCost))
+            .ToArray()
+
+        return VehicleResponse(
+            vehicle.Id,
+            vehicle.RegistrationNumber,
+            vehicle.Model,
+            vehicle.FuelType,
+            vehicle.TypicalMonthlyDistanceKm,
+            VehicleStatusDto.FromStatus(vehicle.GetStatus()),
+            entries)
+    }
+}

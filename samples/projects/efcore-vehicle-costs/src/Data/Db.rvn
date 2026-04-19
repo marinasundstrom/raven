@@ -1,0 +1,17 @@
+import System.*
+import Microsoft.EntityFrameworkCore.*
+class VehicleDbContext : DbContext {
+    init(options: DbContextOptions<VehicleDbContext>): base(options) {}
+
+    #pragma warning disable-next-line RAV9006
+    var Vehicles: DbSet<VehicleEntity>
+
+    #pragma warning disable-next-line RAV9006
+    var FuelConsumptions: DbSet<FuelConsumptionRecord>
+
+    protected override func OnModelCreating(modelBuilder: ModelBuilder) {
+        // Keep the sample on convention-based mapping. The union is persisted through the
+        // explicit StatusJson string property, which Raven can reason about more reliably than
+        // the full EF fluent configuration shape today.
+    }
+}

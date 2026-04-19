@@ -1,0 +1,115 @@
+import System.*
+import System.Linq.*
+import System.Threading.*
+import System.Threading.Tasks.*
+import Microsoft.AspNetCore.Builder.*
+import Microsoft.AspNetCore.Http.*
+import Microsoft.EntityFrameworkCore.*
+import Microsoft.Extensions.DependencyInjection.*
+
+class VehicleCostsApiApp {
+    static async func Main(args: string[]) -> Task {
+        val builder = WebApplication.CreateBuilder(args)
+        builder.Services.AddEndpointsApiExplorer()
+        builder.Services.AddOpenApi()
+        builder.Services.AddDbContext<VehicleDbContext>(func (options: DbContextOptionsBuilder) {
+            options.UseNpgsql(VehicleAppServices.GetConnectionString())
+        })
+
+        val app = builder.Build()
+        app.MapOpenApi()
+
+        use scope = app.Services.CreateScope()
+        val seedDb = scope.ServiceProvider.GetRequiredService<VehicleDbContext>()
+        await VehicleSeedData.SeedAsync(seedDb, CancellationToken.None)
+
+        app.MapGet("/", func () => Results.Redirect("/openapi/v1.json"))
+
+        app.MapGet("/vehicles", async func (context: VehicleDbContext, cancellationToken: CancellationToken) {
+            val vehicles = await context.Vehicles
+                .Include(vehicle => vehicle.FuelConsumptions)
+                .OrderBy(vehicle => vehicle.RegistrationNumber)
+                .ToListAsync(cancellationToken)
+
+            return Results.Ok(vehicles.Select(VehicleAppServices.MapVehicle).ToArray())
+        })
+
+        app.MapGet("/vehicles/{id:guid}", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
+            val vehicle = await context.Vehicles
+                .Include(candidate => candidate.FuelConsumptions)
+                .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
+
+            if vehicle is null {
+                return Results.NotFound()
+            }
+
+            return Results.Ok(VehicleAppServices.MapVehicle(vehicle))
+        })
+
+        app.MapGet("/vehicles/by-status/{kind}", async func (kind: string, context: VehicleDbContext, cancellationToken: CancellationToken) {
+            val vehicles = await context.Vehicles
+                .Include(vehicle => vehicle.FuelConsumptions)
+                .ToListAsync(cancellationToken)
+
+            return Results.Ok(
+                vehicles
+                    .Where(vehicle => VehicleAppServices.StatusMatches(vehicle.GetStatus(), kind))
+                    .Select(VehicleAppServices.MapVehicle)
+                    .ToArray())
+        })
+
+        app.MapGet("/vehicles/{id:guid}/cost-prediction", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
+            val vehicle = await context.Vehicles
+                .Include(candidate => candidate.FuelConsumptions)
+                .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
+
+            if vehicle is null {
+                return Results.NotFound()
+            }
+
+            return Results.Ok(VehicleAppServices.PredictCosts(vehicle))
+        })
+
+        app.MapPost("/vehicles", async func (request: CreateVehicleRequest, context: VehicleDbContext, cancellationToken: CancellationToken) {
+            val vehicle = VehicleEntity()
+            vehicle.RegistrationNumber = request.RegistrationNumber.Trim().ToUpperInvariant()
+            vehicle.Model = request.Model.Trim()
+            vehicle.FuelType = request.FuelType
+            vehicle.TypicalMonthlyDistanceKm = request.TypicalMonthlyDistanceKm
+            vehicle.SetStatus(request.ToStatus())
+
+            context.Vehicles.Add(vehicle)
+            _ = await context.SaveChangesAsync(cancellationToken)
+
+            return Results.Created("/vehicles/${vehicle.Id.ToString()}", VehicleAppServices.MapVehicle(vehicle))
+        })
+
+        app.MapPost("/vehicles/{id:guid}/fuel-consumptions", async func (
+            id: Guid,
+            request: AddFuelConsumptionRequest,
+            context: VehicleDbContext,
+            cancellationToken: CancellationToken) {
+            val vehicle = await context.Vehicles
+                .Include(candidate => candidate.FuelConsumptions)
+                .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
+
+            if vehicle is null {
+                return Results.NotFound()
+            }
+
+            val entry = FuelConsumptionRecord()
+            entry.VehicleId = vehicle.Id
+            entry.RecordedAtUtc = request.RecordedAtUtc
+            entry.DistanceDrivenKm = request.DistanceDrivenKm
+            entry.LitersFilled = request.LitersFilled
+            entry.TotalCost = request.TotalCost
+
+            vehicle.FuelConsumptions.Add(entry)
+            _ = await context.SaveChangesAsync(cancellationToken)
+
+            return Results.Accepted("/vehicles/${vehicle.Id.ToString()}", VehicleAppServices.MapVehicle(vehicle))
+        })
+
+        app.Run()
+    }
+}

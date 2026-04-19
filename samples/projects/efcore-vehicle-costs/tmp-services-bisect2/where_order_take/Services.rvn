@@ -1,0 +1,11 @@
+import System.Linq.*
+
+static class VehicleAppServices {
+    static func Test(vehicle: VehicleEntity) -> FuelConsumptionRecord[] {
+        return vehicle.FuelConsumptions
+            .Where(entry => entry.DistanceDrivenKm > 0 && entry.LitersFilled > 0 && entry.TotalCost > 0)
+            .OrderByDescending(entry => entry.RecordedAtUtc)
+            .Take(6)
+            .ToArray()
+    }
+}

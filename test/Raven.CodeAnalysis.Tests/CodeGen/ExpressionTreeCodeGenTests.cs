@@ -119,4 +119,58 @@ class Demo {
 
         Assert.Equal(42, task.GetAwaiter().GetResult());
     }
+
+    [Fact]
+    public void ExpressionTree_LambdaInsideAsyncLambdaCapturingLambdaParameter_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+import System.Linq.Expressions.*
+
+class QueryHost {
+    static async func Use(id: Guid, predicate: Expression<System.Func<Guid, bool>>) -> Task<int> {
+        val compiled = predicate.Compile()
+        if compiled(id) {
+            return await Task.FromResult(1)
+        }
+
+        return await Task.FromResult(0)
+    }
+}
+
+class Demo {
+    static func Register(handler: System.Func<Guid, Task<int>>) -> System.Func<Guid, Task<int>> {
+        return handler
+    }
+
+    static async func Run(id: Guid) -> Task<int> {
+        val handler = Register(async func (captured: Guid) -> Task<int> {
+            return await QueryHost.Use(captured, candidate => candidate == captured)
+        })
+
+        return await handler(id)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var demoType = loaded.Assembly.GetType("Demo", throwOnError: true)!;
+        var run = demoType.GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+        var id = Guid.NewGuid();
+        var task = (Task<int>)run.Invoke(null, [id])!;
+
+        Assert.Equal(1, task.GetAwaiter().GetResult());
+    }
 }

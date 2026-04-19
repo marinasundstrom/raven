@@ -1,0 +1,14 @@
+import System.Linq.*
+
+static class VehicleAppServices {
+    static func Test(vehicle: VehicleEntity) -> FuelConsumptionResponse[] {
+        return vehicle.FuelConsumptions
+            .Select(entry => FuelConsumptionResponse(
+                entry.Id,
+                entry.RecordedAtUtc,
+                entry.DistanceDrivenKm,
+                entry.LitersFilled,
+                entry.TotalCost))
+            .ToArray()
+    }
+}

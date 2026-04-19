@@ -1,0 +1,15 @@
+import System.*
+
+static class VehicleAppServices {
+    static func GetConnectionString() -> string {
+        val environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
+        if environment is not null {
+            val trimmed = environment.Trim()
+            if trimmed.Length > 0 {
+                return trimmed
+            }
+        }
+
+        return "Host=localhost;Port=5432;Database=vehicle_costs;Username=postgres;Password=postgres"
+    }
+}

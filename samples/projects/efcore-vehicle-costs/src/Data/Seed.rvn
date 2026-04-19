@@ -1,0 +1,54 @@
+import System.*
+import System.Threading.*
+import System.Threading.Tasks.*
+import Microsoft.EntityFrameworkCore.*
+
+static class VehicleSeedData {
+    static func SeedAsync(db: VehicleDbContext, cancellationToken: CancellationToken) -> Task {
+        return SeedInternalAsync(db, cancellationToken)
+    }
+
+    static async func SeedInternalAsync(db: VehicleDbContext, cancellationToken: CancellationToken) -> Task {
+        await db.Database.EnsureCreatedAsync(cancellationToken)
+
+        if !await db.Vehicles.AnyAsync(cancellationToken) {
+            val van = VehicleEntity()
+            van.RegistrationNumber = "RAV-101"
+            van.Model = "Ford Transit"
+            van.FuelType = "Diesel"
+            van.TypicalMonthlyDistanceKm = 2400
+            van.SetStatus(.Operational("Alex", DateTimeOffset.UtcNow.AddDays(-45), 125430))
+
+            AddFuel(van, DateTimeOffset.UtcNow.AddDays(-30), 612.5m, 49.1m, 89.44m)
+            AddFuel(van, DateTimeOffset.UtcNow.AddDays(-16), 584.2m, 46.8m, 85.06m)
+            AddFuel(van, DateTimeOffset.UtcNow.AddDays(-3), 603.7m, 48.0m, 88.32m)
+
+            val hatchback = VehicleEntity()
+            hatchback.RegistrationNumber = "RAV-202"
+            hatchback.Model = "Toyota Yaris Hybrid"
+            hatchback.FuelType = "Hybrid"
+            hatchback.TypicalMonthlyDistanceKm = 1100
+            hatchback.SetStatus(.Maintenance(
+                "North Garage",
+                DateTimeOffset.UtcNow.AddDays(-2),
+                DateTimeOffset.UtcNow.AddDays(3),
+                "Scheduled brake service"))
+
+            AddFuel(hatchback, DateTimeOffset.UtcNow.AddDays(-28), 421.8m, 18.6m, 33.29m)
+            AddFuel(hatchback, DateTimeOffset.UtcNow.AddDays(-9), 398.4m, 17.4m, 31.32m)
+
+            db.Vehicles.Add(van)
+            db.Vehicles.Add(hatchback)
+            _ = await db.SaveChangesAsync(cancellationToken)
+        }
+    }
+
+    static func AddFuel(vehicle: VehicleEntity, recordedAtUtc: DateTimeOffset, distanceDrivenKm: decimal, litersFilled: decimal, totalCost: decimal) {
+        val entry = FuelConsumptionRecord()
+        entry.RecordedAtUtc = recordedAtUtc
+        entry.DistanceDrivenKm = distanceDrivenKm
+        entry.LitersFilled = litersFilled
+        entry.TotalCost = totalCost
+        vehicle.FuelConsumptions.Add(entry)
+    }
+}

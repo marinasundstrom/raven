@@ -1,0 +1,22 @@
+import System.*
+
+static class VehicleAppServices {
+    static func StatusMatches(status: VehicleStatus, kind: string) -> bool {
+        val normalized = kind.Trim().ToLowerInvariant()
+        return normalized match {
+            "operational" => status match {
+                .Operational(_, _, _) => true
+                _ => false
+            }
+            "maintenance" => status match {
+                .Maintenance(_, _, _, _) => true
+                _ => false
+            }
+            "decommissioned" => status match {
+                .Decommissioned(_, _) => true
+                _ => false
+            }
+            _ => false
+        }
+    }
+}

@@ -1,0 +1,27 @@
+@VehicleCostsApi_Host = http://localhost:5184
+
+GET {{VehicleCostsApi_Host}}/vehicles
+Accept: application/json
+
+###
+
+GET {{VehicleCostsApi_Host}}/vehicles/by-status/maintenance
+Accept: application/json
+
+###
+
+POST {{VehicleCostsApi_Host}}/vehicles
+Content-Type: application/json
+
+{
+  "registrationNumber": "RAV-303",
+  "model": "Skoda Octavia",
+  "fuelType": "Diesel",
+  "typicalMonthlyDistanceKm": 1800,
+  "status": {
+    "$type": "operational",
+    "driverName": "Robin",
+    "sinceUtc": "2026-04-01T08:00:00Z",
+    "currentOdometerKm": 88410
+  }
+}
