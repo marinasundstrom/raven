@@ -1453,7 +1453,12 @@ internal sealed class ObjectCreationOperation : Operation, IObjectCreationOperat
 
             _initializerInitialized = true;
 
-            var syntaxInitializer = (Syntax as InvocationExpressionSyntax)?.Initializer;
+            SyntaxNode? syntaxInitializer = Syntax switch
+            {
+                InvocationExpressionSyntax invocation => invocation.TrailingBlock,
+                WithExpressionSyntax withExpression => withExpression,
+                _ => null
+            };
 
             if (_bound.Initializer is null || syntaxInitializer is null)
                 return null;
@@ -1494,9 +1499,12 @@ internal sealed class ObjectInitializerOperation : Operation, IObjectInitializer
             if (_entries.HasValue)
                 return _entries.Value;
 
-            var syntaxEntries = Syntax is ObjectInitializerExpressionSyntax initializerSyntax
-                ? initializerSyntax.Entries.ToArray()
-                : [];
+            var syntaxEntries = Syntax switch
+            {
+                TrailingBlockExpressionSyntax trailingBlockSyntax => trailingBlockSyntax.Entries.ToArray<SyntaxNode>(),
+                WithExpressionSyntax withExpression => withExpression.Assignments.ToArray<SyntaxNode>(),
+                _ => []
+            };
             var boundEntries = _bound.Entries.ToArray();
             var builder = ImmutableArray.CreateBuilder<IOperation>();
 
@@ -1552,9 +1560,12 @@ internal sealed class ObjectInitializerAssignmentOperation : Operation, IObjectI
                 return _value;
 
             _valueInitialized = true;
-            var fallback = Syntax is ObjectInitializerAssignmentEntrySyntax assignmentEntry
-                ? assignmentEntry.Expression
-                : Syntax;
+            var fallback = Syntax switch
+            {
+                TrailingBlockAssignmentEntrySyntax assignmentEntry => assignmentEntry.Expression,
+                WithAssignmentSyntax withAssignment => withAssignment.Expression,
+                _ => Syntax
+            };
             _value = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Value, fallback);
             return _value;
         }
@@ -1592,7 +1603,7 @@ internal sealed class ObjectInitializerExpressionEntryOperation : Operation, IOb
                 return _expression;
 
             _expressionInitialized = true;
-            var fallback = Syntax is ObjectInitializerExpressionEntrySyntax expressionEntry
+            var fallback = Syntax is TrailingBlockExpressionEntrySyntax expressionEntry
                 ? expressionEntry.Expression
                 : Syntax;
             _expression = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Expression, fallback);

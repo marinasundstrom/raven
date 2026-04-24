@@ -1111,22 +1111,22 @@
   <Node Name="TypeDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="BaseTypeDeclaration" />
   </Node>
-  <Node Name="ObjectInitializerExpression" Inherits="Expression">
+  <Node Name="TrailingBlockExpression" Inherits="Expression">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
-    <Slot Name="Entries" Type="List" ElementType="ObjectInitializerEntry" />
+    <Slot Name="Entries" Type="List" ElementType="TrailingBlockEntry" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
   </Node>
 
-  <Node Name="ObjectInitializerEntry" Inherits="Node" IsAbstract="true" />
+  <Node Name="TrailingBlockEntry" Inherits="Node" IsAbstract="true" />
 
-  <Node Name="ObjectInitializerAssignmentEntry" Inherits="ObjectInitializerEntry">
+  <Node Name="TrailingBlockAssignmentEntry" Inherits="TrailingBlockEntry">
     <Slot Name="Name" Type="IdentifierName" />
     <Slot Name="EqualsToken" Type="Token" DefaultToken="EqualsToken" />
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
 
-  <Node Name="ObjectInitializerExpressionEntry" Inherits="ObjectInitializerEntry">
+  <Node Name="TrailingBlockExpressionEntry" Inherits="TrailingBlockEntry">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
@@ -1179,7 +1179,7 @@
   <Node Name="InvocationExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ArgumentList" Type="ArgumentList" />
-    <Slot Name="Initializer" Type="ObjectInitializerExpression" IsNullable="true" />
+    <Slot Name="TrailingBlock" Type="TrailingBlockExpression" IsNullable="true" />
   </Node>
   <Node Name="ExpressionOrPattern" Inherits="Node" IsAbstract="true" />
   <Node Name="VariableDeclarator" Inherits="Node">

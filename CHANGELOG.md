@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-04-24**.
 
 ### Changed
 - Object initialization can now use the `Type with { ... }` form. The compiler binds this through the existing object-initializer path, so `init`, `required`, compound assignment, and event subscription semantics are preserved while brace trailers remain available for future DSL work.
+- Brace trailers are now represented in the syntax tree as `TrailingBlockExpression` nodes with `TrailingBlockEntry` children instead of object-initializer syntax nodes, matching their role as the future DSL block surface.
+- Brace trailers no longer bind as object initializers. They now report a dedicated trailing-DSL diagnostic until DSL binding support is introduced.
 - The language docs and reference spec now describe the current union-body model more directly: body-form unions use `case` declarations inside an ordinary member body, may contain authored members beside cases, may be declared `partial`, reserve `Value`/`HasValue`, and follow record-like `ToString()` override behavior while still rejecting authored union equality/hash special members.
 - The compiler diagnostics reference now includes the union-specific reserved-name and unsupported-special-member diagnostics `RAV2111` and `RAV2112`.
 - Language-server semantic tokens now recognize string arguments passed to parameters annotated with `System.Diagnostics.CodeAnalysis.StringSyntaxAttribute.Regex` and classify those literals as `regexp`.

@@ -1311,7 +1311,7 @@ val button = Button with {
 
 Property entries are applied to the newly created instance in source order.
 
-Brace trailers after expressions are reserved for DSL-style blocks and are not the canonical object-initializer form.
+Brace trailers after expressions are reserved for DSL-style blocks and are represented in the syntax tree as trailing block expressions, not object initializers. Until a type opts into DSL trailing blocks, the compiler reports an error for `Type { ... }` and `value { ... }`; use `Type with { ... }` for object initialization and `value with { ... }` for non-destructive updates.
 
 #### Required members and init semantics
 

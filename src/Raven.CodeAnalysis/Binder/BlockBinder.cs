@@ -8403,6 +8403,9 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
     {
+        if (syntax.TrailingBlock is not null)
+            return BindUnsupportedTrailingBlockExpression(syntax);
+
         BoundExpression? receiver;
         string methodName;
 
@@ -8686,6 +8689,59 @@ partial class BlockBinder : Binder
         }
 
         return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
+    }
+
+    private BoundExpression BindUnsupportedTrailingBlockExpression(InvocationExpressionSyntax syntax)
+    {
+        var receiver = BindExpression(syntax.Expression);
+        var typeName = receiver switch
+        {
+            BoundTypeExpression typeExpression => typeExpression.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            BoundExpression { Type.TypeKind: not TypeKind.Error } expression => expression.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            _ => syntax.Expression.ToString()
+        };
+
+        foreach (var argument in syntax.ArgumentList.Arguments)
+            _ = BindExpression(argument.Expression, allowReturn: false);
+
+        var entries = BindTrailingBlockEntries(syntax.TrailingBlock);
+        _diagnostics.ReportTypeDoesNotSupportTrailingBlock(typeName, syntax.TrailingBlock.GetLocation());
+
+        return new BoundTrailingBlockExpression(
+            receiver,
+            entries,
+            Compilation.ErrorTypeSymbol,
+            BoundExpressionReason.UnsupportedOperation);
+    }
+
+    private ImmutableArray<BoundTrailingBlockEntry> BindTrailingBlockEntries(TrailingBlockExpressionSyntax trailingBlock)
+    {
+        var entries = ImmutableArray.CreateBuilder<BoundTrailingBlockEntry>(trailingBlock.Entries.Count);
+
+        foreach (var entry in trailingBlock.Entries)
+        {
+            switch (entry)
+            {
+                case TrailingBlockAssignmentEntrySyntax assignment:
+                    {
+                        var value = BindExpression(assignment.Expression, allowReturn: false);
+                        entries.Add(new BoundTrailingBlockAssignmentEntry(
+                            assignment.Name.Identifier.ValueText,
+                            assignment.EqualsToken.Kind,
+                            value));
+                        break;
+                    }
+
+                case TrailingBlockExpressionEntrySyntax expressionEntry:
+                    {
+                        var expression = BindExpression(expressionEntry.Expression, allowReturn: false);
+                        entries.Add(new BoundTrailingBlockExpressionEntry(expression));
+                        break;
+                    }
+            }
+        }
+
+        return entries.ToImmutable();
     }
 
     private static bool IsInvocableValueReceiver(BoundExpression expression)
@@ -15189,7 +15245,7 @@ partial class BlockBinder : Binder
 
     private BoundObjectInitializer BindObjectInitializer(
      ITypeSymbol instanceType,
-     ObjectInitializerExpressionSyntax initializer)
+     TrailingBlockExpressionSyntax trailingBlock)
     {
         _objectInitializerDepth++;
         try
@@ -15223,24 +15279,24 @@ partial class BlockBinder : Binder
                 }
             }
 
-            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
+            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(trailingBlock.Entries.Count);
 
             var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
             var seenContentEntry = false;
 
-            foreach (var entry in initializer.Entries)
+            foreach (var entry in trailingBlock.Entries)
             {
                 switch (entry)
                 {
-                    case ObjectInitializerAssignmentEntrySyntax assignment:
+                    case TrailingBlockAssignmentEntrySyntax assignment:
                         {
-                            var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
+                            var boundEntry = BindTrailingBlockAssignmentEntry(instanceType, assignment);
                             if (boundEntry is not null)
                                 entries.Add(boundEntry);
                             break;
                         }
 
-                    case ObjectInitializerExpressionEntrySyntax exprEntry:
+                    case TrailingBlockExpressionEntrySyntax exprEntry:
                         {
                             if (!hasContentConvention)
                             {
@@ -15312,7 +15368,7 @@ partial class BlockBinder : Binder
 
             foreach (var assignment in initializer.Assignments)
             {
-                var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
+                var boundEntry = BindTrailingBlockAssignmentEntry(instanceType, assignment);
                 if (boundEntry is not null)
                     entries.Add(boundEntry);
             }
@@ -15325,25 +15381,25 @@ partial class BlockBinder : Binder
         }
     }
 
-    private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
+    private BoundObjectInitializerAssignmentEntry? BindTrailingBlockAssignmentEntry(
      ITypeSymbol receiverType,
-     ObjectInitializerAssignmentEntrySyntax assignment)
-        => BindObjectInitializerAssignmentEntry(
+     TrailingBlockAssignmentEntrySyntax assignment)
+        => BindTrailingBlockAssignmentEntry(
             receiverType,
             assignment.Name,
             assignment.EqualsToken,
             assignment.Expression);
 
-    private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
+    private BoundObjectInitializerAssignmentEntry? BindTrailingBlockAssignmentEntry(
      ITypeSymbol receiverType,
      WithAssignmentSyntax assignment)
-        => BindObjectInitializerAssignmentEntry(
+        => BindTrailingBlockAssignmentEntry(
             receiverType,
             assignment.Name,
             assignment.EqualsToken,
             assignment.Expression);
 
-    private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
+    private BoundObjectInitializerAssignmentEntry? BindTrailingBlockAssignmentEntry(
      ITypeSymbol receiverType,
      IdentifierNameSyntax assignmentName,
      SyntaxToken operatorToken,

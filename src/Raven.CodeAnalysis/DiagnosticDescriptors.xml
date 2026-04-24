@@ -139,6 +139,10 @@
     Title="With-expression assigns a member multiple times"
     Message="The member '{memberName}' is assigned more than once in the with-expression"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0242" Identifier="TypeDoesNotSupportTrailingBlock"
+    Title="Type does not support trailing DSL blocks"
+    Message="The type '{typeName}' does not support trailing DSL blocks. Use 'with' for object initialization."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2700" Identifier="AwaitExpressionRequiresAsyncContext"
     Title="await needs async"
     Message="The 'await' operator can only be used within an async method or function"

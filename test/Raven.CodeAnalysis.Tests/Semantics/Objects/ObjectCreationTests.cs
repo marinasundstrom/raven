@@ -372,7 +372,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void ObjectInitializer_WithoutParens_RemainsSupported()
+    public void TrailingBlock_OnTypeWithoutDslSupport_ReportsDiagnostic()
     {
         string testCode =
             """
@@ -383,13 +383,19 @@ public class ObjectCreationTests : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode);
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
+                    .WithAnySpan()
+                    .WithArguments("Foo")
+            ]);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void ObjectInitializer_AssigningValProperty_ReportsReadOnlyDiagnostic()
+    public void TrailingBlock_AssigningValProperty_ReportsDslDiagnostic()
     {
         const string testCode =
             """
@@ -405,16 +411,16 @@ public class ObjectCreationTests : DiagnosticTestBase
         var verifier = CreateVerifier(
             testCode,
             expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.PropertyOrIndexerCannotBeAssignedIsReadOnly.Id)
+                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
                     .WithAnySpan()
-                    .WithArguments("Name")
+                    .WithArguments("Foo")
             ]);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void ObjectInitializer_AssigningVarProperty_BindsWithoutDiagnostics()
+    public void TrailingBlock_AssigningVarProperty_ReportsDslDiagnostic()
     {
         const string testCode =
             """
@@ -427,13 +433,19 @@ public class ObjectCreationTests : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode);
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
+                    .WithAnySpan()
+                    .WithArguments("Foo")
+            ]);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void ObjectInitializer_AssigningInitOnlyProperty_BindsWithoutDiagnostics()
+    public void TrailingBlock_AssigningInitOnlyProperty_ReportsDslDiagnostic()
     {
         const string testCode =
             """
@@ -446,7 +458,13 @@ public class ObjectCreationTests : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(testCode);
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
+                    .WithAnySpan()
+                    .WithArguments("Foo")
+            ]);
 
         verifier.Verify();
     }

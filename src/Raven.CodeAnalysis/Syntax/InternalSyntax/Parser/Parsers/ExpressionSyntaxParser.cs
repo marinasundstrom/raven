@@ -1330,14 +1330,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 var argumentList = ParseArgumentListSyntax();
 
-                // Object initializer may immediately follow an invocation: Foo(...) { ... }
+                // A trailing block may immediately follow an invocation: Foo(...) { ... }
                 // But in statement/header contexts (for/if/while conditions), `{` begins the body block,
-                // so we must not consume it as an initializer.
-                ObjectInitializerExpressionSyntax? initializer = null;
+                // so we must not consume it as a trailing block.
+                TrailingBlockExpressionSyntax? trailingBlock = null;
                 if (!_stopOnOpenBrace && PeekToken().IsKind(SyntaxKind.OpenBraceToken))
-                    initializer = ParseObjectInitializerExpression();
+                    trailingBlock = ParseTrailingBlockExpression();
 
-                expr = InvocationExpression(expr, argumentList, initializer);
+                expr = InvocationExpression(expr, argumentList, trailingBlock);
             }
             else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) // Member Access
             {
@@ -1380,28 +1380,28 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 expr = ElementAccessExpression(expr, argumentList);
             }
-            else if (token.IsKind(SyntaxKind.OpenBraceToken)) // Object initializer trailer (SwiftUI/Flutter-style)
+            else if (token.IsKind(SyntaxKind.OpenBraceToken)) // Trailing block trailer (DSL-style)
             {
                 // A newline before '{' starts a new statement-level block scope.
-                // Keep object-initializer trailers as same-line syntax.
+                // Keep trailing blocks as same-line syntax.
                 if (HasLeadingNewLine(token))
                     return expr;
 
-                // Treat `<expr> { ... }` as an invocation with a missing argument list plus an initializer.
+                // Treat `<expr> { ... }` as an invocation with a missing argument list plus a trailing block.
                 // This enables: `Window { ... }` where `Window` is parsed as an IdentifierName.
 
-                var initializer = ParseObjectInitializerExpression();
+                var trailingBlock = ParseTrailingBlockExpression();
 
                 if (expr is InvocationExpressionSyntax inv)
                 {
-                    // If it's already an invocation (e.g. Foo() { ... }), just attach initializer.
-                    expr = InvocationExpression(inv.Expression, inv.ArgumentList, initializer);
+                    // If it's already an invocation (e.g. Foo() { ... }), just attach the trailing block.
+                    expr = InvocationExpression(inv.Expression, inv.ArgumentList, trailingBlock);
                 }
                 else
                 {
                     // Synthesize a missing argument list: `expr(/*missing*/){...}`
                     var missingArgs = CreateMissingArgumentList();
-                    expr = InvocationExpression(expr, missingArgs, initializer);
+                    expr = InvocationExpression(expr, missingArgs, trailingBlock);
                 }
             }
             else if (token.IsKind(SyntaxKind.WithKeyword)) // With-expression trailer: `<expr> with { ... }`
@@ -3103,7 +3103,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return WithAssignment(name, equalsToken, expression, terminatorToken);
     }
 
-    private ObjectInitializerExpressionSyntax ParseObjectInitializerExpression()
+    private TrailingBlockExpressionSyntax ParseTrailingBlockExpression()
     {
         // We assume current token is '{'
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
@@ -3114,7 +3114,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         EnterParens();
         try
         {
-            var entries = new List<ObjectInitializerEntrySyntax>();
+            var entries = new List<TrailingBlockEntrySyntax>();
 
             while (true)
             {
@@ -3126,7 +3126,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     break;
 
                 var entryStart = Position;
-                var entry = ParseObjectInitializerEntry();
+                var entry = ParseTrailingBlockEntry();
 
                 if (Position == entryStart)
                 {
@@ -3149,7 +3149,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             SetTreatNewlinesAsTokens(false);
 
-            return ObjectInitializerExpression(openBraceToken, List(entries.ToArray()), closeBraceToken);
+            return TrailingBlockExpression(openBraceToken, List(entries.ToArray()), closeBraceToken);
         }
         finally
         {
@@ -3158,7 +3158,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
     }
 
-    private ObjectInitializerEntrySyntax ParseObjectInitializerEntry()
+    private TrailingBlockEntrySyntax ParseTrailingBlockEntry()
     {
         // Entry kind is decided by lookahead: <identifier> assignment-operator ...
         if (CanTokenBeIdentifier(PeekToken()) && IsAssignmentOperator(PeekToken(1).Kind))
@@ -3183,7 +3183,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 TryConsumeTerminator(out terminatorToken);
             }
 
-            return ObjectInitializerAssignmentEntry(name, operatorToken, expression, terminatorToken);
+            return TrailingBlockAssignmentEntry(name, operatorToken, expression, terminatorToken);
         }
         else
         {
@@ -3194,7 +3194,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
                 TryConsumeTerminator(out terminatorToken);
 
-            return ObjectInitializerExpressionEntry(expression, terminatorToken);
+            return TrailingBlockExpressionEntry(expression, terminatorToken);
         }
     }
 

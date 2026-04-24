@@ -124,7 +124,7 @@ public sealed class PreferTargetTypedUnionCaseAnalyzer : DiagnosticAnalyzer
             invocation.Expression is MemberAccessExpressionSyntax invocationMember)
         {
             var targetTyped = "." + invocationMember.Name + invocation.ArgumentList +
-                              (invocation.Initializer?.ToString() ?? string.Empty);
+                              (invocation.TrailingBlock?.ToString() ?? string.Empty);
             access = new UnionCaseAccess(invocationMember, targetTyped);
             return true;
         }

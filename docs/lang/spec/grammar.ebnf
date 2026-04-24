@@ -345,7 +345,7 @@ IfStatement              ::= 'if' Expression EmbeddedStatement ['else' ElseEmbed
 IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression EmbeddedStatement ['else' ElseEmbeddedStatement] ;
 
 (* NOTE: In statement contexts, '{' that starts a new statement (for example after a newline,
-   or after headers such as if/while/for) begins a block statement/body and is not parsed as an ObjectInitializer trailer.
+   or after headers such as if/while/for) begins a block statement/body and is not parsed as a TrailingBlock trailer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression EmbeddedStatement ;
 ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? EmbeddedStatement ;
@@ -569,7 +569,7 @@ PostfixTrailer           ::= ArgumentList
                            | SuppressNullableWarningTrailer
                            | PropagateTrailer
                            | ConditionalAccessTrailer
-                           | ObjectInitializer
+                           | TrailingBlock
                            | WithExpression ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
@@ -589,21 +589,21 @@ SuppressNullableWarningTrailer
 PropagateTrailer          ::= '?' ;
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
-(* ---------- Legacy brace trailers / future DSL blocks ---------- *)
+(* ---------- Trailing DSL blocks ---------- *)
 
-ObjectInitializer         ::= '{' { ObjectInitializerEntry } '}' ;
+TrailingBlock             ::= '{' { TrailingBlockEntry } '}' ;
 
-ObjectInitializerEntry    ::= ObjectInitializerAssignmentEntry
-                            | ObjectInitializerExpressionEntry ;
+TrailingBlockEntry        ::= TrailingBlockAssignmentEntry
+                            | TrailingBlockExpressionEntry ;
 
-ObjectInitializerAssignmentEntry
-                           ::= Identifier AssignmentOperator Expression ObjectInitializerTerminator? ;
+TrailingBlockAssignmentEntry
+                           ::= Identifier AssignmentOperator Expression TrailingBlockTerminator? ;
 
-ObjectInitializerExpressionEntry
-                           ::= Expression ObjectInitializerTerminator? ;
+TrailingBlockExpressionEntry
+                           ::= Expression TrailingBlockTerminator? ;
 
 (* Terminators are context-sensitive in Raven; commas are permitted but not required when a newline ends the entry. *)
-ObjectInitializerTerminator
+TrailingBlockTerminator
                            ::= ',' | end-of-line-trivia | ';' ;
 
 (* ---------- With expressions and object initializers ---------- *)
@@ -630,7 +630,6 @@ PrimaryExpression        ::= Literal
                            | ArrayExpression
                            | Identifier
                            | MemberBindingExpression
-                           | ObjectCreationExpression
                            | TupleExpression
                            | ParenthesizedExpression
                            | TryExpression
@@ -667,8 +666,6 @@ InterpolatedStringExpression
 InterpolatedStringContent ::= InterpolatedStringText | Interpolation ;
 InterpolatedStringText   ::= /* text segment without ${ or closing quote */ ;
 Interpolation            ::= '${' Expression '}' ;
-
-ObjectCreationExpression ::= 'new' Type ArgumentList ObjectInitializer? ;
 
 (* Collection elements may also be separated by an implicit newline boundary.
    In the syntax tree that boundary is represented by `SyntaxKind.None`,

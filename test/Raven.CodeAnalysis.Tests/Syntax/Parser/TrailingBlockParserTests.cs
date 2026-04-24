@@ -6,10 +6,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
-public class ObjectInitializerParserTests
+public class TrailingBlockParserTests
 {
     [Fact]
-    public void ObjectInitializer_AssignmentEntry_WithPlusEquals_ParsesOperatorToken()
+    public void TrailingBlock_AssignmentEntry_WithPlusEquals_ParsesOperatorToken()
     {
         var tree = SyntaxTree.ParseText(
             """
@@ -21,8 +21,8 @@ public class ObjectInitializerParserTests
         var root = (CompilationUnitSyntax)tree.GetRoot();
         var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
         var invocation = Assert.IsType<InvocationExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
-        var initializer = Assert.IsType<ObjectInitializerExpressionSyntax>(invocation.Initializer);
-        var assignment = Assert.IsType<ObjectInitializerAssignmentEntrySyntax>(Assert.Single(initializer.Entries));
+        var trailingBlock = Assert.IsType<TrailingBlockExpressionSyntax>(invocation.TrailingBlock);
+        var assignment = Assert.IsType<TrailingBlockAssignmentEntrySyntax>(Assert.Single(trailingBlock.Entries));
 
         Assert.Equal("Clicked", assignment.Name.Identifier.ValueText);
         Assert.Equal(SyntaxKind.PlusEqualsToken, assignment.EqualsToken.Kind);

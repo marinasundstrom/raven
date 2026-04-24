@@ -137,7 +137,7 @@ class Button {
     }
 
     [Fact]
-    public void ObjectInitializer_EventSubscription_WithPlusEquals_BindsWithoutDiagnostics()
+    public void WithInitializer_EventSubscription_WithPlusEquals_BindsWithoutDiagnostics()
     {
         const string code = """
 class Button {
@@ -145,7 +145,7 @@ class Button {
 }
 
 func Build(handler: System.Action) -> Button {
-    return Button() {
+    return Button with {
         Clicked += handler
     }
 }
@@ -156,7 +156,7 @@ func Build(handler: System.Action) -> Button {
     }
 
     [Fact]
-    public void ObjectInitializer_EventAssignment_WithEquals_ReportsDiagnostic()
+    public void WithInitializer_EventAssignment_WithEquals_ReportsDiagnostic()
     {
         const string code = """
 class Button {
@@ -164,7 +164,7 @@ class Button {
 }
 
 func Build(handler: System.Action) -> Button {
-    return Button() {
+    return Button with {
         Clicked = handler
     }
 }

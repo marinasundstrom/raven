@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Tests;
@@ -136,7 +137,7 @@ func test() {
         var useDeclaration = tree.GetRoot().DescendantNodes().OfType<UseDeclarationStatementSyntax>().Single();
         var expression = Assert.IsType<InvocationExpressionSyntax>(useDeclaration.Declaration.Declarators[0].Initializer!.Value);
         Assert.NotNull(useDeclaration.InBlockClause);
-        Assert.NotNull(expression.Initializer);
+        Assert.NotNull(expression.TrailingBlock);
     }
 
     [Fact]

@@ -1287,12 +1287,7 @@ partial class BlockBinder
             BoundObjectInitializer? initializer = null;
             HashSet<string>? assignedInitializerMembers = null;
 
-            if (callSyntax is InvocationExpressionSyntax { Initializer: not null } o1)
-            {
-                initializer = BindObjectInitializer(typeSymbol, o1.Initializer);
-                assignedInitializerMembers = GetAssignedMemberNames(o1.Initializer);
-            }
-            else if (callSyntax is WithExpressionSyntax withInitializer)
+            if (callSyntax is WithExpressionSyntax withInitializer)
             {
                 initializer = BindObjectInitializer(typeSymbol, withInitializer);
                 assignedInitializerMembers = GetAssignedMemberNames(withInitializer);
@@ -1693,7 +1688,7 @@ partial class BlockBinder
     INamedTypeSymbol typeSymbol,
     IMethodSymbol constructor,
     SyntaxNode creationSyntax,
-    ObjectInitializerExpressionSyntax? initializerSyntax)
+    TrailingBlockExpressionSyntax? initializerSyntax)
         => ValidateRequiredMembers(
             typeSymbol,
             constructor,
@@ -1742,15 +1737,15 @@ partial class BlockBinder
         return builder.ToImmutable();
     }
 
-    private static HashSet<string> GetAssignedMemberNames(ObjectInitializerExpressionSyntax initializer)
+    private static HashSet<string> GetAssignedMemberNames(TrailingBlockExpressionSyntax trailingBlock)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
 
-        // Best-effort: look for assignment expressions within the initializer and capture
+        // Best-effort: look for assignment entries within the trailing block and capture
         // simple `Identifier = ...` and `this.Identifier = ...` / `obj.Identifier = ...`.
-        foreach (var node in initializer.DescendantNodes())
+        foreach (var node in trailingBlock.DescendantNodes())
         {
-            if (node is ObjectInitializerAssignmentEntrySyntax assign)
+            if (node is TrailingBlockAssignmentEntrySyntax assign)
             {
                 switch (assign.Name)
                 {

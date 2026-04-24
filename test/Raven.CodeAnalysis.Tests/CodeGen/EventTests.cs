@@ -245,7 +245,7 @@ class Program {
     }
 
     [Fact]
-    public void ObjectInitializer_EventAdd_WiresHandler()
+    public void WithInitializer_EventAdd_WiresHandler()
     {
         var code = """
 class Button {
@@ -267,7 +267,7 @@ class Counter {
 class Program {
     static func Run() -> int {
         Counter.Hits = 0
-        val button = Button() {
+        val button = Button with {
             Clicked += () => Counter.Inc()
         }
 
@@ -298,7 +298,7 @@ class Program {
     }
 
     [Fact]
-    public void ObjectInitializer_CompoundAssignment_OnProperty_EmitsAndRuns()
+    public void WithInitializer_CompoundAssignment_OnProperty_EmitsAndRuns()
     {
         var code = """
 class Counter {
@@ -307,7 +307,7 @@ class Counter {
 
 class Program {
     static func Run() -> int {
-        val counter = Counter() {
+        val counter = Counter with {
             Value += 2
             Value *= 3
         }
