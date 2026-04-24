@@ -571,7 +571,7 @@ public partial class Compilation
 
         Assembly = new SourceAssemblySymbol(this, AssemblyName, assemblyDeclaringSyntaxReferences);
 
-        Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, []);
+        Module = new SourceModuleSymbol(AssemblyName, (SourceAssemblySymbol)Assembly, _metadataReferenceSymbols.Values, [], assemblyDeclaringSyntaxReferences);
 
         SourceGlobalNamespace = (SourceNamespaceSymbol)Module.GlobalNamespace;
         _macroRegistry = MacroRegistry.Create(_macroReferences);

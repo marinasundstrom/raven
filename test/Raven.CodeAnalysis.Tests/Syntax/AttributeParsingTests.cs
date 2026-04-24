@@ -354,6 +354,25 @@ public class AttributeParsingTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void CompilationUnit_ModuleAttribute_IsCompilationAttribute()
+    {
+        const string code = """
+            [module: ModuleMarker]
+            class Widget {}
+            """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+
+        var rootAttributeList = Assert.Single(root.AttributeLists);
+        Assert.Equal("module", rootAttributeList.Target?.Identifier.Text);
+
+        var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(root.Members));
+        Assert.Empty(declaration.AttributeLists);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void MethodDeclaration_WithReturnAttributeTarget_ParsesTarget()
     {
         const string code = """

@@ -217,6 +217,32 @@ namespace N
     }
 
     [Fact]
+    public void ModuleTargetedAttribute_BindsToModuleSymbol()
+    {
+        const string source = """
+import System.*
+
+[module: ModuleMarker("primary")]
+
+class ModuleMarkerAttribute : Attribute
+{
+    init(value: string) { }
+}
+
+class C { }
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        _ = compilation.GetDiagnostics();
+        var attribute = Assert.Single(compilation.Module.GetAttributes());
+
+        Assert.Equal("ModuleMarkerAttribute", attribute.AttributeClass?.Name);
+        Assert.Equal("primary", attribute.ConstructorArguments.Single().Value);
+        Assert.Empty(compilation.Assembly.GetAttributes());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void ReturnTargetedAttribute_OnMethod_BindsToReturnAttributesOnly()
     {
         const string source = """
@@ -259,6 +285,37 @@ class C { }
         var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor.Id == "RAV0502");
         Assert.Equal("Attribute 'ObsoleteAttribute' is not valid on target 'return value'. Valid targets are 'class'", diagnostic.GetMessage());
         Assert.Empty(type.GetAttributes());
+    }
+
+    [Fact]
+    public void FieldTargetedAttribute_OnAutoProperty_BindsToBackingFieldOnly()
+    {
+        const string source = """
+import System.*
+
+class FieldMarkerAttribute : Attribute
+{
+    init(value: string) { }
+}
+
+class C
+{
+    [field: FieldMarker("backing")]
+    var Value: string { get; set; }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var property = (SourcePropertySymbol)model.GetDeclaredSymbol(declaration)!;
+
+        Assert.Empty(property.GetAttributes());
+        var backingField = Assert.IsType<SourceFieldSymbol>(property.BackingField);
+        var attribute = Assert.Single(backingField.GetAttributes(), static a => a.AttributeClass?.Name == "FieldMarkerAttribute");
+
+        Assert.Equal("backing", attribute.ConstructorArguments.Single().Value);
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]

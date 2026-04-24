@@ -230,6 +230,10 @@ internal abstract class SourceSymbol : Symbol
                 .AttributeLists
                 .OfType<AttributeListSyntax>()
                 .Where(static list => HasExplicitTarget(list, "assembly")),
+            CompilationUnitSyntax compilationUnit when this is IModuleSymbol => compilationUnit
+                .AttributeLists
+                .OfType<AttributeListSyntax>()
+                .Where(static list => HasExplicitTarget(list, "module")),
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
@@ -258,6 +262,27 @@ internal abstract class SourceSymbol : Symbol
 
         if (this is IAssemblySymbol)
             return HasExplicitTarget(list, "assembly") && IsAssemblyAttributeDeclarationContext(list);
+
+        if (this is IModuleSymbol)
+            return HasExplicitTarget(list, "module") && IsAssemblyAttributeDeclarationContext(list);
+
+        if (this is IFieldSymbol { AssociatedSymbol: IPropertySymbol or IEventSymbol } &&
+            list.Parent is PropertyDeclarationSyntax or EventDeclarationSyntax)
+        {
+            return HasExplicitTarget(list, "field");
+        }
+
+        if (this is SourcePropertySymbol { BackingField: not null } &&
+            HasExplicitTarget(list, "field"))
+        {
+            return false;
+        }
+
+        if (this is SourceEventSymbol { BackingField: not null } &&
+            HasExplicitTarget(list, "field"))
+        {
+            return false;
+        }
 
         return true;
     }

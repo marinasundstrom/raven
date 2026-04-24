@@ -864,6 +864,7 @@ internal class CodeGenerator
 
             CreateTypes();
             PrintDebug("All types created.");
+            ApplyCustomAttributes(_compilation.Module.GetAttributes(), attribute => ModuleBuilder.SetCustomAttribute(attribute));
 
             var asyncStateMachines = Compilation.GetSynthesizedAsyncStateMachineTypes().ToArray();
             foreach (var asyncStateMachine in asyncStateMachines)

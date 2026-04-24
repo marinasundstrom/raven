@@ -50,7 +50,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             var aliasCount = aliasDirectives.Count;
             var memberCount = memberDeclarations.Count;
 
-            // Allow compilation-level attributes (e.g. [assembly: ...]) to appear after imports/aliases,
+            // Allow compilation-level attributes (e.g. [assembly: ...] or [module: ...]) to appear after imports/aliases,
             // before any other members/statements.
             if (order != MemberOrder.Members &&
                 AttributeDeclarationParser.IsAttributeListStart(this) &&
@@ -93,7 +93,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         var checkpoint = CreateCheckpoint();
         var parsedAttributeList = AttributeDeclarationParser.ParseAttributeList(this);
 
-        if (IsAssemblyAttributeList(parsedAttributeList))
+        if (IsCompilationAttributeList(parsedAttributeList))
         {
             attributeList = parsedAttributeList;
             return true;
@@ -103,12 +103,14 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         return false;
     }
 
-    private static bool IsAssemblyAttributeList(AttributeListSyntax attributeList)
+    private static bool IsCompilationAttributeList(AttributeListSyntax attributeList)
     {
         if (attributeList.Target is not AttributeTargetSpecifierSyntax target)
             return false;
 
-        return string.Equals(target.Identifier.GetValueText(), "assembly", StringComparison.Ordinal);
+        var targetName = target.Identifier.GetValueText();
+        return string.Equals(targetName, "assembly", StringComparison.Ordinal) ||
+            string.Equals(targetName, "module", StringComparison.Ordinal);
     }
 
     private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)

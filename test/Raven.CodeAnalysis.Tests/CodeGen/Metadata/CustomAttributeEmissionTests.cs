@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
+using System.Security;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
@@ -191,5 +192,72 @@ class C { }
             static a => a.AttributeType == typeof(TargetFrameworkAttribute));
 
         Assert.Equal(".NETCoreApp,Version=v9.0", targetFrameworkAttribute.ConstructorArguments[0].Value);
+    }
+
+    [Fact]
+    public void ModuleTargetedAttribute_IsEmitted()
+    {
+        const string source = """
+import System.Security.*
+
+[module: UnverifiableCode]
+class C { }
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var moduleAttribute = Assert.Single(
+            assembly.ManifestModule.GetCustomAttributesData(),
+            static a => a.AttributeType == typeof(UnverifiableCodeAttribute));
+        Assert.NotNull(moduleAttribute);
+    }
+
+    [Fact]
+    public void FieldTargetedAutoPropertyAttribute_IsEmittedOnBackingFieldOnly()
+    {
+        const string source = """
+import System.*
+
+class FieldMarkerAttribute : Attribute
+{
+    init(value: string) { }
+}
+
+class Widget
+{
+    [field: FieldMarker("backing")]
+    var Value: string { get; set; }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var widgetType = assembly.GetType("Widget", throwOnError: true)!;
+
+        var property = widgetType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(property);
+        Assert.DoesNotContain(property!.GetCustomAttributesData(), static a => a.AttributeType.Name == "FieldMarkerAttribute");
+
+        var backingField = widgetType.GetField("<Value>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(backingField);
+
+        var fieldAttribute = Assert.Single(
+            backingField!.GetCustomAttributesData(),
+            static a => a.AttributeType.Name == "FieldMarkerAttribute");
+        Assert.Equal("backing", fieldAttribute.ConstructorArguments[0].Value);
     }
 }

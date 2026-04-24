@@ -9,8 +9,13 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
     private readonly ImmutableArray<IAssemblySymbol> _referencedAssemblySymbols;
     private SourceNamespaceSymbol _globalNamespace;
 
-    public SourceModuleSymbol(string name, SourceAssemblySymbol containingAssembly, IEnumerable<IAssemblySymbol> referencedAssemblySymbols, Location[] locations)
-        : base(SymbolKind.Module, name, containingAssembly, null, null, locations, [])
+    public SourceModuleSymbol(
+        string name,
+        SourceAssemblySymbol containingAssembly,
+        IEnumerable<IAssemblySymbol> referencedAssemblySymbols,
+        Location[] locations,
+        SyntaxReference[] declaringSyntaxReferences)
+        : base(SymbolKind.Module, name, containingAssembly, null, null, locations, declaringSyntaxReferences)
     {
         _containingAssembly = containingAssembly;
         _referencedAssemblySymbols = referencedAssemblySymbols.ToImmutableArray();
