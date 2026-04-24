@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Operations;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
 
@@ -380,6 +381,21 @@ class Functions {
 
         foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
+
+        var ravenCorePath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "src",
+            "Raven.Core",
+            "bin",
+            "Debug",
+            "net10.0",
+            "Raven.Core.dll"));
+        compilation = compilation.AddReferences(MetadataReference.CreateFromFile(ravenCorePath));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
@@ -1419,6 +1435,116 @@ class C {
 
             resolution.ShouldNotBeNull();
             resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(name);
+        }
+    }
+
+    [Fact]
+    public async Task PatternCaseHover_ResolvesUnionCaseSymbolsInsteadOfCarrierUnionAsync()
+    {
+        const string code = """
+import System.*
+
+class C {
+    func Render(status: Result<System.Int32, System.Int32>) -> unit {
+        match status {
+            .Ok(val okStatement) => okStatement
+            .Error(val errorStatement) => errorStatement
+        }
+
+        _ = status match {
+            .Ok(val okExpression) => okExpression
+            .Error(val errorExpression) => errorExpression
+        }
+
+        if status is .Ok(val checkedValue) {
+            _ = checkedValue
+        }
+
+        if status is Ok(val nominalValue) {
+            _ = nominalValue
+        }
+    }
+}
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), "raven-pattern-hover-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+
+            var projectPath = Path.Combine(tempRoot, "PatternHover.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>PatternHover</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var filePath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            File.WriteAllText(filePath, code);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "pattern-hover",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(filePath);
+            _ = store.UpsertDocument(uri, code);
+
+            var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+            context.ShouldNotBeNull();
+
+            var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+            var root = context.Value.SyntaxTree.GetRoot();
+            context.Value.Compilation.GetDiagnostics()
+                .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+                .Select(static diagnostic => diagnostic.GetMessage())
+                .ShouldBeEmpty();
+
+            var memberPatternTokens = root.DescendantNodes()
+                .OfType<MemberPatternPathSyntax>()
+                .Select(path => path.Identifier)
+                .Where(token => token.ValueText is "Ok" or "Error")
+                .ToArray();
+
+            memberPatternTokens.Length.ShouldBe(5);
+            foreach (var token in memberPatternTokens)
+            {
+                var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+                resolution.ShouldNotBeNull();
+                resolution!.Value.Symbol.Name.ShouldBe(token.ValueText);
+                resolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().IsUnionCase.ShouldBeTrue();
+            }
+
+            var nominalToken = root.DescendantNodes()
+                .OfType<NominalDeconstructionPatternSyntax>()
+                .SelectMany(pattern => pattern.Type.DescendantTokens())
+                .Single(token => token.ValueText == "Ok");
+            var nominalResolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, nominalToken.SpanStart + 1);
+
+            nominalResolution.ShouldNotBeNull();
+            nominalResolution!.Value.Symbol.Name.ShouldBe("Ok");
+            nominalResolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().IsUnionCase.ShouldBeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
         }
     }
 

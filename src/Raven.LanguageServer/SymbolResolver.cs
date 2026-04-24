@@ -31,6 +31,9 @@ internal static partial class SymbolResolver
         if (TryResolvePipeInvocationTargetAtOffset(semanticModel, root, offset, out var pipeInvocationResolution))
             return pipeInvocationResolution;
 
+        if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
+            return patternCaseResolution;
+
         if (TryResolveExactIdentifierSymbol(semanticModel, root, offset, out var exactIdentifierResolution))
             return exactIdentifierResolution;
 
@@ -226,6 +229,42 @@ internal static partial class SymbolResolver
         return false;
     }
 
+    private static bool TryResolvePatternCaseAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var node = token.Parent?
+                .AncestorsAndSelf()
+                .FirstOrDefault(static candidate => candidate is MemberPatternPathSyntax or MemberPatternSyntax or NominalDeconstructionPatternSyntax);
+            if (node is null)
+                continue;
+
+            if (!TryResolvePatternCaseSymbol(semanticModel, node, token, out var symbol) || symbol is null)
+                continue;
+
+            resolution = new SymbolResolutionResult(SymbolResolutionKind.TypePosition, symbol.UnderlyingSymbol, node);
+            return true;
+        }
+
+        return false;
+    }
+
     private static SymbolResolutionKind GetResolutionKindForNode(SyntaxNode node, SyntaxToken token)
     {
         if (IsInvocationTargetPosition(node, token))
@@ -356,8 +395,8 @@ internal static partial class SymbolResolver
         if (TryResolvePipeRightHandSymbol(semanticModel, node, token, out var pipeRhsSymbol))
             return pipeRhsSymbol;
 
-        if (TryResolveNominalDeconstructionPatternCaseSymbol(semanticModel, node, token, out var nominalPatternCaseSymbol))
-            return nominalPatternCaseSymbol;
+        if (TryResolvePatternCaseSymbol(semanticModel, node, token, out var patternCaseSymbol))
+            return patternCaseSymbol;
 
         if (TryResolveParameterDeclarationSymbol(semanticModel, node, token, out var parameterDeclarationSymbol))
             return parameterDeclarationSymbol;
@@ -522,7 +561,7 @@ internal static partial class SymbolResolver
         return false;
     }
 
-    private static bool TryResolveNominalDeconstructionPatternCaseSymbol(
+    private static bool TryResolvePatternCaseSymbol(
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
@@ -530,15 +569,30 @@ internal static partial class SymbolResolver
     {
         symbol = null;
 
-        if (node is not IdentifierNameSyntax identifier ||
-            token != identifier.Identifier ||
-            identifier.Parent is not NominalDeconstructionPatternSyntax nominalPattern ||
-            nominalPattern.Type != identifier)
+        var pattern = GetCasePatternHead(node, token);
+        if (pattern is null)
         {
             return false;
         }
 
-        var caseName = identifier.Identifier.ValueText;
+        if (semanticModel.GetOperation(pattern) is ICasePatternOperation casePattern)
+        {
+            symbol = casePattern.CaseSymbol;
+            return true;
+        }
+
+        if (semanticModel.GetBoundNode(pattern) is BoundCasePattern boundCasePattern)
+        {
+            symbol = boundCasePattern.CaseSymbol;
+            return true;
+        }
+
+        if (pattern is not NominalDeconstructionPatternSyntax nominalPattern ||
+            !TryGetCasePatternName(pattern, token, out var caseName))
+        {
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(caseName))
             return false;
 
@@ -567,6 +621,44 @@ internal static partial class SymbolResolver
 
         symbol = caseSymbol;
         return true;
+    }
+
+    private static PatternSyntax? GetCasePatternHead(SyntaxNode node, SyntaxToken token)
+    {
+        return node switch
+        {
+            MemberPatternPathSyntax path when token == path.Identifier &&
+                                         path.Parent is MemberPatternSyntax memberPattern => memberPattern,
+            MemberPatternSyntax memberPattern when token == memberPattern.Path.Identifier => memberPattern,
+            IdentifierNameSyntax identifier when token == identifier.Identifier &&
+                                             identifier.Parent is NominalDeconstructionPatternSyntax nominalPattern &&
+                                             nominalPattern.Type == identifier => nominalPattern,
+            NominalDeconstructionPatternSyntax nominalPattern when nominalPattern.Type.Span.Contains(token.Span) &&
+                                                               IsRightmostTypeIdentifier(nominalPattern.Type, token) => nominalPattern,
+            _ => null
+        };
+    }
+
+    private static bool TryGetCasePatternName(PatternSyntax pattern, SyntaxToken token, out string caseName)
+    {
+        caseName = pattern switch
+        {
+            MemberPatternSyntax memberPattern when token == memberPattern.Path.Identifier => memberPattern.Path.Identifier.ValueText,
+            NominalDeconstructionPatternSyntax nominalPattern when IsRightmostTypeIdentifier(nominalPattern.Type, token) => token.ValueText,
+            _ => string.Empty
+        };
+
+        return !string.IsNullOrWhiteSpace(caseName);
+    }
+
+    private static bool IsRightmostTypeIdentifier(TypeSyntax type, SyntaxToken token)
+    {
+        var rightmost = type
+            .DescendantTokens()
+            .Where(static candidate => candidate.Kind == SyntaxKind.IdentifierToken)
+            .LastOrDefault();
+
+        return rightmost == token;
     }
 
     // Handles bare method references on the RHS of a pipe: `expr |> WriteLine`
