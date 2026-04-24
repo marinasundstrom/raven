@@ -113,13 +113,13 @@ internal class TypeGenerator
             }
         }
 
-        if (TypeSymbol.BaseType.Name == "Enum")
+        if (TypeSymbol.BaseType?.Name == "Enum")
         {
             var accessibilityAttributes = GetTypeAccessibilityAttributes((INamedTypeSymbol)TypeSymbol);
             TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                 TypeSymbol.MetadataName,
                 accessibilityAttributes | TypeAttributes.Sealed | TypeAttributes.Serializable,
-                ResolveClrType(TypeSymbol.BaseType) // bör vara System.Enum
+                ResolveClrType(TypeSymbol.BaseType!) // bör vara System.Enum
             );
 
             // Add value__ using the enum's bound underlying type
@@ -401,7 +401,7 @@ internal class TypeGenerator
     {
         var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
 
-        foreach (var caseSymbol in unionSymbol.CaseTypes)
+        foreach (var caseSymbol in unionSymbol.DeclaredCaseTypes)
         {
             foreach (var parameter in caseSymbol.ConstructorParameters)
             {
@@ -740,8 +740,7 @@ internal class TypeGenerator
             return;
         }
 
-        if (TypeSymbol.BaseType.ContainingNamespace.Name == "System"
-            && TypeSymbol.BaseType.Name == "Enum")
+        if (TypeSymbol.BaseType is { ContainingNamespace.Name: "System", Name: "Enum" })
         {
             // Enum types only emit fields (value__ is created in DefineTypeBuilder).
             // Use the normal field path so const values, accessibility, and attributes are consistent.

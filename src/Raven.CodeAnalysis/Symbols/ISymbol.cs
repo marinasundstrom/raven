@@ -654,7 +654,9 @@ public interface ITypeUnionSymbol : ITypeSymbol
 
 public interface IUnionSymbol : INamedTypeSymbol
 {
-    ImmutableArray<IUnionCaseTypeSymbol> CaseTypes { get; }
+    ImmutableArray<ITypeSymbol> CaseTypes { get; }
+
+    ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes { get; }
 
     ImmutableArray<ITypeSymbol> MemberTypes { get; }
 

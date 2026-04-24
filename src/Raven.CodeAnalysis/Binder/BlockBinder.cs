@@ -2963,8 +2963,8 @@ partial class BlockBinder : Binder
         if (union is null)
             return ErrorExpression();
 
-        var okCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
-        var errorCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Error");
+        var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
+        var errorCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Error");
         if (okCase is null || errorCase is null)
             return ErrorExpression();
 
@@ -3243,8 +3243,8 @@ partial class BlockBinder : Binder
 
         if (typeSymbol.Name == "Result")
         {
-            var okCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
-            var errorCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Error");
+            var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Ok");
+            var errorCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Error");
             if (okCase is null || errorCase is null)
                 return false;
 
@@ -3268,8 +3268,8 @@ partial class BlockBinder : Binder
 
         if (typeSymbol.Name == "Option")
         {
-            var okCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "Some");
-            var errorCase = union.CaseTypes.FirstOrDefault(@case => @case.Name == "None");
+            var okCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "Some");
+            var errorCase = union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == "None");
             if (okCase is null || errorCase is null)
                 return false;
 
@@ -4351,7 +4351,7 @@ partial class BlockBinder : Binder
         IUnionSymbol union,
         int catchAllIndex)
     {
-        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.CaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
         if (catchAllIndex >= 0)
@@ -4463,6 +4463,9 @@ partial class BlockBinder : Binder
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
                     if (declaredType.TypeKind == TypeKind.Error || inputType.TypeKind == TypeKind.Error)
+                        return true;
+
+                    if (ArePatternTypesEquivalent(declaredType, inputType))
                         return true;
 
                     return IsAssignable(declaredType, inputType, out _);
@@ -4717,8 +4720,10 @@ partial class BlockBinder : Binder
                 if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
                     CasePatternCoversAllArguments(casePattern))
                 {
+                    var matchedCase = casePattern.CaseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? casePattern.CaseSymbol;
                     remaining.RemoveWhere(candidate =>
-                        SymbolEqualityComparer.Default.Equals(candidate, casePattern.CaseSymbol));
+                        candidate.Ordinal == matchedCase.Ordinal ||
+                        SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
                 }
                 break;
             case BoundOrPattern orPattern:
@@ -9224,7 +9229,7 @@ partial class BlockBinder : Binder
             if (union is null)
                 return;
 
-            foreach (var caseType in union.CaseTypes)
+            foreach (var caseType in union.DeclaredCaseTypes)
             {
                 if (!string.Equals(caseType.Name, name, StringComparison.Ordinal))
                     continue;
@@ -14294,6 +14299,41 @@ partial class BlockBinder : Binder
                 {
                     if (seen.Add(param.Name))
                         yield return param;
+                }
+            }
+
+            if (current is MethodBinder methodBinder)
+            {
+                foreach (var param in methodBinder.GetMethodSymbol().Parameters)
+                {
+                    if (seen.Add(param.Name))
+                        yield return param;
+                }
+            }
+
+            if (current is FunctionExpressionBinder lambdaBinder)
+            {
+                foreach (var param in lambdaBinder.GetParameters())
+                {
+                    if (seen.Add(param.Name))
+                        yield return param;
+                }
+            }
+
+            if (current is TypeMemberBinder typeMemberBinder)
+            {
+                var containingType = typeMemberBinder.ContainingTypeSymbol;
+
+                if (seen.Add(containingType.Name))
+                    yield return containingType;
+
+                for (var type = containingType; type is not null; type = type.BaseType)
+                {
+                    foreach (var member in type.GetMembers())
+                    {
+                        if (seen.Add(member.Name))
+                            yield return member;
+                    }
                 }
             }
 

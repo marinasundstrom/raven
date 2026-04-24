@@ -27,7 +27,7 @@ union Option {
         var model = compilation.GetSemanticModel(tree);
 
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var caseClause = unionDecl.CaseTypes[0];
+        var caseClause = unionDecl.Members.OfType<CaseDeclarationSyntax>().First();
         var symbol = model.GetDeclaredSymbol(caseClause);
 
         var caseSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(symbol);
@@ -78,6 +78,29 @@ union struct Option {
     }
 
     [Fact]
+    public void BodyDefinedUnion_DeclaredCaseTypes_MatchesCaseTypes()
+    {
+        const string source = """
+union Option {
+    case None
+    case Some(value: int)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.Equal(2, unionSymbol.DeclaredCaseTypes.Length);
+        Assert.Equal(
+            unionSymbol.DeclaredCaseTypes.Select(static caseType => caseType.Name),
+            unionSymbol.CaseTypes.Select(static caseType => caseType.Name));
+    }
+
+    [Fact]
     public void NominalUnionDeclaration_BindsDeclaredMemberTypes()
     {
         const string source = """
@@ -97,7 +120,11 @@ union Either(Left | Right)
         var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
         Assert.Equal(TypeKind.Class, unionSymbol.TypeKind);
-        Assert.Empty(unionSymbol.CaseTypes);
+        Assert.Empty(unionSymbol.DeclaredCaseTypes);
+        Assert.Collection(
+            unionSymbol.CaseTypes,
+            left => Assert.Equal("Left", left.Name),
+            right => Assert.Equal("Right", right.Name));
         Assert.Collection(
             unionSymbol.MemberTypes,
             left => Assert.Equal("Left", left.Name),
@@ -236,6 +263,30 @@ union Option<T> {
     }
 
     [Fact]
+    public void ParenthesizedUnion_NominalDeconstructionPattern_BindsWithoutCaseLookupDiagnostics()
+    {
+        const string source = """
+record Cash(amount: decimal)
+record Card(reference: string)
+
+union Payment(Cash | Card)
+
+func Describe(value: Payment) -> string {
+    return value match {
+        Cash(val amount) => "cash $amount"
+        Card(val reference) => "card $reference"
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void IdentifierInvocation_TargetTypedGenericUnionStructCase_BindsWithoutErrors()
     {
         const string source = """
@@ -268,6 +319,32 @@ class C<T> {
             .Single(node => node.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == "Some");
 
         Assert.NotNull(invocation);
+    }
+
+    [Fact]
+    public void UnionMemberBody_UnqualifiedCaseConstructionAndPatterns_BindWithoutErrors()
+    {
+        const string source = """
+union Option<T> {
+    case Some(value: T)
+    case None
+
+    func Normalize(fallback: T) -> Option<T> {
+        val current: Option<T> = Some(fallback)
+
+        return self match {
+            Some(val value) => Some(value)
+            None => current
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
 
     [Fact]
@@ -741,6 +818,90 @@ union Result<T, E> {
         Assert.Contains("Symbol=static Result<T, E>.<RavenFriendlyTypeName>(type: Type) -> string", output);
         Assert.Contains("TypeOfExpression [Type=Type, OperandType=T, SystemType=Type]", output);
         Assert.Contains("TypeOfExpression [Type=Type, OperandType=E, SystemType=Type]", output);
+    }
+
+    [Fact]
+    public void Union_ToStringOverride_SuppressesSynthesizedToString()
+    {
+        const string source = """
+union Result<T> {
+    case Ok(value: T)
+
+    override func ToString() -> string {
+        return "custom"
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var toStringMethods = unionSymbol.GetMembers("ToString").OfType<IMethodSymbol>()
+            .Where(m => SymbolEqualityComparer.Default.Equals(m.ContainingType, unionSymbol))
+            .ToArray();
+
+        Assert.Single(toStringMethods);
+    }
+
+    [Fact]
+    public void Union_EqualsGetHashCodeAndEqualityOperators_ReportDiagnostics()
+    {
+        const string source = """
+union Result {
+    case Ok
+
+    override func Equals(other: object?) -> bool {
+        return true
+    }
+
+    override func GetHashCode() -> int {
+        return 42
+    }
+
+    static func ==(left: Result, right: Result) -> bool {
+        return true
+    }
+
+    static func !=(left: Result, right: Result) -> bool {
+        return false
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.UnionSpecialMemberNotSupported && d.GetMessage().Contains("Equals", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.UnionSpecialMemberNotSupported && d.GetMessage().Contains("GetHashCode", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.UnionSpecialMemberNotSupported && d.GetMessage().Contains("operator ==", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.UnionSpecialMemberNotSupported && d.GetMessage().Contains("operator !=", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Union_ReservedValueAndHasValueNames_ReportDiagnostics()
+    {
+        const string source = """
+union Result {
+    case Ok
+
+    val Value: int = 1
+    val HasValue: bool = true
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.UnionMemberNameReserved && d.GetMessage().Contains("Value", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.UnionMemberNameReserved && d.GetMessage().Contains("HasValue", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1642,17 +1803,17 @@ union Option {
         var caseSymbol = unionSymbol.CaseTypes.Single();
 
         var constructor = Assert.Single(caseSymbol.GetMembers(".ctor").OfType<IMethodSymbol>());
-        Assert.Contains(unionSymbol.GetMembers(".ctor"), m => SymbolEqualityComparer.Default.Equals(m, constructor));
+        Assert.DoesNotContain(unionSymbol.GetMembers(".ctor"), m => SymbolEqualityComparer.Default.Equals(m, constructor));
 
         var payloadProperty = Assert.Single(caseSymbol.GetMembers().OfType<IPropertySymbol>());
-        Assert.Contains(unionSymbol.GetMembers(payloadProperty.Name), m => SymbolEqualityComparer.Default.Equals(m, payloadProperty));
+        Assert.DoesNotContain(unionSymbol.GetMembers(payloadProperty.Name), m => SymbolEqualityComparer.Default.Equals(m, payloadProperty));
 
         var getter = payloadProperty.GetMethod;
         Assert.NotNull(getter);
-        Assert.Contains(unionSymbol.GetMembers(getter!.Name), m => SymbolEqualityComparer.Default.Equals(m, getter));
+        Assert.DoesNotContain(unionSymbol.GetMembers(getter!.Name), m => SymbolEqualityComparer.Default.Equals(m, getter));
 
         var caseToString = Assert.Single(caseSymbol.GetMembers("ToString").OfType<IMethodSymbol>());
-        Assert.Contains(unionSymbol.GetMembers("ToString"), m => SymbolEqualityComparer.Default.Equals(m, caseToString));
+        Assert.DoesNotContain(unionSymbol.GetMembers("ToString"), m => SymbolEqualityComparer.Default.Equals(m, caseToString));
 
         var tryGet = unionSymbol
             .GetMembers("TryGetValue")

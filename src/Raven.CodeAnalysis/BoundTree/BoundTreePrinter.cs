@@ -433,7 +433,7 @@ public static class BoundTreePrinter
             if (model.TryGetUnionSymbol(unionDeclaration, out var unionSymbol))
                 CollectSynthesizedMethodRoots(model, view, unionSymbol, methods, result);
 
-            foreach (var caseClause in unionDeclaration.CaseTypes)
+            foreach (var caseClause in unionDeclaration.Members.OfType<CaseDeclarationSyntax>())
             {
                 if (model.TryGetUnionCaseSymbol(caseClause, out var caseSymbol))
                     CollectSynthesizedMethodRoots(model, view, caseSymbol, methods, result);

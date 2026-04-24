@@ -193,7 +193,7 @@ internal static partial class SymbolResolver
                 IsInsideFunctionExpressionBody(functionExpression, token),
             MethodDeclarationSyntax methodDeclaration => token != methodDeclaration.Identifier,
             BaseTypeDeclarationSyntax typeDeclaration => token != typeDeclaration.Identifier,
-            UnionCaseClauseSyntax unionCaseClause => token != unionCaseClause.Identifier,
+            CaseDeclarationSyntax caseDeclaration => token != caseDeclaration.Identifier,
             _ => false
         };
     }

@@ -314,6 +314,10 @@ union Token {
     case Identifier(text: string)
     case Number(value: int)
     case End
+
+    func IsTerminal() -> bool {
+        return self is End
+    }
 }
 
 func Describe(token: Token) -> string {
@@ -336,6 +340,20 @@ The same general pattern model works across:
 This reuse is intentional. Raven wants one pattern system that scales across value
 inspection, branching, iteration, and deconstruction instead of splitting those
 features into unrelated syntax families.
+
+Union bodies are ordinary member bodies, so case declarations and authored
+members live together in the same `union`:
+
+```raven
+union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+
+    func IsSuccess() -> bool {
+        return self is Ok
+    }
+}
+```
 
 At the same time, deconstruction forms stay intentionally narrower than general
 pattern-matching forms. They are designed for extraction, not for every kind of

@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
@@ -19,10 +21,11 @@ public class UnionDeclarationParserTests
         var root = tree.GetRoot();
 
         var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+        var caseDeclarations = declaration.Members.OfType<CaseDeclarationSyntax>().ToArray();
 
         Assert.Equal("Token", declaration.Identifier.Text);
         Assert.Collection(
-            declaration.CaseTypes,
+            caseDeclarations,
             first =>
             {
                 Assert.Equal(SyntaxKind.CaseKeyword, first.CaseKeyword.Kind);
@@ -47,9 +50,10 @@ public class UnionDeclarationParserTests
         var root = tree.GetRoot();
 
         var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+        var caseDeclarations = declaration.Members.OfType<CaseDeclarationSyntax>().ToArray();
 
         Assert.Collection(
-            declaration.CaseTypes,
+            caseDeclarations,
             first => Assert.Equal(SyntaxKind.SemicolonToken, first.TerminatorToken.Kind),
             second => Assert.Equal(SyntaxKind.None, second.TerminatorToken.Kind));
 
@@ -64,7 +68,7 @@ public class UnionDeclarationParserTests
         var root = tree.GetRoot();
 
         var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
-        Assert.Equal(2, declaration.CaseTypes.Count);
+        Assert.Equal(2, declaration.Members.OfType<CaseDeclarationSyntax>().Count());
         Assert.Empty(tree.GetDiagnostics());
     }
 
@@ -78,7 +82,7 @@ public class UnionDeclarationParserTests
         var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
 
         Assert.NotNull(declaration.TypeParameterList);
-        var okCase = Assert.Single(declaration.CaseTypes);
+        var okCase = Assert.Single(declaration.Members.OfType<CaseDeclarationSyntax>());
         Assert.Equal("Ok", okCase.Identifier.Text);
         Assert.NotNull(okCase.ParameterList);
     }
@@ -95,8 +99,36 @@ public class UnionDeclarationParserTests
         Assert.Equal(SyntaxKind.StructKeyword, declaration.ClassOrStructKeyword.Kind);
         Assert.NotNull(declaration.TypeParameterList);
         Assert.NotNull(declaration.MemberTypes);
-        Assert.Empty(declaration.CaseTypes);
+        Assert.Empty(declaration.Members.OfType<CaseDeclarationSyntax>());
         Assert.Equal(2, declaration.MemberTypes!.Types.Count);
+    }
+
+    [Fact]
+    public void UnionDeclaration_WithCasesAndMethodBody_ParsesAllMembers()
+    {
+        var source = """
+            union class Option<T> {
+                case Some(value: T)
+                case None
+
+                func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+                    None
+                }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+        var members = declaration.Members.ToArray();
+
+        Assert.Collection(
+            members,
+            first => Assert.IsType<CaseDeclarationSyntax>(first),
+            second => Assert.IsType<CaseDeclarationSyntax>(second),
+            third => Assert.IsType<MethodDeclarationSyntax>(third));
+
+        Assert.Empty(tree.GetDiagnostics());
     }
 
     [Fact]
@@ -110,7 +142,7 @@ public class UnionDeclarationParserTests
 
         Assert.NotNull(declaration.TypeParameterList);
         Assert.NotNull(declaration.MemberTypes);
-        Assert.Empty(declaration.CaseTypes);
+        Assert.Empty(declaration.Members.OfType<CaseDeclarationSyntax>());
         Assert.Equal("List<T>", declaration.MemberTypes!.Types[0].ToString());
         Assert.Equal("int", declaration.MemberTypes.Types[1].ToString());
     }
@@ -126,7 +158,7 @@ public class UnionDeclarationParserTests
 
         Assert.Equal(SyntaxKind.None, declaration.ClassOrStructKeyword.Kind);
         Assert.NotNull(declaration.MemberTypes);
-        Assert.Empty(declaration.CaseTypes);
+        Assert.Empty(declaration.Members.OfType<CaseDeclarationSyntax>());
         Assert.Equal("A", declaration.MemberTypes!.Types[0].ToString());
         Assert.Equal("B", declaration.MemberTypes!.Types[1].ToString());
     }

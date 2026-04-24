@@ -1748,9 +1748,7 @@ internal class MethodBodyGenerator
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean &&
-                SymbolEqualityComparer.Default.Equals(
-                    method.Parameters[0].GetByRefElementType().GetPlainType(),
-                    caseTypePlain));
+                method.Parameters[0].GetByRefElementType().GetPlainType().MetadataIdentityEquals(caseTypePlain));
     }
 
 

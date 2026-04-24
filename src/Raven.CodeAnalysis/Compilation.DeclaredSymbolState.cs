@@ -37,13 +37,13 @@ public partial class Compilation
     internal bool TryGetUnionSymbol(UnionDeclarationSyntax node, out SourceUnionSymbol symbol)
         => _unionSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterUnionCaseSymbol(UnionCaseClauseSyntax node, SourceUnionCaseTypeSymbol symbol)
+    internal void RegisterUnionCaseSymbol(CaseDeclarationSyntax node, SourceUnionCaseTypeSymbol symbol)
         => _unionCaseSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal SourceUnionCaseTypeSymbol GetUnionCaseSymbol(UnionCaseClauseSyntax node)
+    internal SourceUnionCaseTypeSymbol GetUnionCaseSymbol(CaseDeclarationSyntax node)
         => _unionCaseSymbols[CreateDeclaredSyntaxKey(node)];
 
-    internal bool TryGetUnionCaseSymbol(UnionCaseClauseSyntax node, out SourceUnionCaseTypeSymbol symbol)
+    internal bool TryGetUnionCaseSymbol(CaseDeclarationSyntax node, out SourceUnionCaseTypeSymbol symbol)
         => _unionCaseSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
     internal void RegisterMethodSymbol(MethodDeclarationSyntax node, IMethodSymbol symbol)

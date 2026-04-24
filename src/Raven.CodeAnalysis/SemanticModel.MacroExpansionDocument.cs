@@ -170,6 +170,8 @@ public partial class SemanticModel
                 RewriteMemberList(recordDeclaration.Members, semanticModel, cancellationToken)),
             InterfaceDeclarationSyntax interfaceDeclaration => interfaceDeclaration.WithMembers(
                 RewriteMemberList(interfaceDeclaration.Members, semanticModel, cancellationToken)),
+            UnionDeclarationSyntax unionDeclaration => unionDeclaration.WithMembers(
+                RewriteMemberList(unionDeclaration.Members, semanticModel, cancellationToken)),
             _ => member
         };
 
@@ -257,16 +259,8 @@ public partial class SemanticModel
         if (expandedMembers.Count == 0)
             yield break;
 
-        var updatedMembers = expandedMembers.ToArray();
-        updatedMembers[0] = updatedMembers[0].WithLeadingTrivia(originalMember.GetFirstToken(includeZeroWidth: true).LeadingTrivia);
-        updatedMembers[^1] = updatedMembers[^1].WithTrailingTrivia(originalMember.GetLastToken(includeZeroWidth: true).TrailingTrivia);
-
-        for (var i = 0; i < updatedMembers.Length; i++)
-        {
-            yield return i < updatedMembers.Length - 1
-                ? EnsureTrailingLineBreaks(updatedMembers[i], lineBreakCount: 1)
-                : updatedMembers[i];
-        }
+        foreach (var expandedMember in expandedMembers)
+            yield return expandedMember;
     }
 
     private static MemberDeclarationSyntax EnsureTrailingLineBreaks(

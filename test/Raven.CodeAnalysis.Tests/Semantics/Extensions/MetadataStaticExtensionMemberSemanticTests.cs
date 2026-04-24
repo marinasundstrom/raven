@@ -90,7 +90,7 @@ val parsed = int.parse("42")
     }
 
     [Fact]
-    public void RavenInstanceExtensionMethod_MetadataSymbol_IsRecognizedAsExtensionMethod()
+    public void RavenOptionMember_MetadataSymbol_IsDeclaredOnOption()
     {
         var references = TestMetadataReferences.Default
             .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
@@ -102,17 +102,14 @@ val parsed = int.parse("42")
         var systemNamespace = compilation.GetNamespaceSymbol("System");
         Assert.NotNull(systemNamespace);
 
-        var extensionType = systemNamespace!.LookupType("OptionExtensions") as INamedTypeSymbol;
-        Assert.NotNull(extensionType);
+        var optionType = systemNamespace!.LookupType("Option") as INamedTypeSymbol;
+        Assert.NotNull(optionType);
 
-        var unwrapOrMethod = extensionType!.GetMembers("UnwrapOr").OfType<IMethodSymbol>().FirstOrDefault();
+        var unwrapOrMethod = optionType!.GetMembers("UnwrapOr").OfType<IMethodSymbol>().FirstOrDefault();
         Assert.NotNull(unwrapOrMethod);
-        Assert.True(unwrapOrMethod!.IsExtensionMethod);
-        Assert.Equal(ExtensionMemberKind.Instance, unwrapOrMethod.ExtensionMemberKind);
-
-        var receiverType = unwrapOrMethod.GetExtensionReceiverType();
-        Assert.NotNull(receiverType);
-        Assert.Contains("Option", receiverType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), StringComparison.Ordinal);
+        Assert.False(unwrapOrMethod!.IsExtensionMethod);
+        Assert.Equal(ExtensionMemberKind.None, unwrapOrMethod.ExtensionMemberKind);
+        Assert.Equal("Option", unwrapOrMethod.ContainingType?.Name);
     }
 
     [Fact]
@@ -199,6 +196,64 @@ val result: int? = value
         Assert.True(conversion.IsUserDefined);
         Assert.Equal("op_Implicit", conversion.MethodSymbol?.Name);
         Assert.Equal("OptionExtensions2", conversion.MethodSymbol?.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void RavenCoreMetadata_ResultCarrierConditionalAccess_ResolvesCarrierSymbols()
+    {
+        const string source = """
+import System.*
+
+func GetUser() -> Result<User, Err> {
+    return Ok(User("Marina", Some(Item("Candy"))))
+}
+
+func GetItem() -> Result<string, Err> {
+    val maybeItem = GetUser()?.Item?
+
+    return maybeItem match {
+        Some(val item) => Ok(item.Name)
+        None => Error(Err.MissingName)
+    }
+}
+
+union Err {
+    case MissingUser
+    case MissingName
+}
+
+record class User(Name: string, Item: Option<Item>)
+record class Item(Name: string)
+""";
+
+        var references = TestMetadataReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            references: references);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var conditionalAccesses = tree.GetRoot().DescendantNodes().OfType<ConditionalAccessExpressionSyntax>().ToArray();
+        var outerConditional = conditionalAccesses.Last();
+        var bound = Assert.IsType<BoundCarrierConditionalAccessExpression>(model.GetBoundNode(outerConditional));
+
+        Assert.NotNull(bound.ReceiverResultOkCaseType);
+        Assert.NotNull(bound.ReceiverResultErrorCaseType);
+        Assert.NotNull(bound.ResultTryGetValueForOkCaseMethod);
+        Assert.NotNull(bound.ResultTryGetValueForErrorCaseMethod);
+        Assert.NotNull(bound.ResultOkCaseType);
+        Assert.NotNull(bound.ResultErrorCaseType);
+        Assert.NotNull(bound.ResultOkCtor);
+        Assert.NotNull(bound.ResultErrorCtor);
+        Assert.NotNull(bound.ReceiverResultOkValueGetter);
+        Assert.NotNull(bound.ReceiverResultErrorDataGetter);
     }
 
     private static string GetRavenCorePath()

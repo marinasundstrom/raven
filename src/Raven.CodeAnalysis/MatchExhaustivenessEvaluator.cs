@@ -167,7 +167,7 @@ internal sealed class MatchExhaustivenessEvaluator
         IUnionSymbol union,
         MatchExhaustivenessOptions options)
     {
-        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.CaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
         var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutineeType, union);
 
         foreach (var arm in arms)
@@ -359,6 +359,9 @@ internal sealed class MatchExhaustivenessEvaluator
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
                     if (declaredType.TypeKind == TypeKind.Error || inputType.TypeKind == TypeKind.Error)
+                        return true;
+
+                    if (ArePatternTypesEquivalent(declaredType, inputType))
                         return true;
 
                     return IsAssignable(declaredType, inputType);
@@ -683,7 +686,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
             if (parameterType is INamedTypeSymbol namedParameterType)
             {
-                var nameMatch = union.CaseTypes.FirstOrDefault(caseType =>
+                var nameMatch = union.DeclaredCaseTypes.FirstOrDefault(caseType =>
                     string.Equals(caseType.Name, namedParameterType.Name, StringComparison.Ordinal));
                 if (nameMatch is not null)
                     return nameMatch.OriginalDefinition as IUnionCaseTypeSymbol ?? nameMatch;
@@ -699,7 +702,7 @@ internal sealed class MatchExhaustivenessEvaluator
                 return memberCase.OriginalDefinition as IUnionCaseTypeSymbol ?? memberCase;
         }
 
-        foreach (var caseType in union.CaseTypes)
+        foreach (var caseType in union.DeclaredCaseTypes)
         {
             var normalizedCaseType = UnwrapAlias((ITypeSymbol)((caseType.OriginalDefinition as IUnionCaseTypeSymbol) ?? caseType));
 
@@ -707,19 +710,19 @@ internal sealed class MatchExhaustivenessEvaluator
                 return caseType.OriginalDefinition as IUnionCaseTypeSymbol ?? caseType;
         }
 
-        for (var i = 0; i < union.MemberTypes.Length && i < union.CaseTypes.Length; i++)
+        for (var i = 0; i < union.MemberTypes.Length && i < union.DeclaredCaseTypes.Length; i++)
         {
             var normalizedCaseMemberType = UnwrapAlias(union.MemberTypes[i]);
             if (ArePatternTypesEquivalent(normalizedCaseMemberType, normalizedMemberType))
             {
-                var caseType = union.CaseTypes[i];
+                var caseType = union.DeclaredCaseTypes[i];
                 return caseType.OriginalDefinition as IUnionCaseTypeSymbol ?? caseType;
             }
         }
 
         if (normalizedMemberType is INamedTypeSymbol namedMemberType)
         {
-            var nameMatch = union.CaseTypes.FirstOrDefault(caseType =>
+            var nameMatch = union.DeclaredCaseTypes.FirstOrDefault(caseType =>
                 string.Equals(caseType.Name, namedMemberType.Name, StringComparison.Ordinal));
             if (nameMatch is not null)
                 return nameMatch.OriginalDefinition as IUnionCaseTypeSymbol ?? nameMatch;

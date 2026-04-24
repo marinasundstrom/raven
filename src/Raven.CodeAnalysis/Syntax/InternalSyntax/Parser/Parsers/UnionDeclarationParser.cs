@@ -46,35 +46,40 @@ internal class UnionDeclarationParser : SyntaxParser
 
         SyntaxToken openBraceToken;
         SyntaxToken closeBraceToken;
-        List<GreenNode> cases = new();
+        List<GreenNode> members = new();
 
-        if (memberTypes is null)
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
         {
-            ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out openBraceToken);
+            openBraceToken = ReadToken();
+            var memberParser = new TypeDeclarationParser(this);
 
             while (true)
             {
                 var next = PeekToken();
 
-                if (next.IsKind(SyntaxKind.CloseBraceToken))
+                if (next.IsKind(SyntaxKind.CloseBraceToken) || next.IsKind(SyntaxKind.EndOfFileToken))
                 {
                     break;
                 }
 
-                if (next.IsKind(SyntaxKind.CommaToken))
+                var memberStart = memberParser.Position;
+                var member = memberParser.ParseMember();
+
+                if (memberParser.Position == memberStart)
                 {
-                    ReadToken();
-                    continue;
+                    var skippedToken = ParseIncompleteTypeMemberTokens();
+                    TryConsumeTerminator(out var memberTerminatorToken);
+                    members.Add(IncompleteMemberDeclaration(SyntaxList.Empty, SyntaxList.Empty, skippedToken, memberTerminatorToken));
+                }
+                else
+                {
+                    members.Add(member);
                 }
 
-                var caseStart = Position;
-                var unionCase = ParseCase();
-                cases.Add(unionCase);
-
-                // Ensure parser progress when recovery produced only missing tokens.
-                if (Position == caseStart && !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                SetTreatNewlinesAsTokens(false);
+                if (PeekToken().IsKind(SyntaxKind.CommaToken))
                 {
-                    ReadToken();
+                    members.Add(ReadToken());
                 }
             }
 
@@ -98,7 +103,7 @@ internal class UnionDeclarationParser : SyntaxParser
             memberTypes,
             constraintClauses,
             openBraceToken,
-            List(cases),
+            List(members),
             closeBraceToken,
             terminatorToken);
     }
@@ -174,31 +179,6 @@ internal class UnionDeclarationParser : SyntaxParser
         return UnionMemberTypeList(openParenToken, List(types), closeParenToken);
     }
 
-    private UnionCaseClauseSyntax ParseCase()
-    {
-        var caseKeyword = ExpectToken(SyntaxKind.CaseKeyword);
-
-        SyntaxToken identifier;
-        if (CanTokenBeIdentifier(PeekToken()))
-        {
-            identifier = ReadIdentifierToken();
-        }
-        else
-        {
-            identifier = ExpectToken(SyntaxKind.IdentifierToken);
-        }
-
-        ParameterListSyntax? parameterList = null;
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-        {
-            parameterList = new TypeDeclarationParser(this).ParseParameterList();
-        }
-
-        var terminatorToken = ConsumeOptionalCaseTerminator();
-
-        return UnionCaseClause(caseKeyword, identifier, parameterList, terminatorToken);
-    }
-
     private SyntaxList ParseModifiers()
     {
         SyntaxList modifiers = SyntaxList.Empty;
@@ -247,32 +227,59 @@ internal class UnionDeclarationParser : SyntaxParser
         return Token(SyntaxKind.None);
     }
 
-    private SyntaxToken ConsumeOptionalCaseTerminator()
+    private SyntaxToken ParseIncompleteTypeMemberTokens()
     {
-        if (PeekToken().IsKind(SyntaxKind.CommaToken))
-            return ReadToken();
+        var span = GetSpanOfPeekedToken();
 
-        TryConsumeTerminator(out var terminatorToken);
+        var skippedTokens = ConsumeSkippedTokensUntil(
+            token => token.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken or SyntaxKind.CommaToken ||
+                     IsPossibleTypeMemberStart(token),
+            stopAtImplicitLineBreak: true);
 
-        var current = PeekToken();
+        return CreateSkippedToken(skippedTokens, span);
+    }
 
-        if (terminatorToken.IsKind(SyntaxKind.SemicolonToken))
-            return terminatorToken;
-
-        if (!terminatorToken.IsKind(SyntaxKind.None))
-            return terminatorToken;
-
-        if (current.IsKind(SyntaxKind.EndOfFileToken) || current.IsKind(SyntaxKind.CloseBraceToken))
-            return terminatorToken;
-
-        if (CanTokenBeIdentifier(current) && !HasLineBreakBeforePeekToken())
-        {
-            AddDiagnostic(
-                DiagnosticInfo.Create(
-                    CompilerDiagnostics.ExpectedNewLineBetweenDeclarations,
-                    GetInsertionSpanBeforePeekedToken()));
-        }
-
-        return terminatorToken;
+    private static bool IsPossibleTypeMemberStart(SyntaxToken token)
+    {
+        return token.Kind is
+            SyntaxKind.OpenBracketToken or
+            SyntaxKind.HashToken or
+            SyntaxKind.OpenBraceToken or
+            SyntaxKind.PublicKeyword or
+            SyntaxKind.PrivateKeyword or
+            SyntaxKind.InternalKeyword or
+            SyntaxKind.ProtectedKeyword or
+            SyntaxKind.FileprivateKeyword or
+            SyntaxKind.StaticKeyword or
+            SyntaxKind.ReadonlyKeyword or
+            SyntaxKind.AbstractKeyword or
+            SyntaxKind.FinalKeyword or
+            SyntaxKind.FinallyKeyword or
+            SyntaxKind.SealedKeyword or
+            SyntaxKind.PartialKeyword or
+            SyntaxKind.VirtualKeyword or
+            SyntaxKind.AsyncKeyword or
+            SyntaxKind.ExternKeyword or
+            SyntaxKind.OpenKeyword or
+            SyntaxKind.RecordKeyword or
+            SyntaxKind.OverrideKeyword or
+            SyntaxKind.ClassKeyword or
+            SyntaxKind.StructKeyword or
+            SyntaxKind.InterfaceKeyword or
+            SyntaxKind.ExtensionKeyword or
+            SyntaxKind.TraitKeyword or
+            SyntaxKind.EnumKeyword or
+            SyntaxKind.UnionKeyword or
+            SyntaxKind.DelegateKeyword or
+            SyntaxKind.EventKeyword or
+            SyntaxKind.FieldKeyword or
+            SyntaxKind.ValKeyword or
+            SyntaxKind.VarKeyword or
+            SyntaxKind.ConstKeyword or
+            SyntaxKind.FuncKeyword or
+            SyntaxKind.InitKeyword or
+            SyntaxKind.SelfKeyword or
+            SyntaxKind.CaseKeyword or
+            SyntaxKind.IdentifierToken;
     }
 }

@@ -185,14 +185,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                 return true;
             case UnionDeclarationSyntax unionDeclaration:
                 {
-                    var unionChildren = unionDeclaration.CaseTypes
-                        .Select(unionCase => CreateSymbol(
-                            unionCase.Identifier.Text,
-                            SymbolKind.EnumMember,
-                            unionCase.Span,
-                            unionCase.Identifier.Span,
-                            text))
-                        .ToArray();
+                    var unionChildren = BuildUnionChildSymbols(unionDeclaration, text).ToArray();
                     symbol = CreateSymbol(
                         unionDeclaration.Identifier.Text,
                         SymbolKind.Enum,
@@ -346,6 +339,26 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
         foreach (var symbol in BuildMemberSymbols(declaration.Members, text))
             yield return symbol;
+    }
+
+    private static IEnumerable<DocumentSymbol> BuildUnionChildSymbols(UnionDeclarationSyntax declaration, SourceText text)
+    {
+        foreach (var member in declaration.Members)
+        {
+            if (member is CaseDeclarationSyntax unionCase)
+            {
+                yield return CreateSymbol(
+                    unionCase.Identifier.Text,
+                    SymbolKind.EnumMember,
+                    unionCase.Span,
+                    unionCase.Identifier.Span,
+                    text);
+                continue;
+            }
+
+            if (TryCreateSymbol(member, text, out var symbol))
+                yield return symbol;
+        }
     }
 
     private static IEnumerable<DocumentSymbol> BuildPromotedPrimaryConstructorPropertySymbols(TypeDeclarationSyntax declaration, SourceText text)

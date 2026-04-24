@@ -19,7 +19,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
-    private ImmutableArray<IUnionCaseTypeSymbol>? _cases;
+    private ImmutableArray<ITypeSymbol>? _caseTypes;
+    private ImmutableArray<IUnionCaseTypeSymbol>? _declaredCases;
     private ImmutableArray<ITypeSymbol>? _memberTypes;
     private ImmutableArray<IParameterSymbol>? _constructorParameters;
     private ImmutableArray<ITypeParameterSymbol> _typeParameters;
@@ -651,8 +652,15 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         return argument;
     }
 
-    public ImmutableArray<ISymbol> GetMembers() =>
-        _members ??= _originalDefinition.GetMembers().Select(SubstituteMember).ToImmutableArray();
+    public ImmutableArray<ISymbol> GetMembers()
+    {
+        var substitutedMembers = _originalDefinition.GetMembers().Select(SubstituteMember).ToImmutableArray();
+
+        if (ShouldCacheMutableSourceUnionState())
+            return substitutedMembers;
+
+        return _members ??= substitutedMembers;
+    }
 
     public ImmutableArray<ISymbol> GetMembers(string name) =>
         GetMembers().Where(m => m.Name == name).ToImmutableArray();
@@ -918,14 +926,42 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
  _interfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces);
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
        _allInterfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces);
-    public ImmutableArray<IUnionCaseTypeSymbol> CaseTypes
+    public ImmutableArray<ITypeSymbol> CaseTypes
+    {
+        get
+        {
+            if (!TryGetUnionDefinition(out var unionDefinition))
+                return ImmutableArray<ITypeSymbol>.Empty;
+
+            if (!ShouldCacheMutableSourceUnionState() && _caseTypes is not null)
+                return _caseTypes.Value;
+
+            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(unionDefinition.CaseTypes.Length);
+            foreach (var caseType in unionDefinition.CaseTypes)
+                builder.Add(Substitute(caseType));
+
+            var substitutedCases = builder.MoveToImmutable();
+            if (ShouldCacheMutableSourceUnionState())
+                return substitutedCases;
+
+            _caseTypes = substitutedCases;
+            return _caseTypes.Value;
+        }
+    }
+
+    public ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes
     {
         get
         {
             if (!TryGetUnionDefinition(out var unionDefinition))
                 return ImmutableArray<IUnionCaseTypeSymbol>.Empty;
 
-            return _cases ??= SubstituteUnionCases(unionDefinition.CaseTypes);
+            var substitutedCases = SubstituteUnionCases(unionDefinition.DeclaredCaseTypes);
+
+            if (ShouldCacheMutableSourceUnionState())
+                return substitutedCases;
+
+            return _declaredCases ??= substitutedCases;
         }
     }
     public ImmutableArray<ITypeSymbol> MemberTypes
@@ -935,14 +971,18 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             if (!TryGetUnionDefinition(out var unionDefinition))
                 return ImmutableArray<ITypeSymbol>.Empty;
 
-            if (_memberTypes is not null)
+            if (!ShouldCacheMutableSourceUnionState() && _memberTypes is not null)
                 return _memberTypes.Value;
 
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(unionDefinition.MemberTypes.Length);
             foreach (var memberType in unionDefinition.MemberTypes)
                 builder.Add(Substitute(memberType));
 
-            _memberTypes = builder.MoveToImmutable();
+            var substitutedMembers = builder.MoveToImmutable();
+            if (ShouldCacheMutableSourceUnionState())
+                return substitutedMembers;
+
+            _memberTypes = substitutedMembers;
             return _memberTypes.Value;
         }
     }
@@ -960,6 +1000,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             return _discriminatorField;
         }
     }
+
+    private bool ShouldCacheMutableSourceUnionState()
+        => _originalDefinition is SourceUnionSymbol or SourceUnionCaseTypeSymbol;
     public IFieldSymbol PayloadField
     {
         get

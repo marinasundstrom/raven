@@ -198,6 +198,7 @@ internal class TypeDeclarationParser : SyntaxParser
             SyntaxKind.FuncKeyword or
             SyntaxKind.InitKeyword or
             SyntaxKind.SelfKeyword or
+            SyntaxKind.CaseKeyword or
             SyntaxKind.IdentifierToken;
     }
 
@@ -421,7 +422,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return ParseTypeMemberModifiers();
     }
 
-    private MemberDeclarationSyntax ParseMember()
+    internal MemberDeclarationSyntax ParseMember()
     {
         var memberDeclarationCheckpoint = CreateCheckpoint();
 
@@ -494,6 +495,11 @@ internal class TypeDeclarationParser : SyntaxParser
             return ParseDelegateDeclaration(attributeLists, modifiers);
         }
 
+        if (keywordOrIdentifier.IsKind(SyntaxKind.CaseKeyword))
+        {
+            return ParseCaseDeclaration(attributeLists, modifiers);
+        }
+
         if (keywordOrIdentifier.IsKind(SyntaxKind.FinallyKeyword))
             return ParseFinallyDeclaration(attributeLists, modifiers);
 
@@ -546,6 +552,46 @@ internal class TypeDeclarationParser : SyntaxParser
         var skippedMember = ParseIncompleteTypeMemberTokens();
         TryConsumeTerminator(out var skippedTerminator);
         return IncompleteMemberDeclaration(attributeLists, modifiers, skippedMember, skippedTerminator);
+    }
+
+    private CaseDeclarationSyntax ParseCaseDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
+    {
+        var caseKeyword = ExpectToken(SyntaxKind.CaseKeyword);
+
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
+
+        ParameterListSyntax? parameterList = null;
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            parameterList = ParseParameterList();
+
+        var terminatorToken = ConsumeOptionalCaseTerminator();
+        return CaseDeclaration(attributeLists, modifiers, caseKeyword, identifier, parameterList, terminatorToken);
+    }
+
+    private SyntaxToken ConsumeOptionalCaseTerminator()
+    {
+        if (PeekToken().IsKind(SyntaxKind.CommaToken))
+            return ReadToken();
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        var current = PeekToken();
+
+        if (terminatorToken.IsKind(SyntaxKind.SemicolonToken))
+            return terminatorToken;
+
+        if (HasLineBreakBeforePeekToken() || current.Kind is SyntaxKind.CloseBraceToken or SyntaxKind.EndOfFileToken)
+            return terminatorToken.Kind == SyntaxKind.None ? Token(SyntaxKind.None) : terminatorToken;
+
+        return terminatorToken;
     }
 
     private MemberDeclarationSyntax ParseOperatorDeclarationFromFunc(SyntaxList attributeLists, SyntaxList modifiers, SyntaxToken declarationKeyword)

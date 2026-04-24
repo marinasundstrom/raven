@@ -4383,8 +4383,9 @@ val paidByCard: Payment = Card("4242")
 
 ##### Concept
 
-The body form declares a carrier and synthesizes named case types from the case
-clauses.
+The body form declares a carrier with an ordinary member body. That member body
+may contain `case` declarations alongside other members such as methods and
+properties. Each `case` declaration synthesizes a named case type.
 
 ##### Example
 
@@ -4392,6 +4393,13 @@ clauses.
 union LookupResult {
     case Found(id: int)
     case Missing
+
+    func Describe() -> string {
+        return self match {
+            Found(val id) => "found $id"
+            Missing => "missing"
+        }
+    }
 }
 
 val found: LookupResult = Found(42)
@@ -4400,13 +4408,23 @@ val missing: LookupResult = Missing
 
 ##### Rules
 
-* Each case clause declares one synthesized case type.
+* Each `case` declaration declares one synthesized case type.
+* Body-form unions may also declare ordinary members in the same body.
+* `case` declarations are valid only inside `union` declarations.
 * Case references may use `Union.Case`, `.Case`, or unqualified `Case` when
   resolution is unambiguous.
 * A comma or semicolon after a case is optional; when present it terminates that
   case declaration.
 * Generic unions are allowed in both forms, for example
   `union Result<T, E> { case Ok(value: T) case Error(error: E) }`.
+* `union` declarations may be `partial`. Cases and ordinary members may be
+  distributed across partial declarations of the same union.
+* The carrier reserves the member names `Value` and `HasValue` for synthesized
+  members.
+* As with records, an authored `override ToString()` suppresses the synthesized
+  union `ToString()`.
+* Authored `Equals`, `GetHashCode`, and equality operators on unions are
+  currently rejected.
 
 Line-continuation details for leading-dot case forms are defined in
 [Control flow: Line continuations](control-flow.md#line-continuations).

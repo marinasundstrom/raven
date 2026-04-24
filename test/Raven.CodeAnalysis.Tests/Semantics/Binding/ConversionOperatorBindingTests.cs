@@ -249,4 +249,5 @@ func format<T>(result: Result<T, string>) -> Option<string> {
             diagnostics,
             d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
     }
+
 }

@@ -1,6 +1,15 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-03-19**.
+Behavior-focused timeline covering **2025-09-12** to **2026-04-24**.
+
+## 2026-04-24
+
+### Changed
+- The language docs and reference spec now describe the current union-body model more directly: body-form unions use `case` declarations inside an ordinary member body, may contain authored members beside cases, may be declared `partial`, reserve `Value`/`HasValue`, and follow record-like `ToString()` override behavior while still rejecting authored union equality/hash special members.
+- The compiler diagnostics reference now includes the union-specific reserved-name and unsupported-special-member diagnostics `RAV2111` and `RAV2112`.
+
+Impact:
+- The written language reference now matches the compiler and `Raven.Core` surface more closely for modern unions such as `Option<T>` and `Result<T, E>`.
 
 ## 2026-04-19
 

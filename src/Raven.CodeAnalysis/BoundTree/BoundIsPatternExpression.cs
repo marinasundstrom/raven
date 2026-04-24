@@ -499,7 +499,7 @@ internal partial class BlockBinder
             if (unionType is not null)
             {
                 var caseName = identifierType.Identifier.ValueText;
-                var caseSymbol = unionType.CaseTypes.FirstOrDefault(c => c.Name == caseName);
+                var caseSymbol = unionType.DeclaredCaseTypes.FirstOrDefault(c => c.Name == caseName);
 
                 if (caseSymbol is not null)
                 {
@@ -1702,11 +1702,11 @@ internal partial class BlockBinder
 
     private BoundPattern BindNominalDeconstructionPattern(NominalDeconstructionPatternSyntax syntax, ITypeSymbol? inputType)
     {
-        if (TryBindUnionMemberNominalDeconstructionPattern(syntax, inputType, out var unionMemberPattern))
-            return unionMemberPattern;
-
         if (TryBindNominalDeconstructionPatternAsCasePattern(syntax, inputType, out var casePattern))
             return casePattern;
+
+        if (TryBindUnionMemberNominalDeconstructionPattern(syntax, inputType, out var unionMemberPattern))
+            return unionMemberPattern;
 
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -1810,14 +1810,14 @@ internal partial class BlockBinder
 
         if (inputType is not null &&
             (inputType.TryGetUnion() ?? inputType.TryGetUnionCase()?.Union) is IUnionSymbol union &&
-            !union.CaseTypes.IsDefaultOrEmpty &&
+            !union.DeclaredCaseTypes.IsDefaultOrEmpty &&
             TryGetCasePatternHead(syntax.Type, out var caseName, out var qualifierType, out _) &&
             !string.IsNullOrEmpty(caseName))
         {
             var qualifierMatchesUnion = qualifierType is null ||
                                         AreSameUnionMemberPatternTarget(qualifierType, union);
             if (qualifierMatchesUnion &&
-                union.CaseTypes.Any(c => string.Equals(c.Name, caseName, StringComparison.Ordinal)))
+                union.DeclaredCaseTypes.Any(c => string.Equals(c.Name, caseName, StringComparison.Ordinal)))
             {
                 return false;
             }
@@ -1985,8 +1985,8 @@ internal partial class BlockBinder
                 return false;
 
             _diagnostics.ReportCasePatternCaseNotFound(
-                caseName,
                 sealedRoot.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                caseName,
                 caseNameLocation);
             pattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
             return true;
@@ -2083,12 +2083,15 @@ internal partial class BlockBinder
         if (unionType is null)
             return false;
 
-        var caseSymbol = unionType.CaseTypes.FirstOrDefault(c => c.Name == caseName);
+        if (unionType.DeclaredCaseTypes.IsDefaultOrEmpty)
+            return false;
+
+        var caseSymbol = unionType.DeclaredCaseTypes.FirstOrDefault(c => c.Name == caseName);
         if (caseSymbol is null)
         {
             _diagnostics.ReportCasePatternCaseNotFound(
-                caseName,
                 unionType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                caseName,
                 caseNameLocation);
 
             pattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);

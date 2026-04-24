@@ -393,7 +393,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 or SyntaxKind.GlobalStatement
                 or SyntaxKind.MatchArm
                 or SyntaxKind.EnumMemberDeclaration
-                or SyntaxKind.UnionCaseClause)
+                or SyntaxKind.CaseDeclaration)
             {
                 return true;
             }
@@ -457,7 +457,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 or SyntaxKind.GlobalStatement
                 or SyntaxKind.MatchArm
                 or SyntaxKind.EnumMemberDeclaration
-                or SyntaxKind.UnionCaseClause)
+                or SyntaxKind.CaseDeclaration)
             {
                 return true;
             }

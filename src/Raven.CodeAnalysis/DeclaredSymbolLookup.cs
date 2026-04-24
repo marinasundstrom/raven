@@ -59,7 +59,7 @@ internal sealed class DeclaredSymbolLookup
             }
         }
 
-        if (node is UnionCaseClauseSyntax caseClause &&
+        if (node is CaseDeclarationSyntax caseClause &&
             _semanticModel.TryGetUnionCaseSymbol(caseClause, out var caseSymbol))
         {
             return caseSymbol;
@@ -207,7 +207,7 @@ internal sealed class DeclaredSymbolLookup
     {
         switch (node)
         {
-            case UnionCaseClauseSyntax caseClause when _semanticModel.TryGetUnionCaseSymbol(caseClause, out var caseSymbol):
+            case CaseDeclarationSyntax caseClause when _semanticModel.TryGetUnionCaseSymbol(caseClause, out var caseSymbol):
                 symbol = caseSymbol;
                 return true;
 

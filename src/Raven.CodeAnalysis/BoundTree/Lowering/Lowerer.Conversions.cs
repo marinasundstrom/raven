@@ -75,7 +75,7 @@ internal sealed partial class Lowerer
 
             // Reproject the case via the target union to keep synthesized case locals concrete.
             var projectedCase = unionType is IUnionSymbol projectedUnion
-                ? projectedUnion.CaseTypes.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
+                ? projectedUnion.DeclaredCaseTypes.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
                 : caseDefinition;
 
             var projectedCaseType = (INamedTypeSymbol)projectedCase;

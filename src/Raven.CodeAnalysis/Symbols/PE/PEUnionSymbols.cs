@@ -10,6 +10,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 {
     private ImmutableArray<IUnionCaseTypeSymbol>? _cases;
+    private ImmutableArray<ITypeSymbol>? _caseTypes;
     private ImmutableArray<ITypeSymbol>? _memberTypes;
     private IFieldSymbol? _discriminatorField;
     private IFieldSymbol? _payloadField;
@@ -25,7 +26,10 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
     {
     }
 
-    public ImmutableArray<IUnionCaseTypeSymbol> CaseTypes
+    public ImmutableArray<ITypeSymbol> CaseTypes
+        => _caseTypes ??= DeclaredCaseTypes.Cast<ITypeSymbol>().ToImmutableArray();
+
+    public ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes
     {
         get
         {
@@ -57,7 +61,7 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
             ?? throw new InvalidOperationException($"Missing discriminator field on discriminated union '{Name}'.");
 
     public ImmutableArray<ITypeSymbol> MemberTypes =>
-        _memberTypes ??= CaseTypes.Cast<ITypeSymbol>().ToImmutableArray();
+        _memberTypes ??= DeclaredCaseTypes.Cast<ITypeSymbol>().ToImmutableArray();
 
     public IFieldSymbol PayloadField =>
         _payloadField ??= FindUnionField(UnionFieldUtilities.IsPayloadFieldName)

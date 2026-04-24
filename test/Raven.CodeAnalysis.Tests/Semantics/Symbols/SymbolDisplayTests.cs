@@ -180,7 +180,7 @@ union Result<T> {
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
-        var okClause = tree.GetRoot().DescendantNodes().OfType<UnionCaseClauseSyntax>().First();
+        var okClause = tree.GetRoot().DescendantNodes().OfType<CaseDeclarationSyntax>().First();
         var okSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(model.GetDeclaredSymbol(okClause));
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
@@ -188,6 +188,37 @@ union Result<T> {
             SymbolDisplayKindOptions.IncludeMemberKeyword);
 
         okSymbol.ToDisplayString(format).ShouldBe("case Ok<T>");
+    }
+
+    [Fact]
+    public void UnionCaseSymbol_InsideGenericSignature_DoesNotUseCaseMemberKeyword()
+    {
+        const string source = """
+record Box<T>(value: T)
+
+union Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+
+class C {
+    func Wrap(value: Box<Result<int, string>.Ok>) -> unit { }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+
+        var format = SymbolDisplayFormat.RavenSignatureFormat.WithKindOptions(
+            SymbolDisplayFormat.RavenSignatureFormat.KindOptions |
+            SymbolDisplayKindOptions.IncludeMemberKeyword);
+
+        var display = symbol.ToDisplayString(format);
+
+        display.ShouldNotContain("case ");
+        display.ShouldBe("func Wrap(value: Box<Ok<T>>) -> ()");
     }
 
     [Fact]

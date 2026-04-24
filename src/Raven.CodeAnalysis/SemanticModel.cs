@@ -586,6 +586,20 @@ public partial class SemanticModel
 
         switch (node)
         {
+            case IdentifierNameSyntax identifier when TryGetCasePatternHeadSymbol(identifier, out var casePatternSymbol):
+                {
+                    info = new SymbolInfo(casePatternSymbol);
+                    StoreNodeInterestSymbolDescriptor(node, casePatternSymbol);
+                    return true;
+                }
+
+            case GenericNameSyntax genericName when TryGetCasePatternHeadSymbol(genericName, out var genericCasePatternSymbol):
+                {
+                    info = new SymbolInfo(genericCasePatternSymbol);
+                    StoreNodeInterestSymbolDescriptor(node, genericCasePatternSymbol);
+                    return true;
+                }
+
             case IdentifierNameSyntax identifier:
                 {
                     if (identifier.Parent is MemberAccessExpressionSyntax memberAccess)
@@ -665,6 +679,32 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private bool TryGetCasePatternHeadSymbol(SimpleNameSyntax nameSyntax, out ISymbol symbol)
+    {
+        symbol = null!;
+
+        SyntaxNode? patternNode = nameSyntax.Parent switch
+        {
+            NominalDeconstructionPatternSyntax nominal when ReferenceEquals(nominal.Type, nameSyntax) => nominal,
+            DeclarationPatternSyntax declaration when ReferenceEquals(declaration.Type, nameSyntax) => declaration,
+            ConstantPatternSyntax constant when ReferenceEquals(constant.Expression, nameSyntax) => constant,
+            MemberPatternSyntax memberPattern when nameSyntax.Parent is QualifiedNameSyntax qualified &&
+                                                 ReferenceEquals(qualified.Right, nameSyntax) &&
+                                                 ReferenceEquals(memberPattern.Path, qualified) => memberPattern,
+            MemberPatternSyntax memberPattern when ReferenceEquals(memberPattern.Path, nameSyntax) => memberPattern,
+            _ => null
+        };
+
+        if (patternNode is null)
+            return false;
+
+        if (GetOperation(patternNode) is not ICasePatternOperation casePattern)
+            return false;
+
+        symbol = casePattern.CaseSymbol;
+        return true;
     }
 
     private bool TryRebindInvocationAfterRefreshingFunctionArguments(

@@ -346,6 +346,13 @@ public static partial class SymbolExtensions
                 text = FormatType(typeSymbol, format);
             }
 
+            if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) &&
+                symbol is INamedTypeSymbol namedMemberType &&
+                GetMemberKindKeyword(namedMemberType) is { Length: > 0 } memberKeyword)
+            {
+                text = memberKeyword + " " + text;
+            }
+
             if (typeSymbol is INamedTypeSymbol namedUnionType &&
                 namedUnionType.IsUnion &&
                 namedUnionType is IUnionSymbol unionSymbol &&
@@ -1041,12 +1048,6 @@ public static partial class SymbolExtensions
     {
         var sb = new StringBuilder();
 
-        if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) &&
-            GetMemberKindKeyword(typeSymbol) is { Length: > 0 } memberKeyword)
-        {
-            sb.Append(memberKeyword).Append(' ');
-        }
-
         // Qualification
         if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
         {
@@ -1714,7 +1715,7 @@ public static partial class SymbolExtensions
     {
         return symbol switch
         {
-            IUnionCaseTypeSymbol => "case",
+            ITypeSymbol { IsUnionCase: true } => "case",
             IFieldSymbol => "field",
             IPropertySymbol property => property.IsMutable ? "var" : "val",
             IEventSymbol => "event",

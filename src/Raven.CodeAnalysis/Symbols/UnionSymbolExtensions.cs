@@ -154,14 +154,15 @@ internal static class UnionSymbolExtensions
         ITypeSymbol caseType,
         out IMethodSymbol constructor)
     {
-        var caseDefinition = caseType.OriginalDefinition;
+        var caseDefinition = caseType.OriginalDefinition ?? caseType;
 
         foreach (var candidate in unionType.Constructors)
         {
             if (candidate.IsStatic || candidate.Parameters.Length != 1)
                 continue;
 
-            if (SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type.OriginalDefinition, caseDefinition))
+            var parameterDefinition = candidate.Parameters[0].Type.OriginalDefinition ?? candidate.Parameters[0].Type;
+            if (parameterDefinition.MetadataIdentityEquals(caseDefinition))
             {
                 if (unionType is ConstructedNamedTypeSymbol constructedUnion)
                 {

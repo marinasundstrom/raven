@@ -46,66 +46,6 @@ union class Option<T> {
 
     /// Represents the absence of a value
     case None
-}
-
-class OptionJsonConverter<T> : JsonConverter<Option<T>> {
-
-    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
-        use doc = JsonDocument.ParseValue(reader)
-        val root = doc.RootElement
-
-        val @case = root.GetProperty("case").GetString()
-
-        return @case match {
-            "Some" => {
-                val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
-                val option: Option<T> = Some(payload)
-                option
-            }
-            "None" => {
-                val option: Option<T> = None
-                option
-            }
-            _ => {
-                val fallback: Option<T> = None
-                fallback
-            }
-        }
-    }
-
-    override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
-        writer.WriteStartObject()
-
-        if value is Some(val someValue) {
-            writer.WriteString("case", "Some")
-            writer.WritePropertyName("value")
-            JsonSerializer.Serialize(writer, someValue, options)
-        } else if value is None {
-            writer.WriteString("case", "None")
-        }
-
-        writer.WriteEndObject()
-    }
-}
-
-class OptionJsonConverterFactory : JsonConverterFactory {
-
-    override func CanConvert(typeToConvert: Type) -> bool {
-        return typeToConvert.IsGenericType
-            && typeToConvert.GetGenericTypeDefinition() == typeof(Option<>)
-    }
-
-    override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
-        val tArg = typeToConvert.GetGenericArguments()[0]
-        val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
-        return (JsonConverter)(
-            Activator.CreateInstance(converterType)
-                ?? throw InvalidOperationException("Could not create JsonConverter"))
-    }
-}
-
-/// Contains extensions for the Option<T> type
-extension OptionExtensions<T> for Option<T> {
 
     /// Gets a value indicating whether the Option has Some
     val HasSome: bool => self is Some(val v)
@@ -251,21 +191,10 @@ extension OptionExtensions<T> for Option<T> {
         }
         defaultValue
     }
-}
 
-extension OptionExtensionsNested<T> for Option<Option<T>> {
-
-    /// Flattens `Option<Option<T>>` into `Option<T>`.
-    func Flatten() -> Option<T> {
-        self match {
-            Some(val inner) => inner
-            None => None
-        }
-    }
 }
 
 extension OptionExtensions1<T : class> for Option<T> {
-
     static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
             return value
@@ -282,7 +211,6 @@ extension OptionExtensions1<T : class> for Option<T> {
 }
 
 extension OptionExtensions2<T : struct> for Option<T> {
-
     static func implicit(opt: Option<T>) -> T? {
         if opt is Some(val value) {
             return value
@@ -291,10 +219,76 @@ extension OptionExtensions2<T : struct> for Option<T> {
     }
 
     static func implicit(value: T?) -> Option<T> {
-        // TODO: Handle so that value type in "value" gets unwrapped
         if value is not null {
             return Some(value)
         }
         None
+    }
+}
+
+class OptionJsonConverter<T> : JsonConverter<Option<T>> {
+
+    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        val @case = root.GetProperty("case").GetString()
+
+        return @case match {
+            "Some" => {
+                val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
+                val option: Option<T> = Some(payload)
+                option
+            }
+            "None" => {
+                val option: Option<T> = None
+                option
+            }
+            _ => {
+                val fallback: Option<T> = None
+                fallback
+            }
+        }
+    }
+
+    override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
+        writer.WriteStartObject()
+
+        if value is Some(val someValue) {
+            writer.WriteString("case", "Some")
+            writer.WritePropertyName("value")
+            JsonSerializer.Serialize(writer, someValue, options)
+        } else if value is None {
+            writer.WriteString("case", "None")
+        }
+
+        writer.WriteEndObject()
+    }
+}
+
+class OptionJsonConverterFactory : JsonConverterFactory {
+
+    override func CanConvert(typeToConvert: Type) -> bool {
+        return typeToConvert.IsGenericType
+            && typeToConvert.GetGenericTypeDefinition() == typeof(Option<>)
+    }
+
+    override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+        val tArg = typeToConvert.GetGenericArguments()[0]
+        val converterType = typeof(OptionJsonConverter<>).MakeGenericType([tArg])
+        return (JsonConverter)(
+            Activator.CreateInstance(converterType)
+                ?? throw InvalidOperationException("Could not create JsonConverter"))
+    }
+}
+
+extension OptionExtensionsNested<T> for Option<Option<T>> {
+
+    /// Flattens `Option<Option<T>>` into `Option<T>`.
+    func Flatten() -> Option<T> {
+        self match {
+            Some(val inner) => inner
+            None => None
+        }
     }
 }

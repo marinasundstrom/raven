@@ -46,69 +46,6 @@ union class Result<T, E> {
 
     /// Represents an error
     case Error(data: E)
-}
-
-class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
-
-    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
-        use doc = JsonDocument.ParseValue(reader)
-        val root = doc.RootElement
-
-        val @case = root.GetProperty("case").GetString()
-
-        return @case match {
-            "Ok" => {
-                val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
-                val result: Result<T, E> = Ok(payload)
-                result
-            }
-            "Error" => {
-                val payload = JsonSerializer.Deserialize<E>(root.GetProperty("data"), options)
-                val result: Result<T, E> = Error(payload)
-                result
-            }
-            _ => {
-                val fallback: Result<T, E> = Error(default(E))
-                fallback
-            }
-        }
-    }
-
-    override func Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
-        writer.WriteStartObject()
-
-        if value is Ok(val okValue) {
-            writer.WriteString("case", "Ok")
-            writer.WritePropertyName("value")
-            JsonSerializer.Serialize(writer, okValue, options)
-        } else if value is Error(val errorData) {
-            writer.WriteString("case", "Error")
-            writer.WritePropertyName("data")
-            JsonSerializer.Serialize(writer, errorData, options)
-        }
-
-        writer.WriteEndObject()
-    }
-}
-
-class ResultJsonConverterFactory : JsonConverterFactory {
-
-    override func CanConvert(typeToConvert: Type) -> bool {
-        return typeToConvert.IsGenericType
-            && typeToConvert.GetGenericTypeDefinition() == typeof(Result<,>)
-    }
-
-    override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
-        val tArgs = typeToConvert.GetGenericArguments()
-        val converterType = typeof(ResultJsonConverter<,>).MakeGenericType([tArgs[0], tArgs[1]])
-        return (JsonConverter)(
-            Activator.CreateInstance(converterType)
-                ?? throw InvalidOperationException("Could not create JsonConverter"))
-    }
-}
-
-/// Contains extensions for the Result<T, E> type
-extension ResultExtensions<T, E> for Result<T, E> {
 
     /// Gets a value indicating whether the Result was Ok
     val HasOk: bool => self is Ok(val message)
@@ -246,6 +183,65 @@ extension ResultExtensions<T, E> for Result<T, E> {
             return message
         }
         throw InvalidOperationException("Result is not Error")
+    }
+}
+
+class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
+
+    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        val @case = root.GetProperty("case").GetString()
+
+        return @case match {
+            "Ok" => {
+                val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
+                val result: Result<T, E> = Ok(payload)
+                result
+            }
+            "Error" => {
+                val payload = JsonSerializer.Deserialize<E>(root.GetProperty("data"), options)
+                val result: Result<T, E> = Error(payload)
+                result
+            }
+            _ => {
+                val fallback: Result<T, E> = Error(default(E))
+                fallback
+            }
+        }
+    }
+
+    override func Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
+        writer.WriteStartObject()
+
+        if value is Ok(val okValue) {
+            writer.WriteString("case", "Ok")
+            writer.WritePropertyName("value")
+            JsonSerializer.Serialize(writer, okValue, options)
+        } else if value is Error(val errorData) {
+            writer.WriteString("case", "Error")
+            writer.WritePropertyName("data")
+            JsonSerializer.Serialize(writer, errorData, options)
+        }
+
+        writer.WriteEndObject()
+    }
+}
+
+class ResultJsonConverterFactory : JsonConverterFactory {
+
+    override func CanConvert(typeToConvert: Type) -> bool {
+        return typeToConvert.IsGenericType
+            && typeToConvert.GetGenericTypeDefinition() == typeof(Result<,>)
+    }
+
+    override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+        val tArgs = typeToConvert.GetGenericArguments()
+        val converterType = typeof(ResultJsonConverter<,>).MakeGenericType([tArgs[0], tArgs[1]])
+        return (JsonConverter)(
+            Activator.CreateInstance(converterType)
+                ?? throw InvalidOperationException("Could not create JsonConverter"))
     }
 }
 

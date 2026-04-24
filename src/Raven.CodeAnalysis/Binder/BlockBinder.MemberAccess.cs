@@ -2154,6 +2154,27 @@ partial class BlockBinder
 
     private static INamedTypeSymbol? FindUnionCase(INamedTypeSymbol carrier, string name)
     {
+        var tryGetCase = carrier.GetMembers("TryGetValue")
+            .OfType<IMethodSymbol>()
+            .Where(method => method.Parameters.Length == 1)
+            .Select(method => method.Parameters[0].GetByRefElementType().GetPlainType() as INamedTypeSymbol)
+            .FirstOrDefault(type => type is not null && type.Name.StartsWith(name, StringComparison.Ordinal));
+        if (tryGetCase is not null)
+            return tryGetCase;
+
+        var constructorCase = carrier.Constructors
+            .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
+            .Select(ctor => ctor.Parameters[0].Type.GetPlainType() as INamedTypeSymbol)
+            .FirstOrDefault(type => type is not null && type.Name.StartsWith(name, StringComparison.Ordinal));
+        if (constructorCase is not null)
+            return constructorCase;
+
+        var directCase = carrier.GetTypeMembers(name).FirstOrDefault()
+            ?? carrier.GetTypeMembers()
+                .FirstOrDefault(t => t.Name.StartsWith(name, StringComparison.Ordinal));
+        if (directCase is not null)
+            return directCase;
+
         var union = carrier.TryGetUnion();
         if (union is not null)
         {
@@ -2162,9 +2183,7 @@ partial class BlockBinder
                 return namedCase;
         }
 
-        return carrier.GetTypeMembers(name).FirstOrDefault()
-            ?? carrier.GetTypeMembers()
-            .FirstOrDefault(t => t.Name.StartsWith(name, StringComparison.Ordinal));
+        return null;
     }
 
     private static IMethodSymbol? FindTryGetValueMethod(INamedTypeSymbol receiverType, INamedTypeSymbol? caseType)
@@ -2180,9 +2199,7 @@ partial class BlockBinder
                 m.Parameters.Length == 1 &&
                 m.ReturnType.SpecialType == SpecialType.System_Boolean &&
                 (m.Parameters[0].RefKind == RefKind.Out || m.Parameters[0].RefKind == RefKind.Ref) &&
-                SymbolEqualityComparer.Default.Equals(
-                    m.Parameters[0].GetByRefElementType().GetPlainType(),
-                    caseTypePlain));
+                m.Parameters[0].GetByRefElementType().GetPlainType().MetadataIdentityEquals(caseTypePlain));
     }
 
     private static IMethodSymbol? FindPropertyGetter(INamedTypeSymbol type, string propertyName)
@@ -2209,9 +2226,9 @@ partial class BlockBinder
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m =>
                 m.IsStatic &&
-                SymbolEqualityComparer.Default.Equals(m.ReturnType, carrier) &&
+                m.ReturnType.MetadataIdentityEquals(carrier) &&
                 m.Parameters.Length == 1 &&
-                SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, from));
+                m.Parameters[0].Type.MetadataIdentityEquals(from));
     }
 
     private BoundExpression BindNullableConditionalAccessExpression(
@@ -4099,7 +4116,7 @@ partial class BlockBinder
             isUnionCase = true;
         }
 
-        if (!isUnionCase && typeMember.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is Raven.CodeAnalysis.Syntax.UnionCaseClauseSyntax))
+        if (!isUnionCase && typeMember.DeclaringSyntaxReferences.Any(static r => r.GetSyntax() is Raven.CodeAnalysis.Syntax.CaseDeclarationSyntax))
         {
             isUnionCase = true;
         }
