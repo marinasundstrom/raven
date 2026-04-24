@@ -41,19 +41,19 @@ app.MapGet("/async", async func () {
 })
 
 app.MapGet("/stream", async func ([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<Person> {
-    yield return Person("Bob", 30)
+    yield Person("Bob", 30)
     if cancellationToken.IsCancellationRequested {
         yield break
     }
 
     await Task.Delay(1000, cancellationToken)
-    yield return Person("Alice", 20)
+    yield Person("Alice", 20)
     if cancellationToken.IsCancellationRequested {
         yield break
     }
 
     await Task.Delay(2000, cancellationToken)
-    yield return Person("Jane", 42)
+    yield Person("Jane", 42)
 })
 
 app.MapPost("/submit", async func (context: HttpContext) {

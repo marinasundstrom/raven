@@ -14,10 +14,12 @@ val (name, _) = foo
 
 WriteLine(name)
 
+foo.Status.Print()
+
 func DisplayStatus(foo: Foo) {
     match foo.Status {
-        Active(val date) => WriteLine("Active at $date")
-        Inactive(val date, val reason) => WriteLine("Inactive at $date - Reason: $reason")
+        .Active(val date) => WriteLine("Active at $date")
+        .Inactive(val date, val reason) => WriteLine("Inactive at $date - Reason: $reason")
     }
 }
 
@@ -29,5 +31,12 @@ record Foo(
 union Status {
     case Active(Date: DateTimeOffset)
     case Inactive(Date: DateTimeOffset, Reason: string)
+
+    func Print() {
+        match self {
+            .Active(val date) => WriteLine("Active at $date")
+            .Inactive(val date, val reason) => WriteLine("Inactive at $date - Reason: $reason")
+        }
+    }
 }
 
