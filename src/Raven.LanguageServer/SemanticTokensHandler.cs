@@ -27,6 +27,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticTokenType.Keyword,
             SemanticTokenType.String,
             SemanticTokenType.Number,
+            SemanticTokenType.Regexp,
             SemanticTokenType.Comment,
             SemanticTokenType.Operator,
             SemanticTokenType.Namespace,
@@ -124,7 +125,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
             stageStopwatch.Restart();
             var tokenEntries = classification.Tokens
-                .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel))
+                .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel, root))
                 .Where(static entry => entry!.TokenType is not null)
                 .Cast<SemanticTokenEntry>()
                 .ToArray();
@@ -234,9 +235,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         TextSpan span,
         SemanticClassification classification,
         SyntaxToken token,
-        SemanticModel semanticModel)
+        SemanticModel semanticModel,
+        SyntaxNode root)
     {
-        var tokenType = MapTokenType(classification, token, semanticModel);
+        var tokenType = MapTokenType(classification, token, semanticModel, root);
         if (tokenType is null)
             return null;
 
@@ -276,7 +278,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     private static SemanticTokenType? MapTokenType(
         SemanticClassification classification,
         SyntaxToken token,
-        SemanticModel semanticModel)
+        SemanticModel semanticModel,
+        SyntaxNode root)
     {
         if (classification == SemanticClassification.Type)
         {
@@ -303,8 +306,158 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             };
         }
 
+        if (classification == SemanticClassification.StringLiteral &&
+            TryGetStringSyntax(token, semanticModel, root, out var stringSyntax) &&
+            string.Equals(stringSyntax, "Regex", StringComparison.Ordinal))
+        {
+            return SemanticTokenType.Regexp;
+        }
+
         return MapTokenType(classification);
     }
+
+    private static bool TryGetStringSyntax(
+        SyntaxToken token,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        out string syntax)
+    {
+        if (TryGetStringSyntax(token, semanticModel, out syntax))
+            return true;
+
+        var rootedToken = root.FindToken(token.Span.Start);
+        return rootedToken.Span == token.Span &&
+            TryGetStringSyntax(rootedToken, semanticModel, out syntax);
+    }
+
+    private static bool TryGetStringSyntax(SyntaxToken token, SemanticModel semanticModel, out string syntax)
+    {
+        syntax = string.Empty;
+
+        var expression = token.Parent switch
+        {
+            LiteralExpressionSyntax literal => literal,
+            InterpolatedStringExpressionSyntax interpolated => interpolated,
+            InterpolatedStringTextSyntax text => text.AncestorsAndSelf().OfType<InterpolatedStringExpressionSyntax>().FirstOrDefault(),
+            _ => token.Parent?.AncestorsAndSelf().OfType<ExpressionSyntax>().FirstOrDefault()
+        };
+
+        if (expression is null)
+            return false;
+
+        var argument = expression.AncestorsAndSelf().OfType<ArgumentSyntax>().FirstOrDefault();
+        if (argument is null || argument.Expression.Span != expression.Span)
+            return false;
+
+        var invocation = argument.Parent?.Parent as InvocationExpressionSyntax;
+        if (invocation is null)
+            return false;
+
+        var method = TryGetInvocationMethod(invocation, semanticModel);
+        if (method is null)
+            return false;
+
+        var parameter = TryGetArgumentParameter(invocation.ArgumentList, argument, method);
+        if (parameter is null)
+            return false;
+
+        foreach (var attribute in parameter.GetAttributes())
+        {
+            if (!IsStringSyntaxAttribute(attribute))
+                continue;
+
+            var syntaxArgument = attribute.ConstructorArguments.FirstOrDefault();
+            if (syntaxArgument.Value is string value && !string.IsNullOrWhiteSpace(value))
+            {
+                syntax = value;
+                return true;
+            }
+        }
+
+        return TryGetStringSyntaxFromParameterSyntax(parameter, out syntax);
+    }
+
+    private static bool TryGetStringSyntaxFromParameterSyntax(IParameterSymbol parameter, out string syntax)
+    {
+        syntax = string.Empty;
+
+        foreach (var reference in parameter.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not ParameterSyntax parameterSyntax)
+                continue;
+
+            foreach (var attribute in parameterSyntax.AttributeLists.SelectMany(static list => list.Attributes))
+            {
+                var attributeName = attribute.Name.ToString();
+                if (!attributeName.EndsWith("StringSyntax", StringComparison.Ordinal) &&
+                    !attributeName.EndsWith("StringSyntaxAttribute", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var argumentExpression = attribute.ArgumentList?.Arguments.FirstOrDefault()?.Expression;
+                if (argumentExpression is LiteralExpressionSyntax { Token.Value: string literalValue })
+                {
+                    syntax = literalValue;
+                    return !string.IsNullOrWhiteSpace(syntax);
+                }
+
+                if (argumentExpression is MemberAccessExpressionSyntax memberAccess)
+                {
+                    syntax = memberAccess.Name.Identifier.ValueText;
+                    return !string.IsNullOrWhiteSpace(syntax);
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static IMethodSymbol? TryGetInvocationMethod(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    {
+        var invocationInfo = semanticModel.GetSymbolInfo(invocation);
+        if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
+            return invocationMethod;
+
+        var candidate = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        if (candidate is not null)
+            return candidate;
+
+        var expressionInfo = semanticModel.GetSymbolInfo(invocation.Expression);
+        if (expressionInfo.Symbol is IMethodSymbol expressionMethod)
+            return expressionMethod;
+
+        return expressionInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+    }
+
+    private static IParameterSymbol? TryGetArgumentParameter(
+        ArgumentListSyntax argumentList,
+        ArgumentSyntax argument,
+        IMethodSymbol method)
+    {
+        var name = argument.NameColon?.Name.Identifier.ValueText;
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            return method.Parameters.FirstOrDefault(parameter =>
+                string.Equals(parameter.Name, name, StringComparison.Ordinal));
+        }
+
+        for (var i = 0; i < argumentList.Arguments.Count; i++)
+        {
+            if (argumentList.Arguments[i].Span != argument.Span)
+                continue;
+
+            return i < method.Parameters.Length ? method.Parameters[i] : null;
+        }
+
+        return null;
+    }
+
+    private static bool IsStringSyntaxAttribute(AttributeData attribute)
+        => string.Equals(
+            attribute.AttributeClass.ToFullyQualifiedMetadataName(),
+            "System.Diagnostics.CodeAnalysis.StringSyntaxAttribute",
+            StringComparison.Ordinal);
 
     private static ImmutableArray<SemanticTokenModifier> GetModifiers(SyntaxToken token, SemanticModel semanticModel)
     {

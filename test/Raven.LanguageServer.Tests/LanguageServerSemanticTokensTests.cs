@@ -173,6 +173,77 @@ func Main(value) -> unit {
     }
 
     [Fact]
+    public async Task SemanticTokens_StringSyntaxRegexParameter_ClassifiesArgumentAsRegexpAsync()
+    {
+        const string code = """
+import System.Diagnostics.CodeAnalysis.*
+
+func Match([StringSyntax(StringSyntaxAttribute.Regex)] pattern: string) -> unit {
+}
+
+func Main() -> unit {
+    Match("[a-z]+")
+}
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, code);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            store.UpsertDocument(uri, code);
+
+            var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+            var result = await handler.Handle(new SemanticTokensParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri)
+            }, CancellationToken.None);
+
+            result.ShouldNotBeNull();
+
+            var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
+
+            decoded.Where(token => token.Line == 6 && token.Text == "\"[a-z]+\"")
+                .Select(token => token.Type)
+                .ShouldContain(SemanticTokenType.Regexp);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task SemanticTokens_RangeRequest_AfterDocumentUpdate_DoesNotReturnShiftedTokensAsync()
     {
         const string initialCode = """
