@@ -42,7 +42,7 @@ if result is Some(val variableDeclarator) {
 }
 
 func PrintTree(node: SyntaxNode) -> () {
-    node.PrintSyntaxTree(PrinterOptions {
+    node.PrintSyntaxTree(PrinterOptions with {
         IncludeTokens = true,
         IncludeTrivia = true,
         IncludeSpans = true,

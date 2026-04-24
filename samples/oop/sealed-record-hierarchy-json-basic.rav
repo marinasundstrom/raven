@@ -6,7 +6,7 @@ import System.Text.Json.Serialization.*
 // Feature: sealed record hierarchy with JSON polymorphism metadata.
 val expr: Expr = Add(Lit(40), Sub(Lit(3), Lit(1)))
 
-WriteLine(JsonSerializer.Serialize(expr, JsonSerializerOptions {
+WriteLine(JsonSerializer.Serialize(expr, JsonSerializerOptions with {
     WriteIndented = true
 }))
 

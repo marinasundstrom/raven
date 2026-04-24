@@ -14582,6 +14582,10 @@ partial class BlockBinder : Binder
     private BoundExpression BindWithExpression(WithExpressionSyntax syntax)
     {
         var receiver = BindExpression(syntax.Expression);
+
+        if (receiver is BoundTypeExpression { Type: INamedTypeSymbol objectType })
+            return BindConstructorInvocation(objectType, Array.Empty<BoundArgument>(), syntax, syntax.Expression);
+
         var receiverType = UnwrapAlias(receiver.Type ?? Compilation.ErrorTypeSymbol);
         var assignments = BindWithAssignments(receiverType, syntax.Assignments);
 
@@ -15295,25 +15299,71 @@ partial class BlockBinder : Binder
         }
     }
 
+    private BoundObjectInitializer BindObjectInitializer(
+     ITypeSymbol instanceType,
+     WithExpressionSyntax initializer)
+    {
+        _objectInitializerDepth++;
+        try
+        {
+            instanceType = UnwrapAlias(instanceType);
+
+            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Assignments.Count);
+
+            foreach (var assignment in initializer.Assignments)
+            {
+                var boundEntry = BindObjectInitializerAssignmentEntry(instanceType, assignment);
+                if (boundEntry is not null)
+                    entries.Add(boundEntry);
+            }
+
+            return new BoundObjectInitializer(entries.ToImmutable());
+        }
+        finally
+        {
+            _objectInitializerDepth--;
+        }
+    }
+
     private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
      ITypeSymbol receiverType,
      ObjectInitializerAssignmentEntrySyntax assignment)
+        => BindObjectInitializerAssignmentEntry(
+            receiverType,
+            assignment.Name,
+            assignment.EqualsToken,
+            assignment.Expression);
+
+    private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
+     ITypeSymbol receiverType,
+     WithAssignmentSyntax assignment)
+        => BindObjectInitializerAssignmentEntry(
+            receiverType,
+            assignment.Name,
+            assignment.EqualsToken,
+            assignment.Expression);
+
+    private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
+     ITypeSymbol receiverType,
+     IdentifierNameSyntax assignmentName,
+     SyntaxToken operatorToken,
+     ExpressionSyntax assignmentExpression)
     {
         receiverType = UnwrapAlias(receiverType);
 
         if (receiverType.TypeKind == TypeKind.Error)
         {
-            _ = BindExpression(assignment.Expression, allowReturn: false);
+            _ = BindExpression(assignmentExpression, allowReturn: false);
             return null;
         }
 
         if (receiverType is not INamedTypeSymbol named)
         {
-            _ = BindExpression(assignment.Expression, allowReturn: false);
+            _ = BindExpression(assignmentExpression, allowReturn: false);
             return null;
         }
 
-        var name = assignment.Name.Identifier.ValueText;
+        var name = assignmentName.Identifier.ValueText;
         var members = named.GetMembers(name);
 
         IPropertySymbol? property = null;
@@ -15356,27 +15406,27 @@ partial class BlockBinder : Binder
         if (property is null && field is null && @event is null)
         {
             // Unknown member. RHS already bound for diagnostics.
-            var memberName = assignment.Name.Identifier.ValueText;
+            var memberName = assignmentName.Identifier.ValueText;
             _diagnostics.ReportMemberDoesNotContainDefinition(
                 receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 memberName,
-                assignment.Name.GetLocation());
-            _ = BindExpression(assignment.Expression, allowReturn: false);
+                assignmentName.GetLocation());
+            _ = BindExpression(assignmentExpression, allowReturn: false);
             return null;
         }
 
-        var operatorTokenKind = assignment.EqualsToken.Kind;
+        var operatorTokenKind = operatorToken.Kind;
 
         if (operatorTokenKind == SyntaxKind.EqualsToken && @event is not null)
         {
-            _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(@event.Name, assignment.Name.GetLocation());
-            _ = BindExpression(assignment.Expression, allowReturn: false);
+            _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(@event.Name, assignmentName.GetLocation());
+            _ = BindExpression(assignmentExpression, allowReturn: false);
             return null;
         }
 
         if (property is not null)
         {
-            if (!EnsureMemberAccessible(property, assignment.Name.GetLocation(), "property"))
+            if (!EnsureMemberAccessible(property, assignmentName.GetLocation(), "property"))
                 return null;
 
             var setMethod = property.SetMethod;
@@ -15385,7 +15435,7 @@ partial class BlockBinder : Binder
             {
                 _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(
                     property.Name,
-                    assignment.Name.GetLocation());
+                    assignmentName.GetLocation());
                 return null;
             }
             else if (setMethod.MethodKind == MethodKind.InitOnly)
@@ -15397,13 +15447,13 @@ partial class BlockBinder : Binder
                 // OK (normal setter)
             }
 
-            var right = BindExpressionWithTargetType(assignment.Expression, property.Type, allowReturn: false);
+            var right = BindExpressionWithTargetType(assignmentExpression, property.Type, allowReturn: false);
             if (right is BoundErrorExpression)
                 return null;
 
             if (operatorTokenKind == SyntaxKind.EqualsToken)
             {
-                var value = PrepareRightForAssignment(right, property.Type, assignment.Expression);
+                var value = PrepareRightForAssignment(right, property.Type, assignmentExpression);
                 if (value is BoundErrorExpression)
                     return null;
 
@@ -15414,15 +15464,15 @@ partial class BlockBinder : Binder
             if (binaryOperatorKind is null)
             {
                 _diagnostics.ReportOperatorCannotBeAppliedToOperandsOfTypes(
-                    assignment.EqualsToken.Text,
+                    operatorToken.Text,
                     property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     right.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    assignment.Expression.GetLocation());
+                    assignmentExpression.GetLocation());
                 return null;
             }
 
             var left = new BoundMemberAccessExpression(null, property);
-            var validated = BindCompoundAssignmentValue(left, right, property.Type, binaryOperatorKind.Value, assignment.Expression);
+            var validated = BindCompoundAssignmentValue(left, right, property.Type, binaryOperatorKind.Value, assignmentExpression);
             if (validated is BoundErrorExpression)
                 return null;
 
@@ -15431,22 +15481,22 @@ partial class BlockBinder : Binder
 
         if (field is not null)
         {
-            if (!EnsureMemberAccessible(field, assignment.Name.GetLocation(), "field"))
+            if (!EnsureMemberAccessible(field, assignmentName.GetLocation(), "field"))
                 return null;
 
             if (field.IsConst || field.IsReadOnly)
             {
-                _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(assignment.Name.GetLocation());
+                _diagnostics.ReportReadOnlyFieldCannotBeAssignedTo(assignmentName.GetLocation());
                 return null;
             }
 
-            var right = BindExpressionWithTargetType(assignment.Expression, field.Type, allowReturn: false);
+            var right = BindExpressionWithTargetType(assignmentExpression, field.Type, allowReturn: false);
             if (right is BoundErrorExpression)
                 return null;
 
             if (operatorTokenKind == SyntaxKind.EqualsToken)
             {
-                var value = PrepareRightForAssignment(right, field.Type, assignment.Expression);
+                var value = PrepareRightForAssignment(right, field.Type, assignmentExpression);
                 if (value is BoundErrorExpression)
                     return null;
 
@@ -15457,15 +15507,15 @@ partial class BlockBinder : Binder
             if (binaryOperatorKind is null)
             {
                 _diagnostics.ReportOperatorCannotBeAppliedToOperandsOfTypes(
-                    assignment.EqualsToken.Text,
+                    operatorToken.Text,
                     field.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     right.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    assignment.Expression.GetLocation());
+                    assignmentExpression.GetLocation());
                 return null;
             }
 
             var left = new BoundMemberAccessExpression(null, field);
-            var validated = BindCompoundAssignmentValue(left, right, field.Type, binaryOperatorKind.Value, assignment.Expression);
+            var validated = BindCompoundAssignmentValue(left, right, field.Type, binaryOperatorKind.Value, assignmentExpression);
             if (validated is BoundErrorExpression)
                 return null;
 
@@ -15476,16 +15526,16 @@ partial class BlockBinder : Binder
         {
             if (operatorTokenKind is not (SyntaxKind.PlusEqualsToken or SyntaxKind.MinusEqualsToken))
             {
-                _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(@event.Name, assignment.Name.GetLocation());
-                _ = BindExpression(assignment.Expression, allowReturn: false);
+                _diagnostics.ReportEventCanOnlyBeUsedWithPlusOrMinus(@event.Name, assignmentName.GetLocation());
+                _ = BindExpression(assignmentExpression, allowReturn: false);
                 return null;
             }
 
-            var right = BindExpressionWithTargetType(assignment.Expression, @event.Type, allowReturn: false);
+            var right = BindExpressionWithTargetType(assignmentExpression, @event.Type, allowReturn: false);
             if (right is BoundErrorExpression)
                 return null;
 
-            var converted = ConvertValueForAssignment(right, @event.Type, assignment.Expression);
+            var converted = ConvertValueForAssignment(right, @event.Type, assignmentExpression);
             if (converted is BoundErrorExpression)
                 return null;
 

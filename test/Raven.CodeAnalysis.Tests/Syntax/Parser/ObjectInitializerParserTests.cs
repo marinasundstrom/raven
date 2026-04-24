@@ -27,4 +27,23 @@ public class ObjectInitializerParserTests
         Assert.Equal("Clicked", assignment.Name.Identifier.ValueText);
         Assert.Equal(SyntaxKind.PlusEqualsToken, assignment.EqualsToken.Kind);
     }
+
+    [Fact]
+    public void WithInitializer_AssignmentEntry_WithPlusEquals_ParsesOperatorToken()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            val button = Button with {
+                Clicked += handler
+            }
+            """);
+
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
+        var initializer = Assert.IsType<WithExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
+        var assignment = Assert.Single(initializer.Assignments);
+
+        Assert.Equal("Clicked", assignment.Name.Identifier.ValueText);
+        Assert.Equal(SyntaxKind.PlusEqualsToken, assignment.EqualsToken.Kind);
+    }
 }

@@ -35,7 +35,7 @@ WriteLine(result)
 
 WriteLine(window.Title)
 
-WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions {
+WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions with {
     WriteIndented = true
 }))
 

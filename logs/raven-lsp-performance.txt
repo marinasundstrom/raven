@@ -1,34 +1,64 @@
 Raven Language Server Performance Report
-Generated: 2026-04-24T17:50:08.1391060+00:00
-Operation: warmAnalysis
-  Count: 1
-  TotalMs: 2117,4
-  AvgMs: 2117,4
-  MaxMs: 2117,4
+Generated: 2026-04-24T18:34:49.2057980+00:00
+Operation: publishDiagnostics
+  Count: 2
+  TotalMs: 4748,5
+  AvgMs: 2374,2
+  MaxMs: 4709,4
+  AvgResultCount: 0,5
+
+Operation: computeDocumentDiagnostics
+  Count: 2
+  TotalMs: 4727,5
+  AvgMs: 2363,7
+  MaxMs: 4704,8
   Stages:
-    semanticModel: count=1 total=2116,3ms avg=2116,3ms max=2116,3ms
-    gateWait: count=1 total=0,7ms avg=0,7ms max=0,7ms
-    analysisContext: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    syntaxTree: count=2 total=2631,5ms avg=1315,8ms max=2631,5ms
+    diagnosticsFetch: count=2 total=2093,0ms avg=1046,5ms max=2071,6ms
+    gateWait: count=2 total=0,7ms avg=0,3ms max=0,4ms
+
+Operation: warmAnalysis
+  Count: 2
+  TotalMs: 4724,2
+  AvgMs: 2362,1
+  MaxMs: 2606,8
+  Stages:
+    semanticModel: count=2 total=4722,9ms avg=2361,5ms max=2606,6ms
+    gateWait: count=2 total=0,7ms avg=0,3ms max=0,7ms
+    analysisContext: count=2 total=0,1ms avg=0,0ms max=0,0ms
+
+Operation: hover
+  Count: 34
+  TotalMs: 1422,2
+  AvgMs: 41,8
+  MaxMs: 1294,5
+  CacheHits: 7
+  Stages:
+    semanticModel: count=27 total=1281,2ms avg=47,5ms max=1281,0ms
+    resolution: count=27 total=87,1ms avg=3,2ms max=16,0ms
+    analysisContext: count=34 total=2,8ms avg=0,1ms max=0,3ms
+    gateWait: count=34 total=1,2ms avg=0,0ms max=0,9ms
 
 Operation: didOpen
-  Count: 1
-  TotalMs: 43,7
-  AvgMs: 43,7
+  Count: 2
+  TotalMs: 45,7
+  AvgMs: 22,8
   MaxMs: 43,7
 
 Operation: documentSymbols
-  Count: 1
-  TotalMs: 19,8
-  AvgMs: 19,8
+  Count: 4
+  TotalMs: 20,3
+  AvgMs: 5,1
   MaxMs: 19,8
+  CacheHits: 2
   AvgResultCount: 4,0
-  FirstLookupAfterEditCount: 1
-  FirstLookupAfterEditAvgMs: 29,3
-  FirstLookupAfterEditMaxMs: 29,3
+  FirstLookupAfterEditCount: 2
+  FirstLookupAfterEditAvgMs: 1364,2
+  FirstLookupAfterEditMaxMs: 2699,1
   FirstLookupAfterEditSources:
-    didOpen: 1
+    didOpen: 2
   Stages:
-    buildSymbols: count=1 total=15,1ms avg=15,1ms max=15,1ms
-    analysisContext: count=1 total=3,7ms avg=3,7ms max=3,7ms
-    root: count=1 total=0,4ms avg=0,4ms max=0,4ms
+    buildSymbols: count=4 total=15,3ms avg=3,8ms max=15,1ms
+    analysisContext: count=4 total=3,7ms avg=0,9ms max=3,7ms
+    root: count=4 total=0,4ms avg=0,1ms max=0,4ms
 

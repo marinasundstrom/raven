@@ -1285,13 +1285,20 @@ partial class BlockBinder
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
 
             BoundObjectInitializer? initializer = null;
+            HashSet<string>? assignedInitializerMembers = null;
 
             if (callSyntax is InvocationExpressionSyntax { Initializer: not null } o1)
             {
                 initializer = BindObjectInitializer(typeSymbol, o1.Initializer);
+                assignedInitializerMembers = GetAssignedMemberNames(o1.Initializer);
+            }
+            else if (callSyntax is WithExpressionSyntax withInitializer)
+            {
+                initializer = BindObjectInitializer(typeSymbol, withInitializer);
+                assignedInitializerMembers = GetAssignedMemberNames(withInitializer);
             }
 
-            ValidateRequiredMembers(typeSymbol, constructor, callSyntax, initializerSyntax: callSyntax is InvocationExpressionSyntax { Initializer: { } i } ? i : null);
+            ValidateRequiredMembers(typeSymbol, constructor, callSyntax, assignedInitializerMembers);
 
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver, initializer);
         }
@@ -1687,6 +1694,17 @@ partial class BlockBinder
     IMethodSymbol constructor,
     SyntaxNode creationSyntax,
     ObjectInitializerExpressionSyntax? initializerSyntax)
+        => ValidateRequiredMembers(
+            typeSymbol,
+            constructor,
+            creationSyntax,
+            initializerSyntax is null ? null : GetAssignedMemberNames(initializerSyntax));
+
+    private void ValidateRequiredMembers(
+    INamedTypeSymbol typeSymbol,
+    IMethodSymbol constructor,
+    SyntaxNode creationSyntax,
+    HashSet<string>? assigned)
     {
         // If the selected constructor claims it sets required members, we're done.
         // Later steps can implement deeper checks (e.g. ctor chaining, actual assignments).
@@ -1698,11 +1716,7 @@ partial class BlockBinder
         if (required.IsDefaultOrEmpty)
             return;
 
-        // Determine which members are assigned in the object initializer.
-        var assigned = initializerSyntax is null
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : GetAssignedMemberNames(initializerSyntax);
-
+        assigned ??= new HashSet<string>(StringComparer.Ordinal);
         foreach (var memberName in required)
         {
             if (!assigned.Contains(memberName))
@@ -1746,6 +1760,16 @@ partial class BlockBinder
                 }
             }
         }
+
+        return names;
+    }
+
+    private static HashSet<string> GetAssignedMemberNames(WithExpressionSyntax initializer)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var assignment in initializer.Assignments)
+            names.Add(assignment.Name.Identifier.ValueText);
 
         return names;
     }

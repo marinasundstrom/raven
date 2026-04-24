@@ -3,7 +3,7 @@ import System.Console.*
 // Feature: required members must be initialized.
 val foo = Foo("Foo")
 
-val foo2 = Foo2 {
+val foo2 = Foo2 with {
     Test = 42,
     x = 2
 }

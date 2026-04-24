@@ -450,4 +450,97 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void WithInitializer_AssigningInitOnlyProperty_BindsWithoutDiagnostics()
+    {
+        const string testCode =
+            """
+            class Foo {
+                init() {}
+
+                val Name: string { init; }
+            }
+
+            val foo = Foo with {
+                Name = "updated"
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void WithInitializer_CompoundAssignment_BindsWithoutDiagnostics()
+    {
+        const string testCode =
+            """
+            class Foo {
+                init() {}
+
+                var Count: int = 1
+            }
+
+            val foo = Foo with {
+                Count += 41
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void WithInitializer_SatisfiesRequiredMembers()
+    {
+        const string testCode =
+            """
+            class Person {
+                init() {}
+
+                required val Name: string { init; }
+                required val Age: int { init; }
+            }
+
+            val person = Person with {
+                Name = "Anna"
+                Age = 42
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void WithInitializer_MissingRequiredMember_ReportsDiagnostic()
+    {
+        const string testCode =
+            """
+            class Person {
+                init() {}
+
+                required val Name: string { init; }
+                required val Age: int { init; }
+            }
+
+            val person = Person with {
+                Name = "Anna"
+            }
+            """;
+
+        var verifier = CreateVerifier(
+            testCode,
+            expectedDiagnostics: [
+                new DiagnosticResult(CompilerDiagnostics.RequiredMemberMustBeSet.Id)
+                    .WithAnySpan()
+                    .WithArguments("Age")
+            ]);
+
+        verifier.Verify();
+    }
 }

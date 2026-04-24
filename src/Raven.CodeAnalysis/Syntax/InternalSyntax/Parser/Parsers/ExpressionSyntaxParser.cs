@@ -3040,7 +3040,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private WithAssignmentSyntax ParseWithAssignment()
     {
-        // Entry kind is decided by lookahead: <identifier> '=' ...
+        // Entry kind is decided by lookahead: <identifier> <assignment-operator> ...
         if (!CanTokenBeIdentifier(PeekToken()))
         {
             ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var missingIdentifier);
@@ -3074,7 +3074,15 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         var name = IdentifierName(nameToken);
 
-        ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var equalsToken);
+        SyntaxToken equalsToken;
+        if (IsAssignmentOperator(PeekToken().Kind))
+        {
+            equalsToken = ReadToken();
+        }
+        else
+        {
+            ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out equalsToken);
+        }
 
         var expression = new ExpressionSyntaxParser(this).ParseExpression();
 

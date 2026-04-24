@@ -1269,12 +1269,12 @@ The compiler binds each named argument to its declared parameter. The call to
 first named argument, while the `invalid` call is rejected because it attempts
 to supply a positional argument (`2`) after specifying `x` by name.
 
-#### Object initializer trailers
+#### Object initializers
 
-Any invocation expression may be followed by an **object initializer** block written with braces. The initializer is a postfix *trailer* and is evaluated immediately after the invocation target is constructed or returned.
+An **object initializer** is written as a `with` block on a type expression. The initializer selects the type's parameterless constructor, constructs the instance, and then applies the initializer entries in source order.
 
 ```raven
-val window = Window() {
+val window = Window with {
     Title = "Main"
     Width = 800
     Height = 600
@@ -1289,53 +1289,29 @@ class Settings {
     val FontSize: int { init; }
 }
 
-val settings = Settings {
+val settings = Settings with {
     Theme = "Dark"
     FontSize = 14
 }
 ```
 
-Initializer bodies consist of a sequence of **entries**. Entries may be mixed freely and appear in source order:
+Initializer bodies consist of a sequence of **member entries**. A member entry assigns to a writable property, field, or event using `Name <assignment-operator> Expression`.
 
-* **Member entries** assign to a writable property, field, or event using `Name <assignment-operator> Expression`.
-  * `=` is valid for writable fields/properties.
-  * Compound assignment operators (for example `+=`) are supported and are evaluated as member compound assignment on the initialized instance.
-  * Events use `+=` / `-=` in initializer context, matching statement assignment rules.
-* **Content entries** are standalone expressions, typically nested object constructions such as `Button { ... }`.
-
-```raven
-val window = Window {
-    Title = "Main"
-
-    Button { Text = "OK" }
-
-    Width = 800
-    Height = 600
-
-    Button { Text = "Cancel" }
-}
-```
+* `=` is valid for writable fields/properties.
+* Compound assignment operators (for example `+=`) are supported and are evaluated as member compound assignment on the initialized instance.
+* Events use `+=` / `-=` in initializer context, matching statement assignment rules.
 
 Event subscription is valid in object initializers:
 
 ```raven
-val button = Button {
+val button = Button with {
     Clicked += () => WriteLine("clicked")
 }
 ```
 
 Property entries are applied to the newly created instance in source order.
 
-Content entries use one of the following binding rules:
-
-* **Content property convention** — If the initialized type has an accessible, settable instance property named `Content`, Raven treats the first content entry as an assignment to that property (as if it were written `Content = <expr>`). When this convention applies, at most one content entry is permitted.
-* **Add method convention** — Otherwise, each content entry is forwarded to the initialized instance by binding it as an `Add(<expr>)` call during lowering. The `Add` method must be an accessible instance method that takes exactly one parameter whose type is compatible with the content entry expression.
-
-If more than one content entry is provided for a type that uses the Content
-property convention, the compiler reports `RAV1505`.
-
-
-> 🧭 **Disambiguation:** The grammar permits an initializer trailer after any invocation, but a `{` that starts a new statement (for example in statement headers such as `if`/`while`/`for`, or after a newline) begins a block statement/body and is not parsed as an object initializer trailer. This is a context-sensitive parsing rule.
+Brace trailers after expressions are reserved for DSL-style blocks and are not the canonical object-initializer form.
 
 #### Required members and init semantics
 
@@ -1347,8 +1323,8 @@ class Person {
     required val Age: int { init; }
 }
 
-val p = Person { Name = "Ada", Age = 36 }   // ok
-val q = Person { Name = "Ada" }            // error: Age must be set
+val p = Person with { Name = "Ada", Age = 36 }   // ok
+val q = Person with { Name = "Ada" }            // error: Age must be set
 ```
 
 ##### Declaration rules
@@ -1375,7 +1351,7 @@ Primary-constructor behavior is intentionally split:
 
 1. `class`/`struct`: parameters marked with `val` or `var` are promoted to properties; parameters without a binding keyword are captured in compiler-generated private storage for member access, but are not promoted to public properties. Promoted parameters may include an access modifier (`public`/`internal`/`protected`/`private`) before `val`/`var` to set synthesized property accessibility (default `public`).
 2. `record class`/`record struct`: positional parameters define the record's public data shape via synthesized properties and value members. When no binding keyword is present, record parameters are promoted as `val` properties by default. Value-shape synthesis (`Equals`, `GetHashCode`, `Deconstruct`, `ToString`, record copy/with flow, and equality operators) includes only **public** promoted properties; non-public promoted properties are excluded and produce a compiler warning.
-3. Constructor calls require invocation syntax (`Foo(...)` or `Foo()`); a standalone type name (`Foo`) is not a value expression, while `Foo { ... }` remains a valid object initializer form.
+3. Constructor calls require invocation syntax (`Foo(...)` or `Foo()`); a standalone type name (`Foo`) is not a value expression, while `Foo with { ... }` is the parameterless object-initializer form.
 4. Member declarations cannot reuse the immediate containing type's name.
 
 For semantic-model queries, unqualified identifier access to those captured/promoted members resolves to the originating primary-constructor parameter symbol.
@@ -1426,7 +1402,7 @@ preserving the original:
 ```raven
 record Point(X: int, Y: int)
 
-val origin = Point { X = 0, Y = 0 }
+val origin = Point with { X = 0, Y = 0 }
 val moved = origin with { X = 10 }
 ```
 
@@ -1852,10 +1828,10 @@ list.Add(2)
 > A standalone type name is not a constructor call in value position.
 > Use `Foo()` instead of `Foo`.
 
-When an object initializer trailer is present, the parameter list may be omitted for parameterless construction:
+The object-initializer `with` form may be used for parameterless construction:
 
 ```raven
-val window = Window {
+val window = Window with {
     Title = "Main"
 }
 ```
@@ -4182,11 +4158,11 @@ use stream = OpenRead(path) in {
 ```
 
 The `in { ... }` form is equivalent to introducing a nested block whose first
-statement is the `use` declaration. This keeps trailing object initializers
+statement is the `use` declaration. This keeps DSL-style trailing blocks
 unambiguous:
 
 ```raven
-use obj = Foo { Value = 2 } in {
+use obj = Foo with { Value = 2 } in {
     obj.Run()
 }
 ```

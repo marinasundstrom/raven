@@ -1,8 +1,8 @@
 
 import System.Console.*
 
-// Feature: init-only property assignment via object initializer.
-val foo = Foo {
+// Feature: init-only property assignment via with initializer.
+val foo = Foo with {
     A = 42
 }
 

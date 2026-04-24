@@ -589,14 +589,7 @@ SuppressNullableWarningTrailer
 PropagateTrailer          ::= '?' ;
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
-(* ---------- Object initializers (SwiftUI/Flutter-style) ---------- *)
-
-(* ObjectInitializer is parsed as a postfix trailer, enabling:
-     - Window { ... }
-     - Window() { ... }
-     - items.Where(...) { ... }  (disallowed in statement headers by the parser; see note below)
-
-   Entries may freely mix property assignments and child/content expressions. *)
+(* ---------- Legacy brace trailers / future DSL blocks ---------- *)
 
 ObjectInitializer         ::= '{' { ObjectInitializerEntry } '}' ;
 
@@ -613,11 +606,11 @@ ObjectInitializerExpressionEntry
 ObjectInitializerTerminator
                            ::= ',' | end-of-line-trivia | ';' ;
 
-(* ---------- With expressions ---------- *)
+(* ---------- With expressions and object initializers ---------- *)
 
 WithExpression           ::= 'with' '{' { WithAssignment } '}' ;
 
-WithAssignment           ::= Identifier '=' Expression WithAssignmentTerminator? ;
+WithAssignment           ::= Identifier AssignmentOperator Expression WithAssignmentTerminator? ;
 
 WithAssignmentTerminator ::= ',' | end-of-line-trivia | ';' ;
 MemberBindingExpression  ::= '.' Identifier ;
