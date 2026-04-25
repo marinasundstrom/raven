@@ -41,9 +41,28 @@ public class TrailingBlockParserTests
         var root = (CompilationUnitSyntax)tree.GetRoot();
         var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
         var initializer = Assert.IsType<WithExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
-        var assignment = Assert.Single(initializer.Assignments);
+        var assignment = Assert.IsType<WithAssignmentSyntax>(Assert.Single(initializer.Entries));
 
         Assert.Equal("Clicked", assignment.Name.Identifier.ValueText);
         Assert.Equal(SyntaxKind.PlusEqualsToken, assignment.EqualsToken.Kind);
+    }
+
+    [Fact]
+    public void WithInitializer_ExpressionEntry_ParsesAsEntry()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            val window = Window with {
+                StackPanel with {
+                }
+            }
+            """);
+
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
+        var initializer = Assert.IsType<WithExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
+        var entry = Assert.IsType<WithExpressionEntrySyntax>(Assert.Single(initializer.Entries));
+
+        Assert.IsType<WithExpressionSyntax>(entry.Expression);
     }
 }

@@ -4,16 +4,16 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 // Feature: composed LINQ + Result + Option workflow in one domain case.
-val ratePlans = List<RatePlan> {
+val ratePlans = [
     RatePlan("NorthStar", 500, 120)
     RatePlan("Oceanic", 450, 150)
-}
+]
 
-val requests = List<ShipmentRequest> {
+val requests = [
     ShipmentRequest("REQ-1001", "NorthStar", 10, true, ["fragile"], Some("SAVE5")),
     ShipmentRequest("REQ-1002", "Oceanic", 3, false, ["priority"], None),
     ShipmentRequest("REQ-1003", "Unknown", 5, true, [], Some("UNKNOWN"))
-}
+]
 
 val summaryResult = BuildQuoteSummary(requests, ratePlans)
 

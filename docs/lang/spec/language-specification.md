@@ -1295,7 +1295,7 @@ val settings = Settings with {
 }
 ```
 
-Initializer bodies consist of a sequence of **member entries**. A member entry assigns to a writable property, field, or event using `Name <assignment-operator> Expression`.
+Initializer bodies consist of a sequence of **member entries** and **content entries**. A member entry assigns to a writable property, field, or event using `Name <assignment-operator> Expression`. A content entry is a standalone expression; when the initialized type has a mutable `Content` property, the first content entry initializes that property, otherwise content entries are lowered through a compatible instance `Add(T)` method.
 
 * `=` is valid for writable fields/properties.
 * Compound assignment operators (for example `+=`) are supported and are evaluated as member compound assignment on the initialized instance.

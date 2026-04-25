@@ -1502,7 +1502,7 @@ internal sealed class ObjectInitializerOperation : Operation, IObjectInitializer
             var syntaxEntries = Syntax switch
             {
                 TrailingBlockExpressionSyntax trailingBlockSyntax => trailingBlockSyntax.Entries.ToArray<SyntaxNode>(),
-                WithExpressionSyntax withExpression => withExpression.Assignments.ToArray<SyntaxNode>(),
+                WithExpressionSyntax withExpression => withExpression.Entries.ToArray<SyntaxNode>(),
                 _ => []
             };
             var boundEntries = _bound.Entries.ToArray();
@@ -1564,6 +1564,7 @@ internal sealed class ObjectInitializerAssignmentOperation : Operation, IObjectI
             {
                 TrailingBlockAssignmentEntrySyntax assignmentEntry => assignmentEntry.Expression,
                 WithAssignmentSyntax withAssignment => withAssignment.Expression,
+                WithExpressionEntrySyntax withExpressionEntry => withExpressionEntry.Expression,
                 _ => Syntax
             };
             _value = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Value, fallback);
@@ -1603,9 +1604,12 @@ internal sealed class ObjectInitializerExpressionEntryOperation : Operation, IOb
                 return _expression;
 
             _expressionInitialized = true;
-            var fallback = Syntax is TrailingBlockExpressionEntrySyntax expressionEntry
-                ? expressionEntry.Expression
-                : Syntax;
+            var fallback = Syntax switch
+            {
+                TrailingBlockExpressionEntrySyntax expressionEntry => expressionEntry.Expression,
+                WithExpressionEntrySyntax withExpressionEntry => withExpressionEntry.Expression,
+                _ => Syntax
+            };
             _expression = OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Expression, fallback);
             return _expression;
         }
@@ -1641,7 +1645,7 @@ internal sealed class WithOperation : Operation, IWithOperation
 
     public ImmutableArray<IOperation> Values => _values ??= OperationUtilities.CreateChildOperations(
         SemanticModel,
-        ((WithExpressionSyntax)Syntax).Assignments.Select(assignment => assignment.Expression));
+        ((WithExpressionSyntax)Syntax).Entries.OfType<WithAssignmentSyntax>().Select(assignment => assignment.Expression));
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {

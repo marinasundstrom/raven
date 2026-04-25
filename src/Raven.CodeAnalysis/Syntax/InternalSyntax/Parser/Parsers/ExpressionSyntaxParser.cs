@@ -2996,7 +2996,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         EnterParens();
         try
         {
-            var assignments = new List<WithAssignmentSyntax>();
+            var entries = new List<WithEntrySyntax>();
 
             while (true)
             {
@@ -3006,7 +3006,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     break;
 
                 var entryStart = Position;
-                var assignment = ParseWithAssignment();
+                var entry = ParseWithEntry();
 
                 if (Position == entryStart)
                 {
@@ -3020,7 +3020,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                     continue;
                 }
 
-                assignments.Add(assignment);
+                entries.Add(entry);
             }
 
             SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
@@ -3029,7 +3029,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             SetTreatNewlinesAsTokens(false);
 
-            return WithExpression(expression, withKeyword, openBraceToken, List(assignments.ToArray()), closeBraceToken);
+            return WithExpression(expression, withKeyword, openBraceToken, List(entries.ToArray()), closeBraceToken);
         }
         finally
         {
@@ -3038,9 +3038,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
     }
 
+    private WithEntrySyntax ParseWithEntry()
+    {
+        if (CanTokenBeIdentifier(PeekToken()) && IsAssignmentOperator(PeekToken(1).Kind))
+            return ParseWithAssignment();
+
+        return ParseWithExpressionEntry();
+    }
+
     private WithAssignmentSyntax ParseWithAssignment()
     {
-        // Entry kind is decided by lookahead: <identifier> <assignment-operator> ...
         if (!CanTokenBeIdentifier(PeekToken()))
         {
             ConsumeTokenOrMissing(SyntaxKind.IdentifierToken, out var missingIdentifier);
@@ -3101,6 +3108,26 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         }
 
         return WithAssignment(name, equalsToken, expression, terminatorToken);
+    }
+
+    private WithExpressionEntrySyntax ParseWithExpressionEntry()
+    {
+        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+
+        SetTreatNewlinesAsTokens(true);
+
+        var terminatorToken = Token(SyntaxKind.None);
+
+        if (ConsumeToken(SyntaxKind.CommaToken, out var commaToken))
+        {
+            terminatorToken = commaToken;
+        }
+        else if (!IsNextToken(SyntaxKind.CloseBraceToken, out _))
+        {
+            TryConsumeTerminator(out terminatorToken);
+        }
+
+        return WithExpressionEntry(expression, terminatorToken);
     }
 
     private TrailingBlockExpressionSyntax ParseTrailingBlockExpression()

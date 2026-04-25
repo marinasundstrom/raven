@@ -561,4 +561,41 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void WithInitializer_ContentEntries_BindThroughOldInitializerConventions()
+    {
+        const string testCode =
+            """
+            open class Control {
+                init() {}
+            }
+
+            class Button : Control {
+                init() {}
+
+                var HorizontalAlignment: HorizontalAlignment = .Fill
+            }
+
+            class StackPanel {
+                init() {}
+
+                func Add(control: Control) -> unit {}
+            }
+
+            enum HorizontalAlignment {
+                Fill
+            }
+
+            val panel = StackPanel with {
+                Button with {
+                    HorizontalAlignment = .Fill
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }

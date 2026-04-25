@@ -1293,7 +1293,8 @@ partial class BlockBinder
                 assignedInitializerMembers = GetAssignedMemberNames(withInitializer);
             }
 
-            ValidateRequiredMembers(typeSymbol, constructor, callSyntax, assignedInitializerMembers);
+            if (callSyntax is not InvocationExpressionSyntax { Parent: WithExpressionSyntax })
+                ValidateRequiredMembers(typeSymbol, constructor, callSyntax, assignedInitializerMembers);
 
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver, initializer);
         }
@@ -1763,8 +1764,11 @@ partial class BlockBinder
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var assignment in initializer.Assignments)
+        foreach (var assignment in initializer.Entries.OfType<WithAssignmentSyntax>())
             names.Add(assignment.Name.Identifier.ValueText);
+
+        if (initializer.Entries.OfType<WithExpressionEntrySyntax>().Any())
+            names.Add("Content");
 
         return names;
     }

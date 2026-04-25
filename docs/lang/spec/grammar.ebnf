@@ -610,11 +610,16 @@ TrailingBlockTerminator
 
 (* ---------- With expressions and object initializers ---------- *)
 
-WithExpression           ::= 'with' '{' { WithAssignment } '}' ;
+WithExpression           ::= 'with' '{' { WithEntry } '}' ;
 
-WithAssignment           ::= Identifier AssignmentOperator Expression WithAssignmentTerminator? ;
+WithEntry                ::= WithAssignment
+                           | WithExpressionEntry ;
 
-WithAssignmentTerminator ::= ',' | end-of-line-trivia | ';' ;
+WithAssignment           ::= Identifier AssignmentOperator Expression WithEntryTerminator? ;
+
+WithExpressionEntry      ::= Expression WithEntryTerminator? ;
+
+WithEntryTerminator      ::= ',' | end-of-line-trivia | ';' ;
 MemberBindingExpression  ::= '.' Identifier ;
 (* Member binding is target-typed; for discriminated unions, `.Case(...)` binds
    to a case on the expected union type. *)

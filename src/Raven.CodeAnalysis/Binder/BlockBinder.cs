@@ -14645,8 +14645,22 @@ partial class BlockBinder : Binder
         if (receiver is BoundTypeExpression { Type: INamedTypeSymbol objectType })
             return BindConstructorInvocation(objectType, Array.Empty<BoundArgument>(), syntax, syntax.Expression);
 
+        if (receiver is BoundObjectCreationExpression objectCreation)
+        {
+            var initializer = BindObjectInitializer(objectCreation.Type, syntax);
+
+            if (objectCreation.Type is INamedTypeSymbol createdType)
+                ValidateRequiredMembers(createdType, objectCreation.Constructor, syntax, GetAssignedMemberNames(syntax));
+
+            return new BoundObjectCreationExpression(
+                objectCreation.Constructor,
+                objectCreation.Arguments,
+                objectCreation.Receiver,
+                initializer);
+        }
+
         var receiverType = UnwrapAlias(receiver.Type ?? Compilation.ErrorTypeSymbol);
-        var assignments = BindWithAssignments(receiverType, syntax.Assignments);
+        var assignments = BindWithAssignments(receiverType, syntax.Entries);
 
         BoundExpression ReturnWithError(BoundExpressionReason reason)
         {
@@ -14761,18 +14775,27 @@ partial class BlockBinder : Binder
 
     private ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)> BindWithAssignments(
         ITypeSymbol receiverType,
-        SyntaxList<WithAssignmentSyntax> assignments)
+        SyntaxList<WithEntrySyntax> entries)
     {
-        if (assignments.Count == 0)
+        foreach (var expressionEntry in entries.OfType<WithExpressionEntrySyntax>())
+        {
+            _diagnostics.ReportTypeDoesNotSupportWithExpression(
+                receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                expressionEntry.Expression.GetLocation());
+            _ = BindExpression(expressionEntry.Expression, allowReturn: false);
+        }
+
+        var assignmentEntries = entries.OfType<WithAssignmentSyntax>().ToImmutableArray();
+        if (assignmentEntries.Length == 0)
             return ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)>(assignments.Count);
+        var builder = ImmutableArray.CreateBuilder<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)>(assignmentEntries.Length);
         var seenMembers = new HashSet<string>(StringComparer.Ordinal);
 
         _withInitializerDepth++;
         try
         {
-            foreach (var assignment in assignments)
+            foreach (var assignment in assignmentEntries)
             {
                 var nameSyntax = assignment.Name;
                 var nameToken = nameSyntax.Identifier;
@@ -14990,7 +15013,6 @@ partial class BlockBinder : Binder
         var methods = ImmutableArray.CreateBuilder<IMethodSymbol>(assignments.Length);
         ITypeSymbol lastReturnType = receiverType;
 
-        int i = 0;
         foreach (var (assignment, syntaxNode) in assignments)
         {
             var methodName = $"With{assignment.Member.Name}";
@@ -15043,7 +15065,7 @@ partial class BlockBinder : Binder
                         ReportCannotConvertFromTypeToType(
                             valueType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             expectedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntax.Assignments[i++].Expression.GetLocation());
+                            syntaxNode.Expression.GetLocation());
                     }
                 }
                 return false;
@@ -15367,13 +15389,83 @@ partial class BlockBinder : Binder
         {
             instanceType = UnwrapAlias(instanceType);
 
-            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Assignments.Count);
+            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
+            IPropertySymbol? contentProperty = null;
 
-            foreach (var assignment in initializer.Assignments)
+            if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
             {
-                var boundEntry = BindTrailingBlockAssignmentEntry(instanceType, assignment);
-                if (boundEntry is not null)
-                    entries.Add(boundEntry);
+                foreach (var member in namedInstance.GetMembers("Content"))
+                {
+                    if (member is not IPropertySymbol p)
+                        continue;
+
+                    if (p.IsStatic)
+                        continue;
+
+                    if (!p.IsMutable)
+                        continue;
+
+                    contentProperty = p;
+                    break;
+                }
+            }
+
+            var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
+            var seenContentEntry = false;
+
+            foreach (var entry in initializer.Entries)
+            {
+                switch (entry)
+                {
+                    case WithAssignmentSyntax assignment:
+                        {
+                            var boundEntry = BindTrailingBlockAssignmentEntry(instanceType, assignment);
+                            if (boundEntry is not null)
+                                entries.Add(boundEntry);
+                            break;
+                        }
+
+                    case WithExpressionEntrySyntax exprEntry:
+                        {
+                            if (!hasContentConvention)
+                            {
+                                var expr = BindExpression(exprEntry.Expression, allowReturn: false);
+                                entries.Add(new BoundObjectInitializerExpressionEntry(expr));
+                                break;
+                            }
+
+                            if (seenContentEntry)
+                            {
+                                var extra = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+
+                                if (extra.Type is { })
+                                {
+                                    _diagnostics.ReportMultipleContentEntriesNotAllowed(
+                                        instanceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                                        exprEntry.Expression.GetLocation());
+                                }
+
+                                break;
+                            }
+
+                            seenContentEntry = true;
+
+                            if (!EnsureMemberAccessible(contentProperty!, exprEntry.GetLocation(), "property"))
+                            {
+                                _ = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+                                break;
+                            }
+
+                            var value = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
+                            value = PrepareRightForAssignment(value, contentProperty!.Type, exprEntry.Expression);
+
+                            if (value is BoundErrorExpression)
+                                break;
+
+                            entries.Add(new BoundObjectInitializerAssignmentEntry(contentProperty!, value));
+                            break;
+                        }
+                }
             }
 
             return new BoundObjectInitializer(entries.ToImmutable());

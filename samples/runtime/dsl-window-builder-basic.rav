@@ -4,16 +4,16 @@ import System.Collections.Generic.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-val window = Window {
+val window = Window with {
     Title = "Main"
     Width = 800
     Height = 600
 
-    StackPanel {
-        Button(text: "Ok") { 
+    StackPanel with {
+        Button(text: "Ok") with { 
             HorizontalAlignment = .Fill
         }
-        Button(text: "Cancel") { 
+        Button(text: "Cancel") with { 
             HorizontalAlignment = .Fill 
         }
     }
@@ -91,7 +91,7 @@ interface IHasChildren {
 }
 
 class StackPanel : Control, IHasChildren {
-    val children: List<Control> = []
+    private val children: List<Control> = []
 
     init() {
     }
