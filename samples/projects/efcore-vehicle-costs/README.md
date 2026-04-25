@@ -24,7 +24,7 @@ The important bit is the mapping approach:
 
 - the domain uses a real Raven `union`
 - EF Core persists `VehicleEntity.StatusJson` as PostgreSQL `jsonb`
-- `EncodeStatus` and `DecodeStatus` translate between the Raven union and a JSON DTO shape
+- `EncodeAsJson` and `DecodeFromJson` translate between the Raven union and a JSON DTO shape
 
 That keeps the public model union-based while still using JSON storage in the database.
 

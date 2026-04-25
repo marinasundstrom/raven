@@ -7,7 +7,7 @@ union VehicleStatus {
     case Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
     case Decommissioned(retiredUtc: DateTimeOffset, reason: string)
 
-    func EncodeStatus() -> string {
+    func EncodeAsJson() -> string {
         return self match {
             .Operational(val driverName, val sinceUtc, val currentOdometerKm) => {
                 JsonSerializer.Serialize(VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm))
@@ -21,7 +21,7 @@ union VehicleStatus {
         }
     }
 
-    static func DecodeStatus(json: string) -> VehicleStatus {
+    static func DecodeFromJson(json: string) -> VehicleStatus {
         val dto = JsonSerializer.Deserialize<VehicleStatusDto>(json)
         if dto is null {
             val fallback: VehicleStatus = .Decommissioned(DateTimeOffset.UtcNow, "Failed to deserialize status")
@@ -42,11 +42,11 @@ class VehicleEntity {
     var FuelConsumptions: List<FuelConsumptionRecord> = []
 
     func GetStatus() -> VehicleStatus {
-        return VehicleStatus.DecodeStatus(StatusJson)
+        return VehicleStatus.DecodeFromJson(StatusJson)
     }
 
     func SetStatus(status: VehicleStatus) {
-        StatusJson = status.EncodeStatus()
+        StatusJson = status.EncodeAsJson()
     }
 }
 
