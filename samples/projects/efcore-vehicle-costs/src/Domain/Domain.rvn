@@ -6,39 +6,9 @@ union VehicleStatus {
     case Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
     case Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
     case Decommissioned(retiredUtc: DateTimeOffset, reason: string)
-}
 
-class VehicleEntity {
-    var Id: Guid = Guid.NewGuid()
-    var RegistrationNumber: string = ""
-    var Model: string = ""
-    var FuelType: string = ""
-    var TypicalMonthlyDistanceKm: decimal = 0
-    var StatusJson: string = ""
-    var FuelConsumptions: List<FuelConsumptionRecord> = []
-
-    func GetStatus() -> VehicleStatus {
-        return VehicleStatusJson.DecodeStatus(StatusJson)
-    }
-
-    func SetStatus(status: VehicleStatus) {
-        StatusJson = VehicleStatusJson.EncodeStatus(status)
-    }
-}
-
-class FuelConsumptionRecord {
-    var Id: int = 0
-    var VehicleId: Guid = Guid.Empty
-    var Vehicle: VehicleEntity? = null
-    var RecordedAtUtc: DateTimeOffset = DateTimeOffset.UtcNow
-    var DistanceDrivenKm: decimal = 0
-    var LitersFilled: decimal = 0
-    var TotalCost: decimal = 0
-}
-
-static class VehicleStatusJson {
-    static func EncodeStatus(status: VehicleStatus) -> string {
-        return status match {
+    func EncodeStatus() -> string {
+        return self match {
             .Operational(val driverName, val sinceUtc, val currentOdometerKm) => {
                 JsonSerializer.Serialize(VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm))
             }
@@ -60,4 +30,32 @@ static class VehicleStatusJson {
 
         return dto.ToStatus()
     }
+}
+
+class VehicleEntity {
+    var Id: Guid = Guid.NewGuid()
+    var RegistrationNumber: string = ""
+    var Model: string = ""
+    var FuelType: string = ""
+    var TypicalMonthlyDistanceKm: decimal = 0
+    var StatusJson: string = ""
+    var FuelConsumptions: List<FuelConsumptionRecord> = []
+
+    func GetStatus() -> VehicleStatus {
+        return VehicleStatus.DecodeStatus(StatusJson)
+    }
+
+    func SetStatus(status: VehicleStatus) {
+        StatusJson = status.EncodeStatus()
+    }
+}
+
+class FuelConsumptionRecord {
+    var Id: int = 0
+    var VehicleId: Guid = Guid.Empty
+    var Vehicle: VehicleEntity? = null
+    var RecordedAtUtc: DateTimeOffset = DateTimeOffset.UtcNow
+    var DistanceDrivenKm: decimal = 0
+    var LitersFilled: decimal = 0
+    var TotalCost: decimal = 0
 }
