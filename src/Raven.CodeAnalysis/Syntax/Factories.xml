@@ -64,6 +64,18 @@
     </Overload>
   </Factory>
 
+  <Factory Node="WhilePatternStatement">
+    <Overload>
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Pattern" />
+      <Parameter Slot="Expression" />
+      <Parameter Slot="Statement" />
+      <Default Slot="WhileKeyword" Token="WhileKeyword" />
+      <Default Slot="OperatorToken" Token="EqualsToken" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
   <Factory Node="LocalDeclarationStatement">
     <Overload>
       <Parameter Slot="Declaration" />

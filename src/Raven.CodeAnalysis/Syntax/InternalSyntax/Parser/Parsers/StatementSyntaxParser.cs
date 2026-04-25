@@ -442,9 +442,12 @@ internal class StatementSyntaxParser : SyntaxParser
             terminatorToken);
     }
 
-    private WhileStatementSyntax ParseWhileStatementSyntax()
+    private StatementSyntax ParseWhileStatementSyntax()
     {
         var whileKeyword = ReadToken();
+
+        if (PeekToken().Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            return ParseWhilePatternStatementSyntax(whileKeyword);
 
         var condition = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
         var statement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
@@ -453,6 +456,30 @@ internal class StatementSyntaxParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
 
         return WhileStatement(whileKeyword, condition!, statement!, terminatorToken);
+    }
+
+    private WhilePatternStatementSyntax ParseWhilePatternStatementSyntax(SyntaxToken whileKeyword)
+    {
+        var bindingKeyword = ReadToken();
+        var pattern = new PatternSyntaxParser(
+            this,
+            allowImplicitDeconstructionElementBindings: true,
+            allowWholePatternDesignation: true).ParsePattern();
+        var operatorToken = ExpectToken(SyntaxKind.EqualsToken);
+        var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+        var statement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return WhilePatternStatement(
+            whileKeyword,
+            bindingKeyword,
+            pattern,
+            operatorToken,
+            expression!,
+            statement!,
+            terminatorToken);
     }
 
     private TryStatementSyntax ParseTryStatementSyntax()

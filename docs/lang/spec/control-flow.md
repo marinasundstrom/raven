@@ -229,6 +229,31 @@ The example above is equivalent in matching behavior to
 surface lets the leading binding keyword supply the capture mode for otherwise
 bare designations inside the property pattern.
 
+Statement-form `while` supports the same pattern-binding header:
+
+```raven
+while val .Ok(value) = Next() {
+    WriteLine(value)
+}
+```
+
+The right-hand expression is evaluated at the start of each iteration. If the
+pattern matches, any bindings introduced by the pattern are available inside
+the loop body for that iteration. If the pattern does not match, the loop exits.
+As with `if val`, the leading binding keyword is required and supplies the
+binding mode for otherwise bare captures and an optional whole-pattern
+designation:
+
+```raven
+while val Person(1, name, _) person = NextPerson() {
+    WriteLine(person.Name)
+    WriteLine(name)
+}
+```
+
+`while val pattern = expr` uses the same general pattern surface as `is`,
+`match`, `if val pattern = expr`, and `for` pattern targets.
+
 In value-returning functions, Raven warns when statement-form control flow
 produces branch values that are discarded instead of returned:
 

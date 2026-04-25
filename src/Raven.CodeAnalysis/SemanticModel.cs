@@ -1871,6 +1871,15 @@ public partial class SemanticModel
                         break;
                     }
 
+                case WhilePatternStatementSyntax whilePatternStatement
+                    when whilePatternStatement.Statement.Span.Contains(expression.Span):
+                    {
+                        if (TryResolvePatternDesignationSymbol(whilePatternStatement.Pattern, expression, name) is { } patternSymbol)
+                            return patternSymbol;
+
+                        break;
+                    }
+
                 case MatchArmSyntax matchArm:
                     {
                         if (TryResolvePatternDesignationSymbol(matchArm.Pattern, expression, name) is { } patternSymbol)
@@ -2222,7 +2231,7 @@ public partial class SemanticModel
 
         var root = node.AncestorsAndSelf().FirstOrDefault(current =>
             current is StatementSyntax or ArrowExpressionClauseSyntax ||
-            (includeExtendedExecutableRoots && current is ForStatementSyntax or IfPatternStatementSyntax));
+            (includeExtendedExecutableRoots && current is ForStatementSyntax or IfPatternStatementSyntax or WhilePatternStatementSyntax));
 
         if (root is not null)
         {
@@ -2626,6 +2635,13 @@ public partial class SemanticModel
         if (enclosingIfPattern is not null)
         {
             root = enclosingIfPattern;
+            return true;
+        }
+
+        var enclosingWhilePattern = node.AncestorsAndSelf().OfType<WhilePatternStatementSyntax>().FirstOrDefault();
+        if (enclosingWhilePattern is not null)
+        {
+            root = enclosingWhilePattern;
             return true;
         }
 
@@ -3532,6 +3548,7 @@ public partial class SemanticModel
             IfPatternStatementSyntax or
             ElseExpressionClauseSyntax or
             WhileStatementSyntax or
+            WhilePatternStatementSyntax or
             ForStatementSyntax or
             FunctionStatementSyntax;
     }

@@ -314,6 +314,7 @@ Statement                ::= LocalDeclaration
                            | IfStatement
                            | IfPatternStatement
                            | WhileStatement
+                           | WhilePatternStatement
                            | ForStatement
                            | TryStatement
                            | AssignmentStatement
@@ -348,6 +349,7 @@ IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression Embedded
    or after headers such as if/while/for) begins a block statement/body and is not parsed as a TrailingBlock trailer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression EmbeddedStatement ;
+WhilePatternStatement    ::= 'while' BindingKeyword Pattern '=' Expression EmbeddedStatement ;
 ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? EmbeddedStatement ;
 ForBindingKeyword        ::= 'val' | 'let' | 'var' ;
 ForIterationTarget       ::= Identifier | Pattern ;
@@ -511,7 +513,7 @@ RangeLower               ::= RangePatternOperand? ;
 RangeUpper               ::= RangePatternOperand? ;
 RangePatternOperand      ::= Expression ; (* binder should enforce “constant-ish” rules; parser stops at `..` when parsing the lower bound *)
 
-VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* Whole-pattern designations may omit the BindingKeyword when an outer construct (for example `if val`, `for val`, or a match-arm binding keyword) supplies the binding mode. Without an outer binding keyword, omitted binding defaults to an immutable capture. *)
+VariableDesignation      ::= VariableDesignationCore [':' Type] ; (* Whole-pattern designations may omit the BindingKeyword when an outer construct (for example `if val`, `while val`, `for val`, or a match-arm binding keyword) supplies the binding mode. Without an outer binding keyword, omitted binding defaults to an immutable capture. *)
 VariableDesignationCore  ::= SingleVariableDesignation | ParenthesizedVariableDesignation ;
 SingleVariableDesignation ::= [BindingKeyword] Identifier ;
 

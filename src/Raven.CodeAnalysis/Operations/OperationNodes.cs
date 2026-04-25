@@ -1730,16 +1730,29 @@ internal abstract class LoopOperation : Operation, ILoopOperation
 
 internal sealed class WhileLoopOperation : LoopOperation, IWhileLoopOperation
 {
+    private readonly BoundWhileStatement _bound;
     private IOperation? _condition;
 
     internal WhileLoopOperation(SemanticModel semanticModel, BoundWhileStatement bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.WhileLoop, syntax, isImplicit)
     {
+        _bound = bound;
     }
 
-    public IOperation? Condition => _condition ??= SemanticModel.GetOperation(((WhileStatementSyntax)Syntax).Condition);
+    public IOperation? Condition => _condition ??= Syntax switch
+    {
+        WhileStatementSyntax whileStatement => SemanticModel.GetOperation(whileStatement.Condition),
+        WhilePatternStatementSyntax whilePatternStatement
+            => OperationUtilities.CreateOperationFromBound(SemanticModel, _bound.Condition, whilePatternStatement.Expression),
+        _ => null
+    };
 
-    protected override StatementSyntax BodySyntax => ((WhileStatementSyntax)Syntax).Statement;
+    protected override StatementSyntax BodySyntax => Syntax switch
+    {
+        WhileStatementSyntax whileStatement => whileStatement.Statement,
+        WhilePatternStatementSyntax whilePatternStatement => whilePatternStatement.Statement,
+        _ => throw new InvalidOperationException($"Unexpected while loop syntax '{Syntax.Kind}'.")
+    };
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -2134,6 +2147,7 @@ internal sealed class IsPatternOperation : Operation, IIsPatternOperation
         {
             IsPatternExpressionSyntax isPattern => isPattern.Expression,
             IfPatternStatementSyntax ifPattern => ifPattern.Expression,
+            WhilePatternStatementSyntax whilePattern => whilePattern.Expression,
             _ => Syntax
         });
 
@@ -2144,6 +2158,7 @@ internal sealed class IsPatternOperation : Operation, IIsPatternOperation
         {
             IsPatternExpressionSyntax isPattern => isPattern.Pattern,
             IfPatternStatementSyntax ifPattern => ifPattern.Pattern,
+            WhilePatternStatementSyntax whilePattern => whilePattern.Pattern,
             _ => Syntax
         });
 

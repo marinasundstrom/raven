@@ -1908,6 +1908,27 @@ while i < list.Length {
 }
 ```
 
+`while` also supports a pattern-binding condition:
+
+```raven
+while val .Ok(value) = Next() {
+    Console.WriteLine(value)
+}
+```
+
+The right-hand expression is evaluated before each iteration. If the pattern
+matches, the body executes and pattern bindings are in scope for that iteration.
+If the pattern does not match, the loop exits. The leading `let` / `val` / `var`
+binding keyword is required and supplies the binding mode for otherwise bare
+captures inside the pattern and for an optional whole-pattern designation:
+
+```raven
+while val Person(1, name, _) person = NextPerson() {
+    Console.WriteLine(person.Name)
+    Console.WriteLine(name)
+}
+```
+
 ### `for` expression
 
 Iterates over each element of a collection. The iteration target may bind a fresh
@@ -2194,8 +2215,9 @@ type analysis.
 
 Raven uses two related but distinct surfaces:
 
-* **General pattern matching forms** are used in `is`, `match`, `if val pattern = expr`,
-  and `for ... in` pattern targets. These support the full pattern vocabulary:
+* **General pattern matching forms** are used in `is`, `match`,
+  `if val pattern = expr`, `while val pattern = expr`, and `for ... in`
+  pattern targets. These support the full pattern vocabulary:
   declaration/type patterns, constants and value patterns, comparison and range
   patterns, positional patterns, sequence patterns, dictionary patterns,
   property patterns, nominal deconstruction patterns, member/case patterns,
@@ -2283,6 +2305,19 @@ if val (2, > 0.5) point = input {
 The leading `let` / `val` / `var` is required. A bare `if Pattern = expr` form is
 not recognized. When a whole-pattern designation omits its own binding keyword,
 it inherits the outer `let` / `val` / `var` binding mode.
+
+Statement-form `while` supports the same pattern-binding header:
+
+```raven
+while val .Ok(value) = Next() {
+    WriteLine(value)
+}
+```
+
+The right-hand expression is evaluated at the start of each iteration. If the
+pattern matches, the body executes with the pattern bindings in scope. If the
+pattern does not match, the loop exits. A bare `while Pattern = expr` form is not
+recognized; the leading `let` / `val` / `var` binding keyword is required.
 
 ### Dictionary patterns and deconstruction
 
@@ -2481,6 +2516,7 @@ These accept Raven’s full pattern vocabulary:
 * `match expr { pattern => ... }`
 * `match expr { ... }` statement form
 * `if val pattern = expr`
+* `while val pattern = expr`
 * `for val pattern in values` and `for pattern in values`
 
 These contexts may use comparison/range/property/member/nominal-deconstruction
@@ -2763,8 +2799,8 @@ Rules:
 * A trailing designation may be written with an explicit binding keyword, such
   as `val point` or `var point`.
 * In constructs that already carry an outer binding keyword (`if val ...`,
-  `for val ...`, `match { val ... => ... }`), the trailing designation may omit
-  its own binding keyword and inherits the outer binding mode.
+  `while val ...`, `for val ...`, `match { val ... => ... }`), the trailing
+  designation may omit its own binding keyword and inherits the outer binding mode.
 * Without an outer binding keyword, omitting the binding keyword on the trailing
   designation introduces an immutable binding.
 * Writing `_` discards the matched value while still enforcing the pattern.
@@ -2787,7 +2823,7 @@ Rules:
 
   * The designation may use an explicit binding keyword (`val`, `let`, or
     `var`), or inherit the binding mode from an outer construct such as
-    `if val` / `for val` / an outer match-arm binding keyword.
+    `if val` / `while val` / `for val` / an outer match-arm binding keyword.
   * Writing `var p` produces a mutable binding. Omitting a binding keyword
     without an outer binding mode produces an immutable binding.
   * The designation is introduced only if the entire property pattern succeeds.
@@ -2821,8 +2857,8 @@ Rules:
     parameters synthesize a `Deconstruct` method in declaration order, so the
     same pattern form works for them.
   * Each positional element is a pattern, so bindings still require `val`/`var`
-    unless an outer construct such as `if val pattern = expr` supplies the
-    binding mode.
+    unless an outer construct such as `if val pattern = expr` or
+    `while val pattern = expr` supplies the binding mode.
   * An element may optionally include a name before the colon
     (`Name: pattern`). Named elements bind by `Deconstruct` parameter name
     rather than source position and may appear in any order. Unnamed elements

@@ -34,6 +34,7 @@ class BinderFactory
             IfPatternStatementSyntax stmt => new LocalScopeBinder(parentBinder!),
             ElseExpressionClauseSyntax elseClause => new LocalScopeBinder(parentBinder!),
             WhileStatementSyntax stmt => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
+            WhilePatternStatementSyntax stmt => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             ForStatementSyntax stmt => new BlockBinder(parentBinder!.ContainingSymbol, parentBinder!),
             FunctionStatementSyntax localFunc => new FunctionBinder(parentBinder!, localFunc),
             // Type declaration binders are created and cached by SemanticModel

@@ -403,6 +403,17 @@ internal sealed class DataFlowWalker : SyntaxWalker
         _writtenInside.IntersectWith(writtenAfterThen);
     }
 
+    public override void VisitWhilePatternStatement(WhilePatternStatementSyntax node)
+    {
+        Visit(node.Expression);
+        var assignedBefore = _writtenInside.Union(_assignedOnEntry).ToHashSet(SymbolEqualityComparer.Default);
+
+        _assignedOnEntry = assignedBefore;
+        _writtenInside = assignedBefore.ToHashSet(SymbolEqualityComparer.Default);
+
+        Visit(node.Statement);
+    }
+
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {
         Visit(node.Condition);

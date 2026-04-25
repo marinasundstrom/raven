@@ -67,6 +67,77 @@ class Program {
         Assert.Equal(["42"], output);
     }
 
+    [Fact]
+    public void WhilePatternStatement_WithTuplePattern_BindsCapturedValue()
+    {
+        var code = """
+import System.Console.*
+
+class Program {
+    static var index = 0
+
+    static func Next() -> (string, int) {
+        index = index + 1
+        if index < 4 {
+            return ("Ok", index)
+        }
+
+        return ("Done", 0)
+    }
+
+    static func Main() {
+        var total = 0
+        while val ("Ok", value) = Next() {
+            total = total + value
+        }
+
+        WriteLine(total)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["6"], output);
+    }
+
+    [Fact]
+    public void WhilePatternStatement_WithUnionCasePattern_BindsCapturedValue()
+    {
+        var code = """
+import System.Console.*
+
+union Result<T> {
+    case Ok(value: T)
+    case Done
+}
+
+class Program {
+    static var index = 0
+
+    static func Next() -> Result<int> {
+        index = index + 1
+        if index < 4 {
+            return .Ok(index)
+        }
+
+        return .Done
+    }
+
+    static func Main() {
+        var total = 0
+        while val .Ok(value) = Next() {
+            total = total + value
+        }
+
+        WriteLine(total)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["6"], output);
+    }
+
     private static string[] CompileAndRun(string code, OutputKind outputKind = OutputKind.ConsoleApplication)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

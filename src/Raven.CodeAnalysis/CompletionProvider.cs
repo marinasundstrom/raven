@@ -288,6 +288,15 @@ public static class CompletionProvider
                             break;
                         }
 
+                    case WhilePatternStatementSyntax whilePatternStatement
+                        when whilePatternStatement.Statement.Span.Contains(receiverExpression.Span):
+                        {
+                            if (TryResolvePatternDesignationSymbol(whilePatternStatement.Pattern, receiverExpression, name) is { } whilePatternSymbol)
+                                return whilePatternSymbol;
+
+                            break;
+                        }
+
                     case MatchArmSyntax matchArm:
                         {
                             if (TryResolvePatternDesignationSymbol(matchArm.Pattern, receiverExpression, name) is { } armPatternSymbol)

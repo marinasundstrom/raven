@@ -195,6 +195,11 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 _ = AnalyzeStatement(whileStatement.Statement, isReachable);
                 _endPointIsReachable = isReachable;
                 return _endPointIsReachable;
+            case WhilePatternStatementSyntax whilePatternStatement:
+                Visit(whilePatternStatement.Expression);
+                _ = AnalyzeStatement(whilePatternStatement.Statement, isReachable);
+                _endPointIsReachable = isReachable;
+                return _endPointIsReachable;
             case ForStatementSyntax forStatement:
                 Visit(forStatement.Expression);
                 _ = AnalyzeStatement(forStatement.Body, isReachable);

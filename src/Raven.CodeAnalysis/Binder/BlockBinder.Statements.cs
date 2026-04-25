@@ -76,7 +76,9 @@ partial class BlockBinder
         var elseEntryState = entryState;
         var thenExits = IsEarlyExitStatement(thenStatementSyntax);
         var elseExits = elseClauseSyntax is not null && IsEarlyExitStatement(elseClauseSyntax.Statement);
-        var patternLocals = CollectPatternDesignatorLocals(condition);
+        var patternLocals = condition is BoundIsPatternExpression isPattern
+            ? CollectPatternDesignatorLocals(isPattern.Pattern)
+            : ImmutableArray<ILocalSymbol>.Empty;
         var patternDepth = _scopeDepth + 1;
         var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
 
@@ -188,41 +190,35 @@ partial class BlockBinder
         }
 
         return new BoundIfStatement(condition, thenBound, elseBound);
-
-        static ImmutableArray<ILocalSymbol> CollectPatternDesignatorLocals(BoundExpression condition)
-        {
-            if (condition is not BoundIsPatternExpression isPattern)
-                return ImmutableArray<ILocalSymbol>.Empty;
-
-            var builder = ImmutableArray.CreateBuilder<ILocalSymbol>();
-            foreach (var designator in isPattern.Pattern.GetDesignators())
-            {
-                if (designator is BoundSingleVariableDesignator single)
-                    builder.Add(single.Local);
-            }
-
-            return builder.ToImmutable();
-        }
     }
 
     private BoundExpression BindIfPatternCondition(IfPatternStatementSyntax syntax)
+        => BindPatternStatementCondition(syntax.BindingKeyword, syntax.Pattern, syntax.Expression);
+
+    private BoundExpression BindWhilePatternCondition(WhilePatternStatementSyntax syntax)
+        => BindPatternStatementCondition(syntax.BindingKeyword, syntax.Pattern, syntax.Expression);
+
+    private BoundExpression BindPatternStatementCondition(
+        SyntaxToken bindingKeyword,
+        PatternSyntax patternSyntax,
+        ExpressionSyntax expressionSyntax)
     {
-        var expression = BindExpression(syntax.Expression);
-        var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(syntax.Pattern);
+        var expression = BindExpression(expressionSyntax);
+        var inlineBindingKeyword = FindFirstInlinePatternBindingKeyword(patternSyntax);
         if (inlineBindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
         {
             _diagnostics.ReportPatternDeclarationBindingKeywordConflict(
-                syntax.BindingKeyword.Text,
+                bindingKeyword.Text,
                 inlineBindingKeyword.Text,
                 inlineBindingKeyword.GetLocation());
         }
 
         BoundPattern pattern;
         var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
-        _ambientPatternDeclarationBindingKeyword = syntax.BindingKeyword.Kind;
+        _ambientPatternDeclarationBindingKeyword = bindingKeyword.Kind;
         try
         {
-            pattern = BindPattern(syntax.Pattern, expression.Type);
+            pattern = BindPattern(patternSyntax, expression.Type);
         }
         finally
         {
@@ -311,6 +307,36 @@ partial class BlockBinder
         var condition = BindExpression(whileStmt.Condition);
 
         var body = BindStatementInLoop(whileStmt.Statement);
+
+        return new BoundWhileStatement(condition, body);
+    }
+
+    private BoundStatement BindWhilePatternStatement(WhilePatternStatementSyntax whileStmt)
+    {
+        var condition = BindWhilePatternCondition(whileStmt);
+        var patternLocals = condition is BoundIsPatternExpression isPattern
+            ? CollectPatternDesignatorLocals(isPattern.Pattern)
+            : ImmutableArray<ILocalSymbol>.Empty;
+        var patternDepth = _scopeDepth + 1;
+        var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+
+        foreach (var local in patternLocals)
+        {
+            if (!shadowedLocals.ContainsKey(local.Name))
+                shadowedLocals[local.Name] = _locals.TryGetValue(local.Name, out var existing) ? existing : null;
+
+            _locals[local.Name] = (local, patternDepth);
+        }
+
+        var body = BindStatementInLoop(whileStmt.Statement);
+
+        foreach (var local in patternLocals)
+        {
+            if (!shadowedLocals.TryGetValue(local.Name, out var shadowed) || shadowed is null)
+                _locals.Remove(local.Name);
+            else
+                _locals[local.Name] = shadowed.Value;
+        }
 
         return new BoundWhileStatement(condition, body);
     }

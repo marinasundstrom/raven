@@ -118,6 +118,8 @@ partial class BlockBinder : Binder
             _ = BindExpression(isPatternExpression);
         else if (singleVariableDesignation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
             _ = BindStatement(ifPatternStatement);
+        else if (singleVariableDesignation.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
+            _ = BindStatement(whilePatternStatement);
         else if (singleVariableDesignation.GetAncestor<ForStatementSyntax>() is { } forStatement)
             _ = BindStatement(forStatement);
 
@@ -765,6 +767,7 @@ partial class BlockBinder : Binder
             IfStatementSyntax ifStmt => BindIfStatement(ifStmt),
             IfPatternStatementSyntax ifPatternStmt => BindIfPatternStatement(ifPatternStmt),
             WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
+            WhilePatternStatementSyntax whilePatternStmt => BindWhilePatternStatement(whilePatternStmt),
             TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),
             TypeDeclarationStatementSyntax typeDeclarationStatement => BindTypeDeclarationStatement(typeDeclarationStatement),

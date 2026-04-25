@@ -124,6 +124,10 @@ if val Person(1, name, _) = person {
     WriteLine(name)
 }
 
+while val Some(item) = stream.Next() {
+    WriteLine(item)
+}
+
 for val [first, ...rest] in rows {
     WriteLine(first)
 }
@@ -136,14 +140,15 @@ val label = input match {
 
 The important rule is that pattern bindings stay explicit. In inline and freestanding
 patterns, a capture uses a binding keyword. When Raven offers an outer shorthand
-form such as `val (...) = expr`, `if val pattern = expr`, `for val pattern in values`,
-or `match { val pattern => ... }`, that outer keyword supplies the binding mode for
+form such as `val (...) = expr`, `if val pattern = expr`,
+`while val pattern = expr`, `for val pattern in values`, or
+`match { val pattern => ... }`, that outer keyword supplies the binding mode for
 otherwise bare captures inside the pattern.
 
 There is also an important surface distinction:
 
-- `is`, `match`, `if val pattern = expr`, and `for ... in` pattern targets use the
-  general pattern language.
+- `is`, `match`, `if val pattern = expr`, `while val pattern = expr`, and
+  `for ... in` pattern targets use the general pattern language.
 - deconstruction assignment/declaration (`val (...) = expr`, `(...) = expr`,
   `val [...] = expr`, `[...] = expr`) use the deconstruction subset rather than
   every match-only pattern form.
@@ -334,6 +339,7 @@ The same general pattern model works across:
 - `match`
 - `if value is pattern`
 - `if val pattern = expr`
+- `while val pattern = expr`
 - `for ... in` with pattern targets
 - deconstruction assignment and declaration
 
@@ -360,8 +366,8 @@ pattern-matching forms. They are designed for extraction, not for every kind of
 conditional match. That means Raven reuses one pattern model conceptually while
 still distinguishing between:
 
-- general matching surfaces such as `is`, `match`, `if val pattern = expr`, and
-  `for val pattern in values`
+- general matching surfaces such as `is`, `match`, `if val pattern = expr`,
+  `while val pattern = expr`, and `for val pattern in values`
 - deconstruction surfaces such as `val (a, b) = expr` and `[head, ..tail] = values`
 
 When deconstruction uses a `Deconstruct` shape, Raven also supports named
