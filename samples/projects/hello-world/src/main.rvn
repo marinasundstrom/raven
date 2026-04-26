@@ -19,6 +19,11 @@ foo.Status.Print()
 val x: Maybe<int, string> = 42
 x.Print()
 
+match x {
+    int no => WriteLine("No is: $no")
+    string str => WriteLine("String is: $str")
+}
+
 func DisplayStatus(foo: Foo) {
     match foo.Status {
         .Active(val date) => WriteLine("Active at $date")
