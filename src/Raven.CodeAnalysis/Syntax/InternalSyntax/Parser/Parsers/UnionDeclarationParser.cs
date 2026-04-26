@@ -139,10 +139,24 @@ internal class UnionDeclarationParser : SyntaxParser
                         types.Add(ReadToken());
                         current = PeekToken();
                     }
+                    else if (current.IsKind(SyntaxKind.CommaToken))
+                    {
+                        // Parenthesized union member lists use `|`, not `,`.
+                        // Recover by reporting the missing separator and consuming the comma
+                        // so the parser can continue with the next member type instead of looping.
+                        AddDiagnostic(
+                            DiagnosticInfo.Create(
+                                CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                                GetSpanOfPeekedToken(),
+                                current.Text));
+                        types.Add(MissingToken(SyntaxKind.BarToken));
+                        ReadToken();
+                        current = PeekToken();
+                    }
                     else if (!current.IsKind(SyntaxKind.CloseParenToken) &&
                              !current.IsKind(SyntaxKind.EndOfFileToken))
                     {
-                        types.Add(MissingToken(SyntaxKind.BarBarToken));
+                        types.Add(MissingToken(SyntaxKind.BarToken));
                     }
                 }
 

@@ -162,4 +162,21 @@ public class UnionDeclarationParserTests
         Assert.Equal("A", declaration.MemberTypes!.Types[0].ToString());
         Assert.Equal("B", declaration.MemberTypes!.Types[1].ToString());
     }
+
+    [Fact]
+    public void UnionDeclaration_WithCommaSeparatedMemberTypes_RecoversWithoutLooping()
+    {
+        var source = "union Maybe<A, B>(A, B)";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.NotNull(declaration.TypeParameterList);
+        Assert.NotNull(declaration.MemberTypes);
+        Assert.Equal(2, declaration.MemberTypes!.Types.Count);
+        Assert.Equal("A", declaration.MemberTypes.Types[0].ToString());
+        Assert.Equal("B", declaration.MemberTypes.Types[1].ToString());
+        Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax);
+    }
 }

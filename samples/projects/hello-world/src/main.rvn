@@ -16,6 +16,9 @@ WriteLine(name)
 
 foo.Status.Print()
 
+val x: Maybe<int, string> = 42
+x.Print()
+
 func DisplayStatus(foo: Foo) {
     match foo.Status {
         .Active(val date) => WriteLine("Active at $date")
@@ -40,3 +43,11 @@ union Status {
     }
 }
 
+union Maybe<A, B>(A | B) {
+    func Print() {
+        match self {
+            A a => WriteLine("A: $a")
+            B b => WriteLine("B: $b")
+        }
+    }
+}
