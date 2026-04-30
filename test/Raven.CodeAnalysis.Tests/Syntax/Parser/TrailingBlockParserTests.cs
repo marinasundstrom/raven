@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class TrailingBlockParserTests
 {
     [Fact]
-    public void TrailingBlock_AssignmentEntry_WithPlusEquals_ParsesOperatorToken()
+    public void TrailingBlock_AssignmentStatement_WithPlusEquals_ParsesInBody()
     {
         var tree = SyntaxTree.ParseText(
             """
@@ -22,10 +22,31 @@ public class TrailingBlockParserTests
         var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
         var invocation = Assert.IsType<InvocationExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
         var trailingBlock = Assert.IsType<TrailingBlockExpressionSyntax>(invocation.TrailingBlock);
-        var assignment = Assert.IsType<TrailingBlockAssignmentEntrySyntax>(Assert.Single(trailingBlock.Entries));
+        var assignment = Assert.IsType<AssignmentStatementSyntax>(Assert.Single(trailingBlock.Body.Statements));
 
-        Assert.Equal("Clicked", assignment.Name.Identifier.ValueText);
-        Assert.Equal(SyntaxKind.PlusEqualsToken, assignment.EqualsToken.Kind);
+        Assert.Equal(SyntaxKind.AddAssignmentStatement, assignment.Kind);
+        var left = Assert.IsType<IdentifierNameSyntax>(assignment.Left);
+        Assert.Equal("Clicked", left.Identifier.ValueText);
+        Assert.Equal(SyntaxKind.PlusEqualsToken, assignment.OperatorToken.Kind);
+    }
+
+    [Fact]
+    public void TrailingBlock_OmittedArgumentList_ParsesAsInvocationWithBody()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            val window = Window {
+                StackPanel()
+            }
+            """);
+
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
+
+        Assert.True(invocation.ArgumentList.OpenParenToken.IsMissing);
+        Assert.NotNull(invocation.TrailingBlock);
+        Assert.Single(invocation.TrailingBlock!.Body.Statements);
     }
 
     [Fact]

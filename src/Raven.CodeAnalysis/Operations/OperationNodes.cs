@@ -1501,7 +1501,6 @@ internal sealed class ObjectInitializerOperation : Operation, IObjectInitializer
 
             var syntaxEntries = Syntax switch
             {
-                TrailingBlockExpressionSyntax trailingBlockSyntax => trailingBlockSyntax.Entries.ToArray<SyntaxNode>(),
                 WithExpressionSyntax withExpression => withExpression.Entries.ToArray<SyntaxNode>(),
                 _ => []
             };

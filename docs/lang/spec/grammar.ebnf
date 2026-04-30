@@ -591,22 +591,13 @@ SuppressNullableWarningTrailer
 PropagateTrailer          ::= '?' ;
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
-(* ---------- Trailing DSL blocks ---------- *)
+(* ---------- Trailing blocks ---------- *)
 
-TrailingBlock             ::= '{' { TrailingBlockEntry } '}' ;
+TrailingBlock             ::= Block ;
 
-TrailingBlockEntry        ::= TrailingBlockAssignmentEntry
-                            | TrailingBlockExpressionEntry ;
-
-TrailingBlockAssignmentEntry
-                           ::= Identifier AssignmentOperator Expression TrailingBlockTerminator? ;
-
-TrailingBlockExpressionEntry
-                           ::= Expression TrailingBlockTerminator? ;
-
-(* Terminators are context-sensitive in Raven; commas are permitted but not required when a newline ends the entry. *)
-TrailingBlockTerminator
-                           ::= ',' | end-of-line-trivia | ';' ;
+(* A trailing block is invocation syntax. It supplies a final zero-argument
+   closure argument to `callee(args) { ... }` or `callee { ... }`. The block
+   body is parsed as ordinary Raven statements, not initializer entries. *)
 
 (* ---------- With expressions and object initializers ---------- *)
 

@@ -372,7 +372,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void TrailingBlock_OnTypeWithoutDslSupport_ReportsDiagnostic()
+    public void TrailingBlock_OnTypeWithoutClosureParameter_ReportsNoOverload()
     {
         string testCode =
             """
@@ -386,84 +386,9 @@ public class ObjectCreationTests : DiagnosticTestBase
         var verifier = CreateVerifier(
             testCode,
             expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
+                new DiagnosticResult(CompilerDiagnostics.NoOverloadForMethod.Id)
                     .WithAnySpan()
-                    .WithArguments("Foo")
-            ]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void TrailingBlock_AssigningValProperty_ReportsDslDiagnostic()
-    {
-        const string testCode =
-            """
-            class Foo {
-                val Name: string = ""
-            }
-
-            val foo = Foo {
-                Name = "updated"
-            }
-            """;
-
-        var verifier = CreateVerifier(
-            testCode,
-            expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
-                    .WithAnySpan()
-                    .WithArguments("Foo")
-            ]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void TrailingBlock_AssigningVarProperty_ReportsDslDiagnostic()
-    {
-        const string testCode =
-            """
-            class Foo {
-                var Name: string = ""
-            }
-
-            val foo = Foo {
-                Name = "updated"
-            }
-            """;
-
-        var verifier = CreateVerifier(
-            testCode,
-            expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
-                    .WithAnySpan()
-                    .WithArguments("Foo")
-            ]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void TrailingBlock_AssigningInitOnlyProperty_ReportsDslDiagnostic()
-    {
-        const string testCode =
-            """
-            class Foo {
-                val Name: string { init; }
-            }
-
-            val foo = Foo {
-                Name = "updated"
-            }
-            """;
-
-        var verifier = CreateVerifier(
-            testCode,
-            expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotSupportTrailingBlock.Id)
-                    .WithAnySpan()
-                    .WithArguments("Foo")
+                    .WithArguments("constructor for type", "Foo", 1)
             ]);
 
         verifier.Verify();

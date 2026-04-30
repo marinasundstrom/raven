@@ -3132,57 +3132,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private TrailingBlockExpressionSyntax ParseTrailingBlockExpression()
     {
-        // We assume current token is '{'
-        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
-
-        var previousTreatNewlinesAsTokens = TreatNewlinesAsTokens;
-        SetTreatNewlinesAsTokens(true);
-
-        EnterParens();
-        try
-        {
-            var entries = new List<TrailingBlockEntrySyntax>();
-
-            while (true)
-            {
-                SetTreatNewlinesAsTokens(false);
-
-                var token = PeekToken();
-
-                if (IsNextToken(SyntaxKind.CloseBraceToken, out _) || PeekToken().IsKind(SyntaxKind.EndOfFileToken))
-                    break;
-
-                var entryStart = Position;
-                var entry = ParseTrailingBlockEntry();
-
-                if (Position == entryStart)
-                {
-                    // No progress: consume one token and continue (or break) to avoid infinite loop.
-                    var bad = PeekToken();
-                    AddDiagnostic(DiagnosticInfo.Create(
-                        CompilerDiagnostics.InvalidExpressionTerm,
-                        GetSpanOfPeekedToken(),
-                        bad.Text));
-                    ReadToken();
-                    continue;
-                }
-
-                entries.Add(entry);
-            }
-
-            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
-
-            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
-
-            SetTreatNewlinesAsTokens(false);
-
-            return TrailingBlockExpression(openBraceToken, List(entries.ToArray()), closeBraceToken);
-        }
-        finally
-        {
-            ExitParens();
-            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
-        }
+        var body = ParseBlockSyntax();
+        return TrailingBlockExpression(body);
     }
 
     private TrailingBlockEntrySyntax ParseTrailingBlockEntry()

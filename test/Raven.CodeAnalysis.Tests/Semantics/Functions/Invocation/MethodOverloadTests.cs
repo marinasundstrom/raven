@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -11,6 +12,236 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class MethodOverloadTests : CompilationTestBase
 {
+    [Fact]
+    public void TrailingBlock_BindsAsFinalClosureArgument()
+    {
+        const string source = """
+        func Use(action: () -> int) -> int {
+            return action()
+        }
+
+        val result = Use {
+            return 42
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.TrailingBlock is not null);
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("Use", symbol.Name);
+        Assert.Single(symbol.Parameters);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TrailingBlock_BindsAsConstructorClosureArgument()
+    {
+        const string source = """
+        class Window {
+            init(content: () -> string) {
+                Title = content()
+            }
+
+            var Title: string = ""
+        }
+
+        val window = Window {
+            return "Main"
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.TrailingBlock is not null);
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
+        Assert.Single(symbol.Parameters);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TrailingBlock_WithoutClosureParameter_IsRejectedByOverloadResolution()
+    {
+        const string source = """
+        val foo = Foo {
+            return 42
+        }
+
+        class Foo {
+            init() {}
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+
+        Assert.Equal(CompilerDiagnostics.NoOverloadForMethod, diagnostic.Descriptor);
+        Assert.Contains("constructor for type 'Foo' takes 1 arguments", diagnostic.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TrailingBlock_WithBuilderParameter_RewritesExpressionStatementsThroughBuilder()
+    {
+        const string source = """
+        import System.*
+
+        class BuilderAttribute<T> : Attribute {}
+
+        class Node {
+            init(value: int) {}
+        }
+
+        class ViewBuilder {
+            static func BuildExpression(value: int) -> Node {
+                return Node(value)
+            }
+
+            static func BuildBlock(items: Node[]) -> Node {
+                return Node(0)
+            }
+        }
+
+        func Use([Builder<ViewBuilder>] content: () -> Node) -> Node {
+            return content()
+        }
+
+        val result = Use {
+            1
+            2
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.TrailingBlock is not null);
+
+        var invocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        var lambda = Assert.IsType<BoundFunctionExpression>(Assert.Single(invocation.Arguments));
+        var body = Assert.IsType<BoundBlockExpression>(lambda.Body);
+        var resultStatement = Assert.IsType<BoundExpressionStatement>(Assert.Single(body.Statements));
+        var buildBlock = Assert.IsType<BoundInvocationExpression>(resultStatement.Expression);
+
+        Assert.Equal("BuildBlock", buildBlock.Method.Name);
+        Assert.Equal("Node", lambda.ReturnType.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TrailingBlock_WithBuilderParameter_ReportsMissingBuildExpression()
+    {
+        const string source = """
+        import System.*
+
+        class BuilderAttribute<T> : Attribute {}
+
+        class Node {
+            init(value: int) {}
+        }
+
+        class ViewBuilder {
+            static func BuildBlock(items: Node[]) -> Node {
+                return Node(0)
+            }
+        }
+
+        func Use([Builder<ViewBuilder>] content: () -> Node) -> Node {
+            return content()
+        }
+
+        val result = Use {
+            1
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+
+        Assert.Contains("builder method 'BuildExpression'", diagnostic.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TrailingBlock_WithBuilderParameter_RewritesForStatementsThroughBuildArray()
+    {
+        const string source = """
+        import System.*
+
+        class BuilderAttribute<T> : Attribute {}
+
+        class Node {
+            init(value: int) {}
+        }
+
+        class ViewBuilder {
+            static func BuildExpression(value: int) -> Node {
+                return Node(value)
+            }
+
+            static func BuildBlock(items: Node[]) -> Node {
+                return Node(0)
+            }
+
+            static func BuildArray(items: Node[]) -> Node {
+                return Node(1)
+            }
+        }
+
+        func Use([Builder<ViewBuilder>] content: () -> Node) -> Node {
+            return content()
+        }
+
+        val values: int[] = [1, 2]
+        val result = Use {
+            for value in values {
+                value
+            }
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.TrailingBlock is not null);
+
+        var invocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        var lambda = Assert.IsType<BoundFunctionExpression>(Assert.Single(invocation.Arguments));
+        var invokedNames = CollectInvokedMethodNames(lambda.Body);
+
+        Assert.Contains("BuildArray", invokedNames);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    private static HashSet<string> CollectInvokedMethodNames(BoundNode node)
+    {
+        var collector = new InvocationNameCollector();
+        collector.Visit(node);
+        return collector.Names;
+    }
+
+    private sealed class InvocationNameCollector : BoundTreeWalker
+    {
+        public HashSet<string> Names { get; } = [];
+
+        public override void VisitInvocationExpression(BoundInvocationExpression node)
+        {
+            Names.Add(node.Method.Name);
+            base.VisitInvocationExpression(node);
+        }
+    }
+
     [Fact]
     public void Overloads_DifferOnlyByNullableReferenceType_AreRejected()
     {

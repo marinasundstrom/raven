@@ -2,7 +2,7 @@
 
 > ⚠️ 🧩 This proposal has been partly implemented
 
-Raven supports **builder blocks** to enable declarative DSLs that combine expressions, control flow, and local bindings into a single structured value.
+Raven supports Swift-like **trailing blocks** as invocation syntax. A trailing block supplies a final zero-argument closure argument to a function, method, delegate invocation, or constructor. Builder blocks build on that call form to enable declarative DSLs that combine expressions, control flow, and local bindings into a single structured value.
 
 Builder blocks are inspired by Swift’s *result builders* and are designed to be **type-directed, extensible, and user-definable**.
 
@@ -25,7 +25,7 @@ Typical use cases include:
 
 ## Overview
 
-A builder block is a `{ ... }` block that is **bound and lowered according to a builder type**, rather than as a normal block expression, object initializer, or collection initializer.
+A builder block is a trailing closure block that is **bound and lowered according to a builder type**, rather than as a normal closure body, object initializer, or collection initializer.
 
 The builder type defines how expressions and control-flow constructs inside the block are combined into a final value.
 
@@ -60,7 +60,9 @@ func View([Builder<ViewBuilder>] content: () -> ViewNode) -> View {
 }
 ```
 
-When a `{ ... }` block is supplied for a parameter annotated with `[Builder<T>]`, the block is treated as a **builder block** and bound using the specified builder.
+When a trailing `{ ... }` block is selected as the argument for a parameter annotated with `[Builder<T>]`, the block is treated as a **builder block** and bound using the specified builder. Without that annotation, the same syntax is an ordinary zero-argument trailing closure.
+
+Current implementation supports expression components, `return` components, local declarations, assignments, `if`/`else` when the builder supplies `BuildOptional` or `BuildEither`, and `for` loops when the builder supplies `BuildArray`.
 
 ---
 
@@ -101,7 +103,7 @@ This restriction allows the DSL engine to treat named arguments as property/even
 
 ### Trailing builder blocks
 
-If an expression inside a builder block is immediately followed by `{ ... }`, the trailing block is treated as that node’s **children/content** (according to the adapter’s child-slot rules).
+If an expression inside a builder block is immediately followed by `{ ... }`, the trailing block is first bound as the final closure argument of that call. For UI-style node construction APIs, that trailing closure convention is how children/content are supplied; adapter-specific child-slot interpretation happens after the builder has selected the callable target.
 
 ---
 

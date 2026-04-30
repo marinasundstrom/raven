@@ -1311,7 +1311,33 @@ val button = Button with {
 
 Property entries are applied to the newly created instance in source order.
 
-Brace trailers after expressions are reserved for DSL-style blocks and are represented in the syntax tree as trailing block expressions, not object initializers. Until a type opts into DSL trailing blocks, the compiler reports an error for `Type { ... }` and `value { ... }`; use `Type with { ... }` for object initialization and `value with { ... }` for non-destructive updates.
+Brace trailers after expressions are not object initializers. They are represented in the syntax tree as trailing block expressions and participate in invocation binding as trailing closure arguments. Use `Type with { ... }` for object initialization and `value with { ... }` for non-destructive updates.
+
+#### Trailing closure calls
+
+An invocation may place a single block after the argument list. The block is treated as a zero-argument closure supplied as the final argument:
+
+```raven
+func use(action: () -> int) -> int {
+    return action()
+}
+
+val x = use {
+    return 42
+}
+```
+
+When the call has no parenthesized arguments, the argument list may be omitted:
+
+```raven
+val window = Window {
+    return StackPanel()
+}
+```
+
+This is still invocation syntax. The callee must have a callable overload or constructor whose next/final parameter can receive a zero-argument closure. A parameterless constructor alone does not make `Type { ... }` valid. The body of the trailing block is a normal Raven block; assignments such as `Name = value` are ordinary statements, not initializer entries.
+
+If the selected closure parameter is annotated with `[Builder<T>]`, the trailing block is bound as a builder block. Expression statements and return expressions become builder components, components are adapted through `BuildExpression` when needed, and the final component list is combined through `BuildBlock`. `if` without `else` requires `BuildOptional`, `if` with `else` requires `BuildEither`, and `for` requires `BuildArray`. Without `[Builder<T>]`, the block remains an ordinary zero-argument closure.
 
 #### Required members and init semantics
 
@@ -1351,7 +1377,7 @@ Primary-constructor behavior is intentionally split:
 
 1. `class`/`struct`: parameters marked with `val` or `var` are promoted to properties; parameters without a binding keyword are captured in compiler-generated private storage for member access, but are not promoted to public properties. Promoted parameters may include an access modifier (`public`/`internal`/`protected`/`private`) before `val`/`var` to set synthesized property accessibility (default `public`).
 2. `record class`/`record struct`: positional parameters define the record's public data shape via synthesized properties and value members. When no binding keyword is present, record parameters are promoted as `val` properties by default. Value-shape synthesis (`Equals`, `GetHashCode`, `Deconstruct`, `ToString`, record copy/with flow, and equality operators) includes only **public** promoted properties; non-public promoted properties are excluded and produce a compiler warning.
-3. Constructor calls require invocation syntax (`Foo(...)` or `Foo()`); a standalone type name (`Foo`) is not a value expression, while `Foo with { ... }` is the parameterless object-initializer form.
+3. Constructor calls require invocation syntax (`Foo(...)`, `Foo()`, or `Foo { ... }` when a trailing closure parameter is present); a standalone type name (`Foo`) is not a value expression, while `Foo with { ... }` is the parameterless object-initializer form.
 4. Member declarations cannot reuse the immediate containing type's name.
 
 For semantic-model queries, unqualified identifier access to those captured/promoted members resolves to the originating primary-constructor parameter symbol.

@@ -401,9 +401,9 @@ internal class MethodBodyGenerator
             return null;
 
         var syntaxRef = MethodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
-        if (syntaxRef is not null)
+        if (syntaxRef?.SyntaxTree is { } syntaxTree)
         {
-            var semanticModel = Compilation.GetSemanticModel(syntaxRef.SyntaxTree);
+            var semanticModel = Compilation.GetSemanticModel(syntaxTree);
             var syntax = resolve(semanticModel, node);
             if (syntax is not null)
                 return syntax;

@@ -1126,9 +1126,7 @@
     <Slot Name="Declaration" Type="BaseTypeDeclaration" />
   </Node>
   <Node Name="TrailingBlockExpression" Inherits="Expression">
-    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
-    <Slot Name="Entries" Type="List" ElementType="TrailingBlockEntry" />
-    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+    <Slot Name="Body" Type="Block" />
   </Node>
 
   <Node Name="TrailingBlockEntry" Inherits="Node" IsAbstract="true" />

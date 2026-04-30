@@ -72,6 +72,9 @@ class FunctionExpressionBinder : BlockBinder
 
     public void CacheLambdaBodyBinders(SyntaxNode node)
     {
+        if (node.SyntaxTree is null)
+            return;
+
         CacheBinder(node);
         foreach (var child in node.DescendantNodes())
             CacheBinder(child);

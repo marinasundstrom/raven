@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Immutable;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
@@ -134,6 +134,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
             method.IsVirtual ||
             method.IsOverride ||
             method.IsExtern ||
+            IsBuilderMethod(method) ||
             !method.ExplicitInterfaceImplementations.IsDefaultOrEmpty ||
             ImplementsInterfaceMember(method))
         {
@@ -141,6 +142,20 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         }
 
         return true;
+    }
+
+    private static bool IsBuilderMethod(IMethodSymbol method)
+    {
+        if (!method.IsStatic)
+            return false;
+
+        return method.Name is
+            "BuildBlock" or
+            "BuildExpression" or
+            "BuildOptional" or
+            "BuildEither" or
+            "BuildArray" or
+            "BuildFinalResult";
     }
 
     private static void AnalyzeLocalFunctions(SyntaxNodeAnalysisContext context, SyntaxNode body)

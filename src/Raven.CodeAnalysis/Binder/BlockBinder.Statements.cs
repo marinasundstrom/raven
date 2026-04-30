@@ -674,7 +674,9 @@ partial class BlockBinder
 
     private BoundStatement BindForStatement(ForStatementSyntax forStmt)
     {
-        var loopBinder = (BlockBinder)SemanticModel.GetBinder(forStmt, this)!;
+        var loopBinder = forStmt.SyntaxTree is null
+            ? this
+            : (BlockBinder)SemanticModel.GetBinder(forStmt, this)!;
         BoundExpression collection;
         ForIterationInfo iteration;
         var isAwaitFor = forStmt.AwaitKeyword.Kind == SyntaxKind.AwaitKeyword;

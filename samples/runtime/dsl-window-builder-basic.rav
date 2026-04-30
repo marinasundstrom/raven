@@ -4,32 +4,15 @@ import System.Collections.Generic.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-val window = Window with {
-    Title = "Main"
-    Width = 800
-    Height = 600
-
-    StackPanel with {
-        Button(text: "Ok") with { 
+val window = Window(title: "Main", width: 800, height: 600) {
+    StackPanel {
+        Button(text: "Ok") with {
             HorizontalAlignment = .Fill
         }
-        Button(text: "Cancel") with { 
-            HorizontalAlignment = .Fill 
-        }
     }
 }
 
-func openDialog(window: Window) -> Result<string, Exception> {
-    val result = window.ShowDialog()?
-    if result is .Cancel {
-        // Bang
-        WriteLine("Bang")
-        return Error(InvalidOperationException("BANG!"))
-    }
-    return Ok(result.ToString())
-}
-
-val result = openDialog(window)
+val result = window.ShowDialog()
 
 WriteLine(result)
 
@@ -47,7 +30,30 @@ if window.Content is StackPanel stackPanel {
     }
 }
 
+class BuilderAttribute<T> : Attribute {
+}
+
+class ControlBuilder {
+    static func BuildExpression(control: Control) -> Control {
+        return control
+    }
+
+    static func BuildBlock(items: Control[]) -> Control {
+        return items[0]
+    }
+}
+
 class Window {
+    init() {
+    }
+
+    init(title: string, width: int, height: int, [Builder<ControlBuilder>] content: () -> Control) {
+        Title = title
+        Width = width
+        Height = height
+        Content = content()
+    }
+
     var Title: string = ""
 
     var Width: int = 250
@@ -94,6 +100,10 @@ class StackPanel : Control, IHasChildren {
     private val children: List<Control> = []
 
     init() {
+    }
+
+    init([Builder<ControlBuilder>] content: () -> Control) {
+        Add(content())
     }
 
     init(orientation: Orientation) {

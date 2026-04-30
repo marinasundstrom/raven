@@ -8406,9 +8406,6 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindInvocationExpression(InvocationExpressionSyntax syntax)
     {
-        if (syntax.TrailingBlock is not null)
-            return BindUnsupportedTrailingBlockExpression(syntax);
-
         BoundExpression? receiver;
         string methodName;
 
@@ -8436,23 +8433,26 @@ partial class BlockBinder : Binder
             }
             else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
-                var argExprs = BindInvocationArguments(syntax.ArgumentList.Arguments, method, memberExpr.Receiver, out var argErrors);
-
-                if (argErrors)
+                if (syntax.TrailingBlock is null)
                 {
-                    var candidates = ImmutableArray.Create(method);
-                    return ErrorExpression(
-                        method.ReturnType,
-                        method,
-                        BoundExpressionReason.ArgumentBindingFailed,
-                        AsSymbolCandidates(candidates));
-                }
+                    var argExprs = BindInvocationArguments(syntax.ArgumentList.Arguments, method, memberExpr.Receiver, out var argErrors);
 
-                if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
-                {
-                    var convertedArgs = ConvertArguments(method.Parameters, argExprs);
-                    ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
-                    return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
+                    if (argErrors)
+                    {
+                        var candidates = ImmutableArray.Create(method);
+                        return ErrorExpression(
+                            method.ReturnType,
+                            method,
+                            BoundExpressionReason.ArgumentBindingFailed,
+                            AsSymbolCandidates(candidates));
+                    }
+
+                    if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
+                    {
+                        var convertedArgs = ConvertArguments(method.Parameters, argExprs);
+                        ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
+                        return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
+                    }
                 }
 
                 receiver = memberExpr.Receiver;
@@ -8501,23 +8501,26 @@ partial class BlockBinder : Binder
             }
             else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
             {
-                var argExprs = BindInvocationArguments(syntax.ArgumentList.Arguments, method, memberExpr.Receiver, out var argErrors);
-
-                if (argErrors)
+                if (syntax.TrailingBlock is null)
                 {
-                    var candidates = ImmutableArray.Create(method);
-                    return ErrorExpression(
-                        method.ReturnType,
-                        method,
-                        BoundExpressionReason.ArgumentBindingFailed,
-                        AsSymbolCandidates(candidates));
-                }
+                    var argExprs = BindInvocationArguments(syntax.ArgumentList.Arguments, method, memberExpr.Receiver, out var argErrors);
 
-                if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
-                {
-                    var convertedArgs = ConvertArguments(method.Parameters, argExprs);
-                    ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
-                    return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
+                    if (argErrors)
+                    {
+                        var candidates = ImmutableArray.Create(method);
+                        return ErrorExpression(
+                            method.ReturnType,
+                            method,
+                            BoundExpressionReason.ArgumentBindingFailed,
+                            AsSymbolCandidates(candidates));
+                    }
+
+                    if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
+                    {
+                        var convertedArgs = ConvertArguments(method.Parameters, argExprs);
+                        ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
+                        return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
+                    }
                 }
 
                 receiver = memberExpr.Receiver;
@@ -8692,59 +8695,6 @@ partial class BlockBinder : Binder
         }
 
         return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
-    }
-
-    private BoundExpression BindUnsupportedTrailingBlockExpression(InvocationExpressionSyntax syntax)
-    {
-        var receiver = BindExpression(syntax.Expression);
-        var typeName = receiver switch
-        {
-            BoundTypeExpression typeExpression => typeExpression.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            BoundExpression { Type.TypeKind: not TypeKind.Error } expression => expression.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            _ => syntax.Expression.ToString()
-        };
-
-        foreach (var argument in syntax.ArgumentList.Arguments)
-            _ = BindExpression(argument.Expression, allowReturn: false);
-
-        var entries = BindTrailingBlockEntries(syntax.TrailingBlock);
-        _diagnostics.ReportTypeDoesNotSupportTrailingBlock(typeName, syntax.TrailingBlock.GetLocation());
-
-        return new BoundTrailingBlockExpression(
-            receiver,
-            entries,
-            Compilation.ErrorTypeSymbol,
-            BoundExpressionReason.UnsupportedOperation);
-    }
-
-    private ImmutableArray<BoundTrailingBlockEntry> BindTrailingBlockEntries(TrailingBlockExpressionSyntax trailingBlock)
-    {
-        var entries = ImmutableArray.CreateBuilder<BoundTrailingBlockEntry>(trailingBlock.Entries.Count);
-
-        foreach (var entry in trailingBlock.Entries)
-        {
-            switch (entry)
-            {
-                case TrailingBlockAssignmentEntrySyntax assignment:
-                    {
-                        var value = BindExpression(assignment.Expression, allowReturn: false);
-                        entries.Add(new BoundTrailingBlockAssignmentEntry(
-                            assignment.Name.Identifier.ValueText,
-                            assignment.EqualsToken.Kind,
-                            value));
-                        break;
-                    }
-
-                case TrailingBlockExpressionEntrySyntax expressionEntry:
-                    {
-                        var expression = BindExpression(expressionEntry.Expression, allowReturn: false);
-                        entries.Add(new BoundTrailingBlockExpressionEntry(expression));
-                        break;
-                    }
-            }
-        }
-
-        return entries.ToImmutable();
     }
 
     private static bool IsInvocableValueReceiver(BoundExpression expression)
@@ -8972,6 +8922,10 @@ partial class BlockBinder : Binder
         if (!suppressNullWarning)
             ReportPossibleNullReferenceAccess(receiver, receiverSyntax);
 
+        var trailingBlock = callSyntax is InvocationExpressionSyntax invocationSyntax
+            ? invocationSyntax.TrailingBlock
+            : null;
+
         // Bind invocation arguments AFTER we have a candidate set, so we can provide
         // best-effort target types for target-typed member bindings like `.Human`, `.Male`, `.Ok(...)`, etc.
 
@@ -8988,9 +8942,9 @@ partial class BlockBinder : Binder
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 var invokeForArgBinding = ImmutableArray.Create(invokeMethod);
-                invokeForArgBinding = FilterInvocationCandidatesForArgumentBinding(invokeForArgBinding, argumentList.Arguments);
+                invokeForArgBinding = FilterInvocationCandidatesForArgumentBinding(invokeForArgBinding, argumentList.Arguments, trailingBlock: trailingBlock);
 
-                var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(invokeForArgBinding, argumentList.Arguments, out var hasErrors);
+                var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(invokeForArgBinding, argumentList.Arguments, out var hasErrors, trailingBlock: trailingBlock);
                 if (hasErrors)
                     return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
@@ -9048,9 +9002,9 @@ partial class BlockBinder : Binder
                 // Bind args against accessible candidates if possible; otherwise bind against the full
                 // candidate set so we still get target typing and diagnostics.
                 var candidatesForArgBinding = !accessibleCandidates.IsDefaultOrEmpty ? accessibleCandidates : candidates;
-                candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+                candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments, trailingBlock: trailingBlock);
 
-                var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
+                var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors, trailingBlock: trailingBlock);
                 if (hasErrors)
                     return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
@@ -9144,9 +9098,9 @@ partial class BlockBinder : Binder
 
             var accessibleCandidates = GetAccessibleMethods(candidates, receiverSyntax.GetLocation());
             var candidatesForArgBinding = !accessibleCandidates.IsDefaultOrEmpty ? accessibleCandidates : candidates;
-            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments, trailingBlock: trailingBlock);
 
-            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors, receiver);
+            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors, receiver, trailingBlock: trailingBlock);
             if (hasErrors)
                 return InvocationError(receiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
@@ -9189,9 +9143,9 @@ partial class BlockBinder : Binder
         {
             var accessibleMethods = GetAccessibleMethods(methodCandidates, receiverSyntax.GetLocation());
             var candidatesForArgBinding = !accessibleMethods.IsDefaultOrEmpty ? accessibleMethods : methodCandidates;
-            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments, trailingBlock: trailingBlock);
 
-            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
+            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors, trailingBlock: trailingBlock);
             if (hasErrors)
                 return InvocationError(null, methodName, BoundExpressionReason.ArgumentBindingFailed);
 
@@ -11154,6 +11108,8 @@ partial class BlockBinder : Binder
             // This mirrors local-initializer behavior and enables passing lambdas to `System.Delegate` parameters.
             if (expression is BoundFunctionExpression lambda)
             {
+                expression = BindBuilderTrailingClosureIfNeeded(expression, parameter, syntaxNode);
+
                 // First: if the parameter itself is a concrete delegate type, replay the lambda against it.
                 expression = BindLambdaToDelegateIfNeeded(expression, parameter.Type);
 
@@ -15266,118 +15222,6 @@ partial class BlockBinder : Binder
             IPropertySymbol property => property.Type,
             _ => throw new InvalidOperationException($"Unsupported member type: {member.GetType()}")
         };
-    }
-
-    private BoundObjectInitializer BindObjectInitializer(
-     ITypeSymbol instanceType,
-     TrailingBlockExpressionSyntax trailingBlock)
-    {
-        _objectInitializerDepth++;
-        try
-        {
-            // Bind initializer entries in source order and keep them as a bound node.
-            // Lowering into a block happens later.
-
-            instanceType = UnwrapAlias(instanceType);
-
-            // SwiftUI-style convention:
-            // If the instance type has a settable `Content` property, then exactly one content entry is allowed.
-            // That entry is lowered as `Content = <expr>`.
-            IPropertySymbol? contentProperty = null;
-            if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
-            {
-                foreach (var member in namedInstance.GetMembers("Content"))
-                {
-                    if (member is not IPropertySymbol p)
-                        continue;
-
-                    if (p.IsStatic)
-                        continue;
-
-                    if (!p.IsMutable)
-                        continue;
-
-                    // Use the existing accessibility helper.
-                    // NOTE: We don't have a great location yet; we will re-check with the actual entry location when used.
-                    contentProperty = p;
-                    break;
-                }
-            }
-
-            var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(trailingBlock.Entries.Count);
-
-            var hasContentConvention = contentProperty is not null && contentProperty.Type.TypeKind != TypeKind.Error;
-            var seenContentEntry = false;
-
-            foreach (var entry in trailingBlock.Entries)
-            {
-                switch (entry)
-                {
-                    case TrailingBlockAssignmentEntrySyntax assignment:
-                        {
-                            var boundEntry = BindTrailingBlockAssignmentEntry(instanceType, assignment);
-                            if (boundEntry is not null)
-                                entries.Add(boundEntry);
-                            break;
-                        }
-
-                    case TrailingBlockExpressionEntrySyntax exprEntry:
-                        {
-                            if (!hasContentConvention)
-                            {
-                                // No Content property: keep the existing behavior.
-                                var expr = BindExpression(exprEntry.Expression, allowReturn: false);
-                                entries.Add(new BoundObjectInitializerExpressionEntry(expr));
-                                break;
-                            }
-
-                            // With Content property: only one content entry is allowed.
-                            if (seenContentEntry)
-                            {
-                                // Still bind the expression so it gets typed and any nested diagnostics flow.
-                                var extra = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-
-                                if (extra.Type is { } extraType)
-                                {
-                                    _diagnostics.ReportMultipleContentEntriesNotAllowed(
-                                        instanceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                        exprEntry.Expression.GetLocation());
-                                }
-
-                                break;
-                            }
-
-                            // First content entry.
-                            seenContentEntry = true;
-
-                            // Ensure the Content property is accessible at the point of use.
-                            if (!EnsureMemberAccessible(contentProperty!, exprEntry.GetLocation(), "property"))
-                            {
-                                // Still bind expression for diagnostics.
-                                _ = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-                                break;
-                            }
-
-                            var value = BindExpressionWithTargetType(exprEntry.Expression, contentProperty!.Type, allowReturn: false);
-                            value = PrepareRightForAssignment(value, contentProperty!.Type, exprEntry.Expression);
-
-                            // If conversion fails, diagnostics are already reported by PrepareRightForAssignment.
-                            if (value is BoundErrorExpression)
-                                break;
-
-                            // Rewrite as `Content = <value>`.
-                            entries.Add(new BoundObjectInitializerAssignmentEntry(contentProperty!, value));
-                            break;
-                        }
-                }
-            }
-
-            return new BoundObjectInitializer(entries.ToImmutable());
-        }
-        finally
-        {
-            _objectInitializerDepth--;
-        }
     }
 
     private BoundObjectInitializer BindObjectInitializer(

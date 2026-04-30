@@ -1,6 +1,16 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-04-24**.
+Behavior-focused timeline covering **2025-09-12** to **2026-04-30**.
+
+## 2026-04-30
+
+### Changed
+- Brace trailers now bind as Swift-like trailing closure call syntax. `callee(args) { ... }` appends a zero-argument closure as the final argument, and `callee { ... }` is accepted when overload resolution can bind that trailing closure.
+- Trailing closure parameters annotated with `[Builder<T>]` now activate builder-block binding for expression components and `if`/`else` composition through Swift-like builder methods such as `BuildExpression`, `BuildBlock`, `BuildOptional`, `BuildEither`, and `BuildFinalResult`.
+- `TrailingBlockExpressionSyntax` now wraps a normal block body, so statements inside trailing blocks are ordinary Raven statements instead of initializer-style entries.
+
+Impact:
+- `Type { ... }` is no longer an initializer-like DSL placeholder. It is valid only when a function, method, delegate invocation, or constructor accepts the final closure argument; object initialization remains `Type with { ... }`.
 
 ## 2026-04-24
 

@@ -296,10 +296,20 @@ internal class CodeGenerator
 
         foreach (var attribute in attributes)
         {
+            if (IsBuilderAttribute(attribute))
+                continue;
+
             var builder = CreateCustomAttribute(attribute);
             if (builder is not null)
                 apply(builder);
         }
+    }
+
+    private static bool IsBuilderAttribute(AttributeData attribute)
+    {
+        var name = attribute.AttributeClass?.Name;
+        return string.Equals(name, "BuilderAttribute", StringComparison.Ordinal) ||
+               string.Equals(name, "Builder", StringComparison.Ordinal);
     }
 
     internal CustomAttributeBuilder? CreateCustomAttribute(AttributeData attribute)

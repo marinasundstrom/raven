@@ -90,8 +90,8 @@ partial class BlockBinder
 
     private BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
     {
-        var candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(methodGroup.Methods, syntax.ArgumentList.Arguments, methodGroup.Receiver);
-        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgumentBinding, syntax.ArgumentList.Arguments, out var hasErrors, methodGroup.Receiver);
+        var candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(methodGroup.Methods, syntax.ArgumentList.Arguments, methodGroup.Receiver, syntax.TrailingBlock);
+        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgumentBinding, syntax.ArgumentList.Arguments, out var hasErrors, methodGroup.Receiver, trailingBlock: syntax.TrailingBlock);
 
         if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
         {
@@ -218,12 +218,13 @@ partial class BlockBinder
     private ImmutableArray<IMethodSymbol> FilterInvocationCandidatesForArgumentBinding(
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        BoundExpression? receiver = null)
+        BoundExpression? receiver = null,
+        TrailingBlockExpressionSyntax? trailingBlock = null)
     {
         if (methods.IsDefaultOrEmpty)
             return methods;
 
-        var argCount = arguments.Count;
+        var argCount = arguments.Count + (trailingBlock is not null ? 1 : 0);
 
         // Best-effort filtering: drop candidates that cannot accept the given argument count.
         // This is important for target-typed member bindings inside arguments (e.g. `.Public | .Static`)
@@ -285,12 +286,30 @@ partial class BlockBinder
         return builder.Count > 0 ? builder.ToImmutable() : methods;
     }
 
+    private static FunctionExpressionSyntax CreateTrailingBlockFunctionExpression(TrailingBlockExpressionSyntax trailingBlock)
+    {
+        var parameterList = SyntaxFactory.ParameterList(SeparatedSyntaxList<ParameterSyntax>.Empty);
+
+        return SyntaxFactory.ParenthesizedFunctionExpression(
+            SyntaxFactory.Token(SyntaxKind.None),
+            SyntaxFactory.Token(SyntaxKind.None),
+            SyntaxFactory.Token(SyntaxKind.None),
+            SyntaxFactory.Token(SyntaxKind.None),
+            typeParameterList: null,
+            parameterList,
+            returnType: null,
+            SyntaxList<TypeParameterConstraintClauseSyntax>.Empty,
+            trailingBlock.Body,
+            expressionBody: null);
+    }
+
     private BoundArgument[] BindInvocationArgumentsWithCandidateTargetTypes(
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         out bool hasErrors,
         BoundExpression? receiver = null,
-        ITypeSymbol? pipeReceiverType = null)
+        ITypeSymbol? pipeReceiverType = null,
+        TrailingBlockExpressionSyntax? trailingBlock = null)
     {
         // Bind invocation arguments while supplying a best-effort target type.
         // This is important for target-typed member bindings inside argument position,
@@ -316,7 +335,7 @@ partial class BlockBinder
         // Collect all method type parameters so we can detect unresolved ones.
         var allMethodTypeParams = CollectDistinctMethodTypeParameters(methods);
 
-        var boundArguments = new BoundArgument[arguments.Count];
+        var boundArguments = new BoundArgument[arguments.Count + (trailingBlock is not null ? 1 : 0)];
 
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -420,6 +439,47 @@ partial class BlockBinder
             boundArguments[i] = new BoundArgument(boundExpr, syntaxRefKind != RefKind.None ? syntaxRefKind : argumentRefKind, name, arg, isSpread);
         }
 
+        if (trailingBlock is not null)
+        {
+            var argumentIndex = arguments.Count;
+            var lambdaSyntax = CreateTrailingBlockFunctionExpression(trailingBlock);
+            var targetParameter = TryGetCommonPositionalParameter(methods, argumentIndex, receiver);
+            var targetType = targetParameter?.Type
+                ?? TryGetFirstDelegateParameterType(methods, argumentIndex, receiver, pipeReceiverType);
+
+            if (targetParameter is not null && TryGetBuilderType(targetParameter, out _))
+                targetType = null;
+
+            if (targetType is not null && preInferredSubstitutions.Count > 0)
+                targetType = SubstituteTypeParameters(targetType, preInferredSubstitutions);
+
+            if (targetType is not null && methods.Length == 1 &&
+                ContainsAnyTypeParameterInDelegateInputParams(targetType, allMethodTypeParams))
+            {
+                targetType = null;
+            }
+
+            if (targetType is null)
+                RecordLambdaTargetsForArgument(argumentIndex, lambdaSyntax);
+
+            var boundExpr = targetType is null
+                ? BindExpression(lambdaSyntax)
+                : BindExpressionWithTargetType(lambdaSyntax, targetType);
+
+            if (targetType is not null && HasExpressionErrors(boundExpr))
+            {
+                RemoveCachedBoundNode(lambdaSyntax);
+                var naturalBoundExpr = BindExpression(lambdaSyntax);
+                if (!HasExpressionErrors(naturalBoundExpr))
+                    boundExpr = naturalBoundExpr;
+            }
+
+            if (HasExpressionErrors(boundExpr))
+                hasErrors = true;
+
+            boundArguments[argumentIndex] = new BoundArgument(boundExpr, RefKind.None, name: null, trailingBlock);
+        }
+
         return boundArguments;
 
         void RecordLambdaTargetsForArgument(int argumentIndex, ExpressionSyntax expression)
@@ -510,6 +570,42 @@ partial class BlockBinder
                 }
 
                 if (!SymbolEqualityComparer.Default.Equals(common, type))
+                    return null;
+            }
+
+            return hasCommon ? common : null;
+        }
+
+        IParameterSymbol? TryGetCommonPositionalParameter(ImmutableArray<IMethodSymbol> methods, int argumentIndex, BoundExpression? invocationReceiver)
+        {
+            if (methods.IsDefaultOrEmpty)
+                return null;
+
+            IParameterSymbol? common = null;
+            var hasCommon = false;
+
+            foreach (var method in methods)
+            {
+                if (method is null)
+                    continue;
+
+                var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                    ? argumentIndex + 1
+                    : argumentIndex;
+
+                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                    return null;
+
+                var parameter = method.Parameters[parameterIndex];
+                if (!hasCommon)
+                {
+                    common = parameter;
+                    hasCommon = true;
+                    continue;
+                }
+
+                var commonType = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeReceiverType);
+                if (!SymbolEqualityComparer.Default.Equals(common!.Type, commonType))
                     return null;
             }
 
@@ -1193,8 +1289,8 @@ partial class BlockBinder
         BoundExpression? receiver = null)
     {
         // Bind constructor arguments while supplying best-effort target types based on ctor parameter types.
-        var ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, invocation.ArgumentList.Arguments);
-        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, invocation.ArgumentList.Arguments, out var hasErrors);
+        var ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, invocation.ArgumentList.Arguments, trailingBlock: invocation.TrailingBlock);
+        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, invocation.ArgumentList.Arguments, out var hasErrors, trailingBlock: invocation.TrailingBlock);
 
         if (hasErrors)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);

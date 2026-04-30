@@ -5,6 +5,7 @@ This section describes how builder blocks are represented in the bound tree and 
 ### Goals
 
 * Keep syntax **normal Raven** (`if`, `for`, locals, expressions).
+* Treat `{ ... }` after a call as Swift-like trailing closure syntax first.
 * Make DSL participation **explicit** (only via `[Builder<T>]`).
 * Lowering is **deterministic** and driven by builder + adapter capabilities.
 * **No positional args** for DSL node construction; named args become property/event assignments.
@@ -13,7 +14,7 @@ This section describes how builder blocks are represented in the bound tree and 
 
 ## 1) Bound representation
 
-When a `{ ... }` block is used in a builder context, it binds to a dedicated body node rather than a normal `BoundBlockExpression`.
+When a trailing closure is used in a builder context, it binds to a dedicated body node rather than a normal function body expression.
 
 ### `BoundDslBody`
 
@@ -74,7 +75,8 @@ BoundDslComponent
 Inside a DSL body, an invocation expression is eligible for **node construction binding** when:
 
 * The callee resolves to a type or factory symbol that is recognized by the adapter as a node kind (e.g. MAUI control types), and
-* All arguments are **named**.
+* All non-closure arguments are **named**.
+* Any child/content body is supplied through the call's final trailing closure parameter.
 
 #### Example
 
@@ -89,7 +91,7 @@ BoundDslNodeCreation
   NodeType: TypeSymbol  // Microsoft.Maui.Controls.StackLayout
   Assignments: BoundDslAssignment[]  // Orientation=..., Spacing=...
   Key: optional BoundExpression       // from reserved metadata (Key:)
-  Body: optional BoundDslBody         // trailing block, if any
+  Body: optional BoundDslBody         // trailing closure body, if any
 ```
 
 Where:
