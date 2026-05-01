@@ -595,9 +595,11 @@ ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | A
 
 TrailingBlock             ::= Block ;
 
-(* A trailing block is invocation syntax. It supplies a final zero-argument
-   closure argument to `callee(args) { ... }` or `callee { ... }`. The block
-   body is parsed as ordinary Raven statements, not initializer entries. *)
+(* A trailing block is invocation syntax. It is syntactic sugar for supplying
+   a final zero-argument closure argument to `callee(args) { ... }` or
+   `callee { ... }`. The callable may be a method, constructor, or extension
+   method. The block body is parsed as ordinary Raven statements, not
+   initializer entries. *)
 
 (* ---------- With expressions and object initializers ---------- *)
 

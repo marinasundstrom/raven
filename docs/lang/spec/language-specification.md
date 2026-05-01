@@ -1313,9 +1313,13 @@ Property entries are applied to the newly created instance in source order.
 
 Brace trailers after expressions are not object initializers. They are represented in the syntax tree as trailing block expressions and participate in invocation binding as trailing closure arguments. Use `Type with { ... }` for object initialization and `value with { ... }` for non-destructive updates.
 
-#### Trailing closure calls
+#### Trailing blocks
 
-An invocation may place a single block after the argument list. The block is treated as a zero-argument closure supplied as the final argument:
+A **trailing block** is syntactic sugar for calling a callable whose final
+parameter is a zero-argument function. The block is written after the callee's
+argument list and is supplied as the final argument. This form is ordinary
+invocation syntax; it can be used for callbacks, command handlers, resource
+scopes, and declarative DSLs.
 
 ```raven
 func use(action: () -> int) -> int {
@@ -1327,7 +1331,8 @@ val x = use {
 }
 ```
 
-When the call has no parenthesized arguments, the argument list may be omitted:
+When the call has no parenthesized arguments, the empty argument list may be
+omitted:
 
 ```raven
 val window = Window {
@@ -1335,7 +1340,67 @@ val window = Window {
 }
 ```
 
-This is still invocation syntax. The callee must have a callable overload or constructor whose next/final parameter can receive a zero-argument closure. A parameterless constructor alone does not make `Type { ... }` valid. The body of the trailing block is a normal Raven block; assignments such as `Name = value` are ordinary statements, not initializer entries.
+The body of the trailing block is a normal Raven block. Statements inside the
+block are ordinary statements; assignments such as `Name = value` are not
+initializer entries. Brace trailers after expressions are therefore not object
+initializers. Use `Type with { ... }` for object initialization and `value with
+{ ... }` for non-destructive updates.
+
+Trailing blocks are supported for:
+
+* function and method calls,
+* constructor calls,
+* extension method calls, after extension lookup selects an extension candidate.
+
+Examples:
+
+```raven
+func Around(name: string, body: () -> ()) -> () {
+    WriteLine("before " + name)
+    body()
+    WriteLine("after " + name)
+}
+
+Around(name: "method") {
+    WriteLine("body")
+}
+
+val command = Command(name: "constructor") {
+    WriteLine("run")
+}
+
+"value".Trace {
+    WriteLine("extension callback")
+}
+```
+
+The complete runtime sample is available at
+[`samples/runtime/trailing-blocks-basic.rav`](../../../samples/runtime/trailing-blocks-basic.rav).
+
+##### Trailing block resolution
+
+Resolution follows ordinary overload resolution with one additional argument:
+
+1. The callee and all parenthesized arguments are bound normally.
+2. If a trailing block is present, the compiler creates an unbound
+   zero-argument closure from the block and appends it as the final argument.
+3. Overload resolution accepts only candidates whose next or final parameter can
+   receive that closure.
+4. If the callee has no parenthesized argument list, the call is treated as a
+   zero-argument call plus the appended trailing closure.
+5. For constructor calls, the selected constructor must accept the appended
+   closure. A parameterless constructor alone does not make `Type { ... }`
+   valid.
+6. For extension method calls, extension lookup first gathers applicable
+   extension candidates for the receiver. The trailing closure then participates
+   in overload resolution like any other final argument. If an extension is
+   selected, the receiver is lowered as the leading argument to the extension
+   method.
+
+If no candidate can accept the appended closure, overload resolution fails and
+the call is rejected.
+
+##### Builder-backed DSL blocks
 
 If the selected closure parameter is annotated with `[Builder<T>]`, the trailing block is bound as a builder block. The attribute is recognized by the builder type argument; the standard `BuilderAttribute<T>` is intended to be provided by Raven.Core, while compiler bootstrapping code may define an equivalent attribute shape. Expression statements and return expressions become builder components, components are adapted through `BuildExpression` when needed, and the final component list is combined through `BuildBlock`. `if` without `else` requires `BuildOptional`, `if` with `else` requires `BuildEither`, and `for` requires `BuildArray`. Without `[Builder<T>]`, the block remains an ordinary zero-argument closure.
 

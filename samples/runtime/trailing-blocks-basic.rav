@@ -1,0 +1,76 @@
+import System.*
+import System.Console.*
+
+Around(name: "method") {
+    WriteLine("inside method trailing block")
+}
+
+val command = Command(name: "constructor") {
+    WriteLine("inside constructor trailing block")
+}
+
+command.Invoke()
+
+"extension method".Trace {
+    WriteLine("inside extension-method trailing block")
+}
+
+val markup = Markup {
+    "<window>"
+    "<button text=\"OK\" />"
+    "</window>"
+}
+
+WriteLine(markup)
+
+func Around(name: string, body: () -> ()) -> () {
+    WriteLine("before " + name)
+    body()
+    WriteLine("after " + name)
+}
+
+class Command {
+    init(name: string, run: () -> ()) {
+        Name = name
+        Run = run
+    }
+
+    val Name: string
+
+    private val Run: () -> ()
+
+    func Invoke() -> () {
+        WriteLine("invoke " + Name)
+        Run()
+    }
+}
+
+extension TraceExtensions for string {
+    func Trace(action: () -> ()) -> () {
+        WriteLine("trace " + self)
+        action()
+    }
+}
+
+class BuilderAttribute<T> : Attribute {
+}
+
+class TextBuilder {
+    static func BuildExpression(value: string) -> string {
+        return value
+    }
+
+    static func BuildBlock(items: string[]) -> string {
+        var result = ""
+
+        for item in items {
+            result = result + item
+        }
+
+        return result
+    }
+}
+
+func Markup([Builder<TextBuilder>] body: () -> string) -> string {
+    return body()
+}

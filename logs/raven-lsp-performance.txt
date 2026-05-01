@@ -1,15 +1,15 @@
 Raven Language Server Performance Report
-Generated: 2026-05-01T08:50:24.5287490+00:00
+Generated: 2026-05-01T11:38:53.7187470+00:00
 Operation: hover
-  Count: 20
-  TotalMs: 18393,0
-  AvgMs: 919,6
+  Count: 21
+  TotalMs: 19434,8
+  AvgMs: 925,5
   MaxMs: 6493,9
   Stages:
-    resolution: count=20 total=7476,0ms avg=373,8ms max=4998,1ms
-    semanticModel: count=20 total=7466,8ms avg=373,3ms max=1365,2ms
-    gateWait: count=20 total=1,2ms avg=0,1ms max=0,8ms
-    analysisContext: count=20 total=1,0ms avg=0,1ms max=0,4ms
+    semanticModel: count=21 total=8074,9ms avg=384,5ms max=1365,2ms
+    resolution: count=21 total=7481,8ms avg=356,3ms max=4998,1ms
+    gateWait: count=21 total=1,2ms avg=0,1ms max=0,8ms
+    analysisContext: count=21 total=1,1ms avg=0,1ms max=0,4ms
 
 Operation: publishDiagnostics
   Count: 1
