@@ -1579,6 +1579,13 @@ partial class BlockBinder
         if (parameterType is not INamedTypeSymbol delegateType)
             return false;
 
+        if (TryGetBuilderType(parameter, out _) &&
+            delegateType.TypeKind == TypeKind.Delegate &&
+            delegateType.GetDelegateInvokeMethod() is { } builderInvoke)
+        {
+            return builderInvoke.Parameters.Length == lambda.Parameters.Count();
+        }
+
         if (ReplayLambda(lambda, delegateType) is not null)
             return true;
 

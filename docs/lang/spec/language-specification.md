@@ -1337,7 +1337,19 @@ val window = Window {
 
 This is still invocation syntax. The callee must have a callable overload or constructor whose next/final parameter can receive a zero-argument closure. A parameterless constructor alone does not make `Type { ... }` valid. The body of the trailing block is a normal Raven block; assignments such as `Name = value` are ordinary statements, not initializer entries.
 
-If the selected closure parameter is annotated with `[Builder<T>]`, the trailing block is bound as a builder block. Expression statements and return expressions become builder components, components are adapted through `BuildExpression` when needed, and the final component list is combined through `BuildBlock`. `if` without `else` requires `BuildOptional`, `if` with `else` requires `BuildEither`, and `for` requires `BuildArray`. Without `[Builder<T>]`, the block remains an ordinary zero-argument closure.
+If the selected closure parameter is annotated with `[Builder<T>]`, the trailing block is bound as a builder block. The attribute is recognized by the builder type argument; the standard `BuilderAttribute<T>` is intended to be provided by Raven.Core, while compiler bootstrapping code may define an equivalent attribute shape. Expression statements and return expressions become builder components, components are adapted through `BuildExpression` when needed, and the final component list is combined through `BuildBlock`. `if` without `else` requires `BuildOptional`, `if` with `else` requires `BuildEither`, and `for` requires `BuildArray`. Without `[Builder<T>]`, the block remains an ordinary zero-argument closure.
+
+This distinction allows the same trailing-block syntax to model different API conventions. A container constructor can use a builder-annotated closure for child content, while a leaf control or command API can use an ordinary final closure as an action handler:
+
+```raven
+Window {
+    Button(text: "OK") {
+        Submit()
+    }
+}
+```
+
+In this example, the outer block is a builder block only if `Window` selects a `[Builder<T>]` closure parameter. The inner block is an ordinary `() -> ()` argument if `Button` selects a final non-builder closure parameter.
 
 #### Required members and init semantics
 

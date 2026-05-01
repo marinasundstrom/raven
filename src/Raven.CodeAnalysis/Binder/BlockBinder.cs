@@ -737,6 +737,8 @@ partial class BlockBinder : Binder
         var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
         var containingNamespace = _containingSymbol.ContainingNamespace;
         var name = $"<{nameHint}>__{_tempCounter++}";
+        var location = syntax.GetLocation() ?? Location.None;
+        var syntaxReference = syntax.GetReference();
 
         return new SourceLocalSymbol(
             name,
@@ -745,8 +747,8 @@ partial class BlockBinder : Binder
             _containingSymbol,
             containingType,
             containingNamespace,
-            [syntax.GetLocation()],
-            [syntax.GetReference()]);
+            [location],
+            syntaxReference is null ? [] : [syntaxReference]);
     }
 
     public override BoundStatement BindStatement(StatementSyntax statement)
@@ -14971,6 +14973,12 @@ partial class BlockBinder : Binder
 
         foreach (var (assignment, syntaxNode) in assignments)
         {
+            var assignmentLocation = syntaxNode.Name.GetLocation()
+                ?? syntax.WithKeyword.GetLocation()
+                ?? syntax.GetLocation()
+                ?? Location.None;
+            var valueLocation = syntaxNode.Expression.GetLocation()
+                ?? assignmentLocation;
             var methodName = $"With{assignment.Member.Name}";
             var candidates = new SymbolQuery(methodName, receiverType, IsStatic: false)
                 .LookupMethods(this)
@@ -14979,11 +14987,11 @@ partial class BlockBinder : Binder
             if (candidates.IsDefaultOrEmpty)
             {
                 if (reportDiagnostics)
-                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, syntaxNode.Name.GetLocation());
+                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(methodName, assignmentLocation);
                 return false;
             }
 
-            var accessible = GetAccessibleMethods(candidates, syntax.WithKeyword.GetLocation(), reportIfInaccessible: false);
+            var accessible = GetAccessibleMethods(candidates, assignmentLocation, reportIfInaccessible: false);
             if (accessible.IsDefaultOrEmpty)
                 return false;
 
@@ -14995,7 +15003,7 @@ partial class BlockBinder : Binder
             {
                 _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(
                     methodName,
-                    syntaxNode.Name.GetLocation());
+                    assignmentLocation);
                 return false;
             }
 
@@ -15021,7 +15029,7 @@ partial class BlockBinder : Binder
                         ReportCannotConvertFromTypeToType(
                             valueType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             expectedType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            syntaxNode.Expression.GetLocation());
+                            valueLocation);
                     }
                 }
                 return false;

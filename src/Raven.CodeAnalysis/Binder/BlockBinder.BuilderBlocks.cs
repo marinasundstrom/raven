@@ -120,7 +120,7 @@ partial class BlockBinder
         normalStatements.Add(new BoundExpressionStatement(result));
         return new BoundBlockExpression(
             normalStatements,
-            Compilation.GetSpecialType(SpecialType.System_Unit),
+            result.Type ?? targetReturnType,
             body is BoundBlockExpression originalBlock ? originalBlock.LocalsToDispose : default);
     }
 
@@ -290,7 +290,7 @@ partial class BlockBinder
                 loop,
                 new BoundExpressionStatement(buildArray)
             ],
-            Compilation.GetSpecialType(SpecialType.System_Unit));
+            buildArray.Type ?? componentType);
     }
 
     private BoundExpression? RewriteBuilderStatementBody(
@@ -325,7 +325,7 @@ partial class BlockBinder
             return buildBlock;
 
         normalStatements.Add(new BoundExpressionStatement(buildBlock));
-        return new BoundBlockExpression(normalStatements, Compilation.GetSpecialType(SpecialType.System_Unit));
+        return new BoundBlockExpression(normalStatements, buildBlock.Type ?? componentType);
     }
 
     private BoundExpression? RewriteBuilderComponent(

@@ -1305,17 +1305,20 @@ partial class BlockBinder
         SyntaxNode receiverSyntax,
         BoundExpression? receiver = null)
     {
+        Location GetCallLocation() => callSyntax.GetLocation() ?? receiverSyntax.GetLocation() ?? Location.None;
+        Location GetReceiverLocation() => receiverSyntax.GetLocation() ?? callSyntax.GetLocation() ?? Location.None;
+
         if (typeSymbol.TypeKind == TypeKind.Error)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
 
         if (typeSymbol.IsStatic)
         {
-            _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, callSyntax.GetLocation());
+            _diagnostics.ReportStaticTypeCannotBeInstantiated(typeSymbol.Name, GetCallLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
         if (typeSymbol.IsAbstract)
         {
-            _diagnostics.ReportCannotInstantiateAbstractType(typeSymbol.Name, callSyntax.GetLocation());
+            _diagnostics.ReportCannotInstantiateAbstractType(typeSymbol.Name, GetCallLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
 
@@ -1367,7 +1370,7 @@ partial class BlockBinder
         // calls like `MyResult(42)` for `union MyResult<T>(List<T> | int)`.
         if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol))
         {
-            _diagnostics.ReportTypeRequiresTypeArguments(typeSymbol.Name, typeSymbol.Arity, receiverSyntax.GetLocation());
+            _diagnostics.ReportTypeRequiresTypeArguments(typeSymbol.Name, typeSymbol.Arity, GetReceiverLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
         }
 
@@ -1375,9 +1378,9 @@ partial class BlockBinder
         if (resolution.Success)
         {
             var constructor = resolution.Method!;
-            if (!EnsureMemberAccessible(constructor, receiverSyntax.GetLocation(), "constructor"))
+            if (!EnsureMemberAccessible(constructor, GetReceiverLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
-            ReportObsoleteIfNeeded(constructor, callSyntax.GetLocation());
+            ReportObsoleteIfNeeded(constructor, GetCallLocation());
             var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
 
             BoundObjectInitializer? initializer = null;
@@ -1397,7 +1400,7 @@ partial class BlockBinder
 
         if (resolution.IsAmbiguous)
         {
-            _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, callSyntax.GetLocation());
+            _diagnostics.ReportCallIsAmbiguous(typeSymbol.Name, resolution.AmbiguousCandidates, GetCallLocation());
             return new BoundErrorExpression(
                 typeSymbol,
                 null,
@@ -1412,7 +1415,7 @@ partial class BlockBinder
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
-        _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, callSyntax.GetLocation());
+        _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, GetCallLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 

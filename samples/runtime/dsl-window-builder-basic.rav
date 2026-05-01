@@ -1,13 +1,22 @@
 import System.*
 import System.Console.*
 import System.Collections.Generic.*
-import System.Text.Json.*
-import System.Text.Json.Serialization.*
+
+val showDetails = true
+val actions: string[] = ["Ok", "Cancel", "Help"]
 
 val window = Window(title: "Main", width: 800, height: 600) {
     StackPanel {
-        Button(text: "Ok") with {
-            HorizontalAlignment = .Fill
+        Label(text: "Raven DSL")
+
+        if showDetails {
+            Label(text: "Swift-like trailing blocks over normal Raven calls")
+        }
+
+        for action in actions {
+            Button(text: action, horizontalAlignment: .Fill) {
+                WriteLine("Clicked " + action)
+            }
         }
     }
 }
@@ -18,14 +27,29 @@ WriteLine(result)
 
 WriteLine(window.Title)
 
-WriteLine(JsonSerializer.Serialize(window, JsonSerializerOptions with {
-    WriteIndented = true
-}))
+Dump(window.Content, "")
 
-if window.Content is StackPanel stackPanel {
-    for control in stackPanel.Children {
-        if control is Button button {
-            WriteLine(button.Text)
+window.Close()
+
+func Dump(control: Control, indent: string) -> () {
+    if control is Label label {
+        WriteLine(indent + "Label: " + label.Text)
+    }
+
+    if control is Button button {
+        WriteLine(indent + "Button: " + button.Text)
+        button.Click()
+    }
+
+    if control is StackPanel stackPanel {
+        for child in stackPanel.Children {
+            Dump(child, indent + "  ")
+        }
+    }
+
+    if control is Fragment fragment {
+        for child in fragment.Children {
+            Dump(child, indent + "  ")
         }
     }
 }
@@ -39,7 +63,46 @@ class ControlBuilder {
     }
 
     static func BuildBlock(items: Control[]) -> Control {
-        return items[0]
+        if items.Length == 1 {
+            return items[0]
+        }
+
+        return Fragment(items: items)
+    }
+
+    static func BuildOptional(value: Control) -> Control {
+        return value
+    }
+
+    static func BuildArray(items: Control[]) -> Control {
+        return Fragment(items: items)
+    }
+}
+
+abstract class Control {}
+
+interface IHasChildren {
+    val Children: IEnumerable<Control>
+
+    func Add(control: Control) -> ();
+}
+
+class Fragment : Control, IHasChildren {
+    private val children: List<Control> = []
+
+    init() {
+    }
+
+    init(items: Control[]) {
+        for item in items {
+            Add(item)
+        }
+    }
+
+    val Children: IEnumerable<Control> => children
+
+    func Add(control: Control) -> () {
+        children.Add(control)
     }
 }
 
@@ -60,11 +123,11 @@ class Window {
 
     var Height: int = 250
 
-    var Content: Control? = null
+    var Content: Control = Fragment()
 
-    var IsVisible: bool { get; private set; } = false
+    var IsVisible: bool = false
 
-    func Show() -> () {
+    private func Show() -> () {
         IsVisible = true
     }
 
@@ -73,27 +136,21 @@ class Window {
     }
 
     func ShowDialog() -> Result<DialogResult, Exception> {
+        Show()
+
+        if IsVisible {
+            return Ok(DialogResult.Ok)
+        }
+
         return Ok(DialogResult.Cancel)
     }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<DialogResult>))]
 enum DialogResult { 
     Ok, 
     Cancel, 
     Yes, 
     No 
-}
-
-[JsonPolymorphic(TypeDiscriminatorPropertyName: "type")]
-[JsonDerivedType(typeof(Button), "Button")]
-[JsonDerivedType(typeof(StackPanel), "StackPanel")]
-abstract class Control {}
-
-interface IHasChildren {
-    val Children: IEnumerable<Control>
-
-    func Add(control: Control) -> ();
 }
 
 class StackPanel : Control, IHasChildren {
@@ -103,11 +160,12 @@ class StackPanel : Control, IHasChildren {
     }
 
     init([Builder<ControlBuilder>] content: () -> Control) {
-        Add(content())
+        AddContent(content())
     }
 
-    init(orientation: Orientation) {
+    init(orientation: Orientation, [Builder<ControlBuilder>] content: () -> Control) {
         Orientation = orientation
+        AddContent(content())
     }
 
     var Orientation: Orientation = .Vertical
@@ -117,21 +175,54 @@ class StackPanel : Control, IHasChildren {
     func Add(control: Control) -> () {
         children.Add(control)
     }
+
+    private func AddContent(control: Control) -> () {
+        if control is Fragment fragment {
+            for child in fragment.Children {
+                Add(child)
+            }
+        } else {
+            Add(control)
+        }
+    }
 }
 
-class Button(text: string) : Control {
-    var Text: string = text
+class Button : Control {
+    init(text: string) {
+        Text = text
+    }
+
+    init(text: string, horizontalAlignment: HorizontalAlignment) {
+        Text = text
+        HorizontalAlignment = horizontalAlignment
+    }
+
+    init(text: string, horizontalAlignment: HorizontalAlignment, onClick: () -> ()) {
+        Text = text
+        HorizontalAlignment = horizontalAlignment
+        OnClick = onClick
+    }
+
+    var Text: string = ""
 
     var HorizontalAlignment: HorizontalAlignment = .Fill
+
+    private var OnClick: () -> () = () => ()
+
+    func Click() -> () {
+        OnClick()
+    }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<Orientation>))]
+class Label(text: string) : Control {
+    var Text: string = text
+}
+
 enum Orientation {
     Horizontal,
     Vertical
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<HorizontalAlignment>))]
 enum HorizontalAlignment {
     Left,
     Center,

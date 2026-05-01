@@ -2367,7 +2367,7 @@ internal class MethodBodyGenerator
         if (localSymbol.Name.StartsWith("<", StringComparison.Ordinal))
             return false;
 
-        return localSymbol.Locations.Any(static location => location.IsInSource);
+        return localSymbol.Locations.Any(static location => location?.IsInSource == true);
     }
 
     private void EmitMethodBlock(BoundBlockStatement block, bool includeImplicitReturn = true)

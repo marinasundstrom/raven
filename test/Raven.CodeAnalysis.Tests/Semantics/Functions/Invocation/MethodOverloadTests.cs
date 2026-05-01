@@ -224,6 +224,62 @@ public class MethodOverloadTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Fact]
+    public void TrailingBlock_WithBuilderConstructor_AllowsForStatementBeforeOverloadSelection()
+    {
+        const string source = """
+        import System.*
+
+        class BuilderAttribute<T> : Attribute {}
+
+        class Node {
+            init(value: int) {}
+        }
+
+        class ViewBuilder {
+            static func BuildExpression(value: int) -> Node {
+                return Node(value)
+            }
+
+            static func BuildBlock(items: Node[]) -> Node {
+                return Node(0)
+            }
+
+            static func BuildArray(items: Node[]) -> Node {
+                return Node(1)
+            }
+        }
+
+        class Container {
+            init([Builder<ViewBuilder>] content: () -> Node) {
+                Value = content()
+            }
+
+            var Value: Node = Node(0)
+        }
+
+        val values: int[] = [1, 2]
+        val result = Container {
+            0
+
+            for value in values {
+                value
+            }
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "Container");
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocationSyntax).Symbol);
+        Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     private static HashSet<string> CollectInvokedMethodNames(BoundNode node)
     {
         var collector = new InvocationNameCollector();

@@ -1,6 +1,11 @@
 ## Proposal: Builder Blocks (DSLs)
 
-> ⚠️ 🧩 This proposal has been partly implemented
+> Status: **Implemented and closed**.
+>
+> The implemented language behavior is now specified in
+> [`docs/lang/spec/language-specification.md`](../../spec/language-specification.md#trailing-closure-calls).
+> Further DSL work should be tracked in
+> [`extensions.md`](extensions.md).
 
 Raven supports Swift-like **trailing blocks** as invocation syntax. A trailing block supplies a final zero-argument closure argument to a function, method, delegate invocation, or constructor. Builder blocks build on that call form to enable declarative DSLs that combine expressions, control flow, and local bindings into a single structured value.
 
@@ -19,7 +24,7 @@ Typical use cases include:
 * Query builders
 * Validation pipelines
 * Structured code generation
-* Declarative wrappers over existing object models (MAUI/WPF/etc.)
+* Declarative wrappers over existing object models (WPF, Xamarin.Forms, MAUI, Avalonia, etc.)
 
 ---
 
@@ -64,6 +69,8 @@ When a trailing `{ ... }` block is selected as the argument for a parameter anno
 
 Current implementation supports expression components, `return` components, local declarations, assignments, `if`/`else` when the builder supplies `BuildOptional` or `BuildEither`, and `for` loops when the builder supplies `BuildArray`.
 
+The canonical `BuilderAttribute<T>` and shared DSL support types should live in `Raven.Core` once the feature graduates from prototype status. Samples may define a local `BuilderAttribute<T>` while bootstrapping the compiler feature, but framework adapters should ultimately depend on the Raven.Core definitions rather than redeclaring the attribute.
+
 ---
 
 ## Builder block semantics
@@ -105,19 +112,31 @@ This restriction allows the DSL engine to treat named arguments as property/even
 
 If an expression inside a builder block is immediately followed by `{ ... }`, the trailing block is first bound as the final closure argument of that call. For UI-style node construction APIs, that trailing closure convention is how children/content are supplied; adapter-specific child-slot interpretation happens after the builder has selected the callable target.
 
+The same syntax can also supply an ordinary handler/action closure when the selected callable's final parameter is not annotated with `[Builder<T>]`:
+
+```raven
+Button(text: "OK") {
+    Submit()
+}
+```
+
+In that shape the block is just the button's final `() -> ()` argument, similar to Swift and Kotlin APIs that place the primary action in a trailing closure. It is not interpreted as child content unless the selected parameter is explicitly builder-annotated.
+
 ---
 
 ## Framework reuse and zero-modification integration
 
 Builder blocks can target existing frameworks **without modifying framework code**.
 
-The DSL engine integrates with a framework via an **adapter layer**, responsible for:
+The compiler does not need built-in knowledge of WPF, Xamarin.Forms, MAUI, Avalonia, or any other UI stack. It only binds the Swift-like trailing block and lowers `[Builder<T>]` bodies into ordinary builder calls. Framework integration belongs in an **adapter layer**, responsible for:
 
 * Resolving “node kinds” to framework types (if needed)
 * Creating framework objects (factories / `Activator`)
 * Applying named arguments as property updates or event subscriptions
 * Attaching children via framework-specific child-slot rules
 * Reconciling updates incrementally across renders
+
+This makes the first implementation path simple: mock the shape with a small Raven runtime model (`Window`, `StackPanel`, `Button`, `Label`, `Fragment`) while the compiler work lands. A real adapter can later replace those mock controls with descriptors over framework types without changing the language syntax.
 
 ### Reusing framework structure
 
@@ -145,12 +164,25 @@ For each framework type used in the DSL, the adapter builds and caches a descrip
 * **Child slot**: how children are attached:
 
   * None
-  * Single child (`Content`)
-  * Collection (`Children`)
-  * Specialized containers (e.g. Grid)
+  * Single child (`Content`, WPF `ContentControl.Content`, Xamarin.Forms/Avalonia content controls)
+  * Collection (`Children`, WPF `Panel.Children`, Xamarin.Forms/Avalonia layout children)
+  * Specialized containers (e.g. WPF/Avalonia `Grid` row/column metadata)
 * **Conversions**: value conversion rules (enums, thickness, color, etc.)
 
 This descriptor is owned by the DSL runtime/adapter and does not require framework modifications.
+
+### Adapter implementation outline
+
+A practical adapter can be implemented in layers:
+
+1. **Discovery**: build descriptors for framework types from reflection and optional hand-written overrides.
+2. **Construction**: choose the constructor/factory from named arguments, then create the object.
+3. **Configuration**: apply remaining named arguments as properties, attached properties, bindable properties, routed events, or normal events.
+4. **Children**: flatten builder fragments and attach children through the descriptor's child slot.
+5. **Identity**: consume reserved metadata such as `Key:` before property application.
+6. **Reconciliation**: compare the new node description with the existing object graph and update in place when possible.
+
+Framework-specific overrides are expected. For example, WPF needs attached properties such as `Grid.Row`, Xamarin.Forms/MAUI need `BindableProperty` and binding-context support, and Avalonia has styled/direct properties plus routed events. Those differences should live in adapter descriptors, not in compiler semantics.
 
 ---
 
@@ -315,6 +347,10 @@ AppRoot {
         Text: "Save",
         Clicked: () => Save()
     )
+
+    Button(Text: "Cancel") {
+        Cancel()
+    }
 }
 ```
 
@@ -323,6 +359,7 @@ Adapter responsibilities:
 * Detect `Clicked` is an event on `Button`
 * Subscribe/unsubscribe incrementally on updates
 * Store subscription state in node instance state bag
+* Map an adapter-recognized final action closure to the framework's primary event when the framework surface exposes that convention
 
 ---
 
@@ -390,12 +427,13 @@ The compiler/runtime produces targeted diagnostics when:
 
 ---
 
-## Future work
+## Closed follow-up
 
-* Standardized adapter interfaces for tree and graph reconcilers
-* First-class key syntax for identity control (beyond `Key:` metadata)
-* Pattern matching inside builder blocks
-* Builder inference based on target type
-* Builder composition
-* Improved diagnostics for nested builders
-* Extensible conversion layer for framework-specific types (Color, Thickness, etc.)
+This proposal is closed with the core feature implemented:
+
+* `expr { ... }` is trailing closure invocation syntax.
+* `expr(args) { ... }` appends one final zero-argument closure argument.
+* `[Builder<T>]` activates builder-block binding for the selected closure parameter.
+* Object initialization remains `Type with { ... }`.
+
+Possible extensions, including computation-expression-style builders and richer adapter conventions, belong in [`extensions.md`](extensions.md).

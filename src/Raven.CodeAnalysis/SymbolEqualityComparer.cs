@@ -615,8 +615,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
             for (var i = 0; i < symbol.Locations.Length; i++)
             {
-                hash.Add(symbol.Locations[i].SourceTree?.FilePath, StringComparer.OrdinalIgnoreCase);
-                hash.Add(symbol.Locations[i].SourceSpan);
+                var location = symbol.Locations[i];
+                if (location is null)
+                    continue;
+
+                hash.Add(location.SourceTree?.FilePath, StringComparer.OrdinalIgnoreCase);
+                hash.Add(location.SourceSpan);
             }
 
             return;
@@ -626,8 +630,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
             for (var i = 0; i < symbol.DeclaringSyntaxReferences.Length; i++)
             {
-                hash.Add(symbol.DeclaringSyntaxReferences[i].SyntaxTree.FilePath, StringComparer.OrdinalIgnoreCase);
-                hash.Add(symbol.DeclaringSyntaxReferences[i].Span);
+                var reference = symbol.DeclaringSyntaxReferences[i];
+                if (reference is null)
+                    continue;
+
+                hash.Add(reference.SyntaxTree.FilePath, StringComparer.OrdinalIgnoreCase);
+                hash.Add(reference.Span);
             }
         }
     }
