@@ -1,6 +1,11 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-04-30**.
+Behavior-focused timeline covering **2025-09-12** to **2026-05-01**.
+
+## 2026-05-01
+
+### Changed
+- Overload resolution now target-types collection literal arguments against array-shaped parameters when overload candidates disagree on the parameter type, so calls such as `Activator.CreateInstance(type, [value])` bind to the `object?[]` overload instead of falling back to an inferred immutable list.
 
 ## 2026-04-30
 

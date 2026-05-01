@@ -13,6 +13,32 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MethodOverloadTests : CompilationTestBase
 {
     [Fact]
+    public void CollectionLiteralArgument_UsesArrayTargetWhenOverloadsDisagree()
+    {
+        const string source = """
+        import System.*
+
+        val t = typeof(string)
+        val value: object? = "x"
+        val created = Activator.CreateInstance(t, [value])
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.ValueText == "CreateInstance");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.Equal("CreateInstance", boundInvocation.Method.Name);
+        Assert.IsAssignableFrom<IArrayTypeSymbol>(boundInvocation.Method.Parameters[1].Type.GetPlainType());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void TrailingBlock_BindsAsFinalClosureArgument()
     {
         const string source = """

@@ -385,6 +385,12 @@ partial class BlockBinder
                 targetType = TryGetFirstDelegateParameterType(methods, i, receiver, pipeReceiverType);
             }
 
+            if (targetType is null &&
+                arg.Expression is CollectionExpressionSyntax or ArrayExpressionSyntax)
+            {
+                targetType = TryGetFirstCollectionParameterType(methods, i, receiver, pipeReceiverType);
+            }
+
             // Apply pre-inferred type-parameter substitutions to the target type, then
             // discard the target type if it still contains unresolved type parameters —
             // passing an open generic as a hint causes wrong inference.
@@ -1237,6 +1243,38 @@ partial class BlockBinder
         }
 
         return sawSystemDelegateLike ? null : firstConcreteDelegate;
+    }
+
+    private ITypeSymbol? TryGetFirstCollectionParameterType(
+        ImmutableArray<IMethodSymbol> methods,
+        int argumentIndex,
+        BoundExpression? receiver,
+        ITypeSymbol? pipeReceiverType)
+    {
+        foreach (var method in methods)
+        {
+            if (method is null)
+                continue;
+
+            var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                ? argumentIndex + 1
+                : argumentIndex;
+
+            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                continue;
+
+            var parameter = method.Parameters[parameterIndex];
+            var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, receiver, pipeReceiverType);
+            var plainType = type.GetPlainType();
+
+            if (plainType is IArrayTypeSymbol { Rank: 1 })
+                return plainType;
+
+            if (TryGetBuilderType(parameter, out _))
+                return type;
+        }
+
+        return null;
     }
 
     private static bool CanUseOpenDelegateReturnTypeHint(ExpressionSyntax expression)
