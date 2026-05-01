@@ -6,6 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-01**.
 
 ### Changed
 - Overload resolution now target-types collection literal arguments against array-shaped parameters when overload candidates disagree on the parameter type, so calls such as `Activator.CreateInstance(type, [value])` bind to the `object?[]` overload instead of falling back to an inferred immutable list.
+- Trailing blocks can now receive implicit closure parameters from the selected final function parameter. Parameters are available as Swift-style `$0`, `$1`, etc., and `it` aliases the first lambda parameter.
 
 ## 2026-04-30
 

@@ -1316,8 +1316,8 @@ Brace trailers after expressions are not object initializers. They are represent
 #### Trailing blocks
 
 A **trailing block** is syntactic sugar for calling a callable whose final
-parameter is a zero-argument function. The block is written after the callee's
-argument list and is supplied as the final argument. This form is ordinary
+parameter is a function. The block is written after the callee's argument list
+and is supplied as the final argument. This form is ordinary
 invocation syntax; it can be used for callbacks, command handlers, resource
 scopes, and declarative DSLs.
 
@@ -1327,7 +1327,7 @@ func use(action: () -> int) -> int {
 }
 
 val x = use {
-    return 42
+    42
 }
 ```
 
@@ -1336,7 +1336,7 @@ omitted:
 
 ```raven
 val window = Window {
-    return StackPanel()
+    StackPanel()
 }
 ```
 
@@ -1345,6 +1345,29 @@ block are ordinary statements; assignments such as `Name = value` are not
 initializer entries. Brace trailers after expressions are therefore not object
 initializers. Use `Type with { ... }` for object initialization and `value with
 { ... }` for non-destructive updates.
+
+When the selected function parameter accepts input parameters, a trailing block
+receives implicit parameter names matching Swift's indexed shorthand:
+`$0`, `$1`, and so on. Raven also makes `it` an alias for the first parameter in
+a lambda scope, unless an explicit parameter named `it` is declared.
+
+```raven
+func Apply(value: int, transform: int -> int) -> int {
+    return transform(value)
+}
+
+func Combine(left: int, right: int, transform: (int, int) -> int) -> int {
+    return transform(left, right)
+}
+
+val next = Apply(41) {
+    it + 1
+}
+
+val sum = Combine(20, 22) {
+    $0 + $1
+}
+```
 
 Trailing blocks are supported for:
 
@@ -1383,7 +1406,7 @@ Resolution follows ordinary overload resolution with one additional argument:
 
 1. The callee and all parenthesized arguments are bound normally.
 2. If a trailing block is present, the compiler creates an unbound
-   zero-argument closure from the block and appends it as the final argument.
+   closure from the block and appends it as the final argument.
 3. Overload resolution accepts only candidates whose next or final parameter can
    receive that closure.
 4. If the callee has no parenthesized argument list, the call is treated as a
@@ -1396,13 +1419,15 @@ Resolution follows ordinary overload resolution with one additional argument:
    in overload resolution like any other final argument. If an extension is
    selected, the receiver is lowered as the leading argument to the extension
    method.
+7. Once a candidate supplies the target function type, implicit trailing-block
+   parameters are made available as `$0`, `$1`, etc.; `it` aliases `$0`.
 
 If no candidate can accept the appended closure, overload resolution fails and
 the call is rejected.
 
 ##### Builder-backed DSL blocks
 
-If the selected closure parameter is annotated with `[Builder<T>]`, the trailing block is bound as a builder block. The attribute is recognized by the builder type argument; the standard `BuilderAttribute<T>` is intended to be provided by Raven.Core, while compiler bootstrapping code may define an equivalent attribute shape. Expression statements and return expressions become builder components, components are adapted through `BuildExpression` when needed, and the final component list is combined through `BuildBlock`. `if` without `else` requires `BuildOptional`, `if` with `else` requires `BuildEither`, and `for` requires `BuildArray`. Without `[Builder<T>]`, the block remains an ordinary zero-argument closure.
+If the selected closure parameter is annotated with `[Builder<T>]`, the trailing block is bound as a builder block. The attribute is recognized by the builder type argument; the standard `BuilderAttribute<T>` is intended to be provided by Raven.Core, while compiler bootstrapping code may define an equivalent attribute shape. Expression statements and return expressions become builder components, components are adapted through `BuildExpression` when needed, and the final component list is combined through `BuildBlock`. `if` without `else` requires `BuildOptional`, `if` with `else` requires `BuildEither`, and `for` requires `BuildArray`. Without `[Builder<T>]`, the block remains an ordinary closure.
 
 This distinction allows the same trailing-block syntax to model different API conventions. A container constructor can use a builder-annotated closure for child content, while a leaf control or command API can use an ordinary final closure as an action handler:
 

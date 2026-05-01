@@ -65,6 +65,91 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void TrailingBlock_WithSingleParameterClosure_BindsItAndDollarZero()
+    {
+        const string source = """
+        func Apply(value: int, transform: int -> int) -> int {
+            return transform(value)
+        }
+
+        val a = Apply(41) {
+            return it + 1
+        }
+
+        val b = Apply(41) {
+            return $0 + 1
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var identifiers = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(static identifier => identifier.Identifier.ValueText is "it" or "$0")
+            .ToArray();
+
+        Assert.Equal(2, identifiers.Length);
+        foreach (var identifier in identifiers)
+        {
+            var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
+            Assert.Equal("$0", symbol.Name);
+        }
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void TrailingBlock_WithMultipleParameterClosure_BindsIndexedParameters()
+    {
+        const string source = """
+        func Combine(left: int, right: int, transform: (int, int) -> int) -> int {
+            return transform(left, right)
+        }
+
+        val result = Combine(20, 22) {
+            return $0 + $1
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var identifiers = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(static identifier => identifier.Identifier.ValueText is "$0" or "$1")
+            .ToArray();
+
+        Assert.Equal(["$0", "$1"], identifiers.Select(static identifier => identifier.Identifier.ValueText).ToArray());
+        foreach (var identifier in identifiers)
+        {
+            var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
+            Assert.Equal(identifier.Identifier.ValueText, symbol.Name);
+        }
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FunctionExpression_ItAliasesFirstParameter()
+    {
+        const string source = """
+        val transform: int -> int = x => it + 1
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var identifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "it");
+
+        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
+        Assert.Equal("x", symbol.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void TrailingBlock_BindsAsConstructorClosureArgument()
     {
         const string source = """

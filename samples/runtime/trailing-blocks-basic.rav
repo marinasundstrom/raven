@@ -1,32 +1,18 @@
 import System.*
 import System.Console.*
 
-Around(name: "method") {
-    WriteLine("inside method trailing block")
-}
-
-val command = Command(name: "constructor") {
-    WriteLine("inside constructor trailing block")
-}
-
-command.Invoke()
-
-"extension method".Trace {
-    WriteLine("inside extension-method trailing block")
-}
-
-val markup = Markup {
-    "<window>"
-    "<button text=\"OK\" />"
-    "</window>"
-}
-
-WriteLine(markup)
-
 func Around(name: string, body: () -> ()) -> () {
     WriteLine("before " + name)
     body()
     WriteLine("after " + name)
+}
+
+func Apply(value: int, transform: int -> int) -> int {
+    return transform(value)
+}
+
+func Combine(left: int, right: int, transform: (int, int) -> int) -> int {
+    return transform(left, right)
 }
 
 class Command {
@@ -74,3 +60,36 @@ class TextBuilder {
 func Markup([Builder<TextBuilder>] body: () -> string) -> string {
     return body()
 }
+
+Around(name: "method") {
+    WriteLine("inside method trailing block")
+}
+
+val command = Command(name: "constructor") {
+    WriteLine("inside constructor trailing block")
+}
+
+command.Invoke()
+
+"extension method".Trace {
+    WriteLine("inside extension-method trailing block")
+}
+
+val next = Apply(41) {
+    it + 1
+}
+
+val combined = Combine(20, 22) {
+    $0 + $1
+}
+
+WriteLine("it result: " + next.ToString())
+WriteLine("$0/$1 result: " + combined.ToString())
+
+val markup = Markup {
+    "<window>"
+    "<button text=\"OK\" />"
+    "</window>"
+}
+
+WriteLine(markup)

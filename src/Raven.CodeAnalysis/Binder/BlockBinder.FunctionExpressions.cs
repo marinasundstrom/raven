@@ -907,6 +907,171 @@ partial class BlockBinder
         return boundLambda;
     }
 
+    private BoundExpression BindTrailingBlockExpression(
+        TrailingBlockExpressionSyntax syntax,
+        ITypeSymbol? targetType,
+        bool useDelegateReturnTarget)
+    {
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
+
+        INamedTypeSymbol? targetDelegate = targetType as INamedTypeSymbol;
+        if (targetDelegate?.TypeKind != TypeKind.Delegate)
+            targetDelegate = null;
+
+        if (targetDelegate is null &&
+            targetType is not null &&
+            TryGetExpressionTreeDelegateType(targetType, out var expressionDelegate))
+        {
+            targetDelegate = expressionDelegate;
+        }
+
+        var targetSignature = targetDelegate?.GetDelegateInvokeMethod();
+        var targetReturnType = useDelegateReturnTarget
+            ? targetSignature?.ReturnType
+            : null;
+        var delegateReturnType = targetSignature?.ReturnType;
+        var initialReturnType = targetReturnType ?? Compilation.ErrorTypeSymbol;
+        var lambdaSymbol = new SourceLambdaSymbol(
+            parameters: [],
+            initialReturnType,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingNamespace,
+            [syntax.GetLocation()],
+            [syntax.GetReference()],
+            isAsync: false);
+        var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
+
+        var parameterSymbols = ImmutableArray<IParameterSymbol>.Empty;
+        if (targetSignature is not null)
+        {
+            var builder = ImmutableArray.CreateBuilder<IParameterSymbol>(targetSignature.Parameters.Length);
+            var location = syntax.Body.OpenBraceToken.GetLocation();
+            var reference = syntax.GetReference();
+
+            for (var index = 0; index < targetSignature.Parameters.Length; index++)
+            {
+                var delegateParameter = targetSignature.Parameters[index];
+                var parameter = new SourceParameterSymbol(
+                    $"${index}",
+                    delegateParameter.Type,
+                    lambdaSymbol,
+                    lambdaSymbol.ContainingType,
+                    lambdaSymbol.ContainingNamespace,
+                    [location],
+                    [reference],
+                    delegateParameter.RefKind,
+                    hasExplicitDefaultValue: false,
+                    explicitDefaultValue: null,
+                    isMutable: delegateParameter.RefKind is RefKind.Ref or RefKind.Out);
+
+                builder.Add(parameter);
+            }
+
+            parameterSymbols = builder.ToImmutable();
+        }
+
+        lambdaSymbol.SetParameters(parameterSymbols);
+        foreach (var parameter in parameterSymbols)
+            lambdaBinder.DeclareParameter(parameter);
+
+        BoundExpression bodyExpr;
+        if (targetReturnType is not null)
+        {
+            using var _ = lambdaBinder.PushTargetType(targetReturnType);
+            bodyExpr = lambdaBinder.BindExpression(syntax.Body, allowReturn: true);
+        }
+        else
+        {
+            bodyExpr = lambdaBinder.BindExpression(syntax.Body, allowReturn: true);
+        }
+
+        if (targetReturnType is not null)
+            bodyExpr = RetargetLambdaBodyUnionCase(bodyExpr, targetReturnType);
+
+        ReportLambdaBodyDiagnostics(lambdaBinder);
+
+        var inferred = bodyExpr.Type;
+        var collectedReturn = ReturnTypeCollector.Infer(bodyExpr);
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+
+        if (inferred is not null && inferred.TypeKind != TypeKind.Error)
+            inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
+
+        if (inferred is null || SymbolEqualityComparer.Default.Equals(inferred, unitType))
+        {
+            if (collectedReturn is not null)
+                inferred = collectedReturn;
+        }
+
+        var returnType = targetReturnType ?? inferred ?? unitType;
+        if (returnType.TypeKind == TypeKind.Error && inferred is { TypeKind: not TypeKind.Error })
+            returnType = inferred;
+
+        if (targetReturnType is not null &&
+            targetReturnType is not ITypeParameterSymbol &&
+            inferred is not null &&
+            inferred.TypeKind != TypeKind.Error &&
+            targetReturnType.TypeKind != TypeKind.Error)
+        {
+            if (ShouldDiscardLambdaBodyResult(targetReturnType, inferred))
+            {
+                bodyExpr = DiscardLambdaBodyResult(bodyExpr);
+                inferred = unitType;
+            }
+            else if (!IsAssignable(targetReturnType, inferred, out var conversion))
+            {
+                ReportCannotConvertFromTypeToType(
+                    inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    targetReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    syntax.Body.GetLocation());
+            }
+            else
+            {
+                bodyExpr = ApplyConversion(bodyExpr, targetReturnType, conversion, syntax.Body);
+            }
+        }
+
+        lambdaBinder.SetLambdaBody(bodyExpr);
+        lambdaBinder.CacheLambdaBodyBinders(syntax.Body);
+        var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
+
+        lambdaSymbol.SetCapturedVariables(capturedVariables);
+        if (capturedVariables.Count != 0 && lambdaSymbol.ClosureFrameType is null)
+            lambdaSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(lambdaSymbol));
+        lambdaSymbol.SetReturnType(returnType);
+
+        var delegateType = targetDelegate is not null &&
+            targetSignature is not null &&
+            targetSignature.Parameters.Length == parameterSymbols.Length &&
+            (delegateReturnType is null ||
+                !useDelegateReturnTarget ||
+                SymbolEqualityComparer.Default.Equals(returnType, delegateReturnType) ||
+                delegateReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            ? targetDelegate
+            : Compilation.CreateFunctionTypeSymbol(
+                parameterSymbols.Select(static parameter => parameter.Type).ToArray(),
+                returnType);
+
+        lambdaSymbol.SetDelegateType(delegateType);
+
+        var candidateDelegates = targetDelegate is null
+            ? ImmutableArray<INamedTypeSymbol>.Empty
+            : ImmutableArray.Create(targetDelegate);
+        var boundLambda = new BoundFunctionExpression(
+            parameterSymbols,
+            returnType,
+            bodyExpr,
+            lambdaSymbol,
+            delegateType,
+            capturedVariables,
+            candidateDelegates);
+
+        CacheBoundNode(syntax, boundLambda);
+        return boundLambda;
+    }
+
     private bool TryGetLambdaTargetDelegateFromContext(
         FunctionExpressionSyntax syntax,
         ITypeSymbol? contextualTargetType,

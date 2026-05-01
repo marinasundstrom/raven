@@ -286,23 +286,6 @@ partial class BlockBinder
         return builder.Count > 0 ? builder.ToImmutable() : methods;
     }
 
-    private static FunctionExpressionSyntax CreateTrailingBlockFunctionExpression(TrailingBlockExpressionSyntax trailingBlock)
-    {
-        var parameterList = SyntaxFactory.ParameterList(SeparatedSyntaxList<ParameterSyntax>.Empty);
-
-        return SyntaxFactory.ParenthesizedFunctionExpression(
-            SyntaxFactory.Token(SyntaxKind.None),
-            SyntaxFactory.Token(SyntaxKind.None),
-            SyntaxFactory.Token(SyntaxKind.None),
-            SyntaxFactory.Token(SyntaxKind.None),
-            typeParameterList: null,
-            parameterList,
-            returnType: null,
-            SyntaxList<TypeParameterConstraintClauseSyntax>.Empty,
-            trailingBlock.Body,
-            expressionBody: null);
-    }
-
     private BoundArgument[] BindInvocationArgumentsWithCandidateTargetTypes(
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
@@ -448,13 +431,16 @@ partial class BlockBinder
         if (trailingBlock is not null)
         {
             var argumentIndex = arguments.Count;
-            var lambdaSyntax = CreateTrailingBlockFunctionExpression(trailingBlock);
             var targetParameter = TryGetCommonPositionalParameter(methods, argumentIndex, receiver);
             var targetType = targetParameter?.Type
                 ?? TryGetFirstDelegateParameterType(methods, argumentIndex, receiver, pipeReceiverType);
+            var targetDelegateType = targetType;
 
             if (targetParameter is not null && TryGetBuilderType(targetParameter, out _))
+            {
+                targetDelegateType = targetParameter.Type;
                 targetType = null;
+            }
 
             if (targetType is not null && preInferredSubstitutions.Count > 0)
                 targetType = SubstituteTypeParameters(targetType, preInferredSubstitutions);
@@ -465,17 +451,18 @@ partial class BlockBinder
                 targetType = null;
             }
 
-            if (targetType is null)
-                RecordLambdaTargetsForArgument(argumentIndex, lambdaSyntax);
-
-            var boundExpr = targetType is null
-                ? BindExpression(lambdaSyntax)
-                : BindExpressionWithTargetType(lambdaSyntax, targetType);
+            var boundExpr = BindTrailingBlockExpression(
+                trailingBlock,
+                targetDelegateType,
+                useDelegateReturnTarget: targetType is not null);
 
             if (targetType is not null && HasExpressionErrors(boundExpr))
             {
-                RemoveCachedBoundNode(lambdaSyntax);
-                var naturalBoundExpr = BindExpression(lambdaSyntax);
+                RemoveCachedBoundNode(trailingBlock);
+                var naturalBoundExpr = BindTrailingBlockExpression(
+                    trailingBlock,
+                    targetType: null,
+                    useDelegateReturnTarget: false);
                 if (!HasExpressionErrors(naturalBoundExpr))
                     boundExpr = naturalBoundExpr;
             }
@@ -487,7 +474,6 @@ partial class BlockBinder
         }
 
         return boundArguments;
-
         void RecordLambdaTargetsForArgument(int argumentIndex, ExpressionSyntax expression)
         {
             if (expression is not FunctionExpressionSyntax)
