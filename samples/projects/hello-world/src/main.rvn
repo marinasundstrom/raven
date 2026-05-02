@@ -1,7 +1,6 @@
 import System.*
 import System.Console.*
 import System.Collections.Generic.*
-import System.Linq.*
 import System.Reflection.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
@@ -12,7 +11,8 @@ val foo = Foo(
 )
 
 WriteLine(JsonSerializer.Serialize(foo, JsonSerializerOptions with {
-    WriteIndented = true
+    WriteIndented = true,
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
 }))
 
 record Foo(
@@ -38,22 +38,21 @@ union Status {
 class RavenUnionJsonConverterFactory : JsonConverterFactory {
 
     override func CanConvert(typeToConvert: Type) -> bool {
-        val valueProperty =
-            typeToConvert.GetProperty(
-                "Value",
-                BindingFlags.Public | BindingFlags.Instance
-            )
-
-        if valueProperty == null {
+        if typeToConvert.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance) == null {
             return false
         }
 
-        val nestedTypes =
-            typeToConvert.GetNestedTypes(
-                BindingFlags.Public | BindingFlags.NonPublic
-            )
+        if typeToConvert.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance) == null {
+            return false
+        }
 
-        return nestedTypes.Any(t => valueProperty!.PropertyType.IsAssignableFrom(t))
+        for constructor in typeToConvert.GetConstructors(BindingFlags.Public | BindingFlags.Instance) {
+            if constructor.GetParameters().Length == 1 {
+                return true
+            }
+        }
+
+        return false
     }
 
     override func CreateConverter(
@@ -83,11 +82,16 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     val _caseTypes: Dictionary<string, Type>
 
     init() {
-        _caseTypes =
-            _unionType
-                .GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
-                .Where(t => _valueProperty.PropertyType.IsAssignableFrom(t))
-                .ToDictionary(t => t.Name, t => t)
+        _caseTypes = Dictionary<string, Type>()
+
+        for constructor in _unionType.GetConstructors(BindingFlags.Public | BindingFlags.Instance) {
+            val parameters = constructor.GetParameters()
+
+            if parameters.Length == 1 {
+                val caseType = parameters[0].ParameterType
+                _caseTypes.Add(GetCaseName(caseType), caseType)
+            }
+        }
     }
 
     override func Read(
@@ -102,32 +106,29 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
             root.GetProperty("case").GetString()
                 ?? throw JsonException("Missing union case.")
 
-        if !_caseTypes.TryGetValue(caseName, out var caseType) {
+        if !_caseTypes.ContainsKey(caseName) {
             throw JsonException("Unknown union case '$caseName'.")
         }
 
-        val args =
-            caseType
-                .GetConstructors()
-                .First()
-                .GetParameters()
-                .Select(p => {
-                    val jsonName = ToCamelCase(p.Name)
+        val caseType = _caseTypes[caseName]
+        val constructor = GetPrimaryConstructor(caseType)
+        val args = List<object>()
 
-                    if !root.TryGetProperty(jsonName, out val property) {
-                        throw JsonException("Missing property '$jsonName'.")
-                    }
+        for parameter in constructor.GetParameters() {
+            val jsonName = GetPropertyName(parameter.Name ?? "", options)
+            val property = GetRequiredProperty(root, jsonName, options)
 
-                    JsonSerializer.Deserialize(
-                        property.GetRawText(),
-                        p.ParameterType,
-                        options
-                    )
-                })
-                .ToArray()
+            args.Add(
+                JsonSerializer.Deserialize(
+                    property.GetRawText(),
+                    parameter.ParameterType,
+                    options
+                )
+            )
+        }
 
         val caseValue =
-            Activator.CreateInstance(caseType, args)
+            constructor.Invoke(args.ToArray())
                 ?? throw JsonException("Could not create union case '$caseName'.")
 
         return CreateUnion(caseValue)
@@ -146,10 +147,10 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
         writer.WriteStartObject()
 
-        writer.WriteString("case", caseType.Name)
+        writer.WriteString("case", GetCaseName(caseType))
 
         for property in caseType.GetProperties(BindingFlags.Public | BindingFlags.Instance) {
-            val jsonName = ToCamelCase(property.Name)
+            val jsonName = GetPropertyName(property.Name, options)
 
             writer.WritePropertyName(jsonName)
 
@@ -165,21 +166,80 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     }
 
     func CreateUnion(caseValue: object) -> TUnion {
-        val unionType = typeof(TUnion)
+        val constructor = GetUnionConstructor(caseValue.GetType())
+        val args = List<object>()
+        args.Add(caseValue)
 
         return (TUnion)(
-                Activator.CreateInstance(
-                    unionType,
-                    [caseValue]
-                ) ?? throw JsonException("Could not wrap case value in union type.")
+                constructor.Invoke(args.ToArray())
+                    ?? throw JsonException("Could not wrap case value in union type.")
             )
     }
 
-    private static func ToCamelCase(name: string) -> string {
-        if String.IsNullOrEmpty(name) {
-            return name
+    private func GetCaseName(caseType: Type) -> string {
+        val prefix = GetUnionName(_unionType) + "_"
+
+        if caseType.Name.StartsWith(prefix) {
+            return caseType.Name.Substring(prefix.Length)
         }
 
-        Char.ToLowerInvariant(name[0]).ToString() + name.Substring(1)
+        return caseType.Name
+    }
+
+    private static func GetPrimaryConstructor(caseType: Type) -> ConstructorInfo {
+        val constructors = caseType.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+
+        if constructors.Length == 0 {
+            throw JsonException("Union case '$caseType' does not expose a public constructor.")
+        }
+
+        return constructors[0]
+    }
+
+    private func GetUnionConstructor(caseType: Type) -> ConstructorInfo {
+        for constructor in _unionType.GetConstructors(BindingFlags.Public | BindingFlags.Instance) {
+            val parameters = constructor.GetParameters()
+
+            if parameters.Length == 1 && parameters[0].ParameterType == caseType {
+                return constructor
+            }
+        }
+
+        throw JsonException("Union type '$_unionType' does not accept case '$caseType'.")
+    }
+
+    private static func GetUnionName(unionType: Type) -> string {
+        val name = unionType.Name
+        val tickIndex = name.IndexOf("`")
+
+        if tickIndex >= 0 {
+            return name.Substring(0, tickIndex)
+        }
+
+        return name
+    }
+
+    private static func GetPropertyName(name: string, options: JsonSerializerOptions) -> string {
+        val namingPolicy = options.PropertyNamingPolicy
+
+        if namingPolicy != null {
+            return namingPolicy.ConvertName(name)
+        }
+
+        return name
+    }
+
+    private static func GetRequiredProperty(root: JsonElement, name: string, options: JsonSerializerOptions) -> JsonElement {
+        if !options.PropertyNameCaseInsensitive {
+            return root.GetProperty(name)
+        }
+
+        for property in root.EnumerateObject() {
+            if String.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) {
+                return property.Value
+            }
+        }
+
+        throw JsonException("Missing property '$name'.")
     }
 }
