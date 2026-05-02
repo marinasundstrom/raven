@@ -10,10 +10,17 @@ val foo = Foo(
     Status: .OnService(.UtcNow, "Test")
 )
 
-WriteLine(JsonSerializer.Serialize(foo, JsonSerializerOptions with {
+val options = JsonSerializerOptions with {
     WriteIndented = true,
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-}))
+    PropertyNamingPolicy = .CamelCase
+}
+
+val str = JsonSerializer.Serialize(foo, options)
+
+WriteLine(str)
+
+val obj = JsonSerializer.Deserialize<Foo>(str, options)
+WriteLine(obj)
 
 record Foo(
     val Name: string,
@@ -103,7 +110,7 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         val root = doc.RootElement
 
         val caseName =
-            root.GetProperty("case").GetString()
+            root.GetProperty("\$case").GetString()
                 ?? throw JsonException("Missing union case.")
 
         if !_caseTypes.TryGetValue(caseName, out var caseType) {
@@ -146,7 +153,7 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
         writer.WriteStartObject()
 
-        writer.WriteString("case", GetCaseName(caseType))
+        writer.WriteString("\$case", GetCaseName(caseType))
 
         for property in caseType.GetProperties(BindingFlags.Public | BindingFlags.Instance) {
             val jsonName = GetPropertyName(property.Name, options)
