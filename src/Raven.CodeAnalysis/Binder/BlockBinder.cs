@@ -2085,7 +2085,7 @@ partial class BlockBinder : Binder
         var name = identifier.Identifier.ValueText;
         var localType = targetType is RefTypeSymbol byRefTargetType
             ? byRefTargetType.ElementType
-            : Compilation.ErrorTypeSymbol;
+            : targetType ?? Compilation.ErrorTypeSymbol;
         var isMutable = syntax.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
         if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)

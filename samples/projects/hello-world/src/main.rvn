@@ -106,11 +106,10 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
             root.GetProperty("case").GetString()
                 ?? throw JsonException("Missing union case.")
 
-        if !_caseTypes.ContainsKey(caseName) {
+        if !_caseTypes.TryGetValue(caseName, out var caseType) {
             throw JsonException("Unknown union case '$caseName'.")
         }
 
-        val caseType = _caseTypes[caseName]
         val constructor = GetPrimaryConstructor(caseType)
         val args = List<object>()
 
@@ -231,7 +230,11 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     private static func GetRequiredProperty(root: JsonElement, name: string, options: JsonSerializerOptions) -> JsonElement {
         if !options.PropertyNameCaseInsensitive {
-            return root.GetProperty(name)
+            if root.TryGetProperty(name, out var property) {
+                return property
+            }
+
+            throw JsonException("Missing property '$name'.")
         }
 
         for property in root.EnumerateObject() {
