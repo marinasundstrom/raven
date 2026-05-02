@@ -297,6 +297,70 @@ class Holder {
     }
 
     [Fact]
+    public void Lambda_InGenericType_CapturesLocalForLinqChain()
+    {
+        var code = """
+import System.*
+import System.Linq.*
+import System.Reflection.*
+
+class Container {
+    val Value: Container.Base
+
+    init(value: Container.Base) {
+        Value = value
+    }
+
+    public open class Base {}
+    public class Case : Container.Base {}
+}
+
+class Probe<T> {
+    val _valueProperty: PropertyInfo?
+
+    init() {
+        _valueProperty = typeof(T).GetProperty("Value")
+    }
+
+    func CountAssignable() -> int {
+        val valueProperty = _valueProperty!
+        typeof(T)
+            .GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
+            .Where(t => valueProperty.PropertyType.IsAssignableFrom(t))
+            .ToDictionary(t => t.Name, t => t)
+            .Count
+    }
+}
+
+class Runner {
+    func Run() -> int {
+        Probe<Container>().CountAssignable()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Runner", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var value = (int)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal(2, value);
+    }
+
+    [Fact]
     public void Lambda_BlockBody_NullCoalesceReturnExpression_ReturnsFromLambda()
     {
         var code = """

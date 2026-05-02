@@ -6,43 +6,6 @@ by tests, and prefer small repros over broad historical failure summaries.
 
 ## Active Issues
 
-### LINQ/lambda lowering in reflection-heavy generic converter code
-
-- **Impact:** The original universal union converter used LINQ chains such as
-  `GetNestedTypes(...).Where(...).ToDictionary(...)`. The generated output had
-  broken closure/delegate shapes in this context, so the converter was rewritten
-  with simple loops.
-- **Repro sketch:**
-
-  ```rav
-  import System.*
-  import System.Collections.Generic.*
-  import System.Linq.*
-  import System.Reflection.*
-
-  class Probe<T> {
-      val _valueProperty: PropertyInfo =
-          typeof(T).GetProperty("Value") ?? throw InvalidOperationException()
-
-      func Cases() -> Dictionary<string, Type> {
-          typeof(T)
-              .GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
-              .Where(t => _valueProperty.PropertyType.IsAssignableFrom(t))
-              .ToDictionary(t => t.Name, t => t)
-      }
-  }
-  ```
-
-- **Expected:** Capturing `_valueProperty` in the lambda should produce a valid
-  closure and the LINQ call chain should execute normally.
-- **Observed:** The converter investigation produced invalid or nonsensical
-  decompiled closure code for this pattern.
-- **Likely area:** Lambda capture lowering for generic instance members,
-  extension-method invocation lowering, and delegate construction for LINQ calls.
-- **Suggested coverage:** Add a runtime codegen test with a generic class,
-  captured instance field/property, and a LINQ `Where(...).ToDictionary(...)`
-  chain.
-
 ### Baseline test suite is currently red
 
 - **Impact:** `scripts/test-baseline.sh` cannot be used as a clean pass/fail gate
@@ -59,6 +22,20 @@ by tests, and prefer small repros over broad historical failure summaries.
   failure cluster. Do not use this broad item as a substitute for focused bugs.
 
 ## Recently Fixed
+
+### LINQ/lambda lowering in reflection-heavy generic converter code
+
+- **Fixed:** Display-class runtime type construction now preserves constructed
+  generic containing types for ordinary nested closure classes, while avoiding
+  that reanchoring for extension containers whose receiver generics are lifted
+  onto emitted methods.
+- **Previous behavior:** LINQ chains such as
+  `GetNestedTypes(...).Where(...).ToDictionary(...)` inside generic converter
+  code could emit open display-class constructor/delegate references and fail at
+  runtime with an uninstantiated-method/type error.
+- **Coverage:** `FunctionExpressionCodeGenTests` verifies a generic `Probe<T>`
+  captures a local `PropertyInfo` and executes a LINQ
+  `Where(...).ToDictionary(...)` chain against nested reflection types.
 
 ### Nullable metadata `params` arrays treated collection literals as missing arguments
 

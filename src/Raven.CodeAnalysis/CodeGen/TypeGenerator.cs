@@ -2004,11 +2004,7 @@ internal class TypeGenerator
             AliasTypeParameters = aliasTypeParameters.IsDefault
                 ? ImmutableArray<ITypeParameterSymbol>.Empty
                 : aliasTypeParameters;
-            RuntimeTypeSymbol = AliasTypeParameters.IsDefaultOrEmpty
-                ? symbol
-                : new ConstructedNamedTypeSymbol(
-                    symbol,
-                    AliasTypeParameters.Select(static parameter => (ITypeSymbol)parameter).ToImmutableArray());
+            RuntimeTypeSymbol = CreateRuntimeTypeSymbol(symbol, AliasTypeParameters);
             _nextFieldOrdinal = _fields.Count;
         }
 
@@ -2020,6 +2016,54 @@ internal class TypeGenerator
         public ConstructorBuilder Constructor { get; }
 
         public ImmutableArray<ISymbol> CapturedSymbols => _capturedSymbols;
+
+        private static INamedTypeSymbol CreateRuntimeTypeSymbol(
+            SourceNamedTypeSymbol symbol,
+            ImmutableArray<ITypeParameterSymbol> aliasTypeParameters)
+        {
+            var selfTypeArguments = aliasTypeParameters.IsDefaultOrEmpty
+                ? ImmutableArray<ITypeSymbol>.Empty
+                : aliasTypeParameters.Select(static parameter => (ITypeSymbol)parameter).ToImmutableArray();
+
+            if (aliasTypeParameters.IsDefaultOrEmpty &&
+                symbol.ContainingType is INamedTypeSymbol containingType &&
+                !IsExtensionDeclaration(containingType))
+            {
+                var containingTypeArguments = containingType.TypeParameters
+                    .Where(static parameter => parameter.OwnerKind == TypeParameterOwnerKind.Type)
+                    .Select(static parameter => (ITypeSymbol)parameter)
+                    .ToImmutableArray();
+
+                if (!containingTypeArguments.IsDefaultOrEmpty)
+                {
+                    var containingRuntimeType = new ConstructedNamedTypeSymbol(containingType, containingTypeArguments);
+
+                    return ConstructedNamedTypeSymbol.ReanchorNested(
+                        symbol,
+                        containingRuntimeType,
+                        inheritedSubstitution: null,
+                        selfTypeArguments);
+                }
+            }
+
+            return selfTypeArguments.IsDefaultOrEmpty
+                ? symbol
+                : new ConstructedNamedTypeSymbol(symbol, selfTypeArguments);
+        }
+
+        private static bool IsExtensionDeclaration(INamedTypeSymbol type)
+        {
+            if (type is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+                return true;
+
+            if (type is ConstructedNamedTypeSymbol constructed &&
+                constructed.ConstructedFrom is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+            {
+                return true;
+            }
+
+            return false;
+        }
 
         public bool TryGetField(ISymbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
 
