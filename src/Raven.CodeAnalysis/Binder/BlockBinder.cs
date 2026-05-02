@@ -10840,6 +10840,47 @@ partial class BlockBinder : Binder
         return IsAssignable(targetType, sourceType, out conversion);
     }
 
+    private bool TryClassifyParameterArgument(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        out ITypeSymbol targetType,
+        out Conversion conversion)
+    {
+        if (IsAssignable(parameterType, argumentType, out conversion))
+        {
+            targetType = parameterType;
+            return true;
+        }
+
+        if (parameterType is NullableTypeSymbol { UnderlyingType.IsValueType: false } nullableParameterType &&
+            TryClassifyNullableReferenceUnderlyingArgument(nullableParameterType.UnderlyingType, argumentType, out conversion))
+        {
+            targetType = nullableParameterType.UnderlyingType;
+            return true;
+        }
+
+        targetType = parameterType;
+        return false;
+    }
+
+    private bool TryClassifyNullableReferenceUnderlyingArgument(
+        ITypeSymbol underlyingParameterType,
+        ITypeSymbol argumentType,
+        out Conversion conversion)
+    {
+        if (IsAssignable(underlyingParameterType, argumentType, out conversion))
+            return true;
+
+        var plainArgumentType = argumentType.GetPlainType();
+        if (SymbolEqualityComparer.Default.Equals(underlyingParameterType, plainArgumentType))
+        {
+            conversion = new Conversion(isImplicit: true, isIdentity: true);
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool ShouldAttemptConversion(BoundExpression expression)
     {
         return expression is BoundMethodGroupExpression ||
@@ -11001,7 +11042,7 @@ partial class BlockBinder : Binder
                     if (paramsArguments.Length == 1 &&
                         !paramsArguments[0].IsSpread &&
                         paramsArguments[0].Type is ITypeSymbol singleParamsType &&
-                        IsAssignable(parameter.Type, singleParamsType, out var paramsArrayConversion))
+                        TryClassifyParameterArgument(parameter.Type, singleParamsType, out var paramsArrayTargetType, out var paramsArrayConversion))
                     {
                         var singleParamsArgument = paramsArguments[0];
                         var paramsSyntaxNode = singleParamsArgument.Syntax switch
@@ -11011,7 +11052,7 @@ partial class BlockBinder : Binder
                             _ => null
                         };
 
-                        converted[i] = ApplyConversion(singleParamsArgument.Expression, parameter.Type, paramsArrayConversion, paramsSyntaxNode);
+                        converted[i] = ApplyConversion(singleParamsArgument.Expression, paramsArrayTargetType, paramsArrayConversion, paramsSyntaxNode);
                         continue;
                     }
 
@@ -11149,7 +11190,7 @@ partial class BlockBinder : Binder
 
             expression = UnwrapNullableIfFlowKnownNonNull(expression);
 
-            if (!IsAssignable(parameter.Type, expression.Type, out var conversion))
+            if (!TryClassifyParameterArgument(parameter.Type, expression.Type, out var conversionTargetType, out var conversion))
             {
                 var location = syntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
 
@@ -11164,7 +11205,7 @@ partial class BlockBinder : Binder
                 converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
                 continue;
             }
-            var convertedExpr = ApplyConversion(expression, parameter.Type, conversion, syntaxNode);
+            var convertedExpr = ApplyConversion(expression, conversionTargetType, conversion, syntaxNode);
 
             // When a method group is resolved to a concrete delegate type during argument
             // conversion, update the bound-node cache so that language-service queries
@@ -11185,6 +11226,8 @@ partial class BlockBinder : Binder
 
     private bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
     {
+        parameterType = parameterType.GetPlainType();
+
         if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
         {
             elementType = arrayType.ElementType;
@@ -11400,7 +11443,7 @@ partial class BlockBinder : Binder
 
         argument = UnwrapNullableIfFlowKnownNonNull(argument);
 
-        if (!IsAssignable(parameter.Type, argument.Type, out var conversion))
+        if (!TryClassifyParameterArgument(parameter.Type, argument.Type, out var conversionTargetType, out var conversion))
         {
             ReportCannotConvertFromTypeToType(
                 argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -11410,7 +11453,7 @@ partial class BlockBinder : Binder
             return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
         }
 
-        return ApplyConversion(argument, parameter.Type, conversion, syntax);
+        return ApplyConversion(argument, conversionTargetType, conversion, syntax);
     }
 
     protected static bool AreArgumentsCompatibleWithMethod(
@@ -11576,6 +11619,9 @@ partial class BlockBinder : Binder
         {
             targetType = null;
         }
+
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
 
         // Empty collection: defer to target type if available
         if (syntaxElements.Count == 0)

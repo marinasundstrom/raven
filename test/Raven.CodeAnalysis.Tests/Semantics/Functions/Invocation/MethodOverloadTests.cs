@@ -35,6 +35,8 @@ public class MethodOverloadTests : CompilationTestBase
 
         Assert.Equal("CreateInstance", boundInvocation.Method.Name);
         Assert.IsAssignableFrom<IArrayTypeSymbol>(boundInvocation.Method.Parameters[1].Type.GetPlainType());
+        var argument = Assert.IsType<BoundCollectionExpression>(boundInvocation.Arguments.ElementAt(1));
+        Assert.IsAssignableFrom<IArrayTypeSymbol>(argument.Type.GetPlainType());
         Assert.Empty(compilation.GetDiagnostics());
     }
 

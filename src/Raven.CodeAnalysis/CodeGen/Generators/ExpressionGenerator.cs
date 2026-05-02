@@ -2346,7 +2346,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitCollectionExpression(BoundCollectionExpression collectionExpression)
     {
-        var target = collectionExpression.Type;
+        var target = collectionExpression.Type.GetPlainType();
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
@@ -7420,6 +7420,8 @@ internal partial class ExpressionGenerator : Generator
 
     private bool TryGetVarParamsElementType(ITypeSymbol paramsType, out ITypeSymbol elementType)
     {
+        paramsType = paramsType.GetPlainType();
+
         if (paramsType is IArrayTypeSymbol { Rank: 1 } arrayType)
         {
             elementType = arrayType.ElementType;

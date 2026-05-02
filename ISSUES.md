@@ -6,36 +6,6 @@ by tests, and prefer small repros over broad historical failure summaries.
 
 ## Active Issues
 
-### Reflection overload resolution with object-array arguments
-
-- **Impact:** Calls such as `Activator.CreateInstance(type, [caseValue])` or
-  `Activator.CreateInstance(type, args)` can fail overload resolution or bind to
-  the wrong shape from Raven source. The universal union JSON converter currently
-  avoids this by using `ConstructorInfo.Invoke(args.ToArray())`.
-- **Repro sketch:**
-
-  ```rav
-  import System.*
-
-  class Program {
-      public static func Run(type: Type, value: object) -> object {
-          Activator.CreateInstance(type, [value])
-              ?? throw InvalidOperationException("missing")
-      }
-  }
-  ```
-
-- **Expected:** The collection literal should target `object?[]`/`object[]` and
-  select the `Activator.CreateInstance(Type, object?[]?)` overload.
-- **Observed:** During the converter investigation this shape either failed
-  overload resolution or behaved as if no constructor arguments were passed.
-- **Likely area:** Invocation argument target typing, collection literal
-  conversion, nullable array element compatibility, and overload selection for
-  metadata `params`/array parameters.
-- **Suggested coverage:** Add a focused codegen test that invokes a known
-  constructor through `Activator.CreateInstance(Type, object[])` and verifies the
-  constructed value.
-
 ### LINQ/lambda lowering in reflection-heavy generic converter code
 
 - **Impact:** The original universal union converter used LINQ chains such as
@@ -89,6 +59,18 @@ by tests, and prefer small repros over broad historical failure summaries.
   failure cluster. Do not use this broad item as a substitute for focused bugs.
 
 ## Recently Fixed
+
+### Nullable metadata `params` arrays treated collection literals as missing arguments
+
+- **Fixed:** Nullable reference params arrays such as `object?[]?` are unwrapped
+  when binding, converting, and emitting collection-literal arguments.
+- **Previous behavior:** `Activator.CreateInstance(type, [value])` selected the
+  right metadata overload but converted the array argument into an error/default
+  value, so emitted IL passed `null` and reflection looked for a parameterless
+  constructor.
+- **Coverage:** `MethodOverloadTests` verifies the bound argument remains a
+  collection expression, and `MethodOverloadCodeGenTests` verifies the reflected
+  constructor receives the emitted object array.
 
 ### Declared `out var` invocation arguments lost their target type
 
