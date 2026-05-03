@@ -9,7 +9,7 @@ GET {{host}}/health
 GET {{host}}/todos
 
 ###
-GET {{host}}/todos/first
+GET {{host}}/todos/1
 
 ###
 POST {{host}}/todos/seed

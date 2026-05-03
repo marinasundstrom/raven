@@ -1407,6 +1407,127 @@ class Program {
     }
 
     [Fact]
+    public void GenericTypeConstructor_WithSameNamedNonGenericType_InfersTypeParameterFromExplicitLambdaParameter()
+    {
+        const string source = """
+import System.*
+
+open class Endpoint {
+    init(handler: Delegate) { }
+}
+
+class GET : Endpoint {
+    init(pattern: string, handler: () -> string) : base(handler) { }
+}
+
+class GET<T> : Endpoint {
+    init(pattern: string, handler: T -> string) : base(handler) { }
+}
+
+val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var objectCreation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression is IdentifierNameSyntax identifier &&
+                                  identifier.Identifier.ValueText == "GET");
+
+        var boundCreation = Assert.IsType<BoundObjectCreationExpression>(model.GetBoundNode(objectCreation));
+        var constructedGet = Assert.IsAssignableFrom<INamedTypeSymbol>(boundCreation.Type);
+        Assert.Equal("GET", constructedGet.Name);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(constructedGet.TypeArguments).SpecialType);
+
+        var lambda = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambda));
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(boundLambda.Parameters).Type.SpecialType);
+    }
+
+    [Fact]
+    public void GenericTypeConstructor_WithSameNamedNonGenericType_KeepsMatchingNonGenericConstructor()
+    {
+        const string source = """
+import System.*
+
+open class Endpoint {
+    init(handler: Delegate) { }
+}
+
+class GET : Endpoint {
+    init(pattern: string, handler: int -> string) : base(handler) { }
+}
+
+class GET<T> : Endpoint {
+    init(pattern: string, handler: T -> string) : base(handler) { }
+}
+
+val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var objectCreation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression is IdentifierNameSyntax identifier &&
+                                  identifier.Identifier.ValueText == "GET");
+
+        var boundCreation = Assert.IsType<BoundObjectCreationExpression>(model.GetBoundNode(objectCreation));
+        Assert.Equal(0, boundCreation.Constructor.ContainingType.Arity);
+    }
+
+    [Fact]
+    public void GenericTypeConstructor_WithSameNamedNonGenericType_SkipsInapplicableNonGenericConstructor()
+    {
+        const string source = """
+import System.*
+
+open class Endpoint {
+    init(handler: Delegate) { }
+}
+
+class GET : Endpoint {
+    init(pattern: string, handler: string -> string) : base(handler) { }
+}
+
+class GET<T> : Endpoint {
+    init(pattern: string, handler: T -> string) : base(handler) { }
+}
+
+val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var objectCreation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression is IdentifierNameSyntax identifier &&
+                                  identifier.Identifier.ValueText == "GET");
+
+        var boundCreation = Assert.IsType<BoundObjectCreationExpression>(model.GetBoundNode(objectCreation));
+        var constructedGet = Assert.IsAssignableFrom<INamedTypeSymbol>(boundCreation.Type);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(constructedGet.TypeArguments).SpecialType);
+    }
+
+    [Fact]
     public void Lambda_TargetingAction_CanDiscardExpressionBodyResult()
     {
         const string source = """

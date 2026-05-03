@@ -131,6 +131,28 @@ The compiler enforces the constraint set whenever the generic type is
 constructed. Passing an argument that does not satisfy one of the constraints
 reports an error and identifies the unmet requirement.
 
+Generic type arguments may be inferred from constructor arguments when the type
+name is invoked without an explicit `<...>` list. This includes function
+expressions passed to function-type or delegate-shaped constructor parameters:
+
+```raven
+open class Endpoint {
+    init(handler: Delegate) {}
+}
+
+class Route<T> : Endpoint {
+    init(pattern: string, handler: T -> string) : base(handler) {}
+}
+
+val route = Route("/{id:int}", func (id: int) => id.ToString())
+// route : Route<int>
+```
+
+When same-named non-generic and generic types are both in scope, a matching
+non-generic constructor is selected first. If the non-generic constructor is not
+applicable, Raven may infer and select a same-named generic type. Multiple
+successful generic candidates are ambiguous.
+
 #### Accessibility
 
 Types and members accept the standard access modifiers. Applying more than

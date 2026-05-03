@@ -8605,6 +8605,12 @@ partial class BlockBinder : Binder
             }
             else if (boundIdentifier is BoundTypeExpression { Type: INamedTypeSymbol namedType })
             {
+                if (!HasApplicableExplicitFunctionConstructor(namedType, syntax) &&
+                    TryBindInferredGenericConstructorAlternative(id.Identifier.ValueText, syntax, out var inferredGenericConstructor))
+                {
+                    return inferredGenericConstructor;
+                }
+
                 // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
                 // Union case types are treated as plain type instantiations (not target-typed).
                 // But if the same case name exists in multiple unions in scope, report ambiguity.
@@ -8701,6 +8707,184 @@ partial class BlockBinder : Binder
         }
 
         return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
+    }
+
+    private bool HasApplicableExplicitFunctionConstructor(INamedTypeSymbol type, InvocationExpressionSyntax syntax)
+    {
+        var constructors = FilterInvocationCandidatesForArgumentBinding(
+            type.Constructors,
+            syntax.ArgumentList.Arguments,
+            trailingBlock: syntax.TrailingBlock);
+
+        if (constructors.IsDefaultOrEmpty)
+            return false;
+
+        var functionCompatibleConstructors = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        foreach (var constructor in constructors)
+        {
+            if (HasCompatibleExplicitFunctionArguments(constructor, syntax))
+                functionCompatibleConstructors.Add(constructor);
+        }
+
+        if (functionCompatibleConstructors.Count == 0)
+            return false;
+
+        constructors = functionCompatibleConstructors.ToImmutable();
+
+        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(
+            constructors,
+            syntax.ArgumentList.Arguments,
+            out var hasErrors,
+            trailingBlock: syntax.TrailingBlock);
+
+        if (hasErrors)
+            return false;
+
+        var resolution = OverloadResolver.ResolveOverload(
+            constructors,
+            boundArguments,
+            Compilation,
+            binder: this,
+            canBindLambda: EnsureLambdaCompatible,
+            callSyntax: syntax);
+
+        return resolution.Success;
+    }
+
+    private bool HasCompatibleExplicitFunctionArguments(IMethodSymbol constructor, InvocationExpressionSyntax syntax)
+    {
+        for (var i = 0; i < syntax.ArgumentList.Arguments.Count; i++)
+        {
+            var argument = syntax.ArgumentList.Arguments[i];
+            if (argument.Expression is not FunctionExpressionSyntax functionExpression)
+                continue;
+
+            if (!CanTargetExplicitFunctionArgument(functionExpression, constructor.Parameters[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool CanTargetExplicitFunctionArgument(FunctionExpressionSyntax functionExpression, IParameterSymbol targetParameter)
+    {
+        var parameterType = targetParameter.Type is NullableTypeSymbol nullableParameterType
+            ? nullableParameterType.UnderlyingType
+            : targetParameter.Type;
+
+        if (parameterType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType ||
+            delegateType.GetDelegateInvokeMethod() is not { } invoke)
+        {
+            return false;
+        }
+
+        var functionParameters = GetExplicitFunctionParameters(functionExpression);
+        if (invoke.Parameters.Length != functionParameters.Length)
+            return false;
+
+        for (var i = 0; i < functionParameters.Length; i++)
+        {
+            if (functionParameters[i].TypeAnnotation?.Type is not { } parameterTypeSyntax)
+                continue;
+
+            var sourceType = ResolveTypeSyntaxOrError(parameterTypeSyntax);
+            var targetType = invoke.Parameters[i].Type;
+            if (!IsAssignable(targetType, sourceType, out _))
+                return false;
+        }
+
+        return true;
+    }
+
+    private bool TryBindInferredGenericConstructorAlternative(
+        string name,
+        InvocationExpressionSyntax syntax,
+        out BoundExpression boundExpression)
+    {
+        boundExpression = null!;
+
+        if (!HasExplicitFunctionExpressionArgument(syntax))
+            return false;
+
+        BoundExpression? inferredCandidate = null;
+        INamedTypeSymbol? inferredCandidateType = null;
+
+        foreach (var candidate in LookupNamedTypeCandidates(name))
+        {
+            if (!candidate.IsGenericType || !IsUninstantiatedGenericType(candidate))
+                continue;
+
+            var constructors = FilterInvocationCandidatesForArgumentBinding(
+                candidate.Constructors,
+                syntax.ArgumentList.Arguments,
+                trailingBlock: syntax.TrailingBlock);
+
+            if (constructors.IsDefaultOrEmpty)
+                continue;
+
+            var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(
+                constructors,
+                syntax.ArgumentList.Arguments,
+                out var hasErrors,
+                trailingBlock: syntax.TrailingBlock);
+
+            if (hasErrors)
+                continue;
+
+            if (!TryInferConstructedTypeForConstructor(candidate, boundArguments, out var inferredType) ||
+                SymbolEqualityComparer.Default.Equals(inferredType, candidate))
+            {
+                continue;
+            }
+
+            if (inferredCandidate is not null)
+            {
+                var first = inferredCandidateType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? name;
+                var second = inferredType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
+                boundExpression = ErrorExpression(reason: BoundExpressionReason.Ambiguous);
+                return true;
+            }
+
+            inferredCandidateType = inferredType;
+            inferredCandidate = BindConstructorInvocation(inferredType, boundArguments, syntax, syntax.Expression);
+        }
+
+        if (inferredCandidate is null)
+            return false;
+
+        boundExpression = inferredCandidate;
+        return true;
+    }
+
+    private static int GetExplicitFunctionParameterCount(FunctionExpressionSyntax functionExpression)
+        => functionExpression switch
+        {
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.Count,
+            SimpleFunctionExpressionSyntax simple => simple.Parameter.Identifier.IsMissing ? 0 : 1,
+            _ => 0
+        };
+
+    private static ImmutableArray<ParameterSyntax> GetExplicitFunctionParameters(FunctionExpressionSyntax functionExpression)
+        => functionExpression switch
+        {
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToImmutableArray(),
+            SimpleFunctionExpressionSyntax simple when !simple.Parameter.Identifier.IsMissing => ImmutableArray.Create(simple.Parameter),
+            _ => ImmutableArray<ParameterSyntax>.Empty
+        };
+
+    private static bool HasExplicitFunctionExpressionArgument(InvocationExpressionSyntax syntax)
+    {
+        foreach (var argument in syntax.ArgumentList.Arguments)
+        {
+            if (argument.Expression is FunctionExpressionSyntax functionExpression &&
+                GetExplicitFunctionParameterCount(functionExpression) > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsInvocableValueReceiver(BoundExpression expression)

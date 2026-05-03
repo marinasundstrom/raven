@@ -237,9 +237,7 @@ app.Route("/todos") {
         store.Summary()
     }.Named("todos-list")
 
-    GET("/first") {
-        store.Describe(1)
-    }.Named("todos-first")
+    GET("/{id:int}", func (id: int) => store.Describe(id)).Named("todos-get")
 
     POST("/seed") {
         store.Add("Created from a trailing block handler").ToLine()

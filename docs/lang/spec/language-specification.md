@@ -1953,6 +1953,31 @@ val list = List<int>()
 list.Add(2)
 ```
 
+When a generic type name is called without explicit type arguments, Raven may
+infer the type arguments from constructor arguments. Constructor inference uses
+the same argument-binding rules as method calls, including delegate target
+typing for function expressions.
+
+```raven
+open class Endpoint {
+    init(handler: Delegate) {}
+}
+
+class GET<T> : Endpoint {
+    init(pattern: string, handler: T -> string) : base(handler) {}
+}
+
+val route = GET("/{id:int}", func (id: int) => id.ToString())
+// route : GET<int>
+```
+
+If a non-generic type and a generic type share the same name, an applicable
+non-generic constructor remains preferred. If the non-generic constructor is not
+applicable and exactly one generic type can be constructed from the arguments,
+that generic construction is selected. If multiple generic type candidates infer
+successfully, the call is ambiguous and must be disambiguated with explicit type
+arguments or a different type name.
+
 > A standalone type name is not a constructor call in value position.
 > Use `Foo()` instead of `Foo`.
 
