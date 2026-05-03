@@ -186,16 +186,6 @@ class TodoStore {
         return store
     }
 
-    func Summary() -> string {
-        var text = ""
-
-        for todo in todos {
-            text = text + todo.ToLine() + "\n"
-        }
-
-        return text
-    }
-
     private func Find(id: int) -> Todo? {
         for todo in todos {
             if todo.Id == id {
@@ -216,7 +206,7 @@ class TodoStore {
         return todo.ToLine()
     }
 
-    func Add(title: string) -> Todo {
+    private func Add(title: string) -> Todo {
         val todo = Todo(nextId, title, false)
         nextId = nextId + 1
         todos.Add(todo)
