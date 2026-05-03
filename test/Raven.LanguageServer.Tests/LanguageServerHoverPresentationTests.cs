@@ -28,11 +28,11 @@ class Foo(private var name: string) {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(syntaxTree);
-
-        foreach (var reference in LanguageServerTestReferences.Default)
-            compilation = compilation.AddReferences(reference);
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         _ = compilation.GetDiagnostics();
 
@@ -357,6 +357,64 @@ class Runner {
         resolution.ShouldNotBeNull();
         resolution.Value.Symbol.Name.ShouldBe("Error");
         resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().IsUnionCase.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void GenericConstructorInvocationHover_UsesConstructedType()
+    {
+        const string code = """
+import System.*
+
+open class Endpoint {
+    init(handler: Delegate) { }
+}
+
+class GET : Endpoint {
+    init(pattern: string, handler: () -> string) : base(handler) { }
+}
+
+class GET<T> : Endpoint {
+    init(pattern: string, handler: T -> string) : base(handler) { }
+}
+
+val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error).ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var getIdentifier = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Select(static invocation => invocation.Expression)
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "GET");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(
+            semanticModel,
+            root,
+            getIdentifier.Identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        var getType = resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>();
+        getType.Name.ShouldBe("GET");
+        getType.TypeArguments.Single().SpecialType.ShouldBe(SpecialType.System_Int32);
+
+        var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, getIdentifier.Identifier.SpanStart + 1])!;
+
+        signature.ShouldStartWith("class GET<int>");
+
     }
 
     [Fact]

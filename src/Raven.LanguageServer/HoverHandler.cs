@@ -636,19 +636,28 @@ internal sealed class HoverHandler : IHoverHandler
                 .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && pipe.Right == invocation) is { } pipeExpression &&
             semanticModel.GetOperation(pipeExpression) is IInvocationOperation { TargetMethod: { } pipeTargetMethod })
         {
-            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, pipeTargetMethod, identifier);
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                ProjectInvocationHoverSymbol(pipeTargetMethod, semanticModel, invocation),
+                identifier);
             return true;
         }
 
         if (semanticModel.GetOperation(invocation) is IInvocationOperation { TargetMethod: { } targetMethod })
         {
-            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, targetMethod, identifier);
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                ProjectInvocationHoverSymbol(targetMethod, semanticModel, invocation),
+                identifier);
             return true;
         }
 
         if (semanticModel.GetSymbolInfo(identifier).Symbol is IMethodSymbol identifierMethod)
         {
-            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, identifierMethod, identifier);
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                ProjectInvocationHoverSymbol(identifierMethod, semanticModel, invocation),
+                identifier);
             return true;
         }
 
@@ -656,25 +665,51 @@ internal sealed class HoverHandler : IHoverHandler
         if (!identifierCandidates.IsDefaultOrEmpty &&
             identifierCandidates[0] is IMethodSymbol identifierCandidateMethod)
         {
-            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, identifierCandidateMethod, identifier);
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                ProjectInvocationHoverSymbol(identifierCandidateMethod, semanticModel, invocation),
+                identifier);
             return true;
         }
 
         if (semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol invocationMethod)
         {
-            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, invocationMethod, identifier);
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                ProjectInvocationHoverSymbol(invocationMethod, semanticModel, invocation),
+                identifier);
             return true;
         }
 
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
             semanticModel.GetSymbolInfo(memberAccess.Name).Symbol is IMethodSymbol memberMethod)
         {
-            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, memberMethod, memberAccess.Name);
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                ProjectInvocationHoverSymbol(memberMethod, semanticModel, invocation),
+                memberAccess.Name);
             return true;
         }
 
         resolution = default;
         return false;
+    }
+
+    private static ISymbol ProjectInvocationHoverSymbol(
+        IMethodSymbol method,
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation)
+    {
+        if (method.MethodKind != MethodKind.Constructor)
+            return method;
+
+        if (semanticModel.GetBoundNode(invocation) is BoundObjectCreationExpression { Type: INamedTypeSymbol boundType })
+            return boundType;
+
+        if (semanticModel.GetTypeInfo(invocation).Type is INamedTypeSymbol invocationType)
+            return invocationType;
+
+        return (ISymbol?)method.ContainingType ?? method;
     }
 
     private static Hover? TryBuildPatternDeclarationHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
@@ -1406,12 +1441,56 @@ internal sealed class HoverHandler : IHoverHandler
             TryBuildDeclaredTypeHoverSignatureOverride(symbol, semanticModel, root, offset, out var declaredTypeSignature))
             return declaredTypeSignature;
 
+        if (resolution.Kind is SymbolResolutionKind.InvocationTarget &&
+            symbol is INamedTypeSymbol invocationTargetType)
+        {
+            return BuildInvocationTargetTypeSignature(invocationTargetType);
+        }
+
         var signature = BuildSignature(symbol, contextNode, semanticModel);
 
         if (!TryBuildReceiverErrorSignatureOverride(symbol, semanticModel, root, offset, out var overridden))
             return signature;
 
         return overridden;
+    }
+
+    private static string BuildInvocationTargetTypeSignature(INamedTypeSymbol type)
+    {
+        var plainTypeFormat = CreatePlainTypeFormat();
+        var declarationTypeFormat = plainTypeFormat
+            .WithMiscellaneousOptions(
+                plainTypeFormat.MiscellaneousOptions |
+                SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
+
+        var kind = type.TypeKind switch
+        {
+            TypeKind.Interface => "interface",
+            TypeKind.Struct => "struct",
+            TypeKind.Enum => "enum",
+            TypeKind.Delegate => "delegate",
+            TypeKind.TypeUnion => "union",
+            _ => "class"
+        };
+
+        var typeArguments = !type.TypeArguments.IsDefaultOrEmpty &&
+                            type.TypeArguments.Length == type.TypeParameters.Length
+            ? $"<{string.Join(", ", type.TypeArguments.Select(argument => FormatType(argument, plainTypeFormat)))}>"
+            : string.Empty;
+
+        var text = $"{kind} {type.Name}{typeArguments}";
+        var bases = new System.Collections.Generic.List<string>();
+
+        if (type.BaseType is { SpecialType: SpecialType.None } baseType)
+            bases.Add(FormatType(baseType, declarationTypeFormat));
+
+        foreach (var iface in type.Interfaces)
+            bases.Add(FormatType(iface, declarationTypeFormat));
+
+        if (bases.Count > 0)
+            text += ": " + string.Join(", ", bases);
+
+        return text;
     }
 
     private static string BuildDisplaySignatureForResolvedHover(

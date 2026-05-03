@@ -166,15 +166,31 @@ internal static partial class SymbolResolver
             if (!isInvocationIdentifier)
                 continue;
 
-            if (!TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
-                continue;
+            var invocation = identifier.Parent switch
+            {
+                InvocationExpressionSyntax direct => direct,
+                MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
+                    when ReferenceEquals(name, identifier) => parent,
+                _ => null
+            };
 
-            var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
-            if (symbol is null || symbol is ILocalSymbol)
-                continue;
+            if (invocation is not null &&
+                TryResolveInvocationTargetSymbol(semanticModel, identifier, token, out var invocationSymbol) &&
+                invocationSymbol is not null)
+            {
+                resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, invocationSymbol, identifier);
+                return true;
+            }
 
-            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, symbol, identifier);
-            return true;
+            if (TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
+            {
+                var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+                if (symbol is not null && symbol is not ILocalSymbol)
+                {
+                    resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, symbol, identifier);
+                    return true;
+                }
+            }
         }
 
         return false;

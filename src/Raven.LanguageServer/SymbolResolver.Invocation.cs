@@ -284,6 +284,9 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation)
     {
+        if (semanticModel.GetBoundNode(invocation) is BoundObjectCreationExpression { Type: INamedTypeSymbol boundType })
+            return boundType;
+
         if (semanticModel.GetOperation(invocation) is IInvocationOperation { TargetMethod: { MethodKind: MethodKind.Constructor } method } &&
             method.ContainingType is INamedTypeSymbol methodContainingType)
         {
