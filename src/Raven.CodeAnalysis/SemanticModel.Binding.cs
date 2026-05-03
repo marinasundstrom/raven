@@ -1162,8 +1162,8 @@ public partial class SemanticModel
             if (IsWildcard(import.Name, out var nsName))
             {
                 INamespaceOrTypeSymbol? nsImport =
-                    (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, nsName.ToString())
-                    ?? ResolveType(targetNamespace, nsName.ToString());
+                    ResolveType(targetNamespace, nsName.ToString())
+                    ?? (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, nsName.ToString());
                 if (nsImport != null)
                 {
                     namespaceImports.Add(nsImport);
@@ -1207,8 +1207,8 @@ public partial class SemanticModel
         foreach (var baseName in deferredWildcardImports)
         {
             INamespaceOrTypeSymbol? resolved =
-                (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, baseName.ToString())
-                ?? ResolveType(targetNamespace, baseName.ToString());
+                ResolveType(targetNamespace, baseName.ToString())
+                ?? (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, baseName.ToString());
 
             if (resolved != null)
             {
@@ -1284,7 +1284,71 @@ public partial class SemanticModel
 
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
-            return Compilation.GetTypeByMetadataName(current, name);
+            return Compilation.GetTypeByMetadataName(name)
+                ?? Compilation.GetTypeByMetadataName(current, name)
+                ?? ResolveTypeFromContainingNamespace(current, name)
+                ?? ResolveTypeFromNamespace(current, name)
+                ?? ResolveTypeFromNamespace(Compilation.GlobalNamespace, name);
+        }
+
+        ITypeSymbol? ResolveTypeFromContainingNamespace(INamespaceSymbol current, string name)
+        {
+            var lastDot = name.LastIndexOf('.');
+            if (lastDot <= 0 || lastDot == name.Length - 1)
+                return null;
+
+            var namespaceName = name[..lastDot];
+            var typeName = name[(lastDot + 1)..];
+            var ns = ResolveNamespace(current, namespaceName);
+            return ns?.LookupType(typeName)
+                ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
+        }
+
+        static ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
+            var parts = name.Split('.');
+            INamespaceOrTypeSymbol current = scope;
+
+            foreach (var part in parts)
+            {
+                if (current is INamespaceSymbol ns)
+                {
+                    var typeMember = ns.LookupType(part)
+                        ?? ns.GetMembers(part).OfType<ITypeSymbol>().FirstOrDefault();
+                    if (typeMember is not null)
+                    {
+                        current = typeMember;
+                        continue;
+                    }
+
+                    var namespaceMember = ns.LookupNamespace(part)
+                        ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+                    if (namespaceMember is null)
+                        return null;
+
+                    current = namespaceMember;
+                    continue;
+                }
+
+                if (current is INamedTypeSymbol type)
+                {
+                    var nestedType = type.GetMembers()
+                        .OfType<ITypeSymbol>()
+                        .FirstOrDefault(member => member.Name == part);
+                    if (nestedType is null)
+                        return null;
+
+                    current = nestedType;
+                    continue;
+                }
+
+                return null;
+            }
+
+            return current as ITypeSymbol;
         }
 
         IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)

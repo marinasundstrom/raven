@@ -382,6 +382,12 @@ partial class BlockBinder
                 targetType = TryGetFirstCollectionParameterType(methods, i, receiver, pipeReceiverType);
             }
 
+            if (targetType is null &&
+                TryGetTargetTypedUnionCaseName(arg.Expression, out var unionCaseName))
+            {
+                targetType = TryGetFirstUnionCaseParameterType(methods, i, receiver, pipeReceiverType, arg, unionCaseName);
+            }
+
             // Apply pre-inferred type-parameter substitutions to the target type, then
             // discard the target type if it still contains unresolved type parameters —
             // passing an open generic as a hint causes wrong inference.
@@ -686,6 +692,57 @@ partial class BlockBinder
             return hasCommon ? common : null;
         }
 
+        ITypeSymbol? TryGetFirstUnionCaseParameterType(
+            ImmutableArray<IMethodSymbol> methods,
+            int argumentIndex,
+            BoundExpression? invocationReceiver,
+            ITypeSymbol? pipeSourceType,
+            ArgumentSyntax argument,
+            string caseName)
+        {
+            if (methods.IsDefaultOrEmpty)
+                return null;
+
+            foreach (var method in methods)
+            {
+                if (method is null)
+                    continue;
+
+                int parameterIndex;
+                if (argument.NameColon is not null)
+                {
+                    var argumentName = argument.NameColon.Name.Identifier.ValueText;
+                    var parameter = method.Parameters.FirstOrDefault(p =>
+                        string.Equals(p.Name, argumentName, StringComparison.OrdinalIgnoreCase));
+                    if (parameter is null)
+                        continue;
+
+                    parameterIndex = method.Parameters.IndexOf(parameter);
+                }
+                else
+                {
+                    parameterIndex = (method.IsExtensionMethod || pipeSourceType is not null)
+                        ? argumentIndex + 1
+                        : argumentIndex;
+                }
+
+                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                    continue;
+
+                var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeSourceType);
+                var targetType = type.UnwrapLiteralType() ?? type;
+                targetType = UnwrapAlias(UnwrapTaskLikeTargetType(targetType));
+
+                var union = (targetType as INamedTypeSymbol)?.TryGetUnion()
+                    ?? (targetType as INamedTypeSymbol)?.TryGetUnionCase()?.Union;
+
+                if (union is not null && union.CaseTypes.Any(@case => @case.Name == caseName))
+                    return type;
+            }
+
+            return null;
+        }
+
         RefKind TryGetCommonNamedParameterRefKind(ImmutableArray<IMethodSymbol> methods, string argumentName, BoundExpression? invocationReceiver)
         {
             if (methods.IsDefaultOrEmpty)
@@ -765,6 +822,28 @@ partial class BlockBinder
         }
 
         return parameterType;
+    }
+
+    private static bool TryGetTargetTypedUnionCaseName(ExpressionSyntax expression, out string caseName)
+    {
+        switch (expression)
+        {
+            case IdentifierNameSyntax identifier:
+                caseName = identifier.Identifier.ValueText;
+                return !string.IsNullOrEmpty(caseName);
+            case MemberBindingExpressionSyntax memberBinding:
+                caseName = memberBinding.Name.Identifier.ValueText;
+                return !string.IsNullOrEmpty(caseName);
+            case InvocationExpressionSyntax { Expression: IdentifierNameSyntax identifier }:
+                caseName = identifier.Identifier.ValueText;
+                return !string.IsNullOrEmpty(caseName);
+            case InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax memberBinding }:
+                caseName = memberBinding.Name.Identifier.ValueText;
+                return !string.IsNullOrEmpty(caseName);
+            default:
+                caseName = string.Empty;
+                return false;
+        }
     }
 
     private static bool TryUnifyExtensionReceiverType(

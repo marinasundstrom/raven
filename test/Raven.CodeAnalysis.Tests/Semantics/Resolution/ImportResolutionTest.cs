@@ -241,6 +241,25 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void WildcardTypeImport_MakesStaticMembersAvailableInTypeMember()
+    {
+        string testCode =
+            """
+            import System.Console.*
+
+            class Reporter {
+                func Report() {
+                    WriteLine("test")
+                }
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void WildcardTypeImport_FromSourceType_MakesStaticMembersAvailable()
     {
         string testCode =

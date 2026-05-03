@@ -154,6 +154,28 @@ namespace Utility
     }
 
     [Fact]
+    public void GlobalStatements_CanReferenceTopLevelFunctionsDeclaredLaterWithCollectionArgument()
+    {
+        const string source = """
+val result = test([])
+
+func test(items: int[]) -> int {
+    return items.Length
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(
+            [tree],
+            new CompilationOptions(OutputKind.ConsoleApplication),
+            assemblyName: "app");
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV0103");
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void TopLevelFunctionMain_RejectsAdditionalGlobalStatements()
     {
         const string source = """

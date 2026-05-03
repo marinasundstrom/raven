@@ -32,12 +32,15 @@ internal partial class TypeMemberBinder : Binder
     internal INamedTypeSymbol ContainingTypeSymbol => _containingType;
 
     public override ISymbol? LookupSymbol(string name)
-    {
-        var symbol = EnumerateTypeAndBaseMembers(_containingType, name).FirstOrDefault();
-        if (symbol is not null)
-            return symbol;
+        => LookupSymbols(name).FirstOrDefault();
 
-        return base.LookupSymbol(name);
+    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    {
+        foreach (var symbol in EnumerateTypeAndBaseMembers(_containingType, name))
+            yield return symbol;
+
+        foreach (var symbol in base.LookupSymbols(name))
+            yield return symbol;
     }
 
     public override ITypeSymbol? LookupType(string name)

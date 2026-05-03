@@ -124,8 +124,8 @@ class BinderFactory
             if (IsWildcard(importDirective.Name, out var nsName))
             {
                 INamespaceOrTypeSymbol? nsImport =
-                    (INamespaceOrTypeSymbol?)ResolveNamespace(nsSymbol!, nsName.ToString())
-                    ?? ResolveType(nsSymbol!, nsName.ToString());
+                    ResolveType(nsSymbol!, nsName.ToString())
+                    ?? (INamespaceOrTypeSymbol?)ResolveNamespace(nsSymbol!, nsName.ToString());
                 if (nsImport != null)
                     namespaceImports.Add(nsImport);
                 else
@@ -194,9 +194,24 @@ class BinderFactory
 
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
-            return _compilation.GetTypeByMetadataName(current, name)
+            return _compilation.GetTypeByMetadataName(name)
+                ?? _compilation.GetTypeByMetadataName(current, name)
+                ?? ResolveTypeFromContainingNamespace(current, name)
                 ?? ResolveTypeFromNamespace(current, name)
                 ?? ResolveTypeFromNamespace(_compilation.GlobalNamespace, name);
+        }
+
+        ITypeSymbol? ResolveTypeFromContainingNamespace(INamespaceSymbol current, string name)
+        {
+            var lastDot = name.LastIndexOf('.');
+            if (lastDot <= 0 || lastDot == name.Length - 1)
+                return null;
+
+            var namespaceName = name[..lastDot];
+            var typeName = name[(lastDot + 1)..];
+            var ns = ResolveNamespace(current, namespaceName);
+            return ns?.LookupType(typeName)
+                ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
         }
 
         static ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)

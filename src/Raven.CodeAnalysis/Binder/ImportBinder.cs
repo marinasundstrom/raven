@@ -52,27 +52,7 @@ class ImportBinder : Binder
     }
 
     public override ISymbol? LookupSymbol(string name)
-    {
-        if (_aliases.TryGetValue(name, out var symbols))
-            return symbols.FirstOrDefault();
-
-        var declared = CurrentNamespace?.GetMembers(name).FirstOrDefault();
-        if (declared is not null)
-            return declared;
-
-        var matchingType = _typeImports.FirstOrDefault(x => x.Name == name);
-        if (matchingType is not null)
-            return matchingType;
-
-        foreach (var ns in _namespaceOrTypeScopeImports)
-        {
-            var t = ns.LookupType(name);
-            if (t != null)
-                return t;
-        }
-
-        return ParentBinder?.LookupSymbol(name);
-    }
+        => LookupSymbols(name).FirstOrDefault();
 
     public override INamespaceSymbol? LookupNamespace(string name)
     {
@@ -133,6 +113,21 @@ class ImportBinder : Binder
                     if (seen.Add(property))
                         results.Add(property);
             }
+            else if (ns is INamespaceSymbol namespaceSymbol &&
+                TryResolveTypeFromNamespaceName(namespaceSymbol, out var namespaceNamedType))
+            {
+                foreach (var member in namespaceNamedType.GetMembers(name))
+                    if (seen.Add(member))
+                        results.Add(member);
+
+                foreach (var method in LookupExtensionStaticMethods(name, namespaceNamedType))
+                    if (seen.Add(method))
+                        results.Add(method);
+
+                foreach (var property in LookupExtensionStaticProperties(name, namespaceNamedType))
+                    if (seen.Add(property))
+                        results.Add(property);
+            }
         }
 
         // Types explicitly imported
@@ -144,6 +139,33 @@ class ImportBinder : Binder
             return results;
 
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
+    }
+
+    private bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)
+    {
+        var namespaceName = namespaceSymbol.ToString();
+        if (string.IsNullOrWhiteSpace(namespaceName))
+        {
+            type = null!;
+            return false;
+        }
+
+        type = Compilation.GetTypeByMetadataName(namespaceName)
+            ?? ResolveTypeFromContainingNamespace(namespaceName);
+        return type is not null;
+    }
+
+    private ITypeSymbol? ResolveTypeFromContainingNamespace(string name)
+    {
+        var lastDot = name.LastIndexOf('.');
+        if (lastDot <= 0 || lastDot == name.Length - 1)
+            return null;
+
+        var namespaceName = name[..lastDot];
+        var typeName = name[(lastDot + 1)..];
+        var ns = Compilation.GetNamespaceSymbol(namespaceName);
+        return ns?.LookupType(typeName)
+            ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
     }
 
     public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)

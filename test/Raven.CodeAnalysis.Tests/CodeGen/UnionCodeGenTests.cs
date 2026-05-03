@@ -1792,6 +1792,70 @@ class Container {
     }
 
     [Fact]
+    public void TargetTypedParameterlessUnionCase_EmitsInNestedConstructorArgument()
+    {
+        var code = """
+union Option<T> {
+    case Some(value: T)
+    case None
+}
+
+record User(Profile: Option<Profile>)
+record Profile(Settings: Option<Settings>)
+record Settings(Theme: Option<Theme>)
+record Theme(PrimaryColor: Option<string>)
+
+class Container {
+    public static func DescribeMissing() -> string {
+        val value = Some(User(Some(Profile(Some(Settings(Some(Theme(None))))))))
+        return describe(value)
+    }
+
+    public static func DescribeTargetTypedMissing() -> string {
+        val value = Some(User(Some(Profile(Some(Settings(Some(Theme(.None))))))))
+        return describe(value)
+    }
+
+    public static func DescribePresent() -> string {
+        val value = Some(User(Some(Profile(Some(Settings(Some(Theme(Some("blue")))))))))
+        return describe(value)
+    }
+
+    static func describe(user: Option<User>) -> string {
+        return user match {
+            Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(val color)))))))) => "Primary color: $color"
+            _ => "Could not access primary color"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var containerType = runtimeAssembly.GetType("Container", throwOnError: true)!;
+
+        Assert.Equal("Could not access primary color", containerType.GetMethod("DescribeMissing", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("Could not access primary color", containerType.GetMethod("DescribeTargetTypedMissing", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("Primary color: blue", containerType.GetMethod("DescribePresent", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
     public void UnionCaseToString_HandlesGenericValueTypes()
     {
         var code = """

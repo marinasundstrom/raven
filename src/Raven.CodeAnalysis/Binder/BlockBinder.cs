@@ -5308,6 +5308,24 @@ partial class BlockBinder : Binder
                 return invocationTargetType;
         }
 
+        // Target type from constructor arguments: `Theme(None)` / `Theme(.None)`.
+        // Invocation binding also pushes candidate parameter types, but simple
+        // target-typed expressions may ask for context while binding themselves.
+        if (node.Parent is ArgumentSyntax argument &&
+            ReferenceEquals(argument.Expression, node) &&
+            argument.Parent is ArgumentListSyntax argumentList &&
+            argumentList.Parent is InvocationExpressionSyntax argumentInvocation &&
+            argumentInvocation.Expression is TypeSyntax constructorTypeSyntax)
+        {
+            var constructorArgumentTargetType = GetConstructorArgumentTargetTypeFromSyntax(
+                constructorTypeSyntax,
+                argumentList.Arguments,
+                argument);
+
+            if (constructorArgumentTargetType is not null)
+                return constructorArgumentTargetType;
+        }
+
         // Target type from `return <expr>`.
         if (node.Parent is ReturnStatementSyntax)
         {
@@ -5369,7 +5387,10 @@ partial class BlockBinder : Binder
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument)
     {
-        if (BindTypeSyntaxAsExpression(typeSyntax) is not BoundTypeExpression typeExpression ||
+        using var nonReportingScope = _diagnostics.CreateNonReportingScope();
+        var boundType = BindTypeSyntaxAsExpression(typeSyntax);
+
+        if (boundType is not BoundTypeExpression typeExpression ||
             typeExpression.Type is not INamedTypeSymbol typeSymbol)
         {
             return null;
@@ -9328,7 +9349,6 @@ partial class BlockBinder : Binder
         var methodCandidates = new SymbolQuery(methodName)
             .LookupMethods(this)
             .ToImmutableArray();
-
         if (!methodCandidates.IsDefaultOrEmpty)
         {
             var accessibleMethods = GetAccessibleMethods(methodCandidates, receiverSyntax.GetLocation());
@@ -14469,26 +14489,9 @@ partial class BlockBinder : Binder
 
             if (current is ImportBinder importBinder)
             {
-                foreach (var ns in importBinder.GetImportedNamespacesOrTypeScopes())
-                {
-                    foreach (var member in ns.GetMembers(name))
-                        if (seen.Add(member))
-                            yield return member;
-                }
-
-                foreach (var type in importBinder.GetImportedTypes())
-                {
-                    if (type.Name == name && seen.Add(type))
-                        yield return type;
-                }
-
-                var aliasMap = importBinder.GetAliases();
-                if (aliasMap.TryGetValue(name, out var symbols))
-                {
-                    foreach (var symbol in symbols)
-                        if (seen.Add(symbol))
-                            yield return symbol;
-                }
+                foreach (var symbol in importBinder.LookupSymbols(name))
+                    if (seen.Add(symbol))
+                        yield return symbol;
             }
 
             current = current.ParentBinder;

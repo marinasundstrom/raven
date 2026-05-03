@@ -724,6 +724,29 @@ union Option<T> {
     }
 
     [Fact]
+    public void TargetTypedParameterlessUnionCase_BindsInConstructorArgument()
+    {
+        const string source = """
+func build() {
+    val theme = Theme(None)
+    val theme2 = Theme(.None)
+}
+
+record Theme(PrimaryColor: Option<string>)
+
+union Option<T> {
+    case Some(value: T)
+    case None
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void AsyncReturn_TargetTypedCase_BindsUnionCase()
     {
         const string source = """

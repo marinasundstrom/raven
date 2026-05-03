@@ -1,5 +1,8 @@
 
 
+using System.Collections.Generic;
+using System.Linq;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -23,11 +26,14 @@ class CompilationUnitBinder : Binder
     }
 
     public override ISymbol? LookupSymbol(string name)
-    {
-        var parentSymbol = base.LookupSymbol(name);
-        if (parentSymbol != null)
-            return parentSymbol;
+        => LookupSymbols(name).FirstOrDefault();
 
-        return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
+    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    {
+        foreach (var symbol in base.LookupSymbols(name))
+            yield return symbol;
+
+        foreach (var symbol in Compilation.GlobalNamespace.GetMembers(name))
+            yield return symbol;
     }
 }
