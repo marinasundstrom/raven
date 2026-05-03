@@ -1072,6 +1072,10 @@ partial class BlockBinder : Binder
             ThrowExpressionSyntax throwExpression => BindThrowExpression(throwExpression),
             PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
             FunctionExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
+            TrailingBlockExpressionSyntax trailingBlockExpression => BindTrailingBlockExpression(
+                trailingBlockExpression,
+                targetType: null,
+                useDelegateReturnTarget: false),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
             PrefixOperatorExpressionSyntax unaryExpression => BindUnaryExpression(unaryExpression),
             PostfixOperatorExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),

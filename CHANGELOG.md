@@ -1,6 +1,12 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-05-02**.
+Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
+
+## 2026-05-03
+
+### Changed
+- The language server now ignores generated, package/cache, build output, and temporary probe directories when discovering projects or reacting to watched-file changes, reducing full workspace reload storms in VS Code.
+- Semantic queries over brace trailing blocks now bind the trailing block expression instead of throwing, so hover and related editor features remain stable when the cursor lands inside that syntax.
 
 ## 2026-05-02
 

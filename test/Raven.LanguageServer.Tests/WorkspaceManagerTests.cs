@@ -54,6 +54,70 @@ public sealed class WorkspaceManagerTests : IDisposable
     }
 
     [Fact]
+    public void FindWorkspaceProjectFiles_SkipsGeneratedAndTemporaryDirectories()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var rootProjectPath = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        _ = WriteProject(Path.Combine(_tempRoot, ".raven", "nuget-restore", "restore"), "Restore", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        _ = WriteProject(Path.Combine(_tempRoot, "obj", "Debug", "generated"), "Generated", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        _ = WriteProject(Path.Combine(_tempRoot, "tmp-services-bisect", "probe"), "Probe", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+
+        var projectSystem = new MsBuildProjectSystemService();
+
+        var candidates = WorkspaceManager.FindWorkspaceProjectFiles(_tempRoot, projectSystem);
+
+        candidates.ShouldBe([rootProjectPath]);
+    }
+
+    [Fact]
+    public void ShouldReloadForWatchedFileChanges_IgnoresGeneratedAndTemporaryPaths()
+    {
+        var generatedPaths = new[]
+        {
+            Path.Combine(_tempRoot, ".raven", "nuget-restore", "Restore.csproj"),
+            Path.Combine(_tempRoot, "obj", "Debug", "net10.0", "raven", "generated", "App.g.rvn"),
+            Path.Combine(_tempRoot, "bin", "Debug", "App.rvn"),
+            Path.Combine(_tempRoot, "tmp-services-bisect", "probe", "main.rvn")
+        };
+
+        WorkspaceManager.ShouldReloadForWatchedFileChanges(generatedPaths).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ShouldReloadForWatchedFileChanges_ReloadsForSourceAndProjectFiles()
+    {
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var projectPath = Path.Combine(_tempRoot, "App.rvnproj");
+
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([sourcePath]).ShouldBeTrue();
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([projectPath]).ShouldBeTrue();
+    }
+
+    [Fact]
     public void Initialize_OpensNestedProjectsWithoutSolutionFile()
     {
         Directory.CreateDirectory(_tempRoot);

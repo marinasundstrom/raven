@@ -22,6 +22,27 @@ namespace Raven.LanguageServer;
 internal sealed class WorkspaceManager
 {
     private static readonly string MacroShadowOutputRoot = Path.Combine(Path.GetTempPath(), "raven-ls-macros");
+    private static readonly HashSet<string> WorkspaceDiscoveryExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git",
+        ".raven",
+        ".vs",
+        ".vscode",
+        "bin",
+        "node_modules",
+        "obj",
+        "packages"
+    };
+
+    private static readonly HashSet<string> WatchedFileExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git",
+        ".raven",
+        "bin",
+        "node_modules",
+        "obj",
+        "packages"
+    };
 
     private readonly RavenWorkspace _workspace;
     private readonly ILogger<WorkspaceManager> _logger;
@@ -100,14 +121,7 @@ internal sealed class WorkspaceManager
         if (changedPaths.Length == 0 || _workspaceRoots.Length == 0)
             return;
 
-        var shouldReload = changedPaths.Any(path =>
-        {
-            var extension = Path.GetExtension(path);
-            return string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
-                   RavenFileExtensions.HasRavenExtension(path);
-        });
+        var shouldReload = ShouldReloadForWatchedFileChanges(changedPaths);
 
         if (!shouldReload)
             return;
@@ -272,13 +286,90 @@ internal sealed class WorkspaceManager
         if (!Directory.Exists(root))
             return [];
 
-        var candidates = Directory
-            .EnumerateFiles(root, "*.*proj", SearchOption.AllDirectories)
-            .Where(projectSystem.CanOpenProject)
+        var candidates = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            string[] files;
+            string[] directories;
+
+            try
+            {
+                files = Directory.GetFiles(directory, "*.*proj", SearchOption.TopDirectoryOnly);
+                directories = Directory.GetDirectories(directory, "*", SearchOption.TopDirectoryOnly);
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (var file in files)
+            {
+                if (projectSystem.CanOpenProject(file))
+                    candidates.Add(file);
+            }
+
+            foreach (var childDirectory in directories)
+            {
+                if (!IsWorkspaceDiscoveryDirectoryExcluded(childDirectory))
+                    pending.Push(childDirectory);
+            }
+        }
+
+        return candidates
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
 
-        return candidates;
+    internal static bool ShouldReloadForWatchedFileChanges(IEnumerable<string> changedPaths)
+        => changedPaths.Any(IsRelevantWatchedFileChangePath);
+
+    internal static bool IsRelevantWatchedFileChangePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || IsWatchedFilePathExcluded(path))
+            return false;
+
+        var extension = Path.GetExtension(path);
+        return string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
+               RavenFileExtensions.HasRavenExtension(path);
+    }
+
+    private static bool IsWorkspaceDiscoveryDirectoryExcluded(string path)
+    {
+        var directoryName = Path.GetFileName(NormalizePath(path));
+        return WorkspaceDiscoveryExcludedDirectoryNames.Contains(directoryName) ||
+               directoryName.StartsWith("tmp-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsWatchedFilePathExcluded(string path)
+    {
+        foreach (var segment in EnumeratePathSegments(path))
+        {
+            if (WatchedFileExcludedDirectoryNames.Contains(segment) ||
+                segment.StartsWith("tmp-", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> EnumeratePathSegments(string path)
+    {
+        var normalizedPath = NormalizePath(path);
+        foreach (var segment in normalizedPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        {
+            if (!string.IsNullOrWhiteSpace(segment))
+                yield return segment;
+        }
     }
 
     internal static string SelectPrimaryProjectPath(string root, IReadOnlyList<string> candidates)

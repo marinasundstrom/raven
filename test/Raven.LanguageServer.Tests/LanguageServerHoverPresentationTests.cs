@@ -1875,7 +1875,7 @@ class C {
         var token = root.DescendantTokens().First(t =>
             t.Kind == SyntaxKind.IdentifierToken &&
             t.ValueText == "Name" &&
-            t.Parent?.AncestorsAndSelf().Any(static n => n is ObjectInitializerAssignmentEntrySyntax) == true);
+            t.Parent?.AncestorsAndSelf().Any(static n => n is AssignmentStatementSyntax) == true);
 
         Should.NotThrow(() => SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1));
     }
