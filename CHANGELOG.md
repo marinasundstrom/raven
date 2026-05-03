@@ -6,6 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-02**.
 
 ### Changed
 - `Raven.Core` now includes the generic `RavenUnionJsonConverterFactory`/`RavenUnionJsonConverter<TUnion>` implementation for opt-in JSON serialization of ordinary Raven unions, while `Option<T>` and `Result<T, E>` keep their specialized JSON converters.
+- Generic Raven union JSON serialization now supports a configurable case discriminator property. `"$case"` remains the default, and `[RavenUnionJsonConverter("kind")]` can be used when a domain-specific property name fits better.
 
 ## 2026-05-01
 
