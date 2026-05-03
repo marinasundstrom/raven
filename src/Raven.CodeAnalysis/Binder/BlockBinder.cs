@@ -5313,6 +5313,8 @@ partial class BlockBinder : Binder
         // target-typed expressions may ask for context while binding themselves.
         if (node.Parent is ArgumentSyntax argument &&
             ReferenceEquals(argument.Expression, node) &&
+            node is ExpressionSyntax argumentExpression &&
+            TryGetTargetTypedUnionCaseName(argumentExpression, out _) &&
             argument.Parent is ArgumentListSyntax argumentList &&
             argumentList.Parent is InvocationExpressionSyntax argumentInvocation &&
             argumentInvocation.Expression is TypeSyntax constructorTypeSyntax)
@@ -8732,6 +8734,8 @@ partial class BlockBinder : Binder
 
     private bool HasApplicableExplicitFunctionConstructor(INamedTypeSymbol type, InvocationExpressionSyntax syntax)
     {
+        using var nonReportingScope = _diagnostics.CreateNonReportingScope();
+
         var constructors = FilterInvocationCandidatesForArgumentBinding(
             type.Constructors,
             syntax.ArgumentList.Arguments,

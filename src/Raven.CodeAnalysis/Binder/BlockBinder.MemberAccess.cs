@@ -1812,11 +1812,64 @@ partial class BlockBinder
             if (parameter is null)
                 return false;
 
+            if (argument.Expression is BoundFunctionExpression lambda)
+            {
+                if (!TryUnifyConstructorFunctionArgument(typeParameters, parameter.Type, lambda, substitutions))
+                    return false;
+
+                continue;
+            }
+
             if (!TryUnifyConstructorParameterType(typeParameters, parameter.Type, argumentType, substitutions))
                 return false;
         }
 
         return substitutions.Count > 0;
+    }
+
+    private bool TryUnifyConstructorFunctionArgument(
+        ImmutableArray<ITypeParameterSymbol> typeParameters,
+        ITypeSymbol parameterType,
+        BoundFunctionExpression lambda,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        parameterType = parameterType is NullableTypeSymbol nullableParameterType
+            ? nullableParameterType.UnderlyingType
+            : parameterType;
+
+        INamedTypeSymbol? delegateType = null;
+        if (parameterType is INamedTypeSymbol namedParameterType)
+        {
+            if (namedParameterType.TypeKind == TypeKind.Delegate)
+                delegateType = namedParameterType;
+            else if (TryGetExpressionTreeDelegateType(namedParameterType, out var expressionTreeDelegate))
+                delegateType = expressionTreeDelegate;
+        }
+
+        if (delegateType is null || delegateType.GetDelegateInvokeMethod() is not { } invoke)
+            return false;
+
+        var lambdaParameters = lambda.Parameters.ToImmutableArray();
+        if (invoke.Parameters.Length != lambdaParameters.Length)
+            return false;
+
+        for (var i = 0; i < lambdaParameters.Length; i++)
+        {
+            var lambdaParameterType = lambdaParameters[i].Type;
+            if (lambdaParameterType.TypeKind == TypeKind.Error)
+                continue;
+
+            if (!TryUnifyConstructorParameterType(typeParameters, invoke.Parameters[i].Type, lambdaParameterType, substitutions))
+                return false;
+        }
+
+        if (lambda.ReturnType.TypeKind != TypeKind.Error &&
+            !TryUnifyConstructorParameterType(typeParameters, invoke.ReturnType, lambda.ReturnType, substitutions))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static bool AreEquivalentGenericInstantiationArgument(ITypeSymbol left, ITypeSymbol right)
