@@ -44,6 +44,14 @@ open class EndpointDefinition : EndpointNode {
         Method = method
         Pattern = pattern
         Handler = handler
+        Name = ""
+    }
+
+    init(method: string, pattern: string, handler: Delegate, name: string) {
+        Method = method
+        Pattern = pattern
+        Handler = handler
+        Name = name
     }
 
     val Method: string
@@ -52,7 +60,7 @@ open class EndpointDefinition : EndpointNode {
 
     val Handler: Delegate
 
-    var Name: string = ""
+    val Name: string
 }
 
 class EndpointGroup : EndpointNode {
@@ -99,8 +107,7 @@ extension WebApplicationDslExtensions for WebApplication {
 
 extension EndpointDefinitionDslExtensions for EndpointDefinition {
     func Named(name: string) -> EndpointDefinition {
-        self.Name = name
-        return self
+        return EndpointDefinition(self.Method, self.Pattern, self.Handler, name)
     }
 }
 
@@ -222,26 +229,11 @@ val app = builder.Build()
 
 val store = TodoStore.Seeded()
 
-app.Route("") {
-    GET("/") {
-        "Raven ASP.NET Core trailing-block DSL sample. Try /todos."
-    }.Named("home")
-
-    GET("/health") {
-        "ok"
-    }.Named("health")
-}
+app.MapGet("/", func () => "Raven ASP.NET Core trailing-block DSL sample. Try /todos/1.")
+app.MapGet("/health", func () => "ok")
 
 app.Route("/todos") {
-    GET("") {
-        store.Summary()
-    }.Named("todos-list")
-
     GET("/{id:int}", func (id: int) => store.Describe(id)).Named("todos-get")
-
-    POST("/seed") {
-        store.Add("Created from a trailing block handler").ToLine()
-    }.Named("todos-seed")
 }
 
 app.Run()
