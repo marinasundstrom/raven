@@ -3,7 +3,7 @@ import System.Text.Json.*
 import System.Text.Json.Serialization.*
 import System.Collections.Generic.*
 
-[JsonConverter(typeof(RavenUnionJsonConverterFactory))]
+[RavenUnionJsonConverter("$case")]
 union VehicleStatus {
     case Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
     case Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
