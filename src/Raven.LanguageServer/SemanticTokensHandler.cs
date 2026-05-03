@@ -296,6 +296,18 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 };
             }
 
+            if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } containingType })
+            {
+                return containingType.TypeKind switch
+                {
+                    TypeKind.Class => SemanticTokenType.Class,
+                    TypeKind.Struct => SemanticTokenType.Struct,
+                    TypeKind.Interface => SemanticTokenType.Interface,
+                    TypeKind.Enum => SemanticTokenType.Enum,
+                    _ => SemanticTokenType.Type
+                };
+            }
+
             return token.Parent switch
             {
                 ClassDeclarationSyntax => SemanticTokenType.Class,

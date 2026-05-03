@@ -59,7 +59,7 @@ public static class SemanticClassifier
 
                     var classification = symbol is null
                         ? ClassifyBySyntaxOrEventFallback(bindNode, model)
-                        : ClassifySymbol(symbol);
+                        : ClassifySymbol(symbol, bindNode);
 
                     classification = ClassifyDiscriminatedUnionCasePattern(descendant, bindNode, symbol, model, classification);
                     tokenMap[descendant] = classification;
@@ -82,8 +82,14 @@ public static class SemanticClassifier
         return new SemanticClassificationResult(tokenMap, triviaMap);
     }
 
-    private static SemanticClassification ClassifySymbol(ISymbol symbol)
+    private static SemanticClassification ClassifySymbol(ISymbol symbol, SyntaxNode node)
     {
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } &&
+            node is InvocationExpressionSyntax)
+        {
+            return SemanticClassification.Type;
+        }
+
         return symbol switch
         {
             INamespaceSymbol => SemanticClassification.Namespace,
