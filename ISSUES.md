@@ -21,7 +21,106 @@ by tests, and prefer small repros over broad historical failure summaries.
 - **Suggested next step:** Split this into smaller tracked issues by current
   failure cluster. Do not use this broad item as a substitute for focused bugs.
 
+## DSL Follow-ups
+
+These items were found while building the ASP.NET Core trailing-block DSL sample.
+
+### Nested builder blocks with typed function handlers
+
+Using nested builder blocks with a typed function-expression handler exposed an
+emission failure:
+
+```text
+Missing parameter builder for 'id'
+```
+
+The failure appeared with a shape like:
+
+```raven
+app.MapDsl {
+    Group("/todos") {
+        GET("/{id:int}", func (id: int) => store.Describe(id)).Named("todos-get")
+    }
+}
+```
+
+Investigate how function-expression parameters are declared and emitted when the
+function expression is nested inside builder-rewritten trailing blocks.
+
+### Delegate and function type consistency
+
+Function type syntax should remain the preferred DSL-facing surface:
+
+```raven
+init(pattern: string, handler: T -> string)
+```
+
+The compiler should consistently map these signatures to the underlying
+`Func<>` or `Action<>` delegate types for method parameters, constructors,
+generic inference, overload resolution, and ASP.NET Core interop.
+
+### Constructor and method binding consistency
+
+DSL descriptors often use types as invocable route declarations:
+
+```raven
+GET("/{id:int}", func (id: int) => store.Describe(id))
+```
+
+Constructor binding and method binding should follow the same argument-binding
+rules where practical, including delegate target typing and generic type
+argument inference. Same-named non-generic and generic types need predictable
+resolution:
+
+- Prefer an applicable non-generic constructor.
+- If the non-generic type is not applicable, infer a same-named generic type
+  when exactly one candidate succeeds.
+- Report ambiguity when multiple generic candidates succeed.
+
+### Identifier trailing blocks inside route groups
+
+A route group would be more natural if Raven could support route-scoped
+identifier trailing blocks:
+
+```raven
+app.Route("/todos") {
+    GET {
+        store.Summary()
+    }
+}
+```
+
+This likely requires design work around trailing blocks on identifiers and how a
+builder scope supplies contextual route information.
+
+### ASP.NET Core metadata extension overloads
+
+Some ASP.NET Core metadata helpers, such as `WithTags`, can expose generic and
+non-generic overloads that Raven currently treats as ambiguous. Investigate
+overload specificity and extension-method resolution for these APIs so DSL
+metadata helpers can stay thin wrappers over ASP.NET Core.
+
 ## Recently Fixed
+
+### Repeated trailing-block emission in the same scope
+
+- **Fixed:** Trailing-block lambdas are included in synthesized lambda ordinal
+  calculation and are not reused from target-sensitive expression caches.
+- **Previous behavior:** Later trailing-block calls in the same scope could
+  reuse the first trailing block's emitted body. In the ASP.NET DSL sample, this
+  appeared as later endpoints receiving the first endpoint handler or metadata.
+- **Coverage:** `TrailingBlockCodeGenTests` verifies repeated ordinary
+  trailing-block calls and repeated builder-rewritten trailing-block calls emit
+  distinct lambda bodies.
+
+### Multiple endpoints per route group in the ASP.NET DSL sample
+
+- **Fixed:** The sample has been expanded back to a representative route group:
+  `GET("")`, typed `GET("/{id:int}", func ...)`, and `POST("/seed")`.
+- **Previous behavior:** This shape was reduced while repeated trailing-block
+  emission reused the first endpoint's handler or metadata.
+- **Coverage:** The repeated trailing-block codegen coverage above locks the
+  compiler behavior. The sample was also runtime-smoke-tested through Kestrel.
 
 ### LINQ/lambda lowering in reflection-heavy generic converter code
 

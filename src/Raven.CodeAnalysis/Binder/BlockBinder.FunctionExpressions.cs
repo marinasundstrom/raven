@@ -1068,7 +1068,6 @@ partial class BlockBinder
             capturedVariables,
             candidateDelegates);
 
-        CacheBoundNode(syntax, boundLambda);
         return boundLambda;
     }
 

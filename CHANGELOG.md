@@ -9,6 +9,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 - Semantic queries over brace trailing blocks now bind the trailing block expression instead of throwing, so hover and related editor features remain stable when the cursor lands inside that syntax.
 - VS Code syntax highlighting and language-server semantic tokens now classify call targets inside trailing-block DSLs consistently, including uppercase extension-style calls and constructor-like calls such as `GET("/") { ... }`.
 - Generic type construction can now infer type arguments from explicit function-expression parameters even when a same-named non-generic type exists, enabling DSL shapes such as `GET("/{id:int}", func (id: int) => ...)` to select `GET<int>` when the non-generic constructor is not applicable.
+- Repeated trailing-block calls in the same scope now emit distinct lambda bodies, including builder-rewritten trailing blocks used by lightweight DSLs.
 
 ## 2026-05-02
 

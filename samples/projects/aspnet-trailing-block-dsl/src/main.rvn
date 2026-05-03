@@ -186,6 +186,16 @@ class TodoStore {
         return store
     }
 
+    func Summary() -> string {
+        var text = ""
+
+        for todo in todos {
+            text = text + todo.ToLine() + "\n"
+        }
+
+        return text
+    }
+
     private func Find(id: int) -> Todo? {
         for todo in todos {
             if todo.Id == id {
@@ -206,7 +216,7 @@ class TodoStore {
         return todo.ToLine()
     }
 
-    private func Add(title: string) -> Todo {
+    func Add(title: string) -> Todo {
         val todo = Todo(nextId, title, false)
         nextId = nextId + 1
         todos.Add(todo)
@@ -223,7 +233,15 @@ app.MapGet("/", func () => "Raven ASP.NET Core trailing-block DSL sample. Try /t
 app.MapGet("/health", func () => "ok")
 
 app.Route("/todos") {
+    GET("") {
+        store.Summary()
+    }.Named("todos-list")
+
     GET("/{id:int}", func (id: int) => store.Describe(id)).Named("todos-get")
+
+    POST("/seed") {
+        store.Add("Created from a trailing block handler").ToLine()
+    }.Named("todos-seed")
 }
 
 app.Run()

@@ -1033,7 +1033,7 @@ partial class BlockBinder : Binder
         // Collection literals are target-type-sensitive. Reusing a cached node can
         // apply a previous context (for example, inferred array) in a later binding
         // that has an explicit target type.
-        var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax;
+        var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax or TrailingBlockExpressionSyntax;
 
         if (!skipCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
             return cached;
