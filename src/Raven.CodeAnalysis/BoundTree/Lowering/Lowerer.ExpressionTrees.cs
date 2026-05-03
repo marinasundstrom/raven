@@ -376,6 +376,61 @@ internal sealed partial class Lowerer
                     context.MarkLowered(expression, lowered);
                     return true;
                 }
+
+            case BoundInvocationExpression invocation:
+                {
+                    if (!invocation.Method.IsStatic ||
+                        invocation.Receiver is not null and not BoundTypeExpression)
+                    {
+                        context.MarkUnsupported(expression, "instance method calls are not supported yet");
+                        return false;
+                    }
+
+                    var loweredArguments = new List<BoundExpression>();
+                    foreach (var argument in invocation.Arguments)
+                    {
+                        if (!TryLowerLambdaBody(argument, parameterLocals, context, out var loweredArgument))
+                            return false;
+
+                        loweredArguments.Add(loweredArgument);
+                    }
+
+                    var typeArrayType = compilation.CreateArrayTypeSymbol(systemType, 1);
+                    var methodTypeArguments = invocation.Method.IsGenericMethod
+                        ? invocation.Method.TypeArguments
+                            .Select(typeArgument => (BoundExpression)new BoundTypeOfExpression(typeArgument, systemType))
+                            .ToArray()
+                        : [];
+                    var methodTypeArgumentArray = new BoundCollectionExpression(typeArrayType, methodTypeArguments);
+
+                    var expressionArrayType = compilation.CreateArrayTypeSymbol(expressionType, 1);
+                    var argumentArray = new BoundCollectionExpression(expressionArrayType, loweredArguments);
+                    var receiverType = invocation.Method.ContainingType;
+                    if (receiverType is null)
+                    {
+                        context.MarkUnsupported(expression, "method call without containing type is not supported");
+                        return false;
+                    }
+
+                    var receiverTypeOf = new BoundTypeOfExpression(receiverType, systemType);
+                    var methodName = new BoundLiteralExpression(
+                        BoundLiteralExpressionKind.StringLiteral,
+                        invocation.Method.Name,
+                        stringType);
+
+                    if (!TryCreateExpressionFactoryCall(
+                            "Call",
+                            [receiverTypeOf, methodName, methodTypeArgumentArray, argumentArray],
+                            expressionType,
+                            out var call))
+                    {
+                        return false;
+                    }
+
+                    lowered = call;
+                    context.MarkLowered(expression, lowered);
+                    return true;
+                }
         }
 
         context.MarkUnsupported(expression, $"bound node '{expression.GetType().Name}' is not supported");
@@ -389,12 +444,25 @@ internal sealed partial class Lowerer
         {
             invocation = null!;
 
-            var method = expressionType.GetMembers(methodName)
+            var candidates = expressionType.GetMembers(methodName)
                 .OfType<IMethodSymbol>()
-                .FirstOrDefault(candidate =>
+                .Where(candidate =>
                     !candidate.IsGenericMethod &&
-                    candidate.Parameters.Length == arguments.Count &&
+                    candidate.Parameters.Length == arguments.Count)
+                .ToArray();
+
+            var method = candidates
+                .FirstOrDefault(candidate =>
                     ParametersCompatible(candidate.Parameters, arguments.Select(arg => arg.Type).ToArray()));
+            if (method is null && methodName == "Call" && arguments.Count == 4)
+            {
+                method = candidates.FirstOrDefault(candidate =>
+                    SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type, systemType) &&
+                    SymbolEqualityComparer.Default.Equals(candidate.Parameters[1].Type, stringType) &&
+                    IsArrayOf(candidate.Parameters[2].Type, systemType) &&
+                    IsArrayOf(candidate.Parameters[3].Type, expressionType));
+            }
+
             if (method is null)
                 return false;
 
@@ -415,6 +483,10 @@ internal sealed partial class Lowerer
             return SymbolEqualityComparer.Default.Equals(expectedReturnType, method.ReturnType) ||
                    compilation.ClassifyConversion(method.ReturnType, expectedReturnType).Exists;
         }
+
+        static bool IsArrayOf(ITypeSymbol type, ITypeSymbol elementType)
+            => type is IArrayTypeSymbol arrayType &&
+               SymbolEqualityComparer.Default.Equals(arrayType.ElementType, elementType);
 
         bool ParametersCompatible(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<ITypeSymbol?> argumentTypes)
         {

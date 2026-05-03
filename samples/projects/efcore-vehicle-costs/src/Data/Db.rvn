@@ -10,8 +10,12 @@ class VehicleDbContext : DbContext {
     var FuelConsumptions: DbSet<FuelConsumptionRecord>
 
     protected override func OnModelCreating(modelBuilder: ModelBuilder) {
-        // Keep the sample on convention-based mapping. The union is persisted through the
-        // explicit StatusJson string property, which Raven can reason about more reliably than
-        // the full EF fluent configuration shape today.
+        modelBuilder.Entity<VehicleEntity>()
+            .Property(vehicle => vehicle.Status)
+            .HasColumnName("Status")
+            .HasColumnType("jsonb")
+            .HasConversion<string>(
+                status => VehicleStatusJson.Serialize(status),
+                json => VehicleStatusJson.Deserialize(json))
     }
 }

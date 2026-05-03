@@ -90,8 +90,18 @@ partial class BlockBinder
 
     private BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
     {
+        // Extract explicit method type arguments at the call site (if any), e.g. `items.CountItems<double>(2)`.
+        // Bind these before argument binding so lambda arguments can be target-typed with the constructed delegate.
+        var explicitTypeArguments = GetExplicitInvocationTypeArguments(syntax);
+
         var candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(methodGroup.Methods, syntax.ArgumentList.Arguments, methodGroup.Receiver, syntax.TrailingBlock);
-        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgumentBinding, syntax.ArgumentList.Arguments, out var hasErrors, methodGroup.Receiver, trailingBlock: syntax.TrailingBlock);
+        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(
+            candidatesForArgumentBinding,
+            syntax.ArgumentList.Arguments,
+            out var hasErrors,
+            methodGroup.Receiver,
+            trailingBlock: syntax.TrailingBlock,
+            explicitTypeArguments: explicitTypeArguments);
 
         if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
         {
@@ -117,31 +127,6 @@ partial class BlockBinder
         var selected = methodGroup.SelectedMethod;
         var extensionReceiver = IsExtensionReceiver(methodGroup.Receiver) ? methodGroup.Receiver : null;
         var receiverSyntax = GetInvocationReceiverSyntax(syntax) ?? syntax.Expression;
-
-        // Extract explicit method type arguments at the call site (if any), e.g. `items.CountItems<double>(2)`.
-        // We bind these here (binder context) so the selected fast-path can still apply partial generic arguments.
-        ImmutableArray<ITypeSymbol> explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
-
-        if (syntax.Expression is MemberAccessExpressionSyntax { Name: GenericNameSyntax g })
-        {
-            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(g.TypeArgumentList.Arguments.Count);
-            foreach (var ta in g.TypeArgumentList.Arguments)
-            {
-                var boundType = BindTypeSyntaxAsExpression(ta.Type);
-                builder.Add(boundType.Type ?? Compilation.ErrorTypeSymbol);
-            }
-            explicitTypeArguments = builder.ToImmutable();
-        }
-        else if (syntax.Expression is GenericNameSyntax g2)
-        {
-            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(g2.TypeArgumentList.Arguments.Count);
-            foreach (var ta in g2.TypeArgumentList.Arguments)
-            {
-                var boundType = BindTypeSyntaxAsExpression(ta.Type);
-                builder.Add(boundType.Type ?? Compilation.ErrorTypeSymbol);
-            }
-            explicitTypeArguments = builder.ToImmutable();
-        }
 
         if (selected is not null)
         {
@@ -213,6 +198,28 @@ partial class BlockBinder
             !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
             _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private ImmutableArray<ITypeSymbol> GetExplicitInvocationTypeArguments(InvocationExpressionSyntax syntax)
+    {
+        GenericNameSyntax? genericName = syntax.Expression switch
+        {
+            MemberAccessExpressionSyntax { Name: GenericNameSyntax memberGeneric } => memberGeneric,
+            GenericNameSyntax invocationGeneric => invocationGeneric,
+            _ => null
+        };
+
+        if (genericName is null)
+            return ImmutableArray<ITypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(genericName.TypeArgumentList.Arguments.Count);
+        foreach (var argument in genericName.TypeArgumentList.Arguments)
+        {
+            var boundType = BindTypeSyntaxAsExpression(argument.Type);
+            builder.Add(boundType.Type ?? Compilation.ErrorTypeSymbol);
+        }
+
+        return builder.ToImmutable();
     }
 
     private ImmutableArray<IMethodSymbol> FilterInvocationCandidatesForArgumentBinding(
@@ -292,7 +299,8 @@ partial class BlockBinder
         out bool hasErrors,
         BoundExpression? receiver = null,
         ITypeSymbol? pipeReceiverType = null,
-        TrailingBlockExpressionSyntax? trailingBlock = null)
+        TrailingBlockExpressionSyntax? trailingBlock = null,
+        ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
     {
         // Bind invocation arguments while supplying a best-effort target type.
         // This is important for target-typed member bindings inside argument position,
@@ -313,7 +321,7 @@ partial class BlockBinder
         hasErrors = false;
 
         // Pre-inference pass: infer type parameters from non-lambda arguments.
-        var preInferredSubstitutions = TryPreInferTypeArguments(methods, arguments, receiver, pipeReceiverType);
+        var preInferredSubstitutions = TryPreInferTypeArguments(methods, arguments, receiver, pipeReceiverType, explicitTypeArguments);
 
         // Collect all method type parameters so we can detect unresolved ones.
         var allMethodTypeParams = CollectDistinctMethodTypeParameters(methods);
@@ -500,7 +508,8 @@ partial class BlockBinder
                 argumentIndex,
                 extensionReceiverImplicit,
                 receiverTypeForLambda,
-                pipeReceiverImplicit);
+                pipeReceiverImplicit,
+                preInferredSubstitutions);
         }
 
         static ImmutableArray<ITypeParameterSymbol> CollectDistinctMethodTypeParameters(ImmutableArray<IMethodSymbol> candidates)
@@ -1074,9 +1083,31 @@ partial class BlockBinder
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         BoundExpression? receiver,
-        ITypeSymbol? pipeReceiverType)
+        ITypeSymbol? pipeReceiverType,
+        ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
     {
         var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (!explicitTypeArguments.IsDefaultOrEmpty)
+        {
+            foreach (var candidateMethod in methods)
+            {
+                if (candidateMethod.TypeParameters.IsDefaultOrEmpty)
+                    continue;
+
+                var arity = candidateMethod.TypeParameters.Length;
+                if (explicitTypeArguments.Length > arity)
+                    continue;
+
+                var offset = arity - explicitTypeArguments.Length;
+                for (int i = 0; i < explicitTypeArguments.Length; i++)
+                {
+                    var explicitType = explicitTypeArguments[i];
+                    if (explicitType.TypeKind != TypeKind.Error)
+                        substitutions[candidateMethod.TypeParameters[offset + i]] = explicitType;
+                }
+            }
+        }
 
         // Only pre-infer when there is a single candidate with type parameters.
         // With multiple overloads the "natural" types may not pick the right one.

@@ -23,8 +23,8 @@ This sample is a Raven ASP.NET Core Web API that tracks vehicles, stores a Raven
 The important bit is the mapping approach:
 
 - the domain uses a real Raven `union`
-- EF Core persists `VehicleEntity.StatusJson` as PostgreSQL `jsonb`
-- `EncodeAsJson` and `DecodeFromJson` translate between the Raven union and a JSON DTO shape
+- EF Core persists `VehicleEntity.Status` directly through the PostgreSQL `jsonb` `Status` column
+- `HasConversion` uses the Raven union JSON converter when reading and writing the column
 
 That keeps the public model union-based while still using JSON storage in the database.
 

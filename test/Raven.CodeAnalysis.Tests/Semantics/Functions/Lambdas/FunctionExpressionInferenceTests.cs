@@ -1350,6 +1350,63 @@ class Container {
     }
 
     [Fact]
+    public void GenericFunction_WithExplicitTypeArgumentsAndTwoExpressionLambdas_TargetTypesBothLambdas()
+    {
+        const string source = """
+import System.*
+import System.Linq.Expressions.*
+
+class VehicleStatus {
+    static func Serialize(status: VehicleStatus) -> string {
+        return "ok"
+    }
+
+    static func Deserialize(json: string) -> VehicleStatus {
+        return VehicleStatus()
+    }
+}
+
+class PropertyBuilder<TModel> {
+    func HasConversion<TProvider>(
+        convertToProviderExpression: Expression<Func<TModel, TProvider>>,
+        convertFromProviderExpression: Expression<Func<TProvider, TModel>>) -> unit { }
+}
+
+class Program {
+    static func Main() -> unit {
+        val builder = PropertyBuilder<VehicleStatus>()
+        builder.HasConversion<string>(
+            status => VehicleStatus.Serialize(status),
+            json => VehicleStatus.Deserialize(json))
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdas = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SimpleFunctionExpressionSyntax>()
+            .ToArray();
+        Assert.Equal(2, lambdas.Length);
+
+        var convertToProvider = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[0]));
+        var convertToProviderParameter = Assert.Single(convertToProvider.Parameters);
+        Assert.Equal("VehicleStatus", convertToProviderParameter.Type.Name);
+        Assert.Equal(SpecialType.System_String, convertToProvider.ReturnType.SpecialType);
+
+        var convertFromProvider = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[1]));
+        var convertFromProviderParameter = Assert.Single(convertFromProvider.Parameters);
+        Assert.Equal(SpecialType.System_String, convertFromProviderParameter.Type.SpecialType);
+        Assert.Equal("VehicleStatus", convertFromProvider.ReturnType.Name);
+    }
+
+    [Fact]
     public void Lambda_TargetingAction_CanDiscardExpressionBodyResult()
     {
         const string source = """
@@ -1382,6 +1439,65 @@ class Container {
         var parameter = Assert.Single(boundLambda.Parameters);
         Assert.Equal("Builder", parameter.Type.Name);
         Assert.Equal(SpecialType.System_Unit, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
+    public void GenericFunction_WithExpressionSelectorAndActionBuilder_InfersNullablePropertyType()
+    {
+        const string source = """
+import System.*
+import System.Linq.Expressions.*
+
+class VehicleStatus {
+    func ToText() -> string {
+        return "ok"
+    }
+}
+
+class Vehicle {
+    var Status: VehicleStatus = VehicleStatus()
+}
+
+class PropertyBuilder<T> {
+    func ToJson() -> unit { }
+}
+
+class EntityBuilder<TEntity> {
+    func ComplexProperty<TProperty>(
+        selector: Expression<Func<TEntity, TProperty?>>,
+        buildAction: Action<PropertyBuilder<TProperty>>) -> unit { }
+}
+
+class Program {
+    static func Main() -> unit {
+        val builder = EntityBuilder<Vehicle>()
+        builder.ComplexProperty(vehicle => vehicle.Status, property => property.ToJson())
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var lambdas = tree.GetRoot().DescendantNodes().OfType<SimpleFunctionExpressionSyntax>().ToArray();
+        Assert.Equal(2, lambdas.Length);
+
+        var selector = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[0]));
+        var selectorParameter = Assert.Single(selector.Parameters);
+        Assert.Equal("Vehicle", selectorParameter.Type.Name);
+        var selectorReturnType = Assert.IsType<NullableTypeSymbol>(selector.ReturnType);
+        Assert.Equal("VehicleStatus", selectorReturnType.UnderlyingType.Name);
+
+        var action = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[1]));
+        var actionParameter = Assert.Single(action.Parameters);
+        var actionParameterType = Assert.IsAssignableFrom<INamedTypeSymbol>(actionParameter.Type);
+        Assert.Equal("PropertyBuilder", actionParameterType.Name);
+        Assert.Equal("VehicleStatus", Assert.Single(actionParameterType.TypeArguments).Name);
+        Assert.Equal(SpecialType.System_Unit, action.ReturnType.SpecialType);
     }
 
     [Fact]

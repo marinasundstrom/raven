@@ -58,6 +58,57 @@ class C {
         Assert.Contains("Lambda", collector.MethodNames);
     }
 
+    [Fact]
+    public void Lowerer_LambdaToExpressionTree_WithStaticMethodCall_RewritesToExpressionCall()
+    {
+        const string source = """
+import System.*
+import System.Linq.Expressions.*
+
+class C {
+    func Build() -> Expression<System.Func<int, string>> {
+        val tree: Expression<System.Func<int, string>> = (value: int) => Helpers.ToText(value)
+        return tree
+    }
+}
+
+static class Helpers {
+    static func ToText(value: int) -> string {
+        return value.ToString()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == "Build");
+        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+
+        var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
+        var localDeclaration = boundBody.Statements
+            .OfType<BoundLocalDeclarationStatement>()
+            .Single();
+        var initializer = localDeclaration.Declarators.Single().Initializer;
+        var conversion = Assert.IsType<BoundConversionExpression>(initializer);
+
+        var lowered = Lowerer.LowerExpression(methodSymbol, conversion);
+        var loweredBlock = Assert.IsType<BoundBlockExpression>(lowered);
+
+        var collector = new InvocationCollector();
+        collector.VisitBlockExpression(loweredBlock);
+
+        Assert.Contains("Call", collector.MethodNames);
+        Assert.Contains("Lambda", collector.MethodNames);
+    }
+
     private sealed class InvocationCollector : BoundTreeWalker
     {
         public HashSet<string> MethodNames { get; } = new(StringComparer.Ordinal);

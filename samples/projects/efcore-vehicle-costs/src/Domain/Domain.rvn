@@ -1,35 +1,13 @@
 import System.*
 import System.Text.Json.*
+import System.Text.Json.Serialization.*
 import System.Collections.Generic.*
 
+[JsonConverter(typeof(RavenUnionJsonConverterFactory))]
 union VehicleStatus {
     case Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
     case Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
     case Decommissioned(retiredUtc: DateTimeOffset, reason: string)
-
-    func EncodeAsJson() -> string {
-        return self match {
-            .Operational(val driverName, val sinceUtc, val currentOdometerKm) => {
-                JsonSerializer.Serialize(VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm))
-            }
-            .Maintenance(val workshop, val startedUtc, val expectedReadyUtc, val reason) => {
-                JsonSerializer.Serialize(VehicleStatusDto.CreateMaintenance(workshop, startedUtc, expectedReadyUtc, reason))
-            }
-            .Decommissioned(val retiredUtc, val reason) => {
-                JsonSerializer.Serialize(VehicleStatusDto.CreateDecommissioned(retiredUtc, reason))
-            }
-        }
-    }
-
-    static func DecodeFromJson(json: string) -> VehicleStatus {
-        val dto = JsonSerializer.Deserialize<VehicleStatusDto>(json)
-        if dto is null {
-            val fallback: VehicleStatus = .Decommissioned(DateTimeOffset.UtcNow, "Failed to deserialize status")
-            return fallback
-        }
-
-        return dto.ToStatus()
-    }
 }
 
 class VehicleEntity {
@@ -38,15 +16,32 @@ class VehicleEntity {
     var Model: string = ""
     var FuelType: string = ""
     var TypicalMonthlyDistanceKm: decimal = 0
-    var StatusJson: string = ""
+    var Status: VehicleStatus = .Operational("", DateTimeOffset.UtcNow, 0)
     var FuelConsumptions: List<FuelConsumptionRecord> = []
 
     func GetStatus() -> VehicleStatus {
-        return VehicleStatus.DecodeFromJson(StatusJson)
+        return Status
     }
 
     func SetStatus(status: VehicleStatus) {
-        StatusJson = status.EncodeAsJson()
+        Status = status
+    }
+}
+
+static class VehicleStatusJson {
+    static func Serialize(status: VehicleStatus) -> string {
+        return JsonSerializer.Serialize(status, CreateOptions())
+    }
+
+    static func Deserialize(json: string) -> VehicleStatus {
+        return JsonSerializer.Deserialize<VehicleStatus>(json, CreateOptions())
+    }
+
+    static func CreateOptions() -> JsonSerializerOptions {
+        return JsonSerializerOptions with {
+            WriteIndented = true,
+            PropertyNamingPolicy = .CamelCase
+        }
     }
 }
 

@@ -1227,8 +1227,14 @@ internal sealed class OverloadResolver
         if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
             return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod);
 
-        if (parameterType is NullableTypeSymbol paramNullable && argumentType is NullableTypeSymbol argNullable)
-            return TryInferFromTypes(compilation, paramNullable.UnderlyingType, argNullable.UnderlyingType, substitutions, inferenceMethod);
+        if (parameterType is NullableTypeSymbol paramNullable)
+        {
+            var nullableArgumentType = argumentType is NullableTypeSymbol argNullable
+                ? argNullable.UnderlyingType
+                : argumentType;
+
+            return TryInferFromTypes(compilation, paramNullable.UnderlyingType, nullableArgumentType, substitutions, inferenceMethod);
+        }
 
         return true;
 

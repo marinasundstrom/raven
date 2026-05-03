@@ -1317,7 +1317,8 @@ partial class BlockBinder
         int parameterIndex,
         bool extensionReceiverImplicit = false,
         ITypeSymbol? receiverType = null,
-        bool pipeReceiverImplicit = false)
+        bool pipeReceiverImplicit = false,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol>? preInferredSubstitutions = null)
     {
         if (argumentExpression is not FunctionExpressionSyntax lambda)
         {
@@ -1357,6 +1358,13 @@ partial class BlockBinder
                     delegateToAdd = rawType;
                 else if (TryGetExpressionTreeDelegateType(rawType, out var innerDelegate))
                     delegateToAdd = innerDelegate;
+            }
+
+            if (delegateToAdd is not null && preInferredSubstitutions is { Count: > 0 })
+            {
+                var substituted = SubstituteTypeParameters(delegateToAdd, preInferredSubstitutions);
+                if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                    delegateToAdd = substitutedNamed;
             }
 
             // For generic extension methods, partially substitute type parameters inferrable from the receiver.
