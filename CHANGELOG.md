@@ -6,6 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 
 ### Changed
 - `Option<T>` JSON serialization now maps `.Some(value)` directly to the payload JSON and `.None` to `null`, matching JSON's native nullable-property shape. `Result<T, E>` keeps its tagged converter shape.
+- Constant field emission now supports narrow and unsigned primitive constants, fixing metadata enum members with byte-backed values such as `JsonValueKind.Null`.
 
 ## 2026-05-03
 

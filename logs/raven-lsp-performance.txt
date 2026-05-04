@@ -1,44 +1,63 @@
 Raven Language Server Performance Report
-Generated: 2026-05-04T11:41:20.6818480+00:00
+Generated: 2026-05-04T20:13:13.9432070+00:00
 Operation: warmAnalysis
-  Count: 2
-  TotalMs: 14221,5
-  AvgMs: 7110,8
-  MaxMs: 14221,2
+  Count: 1
+  TotalMs: 2070,4
+  AvgMs: 2070,4
+  MaxMs: 2070,4
   Stages:
-    analysisContext: count=2 total=8961,1ms avg=4480,5ms max=8961,1ms
-    semanticModel: count=2 total=5256,7ms avg=2628,3ms max=5256,7ms
-    gateWait: count=2 total=1,2ms avg=0,6ms max=1,2ms
+    semanticModel: count=1 total=2069,3ms avg=2069,3ms max=2069,3ms
+    gateWait: count=1 total=0,6ms avg=0,6ms max=0,6ms
+    analysisContext: count=1 total=0,0ms avg=0,0ms max=0,0ms
+
+Operation: hover
+  Count: 6
+  TotalMs: 353,5
+  AvgMs: 58,9
+  MaxMs: 291,7
+  Stages:
+    resolution: count=6 total=50,7ms avg=8,5ms max=15,8ms
+    gateWait: count=6 total=1,3ms avg=0,2ms max=1,1ms
+    analysisContext: count=6 total=0,9ms avg=0,2ms max=0,3ms
+    semanticModel: count=6 total=0,2ms avg=0,0ms max=0,1ms
+
+Operation: publishDiagnostics
+  Count: 1
+  TotalMs: 155,3
+  AvgMs: 155,3
+  MaxMs: 155,3
+  AvgResultCount: 0,0
 
 Operation: computeDocumentDiagnostics
   Count: 1
-  TotalMs: 9653,9
-  AvgMs: 9653,9
-  MaxMs: 9653,9
+  TotalMs: 147,7
+  AvgMs: 147,7
+  MaxMs: 147,7
   Stages:
-    gateWait: count=1 total=4994,1ms avg=4994,1ms max=4994,1ms
-    diagnosticsFetch: count=1 total=4659,5ms avg=4659,5ms max=4659,5ms
-    syntaxTree: count=1 total=0,2ms avg=0,2ms max=0,2ms
+    diagnosticsFetch: count=1 total=146,3ms avg=146,3ms max=146,3ms
+    gateWait: count=1 total=1,2ms avg=1,2ms max=1,2ms
+    syntaxTree: count=1 total=0,1ms avg=0,1ms max=0,1ms
 
 Operation: didOpen
-  Count: 2
-  TotalMs: 9083,5
-  AvgMs: 4541,8
-  MaxMs: 9038,9
+  Count: 1
+  TotalMs: 21,6
+  AvgMs: 21,6
+  MaxMs: 21,6
 
 Operation: documentSymbols
-  Count: 1
-  TotalMs: 15,4
-  AvgMs: 15,4
-  MaxMs: 15,4
+  Count: 2
+  TotalMs: 16,2
+  AvgMs: 8,1
+  MaxMs: 16,0
+  CacheHits: 1
   AvgResultCount: 3,0
   FirstLookupAfterEditCount: 1
-  FirstLookupAfterEditAvgMs: 40,5
-  FirstLookupAfterEditMaxMs: 40,5
+  FirstLookupAfterEditAvgMs: 23,0
+  FirstLookupAfterEditMaxMs: 23,0
   FirstLookupAfterEditSources:
     didOpen: 1
   Stages:
-    buildSymbols: count=1 total=11,1ms avg=11,1ms max=11,1ms
-    analysisContext: count=1 total=2,2ms avg=2,2ms max=2,2ms
-    root: count=1 total=0,5ms avg=0,5ms max=0,5ms
+    buildSymbols: count=2 total=12,3ms avg=6,1ms max=12,3ms
+    analysisContext: count=2 total=2,9ms avg=1,4ms max=2,8ms
+    root: count=2 total=0,3ms avg=0,1ms max=0,3ms
 

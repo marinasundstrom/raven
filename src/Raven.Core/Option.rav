@@ -234,7 +234,7 @@ class OptionJsonConverter<T> : JsonConverter<Option<T>> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
-        if string.Equals(root.GetRawText(), "null", StringComparison.Ordinal) {
+        if root.ValueKind == JsonValueKind.Null {
             val none: Option<T> = None
             return none
         }

@@ -6952,17 +6952,41 @@ internal partial class ExpressionGenerator : Generator
     {
         switch (constant)
         {
+            case sbyte i:
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                break;
+            case byte i:
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                break;
+            case short i:
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                break;
+            case ushort i:
+                ILGenerator.Emit(OpCodes.Ldc_I4, i);
+                break;
             case int i:
                 ILGenerator.Emit(OpCodes.Ldc_I4, i);
                 break;
+            case uint i:
+                ILGenerator.Emit(OpCodes.Ldc_I4, unchecked((int)i));
+                break;
             case long i:
                 ILGenerator.Emit(OpCodes.Ldc_I8, i);
+                break;
+            case ulong i:
+                ILGenerator.Emit(OpCodes.Ldc_I8, unchecked((long)i));
+                break;
+            case char c:
+                ILGenerator.Emit(OpCodes.Ldc_I4, c);
                 break;
             case float i:
                 ILGenerator.Emit(OpCodes.Ldc_R4, i);
                 break;
             case double i:
                 ILGenerator.Emit(OpCodes.Ldc_R8, i);
+                break;
+            case string s:
+                ILGenerator.Emit(OpCodes.Ldstr, s);
                 break;
             case bool b:
                 ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
