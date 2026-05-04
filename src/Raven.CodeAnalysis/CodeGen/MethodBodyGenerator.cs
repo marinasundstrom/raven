@@ -2255,7 +2255,7 @@ internal class MethodBodyGenerator
             MethodSymbol.ContainingType is not SynthesizedAsyncStateMachineTypeSymbol &&
             MethodSymbol.ContainingType is not SynthesizedIteratorTypeSymbol)
         {
-            var hoistCollector = new HoistedLocalsCollector();
+            var hoistCollector = new HoistedLocalsCollector(MethodSymbol);
             hoistCollector.Visit(block);
 
             if (hoistCollector.CapturedSymbols.Count > 0)
@@ -2679,6 +2679,13 @@ internal class MethodBodyGenerator
     /// </summary>
     private sealed class HoistedLocalsCollector : BoundTreeWalker
     {
+        private readonly IMethodSymbol _containingMethod;
+
+        public HoistedLocalsCollector(IMethodSymbol containingMethod)
+        {
+            _containingMethod = containingMethod;
+        }
+
         public HashSet<ISymbol> CapturedSymbols { get; } = new(SymbolEqualityComparer.Default);
         public List<ILambdaSymbol> LambdaSymbols { get; } = new();
         public List<SourceMethodSymbol> LocalFunctionSymbols { get; } = new();
@@ -2690,7 +2697,7 @@ internal class MethodBodyGenerator
 
             foreach (var captured in node.CapturedVariables)
             {
-                if (captured is not null)
+                if (ShouldHoistCapture(captured) && !IsDeclaredInsideLambda(captured, node))
                     CapturedSymbols.Add(captured);
             }
 
@@ -2705,12 +2712,72 @@ internal class MethodBodyGenerator
                 LocalFunctionSymbols.Add(sourceMethod);
                 foreach (var captured in sourceMethod.CapturedVariables)
                 {
-                    if (captured is not null)
+                    if (ShouldHoistCapture(captured))
                         CapturedSymbols.Add(captured);
                 }
             }
 
             // Intentionally do NOT recurse into the local function body.
+        }
+
+        private bool ShouldHoistCapture(ISymbol? captured)
+        {
+            if (captured is null)
+                return false;
+
+            if (captured is ILocalSymbol or IParameterSymbol)
+                return SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingMethod);
+
+            if (captured is ITypeSymbol typeSymbol)
+                return SymbolEqualityComparer.Default.Equals(typeSymbol, _containingMethod.ContainingType);
+
+            return SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingMethod);
+        }
+
+        private static bool IsDeclaredInsideLambda(ISymbol? captured, BoundFunctionExpression lambda)
+        {
+            if (captured is null)
+                return false;
+
+            foreach (var parameter in lambda.Parameters)
+            {
+                if (SymbolEqualityComparer.Default.Equals(captured, parameter) ||
+                    HaveSameDeclaration(captured, parameter))
+                {
+                    return true;
+                }
+            }
+
+            foreach (var capturedReference in captured.DeclaringSyntaxReferences)
+            {
+                foreach (var lambdaReference in lambda.Symbol?.DeclaringSyntaxReferences ?? [])
+                {
+                    if (capturedReference.SyntaxTree == lambdaReference.SyntaxTree &&
+                        lambdaReference.Span.Contains(capturedReference.Span))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HaveSameDeclaration(ISymbol left, ISymbol right)
+        {
+            foreach (var leftReference in left.DeclaringSyntaxReferences)
+            {
+                foreach (var rightReference in right.DeclaringSyntaxReferences)
+                {
+                    if (leftReference.SyntaxTree == rightReference.SyntaxTree &&
+                        leftReference.Span == rightReference.Span)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
     }
 

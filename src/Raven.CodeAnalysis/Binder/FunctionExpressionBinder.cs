@@ -8,6 +8,7 @@ class FunctionExpressionBinder : BlockBinder
 {
     private readonly Dictionary<string, IParameterSymbol> _parameters = new();
     private readonly Dictionary<string, IMethodSymbol> _functions = new();
+    private readonly List<ILocalSymbol> _declaredLocals = [];
 
     public FunctionExpressionBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
 
@@ -21,6 +22,11 @@ class FunctionExpressionBinder : BlockBinder
     public void DeclareFunction(string name, IMethodSymbol method)
     {
         _functions[name] = method;
+    }
+
+    protected override void OnLocalDeclared(ILocalSymbol local)
+    {
+        _declaredLocals.Add(local);
     }
 
     public override ISymbol? LookupSymbol(string name)
@@ -99,18 +105,73 @@ class FunctionExpressionBinder : BlockBinder
         if (_parameters.Values.Contains(symbol))
             return true;
 
+        if (symbol is IParameterSymbol parameter &&
+            _parameters.Values.Any(declaredParameter => HaveSameDeclaration(declaredParameter, parameter)))
+        {
+            return true;
+        }
+
         foreach (var local in _locals.Values)
         {
-            if (SymbolEqualityComparer.Default.Equals(local.Symbol, symbol))
+            if (SymbolEqualityComparer.Default.Equals(local.Symbol, symbol) ||
+                HaveSameDeclaration(local.Symbol, symbol))
+            {
                 return true;
+            }
+        }
+
+        foreach (var local in _declaredLocals)
+        {
+            if (SymbolEqualityComparer.Default.Equals(local, symbol) ||
+                HaveSameDeclaration(local, symbol))
+            {
+                return true;
+            }
         }
 
         if (symbol is ILocalSymbol or IParameterSymbol)
         {
+            if (IsDeclaredInsideCurrentLambda(symbol))
+                return true;
+
             if (symbol.ContainingSymbol is { } containing &&
                 SymbolEqualityComparer.Default.Equals(containing, ContainingSymbol))
             {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsDeclaredInsideCurrentLambda(ISymbol symbol)
+    {
+        foreach (var symbolReference in symbol.DeclaringSyntaxReferences)
+        {
+            foreach (var lambdaReference in ContainingSymbol.DeclaringSyntaxReferences)
+            {
+                if (symbolReference.SyntaxTree == lambdaReference.SyntaxTree &&
+                    lambdaReference.Span.Contains(symbolReference.Span))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HaveSameDeclaration(ISymbol left, ISymbol right)
+    {
+        foreach (var leftReference in left.DeclaringSyntaxReferences)
+        {
+            foreach (var rightReference in right.DeclaringSyntaxReferences)
+            {
+                if (leftReference.SyntaxTree == rightReference.SyntaxTree &&
+                    leftReference.Span == rightReference.Span)
+                {
+                    return true;
+                }
             }
         }
 

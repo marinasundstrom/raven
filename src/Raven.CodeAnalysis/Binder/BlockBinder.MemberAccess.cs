@@ -1485,7 +1485,7 @@ partial class BlockBinder
             && TryInferConstructedTypeForConstructor(typeSymbol, boundArguments, out var earlyInferred)
             && !SymbolEqualityComparer.Default.Equals(earlyInferred, typeSymbol))
         {
-            return BindConstructorInvocation(earlyInferred, boundArguments, callSyntax, receiverSyntax, receiver);
+            return RebindConstructorInvocationWithInferredType(earlyInferred, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
         // If constructor-argument inference cannot infer type arguments (for example on parameterless
@@ -1494,7 +1494,7 @@ partial class BlockBinder
             && TryInferConstructedTypeFromTargetType(typeSymbol, callSyntax, out var targetTypedInferred)
             && !SymbolEqualityComparer.Default.Equals(targetTypedInferred, typeSymbol))
         {
-            return BindConstructorInvocation(targetTypedInferred, boundArguments, callSyntax, receiverSyntax, receiver);
+            return RebindConstructorInvocationWithInferredType(targetTypedInferred, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
         // Generic union case construction can also be target-typed from the enclosing union carrier,
@@ -1504,7 +1504,7 @@ partial class BlockBinder
             && TryInferConstructedUnionCaseTypeFromTargetType(typeSymbol, callSyntax, out var targetTypedUnionCase)
             && !SymbolEqualityComparer.Default.Equals(targetTypedUnionCase, typeSymbol))
         {
-            return BindConstructorInvocation(targetTypedUnionCase, boundArguments, callSyntax, receiverSyntax, receiver);
+            return RebindConstructorInvocationWithInferredType(targetTypedUnionCase, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
         // If the generic type is still open at this point, constructor-argument inference and
@@ -1554,12 +1554,29 @@ partial class BlockBinder
         if (TryInferConstructedTypeForConstructor(typeSymbol, boundArguments, out var inferredType) &&
             !SymbolEqualityComparer.Default.Equals(inferredType, typeSymbol))
         {
-            return BindConstructorInvocation(inferredType, boundArguments, callSyntax, receiverSyntax, receiver);
+            return RebindConstructorInvocationWithInferredType(inferredType, boundArguments, callSyntax, receiverSyntax, receiver);
         }
 
         ReportSuppressedLambdaDiagnostics(boundArguments);
         _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, boundArguments.Length, GetCallLocation());
         return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private BoundExpression RebindConstructorInvocationWithInferredType(
+        INamedTypeSymbol inferredType,
+        BoundArgument[] boundArguments,
+        SyntaxNode callSyntax,
+        SyntaxNode receiverSyntax,
+        BoundExpression? receiver)
+    {
+        if (callSyntax is InvocationExpressionSyntax invocation)
+        {
+            ClearCachedLambdaBodyNodes(invocation);
+
+            return BindConstructorInvocation(inferredType, invocation, receiverSyntax, receiver);
+        }
+
+        return BindConstructorInvocation(inferredType, boundArguments, callSyntax, receiverSyntax, receiver);
     }
 
     /// <summary>

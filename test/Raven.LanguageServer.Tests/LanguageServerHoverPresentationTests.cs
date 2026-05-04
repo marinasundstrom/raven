@@ -418,6 +418,63 @@ val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
     }
 
     [Fact]
+    public void TrailingBlockParameterHover_UsesContextualDelegateParameterType()
+    {
+        const string code = """
+class Store {
+    func Find(id: int) -> string { id.ToString() }
+}
+
+func Use(handler: int -> string) -> string {
+    handler(42)
+}
+
+func Route(store: Store) -> string {
+    Use { id =>
+        store.Find(id)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error).ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var trailingBlock = root.DescendantNodes().OfType<TrailingBlockExpressionSyntax>().Single();
+        trailingBlock.Parameter.ShouldNotBeNull();
+        var parameter = trailingBlock.Parameter!;
+
+        var parameterSymbol = semanticModel.GetFunctionExpressionParameterSymbol(parameter);
+        parameterSymbol.ShouldNotBeNull();
+        parameterSymbol!.Name.ShouldBe("id");
+        parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
+
+        var hoverOffset = parameter.Identifier.SpanStart + 1;
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        var resolvedParameter = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        resolvedParameter.Name.ShouldBe("id");
+        resolvedParameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForHover.Invoke(
+            null,
+            [resolvedParameter, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+
+        signature.ShouldContain("id: int");
+        signature.ShouldNotContain("<Error>");
+    }
+
+    [Fact]
     public void DelegateTypeHover_UsesRavenFunctionTypeSignature()
     {
         const string code = """

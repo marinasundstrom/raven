@@ -8,14 +8,14 @@ namespace Raven.CodeAnalysis;
 internal sealed class BoundUnboundFunctionExpression
 {
     public SourceLambdaSymbol LambdaSymbol { get; }
-    public FunctionExpressionSyntax Syntax { get; }
+    public ExpressionSyntax Syntax { get; }
     public ImmutableArray<IParameterSymbol> Parameters { get; }
     public ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
     public ImmutableArray<SuppressedLambdaDiagnostic> SuppressedDiagnostics { get; }
 
     internal BoundUnboundFunctionExpression(
         SourceLambdaSymbol lambdaSymbol,
-        FunctionExpressionSyntax syntax,
+        ExpressionSyntax syntax,
         ImmutableArray<IParameterSymbol> parameters,
         ImmutableArray<INamedTypeSymbol> candidateDelegates,
         ImmutableArray<SuppressedLambdaDiagnostic> suppressedDiagnostics)

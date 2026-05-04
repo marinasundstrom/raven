@@ -15,9 +15,9 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder : Binder
 {
-    private sealed class FunctionExpressionSyntaxStructuralComparer : IEqualityComparer<FunctionExpressionSyntax>
+    private sealed class ExpressionSyntaxStructuralComparer : IEqualityComparer<ExpressionSyntax>
     {
-        public bool Equals(FunctionExpressionSyntax? x, FunctionExpressionSyntax? y)
+        public bool Equals(ExpressionSyntax? x, ExpressionSyntax? y)
         {
             if (ReferenceEquals(x, y))
                 return true;
@@ -29,7 +29,7 @@ partial class BlockBinder : Binder
                    x.Span == y.Span;
         }
 
-        public int GetHashCode(FunctionExpressionSyntax obj)
+        public int GetHashCode(ExpressionSyntax obj)
         {
             return HashCode.Combine(obj.SyntaxTree, (int)obj.Kind, obj.Span.Start, obj.Span.Length);
         }
@@ -44,7 +44,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelsBySyntax = new();
     private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
-    private readonly Dictionary<FunctionExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(new FunctionExpressionSyntaxStructuralComparer());
+    private readonly Dictionary<ExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(new ExpressionSyntaxStructuralComparer());
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
@@ -707,7 +707,12 @@ partial class BlockBinder : Binder
             constantValue);
 
         _locals[name] = (symbol, _scopeDepth);
+        OnLocalDeclared(symbol);
         return symbol;
+    }
+
+    protected virtual void OnLocalDeclared(ILocalSymbol local)
+    {
     }
 
     private SourceFunctionValueSymbol CreateFunctionValueSymbol(
@@ -8788,10 +8793,26 @@ partial class BlockBinder : Binder
                 return false;
         }
 
+        if (syntax.TrailingBlock is { } trailingBlock)
+        {
+            var parameterIndex = syntax.ArgumentList.Arguments.Count;
+            if (parameterIndex >= constructor.Parameters.Length ||
+                !CanTargetExplicitTrailingBlockArgument(trailingBlock, constructor.Parameters[parameterIndex]))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
     private bool CanTargetExplicitFunctionArgument(FunctionExpressionSyntax functionExpression, IParameterSymbol targetParameter)
+        => CanTargetExplicitFunctionParameters(GetExplicitFunctionParameters(functionExpression), targetParameter);
+
+    private bool CanTargetExplicitTrailingBlockArgument(TrailingBlockExpressionSyntax trailingBlock, IParameterSymbol targetParameter)
+        => CanTargetExplicitFunctionParameters(GetTrailingBlockParameterSyntaxes(trailingBlock), targetParameter);
+
+    private bool CanTargetExplicitFunctionParameters(ImmutableArray<ParameterSyntax> functionParameters, IParameterSymbol targetParameter)
     {
         var parameterType = targetParameter.Type is NullableTypeSymbol nullableParameterType
             ? nullableParameterType.UnderlyingType
@@ -8803,7 +8824,6 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        var functionParameters = GetExplicitFunctionParameters(functionExpression);
         if (invoke.Parameters.Length != functionParameters.Length)
             return false;
 
@@ -8872,7 +8892,7 @@ partial class BlockBinder : Binder
             }
 
             inferredCandidateType = inferredType;
-            inferredCandidate = BindConstructorInvocation(inferredType, boundArguments, syntax, syntax.Expression);
+            inferredCandidate = BindConstructorInvocation(inferredType, syntax, receiverSyntax: syntax.Expression, receiver: null);
         }
 
         if (inferredCandidate is null)
@@ -8907,6 +8927,12 @@ partial class BlockBinder : Binder
             {
                 return true;
             }
+        }
+
+        if (syntax.TrailingBlock is { } trailingBlock &&
+            GetTrailingBlockParameterSyntaxes(trailingBlock).Length > 0)
+        {
+            return true;
         }
 
         return false;
@@ -11759,13 +11785,13 @@ partial class BlockBinder : Binder
 
     private readonly struct FunctionExpressionRebindKey : IEquatable<FunctionExpressionRebindKey>
     {
-        public FunctionExpressionRebindKey(FunctionExpressionSyntax syntax, INamedTypeSymbol delegateType)
+        public FunctionExpressionRebindKey(ExpressionSyntax syntax, INamedTypeSymbol delegateType)
         {
             Syntax = syntax;
             DelegateType = delegateType;
         }
 
-        public FunctionExpressionSyntax Syntax { get; }
+        public ExpressionSyntax Syntax { get; }
         public INamedTypeSymbol DelegateType { get; }
 
         public bool Equals(FunctionExpressionRebindKey other)

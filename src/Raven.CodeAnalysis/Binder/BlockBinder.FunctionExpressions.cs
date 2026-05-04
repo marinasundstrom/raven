@@ -827,8 +827,9 @@ partial class BlockBinder
         if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
         {
             sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
-            if (capturedVariables.Count != 0 && sourceLambdaSymbol.ClosureFrameType is null)
-                sourceLambdaSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(sourceLambdaSymbol));
+            sourceLambdaSymbol.SetClosureFrameType(capturedVariables.Count != 0
+                ? ClosureFrameSymbolFactory.Create(sourceLambdaSymbol)
+                : null);
         }
 
         var lambdaHasBodyErrors = HasExpressionErrors(bodyExpr);
@@ -1116,8 +1117,9 @@ partial class BlockBinder
         var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
-        if (capturedVariables.Count != 0 && lambdaSymbol.ClosureFrameType is null)
-            lambdaSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(lambdaSymbol));
+        lambdaSymbol.SetClosureFrameType(capturedVariables.Count != 0
+            ? ClosureFrameSymbolFactory.Create(lambdaSymbol)
+            : null);
         lambdaSymbol.SetReturnType(returnType);
 
         var delegateType = targetDelegate is not null &&
@@ -1145,6 +1147,15 @@ partial class BlockBinder
             delegateType,
             capturedVariables,
             candidateDelegates);
+
+        if (lambdaSymbol is SourceLambdaSymbol source)
+        {
+            var parameters = parameterSymbols.ToImmutableArray();
+            var unbound = new BoundUnboundFunctionExpression(source, syntax, parameters, candidateDelegates, ImmutableArray<SuppressedLambdaDiagnostic>.Empty);
+            boundLambda.AttachUnbound(unbound);
+        }
+
+        CacheBoundNode(syntax, boundLambda);
 
         return boundLambda;
     }
@@ -2119,6 +2130,7 @@ partial class BlockBinder
         {
             SimpleFunctionExpressionSyntax simple => new[] { simple.Parameter },
             ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.ToArray(),
+            TrailingBlockExpressionSyntax trailing => GetTrailingBlockParameterSyntaxes(trailing).ToArray(),
             _ => Array.Empty<ParameterSyntax>()
         };
 
@@ -2127,6 +2139,16 @@ partial class BlockBinder
             Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
             return null;
         }
+
+        var lambdaSymbol = new SourceLambdaSymbol(
+            parameters: [],
+            invoke.ReturnType,
+            _containingSymbol,
+            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingNamespace,
+            [syntax.GetLocation()],
+            [syntax.GetReference()],
+            isAsync: unbound.LambdaSymbol.IsAsync);
 
         var parameterSymbols = new List<IParameterSymbol>(parameterSyntaxes.Length);
         var seenOptionalParameter = false;
@@ -2211,9 +2233,9 @@ partial class BlockBinder
             var parameterSymbol = new SourceParameterSymbol(
                 parameterName,
                 parameterType,
-                _containingSymbol,
-                _containingSymbol.ContainingType as INamedTypeSymbol,
-                _containingSymbol.ContainingNamespace,
+                lambdaSymbol,
+                lambdaSymbol.ContainingType,
+                lambdaSymbol.ContainingNamespace,
                 [parameterLocation],
                 [parameterSyntax.GetReference()],
                 refKind,
@@ -2234,15 +2256,7 @@ partial class BlockBinder
             parameterSymbols.Add(parameterSymbol);
         }
 
-        var lambdaSymbol = new SourceLambdaSymbol(
-            parameterSymbols,
-            invoke.ReturnType,
-            _containingSymbol,
-            _containingSymbol.ContainingType as INamedTypeSymbol,
-            _containingSymbol.ContainingNamespace,
-            [syntax.GetLocation()],
-            [syntax.GetReference()],
-            isAsync: unbound.LambdaSymbol.IsAsync);
+        lambdaSymbol.SetParameters(parameterSymbols);
 
         var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
@@ -2275,12 +2289,20 @@ partial class BlockBinder
 
         var destructuringPrologue = BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
 
-        var lambdaBodySyntax = GetLambdaBodyExpression(syntax);
+        ExpressionSyntax? lambdaBodySyntax = null;
         BoundExpression body;
         try
         {
-            body = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
-            body = RetargetLambdaBodyUnionCase(body, invoke.ReturnType);
+            if (syntax is TrailingBlockExpressionSyntax trailingBlock)
+            {
+                body = lambdaBinder.BindTrailingBlockBody(trailingBlock, allowReturn: true);
+            }
+            else
+            {
+                lambdaBodySyntax = GetLambdaBodyExpression((FunctionExpressionSyntax)syntax);
+                body = lambdaBinder.BindExpression(lambdaBodySyntax, allowReturn: true);
+                body = RetargetLambdaBodyUnionCase(body, invoke.ReturnType);
+            }
 
             if (destructuringPrologue.Count > 0)
             {
@@ -2438,12 +2460,12 @@ partial class BlockBinder
             }
             else
             {
-                body = ApplyConversion(body, expectedBodyType, conversion, lambdaBodySyntax);
+                body = ApplyConversion(body, expectedBodyType, conversion, lambdaBodySyntax ?? syntax);
             }
         }
 
         lambdaBinder.SetLambdaBody(body);
-        lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntax);
+        lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntax ?? syntax);
         var captured = lambdaBinder.AnalyzeCapturedVariables();
 
         var capturedSet = new HashSet<ISymbol>(captured, SymbolEqualityComparer.Default);
@@ -2453,8 +2475,9 @@ partial class BlockBinder
         var capturedVariables = capturedSet.ToImmutableArray();
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
-        if (capturedVariables.Length != 0 && lambdaSymbol.ClosureFrameType is null)
-            lambdaSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(lambdaSymbol));
+        lambdaSymbol.SetClosureFrameType(capturedVariables.Length != 0
+            ? ClosureFrameSymbolFactory.Create(lambdaSymbol)
+            : null);
         lambdaSymbol.SetReturnType(returnType);
         lambdaSymbol.SetDelegateType(delegateType);
 
@@ -2504,7 +2527,7 @@ partial class BlockBinder
             unionCase.Arguments);
     }
 
-    private FunctionExpressionSyntax? GetLambdaSyntax(BoundFunctionExpression lambda)
+    private ExpressionSyntax? GetLambdaSyntax(BoundFunctionExpression lambda)
     {
         if (lambda.Unbound is { Syntax: { } syntax })
             return syntax;
@@ -2513,8 +2536,9 @@ partial class BlockBinder
         {
             foreach (var reference in lambdaSymbol.DeclaringSyntaxReferences)
             {
-                if (reference.GetSyntax() is FunctionExpressionSyntax lambdaSyntax)
-                    return lambdaSyntax;
+                var declaration = reference.GetSyntax();
+                if (declaration is FunctionExpressionSyntax or TrailingBlockExpressionSyntax)
+                    return (ExpressionSyntax)declaration;
             }
         }
 
@@ -2665,9 +2689,11 @@ partial class BlockBinder
         return definition.Construct(elementType);
     }
 
-    private bool HasCachedLambdaBodyBindings(FunctionExpressionSyntax syntax)
+    private bool HasCachedLambdaBodyBindings(ExpressionSyntax syntax)
     {
-        var bodyNode = GetLambdaBodySyntaxNode(syntax);
+        var bodyNode = syntax is FunctionExpressionSyntax functionExpression
+            ? GetLambdaBodySyntaxNode(functionExpression)
+            : syntax;
         if (TryGetCachedBoundNode(bodyNode) is null)
             return false;
 

@@ -444,10 +444,11 @@ func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError
         const string code = """
 class Store {
     func Summary() -> string { return "ok" }
+    func Find(id: int) -> string { return id.ToString() }
 }
 
 class GET {
-    init(pattern: string, handler: () -> string) {}
+    init(pattern: string, handler: int -> string) {}
 }
 
 func Route(prefix: string, body: () -> string) -> string {
@@ -457,8 +458,9 @@ func Route(prefix: string, body: () -> string) -> string {
 func Main() -> string {
     val store = Store()
     return Route("") {
-        GET("/") {
-            store.Summary()
+        GET("/{id:int}") { id =>
+            val value = store.Find(id)
+            value
         }
     }
 }
@@ -510,11 +512,20 @@ func Main() -> string {
 
             var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
 
-            Find(decoded, 13, "Store").Type.ShouldBe(SemanticTokenType.Class);
-            Find(decoded, 14, "Route").Type.ShouldBe(SemanticTokenType.Method);
-            Find(decoded, 15, "GET").Type.ShouldBe(SemanticTokenType.Class);
-            Find(decoded, 16, "store").Type.ShouldBe(SemanticTokenType.Variable);
-            Find(decoded, 16, "Summary").Type.ShouldBe(SemanticTokenType.Method);
+            Find(decoded, 14, "Store").Type.ShouldBe(SemanticTokenType.Class);
+            Find(decoded, 15, "Route").Type.ShouldBe(SemanticTokenType.Method);
+            Find(decoded, 16, "GET").Type.ShouldBe(SemanticTokenType.Class);
+
+            var parameter = Find(decoded, 16, "id");
+            parameter.Type.ShouldBe(SemanticTokenType.Parameter);
+            parameter.Modifiers.ShouldContain(SemanticTokenModifier.Declaration);
+
+            Find(decoded, 17, "store").Type.ShouldBe(SemanticTokenType.Variable);
+            Find(decoded, 17, "Find").Type.ShouldBe(SemanticTokenType.Method);
+            Find(decoded, 17, "id").Type.ShouldBe(SemanticTokenType.Parameter);
+            decoded.Any(token => token.Type == SemanticTokenType.Operator && token.Line == 15 && token.Text == "{").ShouldBeTrue();
+            decoded.Any(token => token.Type == SemanticTokenType.Operator && token.Line == 16 && token.Text == "{").ShouldBeTrue();
+            decoded.Any(token => token.Type == SemanticTokenType.Operator && token.Line == 19 && token.Text == "}").ShouldBeTrue();
         }
         finally
         {

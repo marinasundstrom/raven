@@ -113,6 +113,120 @@ class Runner {
         Assert.Equal("42", output);
     }
 
+    [Fact]
+    public void ExplicitlyTypedTrailingBlock_InfersGenericConstructorLikeRegularLambdaArgument()
+    {
+        const string code = """
+class GET {
+    init(pattern: string, handler: () -> string) {
+    }
+
+    func Run() -> string {
+        return "zero"
+    }
+}
+
+class GET<T> {
+    init(pattern: string, handler: T -> string) {
+        Handler = handler
+    }
+
+    val Handler: T -> string
+
+    func Run(value: T) -> string {
+        return Handler(value)
+    }
+}
+
+class Runner {
+    static func Run() -> string {
+        val trailing = GET("/{id:int}") { (id: int) =>
+            id.ToString()
+        }
+
+        val regular = GET("/{id:int}", (id: int) => id.ToString())
+
+        return trailing.Run(42) + "," + regular.Run(42)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("42,42", output);
+    }
+
+    [Fact]
+    public void BuilderTrailingBlock_DoesNotHoistNestedTrailingBlockParameter()
+    {
+        const string code = """
+import System.*
+
+class BuilderAttribute<T> : Attribute {}
+
+open class Node {}
+
+class ListNode : Node {
+    init(items: Node[]) {
+    }
+}
+
+class DslBuilder {
+    static func BuildExpression(node: Node) -> Node {
+        return node
+    }
+
+    static func BuildBlock(items: Node[]) -> Node {
+        return ListNode(items)
+    }
+}
+
+class GET<T> : Node {
+    init(pattern: string, handler: T -> string) {
+        Handler = handler
+    }
+
+    val Handler: T -> string
+}
+
+class Store {
+    func Find(id: int) -> string? {
+        if id == 42 {
+            return "found"
+        }
+
+        return null
+    }
+}
+
+class Runner {
+    static func Run() -> string {
+        val store = Store()
+        val node = Route() {
+            GET("/{id:int}") { (id: int) =>
+                val todo = store.Find(id)
+                if todo is null {
+                    return "Not found"
+                } else {
+                    return todo
+                }
+            }
+        }
+
+        return "ok"
+    }
+
+    static func Route([Builder<DslBuilder>] endpoints: () -> Node) -> Node {
+        return endpoints()
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("ok", output);
+    }
+
     private static object? CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

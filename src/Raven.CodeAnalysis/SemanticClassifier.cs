@@ -30,6 +30,11 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.Interpolation;
             }
+            else if ((kind == SyntaxKind.OpenBraceToken || kind == SyntaxKind.CloseBraceToken) &&
+                     descendant.Parent is TrailingBlockExpressionSyntax)
+            {
+                tokenMap[descendant] = SemanticClassification.Operator;
+            }
             // Literals
             else if (kind == SyntaxKind.StringLiteralToken ||
                      kind == SyntaxKind.MultiLineStringLiteralToken ||
