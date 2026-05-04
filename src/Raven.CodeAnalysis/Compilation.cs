@@ -1002,7 +1002,7 @@ public partial class Compilation
 
         static bool ContainsAwaitExpressionOutsideNestedFunctionsCore(SyntaxNode current)
         {
-            if (current is FunctionStatementSyntax or FunctionExpressionSyntax)
+            if (IsNestedFunctionBoundary(current))
                 return false;
 
             if (current.Kind == SyntaxKind.AwaitExpression)
@@ -1016,7 +1016,7 @@ public partial class Compilation
 
             foreach (var child in current.ChildNodes())
             {
-                if (child is FunctionStatementSyntax or FunctionExpressionSyntax)
+                if (IsNestedFunctionBoundary(child))
                     continue;
 
                 if (ContainsAwaitExpressionOutsideNestedFunctionsCore(child))
@@ -1033,7 +1033,7 @@ public partial class Compilation
 
         static bool ContainsNonUnitReturnOutsideNestedFunctions(SyntaxNode node)
         {
-            if (node is FunctionStatementSyntax or FunctionExpressionSyntax)
+            if (IsNestedFunctionBoundary(node))
                 return false;
 
             if (node is ReturnStatementSyntax returnStatement)
@@ -1050,7 +1050,7 @@ public partial class Compilation
 
             foreach (var child in node.ChildNodes())
             {
-                if (child is FunctionStatementSyntax or FunctionExpressionSyntax)
+                if (IsNestedFunctionBoundary(child))
                     continue;
 
                 if (ContainsNonUnitReturnOutsideNestedFunctions(child))
@@ -1060,6 +1060,9 @@ public partial class Compilation
             return false;
         }
     }
+
+    private static bool IsNestedFunctionBoundary(SyntaxNode node)
+        => node is FunctionStatementSyntax or FunctionExpressionSyntax or TrailingBlockExpressionSyntax;
 
     private sealed class TopLevelProgramMembers
     {

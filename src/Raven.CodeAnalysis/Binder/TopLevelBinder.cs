@@ -151,7 +151,7 @@ class TopLevelBinder : BlockBinder
         ref ITypeSymbol? errorType,
         ref bool foundResultReturn)
     {
-        if (node is FunctionStatementSyntax or FunctionExpressionSyntax)
+        if (IsNestedFunctionBoundary(node))
             return;
 
         if (node is ReturnStatementSyntax returnStatement)
@@ -187,8 +187,16 @@ class TopLevelBinder : BlockBinder
         }
 
         foreach (var child in node.ChildNodes())
+        {
+            if (IsNestedFunctionBoundary(child))
+                continue;
+
             CollectResultReturnTypes(child, ref okType, ref errorType, ref foundResultReturn);
+        }
     }
+
+    private static bool IsNestedFunctionBoundary(SyntaxNode node)
+        => node is FunctionStatementSyntax or FunctionExpressionSyntax or TrailingBlockExpressionSyntax;
 
     private bool TryGetResultReturnPayload(
         ExpressionSyntax? expression,

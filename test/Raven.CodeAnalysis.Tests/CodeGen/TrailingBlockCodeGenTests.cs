@@ -227,6 +227,30 @@ class Runner {
         Assert.Equal("ok", output);
     }
 
+    [Fact]
+    public void TopLevelReturnScanner_IgnoresReturnsInsideTrailingBlock()
+    {
+        const string code = """
+class UseBlock {
+    init(handler: () -> string) {
+        Value = handler()
+    }
+
+    val Value: string
+}
+
+val used = UseBlock {
+    return "nested"
+}
+""";
+
+        using var loaded = CompileConsoleApplication(code);
+        var entryPoint = loaded.Assembly.EntryPoint!;
+
+        Assert.Equal(typeof(void), entryPoint.ReturnType);
+        entryPoint.Invoke(null, new object?[] { Array.Empty<string>() });
+    }
+
     private static object? CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -249,5 +273,24 @@ class Runner {
         Assert.NotNull(runMethod);
 
         return runMethod!.Invoke(null, Array.Empty<object?>());
+    }
+
+    private static TestAssemblyLoader.LoadedAssembly CompileConsoleApplication(string code)
+    {
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create(
+                "trailing-block-console-codegen",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        return TestAssemblyLoader.LoadFromStream(peStream, references);
     }
 }
