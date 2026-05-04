@@ -23,7 +23,7 @@ class AddMacro : IFreestandingExpressionMacro {
         val left = context.Arguments[0].Expression
         val right = context.Arguments[1].Expression
 
-        FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult with {
             Expression = InfixOperatorExpression(
                 SyntaxKind.AddExpression,
                 left,

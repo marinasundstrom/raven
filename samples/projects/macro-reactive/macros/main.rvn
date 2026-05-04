@@ -21,7 +21,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         }
 
         if !IsStorageProperty(property) {
-            return MacroExpansionResult {
+            return MacroExpansionResult with {
                 MacroDiagnostics = [
                     MacroExpansionDiagnostic.Error(
                         "#[Observable] requires a mutable storage property without accessors or an expression body.",
@@ -36,7 +36,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         val signalStorageName = "_${propertyName}Changed"
         val signalMemberName = "${propertyName}Changed"
 
-        MacroExpansionResult {
+        MacroExpansionResult with {
             ReplacementDeclaration = CreateReplacementProperty(property, backingFieldName, signalStorageName)
             IntroducedMembers = [
                 CreateBackingField(property, backingFieldName),
@@ -210,7 +210,7 @@ class SubscribeMacro : IFreestandingExpressionMacro {
 
         val signalName = "${propertyIdentifier.Identifier.ValueText}Changed"
 
-        FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult with {
             Expression = InvocationExpression(
                 MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
