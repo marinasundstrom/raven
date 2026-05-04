@@ -3166,16 +3166,11 @@ public partial class SemanticModel
             if (unionSymbol.TypeKind != TypeKind.Struct && hasNullableMember)
                 unionValuePropertyType = objectType!.MakeNullable();
 
-            if (synthesizeUnionSurface)
+            if (unionSymbol.PayloadFields.IsDefaultOrEmpty)
             {
-                EnsureUnionValueProperty(unionValuePropertyType, unionDecl.GetLocation(), unionDecl.GetReference());
-                EnsureUnionHasValueProperty(unionDecl.GetLocation(), unionDecl.GetReference());
-                EnsureUnionToStringMethod(unionDecl.GetLocation(), unionDecl.GetReference());
-                EnsureUnionHelperMethods(unionDecl.GetLocation(), unionDecl.GetReference());
-            }
+                memberTypes.Clear();
+                payloadFields.Clear();
 
-            if (unionSymbol.MemberTypes.IsDefaultOrEmpty)
-            {
                 foreach (var (memberType, location, reference) in boundMemberTypes)
                     RegisterUnionMemberArtifacts(memberType, location, reference);
             }
@@ -3184,6 +3179,15 @@ public partial class SemanticModel
             unionSymbol.SetCaseTypes(caseSymbols.Cast<ITypeSymbol>().Concat(memberTypes));
             unionSymbol.SetMemberTypes(memberTypes);
             unionSymbol.SetPayloadFields(payloadFields);
+
+            if (synthesizeUnionSurface)
+            {
+                EnsureUnionValueProperty(unionValuePropertyType, unionDecl.GetLocation(), unionDecl.GetReference());
+                EnsureUnionHasValueProperty(unionDecl.GetLocation(), unionDecl.GetReference());
+                EnsureUnionToStringMethod(unionDecl.GetLocation(), unionDecl.GetReference());
+                EnsureUnionHelperMethods(unionDecl.GetLocation(), unionDecl.GetReference());
+            }
+
             return;
         }
 

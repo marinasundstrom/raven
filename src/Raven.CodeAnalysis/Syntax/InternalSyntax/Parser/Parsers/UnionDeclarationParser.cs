@@ -169,7 +169,7 @@ internal class UnionDeclarationParser : SyntaxParser
                 if (current.IsKind(SyntaxKind.CloseParenToken) || current.IsKind(SyntaxKind.EndOfFileToken))
                     break;
 
-                var typeName = new NameSyntaxParser(this).ParseTypeName();
+                var typeName = new NameSyntaxParser(this).ParseTypeNameWithoutFunctionRecovery();
                 if (typeName is null or { IsMissing: true })
                 {
                     AddDiagnostic(

@@ -25,7 +25,7 @@ class RavenUnionJsonConverterAttribute : JsonConverterAttribute {
 
 class RavenUnionJsonConverterFactory : JsonConverterFactory {
 
-    static val DefaultCaseDiscriminatorPropertyName: string => "$case"
+    static val DefaultCaseDiscriminatorPropertyName: string => "\$case"
 
     private val _caseDiscriminatorPropertyName: string
 
@@ -259,5 +259,253 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         }
 
         throw JsonException("Missing property '$name'.")
+    }
+}
+
+class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory {
+
+    static val TypeDiscriminatorPropertyName: string => "\$type"
+
+    override func CanConvert(typeToConvert: Type) -> bool {
+        if typeToConvert.GetField("<Tag>", BindingFlags.NonPublic | BindingFlags.Instance) == null {
+            return false
+        }
+
+        if typeToConvert.GetProperty("HasValue", BindingFlags.Public | BindingFlags.Instance) == null {
+            return false
+        }
+
+        for constructor in typeToConvert.GetConstructors(BindingFlags.Public | BindingFlags.Instance) {
+            if constructor.GetParameters().Length == 1 {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    override func CreateConverter(
+        typeToConvert: Type,
+        options: JsonSerializerOptions
+    ) -> JsonConverter {
+        val converterType =
+            typeof(RavenParenthesizedUnionJsonConverter<>).MakeGenericType([typeToConvert])!
+
+        return (JsonConverter)(
+            Activator.CreateInstance(converterType)
+                ?? throw InvalidOperationException("Could not create Raven parenthesized union converter")
+        )
+    }
+}
+
+class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
+
+    val _unionType: Type = typeof(TUnion)
+
+    val _tagField: FieldInfo =
+        typeof(TUnion).GetField(
+            "<Tag>",
+            BindingFlags.NonPublic | BindingFlags.Instance
+        ) ?? throw InvalidOperationException("Union type must expose a tag field.")
+
+    val _hasValueProperty: PropertyInfo =
+        typeof(TUnion).GetProperty(
+            "HasValue",
+            BindingFlags.Public | BindingFlags.Instance
+        ) ?? throw InvalidOperationException("Union type must expose a HasValue property.")
+
+    override func Read(
+        reader: &Utf8JsonReader,
+        typeToConvert: Type,
+        options: JsonSerializerOptions
+    ) -> TUnion {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        if root.ValueKind == JsonValueKind.Null {
+            return default(TUnion)
+        }
+
+        val memberType = GetMemberType(root)
+
+        val memberValue =
+            JsonSerializer.Deserialize(
+                root.GetRawText(),
+                memberType,
+                options
+            )
+
+        return CreateUnion(memberType, memberValue)
+    }
+
+    override func Write(
+        writer: Utf8JsonWriter,
+        value: TUnion,
+        options: JsonSerializerOptions
+    ) -> () {
+        val hasValue = (bool)(_hasValueProperty.GetValue(value) ?? false)
+
+        if !hasValue {
+            writer.WriteNullValue()
+            return
+        }
+
+        val tag = (byte)(_tagField.GetValue(value) ?? 0)
+
+        if tag == 0 {
+            writer.WriteNullValue()
+            return
+        }
+
+        val payloadField = GetPayloadField(tag - 1)
+        val memberType = payloadField.FieldType
+        val memberValue = payloadField.GetValue(value)
+
+        if IsSimpleMemberType(memberType) {
+            JsonSerializer.Serialize(
+                writer,
+                memberValue,
+                memberType,
+                options
+            )
+        } else {
+            WriteTypedObjectValue(writer, memberValue, memberType, options)
+        }
+    }
+
+    private func GetPayloadField(ordinal: int) -> FieldInfo {
+        var currentOrdinal = 0
+
+        for candidateField in _unionType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance) {
+            if candidateField.Name.Contains("Payload") {
+                if currentOrdinal == ordinal {
+                    return candidateField
+                }
+
+                currentOrdinal = currentOrdinal + 1
+            }
+        }
+
+        throw JsonException("Union type '$_unionType' does not expose payload field '$ordinal'.")
+    }
+
+    private func CreateUnion(memberType: Type, memberValue: object) -> TUnion {
+        for constructor in _unionType.GetConstructors(BindingFlags.Public | BindingFlags.Instance) {
+            val parameters = constructor.GetParameters()
+
+            if parameters.Length == 1 && parameters[0].ParameterType == memberType {
+                return (TUnion)(
+                        constructor.Invoke([memberValue])
+                            ?? throw JsonException("Could not wrap member value in union type.")
+                    )
+            }
+        }
+
+        throw JsonException("Union type '$_unionType' does not accept member type '$memberType'.")
+    }
+
+    private func GetMemberType(valueProperty: JsonElement) -> Type {
+        if valueProperty.ValueKind == JsonValueKind.Object {
+            if valueProperty.TryGetProperty(RavenParenthesizedUnionJsonConverterFactory.TypeDiscriminatorPropertyName, out var typeProperty) {
+                val typeDiscriminator =
+                    typeProperty.GetString()
+                        ?? throw JsonException("Missing union member type discriminator.")
+
+                for candidateField in _unionType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance) {
+                    if candidateField.Name.Contains("Payload") {
+                        val memberType = candidateField.FieldType
+
+                        if String.Equals(GetMemberTypeDiscriminator(memberType), typeDiscriminator, StringComparison.Ordinal) {
+                            return memberType
+                        }
+                    }
+                }
+
+                throw JsonException("Unknown union member type '$typeDiscriminator'.")
+            }
+        }
+
+        for candidateField in _unionType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance) {
+            if candidateField.Name.Contains("Payload") {
+                val memberType = candidateField.FieldType
+
+                if IsSimpleMemberType(memberType) && CanReadSimpleMemberType(valueProperty, memberType) {
+                    return memberType
+                }
+            }
+        }
+
+        throw JsonException("Could not infer union member type from JSON value.")
+    }
+
+    private static func WriteTypedObjectValue(
+        writer: Utf8JsonWriter,
+        memberValue: object,
+        memberType: Type,
+        options: JsonSerializerOptions
+    ) -> () {
+        val element = JsonSerializer.SerializeToElement(memberValue, memberType, options)
+
+        if element.ValueKind != JsonValueKind.Object {
+            element.WriteTo(writer)
+            return
+        }
+
+        writer.WriteStartObject()
+
+        writer.WriteString(
+            RavenParenthesizedUnionJsonConverterFactory.TypeDiscriminatorPropertyName,
+            GetMemberTypeDiscriminator(memberType)
+        )
+
+        for property in element.EnumerateObject() {
+            if !String.Equals(property.Name, RavenParenthesizedUnionJsonConverterFactory.TypeDiscriminatorPropertyName, StringComparison.Ordinal) {
+                property.WriteTo(writer)
+            }
+        }
+
+        writer.WriteEndObject()
+    }
+
+    private static func IsSimpleMemberType(memberType: Type) -> bool {
+        return memberType.IsPrimitive
+            || memberType.IsEnum
+            || memberType == typeof(string)
+            || memberType == typeof(decimal)
+            || memberType == typeof(Guid)
+            || memberType == typeof(DateTime)
+            || memberType == typeof(DateTimeOffset)
+            || memberType == typeof(TimeSpan)
+    }
+
+    private static func CanReadSimpleMemberType(value: JsonElement, memberType: Type) -> bool {
+        if memberType == typeof(string) {
+            return value.ValueKind == JsonValueKind.String
+        }
+
+        if memberType == typeof(bool) {
+            return value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False
+        }
+
+        if memberType == typeof(char) {
+            return value.ValueKind == JsonValueKind.String
+        }
+
+        if memberType.IsEnum {
+            return value.ValueKind == JsonValueKind.String || value.ValueKind == JsonValueKind.Number
+        }
+
+        if memberType == typeof(Guid)
+            || memberType == typeof(DateTime)
+            || memberType == typeof(DateTimeOffset)
+            || memberType == typeof(TimeSpan) {
+            return value.ValueKind == JsonValueKind.String
+        }
+
+        return value.ValueKind == JsonValueKind.Number
+    }
+
+    private static func GetMemberTypeDiscriminator(memberType: Type) -> string {
+        return memberType.Name
     }
 }

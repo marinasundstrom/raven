@@ -17,6 +17,7 @@
     <RavenSource Include="Result.rav" />
     <RavenSource Include="LinqExtensions.rav" />
     <RavenSource Include="UnionJsonConverter.rav" />
+    <RavenSource Include="Union.rav" />
   </ItemGroup>
 
   <Target Name="CompileRavenCore"

@@ -29,8 +29,21 @@ internal class NameSyntaxParser : SyntaxParser
 
     public TypeSyntax ParseTypeName()
     {
-        // Type union syntax (`A | B`) and literal type syntax (`"x"`, `42`, `true`) are intentionally disabled.
-        return ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true);
+        var first = ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true);
+
+        if (!PeekToken().IsKind(SyntaxKind.BarToken))
+            return first;
+
+        SyntaxList types = SyntaxList.Empty;
+        types = types.Add(first);
+
+        while (ConsumeToken(SyntaxKind.BarToken, out var barToken))
+        {
+            types = types.Add(barToken);
+            types = types.Add(ParseTypeNameElement(allowImplicitFunctionTypeRecovery: true));
+        }
+
+        return UnionType(types);
     }
 
     public TypeSyntax ParseTypeNameWithoutFunctionRecovery()

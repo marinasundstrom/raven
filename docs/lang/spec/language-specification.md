@@ -4429,6 +4429,13 @@ element is validated against the corresponding element type. Elements are
 accessed positionally (e.g. `Item1`, `Item2`). Tuple types may nest or
 participate in other type constructs such as unions or nullability.
 
+### Standard union types
+
+The type syntax `T1 | T2` is shorthand for `System.Union<T1, T2>`. The same
+spelling supports three, four, and five alternatives. These standard unions are
+provided by `Raven.Core` as a temporary bridge until .NET adopts a standard
+union type.
+
 ### Function types
 
 Function types describe callable delegates directly in a type annotation. The

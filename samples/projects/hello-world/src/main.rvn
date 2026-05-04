@@ -6,7 +6,8 @@ import System.Text.Json.Serialization.*
 val foo = Foo(
     Name: "Foo", 
     Status: .OnMaintenance(.UtcNow, "Test"),
-    Item: .Some("Foo")
+    Item: .Some("Foo"),
+    Test: true
 )
 
 val options = JsonSerializerOptions with {
@@ -25,6 +26,7 @@ record Foo(
     val Name: string,
     val Status: Status
     val Item: Option<string>
+    val Test: int | bool
 )
 
 [RavenUnionJsonConverter("kind")]

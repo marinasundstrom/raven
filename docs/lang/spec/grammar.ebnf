@@ -701,7 +701,9 @@ Literal                  ::= NumericLiteral
 
 (* ---------- Types ---------- *)
 
-Type                     ::= ByRefType | PointerType | FunctionType ;
+Type                     ::= UnionType ;
+
+UnionType                ::= FunctionType {'|' FunctionType} ;
 
 ByRefType                ::= '&' Type ;
 PointerType              ::= '*' Type ;

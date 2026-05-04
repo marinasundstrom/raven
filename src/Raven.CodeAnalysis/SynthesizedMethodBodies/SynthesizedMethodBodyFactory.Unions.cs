@@ -64,9 +64,10 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var statements = new List<BoundStatement>();
 
-        if (!unionSymbol.CaseTypes.IsDefaultOrEmpty && unionSymbol.CaseTypes.Length > 0)
+        var declaredCaseTypes = unionSymbol.DeclaredCaseTypes.OfType<SourceUnionCaseTypeSymbol>().ToArray();
+        if (declaredCaseTypes.Length > 0)
         {
-            foreach (var caseType in unionSymbol.CaseTypes.OfType<SourceUnionCaseTypeSymbol>())
+            foreach (var caseType in declaredCaseTypes)
             {
                 var payloadField = (SourceFieldSymbol)UnionFieldUtilities.GetRequiredPayloadField(unionSymbol, caseType);
                 var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadField);
@@ -80,7 +81,7 @@ internal static partial class SynthesizedMethodBodyFactory
             return new BoundBlockStatement(statements);
         }
 
-        var payloadFields = unionSymbol.PayloadFields.OfType<SourceFieldSymbol>().ToArray();
+        var payloadFields = GetUnionPayloadFields(unionSymbol);
         for (var index = 0; index < payloadFields.Length; index++)
         {
             var payloadField = payloadFields[index];
@@ -113,9 +114,10 @@ internal static partial class SynthesizedMethodBodyFactory
         var objectType = compilation.GetSpecialType(SpecialType.System_Object)
             ?? throw new InvalidOperationException("Failed to resolve System.Object.");
 
-        if (!unionSymbol.CaseTypes.IsDefaultOrEmpty && unionSymbol.CaseTypes.Length > 0)
+        var declaredCaseTypes = unionSymbol.DeclaredCaseTypes.OfType<SourceUnionCaseTypeSymbol>().ToArray();
+        if (declaredCaseTypes.Length > 0)
         {
-            foreach (var caseType in unionSymbol.CaseTypes.OfType<SourceUnionCaseTypeSymbol>())
+            foreach (var caseType in declaredCaseTypes)
             {
                 var payloadField = (SourceFieldSymbol)UnionFieldUtilities.GetRequiredPayloadField(unionSymbol, caseType);
                 var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadField);
@@ -130,7 +132,7 @@ internal static partial class SynthesizedMethodBodyFactory
         }
         else
         {
-            var payloadFields = unionSymbol.PayloadFields.OfType<SourceFieldSymbol>().ToArray();
+            var payloadFields = GetUnionPayloadFields(unionSymbol);
             for (var index = 0; index < payloadFields.Length; index++)
             {
                 var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadFields[index]);
@@ -1072,7 +1074,7 @@ internal static partial class SynthesizedMethodBodyFactory
             return true;
         }
 
-        var payloadFields = unionSymbol.PayloadFields.OfType<SourceFieldSymbol>().ToArray();
+        var payloadFields = GetUnionPayloadFields(unionSymbol);
         for (var index = 0; index < payloadFields.Length; index++)
         {
             var payloadField = payloadFields[index];
@@ -1087,6 +1089,18 @@ internal static partial class SynthesizedMethodBodyFactory
         ordinal = -1;
         payloadFieldSymbol = null!;
         return false;
+    }
+
+    private static SourceFieldSymbol[] GetUnionPayloadFields(SourceUnionSymbol unionSymbol)
+    {
+        var payloadFields = unionSymbol.PayloadFields.OfType<SourceFieldSymbol>().ToArray();
+        if (payloadFields.Length > 0)
+            return payloadFields;
+
+        return unionSymbol.GetMembers()
+            .OfType<SourceFieldSymbol>()
+            .Where(field => UnionFieldUtilities.IsPayloadFieldName(field.Name))
+            .ToArray();
     }
 
     private static byte GetStoredUnionTag(int ordinal)

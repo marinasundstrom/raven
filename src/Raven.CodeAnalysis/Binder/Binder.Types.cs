@@ -33,6 +33,7 @@ internal abstract partial class Binder
         TupleElementFailed,
         FunctionParameterFailed,
         FunctionReturnFailed,
+        UnionElementFailed,
 
         ArrayElementFailed,
         ByRefElementFailed,
@@ -146,6 +147,7 @@ internal abstract partial class Binder
             PredefinedTypeSyntax p => BindPredefined(p, importedScopes),
             UnitTypeSyntax => BindUnit(),
             TupleTypeSyntax t => BindTuple(t, typeParams, importedScopes, allowBinderLookup),
+            UnionTypeSyntax u => BindUnion(u, typeParams, importedScopes, allowBinderLookup),
             FunctionTypeSyntax f => BindFunction(f, typeParams, importedScopes, allowBinderLookup),
             ArrayTypeSyntax a => BindArray(a, typeParams, importedScopes, allowBinderLookup),
             ByRefTypeSyntax br => BindByRef(br, typeParams, importedScopes, allowBinderLookup),
@@ -673,6 +675,53 @@ internal abstract partial class Binder
         {
             ResolvedType = Compilation.CreateFunctionTypeSymbol(parameterTypes.ToArray(), returnResult.ResolvedType)
         };
+    }
+
+    private ResolveTypeResult BindUnion(
+        UnionTypeSyntax union,
+        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
+    {
+        var arity = union.Types.Count;
+        var definition = Compilation.GetTypeByMetadataName($"System.Union`{arity}") as INamedTypeSymbol;
+        if (definition is null)
+            return Fail(union, TypeResolutionFailureKind.FrameworkTypeNotFound);
+
+        var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
+        var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
+        var typeArguments = ImmutableArray.CreateBuilder<ITypeSymbol>(arity);
+
+        foreach (var typeSyntax in union.Types)
+        {
+            var resolved = BindTypeCore(typeSyntax, typeParams, importedScopes, allowBinderLookup);
+            if (!resolved.Success)
+            {
+                failures.Add(TypeResolutionFailureKind.UnionElementFailed);
+                if (!resolved.FailureKinds.IsDefaultOrEmpty)
+                    failures.AddRange(resolved.FailureKinds);
+
+                issues.Add(ResolveTypeResult.ResolutionIssue.Failure(typeSyntax, TypeResolutionFailureKind.UnionElementFailed));
+                if (!resolved.Issues.IsDefaultOrEmpty)
+                    issues.AddRange(resolved.Issues);
+                continue;
+            }
+
+            typeArguments.Add(resolved.ResolvedType);
+        }
+
+        if (failures.Count > 0)
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = Compilation.ErrorTypeSymbol,
+                Failed = true,
+                FailureKinds = failures.ToImmutable(),
+                Issues = issues.ToImmutable()
+            };
+        }
+
+        return Construct(definition, typeArguments.ToImmutable());
     }
 
     // -----------------------------

@@ -879,6 +879,9 @@ public static partial class SymbolExtensions
             }
 
             var underlyingDisplay = FormatType(underlying, format);
+            if (IsStandardUnionType(underlying))
+                underlyingDisplay = $"({underlyingDisplay})";
+
             return underlyingDisplay + "?";
         }
 
@@ -904,7 +907,8 @@ public static partial class SymbolExtensions
 
             // Array of of function type => (A -> B)[]
             // Array of of type union => (A | B)[]
-            if (elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion })
+            if (elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate or TypeKind.TypeUnion } ||
+                IsStandardUnionType(elementType))
             {
                 elementDisplay = $"({elementDisplay})";
             }
@@ -963,6 +967,13 @@ public static partial class SymbolExtensions
             return string.Join(" | ", members);
         }
 
+        if (IsStandardUnionType(typeSymbol) &&
+            typeSymbol is INamedTypeSymbol standardUnion &&
+            !standardUnion.TypeArguments.IsDefaultOrEmpty)
+        {
+            return string.Join(" | ", standardUnion.TypeArguments.Select(t => FormatType(t, format)));
+        }
+
         // Special types => keywords
         if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes))
         {
@@ -980,6 +991,20 @@ public static partial class SymbolExtensions
 
         // Fallback: just the name
         return EscapeIdentifierIfNeeded(typeSymbol.Name, format);
+    }
+
+    private static bool IsStandardUnionType(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is not INamedTypeSymbol namedType)
+            return false;
+
+        var definition = (namedType.OriginalDefinition as INamedTypeSymbol) ??
+                         (namedType.ConstructedFrom as INamedTypeSymbol) ??
+                         namedType;
+
+        return definition.Arity is >= 2 and <= 5 &&
+               string.Equals(definition.Name, "Union", StringComparison.Ordinal) &&
+               string.Equals(definition.ContainingNamespace?.ToDisplayString(), "System", StringComparison.Ordinal);
     }
 
     private static string FormatSimpleNamedType(INamedTypeSymbol typeSymbol, SymbolDisplayFormat format)

@@ -107,6 +107,12 @@ val fixed: int[3] = [1, 2, 3]
 
 `(T1, T2, ...)` map to `System.ValueTuple<T1, T2, ...>`.
 
+### Standard unions
+
+`T1 | T2` maps to `System.Union<T1, T2>` in `Raven.Core`. The syntax supports
+two through five alternatives and is temporary until .NET provides standard
+union types.
+
 ### Function types
 
 Function types are delegate-like type literals written with arrow syntax.
