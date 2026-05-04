@@ -323,6 +323,15 @@ partial class BlockBinder
         // Pre-inference pass: infer type parameters from non-lambda arguments.
         var preInferredSubstitutions = TryPreInferTypeArguments(methods, arguments, receiver, pipeReceiverType, explicitTypeArguments);
 
+        if (trailingBlock is not null)
+        {
+            var extensionReceiverImplicit = receiver is not null && methods.All(static method => method.IsExtensionMethod);
+            var callSiteArgumentCount = arguments.Count + 1;
+            var filteredMethods = FilterMethodsForTrailingBlock(methods, arguments.Count, trailingBlock, extensionReceiverImplicit, callSiteArgumentCount);
+            if (!filteredMethods.IsDefaultOrEmpty)
+                methods = filteredMethods;
+        }
+
         // Collect all method type parameters so we can detect unresolved ones.
         var allMethodTypeParams = CollectDistinctMethodTypeParameters(methods);
 

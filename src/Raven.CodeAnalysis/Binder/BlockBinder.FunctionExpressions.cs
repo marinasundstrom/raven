@@ -943,11 +943,85 @@ partial class BlockBinder
             isAsync: false);
         var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
-        var parameterSymbols = ImmutableArray<IParameterSymbol>.Empty;
-        if (targetSignature is not null)
+        var explicitParameterSyntaxes = GetTrailingBlockParameterSyntaxes(syntax);
+
+        ImmutableArray<IParameterSymbol> parameterSymbols;
+        if (explicitParameterSyntaxes.Length > 0)
+        {
+            var builder = ImmutableArray.CreateBuilder<IParameterSymbol>(explicitParameterSyntaxes.Length);
+            for (var index = 0; index < explicitParameterSyntaxes.Length; index++)
+            {
+                var parameterSyntax = explicitParameterSyntaxes[index];
+                var annotation = parameterSyntax.TypeAnnotation;
+                var typeSyntax = annotation?.Type;
+                var refKind = RefKind.None;
+                var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
+
+                if (typeSyntax is ByRefTypeSyntax)
+                {
+                    refKind = refKindTokenKind switch
+                    {
+                        SyntaxKind.OutKeyword => RefKind.Out,
+                        SyntaxKind.InKeyword => RefKind.In,
+                        SyntaxKind.RefKeyword => RefKind.Ref,
+                        _ => RefKind.Ref,
+                    };
+                }
+
+                var targetParam = targetSignature is { } invoke && invoke.Parameters.Length > index
+                    ? invoke.Parameters[index]
+                    : null;
+
+                ITypeSymbol parameterType;
+                if (typeSyntax is not null)
+                {
+                    var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
+                        ? byRefType.ElementType
+                        : typeSyntax;
+                    parameterType = lambdaBinder.ResolveTypeSyntaxOrError(boundTypeSyntax);
+                }
+                else if (targetParam is not null)
+                {
+                    parameterType = targetParam.Type;
+                    if (refKind == RefKind.None)
+                        refKind = targetParam.RefKind;
+                }
+                else
+                {
+                    parameterType = Compilation.ErrorTypeSymbol;
+                }
+
+                var hasExplicitDefaultValue = false;
+                object explicitDefaultValue = null;
+                if (parameterSyntax.DefaultValue?.Value is not null &&
+                    ConstantValueEvaluator.TryEvaluate(parameterSyntax.DefaultValue.Value, out var evaluated))
+                {
+                    hasExplicitDefaultValue = true;
+                    explicitDefaultValue = evaluated;
+                }
+
+                var parameter = new SourceParameterSymbol(
+                    GetLambdaParameterSymbolName(parameterSyntax, index),
+                    parameterType,
+                    lambdaSymbol,
+                    lambdaSymbol.ContainingType,
+                    lambdaSymbol.ContainingNamespace,
+                    [GetLambdaParameterLocation(parameterSyntax)],
+                    [parameterSyntax.GetReference()],
+                    refKind,
+                    hasExplicitDefaultValue,
+                    explicitDefaultValue,
+                    isMutable: refKind is RefKind.Ref or RefKind.Out);
+
+                builder.Add(parameter);
+            }
+
+            parameterSymbols = builder.ToImmutable();
+        }
+        else if (targetSignature is not null)
         {
             var builder = ImmutableArray.CreateBuilder<IParameterSymbol>(targetSignature.Parameters.Length);
-            var location = syntax.Body.OpenBraceToken.GetLocation();
+            var location = syntax.OpenBraceToken.GetLocation();
             var reference = syntax.GetReference();
 
             for (var index = 0; index < targetSignature.Parameters.Length; index++)
@@ -971,6 +1045,10 @@ partial class BlockBinder
 
             parameterSymbols = builder.ToImmutable();
         }
+        else
+        {
+            parameterSymbols = ImmutableArray<IParameterSymbol>.Empty;
+        }
 
         lambdaSymbol.SetParameters(parameterSymbols);
         foreach (var parameter in parameterSymbols)
@@ -980,11 +1058,11 @@ partial class BlockBinder
         if (targetReturnType is not null)
         {
             using var _ = lambdaBinder.PushTargetType(targetReturnType);
-            bodyExpr = lambdaBinder.BindExpression(syntax.Body, allowReturn: true);
+            bodyExpr = lambdaBinder.BindTrailingBlockBody(syntax, allowReturn: true);
         }
         else
         {
-            bodyExpr = lambdaBinder.BindExpression(syntax.Body, allowReturn: true);
+            bodyExpr = lambdaBinder.BindTrailingBlockBody(syntax, allowReturn: true);
         }
 
         if (targetReturnType is not null)
@@ -1025,16 +1103,16 @@ partial class BlockBinder
                 ReportCannotConvertFromTypeToType(
                     inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     targetReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    syntax.Body.GetLocation());
+                    syntax.GetLocation());
             }
             else
             {
-                bodyExpr = ApplyConversion(bodyExpr, targetReturnType, conversion, syntax.Body);
+                bodyExpr = ApplyConversion(bodyExpr, targetReturnType, conversion, syntax);
             }
         }
 
         lambdaBinder.SetLambdaBody(bodyExpr);
-        lambdaBinder.CacheLambdaBodyBinders(syntax.Body);
+        lambdaBinder.CacheLambdaBodyBinders(syntax);
         var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
@@ -1069,6 +1147,116 @@ partial class BlockBinder
             candidateDelegates);
 
         return boundLambda;
+    }
+
+    private BoundBlockExpression BindTrailingBlockBody(TrailingBlockExpressionSyntax syntax, bool allowReturn = true)
+    {
+        _scopeDepth++;
+        var depth = _scopeDepth;
+
+        if (!allowReturn)
+            _expressionContextDepth++;
+
+        EnsureLabelsDeclared(syntax);
+
+        foreach (var stmt in syntax.Statements)
+        {
+            if (stmt is not TypeDeclarationStatementSyntax typeDeclarationStatement)
+                continue;
+
+            var symbol = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
+            if (_localTypes.TryGetValue(symbol.Name, out var existing) && existing.Depth == depth)
+            {
+                var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == typeDeclarationStatement.SyntaxTree &&
+                    reference.Span == typeDeclarationStatement.Declaration.Span);
+
+                if (!isSameDeclaration)
+                    _diagnostics.ReportTypeAlreadyDefined(symbol.Name, typeDeclarationStatement.Declaration.Identifier.GetLocation());
+            }
+            else
+            {
+                _localTypes[symbol.Name] = (symbol, depth);
+            }
+        }
+
+        foreach (var stmt in syntax.Statements)
+        {
+            if (stmt is FunctionStatementSyntax func)
+            {
+                var functionBinder = SemanticModel.GetBinder(func, this);
+                if (functionBinder is FunctionBinder lfBinder)
+                {
+                    var symbol = lfBinder.GetMethodSymbol();
+                    if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                        _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
+                    else
+                        _functions[symbol.Name] = symbol;
+                }
+            }
+        }
+
+        var boundStatements = new List<BoundStatement>(syntax.Statements.Count);
+        foreach (var stmt in syntax.Statements)
+        {
+            BoundStatement bound;
+            if (!allowReturn && stmt is ReturnStatementSyntax ret)
+            {
+                _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
+                var expr = ret.Expression is null
+                    ? BoundFactory.UnitExpression()
+                    : BindExpression(ret.Expression);
+                bound = new BoundExpressionStatement(expr);
+            }
+            else
+            {
+                bound = BindStatement(stmt);
+                if (!allowReturn && bound is BoundReturnStatement br)
+                {
+                    _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
+                    var expr = br.Expression ?? BoundFactory.UnitExpression();
+                    bound = new BoundExpressionStatement(expr);
+                }
+            }
+
+            boundStatements.Add(bound);
+        }
+
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var localsAtDepth = _localsToDispose
+            .Where(l => l.Depth == depth)
+            .Select(l => l.Local)
+            .ToList();
+
+        if (localsAtDepth.Count > 0)
+            _localsToDispose.RemoveAll(l => l.Depth == depth);
+
+        var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType, localsAtDepth.ToImmutableArray());
+
+        ClearNonNullSymbolsAtDepth(depth);
+
+        foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+            _locals.Remove(name);
+
+        foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+            _localTypes.Remove(name);
+
+        _scopeDepth--;
+        if (!allowReturn)
+            _expressionContextDepth--;
+
+        return blockExpr;
+    }
+
+    private static ImmutableArray<ParameterSyntax> GetTrailingBlockParameterSyntaxes(TrailingBlockExpressionSyntax syntax)
+    {
+        if (syntax.Parameter is { } parameter)
+            return ImmutableArray.Create(parameter);
+
+        if (syntax.ParameterList is { } parameterList)
+            return parameterList.Parameters.ToImmutableArray();
+
+        return ImmutableArray<ParameterSyntax>.Empty;
     }
 
     private bool TryGetLambdaTargetDelegateFromContext(
@@ -1734,6 +1922,79 @@ partial class BlockBinder
                 continue;
 
             if (invoke.Parameters.Length != parameterCount)
+                continue;
+
+            builder.Add(method);
+        }
+
+        return builder.Count == methods.Length ? methods : builder.ToImmutable();
+    }
+
+    private ImmutableArray<IMethodSymbol> FilterMethodsForTrailingBlock(
+        ImmutableArray<IMethodSymbol> methods,
+        int parameterIndex,
+        TrailingBlockExpressionSyntax trailingBlock,
+        bool extensionReceiverImplicit,
+        int callSiteArgumentCount = -1)
+    {
+        if (methods.IsDefaultOrEmpty)
+            return methods;
+
+        var explicitParameterCount = GetTrailingBlockParameterSyntaxes(trailingBlock).Length;
+        if (explicitParameterCount == 0)
+            return methods;
+
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        foreach (var method in methods)
+        {
+            if (callSiteArgumentCount >= 0)
+            {
+                var firstVisible = method.IsExtensionMethod && extensionReceiverImplicit ? 1 : 0;
+                var visibleParams = method.Parameters.Length - firstVisible;
+
+                var requiredParams = visibleParams;
+                for (var i = method.Parameters.Length - 1; i >= firstVisible; i--)
+                {
+                    if (method.Parameters[i].HasExplicitDefaultValue || method.Parameters[i].IsVarParams)
+                        requiredParams--;
+                    else
+                        break;
+                }
+
+                if (callSiteArgumentCount < requiredParams || callSiteArgumentCount > visibleParams)
+                    continue;
+            }
+
+            if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
+                continue;
+
+            var parameterType = parameter.Type is NullableTypeSymbol nullableParameterType
+                ? nullableParameterType.UnderlyingType
+                : parameter.Type;
+
+            INamedTypeSymbol? effectiveDelegateType = null;
+            if (parameterType is INamedTypeSymbol namedParamType)
+            {
+                if (namedParamType.TypeKind == TypeKind.Delegate)
+                    effectiveDelegateType = namedParamType;
+                else if (TryGetExpressionTreeDelegateType(namedParamType, out var innerDelegate))
+                    effectiveDelegateType = innerDelegate;
+            }
+
+            if (effectiveDelegateType is null)
+            {
+                if (parameterType is ITypeParameterSymbol)
+                    builder.Add(method);
+
+                continue;
+            }
+
+            var invoke = effectiveDelegateType.GetDelegateInvokeMethod();
+            if (invoke is null)
+                continue;
+
+            if (invoke.Parameters.Length != explicitParameterCount)
                 continue;
 
             builder.Add(method);

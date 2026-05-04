@@ -593,14 +593,18 @@ ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | A
 
 (* ---------- Trailing blocks ---------- *)
 
-TrailingBlock             ::= Block ;
+TrailingBlock             ::= "{" [ TrailingBlockParameterClause ] Statement* "}" ;
+
+TrailingBlockParameterClause
+                          ::= Parameter "=>"
+                           |  ParameterList "=>" ;
 
 (* A trailing block is invocation syntax. It is syntactic sugar for supplying
    a final closure argument to `callee(args) { ... }` or `callee { ... }`.
    The callable may be a method, constructor, or extension method. The selected
-   closure parameter determines whether implicit `$0`, `$1`, ... parameters are
-   available in the block. The block body is parsed as ordinary Raven
-   statements, not initializer entries. *)
+   closure parameter determines whether declared parameters or implicit `$0`,
+   `$1`, ... parameters are available in the block. The block body is parsed as
+   ordinary Raven statements, not initializer entries. *)
 
 (* ---------- With expressions and object initializers ---------- *)
 

@@ -3132,8 +3132,117 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     private TrailingBlockExpressionSyntax ParseTrailingBlockExpression()
     {
-        var body = ParseBlockSyntax();
-        return TrailingBlockExpression(body);
+        var openBrace = ExpectToken(SyntaxKind.OpenBraceToken);
+
+        EnterParens();
+
+        ParameterSyntax? parameter = null;
+        ParameterListSyntax? parameterList = null;
+        var fatArrowToken = Token(SyntaxKind.None);
+
+        TryParseTrailingBlockParameterClause(out parameter, out parameterList, out fatArrowToken);
+
+        var statements = new List<StatementSyntax>();
+        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _) &&
+               !IsNextToken(SyntaxKind.EndOfFileToken, out _))
+        {
+            var statementStart = Position;
+            var stmt = new StatementSyntaxParser(this).ParseStatement();
+            if (stmt is not null)
+                statements.Add(stmt);
+
+            if (Position == statementStart)
+            {
+                var token = PeekToken();
+                var tokenText = string.IsNullOrEmpty(token.Text)
+                    ? token.Kind.ToString()
+                    : token.Text;
+
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                        GetSpanOfPeekedToken(),
+                        tokenText));
+
+                ReadToken();
+            }
+
+            SetTreatNewlinesAsTokens(false);
+        }
+
+        ExitParens();
+
+        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
+
+        return TrailingBlockExpression(openBrace, parameter, parameterList, fatArrowToken, List(statements), closeBrace);
+    }
+
+    private bool TryParseTrailingBlockParameterClause(
+        out ParameterSyntax? parameter,
+        out ParameterListSyntax? parameterList,
+        out SyntaxToken fatArrowToken)
+    {
+        parameter = null;
+        parameterList = null;
+        fatArrowToken = Token(SyntaxKind.None);
+
+        var checkpoint = CreateCheckpoint("trailing-block-parameter-clause");
+
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        {
+            var parsedParameterList = new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true);
+            if (ConsumeToken(SyntaxKind.FatArrowToken, out fatArrowToken))
+            {
+                parameterList = parsedParameterList;
+                return true;
+            }
+
+            checkpoint.Rewind();
+            fatArrowToken = Token(SyntaxKind.None);
+            return false;
+        }
+
+        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
+
+        var refKindKeyword = Token(SyntaxKind.None);
+        if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
+            || ConsumeToken(SyntaxKind.OutKeyword, out modifier)
+            || ConsumeToken(SyntaxKind.InKeyword, out modifier))
+        {
+            refKindKeyword = modifier;
+        }
+
+        var bindingKeyword = Token(SyntaxKind.None);
+        if (ConsumeToken(SyntaxKind.LetKeyword, out var binding)
+            || ConsumeToken(SyntaxKind.ValKeyword, out binding)
+            || ConsumeToken(SyntaxKind.VarKeyword, out binding)
+            || ConsumeToken(SyntaxKind.ConstKeyword, out binding))
+        {
+            bindingKeyword = binding;
+        }
+
+        if (!CanTokenBeIdentifier(PeekToken()))
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        var identifier = ReadIdentifierToken();
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+
+        EqualsValueClauseSyntax? defaultValue = null;
+        if (IsNextToken(SyntaxKind.EqualsToken, out _))
+            defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
+
+        if (!ConsumeToken(SyntaxKind.FatArrowToken, out fatArrowToken))
+        {
+            checkpoint.Rewind();
+            fatArrowToken = Token(SyntaxKind.None);
+            return false;
+        }
+
+        parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
+        return true;
     }
 
     private TrailingBlockEntrySyntax ParseTrailingBlockEntry()

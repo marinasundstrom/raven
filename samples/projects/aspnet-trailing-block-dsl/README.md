@@ -5,16 +5,24 @@ This sample builds a small routing DSL on top of ASP.NET Core Minimal APIs.
 The sample keeps the interop layer ordinary Raven code:
 
 - `app.Route("/todos") { ... }` creates a route group, similar to Ktor's `route`; it is not tied to one HTTP method.
-- `GET("/{id:int}", func (id: int) => ...)` uses a normal function-expression argument when the route handler needs typed inputs.
+- `GET("/{id:int}") { id => ... }` uses a parameterized trailing block when the route handler needs typed inputs.
 - `GET(...) { ... }` and `POST(...) { ... }` use trailing blocks as lightweight zero-argument handler delegates.
 
 The interop layer stays ordinary Raven code. `Route`, `MapDsl`, and `Named` are extension methods, and the mapper lowers descriptors to `WebApplication.MapGroup`, `MapGet`, `MapPost`, and `WithName`.
 
-The typed-handler shape omits the generic type argument at the call site; Raven infers `GET<int>` from the function parameter:
+The typed-handler shape omits the generic type argument at the call site; Raven infers `GET<int>` from the trailing-block parameter:
 
 ```raven
 app.Route("/todos") {
-    GET("/{id:int}", func (id: int) => store.Describe(id)).Named("todos-get")
+    GET("/{id:int}") { id =>
+        val todo = store.Find(id)
+
+        if todo is null {
+            return "Not found"
+        } else {
+            return todo.ToLine()
+        }
+    }.Named("todos-get")
 }
 ```
 

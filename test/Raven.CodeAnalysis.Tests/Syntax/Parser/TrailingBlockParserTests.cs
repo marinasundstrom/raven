@@ -50,6 +50,50 @@ public class TrailingBlockParserTests
     }
 
     [Fact]
+    public void TrailingBlock_WithSimpleParameterClause_ParsesParameterAndBody()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            val endpoint = GET("/{id:int}") { id =>
+                store.Find(id)
+            }
+            """);
+
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
+        var trailingBlock = Assert.IsType<TrailingBlockExpressionSyntax>(invocation.TrailingBlock);
+
+        Assert.NotNull(trailingBlock.Parameter);
+        Assert.Null(trailingBlock.ParameterList);
+        Assert.Equal("id", trailingBlock.Parameter!.Identifier.ValueText);
+        Assert.Equal(SyntaxKind.FatArrowToken, trailingBlock.FatArrowToken.Kind);
+        Assert.Single(trailingBlock.Body.Statements);
+    }
+
+    [Fact]
+    public void TrailingBlock_WithParenthesizedParameterClause_ParsesParametersAndBody()
+    {
+        var tree = SyntaxTree.ParseText(
+            """
+            val endpoint = GET("/{id:int}") { (id: int, name: string) =>
+                name
+            }
+            """);
+
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(declaration.Declaration.Declarators.Single().Initializer!.Value);
+        var trailingBlock = Assert.IsType<TrailingBlockExpressionSyntax>(invocation.TrailingBlock);
+
+        Assert.Null(trailingBlock.Parameter);
+        Assert.NotNull(trailingBlock.ParameterList);
+        Assert.Equal(2, trailingBlock.ParameterList!.Parameters.Count);
+        Assert.Equal(SyntaxKind.FatArrowToken, trailingBlock.FatArrowToken.Kind);
+        Assert.Single(trailingBlock.Body.Statements);
+    }
+
+    [Fact]
     public void WithInitializer_AssignmentEntry_WithPlusEquals_ParsesOperatorToken()
     {
         var tree = SyntaxTree.ParseText(

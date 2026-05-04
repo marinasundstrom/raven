@@ -87,6 +87,32 @@ class Runner {
         Assert.Equal("a,b", output);
     }
 
+    [Fact]
+    public void ParameterizedTrailingBlock_ParticipatesInOverloadResolution()
+    {
+        const string code = """
+class Runner {
+    static func Run() -> string {
+        return Use { value =>
+            value.ToString()
+        }
+    }
+
+    static func Use(handler: () -> string) -> string {
+        return "zero"
+    }
+
+    static func Use(handler: int -> string) -> string {
+        return handler(42)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("42", output);
+    }
+
     private static object? CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);

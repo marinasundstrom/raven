@@ -5,6 +5,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 ## 2026-05-03
 
 ### Changed
+- Trailing blocks now support an optional parameter clause before the body, such as `GET("/{id:int}") { id => ... }` or `Combine { (left, right) => ... }`, and use the declared arity during overload resolution.
 - Target-typed union case construction now works in constructor arguments even when overloads have same-arity parameters, so nested calls such as `Theme(None)` and `Theme(.None)` bind against an `Option<T>` parameter without requiring `Option<T>.None`.
 - The language server now ignores generated, package/cache, build output, and temporary probe directories when discovering projects or reacting to watched-file changes, reducing full workspace reload storms in VS Code.
 - Semantic queries over brace trailing blocks now bind the trailing block expression instead of throwing, so hover and related editor features remain stable when the cursor lands inside that syntax.

@@ -196,7 +196,7 @@ class TodoStore {
         return text
     }
 
-    private func Find(id: int) -> Todo? {
+    func Find(id: int) -> Todo? {
         for todo in todos {
             if todo.Id == id {
                 return todo
@@ -204,16 +204,6 @@ class TodoStore {
         }
 
         return null
-    }
-
-    func Describe(id: int) -> string {
-        val todo = Find(id)
-
-        if todo is null {
-            return "Todo ${id.ToString()} was not found."
-        }
-
-        return todo.ToLine()
     }
 
     func Add(title: string) -> Todo {
@@ -237,7 +227,15 @@ app.Route("/todos") {
         store.Summary()
     }.Named("todos-list")
 
-    GET("/{id:int}", func (id: int) => store.Describe(id)).Named("todos-get")
+    GET("/{id:int}") { id =>
+        val todo = store.Find(id)
+
+        if todo is null {
+            return "Not found"
+        } else {
+            return todo.ToLine()
+        }
+    }.Named("todos-get")
 
     POST("/seed") {
         store.Add("Created from a trailing block handler").ToLine()
