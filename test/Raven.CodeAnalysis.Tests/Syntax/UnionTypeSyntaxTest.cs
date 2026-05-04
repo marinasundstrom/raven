@@ -19,6 +19,8 @@ public class UnionTypeSyntaxTest
         Assert.Equal(2, union.Types.Count);
         Assert.IsType<PredefinedTypeSyntax>(union.Types[0]);
         Assert.IsType<PredefinedTypeSyntax>(union.Types[1]);
+        Assert.Equal(SyntaxKind.BarToken, union.Types.GetSeparator(0).Kind);
+        Assert.False(union.Types.GetSeparator(0).IsMissing);
     }
 
     [Fact]

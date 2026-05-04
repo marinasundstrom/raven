@@ -1,5 +1,6 @@
 import System.*
 import System.Console.*
+import System.Collections.Generic.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
@@ -22,6 +23,11 @@ WriteLine(str)
 val obj = JsonSerializer.Deserialize<Foo>(str, options)
 WriteLine(obj)
 
+match foo.Test {
+    int i => WriteLine(i)
+    bool b => WriteLine(b)
+}
+
 record Foo(
     val Name: string,
     val Status: Status
@@ -43,3 +49,12 @@ union Status {
         }
     }
 }
+
+union JsonValue(string | double | bool | JsonObject)
+record JsonObject(properties: IDictionary<string, JsonValue>)
+
+val x = JsonObject([ 
+    "name": 42
+])
+
+WriteLine(x)

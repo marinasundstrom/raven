@@ -177,6 +177,7 @@ public class UnionDeclarationParserTests
         Assert.Equal(2, declaration.MemberTypes!.Types.Count);
         Assert.Equal("A", declaration.MemberTypes.Types[0].ToString());
         Assert.Equal("B", declaration.MemberTypes.Types[1].ToString());
+        Assert.Equal(SyntaxKind.CommaToken, declaration.MemberTypes.Types.GetSeparator(0).Kind);
         Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax);
     }
 }
