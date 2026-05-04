@@ -228,41 +228,28 @@ extension OptionExtensions2<T : struct> for Option<T> {
 
 class OptionJsonConverter<T> : JsonConverter<Option<T>> {
 
+    override val HandleNull: bool { get; } = true
+
     override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
-        val @case = root.GetProperty("case").GetString()
-
-        return @case match {
-            "Some" => {
-                val payload = JsonSerializer.Deserialize<T>(root.GetProperty("value"), options)
-                val option: Option<T> = Some(payload)
-                option
-            }
-            "None" => {
-                val option: Option<T> = None
-                option
-            }
-            _ => {
-                val fallback: Option<T> = None
-                fallback
-            }
+        if string.Equals(root.GetRawText(), "null", StringComparison.Ordinal) {
+            val none: Option<T> = None
+            return none
         }
+
+        val payload = JsonSerializer.Deserialize<T>(root, options)
+        val some: Option<T> = Some(payload)
+        some
     }
 
     override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
-        writer.WriteStartObject()
-
         if value is Some(val someValue) {
-            writer.WriteString("case", "Some")
-            writer.WritePropertyName("value")
             JsonSerializer.Serialize(writer, someValue, options)
         } else if value is None {
-            writer.WriteString("case", "None")
+            writer.WriteNullValue()
         }
-
-        writer.WriteEndObject()
     }
 }
 

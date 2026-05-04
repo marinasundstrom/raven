@@ -2,6 +2,11 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 
+## 2026-05-04
+
+### Changed
+- `Option<T>` JSON serialization now maps `.Some(value)` directly to the payload JSON and `.None` to `null`, matching JSON's native nullable-property shape. `Result<T, E>` keeps its tagged converter shape.
+
 ## 2026-05-03
 
 ### Changed
