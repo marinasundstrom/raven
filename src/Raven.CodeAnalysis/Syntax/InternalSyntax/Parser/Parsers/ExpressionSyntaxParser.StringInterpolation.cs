@@ -23,7 +23,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         int segmentStart = 0;
         for (int i = 0; i < inner.Length;)
         {
-            if (IsInterpolationStart(inner, i))
+            if (IsBracedInterpolationStart(inner, i))
             {
                 if (i > segmentStart)
                 {
@@ -32,48 +32,43 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 }
 
                 var dollarToken = new SyntaxToken(SyntaxKind.DollarToken, "$");
+                var openBraceToken = new SyntaxToken(SyntaxKind.OpenBraceToken, "{");
 
-                if (inner[i + 1] == '{')
+                i += 2; // skip ${
+
+                var closeIndex = ScanInterpolationBody(inner, i, out var exprText);
+                var exprSyntax = ParseExpressionFromText(exprText);
+
+                // If we found a closing '}', produce it; otherwise synthesize missing.
+                SyntaxToken closeBraceToken;
+                if (closeIndex < inner.Length && closeIndex >= 0 && inner[closeIndex] == '}')
                 {
-                    var openBraceToken = new SyntaxToken(SyntaxKind.OpenBraceToken, "{");
-
-                    i += 2; // skip ${
-
-                    var closeIndex = ScanInterpolationBody(inner, i, out var exprText);
-                    var exprSyntax = ParseExpressionFromText(exprText);
-
-                    // If we found a closing '}', produce it; otherwise synthesize missing.
-                    SyntaxToken closeBraceToken;
-                    if (closeIndex < inner.Length && closeIndex >= 0 && inner[closeIndex] == '}')
-                    {
-                        closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
-                        i = closeIndex + 1; // continue after '}'
-                    }
-                    else
-                    {
-                        closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken);
-                        i = inner.Length; // stop scanning
-                    }
-
-                    contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                    closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
+                    i = closeIndex + 1; // continue after '}'
                 }
                 else
                 {
-                    var openBraceToken = Token(SyntaxKind.None);
-
-                    i++; // skip $
-                    int start = i;
-                    while (i < inner.Length && SyntaxFacts.IsIdentifierPartCharacter(inner[i]))
-                    {
-                        i++;
-                    }
-
-                    var exprText = inner.Substring(start, i - start);
-                    var exprSyntax = ParseExpressionFromText(exprText);
-                    var closeBraceToken = Token(SyntaxKind.None);
-                    contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                    closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken);
+                    i = inner.Length; // stop scanning
                 }
 
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                segmentStart = i;
+            }
+            else if (TryScanIdentifierInterpolation(inner, i, out var identifierEnd, out var exprSyntax))
+            {
+                if (i > segmentStart)
+                {
+                    var segmentRaw = inner.Substring(segmentStart, i - segmentStart);
+                    AddTextSegment(segmentRaw);
+                }
+
+                var dollarToken = new SyntaxToken(SyntaxKind.DollarToken, "$");
+                var openBraceToken = Token(SyntaxKind.None);
+                var closeBraceToken = Token(SyntaxKind.None);
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+
+                i = identifierEnd;
                 segmentStart = i;
             }
             else
@@ -126,7 +121,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         for (int i = 0; i < text.Length - 1; i++)
         {
-            if (IsInterpolationStart(text, i))
+            if (IsBracedInterpolationStart(text, i) ||
+                TryScanIdentifierInterpolation(text, i, out _, out _))
             {
                 return true;
             }
@@ -135,7 +131,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return false;
     }
 
-    private static bool IsInterpolationStart(string text, int index)
+    private static bool IsBracedInterpolationStart(string text, int index)
     {
         if (index + 1 >= text.Length)
         {
@@ -147,8 +143,35 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             return false;
         }
 
-        var next = text[index + 1];
-        return next == '{' || SyntaxFacts.IsIdentifierStartCharacter(next);
+        return text[index + 1] == '{';
+    }
+
+    private static bool TryScanIdentifierInterpolation(
+        string text,
+        int index,
+        out int end,
+        out ExpressionSyntax expression)
+    {
+        end = index;
+        expression = new ExpressionSyntax.Missing();
+
+        if (index + 1 >= text.Length ||
+            text[index] != '$' ||
+            IsEscaped(text, index) ||
+            !SyntaxFacts.IsIdentifierStartCharacter(text[index + 1]))
+        {
+            return false;
+        }
+
+        end = index + 2;
+        while (end < text.Length && SyntaxFacts.IsIdentifierPartCharacter(text[end]))
+        {
+            end++;
+        }
+
+        var exprText = text.Substring(index + 1, end - index - 1);
+        expression = IdentifierName(IdentifierToken(exprText));
+        return true;
     }
 
     private static bool IsEscaped(string text, int index)
@@ -380,7 +403,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         int segmentStart = 0;
         for (int i = 0; i < inner.Length;)
         {
-            if (IsInterpolationStart(inner, i))
+            if (IsBracedInterpolationStart(inner, i))
             {
                 if (i > segmentStart)
                 {
@@ -389,48 +412,43 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 }
 
                 var dollarToken = new SyntaxToken(SyntaxKind.DollarToken, "$");
+                var openBraceToken = new SyntaxToken(SyntaxKind.OpenBraceToken, "{");
 
-                if (inner[i + 1] == '{')
+                i += 2; // skip ${
+
+                var closeIndex = ScanInterpolationBody(inner, i, out var exprText);
+                var exprSyntax = ParseExpressionFromText(exprText);
+
+                // If we found a closing '}', produce it; otherwise synthesize missing.
+                SyntaxToken closeBraceToken;
+                if (closeIndex < inner.Length && closeIndex >= 0 && inner[closeIndex] == '}')
                 {
-                    var openBraceToken = new SyntaxToken(SyntaxKind.OpenBraceToken, "{");
-
-                    i += 2; // skip ${
-
-                    var closeIndex = ScanInterpolationBody(inner, i, out var exprText);
-                    var exprSyntax = ParseExpressionFromText(exprText);
-
-                    // If we found a closing '}', produce it; otherwise synthesize missing.
-                    SyntaxToken closeBraceToken;
-                    if (closeIndex < inner.Length && closeIndex >= 0 && inner[closeIndex] == '}')
-                    {
-                        closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
-                        i = closeIndex + 1; // continue after '}'
-                    }
-                    else
-                    {
-                        closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken);
-                        i = inner.Length; // stop scanning
-                    }
-
-                    contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                    closeBraceToken = new SyntaxToken(SyntaxKind.CloseBraceToken, "}");
+                    i = closeIndex + 1; // continue after '}'
                 }
                 else
                 {
-                    var openBraceToken = Token(SyntaxKind.None);
-
-                    i++; // skip $
-                    int start = i;
-                    while (i < inner.Length && SyntaxFacts.IsIdentifierPartCharacter(inner[i]))
-                    {
-                        i++;
-                    }
-
-                    var exprText = inner.Substring(start, i - start);
-                    var exprSyntax = ParseExpressionFromText(exprText);
-                    var closeBraceToken = Token(SyntaxKind.None);
-                    contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                    closeBraceToken = SyntaxToken.Missing(SyntaxKind.CloseBraceToken);
+                    i = inner.Length; // stop scanning
                 }
 
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+                segmentStart = i;
+            }
+            else if (TryScanIdentifierInterpolation(inner, i, out var identifierEnd, out var exprSyntax))
+            {
+                if (i > segmentStart)
+                {
+                    var segmentRaw = inner.Substring(segmentStart, i - segmentStart);
+                    AddTextSegment(segmentRaw);
+                }
+
+                var dollarToken = new SyntaxToken(SyntaxKind.DollarToken, "$");
+                var openBraceToken = Token(SyntaxKind.None);
+                var closeBraceToken = Token(SyntaxKind.None);
+                contents.Add(Interpolation(dollarToken, openBraceToken, exprSyntax, closeBraceToken));
+
+                i = identifierEnd;
                 segmentStart = i;
             }
             else

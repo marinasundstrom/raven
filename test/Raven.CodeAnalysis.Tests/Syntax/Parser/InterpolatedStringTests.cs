@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
+
 using Raven.CodeAnalysis.Syntax;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -46,6 +48,29 @@ public class InterpolatedStringTests
                 var trailing = Assert.IsType<InterpolatedStringTextSyntax>(third);
                 Assert.Equal("!", trailing.Token.ValueText);
             });
+    }
+
+    [Fact]
+    public void InterpolatedStringText_KeywordIdentifierShorthand_PreservesFollowingSpans()
+    {
+        var source = """
+[RavenUnionJsonConverter("$case")]
+union VehicleStatus {
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
+        var interpolation = Assert.IsType<InterpolationSyntax>(interpolated.Contents.Single());
+        Assert.Equal("case", interpolation.Expression.ToString());
+        Assert.Equal(5, interpolation.Span.Length);
+
+        var union = root.DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var lineSpan = union.UnionKeyword.GetLocation().GetLineSpan();
+
+        Assert.Equal(1, lineSpan.StartLinePosition.Line);
+        Assert.Equal(0, lineSpan.StartLinePosition.Character);
     }
 
     [Fact]
