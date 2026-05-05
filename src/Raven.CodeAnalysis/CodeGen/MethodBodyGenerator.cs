@@ -1435,6 +1435,9 @@ internal class MethodBodyGenerator
 
         var producedType = implementationMethod.ReturnType;
 
+        if (TryEmitRuntimeAsyncEntryPointHandler(implementationMethod.ReturnType))
+            return;
+
         if (AwaitablePattern.TryFind(implementationMethod.ReturnType, isAccessible: null, out var awaitable, out _, out _))
         {
             var getAwaiter = codeGen.RuntimeSymbolResolver.GetMethodInfo(awaitable.GetAwaiterMethod);
@@ -1468,6 +1471,40 @@ internal class MethodBodyGenerator
         }
 
         ILGenerator.Emit(OpCodes.Ret);
+    }
+
+    private bool TryEmitRuntimeAsyncEntryPointHandler(ITypeSymbol returnType)
+    {
+        var helper = ResolveRuntimeAsyncEntryPointHandler(returnType);
+        if (helper is null)
+            return false;
+
+        ILGenerator.Emit(OpCodes.Call, helper);
+        ILGenerator.Emit(OpCodes.Ret);
+        return true;
+    }
+
+    private MethodInfo? ResolveRuntimeAsyncEntryPointHandler(ITypeSymbol returnType)
+    {
+        if (!EntryPointSignature.IsRuntimeAsyncEntryPointReturnType(returnType, Compilation, out var returnsInt))
+            return null;
+
+        var asyncHelpersType = typeof(AsyncTaskMethodBuilder).Assembly.GetType("System.Runtime.CompilerServices.AsyncHelpers", throwOnError: false)
+            ?? Type.GetType("System.Runtime.CompilerServices.AsyncHelpers, System.Private.CoreLib", throwOnError: false);
+        if (asyncHelpersType is null)
+            return null;
+
+        var parameterType = returnsInt
+            ? typeof(System.Threading.Tasks.Task<int>)
+            : typeof(System.Threading.Tasks.Task);
+
+        return asyncHelpersType
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(method =>
+                string.Equals(method.Name, "HandleAsyncEntryPoint", StringComparison.Ordinal) &&
+                !method.IsGenericMethodDefinition &&
+                method.GetParameters() is [{ ParameterType: var actualParameterType }] &&
+                actualParameterType == parameterType);
     }
 
     private void EmitResultEntryPointBridgeReturn(IMethodSymbol bridgeMethod, INamedTypeSymbol resultType)

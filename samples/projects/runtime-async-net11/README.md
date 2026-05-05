@@ -39,10 +39,10 @@ dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLe
 From this folder:
 
 ```bash
-ilspycmd -il ./bin/RuntimeAsyncNet11.dll | rg "AsyncHelpers::Await|GetAwaiter|GetResult|flag\\(2000\\)"
+ilspycmd -il ./bin/Debug/net11.0/RuntimeAsyncNet11.dll | rg "AsyncHelpers::Await|HandleAsyncEntryPoint|GetAwaiter|GetResult|flag\\(2000\\)"
 ```
 
-In runtime-async mode you should see `AsyncHelpers::Await...` and `flag(2000)` on async methods.
+In runtime-async mode you should see `AsyncHelpers::Await...`, `AsyncHelpers::HandleAsyncEntryPoint(...)`, and `flag(2000)` on async methods.
 
 ## Our async impl vs runtime async
 
@@ -64,4 +64,4 @@ Runtime async on `.NET 11`:
 Current gaps/limits:
 
 - Compiler host should run as `net11.0` to emit `AsyncHelpers.Await(...)`.
-- Entry-point bridge still blocks with `GetAwaiter`/`GetResult` (synchronous wrapper behavior).
+- Raven-specific `Result<..., ...>` entry-point wrappers still use compiler-emitted bridge logic to map success and error payloads to process results.

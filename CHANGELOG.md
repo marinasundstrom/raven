@@ -5,6 +5,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 ## 2026-05-04
 
 ### Changed
+- Runtime-async entry-point bridges targeting .NET 11 now call `System.Runtime.CompilerServices.AsyncHelpers.HandleAsyncEntryPoint(...)` for `Task` and `Task<int>` `Main` methods instead of hand-emitting awaiter blocking, while Raven-specific `Result<..., ...>` entry points keep their result-mapping bridge.
 - Standard union type syntax is back: `T1 | T2` now parses as a type annotation
   and binds to `System.Union<T1, T2>` from `Raven.Core`, with arities two
   through five.

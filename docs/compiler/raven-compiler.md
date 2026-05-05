@@ -105,6 +105,7 @@ What this leaves on the compiler side:
 What runtime-async fills:
 
 - Raven marks async methods with runtime async metadata and emits `AsyncHelpers.Await(...)` calls.
+- `Task` and `Task<int>` entry points are bootstrapped with `AsyncHelpers.HandleAsyncEntryPoint(...)` when targeting a .NET 11 runtime surface that exposes it.
 - .NET 11 runtime provides the core async suspension/resume machinery, reducing compiler-generated state-machine complexity.
 - Await support for core BCL shapes is now direct (`Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and configured awaitables).
 
@@ -112,5 +113,5 @@ Current limitations:
 
 - To emit `AsyncHelpers.Await(...)`, the compiler host process must run on `net11.0` (for example `dotnet run -f net11.0 ...`).
 - If the host runtime does not expose `AsyncHelpers`, Raven falls back to awaiter calls (`GetAwaiter`/`GetResult`).
-- Entry-point bridge methods remain synchronous wrappers that block via awaiter calls.
+- Raven-specific `Result<..., ...>` entry-point wrappers still use compiler-emitted bridge logic to map success and error payloads to process results.
 - Custom task-like return types that rely on `AsyncMethodBuilderAttribute` are not supported yet.

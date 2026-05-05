@@ -122,7 +122,8 @@ class Program {
             "ComputeValueTask"
         };
 
-        foreach (var methodName in expectedAsyncMethods) {
+        foreach (var methodName in expectedAsyncMethods)
+        {
             var asyncMethod = programType.GetMethod(methodName, methodFlags)!;
             Assert.NotEqual(0, ((int)asyncMethod.GetMethodImplementationFlags()) & RuntimeAsyncMethodImplBit);
         }
@@ -169,6 +170,43 @@ class Program {
             calledMembers,
             static member => member.EndsWith("::GetAwaiter", StringComparison.Ordinal));
         Assert.Contains(
+            calledMembers,
+            static member => member.EndsWith("::GetResult", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RuntimeAsyncEnabled_Net11AsyncTaskEntryPoint_UsesRuntimeEntryPointHandler_WhenAvailable()
+    {
+        if (!RuntimeAsyncEntryPointHandlerAvailable())
+            return;
+
+        const string code = """
+import System.Threading.Tasks.*
+
+async func Main() -> Task<int> {
+    await Task.Yield()
+    return 5
+}
+""";
+
+        using var loaded = EmitAssembly(
+            code,
+            useRuntimeAsync: true,
+            outputKind: OutputKind.ConsoleApplication,
+            references: GetFrameworkReferences("net11.0"));
+
+        var entryPoint = loaded.Assembly.EntryPoint;
+        Assert.NotNull(entryPoint);
+
+        var calledMembers = ILReader.GetCalledMembers(entryPoint!);
+
+        Assert.Contains(
+            calledMembers,
+            static member => member.Contains("System.Runtime.CompilerServices.AsyncHelpers::HandleAsyncEntryPoint", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            calledMembers,
+            static member => member.EndsWith("::GetAwaiter", StringComparison.Ordinal));
+        Assert.DoesNotContain(
             calledMembers,
             static member => member.EndsWith("::GetResult", StringComparison.Ordinal));
     }
@@ -270,20 +308,45 @@ class Program {
             static member => member.Contains("System.Threading.Tasks.Task::FromResult", StringComparison.Ordinal));
     }
 
-    private static TestAssemblyLoader.LoadedAssembly EmitAssembly(string code, bool useRuntimeAsync)
+    private static TestAssemblyLoader.LoadedAssembly EmitAssembly(
+        string code,
+        bool useRuntimeAsync,
+        OutputKind outputKind = OutputKind.DynamicallyLinkedLibrary,
+        MetadataReference[]? references = null)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
+        references ??= TestMetadataReferences.Default;
 
         var compilation = Compilation.Create(
             $"runtime-async-{Guid.NewGuid():N}",
             [syntaxTree],
-            TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithRuntimeAsync(useRuntimeAsync));
+            references,
+            new CompilationOptions(outputKind).WithRuntimeAsync(useRuntimeAsync));
 
         using var peStream = new MemoryStream();
         var emitResult = compilation.Emit(peStream);
         Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
 
-        return TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        return TestAssemblyLoader.LoadFromStream(peStream, references);
+    }
+
+    private static MetadataReference[] GetFrameworkReferences(string targetFramework)
+    {
+        var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
+        return TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Where(File.Exists)
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
+    }
+
+    private static bool RuntimeAsyncEntryPointHandlerAvailable()
+    {
+        var asyncHelpersType = typeof(System.Runtime.CompilerServices.AsyncTaskMethodBuilder)
+            .Assembly
+            .GetType("System.Runtime.CompilerServices.AsyncHelpers", throwOnError: false);
+
+        return asyncHelpersType?
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Any(static method => string.Equals(method.Name, "HandleAsyncEntryPoint", StringComparison.Ordinal)) == true;
     }
 }
