@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
@@ -115,6 +116,33 @@ for counter in counters {
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         Assert.Contains(items, i => i.DisplayText == "Increment");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnUnionInstance_DoesNotReturnSynthesizedPayloadFields()
+    {
+        var code = """
+union JsonValue(bool | double | string) {
+}
+
+val value = JsonValue(true)
+value.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "HasValue");
+        Assert.Contains(items, i => i.DisplayText == "Value");
+        Assert.DoesNotContain(items, i => i.DisplayText == "<Tag>");
+        Assert.DoesNotContain(items, i => i.DisplayText.EndsWith("Payload>", StringComparison.Ordinal));
     }
 
 }

@@ -2978,7 +2978,7 @@ public partial class SemanticModel
                 [location],
                 [reference],
                 null,
-                declaredAccessibility: Accessibility.Internal);
+                declaredAccessibility: Accessibility.Private);
 
             payloadFields.Add(payloadField);
 
@@ -3734,7 +3734,7 @@ public partial class SemanticModel
             [unionDecl.GetLocation()],
             [unionDecl.GetReference()],
             null,
-            declaredAccessibility: Accessibility.Internal);
+            declaredAccessibility: Accessibility.Private);
 
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var systemType = Compilation.GetSpecialType(SpecialType.System_Type);

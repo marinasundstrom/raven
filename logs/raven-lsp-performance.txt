@@ -1,14 +1,73 @@
 Raven Language Server Performance Report
-Generated: 2026-05-05T16:17:53.3459960+00:00
+Generated: 2026-05-05T16:24:32.7179940+00:00
 Operation: warmAnalysis
-  Count: 1
-  TotalMs: 2385,4
-  AvgMs: 2385,4
-  MaxMs: 2385,4
+  Count: 18
+  TotalMs: 31348,0
+  AvgMs: 1741,6
+  MaxMs: 7021,3
   Stages:
-    semanticModel: count=1 total=2384,3ms avg=2384,3ms max=2384,3ms
-    gateWait: count=1 total=0,4ms avg=0,4ms max=0,4ms
-    analysisContext: count=1 total=0,3ms avg=0,3ms max=0,3ms
+    semanticModel: count=18 total=31345,3ms avg=1741,4ms max=7021,2ms
+    gateWait: count=18 total=1,0ms avg=0,1ms max=0,4ms
+    analysisContext: count=18 total=0,6ms avg=0,0ms max=0,3ms
+
+Operation: completion
+  Count: 7
+  TotalMs: 17189,0
+  AvgMs: 2455,6
+  MaxMs: 6429,6
+  AvgResultCount: 21,3
+  FirstLookupAfterEditCount: 1
+  FirstLookupAfterEditAvgMs: 878,8
+  FirstLookupAfterEditMaxMs: 878,8
+  FirstLookupAfterEditSources:
+    didChange: 1
+  Stages:
+    semanticModel: count=7 total=14030,5ms avg=2004,4ms max=4926,2ms
+    provider: count=7 total=3140,3ms avg=448,6ms max=1500,5ms
+    materializeItems: count=7 total=7,7ms avg=1,1ms max=4,7ms
+    analysisContext: count=7 total=0,2ms avg=0,0ms max=0,1ms
+    gateWait: count=7 total=0,1ms avg=0,0ms max=0,1ms
+
+Operation: signatureHelp
+  Count: 9
+  TotalMs: 3794,7
+  AvgMs: 421,6
+  MaxMs: 998,2
+  AvgResultCount: 0,0
+  FirstLookupAfterEditCount: 4
+  FirstLookupAfterEditAvgMs: 877,5
+  FirstLookupAfterEditMaxMs: 998,6
+  FirstLookupAfterEditSources:
+    didChange: 4
+  Stages:
+    semanticModel: count=9 total=3340,6ms avg=371,2ms max=958,2ms
+    gateWait: count=9 total=238,0ms avg=26,4ms max=238,0ms
+    analysisContext: count=9 total=0,1ms avg=0,0ms max=0,0ms
+    resolution: count=9 total=0,0ms avg=0,0ms max=0,0ms
+
+Operation: hover
+  Count: 52
+  TotalMs: 330,6
+  AvgMs: 6,4
+  MaxMs: 42,7
+  CacheHits: 9
+  Stages:
+    resolution: count=43 total=217,4ms avg=5,1ms max=36,7ms
+    analysisContext: count=52 total=5,8ms avg=0,1ms max=2,6ms
+    gateWait: count=52 total=4,6ms avg=0,1ms max=2,7ms
+    semanticModel: count=43 total=0,3ms avg=0,0ms max=0,1ms
+
+Operation: didChange
+  Count: 21
+  TotalMs: 306,1
+  AvgMs: 14,6
+  MaxMs: 61,4
+  Stages:
+    updateDocument: count=21 total=268,8ms avg=12,8ms max=42,8ms
+    scheduleDiagnostics: count=21 total=21,1ms avg=1,0ms max=11,9ms
+    applyChanges: count=21 total=2,8ms avg=0,1ms max=0,9ms
+    getCurrentText: count=21 total=2,0ms avg=0,1ms max=0,9ms
+    gateWait: count=21 total=0,5ms avg=0,0ms max=0,3ms
 
 Operation: publishDiagnostics
   Count: 1
@@ -27,17 +86,23 @@ Operation: computeDocumentDiagnostics
     gateWait: count=1 total=3,3ms avg=3,3ms max=3,3ms
     syntaxTree: count=1 total=0,1ms avg=0,1ms max=0,1ms
 
-Operation: hover
-  Count: 2
-  TotalMs: 29,0
-  AvgMs: 14,5
-  MaxMs: 28,7
-  CacheHits: 1
+Operation: documentSymbols
+  Count: 28
+  TotalMs: 27,4
+  AvgMs: 1,0
+  MaxMs: 6,5
+  CacheHits: 14
+  AvgResultCount: 5,0
+  FirstLookupAfterEditCount: 11
+  FirstLookupAfterEditAvgMs: 2143,5
+  FirstLookupAfterEditMaxMs: 4971,5
+  FirstLookupAfterEditSources:
+    didChange: 10
+    didOpen: 1
   Stages:
-    resolution: count=1 total=17,0ms avg=17,0ms max=17,0ms
-    gateWait: count=2 total=0,4ms avg=0,2ms max=0,4ms
-    analysisContext: count=2 total=0,1ms avg=0,0ms max=0,0ms
-    semanticModel: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    buildSymbols: count=28 total=22,6ms avg=0,8ms max=6,1ms
+    analysisContext: count=28 total=2,7ms avg=0,1ms max=2,0ms
+    root: count=28 total=0,5ms avg=0,0ms max=0,3ms
 
 Operation: didOpen
   Count: 1
@@ -45,20 +110,44 @@ Operation: didOpen
   AvgMs: 21,4
   MaxMs: 21,4
 
-Operation: documentSymbols
+Operation: publishSyntaxDiagnostics
   Count: 2
-  TotalMs: 6,9
-  AvgMs: 3,4
-  MaxMs: 6,5
-  CacheHits: 1
-  AvgResultCount: 5,0
-  FirstLookupAfterEditCount: 1
-  FirstLookupAfterEditAvgMs: 2771,4
-  FirstLookupAfterEditMaxMs: 2771,4
-  FirstLookupAfterEditSources:
-    didOpen: 1
+  TotalMs: 17,9
+  AvgMs: 9,0
+  MaxMs: 14,2
+  AvgResultCount: 1,0
+
+Operation: computeSyntaxDiagnostics
+  Count: 13
+  TotalMs: 13,0
+  AvgMs: 1,0
+  MaxMs: 10,7
   Stages:
-    buildSymbols: count=2 total=5,5ms avg=2,7ms max=5,5ms
-    root: count=2 total=0,3ms avg=0,2ms max=0,3ms
-    analysisContext: count=2 total=0,1ms avg=0,0ms max=0,0ms
+    diagnosticsFetch: count=13 total=10,4ms avg=0,8ms max=9,2ms
+    syntaxTree: count=13 total=0,5ms avg=0,0ms max=0,3ms
+    gateWait: count=13 total=0,1ms avg=0,0ms max=0,0ms
+
+Operation: publishSyntaxDiagnosticsUnchanged
+  Count: 11
+  TotalMs: 3,7
+  AvgMs: 0,3
+  MaxMs: 0,9
+  AvgResultCount: 0,0
+
+Operation: publishSyntaxDiagnosticsSkipped
+  Count: 7
+  TotalMs: 0,8
+  AvgMs: 0,1
+  MaxMs: 0,4
+  AvgResultCount: 0,0
+
+Operation: computeDiagnosticsSkipped
+  Count: 7
+  TotalMs: 0,1
+  AvgMs: 0,0
+  MaxMs: 0,0
+  Stages:
+    gateWait: count=7 total=0,0ms avg=0,0ms max=0,0ms
+    syntaxTree: count=7 total=0,0ms avg=0,0ms max=0,0ms
+    diagnosticsFetch: count=7 total=0,0ms avg=0,0ms max=0,0ms
 
