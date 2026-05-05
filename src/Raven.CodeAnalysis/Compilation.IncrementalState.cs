@@ -133,19 +133,18 @@ public partial class Compilation
         {
             foreach (var match in matchedTree.Matches)
             {
-                if (matchedTree.OwnerChanges.ContainsKey(match.CurrentOwner))
-                {
-                    // Any edit within an executable owner can invalidate semantic anchors
-                    // anywhere else in that owner through local declaration order,
-                    // contextual lambda binding, or symbol-interest mappings.
-                    // Rebind the owner from scratch instead of trying to preserve
-                    // owner-relative semantic descriptors around the edited span.
-                    continue;
-                }
-
-                // Visible value scopes and node-interest symbol descriptors encode semantic state.
-                // Reusing them across an edited executable owner can preserve stale symbol mappings
-                // even when spans remap cleanly. Let the next compilation recompute them.
+                // Visible value scopes encode semantic state that can preserve stale symbol mappings
+                // across edits. Let the next compilation recompute them.
+                CopyOwnerRelativeState(
+                    _descriptorState.NodeInterestSymbolDescriptorsByOwner,
+                    state.NodeInterestSymbolDescriptorsByOwner,
+                    matchedTree.PreviousTree,
+                    matchedTree.CurrentTree,
+                    match.PreviousOwner,
+                    match.CurrentOwner,
+                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var nodeInterestOwnerChange)
+                        ? nodeInterestOwnerChange
+                        : null);
                 CopyOwnerRelativeState(
                     _descriptorState.ContextualBindingRootDescriptorsByOwner,
                     state.ContextualBindingRootDescriptorsByOwner,
@@ -223,7 +222,7 @@ public partial class Compilation
             if (key.Owner != previousOwner)
                 continue;
 
-            if (!TryRemapOwnerRelativeDescriptorKey(key, currentOwner, ownerChange, out var remappedKey))
+            if (!TryRemapOwnerRelativeDescriptorKey(key, previousTree, currentTree, currentOwner, ownerChange, out var remappedKey))
                 continue;
 
             remappedValues ??= destination.TryGetValue(currentTree, out var existing)
@@ -245,6 +244,8 @@ public partial class Compilation
 
     private static bool TryRemapOwnerRelativeDescriptorKey(
         OwnerRelativeDescriptorKey key,
+        SyntaxTree previousTree,
+        SyntaxTree currentTree,
         ExecutableOwnerDescriptor currentOwner,
         OwnerRelativeTextChange? ownerChange,
         out OwnerRelativeDescriptorKey remappedKey)
@@ -261,6 +262,9 @@ public partial class Compilation
 
         if (descriptorSpan.IntersectsWith(previousChangedSpan))
         {
+            if (TryRemapUnchangedIntersectingDescriptor(key, previousTree, currentTree, currentOwner, out remappedKey))
+                return true;
+
             remappedKey = default;
             return false;
         }
@@ -271,6 +275,39 @@ public partial class Compilation
             : key.RelativeStart;
 
         remappedKey = new OwnerRelativeDescriptorKey(currentOwner, remappedRelativeStart, key.Length, key.Kind);
+        return true;
+    }
+
+    private static bool TryRemapUnchangedIntersectingDescriptor(
+        OwnerRelativeDescriptorKey key,
+        SyntaxTree previousTree,
+        SyntaxTree currentTree,
+        ExecutableOwnerDescriptor currentOwner,
+        out OwnerRelativeDescriptorKey remappedKey)
+    {
+        remappedKey = default;
+
+        var previousText = previousTree.GetText();
+        var currentText = currentTree.GetText();
+        if (previousText is null || currentText is null)
+            return false;
+
+        var previousStart = key.Owner.Span.Start + key.RelativeStart;
+        var currentStart = currentOwner.Span.Start + key.RelativeStart;
+        if (previousStart < 0 ||
+            currentStart < 0 ||
+            previousStart + key.Length > previousText.Length ||
+            currentStart + key.Length > currentText.Length)
+        {
+            return false;
+        }
+
+        var previousSpan = new Text.TextSpan(previousStart, key.Length);
+        var currentSpan = new Text.TextSpan(currentStart, key.Length);
+        if (!string.Equals(previousText.ToString(previousSpan), currentText.ToString(currentSpan), StringComparison.Ordinal))
+            return false;
+
+        remappedKey = new OwnerRelativeDescriptorKey(currentOwner, key.RelativeStart, key.Length, key.Kind);
         return true;
     }
 

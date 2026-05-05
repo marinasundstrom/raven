@@ -255,9 +255,9 @@ public partial class SemanticModel
     {
         if (node is IdentifierNameSyntax invokedMemberName &&
             invokedMemberName.Parent is MemberAccessExpressionSyntax invokedMemberAccess &&
-            ReferenceEquals(invokedMemberAccess.Name, invokedMemberName) &&
+            IsSameSyntaxNode(invokedMemberAccess.Name, invokedMemberName) &&
             invokedMemberAccess.Parent is InvocationExpressionSyntax invokedMemberInvocation &&
-            ReferenceEquals(invokedMemberInvocation.Expression, invokedMemberAccess))
+            IsSameSyntaxNode(invokedMemberInvocation.Expression, invokedMemberAccess))
         {
             var invocationInfo = GetSymbolInfo(invokedMemberInvocation, cancellationToken);
             if (invocationInfo.Symbol is not null || !invocationInfo.CandidateSymbols.IsDefaultOrEmpty)
@@ -270,7 +270,7 @@ public partial class SemanticModel
 
         if (node is IdentifierNameSyntax pipelineIdentifier &&
             pipelineIdentifier.Parent is InvocationExpressionSyntax pipelineInvocation &&
-            ReferenceEquals(pipelineInvocation.Expression, pipelineIdentifier))
+            IsSameSyntaxNode(pipelineInvocation.Expression, pipelineIdentifier))
         {
             if (TryLookupPipelineInvocationSymbol(pipelineInvocation, pipelineIdentifier, pipelineIdentifier.Identifier.ValueText, out var directPipelineInfo))
             {
@@ -299,7 +299,7 @@ public partial class SemanticModel
 
         if (node is SimpleNameSyntax invokedName &&
             invokedName.Parent is InvocationExpressionSyntax invokedCall &&
-            ReferenceEquals(invokedCall.Expression, invokedName))
+            IsSameSyntaxNode(invokedCall.Expression, invokedName))
         {
             if (TryBindInterestRegion(invokedCall, out var regionBoundInvocation))
             {
@@ -344,7 +344,7 @@ public partial class SemanticModel
         }
         else if (node is IdentifierNameSyntax identifier &&
             identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
-            ReferenceEquals(memberAccess.Name, identifier))
+            IsSameSyntaxNode(memberAccess.Name, identifier))
         {
             if (TryBindExactSymbol(node, out var exactInfo))
             {
@@ -355,7 +355,7 @@ public partial class SemanticModel
                 info = memberAccessInfo;
             }
             else if (memberAccess.Parent is InvocationExpressionSyntax invocation &&
-                     ReferenceEquals(invocation.Expression, memberAccess) &&
+                     IsSameSyntaxNode(invocation.Expression, memberAccess) &&
                      TryBindExactSymbol(invocation, out var invocationInfo))
             {
                 info = invocationInfo;
@@ -385,7 +385,7 @@ public partial class SemanticModel
                 if (info.Symbol is null &&
                     info.CandidateSymbols.IsDefaultOrEmpty &&
                     memberAccess.Parent is InvocationExpressionSyntax refreshedInvocationSyntax &&
-                    ReferenceEquals(refreshedInvocationSyntax.Expression, memberAccess))
+                    IsSameSyntaxNode(refreshedInvocationSyntax.Expression, memberAccess))
                 {
                     ClearCachedSemanticState(memberAccess);
                     ClearCachedSemanticState(refreshedInvocationSyntax);
@@ -398,7 +398,7 @@ public partial class SemanticModel
         }
         else if (node is IdentifierNameSyntax receiverIdentifier &&
                  receiverIdentifier.Parent is MemberAccessExpressionSyntax receiverMemberAccess &&
-                 ReferenceEquals(receiverMemberAccess.Expression, receiverIdentifier))
+                 IsSameSyntaxNode(receiverMemberAccess.Expression, receiverIdentifier))
         {
             if (TryBindExactSymbol(node, out var exactInfo))
             {
@@ -444,7 +444,7 @@ public partial class SemanticModel
         }
         else if (node is IdentifierNameSyntax memberBindingIdentifier &&
                  memberBindingIdentifier.Parent is MemberBindingExpressionSyntax memberBinding &&
-                 ReferenceEquals(memberBinding.Name, memberBindingIdentifier))
+                 IsSameSyntaxNode(memberBinding.Name, memberBindingIdentifier))
         {
             if (TryBindExactSymbol(node, out var exactInfo))
             {
@@ -552,7 +552,7 @@ public partial class SemanticModel
             info.CandidateSymbols.IsDefaultOrEmpty &&
             node is SimpleNameSyntax pipelineName &&
             pipelineName.Parent is InvocationExpressionSyntax fallbackPipelineInvocation &&
-            ReferenceEquals(fallbackPipelineInvocation.Expression, pipelineName))
+            IsSameSyntaxNode(fallbackPipelineInvocation.Expression, pipelineName))
         {
             if (TryLookupPipelineInvocationSymbol(fallbackPipelineInvocation, pipelineName, pipelineName.Identifier.ValueText, out var pipelineInfo))
             {
@@ -571,6 +571,16 @@ public partial class SemanticModel
         var binder = GetBinder(node);
         info = binder.BindSymbol(node);
         return info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
+    }
+
+    private static bool IsSameSyntaxNode(SyntaxNode? left, SyntaxNode? right)
+    {
+        return ReferenceEquals(left, right) ||
+               left is not null &&
+               right is not null &&
+               left.Kind == right.Kind &&
+               left.Span == right.Span &&
+               ReferenceEquals(left.SyntaxTree, right.SyntaxTree);
     }
 
     internal bool TryGetNodeInterestSymbolInfo(SyntaxNode node, out SymbolInfo info)
@@ -778,7 +788,7 @@ public partial class SemanticModel
             {
                 OperatorToken.Kind: SyntaxKind.PipeToken
             } pipeExpression ||
-            !ReferenceEquals(pipeExpression.Right, invocation))
+            !IsSameSyntaxNode(pipeExpression.Right, invocation))
         {
             return false;
         }

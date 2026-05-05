@@ -38,6 +38,13 @@ internal static partial class SymbolResolver
            left.Kind == right.Kind &&
            left.Span == right.Span;
 
+    private static bool IsPipeRightExpressionForInvocation(SyntaxNode pipeRight, InvocationExpressionSyntax invocation)
+    {
+        return HaveEquivalentSpan(pipeRight, invocation) ||
+               pipeRight.Span.Contains(invocation.Span) ||
+               invocation.Span.Contains(pipeRight.Span);
+    }
+
     private static bool IsInvocationTargetPosition(SyntaxNode node, SyntaxToken token)
     {
         if (node.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().Any(invocation => IsInvocationTargetMatch(invocation.Expression, node, token)))

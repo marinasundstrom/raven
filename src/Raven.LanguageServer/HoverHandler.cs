@@ -4,7 +4,6 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 using Microsoft.Extensions.Logging;
 
@@ -87,16 +86,6 @@ internal sealed class HoverHandler : IHoverHandler
 
             if (_hoverCache.TryGetValue(cacheKey, out var cachedEntry))
             {
-                LogTrackedHover(
-                    request.TextDocument.Uri.GetFileSystemPath(),
-                    request.Position,
-                    "cache-hit",
-                    context.Value.Document.Version,
-                    null,
-                    cachedEntry.Hover?.Range,
-                    null,
-                    null);
-
                 LanguageServerPerformanceInstrumentation.RecordOperation(
                     "hover",
                     request.TextDocument.Uri,
@@ -118,6 +107,8 @@ internal sealed class HoverHandler : IHoverHandler
             if (syntaxOnlyHover is not null)
                 return CacheHover(cacheKey, syntaxOnlyHover);
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             var gateWaitStopwatch = Stopwatch.StartNew();
             using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "hover").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
@@ -128,17 +119,25 @@ internal sealed class HoverHandler : IHoverHandler
             var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
             if (macroHover is not null)
                 return CacheHover(cacheKey, macroHover);
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             var literalHover = TryBuildLiteralHover(sourceText, semanticModel, root, offset);
             if (literalHover is not null)
                 return CacheHover(cacheKey, literalHover);
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             var patternHover = TryBuildPatternDeclarationHover(sourceText, semanticModel, root, offset);
             if (patternHover is not null)
                 return CacheHover(cacheKey, patternHover);
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
             var resolution = TryResolveInvocationTargetHoverDirect(semanticModel, root, offset)
@@ -147,6 +146,8 @@ internal sealed class HoverHandler : IHoverHandler
             resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
                 return CacheHover(cacheKey, null);
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             var resolvedValue = resolution.Value;
             if (TryResolveInvocationTargetHoverOverride(semanticModel, root, offset, resolvedValue, out var invocationOverride))
@@ -184,16 +185,6 @@ internal sealed class HoverHandler : IHoverHandler
                 isCapturedVariable);
 
             var hoverRange = PositionHelper.ToRange(sourceText, GetHoverSpanForResolution(resolvedValue));
-            LogTrackedHover(
-                request.TextDocument.Uri.GetFileSystemPath(),
-                request.Position,
-                resolvedValue.Kind.ToString(),
-                context.Value.Document.Version,
-                symbol,
-                hoverRange,
-                resolvedValue.Node,
-                signature);
-
             return CacheHover(cacheKey, new Hover
             {
                 Contents = new MarkedStringsOrMarkupContent(new MarkupContent
@@ -276,120 +267,6 @@ internal sealed class HoverHandler : IHoverHandler
 
         _hoverCache[cacheKey] = new HoverCacheEntry(hover);
         return hover;
-    }
-
-    private void LogTrackedHover(
-        string path,
-        Position position,
-        string outcome,
-        VersionStamp documentVersion,
-        ISymbol? symbol,
-        OmniSharp.Extensions.LanguageServer.Protocol.Models.Range? range,
-        SyntaxNode? node,
-        string? signature)
-    {
-        if (!path.EndsWith("/samples/projects/efcore-expression-trees/src/main.rvn", StringComparison.Ordinal))
-            return;
-
-        _logger.LogInformation(
-            "Tracked hover {Outcome} for {Path} at {Line}:{Character}. DocumentVersion={DocumentVersion} Symbol={SymbolKind}:{SymbolDisplay} Node={NodeType} NodeSpan={NodeSpanStart}-{NodeSpanEnd} Range={RangeStartLine}:{RangeStartCharacter}-{RangeEndLine}:{RangeEndCharacter} Signature={Signature}",
-            outcome,
-            path,
-            position.Line,
-            position.Character,
-            documentVersion,
-            symbol?.Kind.ToString() ?? "<null>",
-            symbol is null ? "<null>" : FormatTrackedHoverSymbolDisplay(symbol),
-            node?.GetType().Name ?? "<null>",
-            node?.Span.Start,
-            node?.Span.End,
-            range?.Start.Line,
-            range?.Start.Character,
-            range?.End.Line,
-            range?.End.Character,
-            signature ?? "<null>");
-
-        WriteTrackedHoverTrace(
-            path,
-            position,
-            outcome,
-            documentVersion,
-            symbol,
-            range,
-            node,
-            signature);
-    }
-
-    private static void WriteTrackedHoverTrace(
-        string path,
-        Position position,
-        string outcome,
-        VersionStamp documentVersion,
-        ISymbol? symbol,
-        OmniSharp.Extensions.LanguageServer.Protocol.Models.Range? range,
-        SyntaxNode? node,
-        string? signature)
-    {
-        try
-        {
-            var logPath = ResolveTraceLogPath();
-            var line = new StringBuilder()
-                .Append(DateTimeOffset.UtcNow.ToString("O"))
-                .Append(" [HoverTrace] outcome=").Append(outcome)
-                .Append(" path=").Append(path)
-                .Append(" pos=").Append(position.Line).Append(':').Append(position.Character)
-                .Append(" version=").Append(documentVersion.ToString())
-                .Append(" symbolKind=").Append(symbol?.Kind.ToString() ?? "<null>")
-                .Append(" symbol=").Append(symbol is null ? "<null>" : FormatTrackedHoverSymbolDisplay(symbol))
-                .Append(" node=").Append(node?.GetType().Name ?? "<null>")
-                .Append(" nodeSpan=").Append(node?.Span.Start.ToString() ?? "<null>").Append('-').Append(node?.Span.End.ToString() ?? "<null>")
-                .Append(" range=").Append(range?.Start.Line.ToString() ?? "<null>").Append(':').Append(range?.Start.Character.ToString() ?? "<null>")
-                .Append('-').Append(range?.End.Line.ToString() ?? "<null>").Append(':').Append(range?.End.Character.ToString() ?? "<null>")
-                .Append(" signature=").Append(signature ?? "<null>")
-                .AppendLine()
-                .ToString();
-
-            File.AppendAllText(logPath, line);
-        }
-        catch
-        {
-        }
-    }
-
-    private static string ResolveTraceLogPath()
-    {
-        var roots = new[]
-        {
-            TryFindRepositoryRoot(Directory.GetCurrentDirectory()),
-            TryFindRepositoryRoot(AppContext.BaseDirectory)
-        };
-
-        var root = roots.FirstOrDefault(static path => !string.IsNullOrWhiteSpace(path))
-            ?? Directory.GetCurrentDirectory();
-
-        var logsDirectory = Path.Combine(root, "logs");
-        Directory.CreateDirectory(logsDirectory);
-        return Path.Combine(logsDirectory, "raven-lsp.log");
-    }
-
-    private static string? TryFindRepositoryRoot(string startPath)
-    {
-        if (string.IsNullOrWhiteSpace(startPath))
-            return null;
-
-        var directory = Directory.Exists(startPath)
-            ? new DirectoryInfo(startPath)
-            : new DirectoryInfo(Path.GetDirectoryName(startPath)!);
-
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Raven.sln")))
-                return directory.FullName;
-
-            directory = directory.Parent;
-        }
-
-        return null;
     }
 
     private static string BuildHoverText(
@@ -591,6 +468,12 @@ internal sealed class HoverHandler : IHoverHandler
         SyntaxNode root,
         int offset)
     {
+        var requestedToken = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
+        var requestedIdentifier = requestedToken.Parent is IdentifierNameSyntax identifierAtOffset &&
+                                  identifierAtOffset.Identifier.Span.Contains(offset)
+            ? identifierAtOffset
+            : null;
+
         foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
             foreach (var identifier in root.DescendantNodes()
@@ -599,15 +482,21 @@ internal sealed class HoverHandler : IHoverHandler
                                               identifier.Identifier.Span.End == candidateOffset)
                          .OrderBy(identifier => identifier.Span.Length))
             {
+                if (requestedIdentifier is not null &&
+                    !HaveEquivalentSpan(identifier, requestedIdentifier))
+                {
+                    continue;
+                }
+
                 var invocation = identifier.Parent switch
                 {
                     InvocationExpressionSyntax direct => direct,
                     MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
-                        when ReferenceEquals(name, identifier) => parent,
+                        when HaveEquivalentSpan(name, identifier) => parent,
                     _ => null
                 };
 
-                if (invocation is null || !ReferenceEquals(GetInvocationTargetIdentifier(invocation), identifier))
+                if (invocation is null || !HaveEquivalentSpan(GetInvocationTargetIdentifier(invocation), identifier))
                     continue;
 
                 yield return (identifier, invocation);
@@ -625,6 +514,15 @@ internal sealed class HoverHandler : IHoverHandler
         };
     }
 
+    private static bool HaveEquivalentSpan(SyntaxNode? left, SyntaxNode? right)
+        => left is not null &&
+           right is not null &&
+           left.Kind == right.Kind &&
+           left.Span == right.Span;
+
+    private static bool IsPipeRightExpressionForInvocation(SyntaxNode pipeRight, InvocationExpressionSyntax invocation)
+        => HaveEquivalentSpan(pipeRight, invocation);
+
     private static bool TryResolveInvocationMethodFromSyntax(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
@@ -633,30 +531,51 @@ internal sealed class HoverHandler : IHoverHandler
     {
         if (invocation.Ancestors()
                 .OfType<InfixOperatorExpressionSyntax>()
-                .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && pipe.Right == invocation) is { } pipeExpression &&
+                .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && IsPipeRightExpressionForInvocation(pipe.Right, invocation)) is { } pipeExpression &&
             semanticModel.GetOperation(pipeExpression) is IInvocationOperation { TargetMethod: { } pipeTargetMethod })
         {
+            var projectedPipeTarget = ProjectInvocationHoverSymbol(pipeTargetMethod, semanticModel, invocation);
+            if (IsUnitTypeSymbol(projectedPipeTarget))
+            {
+                resolution = default;
+                return false;
+            }
+
             resolution = new SymbolResolutionResult(
                 SymbolResolutionKind.InvocationTarget,
-                ProjectInvocationHoverSymbol(pipeTargetMethod, semanticModel, invocation),
+                projectedPipeTarget,
                 identifier);
             return true;
         }
 
         if (semanticModel.GetOperation(invocation) is IInvocationOperation { TargetMethod: { } targetMethod })
         {
+            var projectedTarget = ProjectInvocationHoverSymbol(targetMethod, semanticModel, invocation);
+            if (IsUnitTypeSymbol(projectedTarget))
+            {
+                resolution = default;
+                return false;
+            }
+
             resolution = new SymbolResolutionResult(
                 SymbolResolutionKind.InvocationTarget,
-                ProjectInvocationHoverSymbol(targetMethod, semanticModel, invocation),
+                projectedTarget,
                 identifier);
             return true;
         }
 
         if (semanticModel.GetSymbolInfo(identifier).Symbol is IMethodSymbol identifierMethod)
         {
+            var projectedIdentifierMethod = ProjectInvocationHoverSymbol(identifierMethod, semanticModel, invocation);
+            if (IsUnitTypeSymbol(projectedIdentifierMethod))
+            {
+                resolution = default;
+                return false;
+            }
+
             resolution = new SymbolResolutionResult(
                 SymbolResolutionKind.InvocationTarget,
-                ProjectInvocationHoverSymbol(identifierMethod, semanticModel, invocation),
+                projectedIdentifierMethod,
                 identifier);
             return true;
         }
@@ -665,18 +584,32 @@ internal sealed class HoverHandler : IHoverHandler
         if (!identifierCandidates.IsDefaultOrEmpty &&
             identifierCandidates[0] is IMethodSymbol identifierCandidateMethod)
         {
+            var projectedIdentifierCandidate = ProjectInvocationHoverSymbol(identifierCandidateMethod, semanticModel, invocation);
+            if (IsUnitTypeSymbol(projectedIdentifierCandidate))
+            {
+                resolution = default;
+                return false;
+            }
+
             resolution = new SymbolResolutionResult(
                 SymbolResolutionKind.InvocationTarget,
-                ProjectInvocationHoverSymbol(identifierCandidateMethod, semanticModel, invocation),
+                projectedIdentifierCandidate,
                 identifier);
             return true;
         }
 
         if (semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol invocationMethod)
         {
+            var projectedInvocationMethod = ProjectInvocationHoverSymbol(invocationMethod, semanticModel, invocation);
+            if (IsUnitTypeSymbol(projectedInvocationMethod))
+            {
+                resolution = default;
+                return false;
+            }
+
             resolution = new SymbolResolutionResult(
                 SymbolResolutionKind.InvocationTarget,
-                ProjectInvocationHoverSymbol(invocationMethod, semanticModel, invocation),
+                projectedInvocationMethod,
                 identifier);
             return true;
         }
@@ -684,9 +617,16 @@ internal sealed class HoverHandler : IHoverHandler
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
             semanticModel.GetSymbolInfo(memberAccess.Name).Symbol is IMethodSymbol memberMethod)
         {
+            var projectedMemberMethod = ProjectInvocationHoverSymbol(memberMethod, semanticModel, invocation);
+            if (IsUnitTypeSymbol(projectedMemberMethod))
+            {
+                resolution = default;
+                return false;
+            }
+
             resolution = new SymbolResolutionResult(
                 SymbolResolutionKind.InvocationTarget,
-                ProjectInvocationHoverSymbol(memberMethod, semanticModel, invocation),
+                projectedMemberMethod,
                 memberAccess.Name);
             return true;
         }
@@ -694,6 +634,11 @@ internal sealed class HoverHandler : IHoverHandler
         resolution = default;
         return false;
     }
+
+    private static bool IsUnitTypeSymbol(ISymbol symbol)
+        => symbol is ITypeSymbol type &&
+           (type.SpecialType == SpecialType.System_Unit ||
+            string.Equals(type.Name, "Unit", StringComparison.Ordinal));
 
     private static ISymbol ProjectInvocationHoverSymbol(
         IMethodSymbol method,

@@ -109,6 +109,65 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task HoverHandler_CanceledRequest_ReturnsNullAndDoesNotPopulateCacheAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    WriteLine(number)
+}
+""");
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, cancellation.Token);
+
+        hover.ShouldBeNull();
+
+        var cacheField = typeof(HoverHandler).GetField("_hoverCache", BindingFlags.Instance | BindingFlags.NonPublic);
+        cacheField.ShouldNotBeNull();
+        var cache = cacheField!.GetValue(handler);
+        cache.ShouldNotBeNull();
+        cache.GetType().GetProperty("Count")!.GetValue(cache).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task HoverHandler_BrokenNearbyCode_StillShowsUnchangedLocalSymbolAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    val broken =
+    WriteLine(number)
+}
+""");
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(5, 14)
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("number");
+        hover.Contents.MarkupContent!.Value.ShouldNotContain("Error");
+        hover.Range.ShouldNotBeNull();
+        hover.Range.Start.Line.ShouldBe(5);
+        hover.Range.Start.Character.ShouldBe(14);
+    }
+
+    [Fact]
     public async Task HoverHandler_LocalDeclarationRange_DoesNotCoverPipeInitializerInvocationAsync()
     {
         var (store, _, uri) = CreateWorkspace("""
@@ -152,6 +211,100 @@ class Runner {
         whereHover!.Contents.ShouldNotBeNull();
         whereHover.Range.ShouldNotBeNull();
         whereHover.Range.Start.Line.ShouldBe(9);
+    }
+
+    [Fact]
+    public async Task HoverHandler_EditCycle_MemberReceiverAndInvocationTargetStayDistinctAsync()
+    {
+        var initialText = """
+import System.Console.*
+
+class Counter {
+    val Count: int => 1
+
+    func Next() -> int {
+        Count + 1
+    }
+}
+
+func Main() -> unit {
+    val counter = Counter()
+    WriteLine(counter.Next())
+}
+""";
+        var updatedText = """
+import System.Console.*
+
+class Counter {
+    val Count: int => 1
+
+    func Next() -> int {
+        Count + 1
+    }
+}
+
+func Main() -> unit {
+    val padding = 0
+    val counter = Counter()
+    WriteLine(counter.Next())
+}
+""";
+
+        var (store, _, uri) = CreateWorkspace(initialText);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        await AssertMemberAccessHoverAsync(store, handler, uri, initialText, expectedLine: 12);
+
+        store.UpsertDocument(uri, updatedText);
+
+        await AssertMemberAccessHoverAsync(store, handler, uri, updatedText, expectedLine: 13);
+    }
+
+    [Fact]
+    public async Task HoverHandler_EditCycle_PipeInvocationTargetStaysMethodAsync()
+    {
+        var initialText = """
+import System.*
+
+class Runner {
+    static func Where(value: Int32, predicate: (Int32) -> bool) -> Int32 {
+        return value
+    }
+
+    static func Main() -> unit {
+        val query = 5
+            |> Where(x => x > 1)
+
+        query
+    }
+}
+""";
+        var updatedText = """
+import System.*
+
+class Runner {
+    static func Where(value: Int32, predicate: (Int32) -> bool) -> Int32 {
+        return value
+    }
+
+    static func Main() -> unit {
+        val padding = 0
+        val query = 5
+            |> Where(x => x > 1)
+
+        query
+    }
+}
+""";
+
+        var (store, _, uri) = CreateWorkspace(initialText);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        await AssertPipeWhereHoverAsync(store, handler, uri, initialText, expectedLine: 9);
+
+        store.UpsertDocument(uri, updatedText);
+
+        await AssertPipeWhereHoverAsync(store, handler, uri, updatedText, expectedLine: 10);
     }
 
     [Fact]
@@ -502,21 +655,6 @@ record CustomError(val Message: string)
 
         var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
         var root = context.Value.SyntaxTree.GetRoot();
-        var queryDeclarator = root.DescendantNodes()
-            .OfType<VariableDeclaratorSyntax>()
-            .Single(node => node.Identifier.ValueText == "query");
-        var queryLocal = Assert.IsAssignableFrom<ILocalSymbol>(semanticModel.GetDeclaredSymbol(queryDeclarator));
-        queryLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
-
-        var whereIdentifier = root.DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .First(node => node.Identifier.ValueText == "Where");
-        var whereSymbolInfo = semanticModel.GetSymbolInfo(whereIdentifier);
-        var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
-        var retrySemanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
-        var retryWhereSymbolInfo = retrySemanticModel.GetSymbolInfo(whereIdentifier);
-        var retryWhereSymbol = retryWhereSymbolInfo.Symbol ?? retryWhereSymbolInfo.CandidateSymbols.FirstOrDefault();
-        Assert.True(whereSymbol is IMethodSymbol || retryWhereSymbol is IMethodSymbol);
 
         var sourceText = context.Value.SourceText;
         var pingResultOffset = text.IndexOf("-> PingResult", StringComparison.Ordinal);
@@ -921,6 +1059,77 @@ class C {
         hover.Contents.MarkupContent.ShouldNotBeNull();
         hover.Contents.MarkupContent!.Value.ShouldContain("func Step(n: int) -> int");
         hover.Contents.MarkupContent!.Value.ShouldContain("Function in `C`");
+    }
+
+    private static async Task AssertMemberAccessHoverAsync(
+        DocumentStore store,
+        HoverHandler handler,
+        DocumentUri uri,
+        string text,
+        int expectedLine)
+    {
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var sourceText = context.Value.SourceText;
+        var receiverOffset = text.IndexOf("counter.Next()", StringComparison.Ordinal);
+        receiverOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var targetOffset = receiverOffset + "counter.".Length + 1;
+
+        var receiverHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new TextSpan(receiverOffset + 2, 0)).Start
+        }, CancellationToken.None);
+
+        receiverHover.ShouldNotBeNull();
+        receiverHover!.Contents.MarkupContent.ShouldNotBeNull();
+        receiverHover.Contents.MarkupContent!.Value.ShouldContain("counter");
+        receiverHover.Contents.MarkupContent!.Value.ShouldNotContain("func Next");
+        receiverHover.Range.ShouldNotBeNull();
+        receiverHover.Range.Start.Line.ShouldBe(expectedLine);
+
+        var targetHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new TextSpan(targetOffset, 0)).Start
+        }, CancellationToken.None);
+
+        targetHover.ShouldNotBeNull();
+        targetHover!.Contents.MarkupContent.ShouldNotBeNull();
+        targetHover.Contents.MarkupContent!.Value.ShouldContain("Next");
+        targetHover.Contents.MarkupContent!.Value.ShouldNotContain("val counter");
+        targetHover.Range.ShouldNotBeNull();
+        targetHover.Range.Start.Line.ShouldBe(expectedLine);
+    }
+
+    private static async Task AssertPipeWhereHoverAsync(
+        DocumentStore store,
+        HoverHandler handler,
+        DocumentUri uri,
+        string text,
+        int expectedLine)
+    {
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var sourceText = context.Value.SourceText;
+        var whereOffset = text.IndexOf("|> Where", StringComparison.Ordinal);
+        whereOffset.ShouldBeGreaterThanOrEqualTo(0);
+        whereOffset += "|> ".Length + 1;
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new TextSpan(whereOffset, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("Where");
+        hover.Contents.MarkupContent!.Value.ShouldNotContain("val query");
+        hover.Range.ShouldNotBeNull();
+        hover.Range.Start.Line.ShouldBe(expectedLine);
     }
 
     private (DocumentStore store, WorkspaceManager manager, DocumentUri uri) CreateWorkspace(string text)

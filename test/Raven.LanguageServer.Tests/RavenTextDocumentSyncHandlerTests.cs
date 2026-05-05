@@ -3,16 +3,22 @@ using System.Reflection;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 
 using Raven.LanguageServer;
 
+using RavenWorkspace = Raven.CodeAnalysis.RavenWorkspace;
+
 namespace Raven.Editor.Tests;
 
-public sealed class RavenTextDocumentSyncHandlerTests
+public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
 {
+    private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-sync-{Guid.NewGuid():N}");
+
     [Fact]
     public void GetRegistrationOptions_UsesIncrementalSync()
     {
@@ -172,6 +178,141 @@ public sealed class RavenTextDocumentSyncHandlerTests
             .ShouldBe(expected);
     }
 
+    [Fact]
+    public async Task DidChange_InvalidatesHoverCacheForUpdatedDocumentAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var hoverHandler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var syncHandler = new RavenTextDocumentSyncHandler(
+            store,
+            hoverHandler,
+            languageServer: default!,
+            logger: NullLogger<RavenTextDocumentSyncHandler>.Instance);
+
+        await syncHandler.Handle(new DidOpenTextDocumentParams
+        {
+            TextDocument = new TextDocumentItem
+            {
+                Uri = uri,
+                LanguageId = "raven",
+                Version = 1,
+                Text = """
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    WriteLine(number)
+}
+"""
+            }
+        }, CancellationToken.None);
+
+        var hover = await hoverHandler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        GetHoverCacheCount(hoverHandler).ShouldBe(1);
+
+        await syncHandler.Handle(new DidChangeTextDocumentParams
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier
+            {
+                Uri = uri,
+                Version = 2
+            },
+            ContentChanges = new Container<TextDocumentContentChangeEvent>(new TextDocumentContentChangeEvent
+            {
+                Text = """
+import System.Console.*
+
+func Main() -> unit {
+    val value = 42
+    WriteLine(value)
+}
+"""
+            })
+        }, CancellationToken.None);
+
+        GetHoverCacheCount(hoverHandler).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task DidClose_InvalidatesHoverCacheForClosedDocumentAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var hoverHandler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var syncHandler = new RavenTextDocumentSyncHandler(
+            store,
+            hoverHandler,
+            languageServer: default!,
+            logger: NullLogger<RavenTextDocumentSyncHandler>.Instance);
+
+        await syncHandler.Handle(new DidOpenTextDocumentParams
+        {
+            TextDocument = new TextDocumentItem
+            {
+                Uri = uri,
+                LanguageId = "raven",
+                Version = 1,
+                Text = """
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    WriteLine(number)
+}
+"""
+            }
+        }, CancellationToken.None);
+
+        var hover = await hoverHandler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        GetHoverCacheCount(hoverHandler).ShouldBe(1);
+
+        await syncHandler.Handle(new DidCloseTextDocumentParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri)
+        }, CancellationToken.None);
+
+        GetHoverCacheCount(hoverHandler).ShouldBe(0);
+    }
+
     private static Diagnostic CreateDiagnostic(
         string code,
         string message,
@@ -192,4 +333,19 @@ public sealed class RavenTextDocumentSyncHandlerTests
                 new Position(endLine, endCharacter)),
             Tags = tags.Length == 0 ? null : new Container<DiagnosticTag>(tags)
         };
+
+    private static int GetHoverCacheCount(HoverHandler handler)
+    {
+        var cacheField = typeof(HoverHandler).GetField("_hoverCache", BindingFlags.Instance | BindingFlags.NonPublic);
+        cacheField.ShouldNotBeNull();
+        var cache = cacheField!.GetValue(handler);
+        cache.ShouldNotBeNull();
+        return (int)cache.GetType().GetProperty("Count")!.GetValue(cache)!;
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_tempRoot))
+            Directory.Delete(_tempRoot, recursive: true);
+    }
 }

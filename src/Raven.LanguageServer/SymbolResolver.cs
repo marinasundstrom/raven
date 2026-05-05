@@ -118,10 +118,10 @@ internal static partial class SymbolResolver
             var invocation = token.Parent?
                 .AncestorsAndSelf()
                 .OfType<InvocationExpressionSyntax>()
-                .Where(invocation => invocation.Expression.Span.Contains(token.Span) || invocation.Expression.Span.End == token.Span.End)
+                .Where(invocation => IsInvocationTargetMatch(invocation.Expression, token.Parent, token))
                 .FirstOrDefault(invocation => invocation.Ancestors()
                     .OfType<InfixOperatorExpressionSyntax>()
-                    .Any(pipe => pipe.Kind == SyntaxKind.PipeExpression && pipe.Right == invocation));
+                    .Any(pipe => pipe.Kind == SyntaxKind.PipeExpression && IsPipeRightExpressionForInvocation(pipe.Right, invocation)));
             if (invocation is null)
                 continue;
 
@@ -162,7 +162,8 @@ internal static partial class SymbolResolver
                 continue;
 
             var isInvocationIdentifier = identifier.Parent is InvocationExpressionSyntax ||
-                                         identifier.Parent is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax };
+                                         identifier.Parent is MemberAccessExpressionSyntax { Name: var memberName, Parent: InvocationExpressionSyntax } &&
+                                         HaveEquivalentSpan(memberName, identifier);
             if (!isInvocationIdentifier)
                 continue;
 
@@ -170,7 +171,7 @@ internal static partial class SymbolResolver
             {
                 InvocationExpressionSyntax direct => direct,
                 MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
-                    when ReferenceEquals(name, identifier) => parent,
+                    when HaveEquivalentSpan(name, identifier) => parent,
                 _ => null
             };
 
@@ -223,10 +224,10 @@ internal static partial class SymbolResolver
             {
                 InvocationExpressionSyntax direct => direct,
                 MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
-                    when ReferenceEquals(name, identifier) => parent,
+                    when HaveEquivalentSpan(name, identifier) => parent,
                 _ => null
             };
-            if (invocation is null || !invocation.Expression.Span.Contains(token.Span))
+            if (invocation is null || !IsInvocationTargetMatch(invocation.Expression, identifier, token))
                 continue;
 
             if (TryResolveInvocationTargetSymbol(semanticModel, identifier, token, out var symbol) && symbol is not null)

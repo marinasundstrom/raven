@@ -1115,7 +1115,7 @@ class AnswerMacro: IFreestandingExpressionMacro {
     val Targets: MacroTarget => MacroTarget.None
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult with {
             Expression = ParseExpression("{{expansionText}}")
         }
     }

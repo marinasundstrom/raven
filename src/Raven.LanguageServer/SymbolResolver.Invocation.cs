@@ -38,7 +38,7 @@ internal static partial class SymbolResolver
 
         // Only resolve invocation targets when hovering the call target itself,
         // not arguments/parameter lists/lambda bodies.
-        if (!invocation.Expression.Span.Contains(token.Span))
+        if (!IsInvocationTargetMatch(invocation.Expression, node, token))
             return false;
 
         if (TryResolvePipeBoundInvocationTargetSymbol(semanticModel, invocation, out var pipeBoundSymbol))
@@ -58,7 +58,8 @@ internal static partial class SymbolResolver
             if (symbolInfo.Symbol is not null)
             {
                 var projectedSymbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol, semanticModel, invocation);
-                if (projectedSymbol is not ILocalSymbol)
+                if (projectedSymbol is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedSymbol))
                 {
                     symbol = projectedSymbol;
                     return true;
@@ -68,7 +69,8 @@ internal static partial class SymbolResolver
             if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
                 var projectedCandidate = ProjectInvocationSymbolForDisplay(symbolInfo.CandidateSymbols[0], semanticModel, invocation);
-                if (projectedCandidate is not ILocalSymbol)
+                if (projectedCandidate is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
                     return true;
@@ -82,8 +84,14 @@ internal static partial class SymbolResolver
                 symbol = unionCaseOperation.CaseType;
                 return true;
             case IInvocationOperation operation when operation.TargetMethod is not null:
-                symbol = ProjectInvocationSymbolForDisplay(operation.TargetMethod, semanticModel, invocation);
-                return true;
+                var projectedTargetMethod = ProjectInvocationSymbolForDisplay(operation.TargetMethod, semanticModel, invocation);
+                if (!IsUnitTypeSymbol(projectedTargetMethod))
+                {
+                    symbol = projectedTargetMethod;
+                    return true;
+                }
+
+                break;
         }
 
         var invocationExpressionOperation = TryGetOperation(semanticModel, invocation.Expression);
@@ -91,7 +99,8 @@ internal static partial class SymbolResolver
             ? null
             : ProjectSymbolForDisplay(GetOperationSymbol(invocationExpressionOperation));
         if (invocationExpressionSymbol is not null &&
-            invocationExpressionSymbol is not ILocalSymbol)
+            invocationExpressionSymbol is not ILocalSymbol &&
+            !IsUnitTypeSymbol(invocationExpressionSymbol))
         {
             symbol = ProjectInvocationSymbolForDisplay(invocationExpressionSymbol, semanticModel, invocation);
             return true;
@@ -103,6 +112,11 @@ internal static partial class SymbolResolver
         // InvocationExpression itself.
         return false;
     }
+
+    private static bool IsUnitTypeSymbol(ISymbol symbol)
+        => symbol is ITypeSymbol type &&
+           (type.SpecialType == SpecialType.System_Unit ||
+            string.Equals(type.Name, "Unit", StringComparison.Ordinal));
 
     private static bool TryResolvePipeBoundInvocationTargetSymbol(
         SemanticModel semanticModel,
@@ -119,7 +133,7 @@ internal static partial class SymbolResolver
 
         var pipeExpr = invocation.Ancestors()
             .OfType<InfixOperatorExpressionSyntax>()
-            .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && pipe.Right == invocation);
+            .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && IsPipeRightExpressionForInvocation(pipe.Right, invocation));
         if (pipeExpr is null)
             return false;
 
@@ -128,7 +142,8 @@ internal static partial class SymbolResolver
             if (pipeInfo.Symbol is not null)
             {
                 var projectedSymbol = ProjectInvocationSymbolForDisplay(pipeInfo.Symbol, semanticModel, invocation);
-                if (projectedSymbol is not ILocalSymbol)
+                if (projectedSymbol is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedSymbol))
                 {
                     symbol = projectedSymbol;
                     return true;
@@ -138,7 +153,8 @@ internal static partial class SymbolResolver
             if (!pipeInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
                 var projectedCandidate = ProjectInvocationSymbolForDisplay(pipeInfo.CandidateSymbols[0], semanticModel, invocation);
-                if (projectedCandidate is not ILocalSymbol)
+                if (projectedCandidate is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
                     return true;
@@ -152,8 +168,20 @@ internal static partial class SymbolResolver
                 symbol = pipeUnionCaseOperation.CaseType;
                 return true;
             case IInvocationOperation pipeOperation when pipeOperation.TargetMethod is not null:
-                symbol = ProjectInvocationSymbolForDisplay(pipeOperation.TargetMethod, semanticModel, invocation);
-                return true;
+                var projectedPipeTargetMethod = ProjectInvocationSymbolForDisplay(pipeOperation.TargetMethod, semanticModel, invocation);
+                if (!IsUnitTypeSymbol(projectedPipeTargetMethod))
+                {
+                    symbol = projectedPipeTargetMethod;
+                    return true;
+                }
+
+                break;
+        }
+
+        if (TryResolveContainingTypePipeTargetMethod(semanticModel, invocation, out var containingTypeMethod))
+        {
+            symbol = ProjectInvocationSymbolForDisplay(containingTypeMethod, semanticModel, invocation);
+            return true;
         }
 
         var invocationExpressionOperation = TryGetOperation(semanticModel, invocation.Expression);
@@ -161,13 +189,46 @@ internal static partial class SymbolResolver
             ? null
             : ProjectSymbolForDisplay(GetOperationSymbol(invocationExpressionOperation));
         if (invocationExpressionSymbol is not null &&
-            invocationExpressionSymbol is not ILocalSymbol)
+            invocationExpressionSymbol is not ILocalSymbol &&
+            !IsUnitTypeSymbol(invocationExpressionSymbol))
         {
             symbol = ProjectInvocationSymbolForDisplay(invocationExpressionSymbol, semanticModel, invocation);
             return true;
         }
 
         return false;
+    }
+
+    private static bool TryResolveContainingTypePipeTargetMethod(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        [NotNullWhen(true)] out IMethodSymbol? method)
+    {
+        method = null;
+
+        var methodName = invocation.Expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax identifier } => identifier.Identifier.ValueText,
+            _ => null
+        };
+        if (string.IsNullOrWhiteSpace(methodName))
+            return false;
+
+        var containingTypeSyntax = invocation.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (containingTypeSyntax is null ||
+            semanticModel.GetDeclaredSymbol(containingTypeSyntax) is not INamedTypeSymbol containingType)
+        {
+            return false;
+        }
+
+        method = containingType
+            .GetMembers(methodName)
+            .OfType<IMethodSymbol>()
+            .Where(candidate => candidate.Parameters.Length == invocation.ArgumentList.Arguments.Count + 1)
+            .OrderByDescending(static candidate => candidate.IsStatic)
+            .FirstOrDefault();
+        return method is not null;
     }
 
     private static bool TryResolveInvocationExpressionSymbol(
@@ -186,7 +247,8 @@ internal static partial class SymbolResolver
                         if (identifierInfo.Symbol is not null)
                         {
                             var projectedSymbol = ProjectInvocationSymbolForDisplay(identifierInfo.Symbol, semanticModel, invocation);
-                            if (projectedSymbol is not ILocalSymbol)
+                            if (projectedSymbol is not ILocalSymbol &&
+                                !IsUnitTypeSymbol(projectedSymbol))
                             {
                                 symbol = projectedSymbol;
                                 return true;
@@ -196,7 +258,8 @@ internal static partial class SymbolResolver
                         if (!identifierInfo.CandidateSymbols.IsDefaultOrEmpty)
                         {
                             var projectedCandidate = ProjectInvocationSymbolForDisplay(identifierInfo.CandidateSymbols[0], semanticModel, invocation);
-                            if (projectedCandidate is not ILocalSymbol)
+                            if (projectedCandidate is not ILocalSymbol &&
+                                !IsUnitTypeSymbol(projectedCandidate))
                             {
                                 symbol = projectedCandidate;
                                 return true;
@@ -214,7 +277,8 @@ internal static partial class SymbolResolver
                         if (memberInfo.Symbol is not null)
                         {
                             var projectedSymbol = ProjectInvocationSymbolForDisplay(memberInfo.Symbol, semanticModel, invocation);
-                            if (projectedSymbol is not ILocalSymbol)
+                            if (projectedSymbol is not ILocalSymbol &&
+                                !IsUnitTypeSymbol(projectedSymbol))
                             {
                                 symbol = projectedSymbol;
                                 return true;
@@ -224,7 +288,8 @@ internal static partial class SymbolResolver
                         if (!memberInfo.CandidateSymbols.IsDefaultOrEmpty)
                         {
                             var projectedCandidate = ProjectInvocationSymbolForDisplay(memberInfo.CandidateSymbols[0], semanticModel, invocation);
-                            if (projectedCandidate is not ILocalSymbol)
+                            if (projectedCandidate is not ILocalSymbol &&
+                                !IsUnitTypeSymbol(projectedCandidate))
                             {
                                 symbol = projectedCandidate;
                                 return true;
@@ -241,7 +306,8 @@ internal static partial class SymbolResolver
             if (expressionInfo.Symbol is not null)
             {
                 var projectedSymbol = ProjectInvocationSymbolForDisplay(expressionInfo.Symbol, semanticModel, invocation);
-                if (projectedSymbol is not ILocalSymbol)
+                if (projectedSymbol is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedSymbol))
                 {
                     symbol = projectedSymbol;
                     return true;
@@ -251,7 +317,8 @@ internal static partial class SymbolResolver
             if (!expressionInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
                 var projectedCandidate = ProjectInvocationSymbolForDisplay(expressionInfo.CandidateSymbols[0], semanticModel, invocation);
-                if (projectedCandidate is not ILocalSymbol)
+                if (projectedCandidate is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
                     return true;

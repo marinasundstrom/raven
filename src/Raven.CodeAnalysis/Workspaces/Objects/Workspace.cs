@@ -255,10 +255,7 @@ public class Workspace
         var compilation = Compilation.Create(project.AssemblyName ?? project.Name,
             syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
 
-        var canReuseSemanticIncrementalState = previousCompilation is not null &&
-                                               changedExecutableOwners.Count == 0;
-
-        if (canReuseSemanticIncrementalState)
+        if (previousCompilation is not null)
         {
             compilation.InitializeIncrementalState(previousCompilation.CreateIncrementalState(
                 reusedSyntaxTrees.ToImmutable(),
