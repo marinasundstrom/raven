@@ -20,10 +20,18 @@
     <RavenSource Include="Union.rav" />
   </ItemGroup>
 
-  <Target Name="CompileRavenCore"
-    BeforeTargets="Build"
+  <Target Name="EnsureRavenCoreOutputDirectory"
+    BeforeTargets="PrepareForBuild"
     Condition="'$(TargetFramework)' != ''">
     <MakeDir Directories="$(RavenCoreOutputDirectory)" />
+  </Target>
+
+  <Target Name="CompileRavenCore"
+    BeforeTargets="Build"
+    DependsOnTargets="EnsureRavenCoreOutputDirectory"
+    Inputs="$(MSBuildProjectFullPath);@(RavenSource)"
+    Outputs="$(RavenCoreOutputDirectory)Raven.Core.dll"
+    Condition="'$(TargetFramework)' != ''">
     <Error
       Condition="!Exists('$(RavenCompilerHost)')"
       Text="Built Raven compiler host not found at '$(RavenCompilerHost)'. Build Raven.Compiler first." />
