@@ -508,6 +508,85 @@ func Main() -> () {
         result.Diagnostics.Any(d => string.Equals(d.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_FullMode_SkipsWhenCompilerGateIsBusyAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    fb
+}
+""";
+
+        store.UpsertDocument(uri, code);
+
+        using var heldLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DocumentDiagnosticsMode.Full,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeTrue();
+        result.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_SyntaxOnlyMode_DoesNotRequireCompilerGateAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main( -> () {
+}
+""";
+
+        store.UpsertDocument(uri, code);
+
+        using var heldLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
+        var diagnosticsTask = store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        var completedTask = await Task.WhenAny(diagnosticsTask, Task.Delay(1000));
+        completedTask.ShouldBe(diagnosticsTask);
+
+        var result = await diagnosticsTask;
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.ShouldNotBeEmpty();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

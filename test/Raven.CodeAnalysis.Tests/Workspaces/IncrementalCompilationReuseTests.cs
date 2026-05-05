@@ -1538,6 +1538,82 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_TransfersVisibleValueScopeDeclarations_ForMatchedExecutableOwnersInChangedSyntaxTree()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                class Edited {
+                    func Changed() -> int {
+                        1
+                    }
+
+                    func Stable(value: int) -> int {
+                        val first = value
+                        val second = value
+                        return second
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialStableMethod = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Stable");
+        var initialBlock = initialStableMethod.DescendantNodes().OfType<BlockStatementSyntax>().Single();
+
+        var initialDeclarations = initialModel.GetVisibleValueDeclarationsForTesting(initialBlock);
+        initialDeclarations.Select(static declaration => declaration.Name).ShouldBe(["second", "first"]);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(
+                """
+                class Edited {
+                    func Changed() -> int {
+                        3
+                    }
+
+                    func Stable(value: int) -> int {
+                        val first = value
+                        val second = value
+                        return second
+                    }
+                }
+                """));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedStableMethod = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Stable");
+        var updatedBlock = updatedStableMethod.DescendantNodes().OfType<BlockStatementSyntax>().Single();
+
+        updatedCompilation.HasTransferredVisibleValueScopeDeclarationsForTesting(updatedBlock).ShouldBeTrue();
+    }
+
+    [Fact]
     public void WorkspaceCompilation_DiagnosticsAfterEdit_DoNotPoisonQueryableInvocationBinding()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

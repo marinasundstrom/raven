@@ -22,6 +22,7 @@ namespace Raven.LanguageServer;
 internal sealed class WorkspaceManager
 {
     private static readonly string MacroShadowOutputRoot = Path.Combine(Path.GetTempPath(), "raven-ls-macros");
+    private static readonly TimeSpan ProjectOpenFailureRetryDelay = TimeSpan.FromSeconds(30);
     private static readonly HashSet<string> WorkspaceDiscoveryExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git",
@@ -52,6 +53,7 @@ internal sealed class WorkspaceManager
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<ProjectId, CachedDiagnostics> _diagnosticsCache = new();
+    private readonly Dictionary<string, FailedProjectOpen> _failedProjectOpens = new(StringComparer.OrdinalIgnoreCase);
     private ImmutableArray<string> _workspaceRoots = ImmutableArray<string>.Empty;
     private ProjectId? _fallbackProjectId;
 
@@ -128,6 +130,7 @@ internal sealed class WorkspaceManager
 
         lock (_gate)
         {
+            _failedProjectOpens.Clear();
             var openDocuments = new List<ReloadDocumentState>();
             foreach (var pair in _documents)
             {
@@ -169,17 +172,28 @@ internal sealed class WorkspaceManager
 
         var stack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var loadedProjectPathsForRoot = new List<string>();
+        var attemptedProjectOpen = false;
+        var skippedProjectOpen = false;
 
         foreach (var projectFilePath in projectFilePaths)
         {
+            if (ShouldSkipProjectOpen(projectFilePath))
+            {
+                skippedProjectOpen = true;
+                continue;
+            }
+
+            attemptedProjectOpen = true;
             try
             {
                 _ = OpenProjectWithReferences(projectFilePath, projectSystem, loadedProjects, stack);
                 loadedProjectPathsForRoot.Add(projectFilePath);
+                ClearProjectOpenFailure(projectFilePath);
             }
             catch (Exception ex)
             {
                 stack.Remove(NormalizePath(projectFilePath));
+                RecordProjectOpenFailure(projectFilePath, ex);
                 _logger.LogWarning(
                     ex,
                     "Failed to open Raven project '{ProjectFilePath}' for root '{Root}'. Continuing with remaining projects.",
@@ -194,7 +208,17 @@ internal sealed class WorkspaceManager
 
         if (successfullyLoadedCandidates.Length == 0)
         {
-            _logger.LogWarning("Failed to open any Raven project(s) for root '{Root}'. Falling back to inferred workspace.", root);
+            if (attemptedProjectOpen || !skippedProjectOpen)
+            {
+                _logger.LogWarning("Failed to open any Raven project(s) for root '{Root}'. Falling back to inferred workspace.", root);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Skipped reopening previously failed Raven project(s) for root '{Root}'. Falling back to inferred workspace until retry delay expires or files change.",
+                    root);
+            }
+
             projectId = default;
             return false;
         }
@@ -219,20 +243,64 @@ internal sealed class WorkspaceManager
         if (loadedProjects.TryGetValue(normalizedProjectPath, out var existing))
             return existing;
 
+        if (ShouldSkipProjectOpen(normalizedProjectPath))
+            throw new InvalidOperationException($"Skipping previously failed Raven project '{normalizedProjectPath}' until retry delay expires or files change.");
+
         if (!stack.Add(normalizedProjectPath))
             throw new InvalidOperationException($"Detected cyclic project references involving '{normalizedProjectPath}'.");
 
         foreach (var referencedProjectPath in projectSystem.GetProjectReferencePaths(normalizedProjectPath)
                      .Where(projectSystem.CanOpenProject))
-            _ = OpenProjectWithReferences(referencedProjectPath, projectSystem, loadedProjects, stack);
+        {
+            try
+            {
+                _ = OpenProjectWithReferences(referencedProjectPath, projectSystem, loadedProjects, stack);
+            }
+            catch (Exception ex)
+            {
+                RecordProjectOpenFailure(referencedProjectPath, ex);
+                throw;
+            }
+        }
 
         var projectId = projectSystem.OpenProject(_workspace, normalizedProjectPath);
         EnsureRavenCoreReference(projectId);
         EnsureBuiltInAnalyzers(projectId);
         loadedProjects[normalizedProjectPath] = projectId;
+        ClearProjectOpenFailure(normalizedProjectPath);
         stack.Remove(normalizedProjectPath);
         return projectId;
     }
+
+    private bool ShouldSkipProjectOpen(string projectFilePath)
+    {
+        var normalizedProjectPath = NormalizePath(projectFilePath);
+        if (!_failedProjectOpens.TryGetValue(normalizedProjectPath, out var failure))
+            return false;
+
+        if (DateTimeOffset.UtcNow >= failure.NextRetryUtc)
+        {
+            _failedProjectOpens.Remove(normalizedProjectPath);
+            return false;
+        }
+
+        _logger.LogDebug(
+            "Skipping Raven project '{ProjectFilePath}' open because the previous attempt failed. Next retry: {NextRetryUtc:O}.",
+            normalizedProjectPath,
+            failure.NextRetryUtc);
+        return true;
+    }
+
+    private void RecordProjectOpenFailure(string projectFilePath, Exception exception)
+    {
+        var normalizedProjectPath = NormalizePath(projectFilePath);
+        _failedProjectOpens[normalizedProjectPath] = new FailedProjectOpen(
+            DateTimeOffset.UtcNow.Add(ProjectOpenFailureRetryDelay),
+            exception.GetType().FullName ?? exception.GetType().Name);
+    }
+
+    private void ClearProjectOpenFailure(string projectFilePath)
+        => _failedProjectOpens.Remove(NormalizePath(projectFilePath));
 
     private void EnsureRavenCoreReference(ProjectId projectId)
     {
@@ -1115,5 +1183,6 @@ internal sealed class WorkspaceManager
 
     private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId, VersionStamp Version, bool IsProjectDocument);
     private readonly record struct ReloadDocumentState(DocumentUri Uri, string Text, bool IsProjectDocument);
+    private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType);
     private readonly record struct CachedDiagnostics(VersionStamp Version, ImmutableArray<CodeDiagnostic> Diagnostics);
 }

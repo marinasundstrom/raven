@@ -23,9 +23,8 @@ namespace Raven.LanguageServer;
 
 internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
-    private const int AnalysisWarmupDebounceMilliseconds = 75;
     private const int DiagnosticsDebounceMilliseconds = 250;
-    private const int FullDiagnosticsAfterSaveDelayMilliseconds = 350;
+    private const int FullDiagnosticsAfterSaveDelayMilliseconds = 1500;
     private const int DiagnosticsRetryDelayMilliseconds = 150;
     private const double DidCloseLogThresholdMs = 50;
 
@@ -75,7 +74,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 notification.TextDocument.Version,
                 notification.TextDocument.Text?.Length ?? 0);
 
-            var result = await ScheduleDiagnosticsPublishAsync(notification.TextDocument.Uri).ConfigureAwait(false);
+            var policy = GetOpenDiagnosticsPolicy();
+            var result = await ScheduleDiagnosticsPublishAsync(
+                notification.TextDocument.Uri,
+                includeWarmup: policy.IncludeWarmup,
+                warmupDelayMilliseconds: policy.WarmupDelayMilliseconds,
+                initialDiagnosticsMode: policy.InitialMode,
+                fullDiagnosticsDelayMilliseconds: policy.FullDiagnosticsDelayMilliseconds,
+                diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "didOpen",
@@ -156,7 +162,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             var result = await ScheduleDiagnosticsPublishAsync(
                 notification.TextDocument.Uri,
                 includeWarmup: policy.IncludeWarmup,
-                warmupDelayMilliseconds: AnalysisWarmupDebounceMilliseconds,
+                warmupDelayMilliseconds: policy.WarmupDelayMilliseconds,
                 initialDiagnosticsMode: policy.InitialMode,
                 fullDiagnosticsDelayMilliseconds: policy.FullDiagnosticsDelayMilliseconds,
                 diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
@@ -317,13 +323,23 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     internal static SaveDiagnosticsPolicy GetSaveDiagnosticsPolicy()
         => new(
             IncludeWarmup: false,
+            WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
             FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterSaveDelayMilliseconds,
             DiagnosticsDelayMilliseconds: 0);
 
+    internal static SaveDiagnosticsPolicy GetOpenDiagnosticsPolicy()
+        => new(
+            IncludeWarmup: false,
+            WarmupDelayMilliseconds: 0,
+            InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+            FullDiagnosticsDelayMilliseconds: null,
+            DiagnosticsDelayMilliseconds: 0);
+
     internal static SaveDiagnosticsPolicy GetEditDiagnosticsPolicy()
         => new(
-            IncludeWarmup: true,
+            IncludeWarmup: false,
+            WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
             FullDiagnosticsDelayMilliseconds: null,
             DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
@@ -342,7 +358,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private Task<Unit> ScheduleDiagnosticsPublishAsync(
         DocumentUri uri,
         bool includeWarmup = true,
-        int warmupDelayMilliseconds = AnalysisWarmupDebounceMilliseconds,
+        int warmupDelayMilliseconds = 0,
         DocumentStore.DocumentDiagnosticsMode initialDiagnosticsMode = DocumentStore.DocumentDiagnosticsMode.Full,
         int? fullDiagnosticsDelayMilliseconds = null,
         int diagnosticsDelayMilliseconds = DiagnosticsDebounceMilliseconds)
@@ -714,6 +730,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     internal readonly record struct SaveDiagnosticsPolicy(
         bool IncludeWarmup,
+        int WarmupDelayMilliseconds,
         DocumentStore.DocumentDiagnosticsMode InitialMode,
         int? FullDiagnosticsDelayMilliseconds,
         int DiagnosticsDelayMilliseconds);

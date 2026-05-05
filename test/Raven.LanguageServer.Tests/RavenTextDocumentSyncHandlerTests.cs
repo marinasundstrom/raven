@@ -80,18 +80,32 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         var policy = RavenTextDocumentSyncHandler.GetSaveDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
+        policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
         policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(0);
+        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThanOrEqualTo(1000);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesWarmupWithoutDeferredFullDiagnostics()
+    public void GetOpenDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWithoutWarmup()
+    {
+        var policy = RavenTextDocumentSyncHandler.GetOpenDiagnosticsPolicy();
+
+        policy.IncludeWarmup.ShouldBeFalse();
+        policy.WarmupDelayMilliseconds.ShouldBe(0);
+        policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
+        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
+        policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
+    }
+
+    [Fact]
+    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
-        policy.IncludeWarmup.ShouldBeTrue();
+        policy.IncludeWarmup.ShouldBeFalse();
+        policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
         policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
         policy.DiagnosticsDelayMilliseconds.ShouldBeGreaterThan(0);

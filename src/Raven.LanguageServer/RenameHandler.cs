@@ -46,10 +46,11 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
             if (context is null)
                 return null;
 
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            if (semanticModel is null)
+                return null;
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
@@ -95,10 +96,11 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
             if (context is null)
                 return null;
 
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            if (semanticModel is null)
+                return null;
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);

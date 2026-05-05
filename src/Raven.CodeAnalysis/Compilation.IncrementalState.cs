@@ -133,8 +133,16 @@ public partial class Compilation
         {
             foreach (var match in matchedTree.Matches)
             {
-                // Visible value scopes encode semantic state that can preserve stale symbol mappings
-                // across edits. Let the next compilation recompute them.
+                CopyOwnerRelativeState(
+                    _descriptorState.VisibleValueScopeDeclarationsByOwner,
+                    state.VisibleValueScopeDeclarationsByOwner,
+                    matchedTree.PreviousTree,
+                    matchedTree.CurrentTree,
+                    match.PreviousOwner,
+                    match.CurrentOwner,
+                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var visibleValueOwnerChange)
+                        ? visibleValueOwnerChange
+                        : null);
                 CopyOwnerRelativeState(
                     _descriptorState.NodeInterestSymbolDescriptorsByOwner,
                     state.NodeInterestSymbolDescriptorsByOwner,
@@ -510,4 +518,7 @@ public partial class Compilation
 
     internal bool HasTransferredFunctionExpressionRebindRootDescriptorForTesting(FunctionExpressionSyntax functionExpression)
         => TryGetTransferredFunctionExpressionRebindRootDescriptor(functionExpression, out _);
+
+    internal bool HasTransferredVisibleValueScopeDeclarationsForTesting(SyntaxNode scopeNode)
+        => TryGetTransferredVisibleValueScopeDeclarations(scopeNode, out _);
 }

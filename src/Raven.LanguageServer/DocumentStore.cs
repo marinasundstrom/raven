@@ -55,6 +55,8 @@ internal sealed class DocumentStore
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _documentSemanticGates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<DocumentAnalysisCacheKey, CachedDocumentAnalysis> _documentAnalysisCache = new();
+    private readonly ConcurrentDictionary<DocumentUri, Document> _openDocumentSnapshots = new();
+    private readonly ConcurrentDictionary<SyntaxTree, SourceDiagnosticSuppressionMap> _syntaxSuppressionMaps = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
     {
@@ -65,7 +67,9 @@ internal sealed class DocumentStore
     public Document UpsertDocument(DocumentUri uri, string text)
     {
         InvalidateDocumentAnalysis(uri);
-        return _workspaceManager.UpsertDocument(uri, text);
+        var document = _workspaceManager.UpsertDocument(uri, text);
+        _openDocumentSnapshots[uri] = document;
+        return document;
     }
 
     public bool TryGetDocument(DocumentUri uri, [NotNullWhen(true)] out Document? document)
@@ -85,18 +89,18 @@ internal sealed class DocumentStore
 
     internal async Task<SemanticModel?> GetSemanticModelAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
-        var context = await GetAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
-        if (context is null)
+        var analysis = await GetOrCreateDocumentAnalysisAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (analysis is null)
             return null;
 
         var stopwatch = Stopwatch.StartNew();
-        var setupBefore = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
-        var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        var setupBefore = analysis.Context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+        var semanticModel = analysis.GetSemanticModel();
         stopwatch.Stop();
 
         if (stopwatch.Elapsed.TotalMilliseconds >= SlowSemanticModelMaterializationThresholdMs)
         {
-            var setupAfter = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+            var setupAfter = analysis.Context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
             var setupDelta = CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore);
             _logger.LogInformation(
                 "Slow semantic model materialization for {Uri}: total={TotalMs:F1}ms setupDelta=[{SetupDelta}].",
@@ -171,6 +175,7 @@ internal sealed class DocumentStore
     public bool RemoveDocument(DocumentUri uri)
     {
         InvalidateDocumentAnalysis(uri);
+        _openDocumentSnapshots.TryRemove(uri, out _);
         return _workspaceManager.RemoveDocument(uri);
     }
 
@@ -301,6 +306,9 @@ internal sealed class DocumentStore
         DocumentDiagnosticsMode mode,
         CancellationToken cancellationToken)
     {
+        if (mode == DocumentDiagnosticsMode.SyntaxOnly)
+            return await GetSyntaxDiagnosticsCoreAsync(uri, shouldSkipWork, cancellationToken).ConfigureAwait(false);
+
         var stopwatch = Stopwatch.StartNew();
         double gateWaitMs = 0;
         double syntaxTreeMs = 0;
@@ -316,7 +324,7 @@ internal sealed class DocumentStore
             if (shouldSkipWork?.Invoke() == true)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
-            var useBusySkip = allowBusySkip && mode == DocumentDiagnosticsMode.SyntaxOnly;
+            var useBusySkip = allowBusySkip;
 
             IDisposable? lease = null;
             if (useBusySkip)
@@ -352,14 +360,7 @@ internal sealed class DocumentStore
                 IDisposable? semanticLease = null;
                 if (mode == DocumentDiagnosticsMode.Full)
                 {
-                    semanticLease = useBusySkip
-                        ? await TryEnterDocumentSemanticAccessAsync(uri, cancellationToken, "diagnostics-semantic").ConfigureAwait(false)
-                        : await EnterDocumentSemanticAccessAsync(uri, cancellationToken, "diagnostics-semantic").ConfigureAwait(false);
-                    if (semanticLease is null)
-                    {
-                        semanticBusySkipped = true;
-                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
-                    }
+                    semanticLease = await EnterDocumentSemanticAccessAsync(uri, cancellationToken, "diagnostics-semantic").ConfigureAwait(false);
                 }
 
                 using var __ = semanticLease;
@@ -462,6 +463,130 @@ internal sealed class DocumentStore
         }
     }
 
+    private async Task<DiagnosticsComputationResult> GetSyntaxDiagnosticsCoreAsync(
+        DocumentUri uri,
+        Func<bool>? shouldSkipWork,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        double documentLookupMs = 0;
+        double syntaxTreeMs = 0;
+        double diagnosticsFetchMs = 0;
+
+        try
+        {
+            if (shouldSkipWork?.Invoke() == true)
+                return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+
+            var stageStopwatch = Stopwatch.StartNew();
+            if (!_openDocumentSnapshots.TryGetValue(uri, out var document) &&
+                (!TryGetDocument(uri, out document) || document is null))
+            {
+                return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+            }
+
+            documentLookupMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            stageStopwatch.Restart();
+            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+            syntaxTreeMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (syntaxTree is null)
+                return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+
+            if (shouldSkipWork?.Invoke() == true)
+                return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+
+            stageStopwatch.Restart();
+            var diagnostics = syntaxTree
+                .GetDiagnostics(cancellationToken)
+                .Select(diagnostic => ApplySyntaxDiagnosticOptions(document.Project, syntaxTree, diagnostic))
+                .Where(static diagnostic => diagnostic is not null)
+                .Cast<CodeDiagnostic>()
+                .Where(diagnostic => ShouldReport(diagnostic, syntaxTree))
+                .Select(MapDiagnostic)
+                .ToArray();
+            diagnosticsFetchMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Syntax diagnostic computation failed for {Uri}.", uri);
+            return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "computeSyntaxDiagnostics",
+                uri,
+                null,
+                stopwatch.Elapsed.TotalMilliseconds,
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", 0),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("documentLookup", documentLookupMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("syntaxTree", syntaxTreeMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("diagnosticsFetch", diagnosticsFetchMs)
+                ]);
+        }
+    }
+
+    private CodeDiagnostic? ApplySyntaxDiagnosticOptions(Project project, SyntaxTree syntaxTree, CodeDiagnostic diagnostic)
+    {
+        var options = project.CompilationOptions ?? new CompilationOptions();
+        if (!options.EnableSuggestions &&
+            diagnostic.Properties.ContainsKey(Raven.CodeAnalysis.Diagnostics.SuggestionsDiagnosticProperties.OriginalCodeKey) &&
+            diagnostic.Properties.ContainsKey(Raven.CodeAnalysis.Diagnostics.SuggestionsDiagnosticProperties.RewrittenCodeKey))
+        {
+            return null;
+        }
+
+        var mappedDiagnostic = diagnostic;
+        var isSuppressed = false;
+
+        if (TryGetReportDiagnostic(options, diagnostic.Descriptor.Id, out var report))
+        {
+            if (report == ReportDiagnostic.Suppress)
+                isSuppressed = true;
+
+            if (!isSuppressed && report != ReportDiagnostic.Default)
+            {
+                var severity = report switch
+                {
+                    ReportDiagnostic.Error => CodeDiagnosticSeverity.Error,
+                    ReportDiagnostic.Warn => CodeDiagnosticSeverity.Warning,
+                    ReportDiagnostic.Info => CodeDiagnosticSeverity.Info,
+                    ReportDiagnostic.Hidden => CodeDiagnosticSeverity.Hidden,
+                    _ => mappedDiagnostic.Severity
+                };
+
+                if (severity != mappedDiagnostic.Severity)
+                    mappedDiagnostic = mappedDiagnostic.WithSeverity(severity);
+            }
+        }
+
+        var suppressionMap = _syntaxSuppressionMaps.GetOrAdd(
+            syntaxTree,
+            static tree => SourceDiagnosticSuppressionMap.Create(tree));
+        if (suppressionMap.IsSuppressed(mappedDiagnostic))
+            isSuppressed = true;
+
+        return isSuppressed ? null : mappedDiagnostic;
+
+        static bool TryGetReportDiagnostic(CompilationOptions options, string diagnosticId, out ReportDiagnostic mappedReport)
+        {
+            if (options.SpecificDiagnosticOptions.TryGetValue(diagnosticId, out mappedReport))
+                return true;
+
+            return options.SpecificDiagnosticOptions.TryGetValue("*", out mappedReport);
+        }
+    }
+
     public Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(DocumentUri uri, CancellationToken cancellationToken)
         => GetDiagnosticsAsync(uri, shouldSkipWork: null, cancellationToken);
 
@@ -477,9 +602,7 @@ internal sealed class DocumentStore
             if (shouldSkipWork?.Invoke() == true)
                 return;
 
-            using var lease = await TryEnterCompilerAccessAsync(cancellationToken, "warmAnalysis", uri).ConfigureAwait(false);
-            if (lease is null)
-                return;
+            using var lease = await EnterCompilerAccessAsync(cancellationToken, "warmAnalysis", uri).ConfigureAwait(false);
             gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
 
             var stageStopwatch = Stopwatch.StartNew();

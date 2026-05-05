@@ -59,7 +59,6 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                 return new CommandOrCodeActionContainer();
 
             var document = context.Value.Document;
-            var compilation = context.Value.Compilation;
             var syntaxTree = context.Value.SyntaxTree;
             var documentText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
             var selectionSpan = GetRequestedSpan(documentText, request.Range);
@@ -80,10 +79,13 @@ internal sealed class CodeActionHandler : ICodeActionHandler
 
             if (SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite))
             {
-                var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
                 var root = syntaxTree.GetRoot(cancellationToken);
-                if (TryCreateMacroExpansionAction(request.TextDocument.Uri, documentText, semanticModel, root, request.Range, out var macroAction))
+                if (semanticModel is not null &&
+                    TryCreateMacroExpansionAction(request.TextDocument.Uri, documentText, semanticModel, root, request.Range, out var macroAction))
+                {
                     actions.Add(macroAction);
+                }
             }
 
             if (SupportsKind(request.Context?.Only, CodeActionKind.QuickFix))
@@ -99,16 +101,18 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                         fix.Diagnostic,
                         cancellationToken).ConfigureAwait(false);
                     if (action is not null)
+                    {
                         actions.Add(action);
 
-                    var preview = await TryCreatePreviewCommandAsync(
-                        request.TextDocument.Uri,
-                        document,
-                        fix.DocumentId,
-                        fix.Action,
-                        cancellationToken).ConfigureAwait(false);
-                    if (preview is not null)
-                        actions.Add(preview);
+                        var preview = await TryCreatePreviewCommandAsync(
+                            request.TextDocument.Uri,
+                            document,
+                            fix.DocumentId,
+                            fix.Action,
+                            cancellationToken).ConfigureAwait(false);
+                        if (preview is not null)
+                            actions.Add(preview);
+                    }
                 }
             }
 
@@ -123,16 +127,18 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                     diagnostic: null,
                     cancellationToken).ConfigureAwait(false);
                 if (action is not null)
+                {
                     actions.Add(action);
 
-                var preview = await TryCreatePreviewCommandAsync(
-                    request.TextDocument.Uri,
-                    document,
-                    refactoring.DocumentId,
-                    refactoring.Action,
-                    cancellationToken).ConfigureAwait(false);
-                if (preview is not null)
-                    actions.Add(preview);
+                    var preview = await TryCreatePreviewCommandAsync(
+                        request.TextDocument.Uri,
+                        document,
+                        refactoring.DocumentId,
+                        refactoring.Action,
+                        cancellationToken).ConfigureAwait(false);
+                    if (preview is not null)
+                        actions.Add(preview);
+                }
             }
 
             return new CommandOrCodeActionContainer(actions);
@@ -242,7 +248,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
         return true;
     }
 
-    private static async Task<CommandOrCodeAction?> TryCreateLspCodeActionAsync(
+    private async Task<CommandOrCodeAction?> TryCreateLspCodeActionAsync(
         DocumentUri uri,
         Document currentDocument,
         DocumentId documentId,
@@ -251,92 +257,124 @@ internal sealed class CodeActionHandler : ICodeActionHandler
         CodeDiagnostic? diagnostic,
         CancellationToken cancellationToken)
     {
-        var currentSolution = currentDocument.Project.Solution;
-        var updatedSolution = action.GetChangedSolution(currentSolution, cancellationToken);
-        if (updatedSolution.Version == currentSolution.Version)
-            return null;
-
-        var updatedDocument = updatedSolution.GetDocument(documentId);
-        if (updatedDocument is null)
-            return null;
-
-        var currentDocumentForFix = currentSolution.GetDocument(documentId);
-        if (currentDocumentForFix is null)
-            return null;
-
-        var currentText = await currentDocumentForFix.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var textChanges = await updatedDocument.GetTextChangesAsync(currentDocumentForFix, cancellationToken).ConfigureAwait(false);
-        if (textChanges.Count == 0)
-            return null;
-
-        var edits = textChanges
-            .Select(change => new TextEdit
-            {
-                NewText = change.NewText,
-                Range = PositionHelper.ToRange(currentText, change.Span)
-            })
-            .ToArray();
-
-        var workspaceEdit = new WorkspaceEdit
+        try
         {
-            Changes = new Dictionary<DocumentUri, IEnumerable<TextEdit>>
-            {
-                [uri] = edits
-            }
-        };
+            var currentSolution = currentDocument.Project.Solution;
+            var updatedSolution = action.GetChangedSolution(currentSolution, cancellationToken);
+            if (updatedSolution.Version == currentSolution.Version)
+                return null;
 
-        var codeAction = diagnostic is null
-            ? new LspCodeAction
+            var updatedDocument = updatedSolution.GetDocument(documentId);
+            if (updatedDocument is null)
+                return null;
+
+            var currentDocumentForFix = currentSolution.GetDocument(documentId);
+            if (currentDocumentForFix is null)
+                return null;
+
+            var currentText = await currentDocumentForFix.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var textChanges = await updatedDocument.GetTextChangesAsync(currentDocumentForFix, cancellationToken).ConfigureAwait(false);
+            if (textChanges.Count == 0)
+                return null;
+
+            var edits = textChanges
+                .Select(change => new TextEdit
+                {
+                    NewText = change.NewText,
+                    Range = PositionHelper.ToRange(currentText, change.Span)
+                })
+                .ToArray();
+
+            var workspaceEdit = new WorkspaceEdit
             {
-                Title = action.Title,
-                Kind = kind,
-                Edit = workspaceEdit
-            }
-            : new LspCodeAction
-            {
-                Title = action.Title,
-                Kind = kind,
-                Edit = workspaceEdit,
-                Diagnostics = new Container<LspDiagnostic>(
-                    new LspDiagnostic
-                    {
-                        Message = diagnostic.GetMessage(),
-                        Source = "raven",
-                        Code = diagnostic.Id,
-                        Range = PositionHelper.ToRange(currentText, diagnostic.Location.SourceSpan)
-                    })
+                Changes = new Dictionary<DocumentUri, IEnumerable<TextEdit>>
+                {
+                    [uri] = edits
+                }
             };
 
-        return new CommandOrCodeAction(codeAction);
+            var codeAction = diagnostic is null
+                ? new LspCodeAction
+                {
+                    Title = action.Title,
+                    Kind = kind,
+                    Edit = workspaceEdit
+                }
+                : new LspCodeAction
+                {
+                    Title = action.Title,
+                    Kind = kind,
+                    Edit = workspaceEdit,
+                    Diagnostics = new Container<LspDiagnostic>(
+                        new LspDiagnostic
+                        {
+                            Message = diagnostic.GetMessage(),
+                            Source = "raven",
+                            Code = diagnostic.Id,
+                            Range = PositionHelper.ToRange(currentText, diagnostic.Location.SourceSpan)
+                        })
+                };
+
+            return new CommandOrCodeAction(codeAction);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Skipping code action '{Title}' for {Uri}; the action could not be materialized.",
+                action.Title,
+                uri);
+            return null;
+        }
     }
 
-    private static async Task<CommandOrCodeAction?> TryCreatePreviewCommandAsync(
+    private async Task<CommandOrCodeAction?> TryCreatePreviewCommandAsync(
         DocumentUri uri,
         Document currentDocument,
         DocumentId documentId,
         CodeFixAction action,
         CancellationToken cancellationToken)
     {
-        var currentSolution = currentDocument.Project.Solution;
-        var updatedSolution = action.GetChangedSolution(currentSolution, cancellationToken);
-        if (updatedSolution.Version == currentSolution.Version)
-            return null;
-
-        var updatedDocument = updatedSolution.GetDocument(documentId);
-        var currentDocumentForAction = currentSolution.GetDocument(documentId);
-        if (updatedDocument is null || currentDocumentForAction is null)
-            return null;
-
-        var currentText = await currentDocumentForAction.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var updatedText = await updatedDocument.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (string.Equals(currentText.ToString(), updatedText.ToString(), StringComparison.Ordinal))
-            return null;
-
-        return new CommandOrCodeAction(new Command
+        try
         {
-            Name = ShowCodeActionPreviewCommand,
-            Title = $"Preview: {action.Title}",
-            Arguments = new JArray(uri.ToString(), action.Title, currentText.ToString(), updatedText.ToString())
-        });
+            var currentSolution = currentDocument.Project.Solution;
+            var updatedSolution = action.GetChangedSolution(currentSolution, cancellationToken);
+            if (updatedSolution.Version == currentSolution.Version)
+                return null;
+
+            var updatedDocument = updatedSolution.GetDocument(documentId);
+            var currentDocumentForAction = currentSolution.GetDocument(documentId);
+            if (updatedDocument is null || currentDocumentForAction is null)
+                return null;
+
+            var currentText = await currentDocumentForAction.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            var updatedText = await updatedDocument.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            if (string.Equals(currentText.ToString(), updatedText.ToString(), StringComparison.Ordinal))
+                return null;
+
+            return new CommandOrCodeAction(new Command
+            {
+                Name = ShowCodeActionPreviewCommand,
+                Title = $"Preview: {action.Title}",
+                Arguments = new JArray(uri.ToString(), action.Title, currentText.ToString(), updatedText.ToString())
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Skipping code action preview for '{Title}' on {Uri}; the action could not be materialized.",
+                action.Title,
+                uri);
+            return null;
+        }
     }
 }

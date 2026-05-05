@@ -67,6 +67,7 @@ internal sealed class HoverHandler : IHoverHandler
         double analysisContextMs = 0;
         double semanticModelMs = 0;
         double resolutionMs = 0;
+        var cacheHit = false;
 
         try
         {
@@ -86,38 +87,29 @@ internal sealed class HoverHandler : IHoverHandler
 
             if (_hoverCache.TryGetValue(cacheKey, out var cachedEntry))
             {
-                LanguageServerPerformanceInstrumentation.RecordOperation(
-                    "hover",
-                    request.TextDocument.Uri,
-                    null,
-                    totalStopwatch.Elapsed.TotalMilliseconds,
-                    cacheHit: true,
-                    stages:
-                    [
-                        new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
-                        new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs)
-                    ]);
+                cacheHit = true;
                 return cachedEntry.Hover;
             }
 
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
-            var syntaxOnlyHover = TryBuildFunctionExpressionDeclarationHover(sourceText, root, offset);
+            var syntaxOnlyHover = TryBuildFunctionExpressionDeclarationHover(sourceText, root, offset)
+                ?? TryBuildDeclarationSyntaxHover(sourceText, root, offset);
             if (syntaxOnlyHover is not null)
                 return CacheHover(cacheKey, syntaxOnlyHover);
 
             cancellationToken.ThrowIfCancellationRequested();
 
             var gateWaitStopwatch = Stopwatch.StartNew();
-            using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "hover").ConfigureAwait(false);
+            using var semanticLease = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "hover").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
-            if (semanticLease is null)
-                return null;
 
             stageStopwatch.Restart();
-            var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticModel is null)
+                return CacheHover(cacheKey, null);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -227,6 +219,7 @@ internal sealed class HoverHandler : IHoverHandler
                 request.TextDocument.Uri,
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
+                cacheHit: cacheHit,
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -850,6 +843,279 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return null;
+    }
+
+    private static Hover? TryBuildDeclarationSyntaxHover(
+        SourceText sourceText,
+        SyntaxNode root,
+        int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (TryBuildTypeDeclarationSyntaxHover(sourceText, root, token, candidateOffset, out var typeHover))
+                return typeHover;
+
+            if (token.IsMissing || token.Kind != SyntaxKind.IdentifierToken)
+                continue;
+
+            if (TryBuildPrimaryConstructorParameterSyntaxHover(sourceText, token, out var parameterHover))
+                return parameterHover;
+        }
+
+        return null;
+    }
+
+    private static bool TryBuildTypeDeclarationSyntaxHover(
+        SourceText sourceText,
+        SyntaxNode root,
+        SyntaxToken token,
+        int offset,
+        out Hover hover)
+    {
+        hover = null!;
+
+        var declaration = token.Parent?
+            .AncestorsAndSelf()
+            .OfType<BaseTypeDeclarationSyntax>()
+            .FirstOrDefault(candidate => token == candidate.Identifier)
+            ?? root.DescendantNodes()
+                .OfType<BaseTypeDeclarationSyntax>()
+                .FirstOrDefault(candidate => candidate.Identifier.Span.Contains(offset) ||
+                                             candidate.Identifier.Span.End == offset);
+
+        if (declaration is null ||
+            declaration.Identifier.IsMissing ||
+            !TryBuildTypeDeclarationSyntaxSignature(sourceText, declaration, out var signature))
+        {
+            return false;
+        }
+
+        var containing = declaration.Ancestors()
+            .OfType<BaseTypeDeclarationSyntax>()
+            .Select(static type => type.Identifier.ValueText)
+            .FirstOrDefault();
+
+        var hoverText = BuildHoverText(
+            signature,
+            kind: GetTypeDeclarationSyntaxKindDisplay(declaration),
+            containing: containing,
+            documentation: null,
+            capturedVariables: ImmutableArray<ISymbol>.Empty,
+            isCapturedVariable: false);
+
+        hover = new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = hoverText
+            }),
+            Range = PositionHelper.ToRange(sourceText, token.Span)
+        };
+        return true;
+    }
+
+    private static bool TryBuildPrimaryConstructorParameterSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
+    {
+        hover = null!;
+
+        if (token.Parent is not ParameterSyntax parameter ||
+            token != parameter.Identifier ||
+            parameter.Identifier.IsMissing ||
+            parameter.Parent is not ParameterListSyntax { Parent: TypeDeclarationSyntax typeDeclaration })
+        {
+            return false;
+        }
+
+        var signature = BuildPrimaryConstructorParameterSyntaxSignature(parameter, typeDeclaration);
+        if (string.IsNullOrWhiteSpace(signature))
+            return false;
+
+        var hoverText = BuildHoverText(
+            signature,
+            kind: IsPromotedPrimaryConstructorParameterSyntax(parameter, typeDeclaration) ? "Property" : "Parameter",
+            containing: typeDeclaration.Identifier.ValueText,
+            documentation: null,
+            capturedVariables: ImmutableArray<ISymbol>.Empty,
+            isCapturedVariable: false);
+
+        hover = new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = hoverText
+            }),
+            Range = PositionHelper.ToRange(sourceText, token.Span)
+        };
+        return true;
+    }
+
+    private static bool TryBuildTypeDeclarationSyntaxSignature(
+        SourceText sourceText,
+        BaseTypeDeclarationSyntax declaration,
+        out string signature)
+    {
+        signature = string.Empty;
+
+        var start = GetDeclarationHeaderStart(declaration);
+        var end = GetDeclarationHeaderEnd(declaration);
+        if (start < 0 || end <= start || start >= sourceText.Length)
+            return false;
+
+        end = Math.Min(end, sourceText.Length);
+        signature = NormalizeHoverSignatureText(sourceText.ToString(TextSpan.FromBounds(start, end)));
+        return !string.IsNullOrWhiteSpace(signature);
+    }
+
+    private static int GetDeclarationHeaderStart(BaseTypeDeclarationSyntax declaration)
+    {
+        foreach (var modifier in declaration.Modifiers)
+        {
+            if (!modifier.IsMissing)
+                return modifier.Span.Start;
+        }
+
+        return declaration switch
+        {
+            TypeDeclarationSyntax typeDeclaration when !typeDeclaration.Keyword.IsMissing => typeDeclaration.Keyword.Span.Start,
+            EnumDeclarationSyntax enumDeclaration when !enumDeclaration.EnumKeyword.IsMissing => enumDeclaration.EnumKeyword.Span.Start,
+            UnionDeclarationSyntax unionDeclaration when !unionDeclaration.UnionKeyword.IsMissing => unionDeclaration.UnionKeyword.Span.Start,
+            _ => declaration.Identifier.Span.Start
+        };
+    }
+
+    private static int GetDeclarationHeaderEnd(BaseTypeDeclarationSyntax declaration)
+    {
+        var end = declaration.Identifier.Span.End;
+
+        switch (declaration)
+        {
+            case TypeDeclarationSyntax typeDeclaration:
+                end = MaxSpanEnd(end, GetTypeDeclarationTypeParameterList(typeDeclaration));
+                end = MaxSpanEnd(end, typeDeclaration.ParameterList);
+                end = MaxSpanEnd(end, GetTypeDeclarationBaseList(typeDeclaration));
+                end = MaxSpanEnd(end, GetTypeDeclarationPermitsClause(typeDeclaration));
+                break;
+            case UnionDeclarationSyntax unionDeclaration:
+                end = MaxSpanEnd(end, unionDeclaration.TypeParameterList);
+                end = MaxSpanEnd(end, unionDeclaration.MemberTypes);
+                break;
+            case EnumDeclarationSyntax enumDeclaration:
+                end = MaxSpanEnd(end, enumDeclaration.BaseList);
+                break;
+        }
+
+        if (declaration.OpenBraceToken is { IsMissing: false, Kind: SyntaxKind.OpenBraceToken } openBrace)
+            end = Math.Min(end, openBrace.Span.Start);
+
+        return end;
+    }
+
+    private static TypeParameterListSyntax? GetTypeDeclarationTypeParameterList(TypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.TypeParameterList,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.TypeParameterList,
+            StructDeclarationSyntax structDeclaration => structDeclaration.TypeParameterList,
+            InterfaceDeclarationSyntax interfaceDeclaration => interfaceDeclaration.TypeParameterList,
+            _ => null
+        };
+
+    private static BaseListSyntax? GetTypeDeclarationBaseList(TypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.BaseList,
+            StructDeclarationSyntax structDeclaration => structDeclaration.BaseList,
+            InterfaceDeclarationSyntax interfaceDeclaration => interfaceDeclaration.BaseList,
+            _ => null
+        };
+
+    private static PermitsClauseSyntax? GetTypeDeclarationPermitsClause(TypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.PermitsClause,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.PermitsClause,
+            InterfaceDeclarationSyntax interfaceDeclaration => interfaceDeclaration.PermitsClause,
+            _ => null
+        };
+
+    private static int MaxSpanEnd(int current, SyntaxNode? node)
+        => node is null || node.IsMissing ? current : Math.Max(current, node.Span.End);
+
+    private static string NormalizeHoverSignatureText(string text)
+    {
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var trimmedLines = lines
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0);
+
+        return string.Join("\n", trimmedLines).Trim();
+    }
+
+    private static string GetTypeDeclarationSyntaxKindDisplay(BaseTypeDeclarationSyntax declaration)
+        => declaration switch
+        {
+            RecordDeclarationSyntax => "Record",
+            ClassDeclarationSyntax => "Class",
+            StructDeclarationSyntax => "Struct",
+            InterfaceDeclarationSyntax => "Interface",
+            UnionDeclarationSyntax => "Union",
+            EnumDeclarationSyntax => "Enum",
+            _ => "Type"
+        };
+
+    private static string BuildPrimaryConstructorParameterSyntaxSignature(
+        ParameterSyntax parameter,
+        TypeDeclarationSyntax typeDeclaration)
+    {
+        var refPrefix = parameter.RefKindKeyword.Kind switch
+        {
+            SyntaxKind.RefKeyword => "ref ",
+            SyntaxKind.OutKeyword => "out ",
+            SyntaxKind.InKeyword => "in ",
+            _ => string.Empty
+        };
+        var bindingPrefix = GetPrimaryConstructorParameterSyntaxBindingPrefix(parameter, typeDeclaration);
+        var typeDisplay = parameter.TypeAnnotation?.Type.ToString() ?? "?";
+        return $"{refPrefix}{bindingPrefix}{parameter.Identifier.ValueText}: {typeDisplay}";
+    }
+
+    private static string GetPrimaryConstructorParameterSyntaxBindingPrefix(
+        ParameterSyntax parameter,
+        TypeDeclarationSyntax typeDeclaration)
+    {
+        return parameter.BindingKeyword.Kind switch
+        {
+            SyntaxKind.ValKeyword => "val ",
+            SyntaxKind.VarKeyword => "var ",
+            _ when typeDeclaration is RecordDeclarationSyntax => "val ",
+            _ => string.Empty
+        };
+    }
+
+    private static bool IsPromotedPrimaryConstructorParameterSyntax(
+        ParameterSyntax parameter,
+        TypeDeclarationSyntax typeDeclaration)
+    {
+        var refKeywordKind = parameter.RefKindKeyword.Kind;
+        var typeIsByRef = parameter.TypeAnnotation?.Type is ByRefTypeSyntax;
+        if (refKeywordKind is not SyntaxKind.None || typeIsByRef)
+            return false;
+
+        return typeDeclaration is RecordDeclarationSyntax ||
+               parameter.BindingKeyword.Kind is SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
     }
 
     private static string BuildFunctionExpressionSyntaxSignature(FunctionExpressionSyntax functionExpression)

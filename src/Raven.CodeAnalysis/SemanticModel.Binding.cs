@@ -1932,15 +1932,21 @@ public partial class SemanticModel
 
                 case TypeDeclarationSyntax typeDecl when IsNominalTypeDeclaration(typeDecl):
                     {
+                        if (!Compilation.TryGetDeclaredTypeSymbol(typeDecl, out _))
+                            break;
+
                         BindNominalTypeDeclaration(typeDecl, parentBinder, objectType, classBinders);
                         break;
                     }
 
                 case UnionDeclarationSyntax unionDecl:
                     {
+                        if (!Compilation.TryGetDeclaredTypeSymbol(unionDecl, out var declaredUnionSymbol))
+                            break;
+
                         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
                         var namespaceSymbol = parentNamespace.AsSourceNamespace();
-                        var unionSymbol = (SourceUnionSymbol)GetDeclaredTypeSymbol(unionDecl);
+                        var unionSymbol = (SourceUnionSymbol)declaredUnionSymbol;
                         var (unionBinder, resolvedSymbol) = RegisterUnionDeclaration(
                             unionDecl,
                             parentBinder,
@@ -1953,7 +1959,9 @@ public partial class SemanticModel
 
                 case InterfaceDeclarationSyntax interfaceDecl:
                     {
-                        var interfaceSymbol = GetDeclaredTypeSymbol(interfaceDecl);
+                        if (!Compilation.TryGetDeclaredTypeSymbol(interfaceDecl, out var interfaceSymbol))
+                            break;
+
                         var interfaceList = ResolveInterfaceBaseTypes(interfaceDecl, parentBinder);
 
                         if (!interfaceList.IsDefaultOrEmpty)
@@ -1970,7 +1978,9 @@ public partial class SemanticModel
 
                 case ExtensionDeclarationSyntax extensionDecl:
                     {
-                        var extensionSymbol = GetDeclaredTypeSymbol(extensionDecl);
+                        if (!Compilation.TryGetDeclaredTypeSymbol(extensionDecl, out var extensionSymbol))
+                            break;
+
                         var extensionBinder = new ExtensionDeclarationBinder(parentBinder, extensionSymbol, extensionDecl);
                         extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
                         CacheBinder(extensionDecl, extensionBinder);
@@ -1981,7 +1991,8 @@ public partial class SemanticModel
 
                 case DelegateDeclarationSyntax delegateDecl:
                     {
-                        var delegateSymbol = GetDeclaredTypeSymbol(delegateDecl);
+                        if (!Compilation.TryGetDeclaredTypeSymbol(delegateDecl, out var delegateSymbol))
+                            break;
 
                         // Binder for attributes/type parameter constraints
                         var delegateBinder = new DelegateDeclarationBinder(parentBinder, delegateSymbol, delegateDecl);
@@ -1995,7 +2006,9 @@ public partial class SemanticModel
 
                 case EnumDeclarationSyntax enumDecl:
                     {
-                        var enumSymbol = GetDeclaredTypeSymbol(enumDecl);
+                        if (!Compilation.TryGetDeclaredTypeSymbol(enumDecl, out var enumSymbol))
+                            break;
+
                         var enumBinder = new EnumDeclarationBinder(parentBinder, enumSymbol, enumDecl);
                         CacheBinder(enumDecl, enumBinder);
 

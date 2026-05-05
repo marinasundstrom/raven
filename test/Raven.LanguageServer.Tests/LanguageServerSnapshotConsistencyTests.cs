@@ -168,6 +168,76 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task HoverHandler_MalformedEarlierRecord_DoesNotFailLaterHoverAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+import System.Collections.Generic.*
+
+record Foo(
+    val Name: string
+    val Count: int
+)
+
+union JsonValue(string | double | bool | JsonObject)
+record JsonObject(Properties: IDictionary<string, JsonValue>)
+
+val x = JsonObject([
+    "name": 42
+])
+
+x.Properties["name"].HasValue
+""");
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(10, 14)
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("JsonObject");
+    }
+
+    [Fact]
+    public async Task HoverHandler_MalformedRecordBeforeUnion_DoesNotFailTypeHoverAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+import System.*
+import System.Console.*
+
+val foo = Foo(
+    Name: "Foo",
+    Status: .OnMaintenance(.UtcNow, "Test"),
+)
+
+record Foo(
+    val Name: string,
+    val Status: Status
+    val Test: int | bool
+)
+
+[RavenUnionJsonConverter("kind")]
+union Status {
+    case Active(Date: DateTimeOffset)
+    case OnMaintenance(Date: DateTimeOffset, Reason: string)
+}
+""");
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(5, 7)
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("Status");
+    }
+
+    [Fact]
     public async Task HoverHandler_LocalDeclarationRange_DoesNotCoverPipeInitializerInvocationAsync()
     {
         var (store, _, uri) = CreateWorkspace("""
@@ -595,6 +665,146 @@ func Main() -> () {
         var isValueCreatedProperty = lazySemanticModel!.GetType().GetProperty("IsValueCreated");
         isValueCreatedProperty.ShouldNotBeNull();
         isValueCreatedProperty!.GetValue(lazySemanticModel).ShouldBe(true);
+
+        var valueProperty = lazySemanticModel.GetType().GetProperty("Value");
+        valueProperty.ShouldNotBeNull();
+        var warmedModel = valueProperty!.GetValue(lazySemanticModel);
+        var returnedModel = await store.GetSemanticModelAsync(uri, CancellationToken.None);
+
+        ReferenceEquals(warmedModel, returnedModel).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task WarmAnalysisAsync_WaitsForCompilerGateInsteadOfSkippingAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+func Main() -> () {
+    val number = 42
+}
+""");
+
+        using var compilerLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
+        var warmupTask = store.WarmAnalysisAsync(uri, shouldSkipWork: null, CancellationToken.None);
+
+        await Task.Delay(100);
+        warmupTask.IsCompleted.ShouldBeFalse();
+
+        compilerLease.Dispose();
+        await warmupTask;
+
+        var returnedModel = await store.GetSemanticModelAsync(uri, CancellationToken.None);
+        returnedModel.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task HoverHandler_WaitsForDocumentSemanticGateInsteadOfReturningNullAsync()
+    {
+        var (store, _, uri) = CreateWorkspace("""
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    WriteLine(number)
+}
+""");
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        await Task.Delay(100);
+        hoverTask.IsCompleted.ShouldBeFalse();
+
+        semanticLease.Dispose();
+        var hover = await hoverTask;
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("number");
+    }
+
+    [Fact]
+    public async Task HoverHandler_TypeDeclarationIdentifier_UsesSyntaxHoverWithoutSemanticGateAsync()
+    {
+        var text = """
+record Foo(
+    val Name: string,
+    val Status: Status
+    val Test: int | bool
+)
+
+[RavenUnionJsonConverter("kind")]
+union Status {
+    case Active
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var statusOffset = text.IndexOf("Status {", StringComparison.Ordinal);
+        statusOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(statusOffset, 0)).Start;
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("union Status");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Union");
+    }
+
+    [Fact]
+    public async Task HoverHandler_PrimaryConstructorParameterDeclaration_UsesSyntaxHoverWithoutSemanticGateAsync()
+    {
+        var text = """
+record Foo(
+    val Name: string,
+    val Status: Status
+)
+
+union Status {
+    case Active
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var nameOffset = text.IndexOf("Name: string", StringComparison.Ordinal);
+        nameOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(nameOffset, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("val Name: string");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Property in `Foo`");
     }
 
     [Fact]

@@ -116,8 +116,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             rootMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
-            var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
+            var semanticModel = await _documents.GetSemanticModelAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticModel is null)
+                return;
 
             stageStopwatch.Restart();
             var classification = SemanticClassifier.Classify(root, semanticModel);

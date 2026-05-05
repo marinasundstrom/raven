@@ -425,6 +425,87 @@ func Main() -> unit { }
     }
 
     [Fact]
+    public void Initialize_ProjectOpenFailure_IsNotRetriedUntilFilesChange()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "Broken", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), """
+func Main() -> unit { }
+""");
+
+        var projectSystem = new ThrowingProjectSystemService(
+            new MsBuildProjectSystemService(),
+            failingProjectPath: projectPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        var initializeParams = new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        };
+
+        manager.Initialize(initializeParams);
+        manager.Initialize(initializeParams);
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+    }
+
+    [Fact]
+    public void ReloadForWatchedFiles_ProjectOpenFailure_RetriesAfterRelevantFileChange()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "Broken", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), """
+func Main() -> unit { }
+""");
+
+        var projectSystem = new ThrowingProjectSystemService(
+            new MsBuildProjectSystemService(),
+            failingProjectPath: projectPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        manager.ReloadForWatchedFiles([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(projectPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(2);
+    }
+
+    [Fact]
     public async Task UpdatingMacroProjectDocument_RefreshesConsumingProjectMacroExpansionAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1166,10 +1247,15 @@ class AnswerMacro: IFreestandingExpressionMacro {
         public ProjectId OpenProject(Workspace workspace, string projectFilePath)
         {
             if (string.Equals(Path.GetFullPath(projectFilePath), _failingProjectPath, StringComparison.OrdinalIgnoreCase))
+            {
+                OpenAttempts++;
                 throw new InvalidOperationException("Synthetic project open failure.");
+            }
 
             return _inner.OpenProject(workspace, projectFilePath);
         }
+
+        public int OpenAttempts { get; private set; }
 
         public void SaveProject(Project project, string filePath)
             => _inner.SaveProject(project, filePath);
