@@ -1375,6 +1375,13 @@ partial class BlockBinder
             if (plainType is IArrayTypeSymbol { Rank: 1 })
                 return plainType;
 
+            if (plainType is INamedTypeSymbol namedType &&
+                (TryGetDictionaryInterfaceElementTypes(namedType, out _, out _) ||
+                 TryGetDictionaryAddSignature(namedType, out _, out _, out _)))
+            {
+                return type;
+            }
+
             if (TryGetBuilderType(parameter, out _))
                 return type;
         }

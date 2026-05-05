@@ -1312,7 +1312,7 @@ public partial class Compilation
         }
     }
 
-    private static IMethodSymbol? FindUnionCarrierConstructor(ITypeSymbol source, ITypeSymbol destination)
+    private IMethodSymbol? FindUnionCarrierConstructor(ITypeSymbol source, ITypeSymbol destination)
     {
         if (destination is not INamedTypeSymbol destinationNamed)
             return null;
@@ -1342,6 +1342,10 @@ public partial class Compilation
             {
                 return EnsureConstructedConstructor(candidate, destinationNamed);
             }
+
+            var parameterConversion = ClassifyConversion(source, parameterType, includeUserDefined: false);
+            if (parameterConversion is { Exists: true, IsImplicit: true })
+                return EnsureConstructedConstructor(candidate, destinationNamed);
         }
 
         return null;

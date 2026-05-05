@@ -61,7 +61,7 @@ internal sealed partial class Lowerer
 
             return new BoundObjectCreationExpression(
                 unionCtor,
-                [rewrittenExpression]);
+                [ConvertUnionConstructorArgument(rewrittenExpression, unionCtor.Parameters[0].Type)]);
         }
         else
         {
@@ -90,7 +90,19 @@ internal sealed partial class Lowerer
 
             return new BoundObjectCreationExpression(
                 unionCtor,
-                [rewrittenExpression]);
+                [ConvertUnionConstructorArgument(rewrittenExpression, unionCtor.Parameters[0].Type)]);
         }
+    }
+
+    private BoundExpression ConvertUnionConstructorArgument(BoundExpression argument, ITypeSymbol parameterType)
+    {
+        var argumentType = argument.Type;
+        if (argumentType is null || SymbolEqualityComparer.Default.Equals(argumentType, parameterType))
+            return argument;
+
+        var conversion = GetCompilation().ClassifyConversion(argumentType, parameterType, includeUserDefined: false);
+        return conversion is { Exists: true, IsImplicit: true }
+            ? new BoundConversionExpression(argument, parameterType, conversion)
+            : argument;
     }
 }

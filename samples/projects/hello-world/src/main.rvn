@@ -51,7 +51,7 @@ union Status {
 }
 
 union JsonValue(string | double | bool | JsonObject)
-record JsonObject(properties: IDictionary<string, JsonValue>)
+record JsonObject(Properties: IDictionary<string, JsonValue>)
 
 val x = JsonObject([ 
     "name": 42
