@@ -30,46 +30,74 @@ Type members are public by default; add access modifiers only when you intention
 ```raven
 import System.*
 import System.Console.*
-import System.Linq.*
-import System.Collections.Generic.*
+import System.Text.Json.*
+import System.Threading.Tasks.*
 
-val plans = List<RatePlan> {
-    RatePlan("NorthStar", 500, 120)
-    RatePlan("Oceanic", 450, 150)
+async func Main() -> Task {
+    val users = [
+        User(1, "Ada", Some("compiler engineer"), .Active)
+        User(2, "Bo", None, .Suspended("email bounced"))
+    ]
+
+    val label = FindUser(users, 1) match {
+        Ok(val user) => user.Display()
+        Error(.NotFound(val id)) => "No user with id $id"
+    }
+
+    val options = JsonSerializerOptions with {
+        WriteIndented = true
+        PropertyNamingPolicy = .CamelCase
+    }
+
+    await Task.Delay(10)
+    WriteLine(JsonSerializer.Serialize(label, options))
 }
 
-val requests = List<ShipmentRequest> {
-    ShipmentRequest("REQ-1001", "NorthStar", 10)
-    ShipmentRequest("REQ-1002", "Oceanic", 3)
+func FindUser(users: User[], id: int) -> Result<User, LookupError> {
+    for user in users {
+        if user.Id == id {
+            return Ok(user)
+        }
+    }
+
+    return Error(.NotFound(id))
 }
 
-func BuildQuoteSummary(items: IEnumerable<ShipmentRequest>, rates: IEnumerable<RatePlan>) -> Result<QuoteSummary, QuoteError> {
-    val request = items.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found"))?
-    val plan = rates.FirstOrError(r => r.Carrier == request.Carrier, () => QuoteError("Rate plan not found"))?
-    val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents)
-    return Ok(QuoteSummary(request.Id, request.Carrier, total))
+record class User(val Id: int, val Name: string, val Role: Option<string>, val Status: UserStatus) {
+    func Display() -> string {
+        val role = Role match {
+            Some(val value) => value
+            None => "member"
+        }
+
+        val status = Status match {
+            Active => "active"
+            Suspended(val reason) => "suspended ($reason)"
+        }
+
+        return "$Name is $status as a $role"
+    }
 }
 
-val summary = BuildQuoteSummary(requests, plans) match {
-    Ok(val item) => "Quote ${item.Id}: ${item.TotalCents} cents"
-    Error(val error) => "Quote failed: ${error.Message}"
+union UserStatus {
+    case Active
+    case Suspended(reason: string)
 }
 
-WriteLine(summary)
-
-record class ShipmentRequest(val Id: string, val Carrier: string, val WeightKg: int)
-record class RatePlan(val Carrier: string, val BaseCents: int, val PerKgCents: int)
-record class QuoteSummary(val Id: string, val Carrier: string, val TotalCents: int)
-record class QuoteError(val Message: string)
+union LookupError {
+    case NotFound(id: int)
+}
 ```
 
 **Highlights**:
 
-* `Result`/`Option` composition with `?` propagation
+* `async`/`await` and direct .NET interop
+* Collection expressions and explicit `val`/`var` mutability
+* Object initialization with `Type with { ... }`
+* `Result`/`Option` for recoverable flow and absence
 * `match` as a first-class expression
 * `record class` + promoted constructor parameters
-* `val`/`var` mutability made explicit
-* Direct interop with .NET libraries and LINQ
+* Discriminated unions with typed cases
 
 Read the full [Introduction](docs/introduction.md) and [Getting Started](docs/getting-started.md) for the complete flow.
 
@@ -131,7 +159,7 @@ Compile and run a sample case:
 
 ```bash
 dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  samples/cases/quote-summary-linq-result-option.rvn -o /tmp/raven-sample.dll --run
+  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-sample.dll --run
 ```
 
 Useful debug flags:
