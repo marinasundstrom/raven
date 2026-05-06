@@ -18,6 +18,33 @@ public sealed class WorkspaceManagerTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-{Guid.NewGuid():N}");
 
     [Fact]
+    public void NormalizeCompilationOptionsForLanguageServer_AttachesCompilerPerformanceInstrumentation()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithMembersPublicByDefault(false);
+
+        var normalized = WorkspaceManager.NormalizeCompilationOptionsForLanguageServer(options, instrumentation);
+
+        normalized.PerformanceInstrumentation.ShouldBe(instrumentation);
+        normalized.MembersPublicByDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void NormalizeCompilationOptionsForLanguageServer_PreservesExistingCompilerPerformanceInstrumentation()
+    {
+        var existingInstrumentation = new PerformanceInstrumentation();
+        var replacementInstrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithPerformanceInstrumentation(existingInstrumentation);
+
+        var normalized = WorkspaceManager.NormalizeCompilationOptionsForLanguageServer(options, replacementInstrumentation);
+
+        normalized.ShouldBeSameAs(options);
+        normalized.PerformanceInstrumentation.ShouldBe(existingInstrumentation);
+    }
+
+    [Fact]
     public void FindWorkspaceProjectFiles_RecursesIntoNestedProjects()
     {
         Directory.CreateDirectory(_tempRoot);

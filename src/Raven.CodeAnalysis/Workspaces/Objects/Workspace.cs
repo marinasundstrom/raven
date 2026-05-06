@@ -225,13 +225,14 @@ public class Workspace
                 syntaxTrees.Add(tree);
                 if (docState is not null)
                 {
-                    var (changedOwners, matchedOwners, ownerChanges) = IncrementalExecutableOwnerAnalyzer.Analyze(docState.SyntaxTree, tree);
+                    var (changedOwners, matchedOwners, ownerChanges, blocksSemanticDiagnosticTransfer) = IncrementalExecutableOwnerAnalyzer.Analyze(docState.SyntaxTree, tree);
                     changedSyntaxTrees.Add(new Compilation.IncrementalChangedSyntaxTree(
                         tree,
                         docState.SyntaxTree,
                         changedOwners,
                         matchedOwners,
-                        ownerChanges));
+                        ownerChanges,
+                        blocksSemanticDiagnosticTransfer));
                 }
 
                 documentStates[doc.Id] = new DocumentState(doc.Version, tree);

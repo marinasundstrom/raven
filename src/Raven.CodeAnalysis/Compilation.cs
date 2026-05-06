@@ -378,6 +378,12 @@ public partial class Compilation
             map[match.CurrentOwner] = match;
     }
 
+    internal void RegisterSemanticDiagnosticTransferBlocked(SyntaxTree syntaxTree)
+        => _descriptorState.SemanticDiagnosticTransferBlockedSyntaxTrees[syntaxTree] = 0;
+
+    internal bool IsSemanticDiagnosticTransferBlocked(SyntaxTree syntaxTree)
+        => _descriptorState.SemanticDiagnosticTransferBlockedSyntaxTrees.ContainsKey(syntaxTree);
+
     internal bool IsChangedExecutableOwner(SyntaxNode node)
     {
         return _descriptorState.ChangedExecutableOwnerDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
@@ -410,6 +416,50 @@ public partial class Compilation
         return _descriptorState.MatchedExecutableOwners.TryGetValue(node.SyntaxTree, out var matches) &&
                matches.TryGetValue(ownerDescriptor, out match);
     }
+
+    internal bool TryGetSemanticDiagnosticDescriptors(
+        SyntaxNode owner,
+        out ImmutableArray<SemanticDiagnosticDescriptor> descriptors)
+    {
+        descriptors = default;
+
+        if (!TryGetSyntaxOnlyExecutableOwnerDescriptor(owner, out var ownerDescriptor))
+            return false;
+
+        if (_descriptorState.SemanticDiagnosticsByOwner.TryGetValue(owner.SyntaxTree, out var byOwner) &&
+            byOwner.TryGetValue(ownerDescriptor, out descriptors))
+        {
+            return true;
+        }
+
+        if (_incrementalState is null)
+            return false;
+
+        if (_incrementalState.TryGetSemanticDiagnostics(owner.SyntaxTree, ownerDescriptor, out descriptors))
+            return true;
+
+        return TryGetTransferredOwnerRelativeDescriptor(
+            owner,
+            _incrementalState.TryGetSemanticDiagnostics,
+            out descriptors);
+    }
+
+    internal void StoreSemanticDiagnosticDescriptors(
+        SyntaxNode owner,
+        ImmutableArray<SemanticDiagnosticDescriptor> descriptors)
+    {
+        if (!TryGetSyntaxOnlyExecutableOwnerDescriptor(owner, out var ownerDescriptor))
+            return;
+
+        var byOwner = _descriptorState.SemanticDiagnosticsByOwner.GetOrAdd(owner.SyntaxTree, _ => new());
+        byOwner[ownerDescriptor] = descriptors;
+
+        var byRelativeOwner = _descriptorState.SemanticDiagnosticsByRelativeOwner.GetOrAdd(owner.SyntaxTree, _ => new());
+        byRelativeOwner[new OwnerRelativeDescriptorKey(ownerDescriptor, 0, owner.Span.Length, owner.Kind)] = descriptors;
+    }
+
+    internal bool HasTransferredSemanticDiagnosticsForTesting(SyntaxNode owner)
+        => TryGetSemanticDiagnosticDescriptors(owner, out _);
 
     internal BoundNodeFactory BoundNodeFactory => _boundNodeFactory ??= new BoundNodeFactory(this);
 
@@ -1109,6 +1159,14 @@ public partial class Compilation
     internal readonly record struct FunctionExpressionRebindRootDescriptor(TextSpan Span, SyntaxKind Kind);
     internal readonly record struct BinderParentAnchorKey(TextSpan Span, SyntaxKind Kind);
     internal readonly record struct BinderParentAnchorDescriptor(TextSpan Span, SyntaxKind Kind);
+    internal readonly record struct SemanticDiagnosticDescriptor(
+        DiagnosticDescriptor Descriptor,
+        int RelativeStart,
+        int Length,
+        DiagnosticSeverity Severity,
+        bool IsSuppressed,
+        ImmutableDictionary<string, string?> Properties,
+        ImmutableArray<object?> MessageArgs);
     internal readonly record struct OwnerRelativeDescriptorKey(
         ExecutableOwnerDescriptor Owner,
         int RelativeStart,

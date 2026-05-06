@@ -68,6 +68,8 @@ internal sealed class HoverHandler : IHoverHandler
         double semanticModelMs = 0;
         double resolutionMs = 0;
         var cacheHit = false;
+        Compilation? semanticCompilation = null;
+        SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
 
         try
         {
@@ -110,6 +112,8 @@ internal sealed class HoverHandler : IHoverHandler
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
                 return CacheHover(cacheKey, null);
+            semanticCompilation = semanticModel.Compilation;
+            semanticBefore = semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -214,13 +218,21 @@ internal sealed class HoverHandler : IHoverHandler
         finally
         {
             totalStopwatch.Stop();
+            var semanticDelta = semanticCompilation is not null && semanticBefore is { } before
+                ? SemanticQueryInstrumentation.FormatDelta(
+                    SemanticQueryInstrumentation.Subtract(
+                        semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
+                        before))
+                : null;
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "hover",
                 request.TextDocument.Uri,
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
                 cacheHit: cacheHit,
-                detail: $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}",
+                detail: semanticDelta is null
+                    ? $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}"
+                    : $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character} semantic=[{semanticDelta}]",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -523,6 +535,9 @@ internal sealed class HoverHandler : IHoverHandler
         IdentifierNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
+        if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
+            return true;
+
         if (invocation.Ancestors()
                 .OfType<InfixOperatorExpressionSyntax>()
                 .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && IsPipeRightExpressionForInvocation(pipe.Right, invocation)) is { } pipeExpression &&
@@ -627,6 +642,59 @@ internal sealed class HoverHandler : IHoverHandler
 
         resolution = default;
         return false;
+    }
+
+    private static bool TryResolveInvocationMethodFromCachedSymbolInfo(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        IdentifierNameSyntax identifier,
+        out SymbolResolutionResult resolution)
+    {
+        if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, invocation, identifier, out resolution))
+            return true;
+
+        if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, identifier, identifier, out resolution))
+            return true;
+
+        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, memberAccess, memberAccess.Name, out resolution))
+                return true;
+
+            if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, memberAccess.Name, memberAccess.Name, out resolution))
+                return true;
+        }
+
+        resolution = default;
+        return false;
+    }
+
+    private static bool TryResolveInvocationMethodFromCachedSymbolInfoCore(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        SyntaxNode queryNode,
+        SyntaxNode resultNode,
+        out SymbolResolutionResult resolution)
+    {
+        resolution = default;
+
+        if (!semanticModel.TryGetCachedSymbolInfo(queryNode, out var cachedInfo))
+            return false;
+
+        var method = cachedInfo.Symbol as IMethodSymbol
+            ?? cachedInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        if (method is null)
+            return false;
+
+        var projected = ProjectInvocationHoverSymbol(method, semanticModel, invocation);
+        if (IsUnitTypeSymbol(projected))
+            return false;
+
+        resolution = new SymbolResolutionResult(
+            SymbolResolutionKind.InvocationTarget,
+            projected,
+            resultNode);
+        return true;
     }
 
     private static bool IsUnitTypeSymbol(ISymbol symbol)

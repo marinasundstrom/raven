@@ -13,6 +13,7 @@ public partial class Compilation
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, SourceUnionCaseTypeSymbol> _unionCaseSymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, IMethodSymbol> _methodSymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, IPropertySymbol> _propertySymbols = new();
+    private readonly ConcurrentDictionary<DeclaredSyntaxKey, IEventSymbol> _eventSymbols = new();
 
     internal void RegisterDeclaredTypeSymbol(SyntaxNode node, SourceNamedTypeSymbol symbol)
         => _declaredTypeSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
@@ -58,6 +59,12 @@ public partial class Compilation
 
     internal bool TryGetPropertySymbol(PropertyDeclarationSyntax node, out IPropertySymbol symbol)
         => _propertySymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
+
+    internal void RegisterEventSymbol(EventDeclarationSyntax node, IEventSymbol symbol)
+        => _eventSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
+
+    internal bool TryGetEventSymbol(EventDeclarationSyntax node, out IEventSymbol symbol)
+        => _eventSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
     private static DeclaredSyntaxKey CreateDeclaredSyntaxKey(SyntaxNode node)
         => new(node.SyntaxTree, node.Span, node.Kind);

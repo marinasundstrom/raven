@@ -54,7 +54,7 @@ union JsonValue(string | double | bool | JsonObject)
 record JsonObject(Properties: IDictionary<string, JsonValue>)
 
 val x = JsonObject([ 
-    "name": 42
+    "name": 32
 ])
 
-WriteLine(x)
+WriteLine(x.Properties.Item)

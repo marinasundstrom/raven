@@ -23,6 +23,11 @@ public partial class SemanticModel
             MemberSignatureDeclarationPass.DeclarePropertySignature(this, propertyDeclaration);
         }
 
+        foreach (var eventDeclaration in SyntaxTree.GetRoot().DescendantNodes().OfType<EventDeclarationSyntax>())
+        {
+            MemberSignatureDeclarationPass.DeclareEventSignature(this, eventDeclaration);
+        }
+
         _memberSignaturesDeclared = true;
     }
 }

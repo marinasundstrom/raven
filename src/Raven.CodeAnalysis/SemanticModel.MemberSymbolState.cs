@@ -46,4 +46,10 @@ public partial class SemanticModel
         RegisterPropertySymbol(node, createdSymbol);
         return createdSymbol;
     }
+
+    internal void RegisterEventSymbol(EventDeclarationSyntax node, IEventSymbol symbol)
+        => Compilation.RegisterEventSymbol(node, symbol);
+
+    internal bool TryGetEventSymbol(EventDeclarationSyntax node, out IEventSymbol symbol)
+        => Compilation.TryGetEventSymbol(node, out symbol!);
 }

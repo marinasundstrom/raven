@@ -78,7 +78,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
             if (invocation is not null)
             {
-                var symbolInfo = semanticModel.GetSymbolInfo(invocation);
+                var symbolInfo = semanticModel.TryGetCachedSymbolInfo(invocation, out var cachedInvocationInfo)
+                    ? cachedInvocationInfo
+                    : semanticModel.GetSymbolInfo(invocation);
                 var methods = GetCandidateMethods(symbolInfo, semanticModel, invocation);
                 if (methods.IsDefaultOrEmpty)
                     return null;
@@ -110,7 +112,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 return null;
 
             var bracketArgumentIndex = GetArgumentIndex(elementAccessContext.ArgumentList, offset);
-            var selectedIndexer = semanticModel.GetSymbolInfo(elementAccessContext.SymbolInfoNode).Symbol as IPropertySymbol;
+            var selectedIndexer = semanticModel.TryGetCachedSymbolInfo(elementAccessContext.SymbolInfoNode, out var cachedIndexerInfo)
+                ? cachedIndexerInfo.Symbol as IPropertySymbol
+                : semanticModel.GetSymbolInfo(elementAccessContext.SymbolInfoNode).Symbol as IPropertySymbol;
             var activeIndexerSignature = GetActiveSignatureIndex(indexers, selectedIndexer, bracketArgumentIndex);
             var activeIndexerParameter = GetActiveParameterIndex(indexers[activeIndexerSignature], elementAccessContext.ArgumentList, offset, bracketArgumentIndex);
 
@@ -298,7 +302,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 AddIfNotPresent(candidate);
         }
 
-        var expressionSymbolInfo = semanticModel.GetSymbolInfo(invocation.Expression);
+        var expressionSymbolInfo = semanticModel.TryGetCachedSymbolInfo(invocation.Expression, out var cachedExpressionSymbolInfo)
+            ? cachedExpressionSymbolInfo
+            : semanticModel.GetSymbolInfo(invocation.Expression);
 
         if (expressionSymbolInfo.Symbol is IMethodSymbol expressionMethod)
             AddIfNotPresent(expressionMethod);
@@ -443,7 +449,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             builder.Add(property);
         }
 
-        var symbolInfo = semanticModel.GetSymbolInfo(context.SymbolInfoNode);
+        var symbolInfo = semanticModel.TryGetCachedSymbolInfo(context.SymbolInfoNode, out var cachedSymbolInfo)
+            ? cachedSymbolInfo
+            : semanticModel.GetSymbolInfo(context.SymbolInfoNode);
         if (symbolInfo.Symbol is IPropertySymbol selectedIndexer)
             AddIfNotPresent(selectedIndexer);
 

@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 public static class SemanticClassifier
 {
-    public static SemanticClassificationResult Classify(SyntaxNode node, SemanticModel model)
+    public static SemanticClassificationResult Classify(SyntaxNode node, SemanticModel model, bool allowBinding = true)
     {
         var tokenMap = new Dictionary<SyntaxToken, SemanticClassification>();
         var triviaMap = new Dictionary<SyntaxTrivia, SemanticClassification>();
@@ -57,16 +57,15 @@ public static class SemanticClassifier
                 var bindNode = GetBindableParent(descendant);
                 if (bindNode is not null)
                 {
-                    var info = model.GetSymbolInfo(bindNode);
-                    var symbol = info.Symbol
-                                 ?? info.CandidateSymbols.FirstOrDefault()
-                                 ?? model.GetDeclaredSymbol(bindNode);
+                    var symbol = ResolveSymbol(bindNode, model, allowBinding);
 
-                    var classification = symbol is null
-                        ? ClassifyBySyntaxOrEventFallback(bindNode, model)
+                    var classification = IsAliasTarget(bindNode)
+                        ? SemanticClassification.Type
+                        : symbol is null
+                        ? ClassifyBySyntaxOrEventFallback(bindNode, model, allowBinding)
                         : ClassifySymbol(symbol, bindNode);
 
-                    classification = ClassifyDiscriminatedUnionCasePattern(descendant, bindNode, symbol, model, classification);
+                    classification = ClassifyDiscriminatedUnionCasePattern(descendant, bindNode, symbol, model, classification, allowBinding);
                     tokenMap[descendant] = classification;
                 }
             }
@@ -85,6 +84,22 @@ public static class SemanticClassifier
         }
 
         return new SemanticClassificationResult(tokenMap, triviaMap);
+    }
+
+    private static ISymbol? ResolveSymbol(SyntaxNode node, SemanticModel model, bool allowBinding)
+    {
+        if (allowBinding)
+        {
+            var info = model.GetSymbolInfo(node);
+            return info.Symbol
+                   ?? info.CandidateSymbols.FirstOrDefault()
+                   ?? model.GetDeclaredSymbol(node);
+        }
+
+        if (model.TryGetCachedSymbolInfo(node, out var cachedInfo))
+            return cachedInfo.Symbol ?? cachedInfo.CandidateSymbols.FirstOrDefault();
+
+        return model.GetDeclaredSymbol(node);
     }
 
     private static SemanticClassification ClassifySymbol(ISymbol symbol, SyntaxNode node)
@@ -110,6 +125,17 @@ public static class SemanticClassifier
         };
     }
 
+    private static bool IsAliasTarget(SyntaxNode node)
+    {
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (current is AliasDirectiveSyntax)
+                return true;
+        }
+
+        return false;
+    }
+
     private static SemanticClassification ClassifyBySyntax(SyntaxNode node)
     {
         return node switch
@@ -124,11 +150,14 @@ public static class SemanticClassifier
         };
     }
 
-    private static SemanticClassification ClassifyBySyntaxOrEventFallback(SyntaxNode node, SemanticModel model)
+    private static SemanticClassification ClassifyBySyntaxOrEventFallback(SyntaxNode node, SemanticModel model, bool allowBinding)
     {
         var bySyntax = ClassifyBySyntax(node);
         if (bySyntax != SemanticClassification.Default)
             return bySyntax;
+
+        if (!allowBinding)
+            return SemanticClassification.Default;
 
         if (node is MemberAccessExpressionSyntax memberAccess)
         {
@@ -157,7 +186,8 @@ public static class SemanticClassifier
         SyntaxNode bindNode,
         ISymbol? symbol,
         SemanticModel model,
-        SemanticClassification current)
+        SemanticClassification current,
+        bool allowBinding)
     {
         if (IsUnionCasePatternNode(bindNode))
         {
@@ -196,7 +226,7 @@ public static class SemanticClassifier
             if (current == SemanticClassification.Method && bindNode is IdentifierNameSyntax { Parent: ConstantPatternSyntax })
                 return SemanticClassification.Type;
 
-            if (bindNode is ExpressionSyntax expression)
+            if (allowBinding && bindNode is ExpressionSyntax expression)
             {
                 var typeInfo = model.GetTypeInfo(expression).Type;
                 if (typeInfo?.IsUnionCase == true)

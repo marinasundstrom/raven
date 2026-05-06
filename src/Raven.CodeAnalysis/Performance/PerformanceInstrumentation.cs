@@ -23,6 +23,7 @@ public sealed class PerformanceInstrumentation
     {
         LambdaReplay = new LambdaReplayInstrumentation(isEnabled);
         BinderReentry = new BinderReentryInstrumentation(isEnabled);
+        SemanticQuery = new SemanticQueryInstrumentation(isEnabled);
         Macros = new MacroInstrumentation(isEnabled);
         Setup = new CompilerSetupInstrumentation(isEnabled);
     }
@@ -31,9 +32,196 @@ public sealed class PerformanceInstrumentation
 
     public BinderReentryInstrumentation BinderReentry { get; }
 
+    public SemanticQueryInstrumentation SemanticQuery { get; }
+
     public MacroInstrumentation Macros { get; }
 
     public CompilerSetupInstrumentation Setup { get; }
+}
+
+public sealed class SemanticQueryInstrumentation
+{
+    public readonly record struct Snapshot(
+        long SymbolInfoQueries,
+        long SymbolInfoCacheHits,
+        long SymbolInfoBoundCacheHits,
+        long SymbolInfoBinderFallbacks,
+        long SymbolInfoOperationFallbacks,
+        long TypeInfoQueries,
+        long TypeInfoSymbolHits,
+        long TypeInfoBoundFallbacks,
+        long TypeInfoDiagnosticFallbacks,
+        long BoundNodeQueries,
+        long BoundNodeCacheHits,
+        long BoundNodeContextualCacheHits,
+        long BoundNodeBindFallbacks,
+        long BoundNodeLoweredCacheHits,
+        long BoundNodeLoweredFallbacks);
+
+    private readonly bool _isEnabled;
+    private long _symbolInfoQueries;
+    private long _symbolInfoCacheHits;
+    private long _symbolInfoBoundCacheHits;
+    private long _symbolInfoBinderFallbacks;
+    private long _symbolInfoOperationFallbacks;
+    private long _typeInfoQueries;
+    private long _typeInfoSymbolHits;
+    private long _typeInfoBoundFallbacks;
+    private long _typeInfoDiagnosticFallbacks;
+    private long _boundNodeQueries;
+    private long _boundNodeCacheHits;
+    private long _boundNodeContextualCacheHits;
+    private long _boundNodeBindFallbacks;
+    private long _boundNodeLoweredCacheHits;
+    private long _boundNodeLoweredFallbacks;
+
+    internal SemanticQueryInstrumentation(bool isEnabled)
+    {
+        _isEnabled = isEnabled;
+    }
+
+    public Snapshot CaptureSnapshot()
+        => new(
+            Volatile.Read(ref _symbolInfoQueries),
+            Volatile.Read(ref _symbolInfoCacheHits),
+            Volatile.Read(ref _symbolInfoBoundCacheHits),
+            Volatile.Read(ref _symbolInfoBinderFallbacks),
+            Volatile.Read(ref _symbolInfoOperationFallbacks),
+            Volatile.Read(ref _typeInfoQueries),
+            Volatile.Read(ref _typeInfoSymbolHits),
+            Volatile.Read(ref _typeInfoBoundFallbacks),
+            Volatile.Read(ref _typeInfoDiagnosticFallbacks),
+            Volatile.Read(ref _boundNodeQueries),
+            Volatile.Read(ref _boundNodeCacheHits),
+            Volatile.Read(ref _boundNodeContextualCacheHits),
+            Volatile.Read(ref _boundNodeBindFallbacks),
+            Volatile.Read(ref _boundNodeLoweredCacheHits),
+            Volatile.Read(ref _boundNodeLoweredFallbacks));
+
+    public static Snapshot Subtract(Snapshot end, Snapshot start)
+        => new(
+            end.SymbolInfoQueries - start.SymbolInfoQueries,
+            end.SymbolInfoCacheHits - start.SymbolInfoCacheHits,
+            end.SymbolInfoBoundCacheHits - start.SymbolInfoBoundCacheHits,
+            end.SymbolInfoBinderFallbacks - start.SymbolInfoBinderFallbacks,
+            end.SymbolInfoOperationFallbacks - start.SymbolInfoOperationFallbacks,
+            end.TypeInfoQueries - start.TypeInfoQueries,
+            end.TypeInfoSymbolHits - start.TypeInfoSymbolHits,
+            end.TypeInfoBoundFallbacks - start.TypeInfoBoundFallbacks,
+            end.TypeInfoDiagnosticFallbacks - start.TypeInfoDiagnosticFallbacks,
+            end.BoundNodeQueries - start.BoundNodeQueries,
+            end.BoundNodeCacheHits - start.BoundNodeCacheHits,
+            end.BoundNodeContextualCacheHits - start.BoundNodeContextualCacheHits,
+            end.BoundNodeBindFallbacks - start.BoundNodeBindFallbacks,
+            end.BoundNodeLoweredCacheHits - start.BoundNodeLoweredCacheHits,
+            end.BoundNodeLoweredFallbacks - start.BoundNodeLoweredFallbacks);
+
+    public static string FormatDelta(Snapshot delta)
+        => $"symbolInfo={delta.SymbolInfoQueries}, " +
+           $"symbolCacheHits={delta.SymbolInfoCacheHits}, " +
+           $"symbolBoundHits={delta.SymbolInfoBoundCacheHits}, " +
+           $"symbolBinderFallbacks={delta.SymbolInfoBinderFallbacks}, " +
+           $"symbolOperationFallbacks={delta.SymbolInfoOperationFallbacks}, " +
+           $"typeInfo={delta.TypeInfoQueries}, " +
+           $"typeSymbolHits={delta.TypeInfoSymbolHits}, " +
+           $"typeBoundFallbacks={delta.TypeInfoBoundFallbacks}, " +
+           $"typeDiagnosticFallbacks={delta.TypeInfoDiagnosticFallbacks}, " +
+           $"boundNode={delta.BoundNodeQueries}, " +
+           $"boundCacheHits={delta.BoundNodeCacheHits}, " +
+           $"boundContextHits={delta.BoundNodeContextualCacheHits}, " +
+           $"boundBindFallbacks={delta.BoundNodeBindFallbacks}, " +
+           $"loweredCacheHits={delta.BoundNodeLoweredCacheHits}, " +
+           $"loweredFallbacks={delta.BoundNodeLoweredFallbacks}";
+
+    internal void RecordSymbolInfoQuery()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _symbolInfoQueries);
+    }
+
+    internal void RecordSymbolInfoCacheHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _symbolInfoCacheHits);
+    }
+
+    internal void RecordSymbolInfoBoundCacheHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _symbolInfoBoundCacheHits);
+    }
+
+    internal void RecordSymbolInfoBinderFallback()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _symbolInfoBinderFallbacks);
+    }
+
+    internal void RecordSymbolInfoOperationFallback()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _symbolInfoOperationFallbacks);
+    }
+
+    internal void RecordTypeInfoQuery()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _typeInfoQueries);
+    }
+
+    internal void RecordTypeInfoSymbolHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _typeInfoSymbolHits);
+    }
+
+    internal void RecordTypeInfoBoundFallback()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _typeInfoBoundFallbacks);
+    }
+
+    internal void RecordTypeInfoDiagnosticFallback()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _typeInfoDiagnosticFallbacks);
+    }
+
+    internal void RecordBoundNodeQuery()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _boundNodeQueries);
+    }
+
+    internal void RecordBoundNodeCacheHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _boundNodeCacheHits);
+    }
+
+    internal void RecordBoundNodeContextualCacheHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _boundNodeContextualCacheHits);
+    }
+
+    internal void RecordBoundNodeBindFallback()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _boundNodeBindFallbacks);
+    }
+
+    internal void RecordBoundNodeLoweredCacheHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _boundNodeLoweredCacheHits);
+    }
+
+    internal void RecordBoundNodeLoweredFallback()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _boundNodeLoweredFallbacks);
+    }
 }
 
 public sealed class LambdaReplayInstrumentation

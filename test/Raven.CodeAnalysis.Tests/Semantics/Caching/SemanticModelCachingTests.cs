@@ -105,6 +105,79 @@ class C {
     }
 
     [Fact]
+    public void TryGetCachedSymbolInfo_ReusesCachedInvocationSymbolWithoutBinding()
+    {
+        var code = """
+class C {
+    func Test() {
+        Print()
+    }
+
+    func Print() {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        var identifier = (IdentifierNameSyntax)invocation.Expression;
+
+        var warmed = model.GetSymbolInfo(invocation);
+        Assert.IsAssignableFrom<IMethodSymbol>(warmed.Symbol);
+
+        instrumentation.BinderReentry.Reset();
+
+        Assert.True(model.TryGetCachedSymbolInfo(identifier, out var cached));
+        Assert.IsAssignableFrom<IMethodSymbol>(cached.Symbol);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void TryGetCachedSymbolInfo_ReusesCachedMemberAccessSymbolWithoutBinding()
+    {
+        var code = """
+class Counter {
+    private var count: int = 0
+
+    func Test() {
+        val current = self.count
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(static memberAccess => memberAccess.Name.Identifier.ValueText == "count");
+        var memberName = (IdentifierNameSyntax)memberAccess.Name;
+
+        var warmed = model.GetSymbolInfo(memberName);
+        Assert.IsAssignableFrom<IPropertySymbol>(warmed.Symbol);
+
+        instrumentation.BinderReentry.Reset();
+
+        Assert.True(model.TryGetCachedSymbolInfo(memberName, out var cached));
+        Assert.IsAssignableFrom<IPropertySymbol>(cached.Symbol);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
     public void BinderReentryInstrumentation_Reset_ClearsRecordedCounts()
     {
         var code = """

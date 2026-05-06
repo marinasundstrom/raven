@@ -75,15 +75,14 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetSaveDiagnosticsPolicy_UsesDeferredFullDiagnosticsWithoutWarmup()
+    public void GetSaveDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetSaveDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThanOrEqualTo(1000);
+        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
@@ -100,14 +99,15 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWithoutWarmup()
+    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredFullDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
         policy.DiagnosticsDelayMilliseconds.ShouldBeGreaterThan(0);
     }
 
@@ -176,10 +176,12 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     [InlineData(0, 1, "publishDiagnosticsSkipped")]
     [InlineData(0, 2, "publishDiagnosticsUnchanged")]
     [InlineData(0, 3, "publishDiagnosticsVersionMismatch")]
+    [InlineData(0, 4, "publishDiagnosticsAlreadyCompleted")]
     [InlineData(1, 0, "publishSyntaxDiagnostics")]
     [InlineData(1, 1, "publishSyntaxDiagnosticsSkipped")]
     [InlineData(1, 2, "publishSyntaxDiagnosticsUnchanged")]
     [InlineData(1, 3, "publishSyntaxDiagnosticsVersionMismatch")]
+    [InlineData(1, 4, "publishSyntaxDiagnosticsAlreadyCompleted")]
     public void GetPublishDiagnosticsOperationName_UsesOutcomeSpecificNames(
         int modeValue,
         int outcomeValue,

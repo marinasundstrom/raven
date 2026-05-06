@@ -156,18 +156,27 @@ public partial class SemanticModel
             try
             {
                 Compilation.EnsureSourceDeclarationsComplete();
+                EnsureRootBinderCreated();
                 var root = SyntaxTree.GetRoot();
                 var binder = GetBinder(root);
 
-                Traverse(root, binder);
+                var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
+                if (!TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder))
+                {
+                    Traverse(root, binder);
 
-                DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
+                    DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
 
-                _diagnostics = _binderCache.Values
-                    .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable())
-                    .Concat(_declarationDiagnostics.AsEnumerable())
+                    diagnosticsBuilder.AddRange(_binderCache.Values
+                        .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable()));
+                }
+
+                diagnosticsBuilder.AddRange(_declarationDiagnostics.AsEnumerable());
+                _diagnostics = diagnosticsBuilder
                     .Distinct()
                     .ToImmutableArray();
+
+                StoreSemanticDiagnosticDescriptors(root, _diagnostics.ToImmutableArray());
             }
             finally
             {
@@ -218,6 +227,182 @@ public partial class SemanticModel
             }
         }
 
+        bool TryCollectIncrementalDiagnostics(
+            SyntaxNode root,
+            Binder rootBinder,
+            ImmutableArray<Diagnostic>.Builder diagnosticsBuilder)
+        {
+            if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
+                return false;
+
+            var changedOwners = GetExecutableOwnersForDiagnostics(root)
+                .Where(Compilation.IsChangedExecutableOwner)
+                .ToArray();
+
+            if (changedOwners.Length == 0)
+                return false;
+
+            var changedOwnerSet = changedOwners
+                .Select(static owner => new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind))
+                .ToHashSet();
+
+            var ownersToBind = changedOwners
+                .Where(owner => !owner.DescendantNodes()
+                    .Any(descendant => IsExecutableOwnerForDiagnostics(descendant) &&
+                                       changedOwnerSet.Contains(new Compilation.ExecutableOwnerDescriptor(descendant.Span, descendant.Kind))))
+                .ToArray();
+
+            if (ownersToBind.Length == 0)
+                return false;
+
+            ownersToBind = ExpandTopLevelOrderSensitiveOwners(root, ownersToBind);
+
+            var allOwners = GetExecutableOwnersForDiagnostics(root).ToArray();
+            var ownersToBindSet = ownersToBind
+                .Select(static owner => new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind))
+                .ToHashSet();
+
+            foreach (var owner in allOwners)
+            {
+                if (ownersToBindSet.Contains(new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind)))
+                    continue;
+
+                if (!TryGetTransferredSemanticDiagnostics(owner, out var diagnostics))
+                    return false;
+
+                diagnosticsBuilder.AddRange(diagnostics);
+            }
+
+            foreach (var owner in ownersToBind)
+            {
+                var beforeCount = diagnosticsBuilder.Count;
+                var ownerBinder = ReferenceEquals(owner, root) ? rootBinder : GetBinder(owner);
+                Traverse(owner, ownerBinder);
+
+                diagnosticsBuilder.AddRange(_binderCache.Values
+                    .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable())
+                    .Where(diagnostic => BelongsToOwner(diagnostic, owner)));
+
+                StoreSemanticDiagnosticDescriptors(
+                    owner,
+                    diagnosticsBuilder.Skip(beforeCount).ToImmutableArray());
+            }
+
+            DocumentationCommentValidator.Analyze(this, root, rootBinder.Diagnostics);
+            diagnosticsBuilder.AddRange(rootBinder.Diagnostics.AsEnumerable()
+                .Where(diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, SyntaxTree) &&
+                                     !allOwners.Any(owner => owner.Span.IntersectsWith(diagnostic.Location.SourceSpan))));
+            return true;
+        }
+
+        static SyntaxNode[] ExpandTopLevelOrderSensitiveOwners(SyntaxNode root, SyntaxNode[] ownersToBind)
+        {
+            var firstChangedGlobalStart = ownersToBind
+                .OfType<GlobalStatementSyntax>()
+                .Select(static owner => (int?)owner.Span.Start)
+                .Min();
+
+            if (firstChangedGlobalStart is not { } start)
+                return ownersToBind;
+
+            var expanded = ownersToBind.ToList();
+            var seen = expanded
+                .Select(static owner => new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind))
+                .ToHashSet();
+
+            foreach (var global in root.DescendantNodesAndSelf().OfType<GlobalStatementSyntax>())
+            {
+                if (global.Span.Start < start)
+                    continue;
+
+                if (seen.Add(new Compilation.ExecutableOwnerDescriptor(global.Span, global.Kind)))
+                    expanded.Add(global);
+            }
+
+            return expanded.ToArray();
+        }
+
+        bool TryGetTransferredSemanticDiagnostics(
+            SyntaxNode owner,
+            out ImmutableArray<Diagnostic> diagnostics)
+        {
+            diagnostics = default;
+
+            if (!Compilation.TryGetSemanticDiagnosticDescriptors(owner, out var descriptors))
+                return false;
+
+            var builder = ImmutableArray.CreateBuilder<Diagnostic>(descriptors.Length);
+            foreach (var descriptor in descriptors)
+            {
+                var location = Location.Create(
+                    owner.SyntaxTree,
+                    new Text.TextSpan(owner.Span.Start + descriptor.RelativeStart, descriptor.Length));
+
+                builder.Add(new Diagnostic(
+                    descriptor.Descriptor,
+                    location,
+                    descriptor.MessageArgs.ToArray(),
+                    descriptor.Severity,
+                    descriptor.IsSuppressed,
+                    descriptor.Properties));
+            }
+
+            diagnostics = builder.ToImmutable();
+            return true;
+        }
+
+        void StoreSemanticDiagnosticDescriptors(
+            SyntaxNode root,
+            ImmutableArray<Diagnostic> diagnostics)
+        {
+            var byOwner = diagnostics
+                .Where(diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, SyntaxTree))
+                .Select(diagnostic => (diagnostic, owner: TryFindDiagnosticOwner(root, diagnostic.Location.SourceSpan)))
+                .Where(static item => item.owner is not null)
+                .GroupBy(static item => item.owner!)
+                .ToDictionary(static group => group.Key, static group => group.ToImmutableArray());
+
+            foreach (var owner in GetExecutableOwnersForDiagnostics(root))
+            {
+                var descriptors = byOwner.TryGetValue(owner, out var ownerDiagnostics)
+                    ? ownerDiagnostics.Select(item => new Compilation.SemanticDiagnosticDescriptor(
+                        item.diagnostic.Descriptor,
+                        item.diagnostic.Location.SourceSpan.Start - owner.Span.Start,
+                        item.diagnostic.Location.SourceSpan.Length,
+                        item.diagnostic.Severity,
+                        item.diagnostic.IsSuppressed,
+                        item.diagnostic.Properties,
+                        item.diagnostic.GetMessageArgs().Cast<object?>().ToImmutableArray()))
+                    .ToImmutableArray()
+                    : ImmutableArray<Compilation.SemanticDiagnosticDescriptor>.Empty;
+
+                Compilation.StoreSemanticDiagnosticDescriptors(owner, descriptors);
+            }
+        }
+
+        static SyntaxNode? TryFindDiagnosticOwner(SyntaxNode root, Text.TextSpan span)
+        {
+            var node = root.FindNode(span, getInnermostNodeForTie: true);
+            return node?.AncestorsAndSelf().FirstOrDefault(IsExecutableOwnerForDiagnostics);
+        }
+
+        static bool BelongsToOwner(Diagnostic diagnostic, SyntaxNode owner)
+            => ReferenceEquals(diagnostic.Location.SourceTree, owner.SyntaxTree) &&
+               owner.Span.IntersectsWith(diagnostic.Location.SourceSpan);
+
+        static IEnumerable<SyntaxNode> GetExecutableOwnersForDiagnostics(SyntaxNode root)
+            => root.DescendantNodesAndSelf().Where(IsExecutableOwnerForDiagnostics);
+
+        static bool IsExecutableOwnerForDiagnostics(SyntaxNode node)
+            => node is FunctionExpressionSyntax
+                or BaseMethodDeclarationSyntax
+                or BaseConstructorDeclarationSyntax
+                or ParameterlessConstructorDeclarationSyntax
+                or AccessorDeclarationSyntax
+                or PropertyDeclarationSyntax
+                or EventDeclarationSyntax
+                or GlobalStatementSyntax;
+
         void BindStatementAttributeSyntaxes(SyntaxNode statementNode, Binder parentBinder)
         {
             foreach (var attributeSyntax in statementNode.DescendantNodes().OfType<AttributeSyntax>())
@@ -254,6 +439,8 @@ public partial class SemanticModel
     /// <returns>The symbol info</returns>
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
+        Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
+
         if (node is IdentifierNameSyntax invokedMemberName &&
             invokedMemberName.Parent is MemberAccessExpressionSyntax invokedMemberAccess &&
             IsSameSyntaxNode(invokedMemberAccess.Name, invokedMemberName) &&
@@ -284,7 +471,10 @@ public partial class SemanticModel
         if (_symbolMappings.TryGetValue(node, out var symbolInfo))
         {
             if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoCacheHit();
                 return symbolInfo;
+            }
 
             _symbolMappings.TryRemove(node, out _);
         }
@@ -338,6 +528,7 @@ public partial class SemanticModel
                 }
                 else
                 {
+                    Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoBinderFallback();
                     var binder = GetBinder(node);
                     info = binder.BindSymbol(node);
                 }
@@ -432,12 +623,14 @@ public partial class SemanticModel
                     }
                     else
                     {
+                        Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoBinderFallback();
                         var binder = GetBinder(node);
                         info = binder.BindSymbol(node);
                     }
                 }
                 else
                 {
+                    Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoBinderFallback();
                     var binder = GetBinder(node);
                     info = binder.BindSymbol(node);
                 }
@@ -509,10 +702,12 @@ public partial class SemanticModel
             var binderInfo = binder.BindSymbol(expression);
             if (binderInfo.Symbol is not null || !binderInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
+                Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoBinderFallback();
                 info = binderInfo;
                 goto Complete;
             }
 
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoOperationFallback();
             var operation = GetOperation(expression, cancellationToken);
             var operationSymbol = operation switch
             {
@@ -545,6 +740,7 @@ public partial class SemanticModel
         }
         else
         {
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoBinderFallback();
             var binder = GetBinder(node);
             info = binder.BindSymbol(node);
         }
@@ -567,10 +763,103 @@ public partial class SemanticModel
         return info;
     }
 
+    public bool TryGetCachedSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        if (_symbolMappings.TryGetValue(node, out info) && HasSymbolInfo(info))
+        {
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoCacheHit();
+            return true;
+        }
+
+        if (TryGetCachedBoundSymbolInfo(node, out info))
+            return true;
+
+        if (node is IdentifierNameSyntax identifier)
+        {
+            if (identifier.Parent is InvocationExpressionSyntax invocation &&
+                IsSameSyntaxNode(invocation.Expression, identifier))
+            {
+                if (TryGetCachedSymbolInfo(invocation, out info))
+                {
+                    _symbolMappings[node] = info;
+                    return true;
+                }
+            }
+
+            if (identifier.Parent is MemberAccessExpressionSyntax memberAccess)
+            {
+                if (IsSameSyntaxNode(memberAccess.Name, identifier))
+                {
+                    if (memberAccess.Parent is InvocationExpressionSyntax memberInvocation &&
+                        IsSameSyntaxNode(memberInvocation.Expression, memberAccess) &&
+                        TryGetCachedSymbolInfo(memberInvocation, out info))
+                    {
+                        _symbolMappings[node] = info;
+                        return true;
+                    }
+
+                    if (TryGetCachedSymbolInfo(memberAccess, out info))
+                    {
+                        _symbolMappings[node] = info;
+                        return true;
+                    }
+                }
+                else if (IsSameSyntaxNode(memberAccess.Expression, identifier) &&
+                         TryGetCachedBoundNode(memberAccess) is BoundMemberAccessExpression boundMemberAccess)
+                {
+                    info = boundMemberAccess.Receiver.GetSymbolInfo();
+                    if (HasSymbolInfo(info))
+                    {
+                        info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
+                        _symbolMappings[node] = info;
+                        return true;
+                    }
+                }
+            }
+
+            if (identifier.Parent is MemberBindingExpressionSyntax memberBinding &&
+                IsSameSyntaxNode(memberBinding.Name, identifier) &&
+                TryGetCachedSymbolInfo(memberBinding, out info))
+            {
+                _symbolMappings[node] = info;
+                return true;
+            }
+        }
+
+        info = default;
+        return false;
+    }
+
+    private bool TryGetCachedBoundSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        if (TryGetCachedBoundNode(node) is not { } boundNode)
+        {
+            info = default;
+            return false;
+        }
+
+        info = boundNode switch
+        {
+            BoundExpression expression => expression.GetSymbolInfo(),
+            BoundStatement statement => statement.GetSymbolInfo(),
+            _ => default
+        };
+        if (!HasSymbolInfo(info))
+            return false;
+
+        Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoBoundCacheHit();
+        info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
+        _symbolMappings[node] = info;
+        return true;
+    }
+
+    private static bool HasSymbolInfo(SymbolInfo info)
+        => info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
+
     private bool TryBindExactSymbol(SyntaxNode node, out SymbolInfo info)
     {
         var binder = GetBinder(node);
-        info = binder.BindSymbol(node);
+        info = binder.BindReferencedSymbol(node);
         return info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
     }
 
@@ -1191,11 +1480,14 @@ public partial class SemanticModel
     /// <returns>The type info</returns>
     public TypeInfo GetTypeInfo(ExpressionSyntax expr)
     {
+        Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoQuery();
+
         if (expr is FunctionExpressionSyntax functionExpression &&
             TryGetFunctionExpressionDelegateType(functionExpression, out var functionDelegateType) &&
             functionDelegateType is not null &&
             functionDelegateType.TypeKind != TypeKind.Error)
         {
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
             return new TypeInfo(
                 functionDelegateType,
                 functionDelegateType,
@@ -1206,6 +1498,7 @@ public partial class SemanticModel
             nodeInterestType is not null &&
             nodeInterestType.TypeKind != TypeKind.Error)
         {
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
             return new TypeInfo(nodeInterestType, nodeInterestType, ComputeConversion(nodeInterestType, nodeInterestType));
         }
 
@@ -1217,8 +1510,12 @@ public partial class SemanticModel
             symbolType = GetTypeFromSymbol(symbolInfo.Symbol);
         }
         if (symbolType is not null && symbolType.TypeKind != TypeKind.Error)
+        {
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
             return new TypeInfo(symbolType, symbolType, ComputeConversion(symbolType, symbolType));
+        }
 
+        Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoBoundFallback();
         var boundExpr = GetBoundNode(expr) as BoundExpression;
 
         if (boundExpr is null || (boundExpr.Type is null && boundExpr.GetConvertedType() is null))
@@ -1231,6 +1528,7 @@ public partial class SemanticModel
             // enough semantic information yet.
             if (boundExpr is null || (boundExpr.Type is null && boundExpr.GetConvertedType() is null))
             {
+                Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoDiagnosticFallback();
                 EnsureDiagnosticBindingCompleted();
                 boundExpr = GetBoundNode(expr) as BoundExpression;
             }
@@ -1793,6 +2091,34 @@ public partial class SemanticModel
             ? TryLookupVisibleValueSymbol(expression, identifier.Identifier.ValueText)
             : null;
 
+    internal ImmutableArray<ISymbol> GetVisibleValueSymbols(SyntaxNode contextNode)
+    {
+        var position = contextNode.Span.Start;
+        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        var seenDeclarations = new HashSet<SyntaxNode>();
+
+        foreach (var scopeNode in EnumerateVisibleValueScopes(contextNode))
+        {
+            if (!_visibleValueScopeCache.TryGetValue(scopeNode, out var symbols))
+            {
+                symbols = GetOrCollectVisibleValueDeclarations(scopeNode);
+                _visibleValueScopeCache[scopeNode] = symbols;
+            }
+
+            for (var i = 0; i < symbols.Length; i++)
+            {
+                var candidate = symbols[i];
+                if (candidate.Start > position || !seenDeclarations.Add(candidate.DeclarationNode))
+                    continue;
+
+                if (TryResolveVisibleValueSymbol(candidate) is { } symbol)
+                    builder.Add(symbol);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
     internal ISymbol? TryLookupVisibleValueSymbol(SyntaxNode contextNode, string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -1857,10 +2183,17 @@ public partial class SemanticModel
                                 return CreateSyntheticInterestLocalSymbol(name, iterationType, expression);
                         }
 
-                        if (forStatement.Target is PatternSyntax pattern &&
-                            TryResolvePatternDesignationSymbol(pattern, expression, name) is { } patternSymbol)
+                        if (forStatement.Target is PatternSyntax pattern)
                         {
-                            return patternSymbol;
+                            if (TryResolveContextualPatternSymbol(pattern, expression, name, out var patternSymbol))
+                                return patternSymbol;
+
+                            var iterationType = TryGetForIterationElementType(forStatement.Expression);
+                            if (iterationType is not null &&
+                                TryInferPatternDesignationType(pattern, name, iterationType) is { } patternType)
+                            {
+                                return CreateSyntheticInterestLocalSymbol(name, patternType, expression);
+                            }
                         }
 
                         break;
@@ -1895,8 +2228,15 @@ public partial class SemanticModel
 
                 case MatchArmSyntax matchArm:
                     {
-                        if (TryResolvePatternDesignationSymbol(matchArm.Pattern, expression, name) is { } patternSymbol)
+                        if (TryResolveContextualPatternSymbol(matchArm.Pattern, expression, name, out var patternSymbol))
                             return patternSymbol;
+
+                        if (matchArm.Parent is MatchExpressionSyntax matchExpression &&
+                            TryGetExpressionType(matchExpression.Expression) is { } inputType &&
+                            TryInferPatternDesignationType(matchArm.Pattern, name, inputType) is { } patternType)
+                        {
+                            return CreateSyntheticInterestLocalSymbol(name, patternType, expression);
+                        }
 
                         break;
                     }
@@ -1904,6 +2244,26 @@ public partial class SemanticModel
         }
 
         return null;
+    }
+
+    private bool TryResolveContextualPatternSymbol(
+        SyntaxNode patternRoot,
+        ExpressionSyntax expression,
+        string name,
+        out ISymbol? symbol)
+    {
+        symbol = TryResolvePatternDesignationSymbol(patternRoot, expression, name);
+        if (symbol is null)
+            return false;
+
+        if (GetTypeFromSymbol(symbol) is { TypeKind: not TypeKind.Error } type &&
+            type.SpecialType != SpecialType.System_Object)
+        {
+            return true;
+        }
+
+        symbol = null;
+        return false;
     }
 
     private ISymbol? TryResolvePatternDesignationSymbol(SyntaxNode patternRoot, ExpressionSyntax expression, string name)
@@ -1922,6 +2282,73 @@ public partial class SemanticModel
             : null;
     }
 
+    private ITypeSymbol? TryInferPatternDesignationType(PatternSyntax pattern, string name, ITypeSymbol expectedType)
+    {
+        if (pattern is VariablePatternSyntax { Designation: SingleVariableDesignationSyntax designation } &&
+            designation.Identifier.ValueText == name)
+        {
+            return expectedType;
+        }
+
+        if (pattern is DeclarationPatternSyntax { Designation: SingleVariableDesignationSyntax declarationDesignation } declarationPattern &&
+            declarationDesignation.Identifier.ValueText == name)
+        {
+            return TryGetTypeSyntaxType(declarationPattern.Type) ?? expectedType;
+        }
+
+        if (pattern is PositionalPatternSyntax positional)
+        {
+            if (positional.Designation is SingleVariableDesignationSyntax positionalDesignation &&
+                positionalDesignation.Identifier.ValueText == name)
+            {
+                return expectedType;
+            }
+
+            var tupleElements = expectedType is INamedTypeSymbol namedExpectedType
+                ? namedExpectedType.TupleElements
+                : [];
+            if (!tupleElements.IsDefaultOrEmpty)
+            {
+                for (var i = 0; i < positional.Elements.Count && i < tupleElements.Length; i++)
+                {
+                    if (TryInferPatternDesignationType(positional.Elements[i].Pattern, name, tupleElements[i].Type) is { } elementType)
+                        return elementType;
+                }
+            }
+        }
+
+        if (pattern is SequencePatternSyntax sequence)
+        {
+            if (sequence.Designation is SingleVariableDesignationSyntax sequenceDesignation &&
+                sequenceDesignation.Identifier.ValueText == name)
+            {
+                return expectedType;
+            }
+
+            var elementType = TryGetSequenceElementType(expectedType);
+            foreach (var element in sequence.Elements)
+            {
+                var targetType = element.Prefix.DotDotToken.Kind is SyntaxKind.DotDotToken or SyntaxKind.DotDotDotToken
+                    ? expectedType
+                    : elementType;
+                if (targetType is not null &&
+                    TryInferPatternDesignationType(element.Pattern, name, targetType) is { } nestedType)
+                {
+                    return nestedType;
+                }
+            }
+        }
+
+        if (pattern.DescendantNodesAndSelf()
+                .OfType<SingleVariableDesignationSyntax>()
+                .Any(designation => designation.Identifier.ValueText == name))
+        {
+            return expectedType;
+        }
+
+        return null;
+    }
+
     private ILocalSymbol CreateSyntheticInterestLocalSymbol(string name, ITypeSymbol type, ExpressionSyntax expression)
     {
         var containingSymbol = GetBinder(expression).ContainingSymbol ?? Compilation.GlobalNamespace;
@@ -1938,17 +2365,63 @@ public partial class SemanticModel
 
     private ITypeSymbol? TryGetForIterationElementType(ExpressionSyntax expression)
     {
-        var collectionType = GetTypeInfo(expression).Type;
+        var collectionType = TryGetExpressionType(expression);
         if (collectionType is null || collectionType.TypeKind == TypeKind.Error)
             return null;
 
+        return TryGetSequenceElementType(collectionType);
+    }
+
+    private ITypeSymbol? TryGetExpressionType(ExpressionSyntax expression)
+    {
+        if (TryGetCachedSymbolInfo(expression, out var symbolInfo) &&
+            GetTypeFromSymbol(symbolInfo.Symbol?.UnderlyingSymbol) is { } symbolType)
+        {
+            return symbolType;
+        }
+
+        return GetTypeInfo(expression).Type;
+    }
+
+    private ITypeSymbol? TryGetTypeSyntaxType(TypeSyntax typeSyntax)
+    {
+        if (TryGetCachedSymbolInfo(typeSyntax, out var symbolInfo) &&
+            symbolInfo.Symbol?.UnderlyingSymbol is ITypeSymbol cachedType)
+        {
+            return cachedType;
+        }
+
+        return GetTypeInfo(typeSyntax).Type;
+    }
+
+    private ITypeSymbol? TryGetSequenceElementType(ITypeSymbol collectionType)
+    {
         if (collectionType is IArrayTypeSymbol arrayType)
             return arrayType.ElementType;
 
         if (collectionType.SpecialType == SpecialType.System_String)
             return Compilation.GetSpecialType(SpecialType.System_Char);
 
+        if (collectionType is INamedTypeSymbol namedType)
+        {
+            foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
+            {
+                if (candidate.TypeArguments.Length == 1 &&
+                    candidate.Name is "IEnumerable" or "IAsyncEnumerable")
+                {
+                    return candidate.TypeArguments[0];
+                }
+            }
+        }
+
         return null;
+
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
+        }
     }
 
     private IEnumerable<SyntaxNode> EnumerateVisibleValueScopes(SyntaxNode contextNode)
@@ -2464,6 +2937,8 @@ public partial class SemanticModel
         if (view is BoundTreeView.Both)
             throw new ArgumentOutOfRangeException(nameof(view));
 
+        Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeQuery();
+
         EnsureBindingReady();
 
         if (view is BoundTreeView.Original &&
@@ -2500,6 +2975,7 @@ public partial class SemanticModel
             if (TryGetCachedBoundNode(node) is { } cachedNode &&
                 !IsLikelyStaleFunctionBodyNode(cachedNode))
             {
+                Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeCacheHit();
                 return cachedNode;
             }
 
@@ -2533,11 +3009,13 @@ public partial class SemanticModel
                 if (TryGetCachedBoundNode(node) is { } contextCachedNode &&
                     !IsLikelyStaleFunctionBodyNode(contextCachedNode))
                 {
+                    Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeContextualCacheHit();
                     return contextCachedNode;
                 }
 
                 if (TryFindBoundNodeBySyntax(contextualBoundRoot, node, out var contextualBoundNode))
                 {
+                    Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeContextualCacheHit();
                     CacheBoundNode(node, contextualBoundNode, GetBinder(node));
                     return contextualBoundNode;
                 }
@@ -2552,16 +3030,21 @@ public partial class SemanticModel
                     ClearCachedSemanticState(rebindRoot);
                     var reboundRoot = GetBoundNode(rebindRoot, view);
                     if (TryGetCachedBoundNode(node) is { } reboundFromFunction)
+                    {
+                        Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeContextualCacheHit();
                         return reboundFromFunction;
+                    }
 
                     if (TryFindBoundNodeBySyntax(reboundRoot, node, out var reboundFromRoot))
                     {
+                        Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeContextualCacheHit();
                         CacheBoundNode(node, reboundFromRoot, GetBinder(node));
                         return reboundFromRoot;
                     }
                 }
                 else
                 {
+                    Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeCacheHit();
                     return cachedInFunctionBody;
                 }
             }
@@ -2570,11 +3053,15 @@ public partial class SemanticModel
             {
                 EnsureTopLevelCompilationUnitBound(compilationUnitNode);
                 if (TryGetCachedBoundNode(compilationUnitNode) is { } cachedCompilationUnit)
+                {
+                    Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeCacheHit();
                     return cachedCompilationUnit;
+                }
 
                 return CreateSyntheticTopLevelBlock(compilationUnitNode);
             }
 
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeBindFallback();
             var binder = GetBinder(node);
             var bound = binder.GetOrBind(node);
 
@@ -2596,13 +3083,17 @@ public partial class SemanticModel
         }
 
         if (TryGetCachedLoweredBoundNode(node) is { } loweredCached)
+        {
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeLoweredCacheHit();
             return loweredCached;
+        }
 
         if (node is CompilationUnitSyntax &&
             TryGetCachedBoundNode(node) is not { } &&
             TryGetCachedBoundNode(TryResolveLoweringNode(node) ?? node) is { } loweredTarget)
         {
             CacheLoweredBoundNode(node, loweredTarget, GetBinder(node));
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeLoweredCacheHit();
             return loweredTarget;
         }
 
@@ -2618,6 +3109,7 @@ public partial class SemanticModel
         }
 
         boundNode ??= binderForLowering.GetOrBind(node);
+        Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeLoweredFallback();
         var loweredNode = LowerBoundNode(node, binderForLowering, boundNode);
         CacheLoweredBoundNode(node, loweredNode, binderForLowering);
         return loweredNode;

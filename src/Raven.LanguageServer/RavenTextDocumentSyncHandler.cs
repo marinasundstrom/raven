@@ -24,7 +24,7 @@ namespace Raven.LanguageServer;
 internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private const int DiagnosticsDebounceMilliseconds = 250;
-    private const int FullDiagnosticsAfterSaveDelayMilliseconds = 1500;
+    private const int FullDiagnosticsAfterEditDelayMilliseconds = 750;
     private const int DiagnosticsRetryDelayMilliseconds = 150;
     private const double DidCloseLogThresholdMs = 50;
 
@@ -38,6 +38,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<DocumentUri, int> _documentVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, int> _lastPublishedDiagnosticVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
+    private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, HoverHandler hoverHandler, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
@@ -61,6 +62,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
             _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
+            ClearCompletedDiagnostics(notification.TextDocument.Uri);
             _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
             if (notification.TextDocument.Version is { } openVersion)
                 _documentVersions[notification.TextDocument.Uri] = openVersion;
@@ -136,6 +138,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
             stageStopwatch.Restart();
             _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
+            ClearCompletedDiagnostics(notification.TextDocument.Uri);
             _documents.UpsertDocument(notification.TextDocument.Uri, updatedText);
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
@@ -270,6 +273,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
             _lastPublishedDiagnosticVersions.TryRemove(notification.TextDocument.Uri, out _);
             _lastPublishedDiagnostics.TryRemove(notification.TextDocument.Uri, out _);
+            ClearCompletedDiagnostics(notification.TextDocument.Uri);
 
             if (_documentUpdateGates.TryRemove(notification.TextDocument.Uri, out var gate))
                 gate.Dispose();
@@ -319,7 +323,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             warmupDelayMilliseconds: 0,
             initialDiagnosticsMode: policy.InitialMode,
             fullDiagnosticsDelayMilliseconds: policy.FullDiagnosticsDelayMilliseconds,
-            diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
+            diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds,
+            replacePendingDiagnostics: false).ConfigureAwait(false);
     }
 
     internal static SaveDiagnosticsPolicy GetSaveDiagnosticsPolicy()
@@ -327,7 +332,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterSaveDelayMilliseconds,
+            FullDiagnosticsDelayMilliseconds: null,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetOpenDiagnosticsPolicy()
@@ -343,7 +348,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: null,
+            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
             DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
@@ -363,7 +368,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         int warmupDelayMilliseconds = 0,
         DocumentStore.DocumentDiagnosticsMode initialDiagnosticsMode = DocumentStore.DocumentDiagnosticsMode.Full,
         int? fullDiagnosticsDelayMilliseconds = null,
-        int diagnosticsDelayMilliseconds = DiagnosticsDebounceMilliseconds)
+        int diagnosticsDelayMilliseconds = DiagnosticsDebounceMilliseconds,
+        bool replacePendingDiagnostics = true)
     {
         var source = new CancellationTokenSource();
         var token = source.Token;
@@ -387,21 +393,37 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             expectedVersion?.ToString() ?? "<none>",
             warmupDelayMilliseconds,
             diagnosticsDelayMilliseconds);
-        var current = _pendingDiagnostics.AddOrUpdate(
-            uri,
-            source,
-            (_, previous) =>
-            {
-                try
+        CancellationTokenSource current;
+        if (replacePendingDiagnostics)
+        {
+            current = _pendingDiagnostics.AddOrUpdate(
+                uri,
+                source,
+                (_, previous) =>
                 {
-                    previous.Cancel();
-                }
-                catch (ObjectDisposedException)
-                {
-                }
+                    try
+                    {
+                        previous.Cancel();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
 
-                return source;
-            });
+                    return source;
+                });
+        }
+        else if (!_pendingDiagnostics.TryAdd(uri, source))
+        {
+            source.Dispose();
+            _logger.LogDebug(
+                "Skipped diagnostics scheduling for {Uri}: existing diagnostics are already pending.",
+                uri);
+            return Task.FromResult(Unit.Value);
+        }
+        else
+        {
+            current = source;
+        }
 
         if (!ReferenceEquals(current, source))
         {
@@ -558,6 +580,12 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 return Unit.Value;
             }
 
+            if (IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, mode))
+            {
+                outcome = PublishDiagnosticsOutcome.SkippedAlreadyCompleted;
+                return Unit.Value;
+            }
+
             var result = await _documents.TryGetDiagnosticsAsync(
                 uri,
                 mode,
@@ -591,6 +619,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 if (expectedVersion is { } stableVersion)
                     _lastPublishedDiagnosticVersions[uri] = stableVersion;
 
+                MarkDiagnosticsPublishCompleted(uri, expectedVersion, mode);
                 var diagnosticSummary = SummarizeDiagnosticsForLog(diagnostics);
                 outcome = PublishDiagnosticsOutcome.SkippedUnchanged;
 
@@ -612,6 +641,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             _lastPublishedDiagnostics[uri] = diagnosticValues;
             if (expectedVersion is { } publishedVersion)
                 _lastPublishedDiagnosticVersions[uri] = publishedVersion;
+            MarkDiagnosticsPublishCompleted(uri, expectedVersion, mode);
             var publishedDiagnosticSummary = SummarizeDiagnosticsForLog(diagnostics);
             _logger.LogInformation(
                 "Published diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
@@ -725,9 +755,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedRequeued) => "publishSyntaxDiagnosticsSkipped",
             (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishSyntaxDiagnosticsUnchanged",
             (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishSyntaxDiagnosticsVersionMismatch",
+            (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishSyntaxDiagnosticsAlreadyCompleted",
             (_, PublishDiagnosticsOutcome.Published) => "publishDiagnostics",
             (_, PublishDiagnosticsOutcome.SkippedRequeued) => "publishDiagnosticsSkipped",
             (_, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishDiagnosticsUnchanged",
+            (_, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishDiagnosticsAlreadyCompleted",
             _ => "publishDiagnosticsVersionMismatch"
         };
 
@@ -743,8 +775,39 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         Published,
         SkippedRequeued,
         SkippedUnchanged,
-        SkippedVersionMismatch
+        SkippedVersionMismatch,
+        SkippedAlreadyCompleted
     }
+
+    private bool IsDiagnosticsPublishAlreadyCompleted(
+        DocumentUri uri,
+        int? version,
+        DocumentStore.DocumentDiagnosticsMode mode)
+        => version is { } stableVersion &&
+           _completedDiagnostics.ContainsKey(new CompletedDiagnosticsKey(uri, stableVersion, mode));
+
+    private void MarkDiagnosticsPublishCompleted(
+        DocumentUri uri,
+        int? version,
+        DocumentStore.DocumentDiagnosticsMode mode)
+    {
+        if (version is { } stableVersion)
+            _completedDiagnostics[new CompletedDiagnosticsKey(uri, stableVersion, mode)] = 0;
+    }
+
+    private void ClearCompletedDiagnostics(DocumentUri uri)
+    {
+        foreach (var key in _completedDiagnostics.Keys)
+        {
+            if (key.Uri == uri)
+                _completedDiagnostics.TryRemove(key, out _);
+        }
+    }
+
+    private readonly record struct CompletedDiagnosticsKey(
+        DocumentUri Uri,
+        int Version,
+        DocumentStore.DocumentDiagnosticsMode Mode);
 
     internal readonly record struct PublishedDiagnosticValue(
         int StartLine,

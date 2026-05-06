@@ -68,6 +68,21 @@ public static class CompletionProvider
                 }
             }
 
+            var containingMethodSyntax = (SyntaxNode?)token.GetAncestor<BaseMethodDeclarationSyntax>()
+                ?? token.GetAncestor<ConstructorDeclarationSyntax>();
+            if (containingMethodSyntax is not null &&
+                model.GetDeclaredSymbol(containingMethodSyntax) is IMethodSymbol declaredMethod &&
+                !declaredMethod.IsStatic)
+            {
+                return declaredMethod.ContainingType;
+            }
+
+            if (token.GetAncestor<TypeDeclarationSyntax>() is { } containingTypeSyntax &&
+                model.GetDeclaredSymbol(containingTypeSyntax) is INamedTypeSymbol containingType)
+            {
+                return containingType;
+            }
+
             return null;
         }
 
@@ -94,7 +109,13 @@ public static class CompletionProvider
         bool TryGetPreferredSymbolInfo(SyntaxNode node, out SymbolInfo symbolInfo)
         {
             if (model.TryGetNodeInterestSymbolInfo(node, out symbolInfo) &&
-                (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
+                HasSymbolInfo(symbolInfo))
+            {
+                return true;
+            }
+
+            if (model.TryGetCachedSymbolInfo(node, out symbolInfo) &&
+                HasSymbolInfo(symbolInfo))
             {
                 return true;
             }
@@ -111,16 +132,14 @@ public static class CompletionProvider
             }
         }
 
+        static bool HasSymbolInfo(SymbolInfo symbolInfo)
+            => symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty;
+
         INamespaceOrTypeSymbol? TryResolveNamespaceOrType(NameSyntax name)
         {
             INamespaceOrTypeSymbol? resolved = null;
-            try
-            {
-                resolved = model.GetSymbolInfo(name).Symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
-            }
-            catch
-            {
-            }
+            if (TryGetPreferredSymbolInfo(name, out var symbolInfo))
+                resolved = symbolInfo.Symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
 
             if (resolved is not null)
                 return resolved;
@@ -315,17 +334,21 @@ public static class CompletionProvider
             ExpressionSyntax receiverExpression,
             string name)
         {
+            var iterationType = TryGetForIterationElementType(forStatement.Expression);
+
             if (forStatement.Target is IdentifierNameSyntax target &&
                 target.Identifier.ValueText == name)
             {
-                var iterationType = TryGetForIterationElementType(forStatement.Expression);
                 return iterationType is not null
                     ? CreateSyntheticReceiverLocalSymbol(name, iterationType, receiverExpression)
                     : null;
             }
 
             if (forStatement.Target is PatternSyntax pattern)
-                return TryResolvePatternDesignationSymbol(pattern, receiverExpression, name);
+            {
+                if (TryResolvePatternDesignationSymbol(pattern, receiverExpression, name) is { } symbol)
+                    return symbol;
+            }
 
             return null;
         }
@@ -365,10 +388,26 @@ public static class CompletionProvider
 
         ITypeSymbol? TryGetForIterationElementType(ExpressionSyntax expression)
         {
-            var collectionType = model.GetTypeInfo(expression).Type;
+            var collectionType = TryGetExpressionType(expression);
             if (collectionType is null || collectionType.TypeKind == TypeKind.Error)
                 return null;
 
+            return TryGetSequenceElementType(collectionType);
+        }
+
+        ITypeSymbol? TryGetExpressionType(ExpressionSyntax expression)
+        {
+            if (TryGetPreferredSymbolInfo(expression, out var symbolInfo) &&
+                GetTypeFromSymbol(symbolInfo.Symbol?.UnderlyingSymbol) is { } symbolType)
+            {
+                return symbolType;
+            }
+
+            return model.GetTypeInfo(expression).Type;
+        }
+
+        ITypeSymbol? TryGetSequenceElementType(ITypeSymbol collectionType)
+        {
             if (collectionType is IArrayTypeSymbol arrayType)
                 return arrayType.ElementType;
 
@@ -388,13 +427,13 @@ public static class CompletionProvider
             }
 
             return null;
+        }
 
-            static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
-            {
-                yield return type;
-                foreach (var iface in type.AllInterfaces)
-                    yield return iface;
-            }
+        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        {
+            yield return type;
+            foreach (var iface in type.AllInterfaces)
+                yield return iface;
         }
 
         var tokenText = forceInsertionAtCaret ? string.Empty : token.Text;
@@ -423,6 +462,12 @@ public static class CompletionProvider
 
             if (token.Parent is IdentifierNameSyntax { Identifier.IsMissing: false })
                 return true;
+
+            if (token.GetAncestor<BaseMethodDeclarationSyntax>() is not null ||
+                token.GetAncestor<ConstructorDeclarationSyntax>() is not null)
+            {
+                return true;
+            }
 
             return token.GetAncestor<BlockStatementSyntax>() is not null
                 || token.GetAncestor<BlockSyntax>() is not null;
@@ -858,7 +903,9 @@ public static class CompletionProvider
                     continue;
 
                 var declaredTypeSymbol = model.GetTypeInfo(typeSyntax).Type
-                    ?? model.GetSymbolInfo(typeSyntax).Symbol?.UnderlyingSymbol as ITypeSymbol;
+                    ?? (TryGetPreferredSymbolInfo(typeSyntax, out var symbolInfo)
+                        ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                        : null);
                 if (declaredTypeSymbol is not null)
                     return declaredTypeSymbol;
             }
@@ -889,7 +936,9 @@ public static class CompletionProvider
                 return equalsClause.Parent switch
                 {
                     VariableDeclaratorSyntax declarator => declarator.TypeAnnotation?.Type is ExpressionSyntax declaratorType
-                        ? model.GetTypeInfo(declaratorType).Type ?? (model.GetSymbolInfo(declaratorType).Symbol?.UnderlyingSymbol as ITypeSymbol)
+                        ? model.GetTypeInfo(declaratorType).Type ?? (TryGetPreferredSymbolInfo(declaratorType, out var symbolInfo)
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            : null)
                         : model.GetDeclaredSymbol(declarator) switch
                         {
                             ILocalSymbol local => local.Type,
@@ -897,16 +946,24 @@ public static class CompletionProvider
                             _ => null
                         },
                     PropertyDeclarationSyntax property => property.Type.Type is ExpressionSyntax propertyType
-                        ? model.GetTypeInfo(propertyType).Type ?? (model.GetSymbolInfo(propertyType).Symbol?.UnderlyingSymbol as ITypeSymbol)
+                        ? model.GetTypeInfo(propertyType).Type ?? (TryGetPreferredSymbolInfo(propertyType, out var symbolInfo)
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            : null)
                         : (model.GetDeclaredSymbol(property) as IPropertySymbol)?.Type,
                     EventDeclarationSyntax @event => @event.Type.Type is ExpressionSyntax eventType
-                        ? model.GetTypeInfo(eventType).Type ?? (model.GetSymbolInfo(eventType).Symbol?.UnderlyingSymbol as ITypeSymbol)
+                        ? model.GetTypeInfo(eventType).Type ?? (TryGetPreferredSymbolInfo(eventType, out var symbolInfo)
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            : null)
                         : (model.GetDeclaredSymbol(@event) as IEventSymbol)?.Type,
                     IndexerDeclarationSyntax indexer => indexer.Type.Type is ExpressionSyntax indexerType
-                        ? model.GetTypeInfo(indexerType).Type ?? (model.GetSymbolInfo(indexerType).Symbol?.UnderlyingSymbol as ITypeSymbol)
+                        ? model.GetTypeInfo(indexerType).Type ?? (TryGetPreferredSymbolInfo(indexerType, out var symbolInfo)
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            : null)
                         : (model.GetDeclaredSymbol(indexer) as IPropertySymbol)?.Type,
                     ParameterSyntax parameter => parameter.TypeAnnotation?.Type is ExpressionSyntax parameterType
-                        ? model.GetTypeInfo(parameterType).Type ?? (model.GetSymbolInfo(parameterType).Symbol?.UnderlyingSymbol as ITypeSymbol)
+                        ? model.GetTypeInfo(parameterType).Type ?? (TryGetPreferredSymbolInfo(parameterType, out var symbolInfo)
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            : null)
                         : (model.GetDeclaredSymbol(parameter) as IParameterSymbol)?.Type,
                     EnumMemberDeclarationSyntax enumMember => (model.GetDeclaredSymbol(enumMember) as IFieldSymbol)?.Type,
                     _ => null
@@ -920,7 +977,9 @@ public static class CompletionProvider
 
                 if (assignment.Left is ExpressionSyntax left)
                 {
-                    var leftSymbol = model.GetSymbolInfo(left).Symbol?.UnderlyingSymbol;
+                    var leftSymbol = TryGetPreferredSymbolInfo(left, out var symbolInfo)
+                        ? symbolInfo.Symbol?.UnderlyingSymbol
+                        : null;
                     return TryGetExplicitlyAnnotatedType(leftSymbol)
                         ?? GetTypeFromSymbol(leftSymbol)
                         ?? model.GetTypeInfo(left).Type;
@@ -935,7 +994,9 @@ public static class CompletionProvider
 
                 if (assignmentStatement.Left is ExpressionSyntax left)
                 {
-                    var leftSymbol = model.GetSymbolInfo(left).Symbol?.UnderlyingSymbol;
+                    var leftSymbol = TryGetPreferredSymbolInfo(left, out var symbolInfo)
+                        ? symbolInfo.Symbol?.UnderlyingSymbol
+                        : null;
                     return TryGetExplicitlyAnnotatedType(leftSymbol)
                         ?? GetTypeFromSymbol(leftSymbol)
                         ?? model.GetTypeInfo(left).Type;
@@ -1085,7 +1146,9 @@ public static class CompletionProvider
                     return null;
 
                 return assignmentExpr.Left is ExpressionSyntax leftExpr
-                    ? model.GetSymbolInfo(leftExpr).Symbol?.UnderlyingSymbol
+                    ? TryGetPreferredSymbolInfo(leftExpr, out var symbolInfo)
+                        ? symbolInfo.Symbol?.UnderlyingSymbol
+                        : null
                     : null;
             }
 
@@ -1095,7 +1158,9 @@ public static class CompletionProvider
                     return null;
 
                 return assignmentStmt.Left is ExpressionSyntax leftExpr
-                    ? model.GetSymbolInfo(leftExpr).Symbol?.UnderlyingSymbol
+                    ? TryGetPreferredSymbolInfo(leftExpr, out var symbolInfo)
+                        ? symbolInfo.Symbol?.UnderlyingSymbol
+                        : null
                     : null;
             }
 
@@ -1372,6 +1437,28 @@ public static class CompletionProvider
                 ? new TextSpan(position, 0)
                 : identifier.Span;
 
+            foreach (var label in EnumerateVisibleLabelNames(gotoStatement))
+            {
+                if (string.IsNullOrEmpty(label))
+                    continue;
+
+                if (!string.IsNullOrEmpty(prefix) &&
+                    !NameMatchesPrefix(label, prefix))
+                {
+                    continue;
+                }
+
+                if (seen.Add(label))
+                {
+                    completions.Add(new CompletionItem(
+                        DisplayText: label,
+                        InsertionText: label,
+                        ReplacementSpan: replacement,
+                        CursorOffset: label.Length,
+                        Description: label));
+                }
+            }
+
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
                 if (symbol is not ILabelSymbol label)
@@ -1401,6 +1488,22 @@ public static class CompletionProvider
             }
 
             return completions;
+        }
+
+        static IEnumerable<string> EnumerateVisibleLabelNames(GotoStatementSyntax gotoStatement)
+        {
+            var scope = gotoStatement.Ancestors()
+                .FirstOrDefault(static ancestor => ancestor is BlockStatementSyntax or CompilationUnitSyntax);
+            if (scope is null)
+                yield break;
+
+            foreach (var label in scope.DescendantNodes()
+                         .OfType<LabeledStatementSyntax>())
+            {
+                var name = label.Identifier.ValueText;
+                if (!string.IsNullOrWhiteSpace(name))
+                    yield return name;
+            }
         }
 
         /*
@@ -1752,6 +1855,35 @@ public static class CompletionProvider
             var valuePrefix = isArgumentStartToken ? string.Empty : tokenValueText;
             var prefixWithoutEscape = valuePrefix.TrimStart('@');
             var allowTypesInValuePosition = prefixWithoutEscape.Length > 0 && char.IsUpper(prefixWithoutEscape[0]);
+            var contextNode = token.Parent ?? model.SyntaxTree.GetRoot();
+
+            foreach (var symbol in model.GetVisibleValueSymbols(contextNode))
+            {
+                if (!IsAccessible(symbol))
+                    continue;
+
+                if (!IsValueCompletionSymbol(symbol, allowTypes: false))
+                    continue;
+
+                if (!string.IsNullOrEmpty(valuePrefix) &&
+                    !NameMatchesPrefix(symbol.Name, valuePrefix))
+                    continue;
+
+                var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
+                var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
+
+                if (seen.Add(dedupKey))
+                {
+                    completions.Add(new CompletionItem(
+                        DisplayText: displayText,
+                        InsertionText: insertText,
+                        ReplacementSpan: argumentStartReplacementSpan,
+                        CursorOffset: cursorOffset,
+                        Description: SafeToDisplayString(symbol),
+                        Symbol: symbol
+                    ));
+                }
+            }
 
             foreach (var symbol in binder.LookupAvailableSymbols())
             {

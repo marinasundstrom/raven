@@ -14,6 +14,53 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public class CompletionServiceMemberAccessTests
 {
     [Fact]
+    public void GetCompletions_WithWarmedReceiverSymbol_ReusesCachedSymbolInfoWithoutBinding()
+    {
+        var code = """
+class Counter {
+    func Increment() -> int {
+        return 1
+    }
+}
+
+class C {
+    func Run() {
+        val counter = Counter()
+        counter.
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(
+                    OutputKind.DynamicallyLinkedLibrary,
+                    performanceInstrumentation: instrumentation))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var memberAccess = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single();
+        var receiver = memberAccess.Expression;
+        var position = code.IndexOf("counter.", StringComparison.Ordinal) + "counter.".Length;
+        var token = syntaxTree.GetRoot().FindToken(position - 1);
+
+        var warmed = semanticModel.GetSymbolInfo(receiver);
+        Assert.NotNull(warmed.Symbol);
+
+        instrumentation.BinderReentry.Reset();
+
+        var items = CompletionProvider.GetCompletions(token, semanticModel, position).ToList();
+
+        Assert.Contains(items, item => item.DisplayText == "Increment");
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnType_ReturnsStaticMembers()
     {
         var code = """

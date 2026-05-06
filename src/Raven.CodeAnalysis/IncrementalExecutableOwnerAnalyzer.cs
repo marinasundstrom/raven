@@ -9,7 +9,8 @@ internal static class IncrementalExecutableOwnerAnalyzer
     public readonly record struct Result(
         ImmutableArray<Compilation.ExecutableOwnerDescriptor> ChangedOwners,
         ImmutableArray<Compilation.MatchedExecutableOwner> MatchedOwners,
-        ImmutableDictionary<Compilation.ExecutableOwnerDescriptor, Compilation.OwnerRelativeTextChange> OwnerChanges);
+        ImmutableDictionary<Compilation.ExecutableOwnerDescriptor, Compilation.OwnerRelativeTextChange> OwnerChanges,
+        bool BlocksSemanticDiagnosticTransfer);
 
     public static Result Analyze(
         SyntaxTree previousTree,
@@ -101,7 +102,11 @@ internal static class IncrementalExecutableOwnerAnalyzer
             }
         }
 
-        return new Result(changedBuilder.ToImmutable(), matchedBuilder.ToImmutable(), ownerChanges.ToImmutable());
+        return new Result(
+            changedBuilder.ToImmutable(),
+            matchedBuilder.ToImmutable(),
+            ownerChanges.ToImmutable(),
+            HasChangeOutsideExecutableBody(previousTree, currentTree));
     }
 
     private static (SyntaxKind Kind, string Identity) CreateReusableOwnerMatchKey(SyntaxNode owner)
@@ -295,6 +300,64 @@ internal static class IncrementalExecutableOwnerAnalyzer
 
         relativeStart = body.Span.Start - owner.Span.Start;
         return relativeStart >= 0;
+    }
+
+    private static bool HasChangeOutsideExecutableBody(SyntaxTree previousTree, SyntaxTree currentTree)
+    {
+        var previousRoot = previousTree.GetRoot();
+        var currentRoot = currentTree.GetRoot();
+
+        foreach (var change in currentTree.GetChanges(previousTree))
+        {
+            if (!IsSpanWithinExecutableBody(previousRoot, change.Span))
+                return true;
+
+            var currentSpan = new Text.TextSpan(change.Span.Start, change.NewText.Length);
+            if (!IsSpanWithinExecutableBody(currentRoot, currentSpan))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsSpanWithinExecutableBody(SyntaxNode root, Text.TextSpan span)
+    {
+        return GetExecutableOwners(root)
+            .Where(static owner => owner is not CompilationUnitSyntax)
+            .Any(owner => TryGetExecutableBodySpan(owner, out var bodySpan) &&
+                          ContainsOrTouchesInsertion(bodySpan, span));
+    }
+
+    private static bool TryGetExecutableBodySpan(SyntaxNode owner, out Text.TextSpan bodySpan)
+    {
+        SyntaxNode? body = owner switch
+        {
+            BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
+            FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody,
+            AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody,
+            PropertyDeclarationSyntax property => (SyntaxNode?)property.ExpressionBody ?? (SyntaxNode?)property.AccessorList ?? property.Initializer,
+            EventDeclarationSyntax @event => @event.AccessorList,
+            FunctionExpressionSyntax function => function.ExpressionBody,
+            GlobalStatementSyntax globalStatement => globalStatement.Statement,
+            _ => null
+        };
+
+        if (body is null)
+        {
+            bodySpan = default;
+            return false;
+        }
+
+        bodySpan = body.Span;
+        return true;
+    }
+
+    private static bool ContainsOrTouchesInsertion(Text.TextSpan container, Text.TextSpan span)
+    {
+        if (span.Length == 0)
+            return span.Start >= container.Start && span.Start <= container.End + 1;
+
+        return span.Start >= container.Start && span.End <= container.End;
     }
 
     private static IEnumerable<SyntaxNode> GetExecutableOwners(SyntaxNode root)

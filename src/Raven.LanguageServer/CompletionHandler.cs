@@ -49,6 +49,8 @@ internal sealed class CompletionHandler : ICompletionHandler
         int itemCount = 0;
         var usedFallback = false;
         string? failureType = null;
+        Compilation? semanticCompilation = null;
+        SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
 
         try
         {
@@ -76,6 +78,8 @@ internal sealed class CompletionHandler : ICompletionHandler
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
                 return new CompletionList();
+            semanticCompilation = semanticModel.Compilation;
+            semanticBefore = semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
 
             stageStopwatch.Restart();
             var completion = await _completionService.GetCompletionsWithMetricsAsync(semanticModel, position, cancellationToken).ConfigureAwait(false);
@@ -117,13 +121,21 @@ internal sealed class CompletionHandler : ICompletionHandler
         finally
         {
             totalStopwatch.Stop();
+            var semanticDelta = semanticCompilation is not null && semanticBefore is { } before
+                ? SemanticQueryInstrumentation.FormatDelta(
+                    SemanticQueryInstrumentation.Subtract(
+                        semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
+                        before))
+                : null;
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "completion",
                 request.TextDocument.Uri,
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
                 resultCount: itemCount,
-                detail: $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}",
+                detail: semanticDelta is null
+                    ? $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}"
+                    : $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character} semantic=[{semanticDelta}]",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),

@@ -85,12 +85,14 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         double classifyMs = 0;
         double materializeMs = 0;
         double pushMs = 0;
+        var cacheHit = false;
+        var skippedBusy = false;
+        var resultCount = 0;
+        Compilation? semanticCompilation = null;
+        SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
 
         try
         {
-            using var _ = await _documents.EnterDocumentSemanticAccessAsync(identifier.TextDocument.Uri, cancellationToken, "semanticTokens").ConfigureAwait(false);
-            gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
-
             var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             contextMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -99,15 +101,30 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
+            semanticCompilation = context.Value.Compilation;
+            semanticBefore = semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
             var cacheKey = new SemanticTokensCacheKey(identifier.TextDocument.Uri.ToString(), context.Value.Document.Version);
             var requestedRange = GetRequestedRangeSpan(identifier, sourceText);
 
             if (_tokenEntryCache.TryGetValue(cacheKey, out var cachedEntries))
             {
-                foreach (var entry in FilterEntriesForRange(cachedEntries, requestedRange))
+                cacheHit = true;
+                stageStopwatch.Restart();
+                var filteredEntries = FilterEntriesForRange(cachedEntries, requestedRange).ToArray();
+                resultCount = filteredEntries.Length;
+                foreach (var entry in filteredEntries)
                     PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
 
-                pushMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs - contextMs;
+                pushMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                return;
+            }
+
+            var gateWaitStopwatch = Stopwatch.StartNew();
+            using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(identifier.TextDocument.Uri, cancellationToken, "semanticTokens").ConfigureAwait(false);
+            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticLease is null)
+            {
+                skippedBusy = true;
                 return;
             }
 
@@ -122,12 +139,12 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 return;
 
             stageStopwatch.Restart();
-            var classification = SemanticClassifier.Classify(root, semanticModel);
+            var classification = SemanticClassifier.Classify(root, semanticModel, allowBinding: false);
             classifyMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
             var tokenEntries = classification.Tokens
-                .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel, root))
+                .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel, root, allowBinding: false))
                 .Where(static entry => entry!.TokenType is not null)
                 .Cast<SemanticTokenEntry>()
                 .ToArray();
@@ -147,7 +164,9 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             CacheTokenEntries(cacheKey, entries);
 
             stageStopwatch.Restart();
-            foreach (var entry in FilterEntriesForRange(entries, requestedRange))
+            var pushedEntries = FilterEntriesForRange(entries, requestedRange).ToArray();
+            resultCount = pushedEntries.Length;
+            foreach (var entry in pushedEntries)
                 PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
             pushMs = stageStopwatch.Elapsed.TotalMilliseconds;
         }
@@ -168,6 +187,33 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         finally
         {
             stopwatch.Stop();
+            var semanticDelta = semanticCompilation is not null && semanticBefore is { } before
+                ? SemanticQueryInstrumentation.FormatDelta(
+                    SemanticQueryInstrumentation.Subtract(
+                        semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
+                        before))
+                : null;
+            var outcome = skippedBusy ? "SkippedBusy" : "Completed";
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "semanticTokens",
+                identifier.TextDocument.Uri,
+                null,
+                stopwatch.Elapsed.TotalMilliseconds,
+                cacheHit: cacheHit,
+                resultCount: resultCount,
+                detail: semanticDelta is null
+                    ? $"{identifier.TextDocument.Uri} outcome={outcome}"
+                    : $"{identifier.TextDocument.Uri} outcome={outcome} semantic=[{semanticDelta}]",
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", contextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("root", rootMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("classify", classifyMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("materialize", materializeMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("push", pushMs)
+                ]);
             if (stopwatch.Elapsed.TotalMilliseconds >= SemanticTokensLogThresholdMs)
             {
                 _logger.LogInformation(
@@ -238,13 +284,14 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         SemanticClassification classification,
         SyntaxToken token,
         SemanticModel semanticModel,
-        SyntaxNode root)
+        SyntaxNode root,
+        bool allowBinding)
     {
-        var tokenType = MapTokenType(classification, token, semanticModel, root);
+        var tokenType = MapTokenType(classification, token, semanticModel, root, allowBinding);
         if (tokenType is null)
             return null;
 
-        return new SemanticTokenEntry(span, tokenType, GetModifiers(token, semanticModel));
+        return new SemanticTokenEntry(span, tokenType, GetModifiers(token, semanticModel, allowBinding));
     }
 
     private static SemanticTokenEntry? CreateEntry(TextSpan span, SemanticClassification classification)
@@ -281,11 +328,12 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         SemanticClassification classification,
         SyntaxToken token,
         SemanticModel semanticModel,
-        SyntaxNode root)
+        SyntaxNode root,
+        bool allowBinding)
     {
         if (classification == SemanticClassification.Type)
         {
-            var symbol = TryGetAssociatedSymbol(token, semanticModel);
+            var symbol = TryGetAssociatedSymbol(token, semanticModel, allowBinding);
             if (symbol is ITypeSymbol typeSymbol)
             {
                 return typeSymbol.TypeKind switch
@@ -473,15 +521,18 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             "System.Diagnostics.CodeAnalysis.StringSyntaxAttribute",
             StringComparison.Ordinal);
 
-    private static ImmutableArray<SemanticTokenModifier> GetModifiers(SyntaxToken token, SemanticModel semanticModel)
+    private static ImmutableArray<SemanticTokenModifier> GetModifiers(
+        SyntaxToken token,
+        SemanticModel semanticModel,
+        bool allowBinding)
     {
-        var symbol = TryGetAssociatedSymbol(token, semanticModel);
-        if (symbol is null)
-            return ImmutableArray<SemanticTokenModifier>.Empty;
-
         var modifiers = ImmutableArray.CreateBuilder<SemanticTokenModifier>();
         if (IsDeclarationToken(token))
             modifiers.Add(SemanticTokenModifier.Declaration);
+
+        var symbol = TryGetAssociatedSymbol(token, semanticModel, allowBinding);
+        if (symbol is null)
+            return modifiers.ToImmutable();
 
         if (symbol.IsStatic)
             modifiers.Add(SemanticTokenModifier.Static);
@@ -498,7 +549,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         return modifiers.ToImmutable();
     }
 
-    private static ISymbol? TryGetAssociatedSymbol(SyntaxToken token, SemanticModel semanticModel)
+    private static ISymbol? TryGetAssociatedSymbol(
+        SyntaxToken token,
+        SemanticModel semanticModel,
+        bool allowBinding)
     {
         if (token.Kind != SyntaxKind.IdentifierToken)
             return null;
@@ -507,10 +561,18 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         if (bindNode is null)
             return null;
 
+        var declaredSymbol = semanticModel.GetDeclaredSymbol(bindNode);
+        if (declaredSymbol is not null)
+            return declaredSymbol;
+
+        if (semanticModel.TryGetCachedSymbolInfo(bindNode, out var cachedInfo))
+            return cachedInfo.Symbol ?? cachedInfo.CandidateSymbols.FirstOrDefault();
+
+        if (!allowBinding)
+            return null;
+
         var info = semanticModel.GetSymbolInfo(bindNode);
-        return semanticModel.GetDeclaredSymbol(bindNode)
-            ?? info.Symbol
-            ?? info.CandidateSymbols.FirstOrDefault();
+        return info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
     }
 
     private static bool IsDeclarationToken(SyntaxToken token)

@@ -290,4 +290,36 @@ func Main() -> string {
         result.Tokens[storeToken].ShouldBe(SemanticClassification.Local);
         result.Tokens[summaryToken].ShouldBe(SemanticClassification.Method);
     }
+
+    [Fact]
+    public void CacheOnlyClassification_ReusesCachedSymbolsWithoutBindingFallbacks()
+    {
+        var source = """
+func Main() {
+    val value = 1
+    value
+}
+""";
+        var instrumentation = new PerformanceInstrumentation();
+        var (compilation, tree) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithPerformanceInstrumentation(instrumentation));
+        var model = compilation.GetSemanticModel(tree);
+        var valueUsage = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.Text == "value");
+
+        _ = model.GetSymbolInfo(valueUsage);
+
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model, allowBinding: false);
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+
+        result.Tokens[valueUsage.Identifier].ShouldBe(SemanticClassification.Local);
+        delta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
 }

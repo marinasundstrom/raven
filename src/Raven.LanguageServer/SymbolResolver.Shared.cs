@@ -301,6 +301,12 @@ internal static partial class SymbolResolver
                 return true;
             }
 
+            if (semanticModel.TryGetCachedSymbolInfo(node, out symbolInfo) &&
+                (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
+            {
+                return true;
+            }
+
             symbolInfo = semanticModel.GetSymbolInfo(node);
             return true;
         }

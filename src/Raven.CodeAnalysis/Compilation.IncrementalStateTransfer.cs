@@ -23,6 +23,9 @@ public partial class Compilation
         {
             RegisterChangedExecutableOwnerDescriptors(changedTree.CurrentTree, changedTree.ChangedOwners);
             RegisterMatchedExecutableOwners(changedTree.CurrentTree, changedTree.MatchedOwners);
+
+            if (changedTree.BlocksSemanticDiagnosticTransfer)
+                RegisterSemanticDiagnosticTransferBlocked(changedTree.CurrentTree);
         }
     }
 
@@ -75,7 +78,10 @@ public partial class Compilation
                 state.FunctionExpressionRebindRootDescriptors),
             new ExactIncrementalStateTransferTable<BinderParentAnchorKey, BinderParentAnchorDescriptor>(
                 _descriptorState.BinderParentAnchorDescriptors,
-                state.BinderParentAnchorDescriptors)
+                state.BinderParentAnchorDescriptors),
+            new ExactIncrementalStateTransferTable<ExecutableOwnerDescriptor, ImmutableArray<SemanticDiagnosticDescriptor>>(
+                _descriptorState.SemanticDiagnosticsByOwner,
+                state.SemanticDiagnosticsByOwner)
         ];
 
     private IOwnerRelativeIncrementalStateTransferTable[] CreateOwnerRelativeTransferTables(IncrementalCompilationState state)
@@ -104,6 +110,10 @@ public partial class Compilation
             new OwnerRelativeIncrementalStateTransferTable<BinderParentAnchorDescriptor>(
                 _descriptorState.BinderParentAnchorDescriptorsByOwner,
                 state.BinderParentAnchorDescriptorsByOwner,
+                IncrementalBindingStateTransferPolicy.TryRemapOwnerRelativeDescriptorKey),
+            new OwnerRelativeIncrementalStateTransferTable<ImmutableArray<SemanticDiagnosticDescriptor>>(
+                _descriptorState.SemanticDiagnosticsByRelativeOwner,
+                state.SemanticDiagnosticsByRelativeOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapOwnerRelativeDescriptorKey)
         ];
 

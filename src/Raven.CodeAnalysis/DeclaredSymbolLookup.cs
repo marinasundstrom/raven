@@ -37,8 +37,14 @@ internal sealed class DeclaredSymbolLookup
         if (!_semanticModel.DeclarationsComplete)
             _semanticModel.EnsureDeclarations();
 
-        if (!_semanticModel.RootBinderCreated)
-            _semanticModel.EnsureRootBinderCreated();
+        if (TryLookupKnownDeclaredSymbolFast(node, out fastSymbol))
+            return fastSymbol;
+
+        if (node is ParameterSyntax declaredParameterSyntax &&
+            TryLookupParameterSymbolFast(declaredParameterSyntax, out var declaredParameterSymbol))
+        {
+            return declaredParameterSymbol;
+        }
 
         if (node is MethodDeclarationSyntax methodDeclarationByContainingType &&
             methodDeclarationByContainingType.Parent is TypeDeclarationSyntax containingTypeSyntax &&
@@ -194,6 +200,9 @@ internal sealed class DeclaredSymbolLookup
             return functionExpressionSymbol;
         }
 
+        if (!_semanticModel.RootBinderCreated)
+            _semanticModel.EnsureRootBinderCreated();
+
         var binder = _semanticModel.GetBinder(node);
 
         if (_semanticModel.Compilation.DeclarationTable.TryGetDeclKey(node, out var key))
@@ -267,11 +276,96 @@ internal sealed class DeclaredSymbolLookup
                 symbol = propertySymbol;
                 return true;
 
+            case EventDeclarationSyntax eventDeclaration when _semanticModel.TryGetEventSymbol(eventDeclaration, out var eventSymbol):
+                symbol = eventSymbol;
+                return true;
+
+            case EventDeclarationSyntax eventDeclaration when TryLookupEventSymbolFast(eventDeclaration, out var eventSymbol):
+                symbol = eventSymbol;
+                return true;
+
+            case AccessorDeclarationSyntax accessorDeclaration when TryLookupAccessorSymbolFast(accessorDeclaration, out var accessorSymbol):
+                symbol = accessorSymbol;
+                return true;
+
             default:
                 symbol = null;
                 return false;
         }
     }
+
+    private bool TryLookupEventSymbolFast(
+        EventDeclarationSyntax eventDeclaration,
+        out IEventSymbol? eventSymbol)
+    {
+        eventSymbol = null;
+
+        if (eventDeclaration.Parent is not TypeDeclarationSyntax containingTypeSyntax ||
+            !TryLookupKnownDeclaredSymbolFast(containingTypeSyntax, out var containingTypeSymbol) ||
+            containingTypeSymbol is not INamedTypeSymbol containingType)
+        {
+            return false;
+        }
+
+        var identifierToken = eventDeclaration.ExplicitInterfaceSpecifier is null
+            ? eventDeclaration.Identifier
+            : eventDeclaration.ExplicitInterfaceSpecifier.Identifier;
+
+        eventSymbol = containingType
+            .GetMembers(identifierToken.ValueText)
+            .OfType<IEventSymbol>()
+            .FirstOrDefault(@event => SymbolDeclarationUtilities.HasDeclaringSpan(@event, eventDeclaration))
+            ?? containingType
+                .GetMembers(identifierToken.ValueText)
+                .OfType<IEventSymbol>()
+                .FirstOrDefault();
+
+        return eventSymbol is not null;
+    }
+
+    private bool TryLookupAccessorSymbolFast(
+        AccessorDeclarationSyntax accessorDeclaration,
+        out IMethodSymbol? accessorSymbol)
+    {
+        accessorSymbol = null;
+
+        if (accessorDeclaration.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault() is { } propertyDeclaration &&
+            TryLookupKnownDeclaredSymbolFast(propertyDeclaration, out var propertySymbol) &&
+            propertySymbol is IPropertySymbol property)
+        {
+            if (IsGetAccessor(accessorDeclaration))
+                accessorSymbol = property.GetMethod;
+            else if (IsSetAccessor(accessorDeclaration))
+                accessorSymbol = property.SetMethod;
+
+            return accessorSymbol is not null;
+        }
+
+        if (accessorDeclaration.Ancestors().OfType<EventDeclarationSyntax>().FirstOrDefault() is { } eventDeclaration &&
+            TryLookupEventSymbolFast(eventDeclaration, out var eventSymbol))
+        {
+            if (IsAddAccessor(accessorDeclaration))
+                accessorSymbol = eventSymbol.AddMethod;
+            else if (IsRemoveAccessor(accessorDeclaration))
+                accessorSymbol = eventSymbol.RemoveMethod;
+
+            return accessorSymbol is not null;
+        }
+
+        return false;
+    }
+
+    private static bool IsGetAccessor(AccessorDeclarationSyntax accessor)
+        => accessor.Kind == SyntaxKind.GetAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.GetKeyword;
+
+    private static bool IsSetAccessor(AccessorDeclarationSyntax accessor)
+        => accessor.Kind == SyntaxKind.SetAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.SetKeyword;
+
+    private static bool IsAddAccessor(AccessorDeclarationSyntax accessor)
+        => accessor.Kind == SyntaxKind.AddAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.AddKeyword;
+
+    private static bool IsRemoveAccessor(AccessorDeclarationSyntax accessor)
+        => accessor.Kind == SyntaxKind.RemoveAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.RemoveKeyword;
 
     private IMethodSymbol? LookupMethodByContainingType(
         MethodDeclarationSyntax methodDeclaration,

@@ -54,6 +54,7 @@ internal sealed class WorkspaceManager
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<ProjectId, CachedDiagnostics> _diagnosticsCache = new();
     private readonly Dictionary<string, FailedProjectOpen> _failedProjectOpens = new(StringComparer.OrdinalIgnoreCase);
+    private readonly PerformanceInstrumentation _compilerPerformanceInstrumentation = new();
     private ImmutableArray<string> _workspaceRoots = ImmutableArray<string>.Empty;
     private ProjectId? _fallbackProjectId;
 
@@ -264,6 +265,7 @@ internal sealed class WorkspaceManager
         }
 
         var projectId = projectSystem.OpenProject(_workspace, normalizedProjectPath);
+        EnsureCompilerPerformanceInstrumentation(projectId);
         EnsureRavenCoreReference(projectId);
         EnsureBuiltInAnalyzers(projectId);
         loadedProjects[normalizedProjectPath] = projectId;
@@ -301,6 +303,33 @@ internal sealed class WorkspaceManager
 
     private void ClearProjectOpenFailure(string projectFilePath)
         => _failedProjectOpens.Remove(NormalizePath(projectFilePath));
+
+    private void EnsureCompilerPerformanceInstrumentation(ProjectId projectId)
+    {
+        var project = _workspace.CurrentSolution.GetProject(projectId);
+        if (project is null)
+            return;
+
+        var compilationOptions = NormalizeCompilationOptionsForLanguageServer(
+            project.CompilationOptions,
+            _compilerPerformanceInstrumentation);
+        if (ReferenceEquals(compilationOptions, project.CompilationOptions))
+            return;
+
+        _workspace.TryApplyChanges(_workspace.CurrentSolution.WithCompilationOptions(projectId, compilationOptions));
+    }
+
+    internal static CompilationOptions NormalizeCompilationOptionsForLanguageServer(
+        CompilationOptions? options,
+        PerformanceInstrumentation performanceInstrumentation)
+    {
+        ArgumentNullException.ThrowIfNull(performanceInstrumentation);
+
+        options ??= new CompilationOptions(OutputKind.ConsoleApplication);
+        return ReferenceEquals(options.PerformanceInstrumentation, PerformanceInstrumentation.Disabled)
+            ? options.WithPerformanceInstrumentation(performanceInstrumentation)
+            : options;
+    }
 
     private void EnsureRavenCoreReference(ProjectId projectId)
     {
@@ -1043,6 +1072,9 @@ internal sealed class WorkspaceManager
     {
         var compilationOptions = new CompilationOptions(OutputKind.ConsoleApplication)
             .WithMembersPublicByDefault(true);
+        compilationOptions = NormalizeCompilationOptionsForLanguageServer(
+            compilationOptions,
+            _compilerPerformanceInstrumentation);
         var projectId = _workspace.AddProject(name, compilationOptions: compilationOptions);
 
         var solution = _workspace.CurrentSolution;

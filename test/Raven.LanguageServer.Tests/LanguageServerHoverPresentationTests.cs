@@ -1996,6 +1996,87 @@ class C {
     }
 
     [Fact]
+    public void SymbolResolver_InvocationTarget_ReusesCachedSymbolInfoWithoutBinding()
+    {
+        const string code = """
+class C {
+    func Test() {
+        Print()
+    }
+
+    func Print() {
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var instrumentation = new PerformanceInstrumentation();
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                performanceInstrumentation: instrumentation));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var invocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var identifier = (IdentifierNameSyntax)invocation.Expression;
+
+        semanticModel.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+
+        instrumentation.BinderReentry.Reset();
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, identifier.Identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
+    }
+
+    [Fact]
+    public void SymbolResolver_MemberSegment_ReusesCachedSymbolInfoWithoutBinding()
+    {
+        const string code = """
+class Counter {
+    private var count: int = 0
+
+    func Test() {
+        val current = self.count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var instrumentation = new PerformanceInstrumentation();
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                performanceInstrumentation: instrumentation));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var memberAccess = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(static memberAccess => memberAccess.Name.Identifier.ValueText == "count");
+        var memberName = (IdentifierNameSyntax)memberAccess.Name;
+
+        semanticModel.GetSymbolInfo(memberName).Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+
+        instrumentation.BinderReentry.Reset();
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, memberName.Identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
+    }
+
+    [Fact]
     public void PipeInvocationTargetHover_UsesResolvedMethodSignature()
     {
         const string code = """

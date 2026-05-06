@@ -315,6 +315,7 @@ internal sealed class DocumentStore
         double diagnosticsFetchMs = 0;
         string? diagnosticsSetupDelta = null;
         string? diagnosticsBinderDelta = null;
+        string? diagnosticsSemanticDelta = null;
         var busySkipped = false;
         var semanticBusySkipped = false;
         var documentOnlyDiagnostics = false;
@@ -360,7 +361,12 @@ internal sealed class DocumentStore
                 IDisposable? semanticLease = null;
                 if (mode == DocumentDiagnosticsMode.Full)
                 {
-                    semanticLease = await EnterDocumentSemanticAccessAsync(uri, cancellationToken, "diagnostics-semantic").ConfigureAwait(false);
+                    semanticLease = await TryEnterDocumentSemanticAccessAsync(uri, cancellationToken, "diagnostics-semantic").ConfigureAwait(false);
+                    if (semanticLease is null)
+                    {
+                        semanticBusySkipped = true;
+                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+                    }
                 }
 
                 using var __ = semanticLease;
@@ -372,13 +378,17 @@ internal sealed class DocumentStore
                 {
                     var setupBefore = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
                     var binderBefore = context.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
+                    var semanticBefore = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
                     diagnosticsForProject = analysis.GetDiagnostics();
                     var setupAfter = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
                     var binderAfter = context.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
+                    var semanticAfter = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
                     diagnosticsSetupDelta = CompilerSetupInstrumentation.FormatDelta(
                         CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore));
                     diagnosticsBinderDelta = BinderReentryInstrumentation.FormatDelta(
                         BinderReentryInstrumentation.Subtract(binderAfter, binderBefore));
+                    diagnosticsSemanticDelta = SemanticQueryInstrumentation.FormatDelta(
+                        SemanticQueryInstrumentation.Subtract(semanticAfter, semanticBefore));
                 }
                 documentOnlyDiagnostics = true;
             }
@@ -454,7 +464,7 @@ internal sealed class DocumentStore
                 uri,
                 null,
                 stopwatch.Elapsed.TotalMilliseconds,
-                detail: $"{uri} mode={mode}",
+                detail: CreateDiagnosticsPerformanceDetail(uri, mode, diagnosticsSetupDelta, diagnosticsBinderDelta, diagnosticsSemanticDelta),
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -462,6 +472,27 @@ internal sealed class DocumentStore
                     new LanguageServerPerformanceInstrumentation.StageTiming("diagnosticsFetch", diagnosticsFetchMs)
                 ]);
         }
+    }
+
+    private static string CreateDiagnosticsPerformanceDetail(
+        DocumentUri uri,
+        DocumentDiagnosticsMode mode,
+        string? setupDelta,
+        string? binderDelta,
+        string? semanticDelta)
+    {
+        var detail = $"{uri} mode={mode}";
+
+        if (!string.IsNullOrWhiteSpace(setupDelta))
+            detail += $" setup=[{setupDelta}]";
+
+        if (!string.IsNullOrWhiteSpace(binderDelta))
+            detail += $" binder=[{binderDelta}]";
+
+        if (!string.IsNullOrWhiteSpace(semanticDelta))
+            detail += $" semantic=[{semanticDelta}]";
+
+        return detail;
     }
 
     private async Task<DiagnosticsComputationResult> GetSyntaxDiagnosticsCoreAsync(

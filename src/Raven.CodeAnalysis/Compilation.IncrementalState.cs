@@ -25,25 +25,30 @@ public partial class Compilation
         public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, FunctionExpressionRebindRootDescriptor>> FunctionExpressionRebindRootDescriptorsByOwner { get; } = new();
         public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<BinderParentAnchorKey, BinderParentAnchorDescriptor>> BinderParentAnchorDescriptors { get; } = new();
         public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, BinderParentAnchorDescriptor>> BinderParentAnchorDescriptorsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerDescriptor, ImmutableArray<SemanticDiagnosticDescriptor>>> SemanticDiagnosticsByOwner { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> SemanticDiagnosticsByRelativeOwner { get; } = new();
         public ConcurrentDictionary<SyntaxTree, ImmutableHashSet<ExecutableOwnerDescriptor>> ChangedExecutableOwnerDescriptors { get; } = new();
         public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerDescriptor, MatchedExecutableOwner>> MatchedExecutableOwners { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, byte> SemanticDiagnosticTransferBlockedSyntaxTrees { get; } = new();
     }
 
     internal readonly record struct IncrementalMatchedSyntaxTree(
         SyntaxTree CurrentTree,
         SyntaxTree PreviousTree,
         ImmutableArray<MatchedExecutableOwner> Matches,
-        ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> OwnerChanges);
+        ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> OwnerChanges,
+        bool BlocksSemanticDiagnosticTransfer);
 
     internal readonly record struct IncrementalChangedSyntaxTree(
         SyntaxTree CurrentTree,
         SyntaxTree PreviousTree,
         ImmutableArray<ExecutableOwnerDescriptor> ChangedOwners,
         ImmutableArray<MatchedExecutableOwner> MatchedOwners,
-        ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> OwnerChanges)
+        ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> OwnerChanges,
+        bool BlocksSemanticDiagnosticTransfer)
     {
         public IncrementalMatchedSyntaxTree ToMatchedSyntaxTree()
-            => new(CurrentTree, PreviousTree, MatchedOwners, OwnerChanges);
+            => new(CurrentTree, PreviousTree, MatchedOwners, OwnerChanges, BlocksSemanticDiagnosticTransfer);
     }
 
     internal readonly record struct IncrementalCompilationPlan(
@@ -85,6 +90,8 @@ public partial class Compilation
         public Dictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, FunctionExpressionRebindRootDescriptor>> FunctionExpressionRebindRootDescriptorsByOwner { get; } = new();
         public Dictionary<SyntaxTree, Dictionary<BinderParentAnchorKey, BinderParentAnchorDescriptor>> BinderParentAnchorDescriptors { get; } = new();
         public Dictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, BinderParentAnchorDescriptor>> BinderParentAnchorDescriptorsByOwner { get; } = new();
+        public Dictionary<SyntaxTree, Dictionary<ExecutableOwnerDescriptor, ImmutableArray<SemanticDiagnosticDescriptor>>> SemanticDiagnosticsByOwner { get; } = new();
+        public Dictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> SemanticDiagnosticsByRelativeOwner { get; } = new();
 
         public bool TryGetVisibleValueScopeDeclarations(SyntaxTree syntaxTree, VisibleValueScopeKey key, out ImmutableArray<VisibleValueDeclarationDescriptor> declarations)
             => TryGetExact(VisibleValueScopeDeclarations, syntaxTree, key, out declarations);
@@ -124,6 +131,18 @@ public partial class Compilation
 
         public bool TryGetBinderParentAnchorDescriptor(SyntaxTree syntaxTree, OwnerRelativeDescriptorKey key, out BinderParentAnchorDescriptor descriptor)
             => TryGetExact(BinderParentAnchorDescriptorsByOwner, syntaxTree, key, out descriptor);
+
+        public bool TryGetSemanticDiagnostics(
+            SyntaxTree syntaxTree,
+            ExecutableOwnerDescriptor owner,
+            out ImmutableArray<SemanticDiagnosticDescriptor> descriptors)
+            => TryGetExact(SemanticDiagnosticsByOwner, syntaxTree, owner, out descriptors);
+
+        public bool TryGetSemanticDiagnostics(
+            SyntaxTree syntaxTree,
+            OwnerRelativeDescriptorKey key,
+            out ImmutableArray<SemanticDiagnosticDescriptor> descriptors)
+            => TryGetExact(SemanticDiagnosticsByRelativeOwner, syntaxTree, key, out descriptors);
 
         private static bool TryGetExact<TKey, TValue>(
             Dictionary<SyntaxTree, Dictionary<TKey, TValue>> storage,

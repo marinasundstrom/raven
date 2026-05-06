@@ -269,6 +269,24 @@ internal static partial class SymbolResolver
         }
 
         if (memberAccess.Name.Span.Contains(tokenSpan) &&
+            semanticModel.TryGetCachedSymbolInfo(memberAccess, out var cachedMemberAccessInfo))
+        {
+            var chosenCachedMemberAccessSymbol = ProjectSymbolForDisplay(
+                ChoosePreferredSymbol(cachedMemberAccessInfo.Symbol, cachedMemberAccessInfo.CandidateSymbols, memberAccess));
+            if (chosenCachedMemberAccessSymbol is not null)
+                return chosenCachedMemberAccessSymbol;
+        }
+
+        if (memberAccess.Name.Span.Contains(tokenSpan) &&
+            semanticModel.TryGetCachedSymbolInfo(memberAccess.Name, out var cachedNameInfo))
+        {
+            var chosenCachedNameSymbol = ProjectSymbolForDisplay(
+                ChoosePreferredSymbol(cachedNameInfo.Symbol, cachedNameInfo.CandidateSymbols, memberAccess.Name));
+            if (chosenCachedNameSymbol is not null)
+                return chosenCachedNameSymbol;
+        }
+
+        if (memberAccess.Name.Span.Contains(tokenSpan) &&
             TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolvedFromReceiver))
         {
             var projectedReceiverSymbol = ProjectSymbolForDisplay(resolvedFromReceiver);
@@ -321,7 +339,8 @@ internal static partial class SymbolResolver
         if (string.IsNullOrWhiteSpace(memberName))
             return false;
 
-        var receiverType = semanticModel.GetTypeInfo(memberAccess.Expression).Type;
+        var receiverType = TryGetCachedReceiverType(semanticModel, memberAccess.Expression);
+        receiverType ??= semanticModel.GetTypeInfo(memberAccess.Expression).Type;
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
             var receiverSymbol = TryGetSymbolInfo(semanticModel, memberAccess.Expression, out var receiverInfo)
@@ -400,6 +419,24 @@ internal static partial class SymbolResolver
         }
 
         return false;
+    }
+
+    private static ITypeSymbol? TryGetCachedReceiverType(
+        SemanticModel semanticModel,
+        ExpressionSyntax receiver)
+    {
+        if (!semanticModel.TryGetCachedSymbolInfo(receiver, out var receiverInfo))
+            return null;
+
+        return receiverInfo.Symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IPropertySymbol property => property.Type,
+            IFieldSymbol field => field.Type,
+            IMethodSymbol method => method.ReturnType,
+            _ => null
+        };
     }
 
     private static bool TryInferFunctionParameterTypeFromInvocationContext(

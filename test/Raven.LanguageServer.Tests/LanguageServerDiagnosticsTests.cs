@@ -465,7 +465,7 @@ record Person(
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_FullMode_WaitsForDocumentSemanticGateInsteadOfSkippingAsync()
+    public async Task TryGetDiagnosticsAsync_FullMode_SkipsWhenDocumentSemanticGateIsBusyAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -498,14 +498,9 @@ func Main() -> () {
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
-        await Task.Delay(100);
-        diagnosticsTask.IsCompleted.ShouldBeFalse();
-
-        heldLease.Dispose();
-
         var result = await diagnosticsTask;
-        result.WasSkipped.ShouldBeFalse();
-        result.Diagnostics.Any(d => string.Equals(d.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeTrue();
+        result.WasSkipped.ShouldBeTrue();
+        result.Diagnostics.ShouldBeEmpty();
     }
 
     [Fact]

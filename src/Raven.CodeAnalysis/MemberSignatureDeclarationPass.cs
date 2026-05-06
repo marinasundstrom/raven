@@ -156,7 +156,174 @@ internal static class MemberSignatureDeclarationPass
             propertySymbol.MarkAsRequired();
 
         propertySymbol.SetMutability(propertyDeclaration.BindingKeyword.Kind == SyntaxKind.VarKeyword);
+        propertySymbol.SetAccessors(
+            CreatePropertyAccessorSymbol(
+                propertyDeclaration,
+                propertyDeclaration.AccessorList?.Accessors.FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.GetAccessorDeclaration),
+                propertySymbol,
+                containingType,
+                MethodKind.PropertyGet,
+                "get_" + propertySymbol.Name,
+                propertyType,
+                propertyAccessibility),
+            CreatePropertyAccessorSymbol(
+                propertyDeclaration,
+                propertyDeclaration.AccessorList?.Accessors.FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.SetAccessorDeclaration),
+                propertySymbol,
+                containingType,
+                MethodKind.PropertySet,
+                "set_" + propertySymbol.Name,
+                compilation.GetSpecialType(SpecialType.System_Unit),
+                propertyAccessibility));
         compilation.RegisterPropertySymbol(propertyDeclaration, propertySymbol);
+    }
+
+    public static void DeclareEventSignature(
+        SemanticModel semanticModel,
+        EventDeclarationSyntax eventDeclaration)
+    {
+        var compilation = semanticModel.Compilation;
+
+        if (compilation.TryGetEventSymbol(eventDeclaration, out _))
+            return;
+
+        if (!TryGetContainingDeclaredType(compilation, eventDeclaration, out var containingType))
+            return;
+
+        if (containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true } ||
+            eventDeclaration.ExplicitInterfaceSpecifier is not null ||
+            eventDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.PartialKeyword))
+        {
+            return;
+        }
+
+        var eventType = ResolveSkeletonType(compilation, eventDeclaration.Type.Type, compilation.ErrorTypeSymbol, containingType);
+        if (eventType.TypeKind == TypeKind.Error)
+            return;
+
+        var isStatic = eventDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
+        var defaultAccessibility = compilation.Options.MembersPublicByDefault
+            ? Accessibility.Public
+            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
+        var eventAccessibility = AccessibilityUtilities.DetermineAccessibility(
+            eventDeclaration.Modifiers,
+            defaultAccessibility);
+        var eventSymbol = new SourceEventSymbol(
+            eventDeclaration.Identifier.ValueText,
+            eventType,
+            containingType,
+            containingType,
+            containingType.ContainingNamespace,
+            [eventDeclaration.GetLocation()],
+            [eventDeclaration.GetReference()],
+            isStatic: isStatic,
+            declaredAccessibility: eventAccessibility);
+
+        eventSymbol.SetAccessors(
+            CreateEventAccessorSymbol(
+                compilation,
+                eventDeclaration,
+                eventDeclaration.AccessorList?.Accessors.FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.AddAccessorDeclaration),
+                eventSymbol,
+                containingType,
+                MethodKind.EventAdd,
+                "add_" + eventSymbol.Name,
+                eventType,
+                eventAccessibility),
+            CreateEventAccessorSymbol(
+                compilation,
+                eventDeclaration,
+                eventDeclaration.AccessorList?.Accessors.FirstOrDefault(static accessor => accessor.Kind == SyntaxKind.RemoveAccessorDeclaration),
+                eventSymbol,
+                containingType,
+                MethodKind.EventRemove,
+                "remove_" + eventSymbol.Name,
+                eventType,
+                eventAccessibility));
+        compilation.RegisterEventSymbol(eventDeclaration, eventSymbol);
+    }
+
+    private static SourceMethodSymbol? CreatePropertyAccessorSymbol(
+        PropertyDeclarationSyntax propertyDeclaration,
+        AccessorDeclarationSyntax? accessorDeclaration,
+        SourcePropertySymbol propertySymbol,
+        INamedTypeSymbol containingType,
+        MethodKind methodKind,
+        string name,
+        ITypeSymbol returnType,
+        Accessibility accessibility)
+    {
+        if (accessorDeclaration is null)
+            return null;
+
+        var methodSymbol = new SourceMethodSymbol(
+            name,
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            propertySymbol,
+            containingType,
+            containingType.ContainingNamespace,
+            [accessorDeclaration.GetLocation()],
+            [accessorDeclaration.GetReference()],
+            isStatic: propertySymbol.IsStatic,
+            methodKind: methodKind,
+            declaredAccessibility: accessibility);
+
+        if (methodKind == MethodKind.PropertySet)
+        {
+            methodSymbol.SetParameters([
+                new SourceParameterSymbol(
+                    "value",
+                    propertySymbol.Type,
+                    methodSymbol,
+                    containingType,
+                    containingType.ContainingNamespace,
+                    [propertyDeclaration.GetLocation()],
+                    [propertyDeclaration.GetReference()])
+            ]);
+        }
+
+        return methodSymbol;
+    }
+
+    private static SourceMethodSymbol CreateEventAccessorSymbol(
+        Compilation compilation,
+        EventDeclarationSyntax eventDeclaration,
+        AccessorDeclarationSyntax? accessorDeclaration,
+        SourceEventSymbol eventSymbol,
+        INamedTypeSymbol containingType,
+        MethodKind methodKind,
+        string name,
+        ITypeSymbol eventType,
+        Accessibility accessibility)
+    {
+        var location = accessorDeclaration?.GetLocation() ?? eventDeclaration.GetLocation();
+        var reference = accessorDeclaration?.GetReference() ?? eventDeclaration.GetReference();
+        var methodSymbol = new SourceMethodSymbol(
+            name,
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            eventSymbol,
+            containingType,
+            containingType.ContainingNamespace,
+            [location],
+            [reference],
+            isStatic: eventSymbol.IsStatic,
+            methodKind: methodKind,
+            declaredAccessibility: accessibility);
+
+        methodSymbol.SetParameters([
+            new SourceParameterSymbol(
+                "value",
+                eventType,
+                methodSymbol,
+                containingType,
+                containingType.ContainingNamespace,
+                [eventDeclaration.GetLocation()],
+                [eventDeclaration.GetReference()])
+        ]);
+
+        return methodSymbol;
     }
 
     private static bool TryGetContainingDeclaredType(
@@ -221,6 +388,7 @@ internal static class MemberSignatureDeclarationPass
         {
             UnitTypeSyntax => compilation.GetSpecialType(SpecialType.System_Unit),
             PredefinedTypeSyntax predefined => ResolvePredefinedSkeletonType(compilation, predefined.Keyword.Kind, fallbackType),
+            QualifiedNameSyntax qualifiedName => ResolveQualifiedSkeletonType(compilation, qualifiedName, fallbackType),
             IdentifierNameSyntax identifier => ResolveIdentifierSkeletonType(
                 compilation,
                 identifier.Identifier.ValueText,
@@ -230,6 +398,52 @@ internal static class MemberSignatureDeclarationPass
             ByRefTypeSyntax byRef => ResolveSkeletonType(compilation, byRef.ElementType, fallbackType, containingType, methodTypeParameters),
             _ => fallbackType
         };
+
+    private static ITypeSymbol ResolveQualifiedSkeletonType(
+        Compilation compilation,
+        QualifiedNameSyntax qualifiedName,
+        ITypeSymbol fallbackType)
+        => TryGetQualifiedMetadataName(qualifiedName, out var metadataName)
+            ? compilation.GetTypeByMetadataName(metadataName) ?? fallbackType
+            : fallbackType;
+
+    private static bool TryGetQualifiedMetadataName(
+        NameSyntax nameSyntax,
+        out string metadataName)
+    {
+        switch (nameSyntax)
+        {
+            case IdentifierNameSyntax identifier:
+                metadataName = identifier.Identifier.ValueText;
+                return !string.IsNullOrEmpty(metadataName);
+
+            case QualifiedNameSyntax qualifiedName when
+                TryGetQualifiedMetadataName(qualifiedName.Left, out var left) &&
+                TryGetUnqualifiedMetadataName(qualifiedName.Right, out var right):
+                metadataName = left + "." + right;
+                return true;
+
+            default:
+                metadataName = string.Empty;
+                return false;
+        }
+    }
+
+    private static bool TryGetUnqualifiedMetadataName(
+        UnqualifiedNameSyntax nameSyntax,
+        out string metadataName)
+    {
+        switch (nameSyntax)
+        {
+            case IdentifierNameSyntax identifier:
+                metadataName = identifier.Identifier.ValueText;
+                return !string.IsNullOrEmpty(metadataName);
+
+            default:
+                metadataName = string.Empty;
+                return false;
+        }
+    }
 
     private static ITypeSymbol ResolveIdentifierSkeletonType(
         Compilation compilation,

@@ -134,6 +134,10 @@ partial class BlockBinder : Binder
         using var _ = EnterExecutionScope();
         return node switch
         {
+            IdentifierNameSyntax identifier => BindIdentifierReference(identifier),
+            InvocationExpressionSyntax invocation => BindInvocationReference(invocation),
+            MemberAccessExpressionSyntax memberAccess => BindMemberAccessReference(memberAccess),
+            MemberBindingExpressionSyntax memberBinding => BindMemberBindingReference(memberBinding),
             ExpressionSyntax expr => BindExpression(expr).GetSymbolInfo(),
             ExpressionStatementSyntax stmt => BindStatement(stmt).GetSymbolInfo(),
             _ => base.BindReferencedSymbol(node)
@@ -7003,7 +7007,7 @@ partial class BlockBinder : Binder
             return UnwrapNullableIfKnownNonNull(p, paramEarly);
         }
 
-        if (TryBindImplicitInstanceMember(name, syntax, out var memberExpr))
+        if (TryBindImplicitInstanceMember(name, syntax, allowEventAccess, out var memberExpr))
             return memberExpr;
 
         if (symbol is null)
@@ -7174,7 +7178,7 @@ partial class BlockBinder : Binder
         }
     }
 
-    private bool TryBindImplicitInstanceMember(string name, IdentifierNameSyntax syntax, out BoundExpression expr)
+    private bool TryBindImplicitInstanceMember(string name, IdentifierNameSyntax syntax, bool allowEventAccess, out BoundExpression expr)
     {
         expr = null!;
 
@@ -7205,6 +7209,16 @@ partial class BlockBinder : Binder
             {
                 expr = new BoundPropertyAccess(/* new BoundSelfExpression(containingType), */ property);
                 return true;
+            }
+
+            if (allowEventAccess)
+            {
+                var @event = members.OfType<IEventSymbol>().FirstOrDefault(e => !e.IsStatic);
+                if (@event is not null && IsSymbolAccessible(@event))
+                {
+                    expr = new BoundMemberAccessExpression(new BoundSelfExpression(containingType), @event);
+                    return true;
+                }
             }
         }
 
