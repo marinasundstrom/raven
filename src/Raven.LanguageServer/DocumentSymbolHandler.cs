@@ -113,6 +113,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                 stopwatch.Elapsed.TotalMilliseconds,
                 cacheHit: cacheHit,
                 resultCount: symbolCount,
+                detail: $"{request.TextDocument.Uri}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),

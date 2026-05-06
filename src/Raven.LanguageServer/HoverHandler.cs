@@ -220,6 +220,7 @@ internal sealed class HoverHandler : IHoverHandler
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
                 cacheHit: cacheHit,
+                detail: $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),

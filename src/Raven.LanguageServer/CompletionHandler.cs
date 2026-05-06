@@ -123,6 +123,7 @@ internal sealed class CompletionHandler : ICompletionHandler
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
                 resultCount: itemCount,
+                detail: $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),

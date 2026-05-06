@@ -54,6 +54,7 @@ internal static class LanguageServerPerformanceInstrumentation
         double totalMs,
         bool cacheHit = false,
         int? resultCount = null,
+        string? detail = null,
         params StageTiming[] stages)
     {
 #if RAVEN_INSTRUMENTATION
@@ -71,7 +72,7 @@ internal static class LanguageServerPerformanceInstrumentation
         }
 
         var aggregate = s_operations.GetOrAdd(operation, static name => new OperationAggregate(name));
-        aggregate.Record(totalMs, stages, cacheHit, resultCount, firstLookupAfterEditMs, editSource);
+        aggregate.Record(totalMs, stages, cacheHit, resultCount, firstLookupAfterEditMs, editSource, detail);
         TryFlushToDisk();
 #endif
     }
@@ -179,6 +180,8 @@ internal static class LanguageServerPerformanceInstrumentation
         private readonly object _sync = new();
         private readonly Dictionary<string, StageAggregate> _stages = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _firstLookupSources = new(StringComparer.Ordinal);
+        private readonly List<SlowSample> _slowSamples = new(capacity: MaxSlowSamples);
+        private const int MaxSlowSamples = 5;
 
         private int _count;
         private int _cacheHits;
@@ -212,7 +215,8 @@ internal static class LanguageServerPerformanceInstrumentation
             bool cacheHit,
             int? resultCount,
             double? firstLookupAfterEditMs,
-            string? editSource)
+            string? editSource,
+            string? detail)
         {
             lock (_sync)
             {
@@ -239,6 +243,8 @@ internal static class LanguageServerPerformanceInstrumentation
                         _firstLookupSources[editSource!] = _firstLookupSources.GetValueOrDefault(editSource!) + 1;
                 }
 
+                RecordSlowSample(totalMs, detail);
+
                 foreach (var stage in stages)
                 {
                     if (!_stages.TryGetValue(stage.Name, out var aggregate))
@@ -252,6 +258,18 @@ internal static class LanguageServerPerformanceInstrumentation
                     aggregate.MaxMilliseconds = Math.Max(aggregate.MaxMilliseconds, stage.ElapsedMs);
                 }
             }
+        }
+
+        private void RecordSlowSample(double totalMs, string? detail)
+        {
+            if (string.IsNullOrWhiteSpace(detail))
+                return;
+
+            _slowSamples.Add(new SlowSample(totalMs, detail!));
+            _slowSamples.Sort(static (left, right) => right.TotalMs.CompareTo(left.TotalMs));
+
+            if (_slowSamples.Count > MaxSlowSamples)
+                _slowSamples.RemoveRange(MaxSlowSamples, _slowSamples.Count - MaxSlowSamples);
         }
 
         public string FormatReportSection()
@@ -295,10 +313,19 @@ internal static class LanguageServerPerformanceInstrumentation
                     }
                 }
 
+                if (_slowSamples.Count > 0)
+                {
+                    builder.AppendLine("  SlowestSamples:");
+                    foreach (var sample in _slowSamples)
+                        builder.AppendLine($"    {sample.TotalMs:F1}ms {sample.Detail}");
+                }
+
                 return builder.AppendLine().ToString();
             }
         }
     }
+
+    private readonly record struct SlowSample(double TotalMs, string Detail);
 
     private sealed class StageAggregate
     {

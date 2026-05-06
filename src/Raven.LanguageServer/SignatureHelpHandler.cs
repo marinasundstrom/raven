@@ -150,6 +150,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
                 resultCount: resultCount,
+                detail: $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),

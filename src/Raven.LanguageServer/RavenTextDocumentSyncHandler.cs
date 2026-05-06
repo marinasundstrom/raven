@@ -87,7 +87,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 "didOpen",
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version,
-                stopwatch.Elapsed.TotalMilliseconds);
+                stopwatch.Elapsed.TotalMilliseconds,
+                detail: $"{notification.TextDocument.Uri} version={notification.TextDocument.Version}");
             return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -186,6 +187,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version,
                 totalStopwatch.Elapsed.TotalMilliseconds,
+                detail: $"{notification.TextDocument.Uri} version={notification.TextDocument.Version}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -634,7 +636,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 uri,
                 expectedVersion,
                 stopwatch.Elapsed.TotalMilliseconds,
-                resultCount: diagnosticsCount);
+                resultCount: diagnosticsCount,
+                detail: $"{uri} version={expectedVersion} mode={mode} outcome={outcome}");
         }
 
         return Unit.Value;

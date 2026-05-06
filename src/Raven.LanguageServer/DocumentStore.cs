@@ -454,6 +454,7 @@ internal sealed class DocumentStore
                 uri,
                 null,
                 stopwatch.Elapsed.TotalMilliseconds,
+                detail: $"{uri} mode={mode}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -526,6 +527,7 @@ internal sealed class DocumentStore
                 uri,
                 null,
                 stopwatch.Elapsed.TotalMilliseconds,
+                detail: $"{uri} syntaxOnly",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", 0),
@@ -655,6 +657,7 @@ internal sealed class DocumentStore
                 uri,
                 null,
                 stopwatch.Elapsed.TotalMilliseconds,
+                detail: $"{uri}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
