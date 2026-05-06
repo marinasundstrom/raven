@@ -159,7 +159,7 @@ internal static partial class SymbolResolver
 
         var current = GetOperationSymbol(operation);
 
-        foreach (var child in operation.ChildOperations)
+        foreach (var child in GetChildOperations(operation))
         {
             if (!child.Syntax.Span.Contains(tokenSpan))
                 continue;
@@ -170,6 +170,18 @@ internal static partial class SymbolResolver
         }
 
         return current;
+    }
+
+    private static ImmutableArray<IOperation> GetChildOperations(IOperation operation)
+    {
+        try
+        {
+            return operation.ChildOperations;
+        }
+        catch
+        {
+            return ImmutableArray<IOperation>.Empty;
+        }
     }
 
     private static ISymbol? GetOperationSymbol(IOperation operation)

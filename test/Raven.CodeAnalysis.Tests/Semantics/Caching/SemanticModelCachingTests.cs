@@ -165,6 +165,7 @@ class C {
         var setup = instrumentation.Setup;
         typeof(CompilerSetupInstrumentation).GetMethod("RecordEnsureSemanticModelsCreatedCall", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(setup, []);
         typeof(CompilerSetupInstrumentation).GetMethod("RecordSemanticModelCreated", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(setup, []);
+        typeof(CompilerSetupInstrumentation).GetMethod("RecordEnsureSourceDeclarationsDeclaredCall", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(setup, []);
         typeof(CompilerSetupInstrumentation).GetMethod("RecordEnsureSourceDeclarationsCompleteCall", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(setup, []);
         typeof(CompilerSetupInstrumentation).GetMethod("RecordEnsureDeclarationsCall", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(setup, []);
         typeof(CompilerSetupInstrumentation).GetMethod("RecordDeclarationPass", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(setup, []);
@@ -175,6 +176,7 @@ class C {
 
         Assert.Equal(0, instrumentation.Setup.EnsureSemanticModelsCreatedCalls);
         Assert.Equal(0, instrumentation.Setup.SemanticModelsCreated);
+        Assert.Equal(0, instrumentation.Setup.EnsureSourceDeclarationsDeclaredCalls);
         Assert.Equal(0, instrumentation.Setup.EnsureSourceDeclarationsCompleteCalls);
         Assert.Equal(0, instrumentation.Setup.EnsureDeclarationsCalls);
         Assert.Equal(0, instrumentation.Setup.DeclarationPasses);

@@ -331,6 +331,118 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task HoverHandler_EditCycle_PropertyRemovedAndReadded_ResolvesPropertyHoverAsync()
+    {
+        var initialText = """
+class Foo {
+    val Test: string => ""
+}
+
+func Main() -> unit {
+    val foo = Foo()
+    foo.Test
+}
+""";
+        var withoutPropertyText = """
+class Foo {
+}
+
+func Main() -> unit {
+    val foo = Foo()
+    foo.Test
+}
+""";
+        var restoredText = initialText;
+
+        var (store, _, uri) = CreateWorkspace(initialText);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        await AssertPropertyMemberHoverAsync(store, handler, uri, initialText);
+
+        store.UpsertDocument(uri, withoutPropertyText);
+        var missingHover = await GetPropertyMemberHoverAsync(store, handler, uri, withoutPropertyText);
+        missingHover?.Contents.MarkupContent?.Value.ShouldNotContain("val Test: string");
+
+        store.UpsertDocument(uri, restoredText);
+
+        await AssertPropertyMemberHoverAsync(store, handler, uri, restoredText);
+    }
+
+    [Fact]
+    public async Task HoverHandler_EditCycle_BodyDeclarationEdit_ResolvesUpdatedLocalHoverAsync()
+    {
+        var initialText = """
+class Runner {
+    func Main(value: int) -> int {
+        val result = value
+        return result
+    }
+}
+""";
+        var updatedText = """
+class Runner {
+    func Main(value: int) -> int {
+        val renamed = value
+        return renamed
+    }
+}
+""";
+
+        var (store, _, uri) = CreateWorkspace(initialText);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        await AssertLocalHoverAsync(store, handler, uri, initialText, "return result", "result", "val result: int");
+
+        store.UpsertDocument(uri, updatedText);
+
+        await AssertLocalHoverAsync(store, handler, uri, updatedText, "return renamed", "renamed", "val renamed: int");
+    }
+
+    [Fact]
+    public async Task HoverHandler_EditCycle_AddedOverload_ResolvesNewSignatureHoverAsync()
+    {
+        var initialText = """
+class Runner {
+    static func Pick(value: int) -> int {
+        return value
+    }
+
+    static func Main() -> unit {
+        Pick(1)
+    }
+}
+""";
+        var updatedText = """
+class Runner {
+    static func Pick(value: int) -> int {
+        return value
+    }
+
+    static func Pick(text: string) -> string {
+        return text
+    }
+
+    static func Main() -> unit {
+        Pick("text")
+    }
+}
+""";
+
+        var (store, _, uri) = CreateWorkspace(initialText);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        store.UpsertDocument(uri, updatedText);
+
+        await AssertMethodDeclarationHoverAsync(
+            store,
+            handler,
+            uri,
+            updatedText,
+            "Pick(text: string)",
+            "func Pick(text: string) -> string");
+    }
+
+    [Fact]
     public async Task HoverHandler_EditCycle_PipeInvocationTargetStaysMethodAsync()
     {
         var initialText = """
@@ -805,6 +917,41 @@ union Status {
         hover!.Contents.MarkupContent.ShouldNotBeNull();
         hover.Contents.MarkupContent!.Value.ShouldContain("val Name: string");
         hover.Contents.MarkupContent!.Value.ShouldContain("Property in `Foo`");
+    }
+
+    [Fact]
+    public async Task HoverHandler_MethodDeclarationIdentifier_UsesSyntaxHoverWithoutSemanticGateAsync()
+    {
+        var text = """
+class Runner {
+    static func Pick(text: string) -> string {
+        return text
+    }
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var pickOffset = text.IndexOf("Pick(text: string)", StringComparison.Ordinal);
+        pickOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(pickOffset + 1, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("static func Pick(text: string) -> string");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Method in `class Runner`");
     }
 
     [Fact]
@@ -1313,6 +1460,40 @@ class C {
         targetHover.Range.Start.Line.ShouldBe(expectedLine);
     }
 
+    private static async Task AssertPropertyMemberHoverAsync(
+        DocumentStore store,
+        HoverHandler handler,
+        DocumentUri uri,
+        string text)
+    {
+        var hover = await GetPropertyMemberHoverAsync(store, handler, uri, text);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("val Test: string");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Property in `class Foo`");
+    }
+
+    private static async Task<Hover?> GetPropertyMemberHoverAsync(
+        DocumentStore store,
+        HoverHandler handler,
+        DocumentUri uri,
+        string text)
+    {
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var testOffset = text.IndexOf("foo.Test", StringComparison.Ordinal);
+        testOffset.ShouldBeGreaterThanOrEqualTo(0);
+        testOffset += "foo.".Length + 1;
+
+        return await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(testOffset, 0)).Start
+        }, CancellationToken.None);
+    }
+
     private static async Task AssertPipeWhereHoverAsync(
         DocumentStore store,
         HoverHandler handler,
@@ -1340,6 +1521,62 @@ class C {
         hover.Contents.MarkupContent!.Value.ShouldNotContain("val query");
         hover.Range.ShouldNotBeNull();
         hover.Range.Start.Line.ShouldBe(expectedLine);
+    }
+
+    private static async Task AssertLocalHoverAsync(
+        DocumentStore store,
+        HoverHandler handler,
+        DocumentUri uri,
+        string text,
+        string marker,
+        string symbolName,
+        string expectedSignature)
+    {
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var markerOffset = text.IndexOf(marker, StringComparison.Ordinal);
+        markerOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var symbolOffset = text.IndexOf(symbolName, markerOffset, StringComparison.Ordinal);
+        symbolOffset.ShouldBeGreaterThanOrEqualTo(0);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(symbolOffset + 1, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain(expectedSignature);
+        hover.Range.ShouldNotBeNull();
+    }
+
+    private static async Task AssertMethodDeclarationHoverAsync(
+        DocumentStore store,
+        HoverHandler handler,
+        DocumentUri uri,
+        string text,
+        string marker,
+        string expectedSignature)
+    {
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var markerOffset = text.IndexOf(marker, StringComparison.Ordinal);
+        markerOffset.ShouldBeGreaterThanOrEqualTo(0);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(markerOffset + 1, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain(expectedSignature);
+        hover.Contents.MarkupContent!.Value.ShouldContain("Method in `class Runner`");
+        hover.Range.ShouldNotBeNull();
     }
 
     private (DocumentStore store, WorkspaceManager manager, DocumentUri uri) CreateWorkspace(string text)

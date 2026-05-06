@@ -155,6 +155,7 @@ public partial class SemanticModel
 
             try
             {
+                Compilation.EnsureSourceDeclarationsComplete();
                 var root = SyntaxTree.GetRoot();
                 var binder = GetBinder(root);
 
@@ -3519,8 +3520,8 @@ public partial class SemanticModel
     /// <remarks>Might return a cached binder</remarks>
     internal Binder GetBinder(SyntaxNode node, Binder? parentBinder = null)
     {
-        if (!Compilation.SourceDeclarationsComplete)
-            Compilation.EnsureSourceDeclarationsComplete();
+        if (!Compilation.SourceDeclarationsDeclared)
+            Compilation.EnsureSourceDeclarationsDeclared();
 
         var nodeKey = GetSyntaxNodeMapKey(node);
         var useStructuralCache = CanUseStructuralBinderCache(node);

@@ -54,6 +54,7 @@ public partial class Compilation
     private int _semanticModelSetupThreadId;
     private readonly object _declarationGate = new();
     private readonly object _declarationTableGate = new();
+    private bool _sourceDeclarationsDeclared;
     private bool _sourceDeclarationsComplete;
     private bool _isDeclaringSourceTypes;
     private int _sourceDeclarationThreadId;
@@ -1535,23 +1536,8 @@ public partial class Compilation
             var invokeParameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDeclaration.ParameterList.Parameters.Count);
             foreach (var p in delegateDeclaration.ParameterList.Parameters)
             {
-                var refKindTokenKind = p.RefKindKeyword.Kind;
                 var typeSyntax = p.TypeAnnotation!.Type;
-                var refKind = typeSyntax is ByRefTypeSyntax
-                    ? refKindTokenKind switch
-                    {
-                        SyntaxKind.OutKeyword => RefKind.Out,
-                        SyntaxKind.InKeyword => RefKind.In,
-                        SyntaxKind.RefKeyword => RefKind.Ref,
-                        _ => RefKind.Ref,
-                    }
-                    : refKindTokenKind switch
-                    {
-                        SyntaxKind.OutKeyword => RefKind.Out,
-                        SyntaxKind.InKeyword => RefKind.In,
-                        SyntaxKind.RefKeyword => RefKind.Ref,
-                        _ => RefKind.None,
-                    };
+                var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
                 var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                     ? byRefType.ElementType

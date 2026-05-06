@@ -17,6 +17,8 @@ public partial class Compilation
 
     internal bool SourceDeclarationsComplete => _sourceDeclarationsComplete;
 
+    internal bool SourceDeclarationsDeclared => _sourceDeclarationsDeclared;
+
     /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation.
     /// </summary>
@@ -49,9 +51,13 @@ public partial class Compilation
     {
         EnsureSetup();
 
-        EnsureSemanticModelsCreated();
-        EnsureSourceDeclarationsComplete();
+        EnsureSourceDeclarationsDeclared();
 
+        return GetOrCreateSemanticModel(syntaxTree);
+    }
+
+    private SemanticModel GetOrCreateSemanticModel(SyntaxTree syntaxTree)
+    {
         if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
         {
             return semanticModel;
@@ -102,6 +108,8 @@ public partial class Compilation
         EnsureSetup();
         PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsCompleteCall();
 
+        EnsureSourceDeclarationsDeclared();
+
         if (_sourceDeclarationsComplete)
             return;
 
@@ -119,18 +127,56 @@ public partial class Compilation
             _sourceDeclarationThreadId = currentThreadId;
             try
             {
+                var semanticModels = _semanticModels.Values.ToArray();
+
+                foreach (var model in semanticModels)
+                    model.EnsureRootBinderCreated();
+
+                _sourceDeclarationsComplete = true;
+            }
+            finally
+            {
+                _sourceDeclarationThreadId = 0;
+                _isDeclaringSourceTypes = false;
+                Monitor.PulseAll(_declarationGate);
+            }
+        }
+    }
+
+    internal void EnsureSourceDeclarationsDeclared()
+    {
+        EnsureSetup();
+        PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsDeclaredCall();
+
+        if (_sourceDeclarationsDeclared)
+            return;
+
+        var currentThreadId = Environment.CurrentManagedThreadId;
+
+        lock (_declarationGate)
+        {
+            while (_isDeclaringSourceTypes && _sourceDeclarationThreadId != currentThreadId)
+                Monitor.Wait(_declarationGate);
+
+            if (_sourceDeclarationsDeclared || _isDeclaringSourceTypes)
+                return;
+
+            _isDeclaringSourceTypes = true;
+            _sourceDeclarationThreadId = currentThreadId;
+            try
+            {
                 EnsureSemanticModelsCreated();
                 var semanticModels = _semanticModels.Values.ToArray();
 
                 foreach (var model in semanticModels)
                     model.EnsureDeclarations();
 
+                foreach (var model in semanticModels)
+                    model.EnsureMemberSignaturesDeclared();
+
                 EnsureDefaultConstructorsDeclared();
 
-                foreach (var model in semanticModels)
-                    model.EnsureRootBinderCreated();
-
-                _sourceDeclarationsComplete = true;
+                _sourceDeclarationsDeclared = true;
             }
             finally
             {

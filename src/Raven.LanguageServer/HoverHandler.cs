@@ -868,6 +868,9 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.IsMissing || token.Kind != SyntaxKind.IdentifierToken)
                 continue;
 
+            if (TryBuildCallableDeclarationSyntaxHover(sourceText, token, out var callableHover))
+                return callableHover;
+
             if (TryBuildPrimaryConstructorParameterSyntaxHover(sourceText, token, out var parameterHover))
                 return parameterHover;
         }
@@ -925,6 +928,69 @@ internal sealed class HoverHandler : IHoverHandler
         return true;
     }
 
+    private static bool TryBuildCallableDeclarationSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
+    {
+        hover = null!;
+
+        if (token.Parent is MethodDeclarationSyntax methodDeclaration &&
+            token == methodDeclaration.Identifier &&
+            !methodDeclaration.Identifier.IsMissing &&
+            TryBuildMethodDeclarationSyntaxSignature(sourceText, methodDeclaration, out var methodSignature))
+        {
+            var containing = methodDeclaration.Ancestors()
+                .OfType<TypeDeclarationSyntax>()
+                .Select(static type => $"class {type.Identifier.ValueText}")
+                .FirstOrDefault();
+
+            hover = new Hover
+            {
+                Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                {
+                    Kind = MarkupKind.Markdown,
+                    Value = BuildHoverText(
+                        methodSignature,
+                        kind: "Method",
+                        containing: containing,
+                        documentation: null,
+                        capturedVariables: ImmutableArray<ISymbol>.Empty,
+                        isCapturedVariable: false)
+                }),
+                Range = PositionHelper.ToRange(sourceText, token.Span)
+            };
+            return true;
+        }
+
+        if (token.Parent is FunctionStatementSyntax functionStatement &&
+            token == functionStatement.Identifier &&
+            !functionStatement.Identifier.IsMissing &&
+            TryBuildFunctionStatementSyntaxSignature(sourceText, functionStatement, out var functionSignature))
+        {
+            var containing = functionStatement.Ancestors()
+                .OfType<TypeDeclarationSyntax>()
+                .Select(static type => type.Identifier.ValueText)
+                .FirstOrDefault();
+
+            hover = new Hover
+            {
+                Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                {
+                    Kind = MarkupKind.Markdown,
+                    Value = BuildHoverText(
+                        functionSignature,
+                        kind: "Function",
+                        containing: containing,
+                        documentation: null,
+                        capturedVariables: ImmutableArray<ISymbol>.Empty,
+                        isCapturedVariable: false)
+                }),
+                Range = PositionHelper.ToRange(sourceText, token.Span)
+            };
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool TryBuildPrimaryConstructorParameterSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
     {
         hover = null!;
@@ -959,6 +1025,69 @@ internal sealed class HoverHandler : IHoverHandler
             Range = PositionHelper.ToRange(sourceText, token.Span)
         };
         return true;
+    }
+
+    private static bool TryBuildMethodDeclarationSyntaxSignature(
+        SourceText sourceText,
+        MethodDeclarationSyntax declaration,
+        out string signature)
+    {
+        signature = string.Empty;
+
+        var start = GetMethodDeclarationHeaderStart(declaration);
+        var end = GetCallableDeclarationHeaderEnd(declaration.Body, declaration.ExpressionBody, declaration.Span.End);
+        if (start < 0 || end <= start || start >= sourceText.Length)
+            return false;
+
+        end = Math.Min(end, sourceText.Length);
+        signature = NormalizeHoverSignatureText(sourceText.ToString(TextSpan.FromBounds(start, end)));
+        return !string.IsNullOrWhiteSpace(signature);
+    }
+
+    private static bool TryBuildFunctionStatementSyntaxSignature(
+        SourceText sourceText,
+        FunctionStatementSyntax declaration,
+        out string signature)
+    {
+        signature = string.Empty;
+
+        var start = declaration.FuncKeyword.IsMissing
+            ? declaration.Identifier.Span.Start
+            : declaration.FuncKeyword.Span.Start;
+        var end = GetCallableDeclarationHeaderEnd(declaration.Body, declaration.ExpressionBody, declaration.Span.End);
+        if (start < 0 || end <= start || start >= sourceText.Length)
+            return false;
+
+        end = Math.Min(end, sourceText.Length);
+        signature = NormalizeHoverSignatureText(sourceText.ToString(TextSpan.FromBounds(start, end)));
+        return !string.IsNullOrWhiteSpace(signature);
+    }
+
+    private static int GetMethodDeclarationHeaderStart(MethodDeclarationSyntax declaration)
+    {
+        foreach (var modifier in declaration.Modifiers)
+        {
+            if (!modifier.IsMissing)
+                return modifier.Span.Start;
+        }
+
+        return declaration.FuncKeyword.IsMissing
+            ? declaration.Identifier.Span.Start
+            : declaration.FuncKeyword.Span.Start;
+    }
+
+    private static int GetCallableDeclarationHeaderEnd(
+        BlockStatementSyntax? body,
+        ArrowExpressionClauseSyntax? expressionBody,
+        int fallbackEnd)
+    {
+        if (body is not null && !body.OpenBraceToken.IsMissing)
+            return body.OpenBraceToken.Span.Start;
+
+        if (expressionBody is not null && !expressionBody.ArrowToken.IsMissing)
+            return expressionBody.ArrowToken.Span.Start;
+
+        return fallbackEnd;
     }
 
     private static bool TryBuildTypeDeclarationSyntaxSignature(

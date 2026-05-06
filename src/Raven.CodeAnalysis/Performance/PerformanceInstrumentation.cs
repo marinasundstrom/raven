@@ -419,6 +419,7 @@ public sealed class CompilerSetupInstrumentation
     public readonly record struct Snapshot(
         long EnsureSemanticModelsCreatedCalls,
         long SemanticModelsCreated,
+        long EnsureSourceDeclarationsDeclaredCalls,
         long EnsureSourceDeclarationsCompleteCalls,
         long EnsureDeclarationsCalls,
         long DeclarationPasses,
@@ -428,6 +429,7 @@ public sealed class CompilerSetupInstrumentation
     private readonly bool _isEnabled;
     private long _ensureSemanticModelsCreatedCalls;
     private long _semanticModelsCreated;
+    private long _ensureSourceDeclarationsDeclaredCalls;
     private long _ensureSourceDeclarationsCompleteCalls;
     private long _ensureDeclarationsCalls;
     private long _declarationPasses;
@@ -441,6 +443,7 @@ public sealed class CompilerSetupInstrumentation
 
     public long EnsureSemanticModelsCreatedCalls => Volatile.Read(ref _ensureSemanticModelsCreatedCalls);
     public long SemanticModelsCreated => Volatile.Read(ref _semanticModelsCreated);
+    public long EnsureSourceDeclarationsDeclaredCalls => Volatile.Read(ref _ensureSourceDeclarationsDeclaredCalls);
     public long EnsureSourceDeclarationsCompleteCalls => Volatile.Read(ref _ensureSourceDeclarationsCompleteCalls);
     public long EnsureDeclarationsCalls => Volatile.Read(ref _ensureDeclarationsCalls);
     public long DeclarationPasses => Volatile.Read(ref _declarationPasses);
@@ -451,6 +454,7 @@ public sealed class CompilerSetupInstrumentation
         => new(
             EnsureSemanticModelsCreatedCalls,
             SemanticModelsCreated,
+            EnsureSourceDeclarationsDeclaredCalls,
             EnsureSourceDeclarationsCompleteCalls,
             EnsureDeclarationsCalls,
             DeclarationPasses,
@@ -461,6 +465,7 @@ public sealed class CompilerSetupInstrumentation
         => new(
             end.EnsureSemanticModelsCreatedCalls - start.EnsureSemanticModelsCreatedCalls,
             end.SemanticModelsCreated - start.SemanticModelsCreated,
+            end.EnsureSourceDeclarationsDeclaredCalls - start.EnsureSourceDeclarationsDeclaredCalls,
             end.EnsureSourceDeclarationsCompleteCalls - start.EnsureSourceDeclarationsCompleteCalls,
             end.EnsureDeclarationsCalls - start.EnsureDeclarationsCalls,
             end.DeclarationPasses - start.DeclarationPasses,
@@ -470,7 +475,8 @@ public sealed class CompilerSetupInstrumentation
     public static string FormatDelta(Snapshot delta)
         => $"ensureModels={delta.EnsureSemanticModelsCreatedCalls}, " +
            $"modelsCreated={delta.SemanticModelsCreated}, " +
-           $"ensureSourceDecls={delta.EnsureSourceDeclarationsCompleteCalls}, " +
+           $"ensureSourceDeclsDeclared={delta.EnsureSourceDeclarationsDeclaredCalls}, " +
+           $"ensureSourceDeclsComplete={delta.EnsureSourceDeclarationsCompleteCalls}, " +
            $"ensureDecls={delta.EnsureDeclarationsCalls}, " +
            $"declarationPasses={delta.DeclarationPasses}, " +
            $"ensureRootBinders={delta.EnsureRootBinderCreatedCalls}, " +
@@ -484,6 +490,7 @@ public sealed class CompilerSetupInstrumentation
 
         Interlocked.Exchange(ref _ensureSemanticModelsCreatedCalls, 0);
         Interlocked.Exchange(ref _semanticModelsCreated, 0);
+        Interlocked.Exchange(ref _ensureSourceDeclarationsDeclaredCalls, 0);
         Interlocked.Exchange(ref _ensureSourceDeclarationsCompleteCalls, 0);
         Interlocked.Exchange(ref _ensureDeclarationsCalls, 0);
         Interlocked.Exchange(ref _declarationPasses, 0);
@@ -507,6 +514,15 @@ public sealed class CompilerSetupInstrumentation
             return;
 
         Interlocked.Increment(ref _semanticModelsCreated);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordEnsureSourceDeclarationsDeclaredCall()
+    {
+        if (!_isEnabled)
+            return;
+
+        Interlocked.Increment(ref _ensureSourceDeclarationsDeclaredCalls);
     }
 
     [Conditional("RAVEN_INSTRUMENTATION")]
@@ -560,6 +576,7 @@ public sealed class CompilerSetupInstrumentation
         builder.AppendLine("# Compiler setup instrumentation");
         builder.AppendLine($"EnsureSemanticModelsCreated calls: {EnsureSemanticModelsCreatedCalls}");
         builder.AppendLine($"Semantic models created: {SemanticModelsCreated}");
+        builder.AppendLine($"EnsureSourceDeclarationsDeclared calls: {EnsureSourceDeclarationsDeclaredCalls}");
         builder.AppendLine($"EnsureSourceDeclarationsComplete calls: {EnsureSourceDeclarationsCompleteCalls}");
         builder.AppendLine($"EnsureDeclarations calls: {EnsureDeclarationsCalls}");
         builder.AppendLine($"Declaration passes: {DeclarationPasses}");

@@ -123,24 +123,7 @@ class FunctionBinder : Binder
                     typeSyntax.GetLocation());
             }
 
-            var refKindTokenKind = p.RefKindKeyword.Kind;
-            var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
-
-            var refKind = isByRefSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
             ITypeSymbol type;
             if (typeSyntax is null)

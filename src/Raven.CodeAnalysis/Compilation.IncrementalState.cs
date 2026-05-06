@@ -35,9 +35,40 @@ public partial class Compilation
         ImmutableArray<MatchedExecutableOwner> Matches,
         ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> OwnerChanges);
 
+    internal readonly record struct IncrementalChangedSyntaxTree(
+        SyntaxTree CurrentTree,
+        SyntaxTree PreviousTree,
+        ImmutableArray<ExecutableOwnerDescriptor> ChangedOwners,
+        ImmutableArray<MatchedExecutableOwner> MatchedOwners,
+        ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> OwnerChanges)
+    {
+        public IncrementalMatchedSyntaxTree ToMatchedSyntaxTree()
+            => new(CurrentTree, PreviousTree, MatchedOwners, OwnerChanges);
+    }
+
+    internal readonly record struct IncrementalCompilationPlan(
+        ImmutableArray<SyntaxTree> ReusedSyntaxTrees,
+        ImmutableArray<IncrementalChangedSyntaxTree> ChangedSyntaxTrees)
+    {
+        public ImmutableArray<IncrementalMatchedSyntaxTree> MatchedSyntaxTrees
+            => ChangedSyntaxTrees
+                .Where(static tree => !tree.MatchedOwners.IsDefaultOrEmpty)
+                .Select(static tree => tree.ToMatchedSyntaxTree())
+                .ToImmutableArray();
+    }
+
+    internal enum OwnerRelativeChangeKind
+    {
+        Unknown,
+        BodyExpression,
+        BodyDeclaration,
+        SignatureOrDeclaration
+    }
+
     internal readonly record struct OwnerRelativeTextChange(
         Text.TextSpan PreviousSpan,
-        Text.TextSpan CurrentSpan);
+        Text.TextSpan CurrentSpan,
+        OwnerRelativeChangeKind Kind);
 
     internal sealed class IncrementalCompilationState
     {
@@ -110,230 +141,6 @@ public partial class Compilation
     internal void InitializeIncrementalState(IncrementalCompilationState? state)
     {
         _incrementalState = state;
-    }
-
-    internal IncrementalCompilationState? CreateIncrementalState(
-        ImmutableArray<SyntaxTree> reusedSyntaxTrees,
-        ImmutableArray<IncrementalMatchedSyntaxTree> matchedSyntaxTrees)
-    {
-        var state = new IncrementalCompilationState();
-
-        foreach (var syntaxTree in reusedSyntaxTrees)
-        {
-            CopyExactState(_descriptorState.VisibleValueScopeDeclarations, state.VisibleValueScopeDeclarations, syntaxTree);
-            CopyExactState(_descriptorState.NodeInterestSymbolDescriptors, state.NodeInterestSymbolDescriptors, syntaxTree);
-            CopyExactState(_descriptorState.ContextualBindingRootDescriptors, state.ContextualBindingRootDescriptors, syntaxTree);
-            CopyExactState(_descriptorState.InterestBindingRootDescriptors, state.InterestBindingRootDescriptors, syntaxTree);
-            CopyExactState(_descriptorState.ExecutableOwnerDescriptors, state.ExecutableOwnerDescriptors, syntaxTree);
-            CopyExactState(_descriptorState.FunctionExpressionRebindRootDescriptors, state.FunctionExpressionRebindRootDescriptors, syntaxTree);
-            CopyExactState(_descriptorState.BinderParentAnchorDescriptors, state.BinderParentAnchorDescriptors, syntaxTree);
-        }
-
-        foreach (var matchedTree in matchedSyntaxTrees)
-        {
-            foreach (var match in matchedTree.Matches)
-            {
-                CopyOwnerRelativeState(
-                    _descriptorState.VisibleValueScopeDeclarationsByOwner,
-                    state.VisibleValueScopeDeclarationsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var visibleValueOwnerChange)
-                        ? visibleValueOwnerChange
-                        : null);
-                CopyOwnerRelativeState(
-                    _descriptorState.NodeInterestSymbolDescriptorsByOwner,
-                    state.NodeInterestSymbolDescriptorsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var nodeInterestOwnerChange)
-                        ? nodeInterestOwnerChange
-                        : null);
-                CopyOwnerRelativeState(
-                    _descriptorState.ContextualBindingRootDescriptorsByOwner,
-                    state.ContextualBindingRootDescriptorsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var contextualOwnerChange)
-                        ? contextualOwnerChange
-                        : null);
-                CopyOwnerRelativeState(
-                    _descriptorState.InterestBindingRootDescriptorsByOwner,
-                    state.InterestBindingRootDescriptorsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var interestOwnerChange)
-                        ? interestOwnerChange
-                        : null);
-                CopyOwnerRelativeState(
-                    _descriptorState.FunctionExpressionRebindRootDescriptorsByOwner,
-                    state.FunctionExpressionRebindRootDescriptorsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var rebindOwnerChange)
-                        ? rebindOwnerChange
-                        : null);
-                CopyOwnerRelativeState(
-                    _descriptorState.BinderParentAnchorDescriptorsByOwner,
-                    state.BinderParentAnchorDescriptorsByOwner,
-                    matchedTree.PreviousTree,
-                    matchedTree.CurrentTree,
-                    match.PreviousOwner,
-                    match.CurrentOwner,
-                    TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var binderOwnerChange)
-                        ? binderOwnerChange
-                        : null);
-            }
-        }
-
-        return HasTransferredState(state) ? state : null;
-    }
-
-    private static void CopyExactState<TKey, TValue>(
-        IDictionary<SyntaxTree, ConcurrentDictionary<TKey, TValue>> source,
-        IDictionary<SyntaxTree, Dictionary<TKey, TValue>> destination,
-        SyntaxTree syntaxTree)
-        where TKey : notnull
-    {
-        if (!source.TryGetValue(syntaxTree, out var values) || values.Count == 0)
-            return;
-
-        destination[syntaxTree] = new Dictionary<TKey, TValue>(values);
-    }
-
-    private static void CopyOwnerRelativeState<TValue>(
-        IDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, TValue>> source,
-        IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, TValue>> destination,
-        SyntaxTree previousTree,
-        SyntaxTree currentTree,
-        ExecutableOwnerDescriptor previousOwner,
-        ExecutableOwnerDescriptor currentOwner,
-        OwnerRelativeTextChange? ownerChange)
-    {
-        if (!source.TryGetValue(previousTree, out var values) || values.Count == 0)
-            return;
-
-        Dictionary<OwnerRelativeDescriptorKey, TValue>? remappedValues = null;
-
-        foreach (var (key, value) in values)
-        {
-            if (key.Owner != previousOwner)
-                continue;
-
-            if (!TryRemapOwnerRelativeDescriptorKey(key, previousTree, currentTree, currentOwner, ownerChange, out var remappedKey))
-                continue;
-
-            remappedValues ??= destination.TryGetValue(currentTree, out var existing)
-                ? existing
-                : new Dictionary<OwnerRelativeDescriptorKey, TValue>();
-
-            remappedValues[remappedKey] = value;
-        }
-
-        if (remappedValues is not null)
-            destination[currentTree] = remappedValues;
-    }
-
-    private static bool TryGetOwnerChange(
-        ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> ownerChanges,
-        ExecutableOwnerDescriptor owner,
-        out OwnerRelativeTextChange change)
-        => ownerChanges.TryGetValue(owner, out change);
-
-    private static bool TryRemapOwnerRelativeDescriptorKey(
-        OwnerRelativeDescriptorKey key,
-        SyntaxTree previousTree,
-        SyntaxTree currentTree,
-        ExecutableOwnerDescriptor currentOwner,
-        OwnerRelativeTextChange? ownerChange,
-        out OwnerRelativeDescriptorKey remappedKey)
-    {
-        if (ownerChange is not { } change)
-        {
-            remappedKey = new OwnerRelativeDescriptorKey(currentOwner, key.RelativeStart, key.Length, key.Kind);
-            return true;
-        }
-
-        var previousChangedSpan = change.PreviousSpan;
-        var currentChangedSpan = change.CurrentSpan;
-        var descriptorSpan = new Text.TextSpan(key.RelativeStart, key.Length);
-
-        if (descriptorSpan.IntersectsWith(previousChangedSpan))
-        {
-            if (TryRemapUnchangedIntersectingDescriptor(key, previousTree, currentTree, currentOwner, out remappedKey))
-                return true;
-
-            remappedKey = default;
-            return false;
-        }
-
-        var delta = currentChangedSpan.Length - previousChangedSpan.Length;
-        var remappedRelativeStart = key.RelativeStart >= previousChangedSpan.End
-            ? key.RelativeStart + delta
-            : key.RelativeStart;
-
-        remappedKey = new OwnerRelativeDescriptorKey(currentOwner, remappedRelativeStart, key.Length, key.Kind);
-        return true;
-    }
-
-    private static bool TryRemapUnchangedIntersectingDescriptor(
-        OwnerRelativeDescriptorKey key,
-        SyntaxTree previousTree,
-        SyntaxTree currentTree,
-        ExecutableOwnerDescriptor currentOwner,
-        out OwnerRelativeDescriptorKey remappedKey)
-    {
-        remappedKey = default;
-
-        var previousText = previousTree.GetText();
-        var currentText = currentTree.GetText();
-        if (previousText is null || currentText is null)
-            return false;
-
-        var previousStart = key.Owner.Span.Start + key.RelativeStart;
-        var currentStart = currentOwner.Span.Start + key.RelativeStart;
-        if (previousStart < 0 ||
-            currentStart < 0 ||
-            previousStart + key.Length > previousText.Length ||
-            currentStart + key.Length > currentText.Length)
-        {
-            return false;
-        }
-
-        var previousSpan = new Text.TextSpan(previousStart, key.Length);
-        var currentSpan = new Text.TextSpan(currentStart, key.Length);
-        if (!string.Equals(previousText.ToString(previousSpan), currentText.ToString(currentSpan), StringComparison.Ordinal))
-            return false;
-
-        remappedKey = new OwnerRelativeDescriptorKey(currentOwner, key.RelativeStart, key.Length, key.Kind);
-        return true;
-    }
-
-    private static bool HasTransferredState(IncrementalCompilationState state)
-    {
-        return state.VisibleValueScopeDeclarations.Count != 0 ||
-               state.VisibleValueScopeDeclarationsByOwner.Count != 0 ||
-               state.NodeInterestSymbolDescriptors.Count != 0 ||
-               state.NodeInterestSymbolDescriptorsByOwner.Count != 0 ||
-               state.ContextualBindingRootDescriptors.Count != 0 ||
-               state.ContextualBindingRootDescriptorsByOwner.Count != 0 ||
-               state.InterestBindingRootDescriptors.Count != 0 ||
-               state.InterestBindingRootDescriptorsByOwner.Count != 0 ||
-               state.ExecutableOwnerDescriptors.Count != 0 ||
-               state.FunctionExpressionRebindRootDescriptors.Count != 0 ||
-               state.FunctionExpressionRebindRootDescriptorsByOwner.Count != 0 ||
-               state.BinderParentAnchorDescriptors.Count != 0 ||
-               state.BinderParentAnchorDescriptorsByOwner.Count != 0;
     }
 
     private bool TryGetTransferredVisibleValueScopeDeclarations(
@@ -515,6 +322,12 @@ public partial class Compilation
 
     internal bool HasTransferredNodeInterestSymbolDescriptorForTesting(SyntaxNode node)
         => TryGetTransferredNodeInterestSymbolDescriptor(node, out _);
+
+    internal bool HasTransferredContextualBindingRootDescriptorForTesting(SyntaxNode node)
+        => TryGetTransferredContextualBindingRootDescriptor(node, out _);
+
+    internal bool HasTransferredInterestBindingRootDescriptorForTesting(SyntaxNode node)
+        => TryGetTransferredInterestBindingRootDescriptor(node, out _);
 
     internal bool HasTransferredFunctionExpressionRebindRootDescriptorForTesting(FunctionExpressionSyntax functionExpression)
         => TryGetTransferredFunctionExpressionRebindRootDescriptor(functionExpression, out _);

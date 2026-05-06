@@ -2507,27 +2507,6 @@ public partial class SemanticModel
                 owner.AddMember(member);
         }
 
-        static RefKind GetRefKind(ParameterSyntax parameter)
-        {
-            var typeSyntax = parameter.TypeAnnotation!.Type;
-            var refKindTokenKind = parameter.RefKindKeyword.Kind;
-            return typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
-        }
-
         ITypeSymbol ResolveTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKindHint)
         {
             return binder.BindTypeSyntaxAndReport(typeSyntax, refKindHint: refKindHint);
@@ -2599,7 +2578,7 @@ public partial class SemanticModel
         var invokeParams = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDecl.ParameterList.Parameters.Count);
         foreach (var p in delegateDecl.ParameterList.Parameters)
         {
-            var refKind = GetRefKind(p);
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
             var pType = ResolveParameterTypeSyntaxForSignature(typeSyntax, refKind);
 
@@ -3248,22 +3227,7 @@ public partial class SemanticModel
                     foreach (var parameterSyntax in parameterList.Parameters)
                     {
                         var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-                        var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
-                        var refKind = typeSyntax is ByRefTypeSyntax
-                            ? refKindTokenKind switch
-                            {
-                                SyntaxKind.OutKeyword => RefKind.Out,
-                                SyntaxKind.InKeyword => RefKind.In,
-                                SyntaxKind.RefKeyword => RefKind.Ref,
-                                _ => RefKind.Ref,
-                            }
-                            : refKindTokenKind switch
-                            {
-                                SyntaxKind.OutKeyword => RefKind.Out,
-                                SyntaxKind.InKeyword => RefKind.In,
-                                SyntaxKind.RefKeyword => RefKind.Ref,
-                                _ => RefKind.None,
-                            };
+                        var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
 
                         ITypeSymbol parameterType;
                         if (typeSyntax is null)
@@ -4836,22 +4800,7 @@ public partial class SemanticModel
         foreach (var parameterSyntax in classDecl.ParameterList!.Parameters)
         {
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
-            var refKindTokenKind = parameterSyntax.RefKindKeyword.Kind;
-            var refKind = typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
+            var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
 
             ITypeSymbol parameterType;
             if (typeSyntax is null)
@@ -5072,8 +5021,14 @@ public partial class SemanticModel
                 return null;
             }
         }
-        if (classSymbol.IsMemberDefined(propertyName, out _))
+        if (classSymbol.IsMemberDefined(propertyName, out var existingMember))
         {
+            if (existingMember is SourcePropertySymbol existingProperty &&
+                SymbolDeclarationUtilities.HasDeclaringSyntax(existingProperty, parameterSyntax))
+            {
+                return existingProperty;
+            }
+
             classBinder.Diagnostics.ReportTypeAlreadyDefinesMember(
                 classSymbol.Name,
                 propertyName,
@@ -5082,7 +5037,7 @@ public partial class SemanticModel
         }
 
         var location = parameterSyntax.GetLocation();
-        var references = Array.Empty<SyntaxReference>();
+        var references = new[] { parameterSyntax.GetReference() };
 
         var propertySymbol = new SourcePropertySymbol(
             propertyName,
@@ -6043,12 +5998,6 @@ public partial class SemanticModel
 
     internal bool TryGetUnionCaseSymbol(CaseDeclarationSyntax node, out SourceUnionCaseTypeSymbol symbol)
         => Compilation.TryGetUnionCaseSymbol(node, out symbol!);
-
-    internal void RegisterMethodSymbol(MethodDeclarationSyntax node, IMethodSymbol symbol)
-        => Compilation.RegisterMethodSymbol(node, symbol);
-
-    internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out IMethodSymbol symbol)
-        => Compilation.TryGetMethodSymbol(node, out symbol!);
 
     private static SyntaxNodeMapKey GetSyntaxNodeMapKey(SyntaxNode node)
         => new(node.SyntaxTree, node.Span, node.Kind);

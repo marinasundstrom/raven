@@ -660,22 +660,7 @@ internal partial class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation?.Type;
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
-            var refKindTokenKind = p.RefKindKeyword.Kind;
-            var refKind = typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
             if (p.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
             {
@@ -819,24 +804,27 @@ internal partial class TypeMemberBinder : Binder
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
 
-        var methodSymbol = new SourceMethodSymbol(
-            metadataName,
-            defaultReturnType,
-            ImmutableArray<SourceParameterSymbol>.Empty,
-            _containingType,
-            _containingType,
-            CurrentNamespace!.AsSourceNamespace(),
-            [methodDecl.GetLocation()],
-            [methodDecl.GetReference()],
-            isStatic: isStatic,
-            methodKind: methodKind,
-            isAsync: isAsync,
-            isVirtual: isVirtual,
-            isOverride: isOverride,
-            isSealed: isSealed,
-            isAbstract: isAbstract,
-            isExtern: isExtern,
-            declaredAccessibility: methodAccessibility);
+        var methodSymbol = SemanticModel.GetOrCreateMethodSymbolForBinding(
+            methodDecl,
+            () => new SourceMethodSymbol(
+                    metadataName,
+                    defaultReturnType,
+                    ImmutableArray<SourceParameterSymbol>.Empty,
+                    _containingType,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [methodDecl.GetLocation()],
+                    [methodDecl.GetReference()],
+                    isStatic: isStatic,
+                    methodKind: methodKind,
+                    isAsync: isAsync,
+                    isVirtual: isVirtual,
+                    isOverride: isOverride,
+                    isSealed: isSealed,
+                    isAbstract: isAbstract,
+                    isExtern: isExtern,
+                    declaredAccessibility: methodAccessibility));
+        methodSymbol.MarkSignatureBindingComplete();
 
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
 
@@ -1206,22 +1194,7 @@ internal partial class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation!.Type;
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
-            var refKindTokenKind = p.RefKindKeyword.Kind;
-            var refKind = typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
             var pType = ResolveParameterTypeSyntaxForSignature(operatorBinder, typeSyntax, refKind);
             pType = NormalizeVarParamsParameterType(
@@ -1363,22 +1336,7 @@ internal partial class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation!.Type;
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
-            var refKindTokenKind = p.RefKindKeyword.Kind;
-            var refKind = typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
             var pType = ResolveParameterTypeSyntaxForSignature(conversionBinder, typeSyntax, refKind);
             pType = NormalizeVarParamsParameterType(
@@ -1470,19 +1428,30 @@ internal partial class TypeMemberBinder : Binder
         return _containingType.AllInterfaces.Contains(interfaceType, SymbolEqualityComparer.Default);
     }
 
-    private static ImmutableArray<ISymbol> GetExplicitInterfaceMembers(INamedTypeSymbol interfaceType, string memberName)
+    private enum ExplicitInterfaceMemberLookupKind
+    {
+        Method,
+        PropertyOrEvent
+    }
+
+    private static ImmutableArray<ISymbol> GetExplicitInterfaceMembers(
+        INamedTypeSymbol interfaceType,
+        string memberName,
+        ExplicitInterfaceMemberLookupKind lookupKind)
     {
         var members = interfaceType.GetMembers(memberName);
         if (!members.IsDefaultOrEmpty)
             return members;
 
-        if (!TryEnsureSourceInterfaceMembersAvailable(interfaceType))
+        if (!TryEnsureSourceInterfaceMembersAvailable(interfaceType, lookupKind))
             return members;
 
         return interfaceType.GetMembers(memberName);
     }
 
-    private static bool TryEnsureSourceInterfaceMembersAvailable(INamedTypeSymbol interfaceType)
+    private static bool TryEnsureSourceInterfaceMembersAvailable(
+        INamedTypeSymbol interfaceType,
+        ExplicitInterfaceMemberLookupKind lookupKind)
     {
         var sourceInterface = interfaceType as SourceNamedTypeSymbol
             ?? interfaceType.OriginalDefinition as SourceNamedTypeSymbol;
@@ -1503,11 +1472,12 @@ internal partial class TypeMemberBinder : Binder
                 continue;
 
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            if (!semanticModel.DeclarationsComplete)
-                semanticModel.EnsureDeclarations();
-
-            if (!semanticModel.RootBinderCreated)
+            if (lookupKind == ExplicitInterfaceMemberLookupKind.PropertyOrEvent &&
+                !semanticModel.RootBinderCreated)
+            {
                 semanticModel.EnsureRootBinderCreated();
+            }
+
             ensured = true;
         }
 
@@ -1522,7 +1492,7 @@ internal partial class TypeMemberBinder : Binder
     {
         var shapeCandidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
 
-        foreach (var member in GetExplicitInterfaceMembers(interfaceType, methodName).OfType<IMethodSymbol>())
+        foreach (var member in GetExplicitInterfaceMembers(interfaceType, methodName, ExplicitInterfaceMemberLookupKind.Method).OfType<IMethodSymbol>())
         {
             if (member.IsStatic)
                 continue;
@@ -1565,7 +1535,7 @@ internal partial class TypeMemberBinder : Binder
     {
         var shapeCandidates = ImmutableArray.CreateBuilder<IPropertySymbol>();
 
-        foreach (var property in GetExplicitInterfaceMembers(interfaceType, propertyName).OfType<IPropertySymbol>())
+        foreach (var property in GetExplicitInterfaceMembers(interfaceType, propertyName, ExplicitInterfaceMemberLookupKind.PropertyOrEvent).OfType<IPropertySymbol>())
         {
             if (property.IsIndexer != isIndexer)
                 continue;
@@ -1629,7 +1599,7 @@ internal partial class TypeMemberBinder : Binder
     {
         var shapeCandidates = ImmutableArray.CreateBuilder<IEventSymbol>();
 
-        foreach (var @event in GetExplicitInterfaceMembers(interfaceType, eventName).OfType<IEventSymbol>())
+        foreach (var @event in GetExplicitInterfaceMembers(interfaceType, eventName, ExplicitInterfaceMemberLookupKind.PropertyOrEvent).OfType<IEventSymbol>())
         {
             shapeCandidates.Add(@event);
 
@@ -1762,22 +1732,7 @@ internal partial class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation?.Type;
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
-            var refKindTokenKind = p.RefKindKeyword.Kind;
-            var refKind = typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
             var pType = typeSyntax is null
                 ? Compilation.ErrorTypeSymbol
@@ -2121,27 +2076,6 @@ internal partial class TypeMemberBinder : Binder
                 owner.AddMember(member);
         }
 
-        static RefKind GetRefKind(ParameterSyntax parameter)
-        {
-            var typeSyntax = parameter.TypeAnnotation!.Type;
-            var refKindTokenKind = parameter.RefKindKeyword.Kind;
-            return typeSyntax is ByRefTypeSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
-        }
-
         // .ctor(object, IntPtr)
         var ctor = new SourceMethodSymbol(
             ".ctor",
@@ -2200,7 +2134,7 @@ internal partial class TypeMemberBinder : Binder
         var invokeParams = ImmutableArray.CreateBuilder<SourceParameterSymbol>(delegateDecl.ParameterList.Parameters.Count);
         foreach (var p in delegateDecl.ParameterList.Parameters)
         {
-            var refKind = GetRefKind(p);
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
             var pType = ResolveParameterTypeSyntaxForSignature(binder, typeSyntax, refKind);
 
@@ -2224,7 +2158,11 @@ internal partial class TypeMemberBinder : Binder
     {
         foreach (var method in _containingType.GetMembers(searchName).OfType<IMethodSymbol>())
         {
-            if (currentDeclaration is not null && method.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == currentDeclaration))
+            if (method is SourceMethodSymbol { IsSignatureSkeleton: true })
+                continue;
+
+            if (currentDeclaration is not null &&
+                SymbolDeclarationUtilities.HasDeclaringSyntax(method, currentDeclaration))
                 continue;
 
             if (SignaturesMatch(method, parameters))
@@ -2619,6 +2557,7 @@ internal partial class TypeMemberBinder : Binder
             .OfType<IEventSymbol>()
             .FirstOrDefault(e =>
                 !ReferenceEquals(e, eventSymbol) &&
+                !SymbolDeclarationUtilities.HasDeclaringSyntax(e, eventDecl) &&
                 e.IsStatic == isStatic &&
                 TypesMatchForExplicitImplementation(e.Type, eventType));
 
@@ -3016,23 +2955,7 @@ internal partial class TypeMemberBinder : Binder
         {
             var typeSyntax = p.TypeAnnotation!.Type;
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
-            var refKindTokenKind = p.RefKindKeyword.Kind;
-            var isByRefSyntax = typeSyntax is ByRefTypeSyntax;
-            var refKind = isByRefSyntax
-                ? refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.Ref,
-                }
-                : refKindTokenKind switch
-                {
-                    SyntaxKind.OutKeyword => RefKind.Out,
-                    SyntaxKind.InKeyword => RefKind.In,
-                    SyntaxKind.RefKeyword => RefKind.Ref,
-                    _ => RefKind.None,
-                };
+            var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
             var type = ResolveParameterTypeSyntaxForSignature(this, typeSyntax, refKind);
             type = NormalizeVarParamsParameterType(

@@ -28,6 +28,12 @@ internal sealed class DeclaredSymbolLookup
         if (TryLookupKnownDeclaredSymbolFast(node, out var fastSymbol))
             return fastSymbol;
 
+        if (node is ParameterSyntax fastParameterSyntax &&
+            TryLookupParameterSymbolFast(fastParameterSyntax, out var fastParameterSymbol))
+        {
+            return fastParameterSymbol;
+        }
+
         if (!_semanticModel.DeclarationsComplete)
             _semanticModel.EnsureDeclarations();
 
@@ -82,6 +88,12 @@ internal sealed class DeclaredSymbolLookup
         {
             _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclaration, declaredMethod);
             return declaredMethod;
+        }
+
+        if (node is PropertyDeclarationSyntax declaredPropertyDeclaration &&
+            _semanticModel.TryGetPropertySymbol(declaredPropertyDeclaration, out var declaredProperty))
+        {
+            return declaredProperty;
         }
 
         if (node is PropertyDeclarationSyntax propertyDeclaration &&
@@ -203,6 +215,34 @@ internal sealed class DeclaredSymbolLookup
         return binder.BindDeclaredSymbol(node);
     }
 
+    private bool TryLookupParameterSymbolFast(ParameterSyntax parameterSyntax, out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (parameterSyntax.Parent?.Parent is TypeDeclarationSyntax parameterContainingType &&
+            TryLookupKnownDeclaredSymbolFast(parameterContainingType, out var containingTypeSymbol) &&
+            containingTypeSymbol is INamedTypeSymbol containingType)
+        {
+            symbol = containingType
+                .GetMembers(".ctor")
+                .OfType<IMethodSymbol>()
+                .SelectMany(method => method.Parameters)
+                .FirstOrDefault(parameter => SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return symbol is not null;
+        }
+
+        if (parameterSyntax.Parent?.Parent is MethodDeclarationSyntax methodDeclaration &&
+            TryLookupKnownDeclaredSymbolFast(methodDeclaration, out var methodSymbol) &&
+            methodSymbol is IMethodSymbol method)
+        {
+            symbol = method.Parameters.FirstOrDefault(parameter =>
+                SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return symbol is not null;
+        }
+
+        return false;
+    }
+
     private bool TryLookupKnownDeclaredSymbolFast(SyntaxNode node, out ISymbol? symbol)
     {
         switch (node)
@@ -220,8 +260,11 @@ internal sealed class DeclaredSymbolLookup
                 return true;
 
             case MethodDeclarationSyntax methodDeclaration when _semanticModel.TryGetMethodSymbol(methodDeclaration, out var methodSymbol):
-                _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclaration, methodSymbol);
                 symbol = methodSymbol;
+                return true;
+
+            case PropertyDeclarationSyntax propertyDeclaration when _semanticModel.TryGetPropertySymbol(propertyDeclaration, out var propertySymbol):
+                symbol = propertySymbol;
                 return true;
 
             default:

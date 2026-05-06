@@ -78,7 +78,7 @@ internal static partial class SymbolResolver
                     return true;
             }
 
-            foreach (var child in current.ChildOperations)
+            foreach (var child in GetChildOperations(current))
                 stack.Push(child);
         }
 
@@ -127,7 +127,7 @@ internal static partial class SymbolResolver
                     return true;
             }
 
-            foreach (var child in current.ChildOperations)
+            foreach (var child in GetChildOperations(current))
                 stack.Push(child);
         }
 
@@ -204,7 +204,7 @@ internal static partial class SymbolResolver
                 return true;
             }
 
-            foreach (var child in current.ChildOperations)
+            foreach (var child in GetChildOperations(current))
                 stack.Push(child);
         }
 

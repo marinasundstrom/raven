@@ -268,6 +268,14 @@ internal static partial class SymbolResolver
             return unionCaseSymbol;
         }
 
+        if (memberAccess.Name.Span.Contains(tokenSpan) &&
+            TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolvedFromReceiver))
+        {
+            var projectedReceiverSymbol = ProjectSymbolForDisplay(resolvedFromReceiver);
+            if (projectedReceiverSymbol is not null)
+                return projectedReceiverSymbol;
+        }
+
         if (TryGetSymbolInfo(semanticModel, memberAccess, out var memberAccessInfo))
         {
             var chosenMemberAccessSymbol = ProjectSymbolForDisplay(
@@ -276,9 +284,9 @@ internal static partial class SymbolResolver
                 return chosenMemberAccessSymbol;
         }
 
-        if (TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolvedFromReceiver))
+        if (TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var fallbackResolvedFromReceiver))
         {
-            var projectedReceiverSymbol = ProjectSymbolForDisplay(resolvedFromReceiver);
+            var projectedReceiverSymbol = ProjectSymbolForDisplay(fallbackResolvedFromReceiver);
             if (projectedReceiverSymbol is not null)
                 return projectedReceiverSymbol;
         }

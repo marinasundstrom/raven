@@ -42,6 +42,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool? _lazyIsUnsafe;
     private bool _isPartialDefinition;
     private bool _isPartialImplementation;
+    private bool _isSignatureSkeleton;
 
     private bool IsAutoPropertyAccessor
         => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -189,6 +190,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     internal bool IsPartialMember => _isPartialDefinition || _isPartialImplementation;
     internal bool HasPartialDefinition => _isPartialDefinition;
     internal bool HasPartialImplementation => _isPartialImplementation;
+    internal bool IsSignatureSkeleton => _isSignatureSkeleton;
+
+    internal void MarkSignatureSkeleton() => _isSignatureSkeleton = true;
+
+    internal void MarkSignatureBindingComplete() => _isSignatureSkeleton = false;
 
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
 

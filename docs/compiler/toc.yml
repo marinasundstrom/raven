@@ -26,6 +26,8 @@
       href: architecture/visitors-and-rewriters.md
     - name: Generator specification
       href: architecture/generator-specification.md
+    - name: Compilation and binding passes
+      href: architecture/compilation-and-binding-passes.md
     - name: Semantic binding
       href: architecture/semantic-binding.md
 - name: Design
