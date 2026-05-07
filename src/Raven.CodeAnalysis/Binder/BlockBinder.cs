@@ -8570,6 +8570,20 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is MemberBindingExpressionSyntax memberBinding)
         {
+            if (IsTargetTypedConstructorBinding(memberBinding))
+            {
+                var targetType = GetTargetType(syntax);
+                if (targetType is not null && targetType.TypeKind != TypeKind.Error)
+                {
+                    targetType = UnwrapTaskLikeTargetType(UnwrapAlias(targetType)).GetPlainType();
+                    if (targetType is INamedTypeSymbol targetNamedType)
+                        return BindConstructorInvocation(targetNamedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
+                }
+
+                _diagnostics.ReportMemberAccessRequiresTargetType("init", memberBinding.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.MissingType);
+            }
+
             var invocationTargetType = GetTargetType(syntax);
             var boundMember = invocationTargetType is not null && invocationTargetType.TypeKind != TypeKind.Error
                 ? BindMemberBindingExpression(memberBinding, invocationTargetType, allowEventAccess: true)
@@ -8796,6 +8810,11 @@ partial class BlockBinder : Binder
 
         return BindInvocationExpressionCore(receiver, methodName, syntax.ArgumentList, syntax.Expression, syntax);
     }
+
+    private static bool IsTargetTypedConstructorBinding(MemberBindingExpressionSyntax memberBinding)
+        => memberBinding.Name.IsMissing ||
+           memberBinding.Name.Identifier.IsMissing ||
+           string.IsNullOrEmpty(memberBinding.Name.Identifier.ValueText);
 
     private bool HasApplicableExplicitFunctionConstructor(INamedTypeSymbol type, InvocationExpressionSyntax syntax)
     {
@@ -11951,6 +11970,8 @@ partial class BlockBinder : Binder
         if (hasDictionaryElements)
             return BindDictionaryExpressionCore(syntax, syntaxElements, targetType, inferArrayByDefault, isMutableByDefault);
 
+        var collectionElementTargetType = GetCollectionElementTargetType(targetType);
+
         foreach (var elementSyntax in syntaxElements)
         {
             BoundExpression boundElement;
@@ -11965,8 +11986,8 @@ partial class BlockBinder : Binder
                     }
                     else
                     {
-                        boundElement = targetType is IArrayTypeSymbol arrayTarget
-                            ? BindExpressionWithTargetType(exprElem.Expression, arrayTarget.ElementType)
+                        boundElement = collectionElementTargetType is not null
+                            ? BindExpressionWithTargetType(exprElem.Expression, collectionElementTargetType)
                             : BindExpression(exprElem.Expression);
                     }
 
@@ -12196,6 +12217,21 @@ partial class BlockBinder : Binder
 
         var fallbackArray = Compilation.CreateArrayTypeSymbol(inferredElementType);
         return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
+    }
+
+    private ITypeSymbol? GetCollectionElementTargetType(ITypeSymbol? targetType)
+    {
+        if (targetType is IArrayTypeSymbol arrayTarget)
+            return arrayTarget.ElementType;
+
+        if (targetType is not INamedTypeSymbol namedType)
+            return null;
+
+        var addMethod = namedType.GetMembers("Add")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 1);
+
+        return addMethod?.Parameters[0].Type;
     }
 
     private BoundExpression BindDictionaryExpressionCore(

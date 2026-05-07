@@ -116,6 +116,74 @@ class Program {
     }
 
     [Fact]
+    public void TargetTypedConstructorBinding_UsesAssignmentType()
+    {
+        string testCode = """
+class Point {
+    init(x: int, y: int) {}
+}
+
+class Program {
+    static func Run() -> unit {
+        val point: Point = .(2, -1)
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void TargetTypedConstructorBinding_UsesConstructorParameterType()
+    {
+        string testCode = """
+class Point {
+    init(x: int, y: int) {}
+}
+
+class Segment {
+    init(start: Point, end: Point) {}
+}
+
+class Program {
+    static func Run() -> unit {
+        val segment = Segment(.(0, 0), .(2, -1))
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void TargetTypedConstructorBinding_UsesCollectionElementType()
+    {
+        string testCode = """
+import System.Collections.Generic.*
+
+union UserStatus {
+    case Active
+    case Suspended(reason: string)
+}
+
+class User {
+    init(id: int, name: string, title: string, status: UserStatus) {}
+}
+
+class Program {
+    static func Run() -> unit {
+        val users: List<User> = [
+            .(1, "Ada", "compiler engineer", .Active),
+            .(2, "Bo", "member", .Suspended("email bounced"))
+        ]
+    }
+}
+""";
+        var verifier = CreateVerifier(testCode);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void TargetTypedMemberBinding_BindsStaticProperty_ForReferenceTypeParameter()
     {
         string testCode = """

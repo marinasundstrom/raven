@@ -80,6 +80,39 @@ That example shows the current Raven style in miniature:
 
 ---
 
+## Target-typed shorthand
+
+When the surrounding context supplies a type, Raven lets a leading `.` stand in
+for that target. Named member bindings such as `.Active` resolve static members,
+enum values, and union cases on the target type. An omitted member name,
+`.(...)`, constructs the target type.
+
+```raven
+union UserStatus {
+    case Active
+    case Suspended(reason: string)
+}
+
+record class User(
+    val Id: int,
+    val Name: string,
+    val Role: Option<string>,
+    val Status: UserStatus)
+
+val users: User[] = [
+    .(1, "Ada", Some("compiler engineer"), .Active),
+    .(2, "Bo", None, .Suspended("email bounced"))
+]
+```
+
+The same rule works in assignment, return, argument, and collection-element
+positions whenever the target type is known. Use it where that target is clear
+from an annotation, an API parameter, or the surrounding name. Prefer the
+explicit form (`User(...)`, `UserStatus.Active`) when the shorthand would make a
+reader hunt for the target type.
+
+---
+
 ## Bindings and mutability
 
 - `val` is immutable.

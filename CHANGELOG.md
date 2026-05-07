@@ -2,6 +2,11 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 
+## 2026-05-07
+
+### Changed
+- Target-typed constructor binding now supports `.(...)`, allowing assignments, arguments, and collection elements with a known target type to construct that type without repeating its name.
+
 ## 2026-05-04
 
 ### Changed

@@ -306,6 +306,11 @@ func sayHello() {
 Many expressions rely on the type expected by their context, called the **target type**.
 For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type `Grades` to resolve the member.
 
+The constructor shorthand `.(...)` also requires a target type. The omitted
+member name means "construct the target type", so `let p: Point = .(2, -1)`
+binds as `Point(2, -1)`. The same form works in other target-typed contexts
+such as constructor arguments and collection elements.
+
 #### Discriminated union case sugar for `unit`
 
 When a discriminated union case carries exactly one payload of type `unit`, Raven permits the case to be written *without* an argument list in expression position. In such contexts, a bare case name is sugar for supplying the sole `unit` value `()`.

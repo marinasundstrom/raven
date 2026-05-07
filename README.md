@@ -34,9 +34,9 @@ import System.Text.Json.*
 import System.Threading.Tasks.*
 
 async func Main() -> Task {
-    val users = [
-        User(1, "Ada", Some("compiler engineer"), .Active)
-        User(2, "Bo", None, .Suspended("email bounced"))
+    val users: User[] = [
+        .(1, "Ada", Some("compiler engineer"), .Active),
+        .(2, "Bo", None, .Suspended("email bounced"))
     ]
 
     val label = FindUser(users, 1) match {
@@ -93,6 +93,7 @@ union LookupError {
 
 * `async`/`await` and direct .NET interop
 * Collection expressions and explicit `val`/`var` mutability
+* Target-typed member and constructor shorthand such as `.Active` and `.(...)`
 * Object initialization with `Type with { ... }`
 * `Result`/`Option` for recoverable flow and absence
 * `match` as a first-class expression

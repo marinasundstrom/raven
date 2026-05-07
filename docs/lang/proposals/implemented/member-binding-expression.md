@@ -11,13 +11,18 @@ Introduce `MemberBindingExpression` to allow target-typed member access using a 
 ```
 .MemberName
 .MemberName(argument1, argument2)
+.(argument1, argument2)
 ```
 
 Grammar:
 
 ```
-member-binding-expression := '.' identifier argument-list?
+member-binding-expression := '.' identifier? argument-list?
 ```
+
+When the identifier is omitted, the expression is a target-typed constructor
+binding. The target type supplies the constructed type, and overload resolution
+selects among that type's constructors.
 
 ## Examples
 
@@ -46,6 +51,14 @@ let number: int = .Parse("42")
 ```
 
 The target type on the left-hand side guides resolution of the member.
+
+### Constructor
+
+```raven
+let point: Point = .(2, -1)
+```
+
+The omitted member name signals construction of the target type.
 
 ## Target-typed contexts
 

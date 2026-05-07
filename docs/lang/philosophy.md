@@ -78,6 +78,13 @@ var retries = 0
 
 The principle is simple: if a choice affects how code behaves or what other code may rely on, the source should show that choice plainly.
 
+This also guides Raven's shorthand forms. Target-typed expressions such as
+`.Active` and `.(1, "Ada")` are useful when the target is visible from an
+annotation, parameter, return type, or collection element type. They should not
+be treated as a blanket preference for shorter code. When the target type is not
+obvious from the local form or nearby name, spelling the type or member
+explicitly is clearer.
+
 This principle matters especially in pattern syntax. Raven intentionally moved
 away from implicit capture in freestanding and inline patterns because pattern
 code becomes harder to read once bare identifiers can silently introduce names.
