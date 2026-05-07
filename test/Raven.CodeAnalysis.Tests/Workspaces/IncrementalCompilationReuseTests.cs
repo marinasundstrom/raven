@@ -1678,6 +1678,79 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_ReusedSourceMethodAttributes_MapStaleDeclarationReferenceToCurrentTree()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                import System.*
+
+                class Edited {
+                    [Obsolete("old")]
+                    func Stable() -> int {
+                        1
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialMethod = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var initialSymbol = initialModel.GetDeclaredSymbol(initialMethod).ShouldBeAssignableTo<IMethodSymbol>();
+        initialSymbol.GetAttributes().Single().AttributeClass?.Name.ShouldBe("ObsoleteAttribute");
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(
+                """
+                import System.*
+
+                class Edited {
+                    [Obsolete("old")]
+                    func Stable() -> int {
+                        2
+                    }
+                }
+                """));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedMethod = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        var updatedSymbol = updatedModel.GetDeclaredSymbol(updatedMethod).ShouldBeAssignableTo<IMethodSymbol>();
+        var updatedAttribute = updatedSymbol.GetAttributes().Single();
+
+        updatedAttribute.AttributeClass?.Name.ShouldBe("ObsoleteAttribute");
+        updatedAttribute.ConstructorArguments.Single().Value.ShouldBe("old");
+    }
+
+    [Fact]
     public void WorkspaceCompilation_ReusesBinderParentAnchorDescriptors_ForMatchedExecutableOwnersInChangedSyntaxTree()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

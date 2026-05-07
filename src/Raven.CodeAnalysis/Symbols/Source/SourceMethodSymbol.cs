@@ -535,7 +535,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
-            var syntax = syntaxReference.GetSyntax();
+            if (!TryGetCurrentDeclaringSyntax(compilation, syntaxReference, out var syntax, out var semanticModel))
+                continue;
+
             var declarationReturnTargetLists = syntax switch
             {
                 MethodDeclarationSyntax method => method.AttributeLists
@@ -552,11 +554,6 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
                 ParenthesizedFunctionExpressionSyntax lambda => lambda.ReturnType,
                 _ => null
             };
-
-            if (syntax.SyntaxTree is not { } syntaxTree)
-                continue;
-
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
             IEnumerable<AttributeSyntax> returnAttributes = declarationReturnTargetLists.SelectMany(static list => list.Attributes);
             if (returnClause is not null && returnClause.AttributeLists.Count > 0)

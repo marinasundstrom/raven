@@ -1,5 +1,5 @@
 Raven Language Server Performance Report
-Generated: 2026-05-07T12:05:30.7277660+00:00
+Generated: 2026-05-07T12:15:16.5768580+00:00
 Operation: computeDocumentDiagnostics
   Count: 16
   TotalMs: 51732,8
@@ -30,16 +30,16 @@ Operation: publishDiagnosticsSkipped
     2436,3ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=46 mode=Full outcome=SkippedRequeued
 
 Operation: hover
-  Count: 82
-  TotalMs: 26914,7
-  AvgMs: 328,2
+  Count: 89
+  TotalMs: 30957,4
+  AvgMs: 347,8
   MaxMs: 7389,7
   CacheHits: 9
   Stages:
-    gateWait: count=82 total=9049,9ms avg=110,4ms max=2633,5ms
-    resolution: count=82 total=5537,0ms avg=67,5ms max=2676,3ms
-    semanticModel: count=82 total=2622,6ms avg=32,0ms max=1925,4ms
-    analysisContext: count=82 total=3,7ms avg=0,0ms max=0,7ms
+    gateWait: count=89 total=9050,0ms avg=101,7ms max=2633,5ms
+    resolution: count=89 total=8209,9ms avg=92,2ms max=2676,3ms
+    semanticModel: count=89 total=2969,9ms avg=33,4ms max=1925,4ms
+    analysisContext: count=89 total=5,6ms avg=0,1ms max=1,7ms
   SlowestSamples:
     7389,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 14:12 semantic=[symbolInfo=7, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=8, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=10, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
     3635,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 11:39 semantic=[symbolInfo=2, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=2, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=11, boundCacheHits=8, boundContextHits=1, boundBindFallbacks=2, loweredCacheHits=0, loweredFallbacks=0]
@@ -77,13 +77,14 @@ Operation: computeDiagnosticsSkipped
     1955,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full
 
 Operation: publishDiagnosticsUnchanged
-  Count: 3
-  TotalMs: 7324,7
-  AvgMs: 2441,6
+  Count: 4
+  TotalMs: 10431,8
+  AvgMs: 2607,9
   MaxMs: 5508,4
-  AvgResultCount: 0,3
+  AvgResultCount: 0,2
   SlowestSamples:
     5508,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=41 mode=Full outcome=SkippedUnchanged
+    3107,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=46 mode=Full outcome=SkippedUnchanged
     1816,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=31 mode=Full outcome=SkippedUnchanged
     0,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=9 mode=Full outcome=SkippedUnchanged
 
@@ -274,4 +275,13 @@ Operation: publishSyntaxDiagnosticsUnchanged
     0,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=10 mode=SyntaxOnly outcome=SkippedUnchanged
     0,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=8 mode=SyntaxOnly outcome=SkippedUnchanged
     0,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=28 mode=SyntaxOnly outcome=SkippedUnchanged
+
+Operation: publishSyntaxDiagnosticsAlreadyCompleted
+  Count: 1
+  TotalMs: 0,1
+  AvgMs: 0,1
+  MaxMs: 0,1
+  AvgResultCount: 0,0
+  SlowestSamples:
+    0,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=46 mode=SyntaxOnly outcome=SkippedAlreadyCompleted
 

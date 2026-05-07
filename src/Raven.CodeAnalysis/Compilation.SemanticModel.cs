@@ -56,6 +56,23 @@ public partial class Compilation
         return GetOrCreateSemanticModel(syntaxTree);
     }
 
+    internal bool TryGetSemanticModel(SyntaxTree syntaxTree, out SemanticModel semanticModel)
+    {
+        EnsureSetup();
+
+        EnsureSourceDeclarationsDeclared();
+
+        if (!_syntaxTrees.Contains(syntaxTree) &&
+            !_generatedSemanticModels.ContainsKey(syntaxTree))
+        {
+            semanticModel = null!;
+            return false;
+        }
+
+        semanticModel = GetOrCreateSemanticModel(syntaxTree);
+        return true;
+    }
+
     private SemanticModel GetOrCreateSemanticModel(SyntaxTree syntaxTree)
     {
         if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))

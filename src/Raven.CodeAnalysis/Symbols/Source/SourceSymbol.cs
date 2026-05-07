@@ -69,16 +69,13 @@ internal abstract class SourceSymbol : Symbol
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
         {
-            var syntax = syntaxReference.GetSyntax();
+            if (!TryGetCurrentDeclaringSyntax(compilation, syntaxReference, out var syntax, out var semanticModel))
+                continue;
+
             var attributeLists = GetAttributeListsForDeclaration(syntax);
 
             if (attributeLists is null)
                 continue;
-
-            if (syntax.SyntaxTree is not { } syntaxTree)
-                continue;
-
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
@@ -118,6 +115,60 @@ internal abstract class SourceSymbol : Symbol
         }
 
         return builder.ToImmutable();
+    }
+
+    protected bool TryGetCurrentDeclaringSyntax(
+        Compilation compilation,
+        SyntaxReference syntaxReference,
+        out SyntaxNode syntax,
+        out SemanticModel semanticModel)
+    {
+        if (compilation.TryGetSemanticModel(syntaxReference.SyntaxTree, out semanticModel))
+        {
+            syntax = syntaxReference.GetSyntax();
+            return true;
+        }
+
+        var staleSyntax = syntaxReference.GetSyntax();
+        var staleFilePath = syntaxReference.SyntaxTree.FilePath;
+        if (string.IsNullOrWhiteSpace(staleFilePath))
+        {
+            syntax = null!;
+            semanticModel = null!;
+            return false;
+        }
+
+        var currentTree = compilation.SyntaxTrees.FirstOrDefault(tree =>
+            string.Equals(tree.FilePath, staleFilePath, StringComparison.OrdinalIgnoreCase));
+        if (currentTree is null ||
+            !compilation.TryGetSemanticModel(currentTree, out semanticModel))
+        {
+            syntax = null!;
+            semanticModel = null!;
+            return false;
+        }
+
+        var root = currentTree.GetRoot();
+        if (!root.FullSpan.Contains(syntaxReference.Span))
+        {
+            syntax = null!;
+            semanticModel = null!;
+            return false;
+        }
+
+        var candidate = root.FindNode(syntaxReference.Span, getInnermostNodeForTie: true);
+        for (var current = candidate; current is not null; current = current.Parent)
+        {
+            if (current.Kind == staleSyntax.Kind && current.Span == syntaxReference.Span)
+            {
+                syntax = current;
+                return true;
+            }
+        }
+
+        syntax = null!;
+        semanticModel = null!;
+        return false;
     }
 
     private static ParseOptions GetParseOptions(IEnumerable<SyntaxReference> declaringSyntaxReferences)
