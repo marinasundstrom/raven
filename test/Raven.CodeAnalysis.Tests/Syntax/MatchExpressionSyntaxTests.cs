@@ -76,6 +76,26 @@ let result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithTargetTypedCaseInvocationArm_ParsesAsExpression()
+    {
+        const string code = """
+let result = option match {
+    .Some(val value) => .Some(mapper(value))
+    .None => .None
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.IsType<InvocationExpressionSyntax>(match.Arms[0].Expression);
+        Assert.Equal(".Some(mapper(value))", match.Arms[0].Expression.ToString());
+        Assert.IsType<MemberBindingExpressionSyntax>(match.Arms[1].Expression);
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void MatchExpression_WithOuterValSequencePatternArm_ParsesBindingKeyword()
     {
         var (arm, tree) = ParseFirstMatchArm("val [first, second, ...rest]");

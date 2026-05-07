@@ -36,7 +36,7 @@ partial class BlockBinder : Binder
     }
 
     private readonly ISymbol _containingSymbol;
-    private readonly object _executionGate = new();
+    protected readonly object _executionGate = new();
     protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
     private readonly Dictionary<string, (SourceNamedTypeSymbol Symbol, int Depth)> _localTypes = new();
     private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose = new();
@@ -682,6 +682,37 @@ partial class BlockBinder : Binder
         return builder.ToImmutable();
     }
 
+    private static ImmutableArray<IMethodSymbol> FilterStaleSignatureSkeletonMethods(ImmutableArray<IMethodSymbol> methods)
+    {
+        if (methods.IsDefaultOrEmpty || methods.Length == 1)
+            return methods;
+
+        var completedSignatures = methods
+            .Where(static method => method is not SourceMethodSymbol { IsSignatureSkeleton: true })
+            .Select(GetParameterOnlyMethodSignatureKey)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (completedSignatures.Count == 0)
+            return methods;
+
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(methods.Length);
+        foreach (var method in methods)
+        {
+            if (method is SourceMethodSymbol { IsSignatureSkeleton: true } &&
+                completedSignatures.Contains(GetParameterOnlyMethodSignatureKey(method)))
+            {
+                continue;
+            }
+
+            builder.Add(method);
+        }
+
+        return builder.Count == methods.Length ? methods : builder.ToImmutable();
+    }
+
+    private static string GetParameterOnlyMethodSignatureKey(IMethodSymbol method)
+        => $"{method.Name}({string.Join(",", method.Parameters.Select(static parameter => parameter.Type.ToDisplayString()))})";
+
     private static string GetSymbolKindForDiagnostic(ISymbol symbol)
     {
         return symbol switch
@@ -1042,9 +1073,14 @@ partial class BlockBinder : Binder
         // Collection literals are target-type-sensitive. Reusing a cached node can
         // apply a previous context (for example, inferred array) in a later binding
         // that has an explicit target type.
+        var activeTargetType = _targetTypeStack.Count > 0 ? _targetTypeStack.Peek() : null;
+        var useContextualCache = activeTargetType is not null && IsTargetTypeSensitiveExpression(syntax);
         var skipCache = syntax is CollectionExpressionSyntax or ArrayExpressionSyntax or FunctionExpressionSyntax or TrailingBlockExpressionSyntax;
 
-        if (!skipCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
+        if (useContextualCache && TryGetCachedBoundNode(syntax, activeTargetType) is BoundExpression contextualCached)
+            return contextualCached;
+
+        if (!skipCache && !useContextualCache && TryGetCachedBoundNode(syntax) is BoundExpression cached)
             return cached;
 
         var boundNode = syntax switch
@@ -1098,11 +1134,21 @@ partial class BlockBinder : Binder
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
         };
 
-        if (!skipCache)
+        if (useContextualCache)
+            CacheBoundNode(syntax, boundNode, activeTargetType);
+        else if (!skipCache)
             CacheBoundNode(syntax, boundNode);
 
         return boundNode;
     }
+
+    private static bool IsTargetTypeSensitiveExpression(ExpressionSyntax syntax)
+        => syntax is MemberBindingExpressionSyntax
+            or InvocationExpressionSyntax
+            or MemberAccessExpressionSyntax
+            or IdentifierNameSyntax
+            or MatchExpressionSyntax
+            or IfExpressionSyntax;
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
@@ -7070,9 +7116,9 @@ partial class BlockBinder : Binder
 
         if (symbol is IMethodSymbol)
         {
-            var methods = LookupSymbols(name)
+            var methods = FilterStaleSignatureSkeletonMethods(LookupSymbols(name)
                 .OfType<IMethodSymbol>()
-                .ToImmutableArray();
+                .ToImmutableArray());
 
             if (methods.IsDefaultOrEmpty)
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);

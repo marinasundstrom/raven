@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -45,6 +46,8 @@ public partial class SemanticModel
     private ConcurrentDictionary<SyntaxNode, SymbolInfo> _symbolMappings => _bindingState.SymbolMappings;
     private ConcurrentDictionary<SyntaxNode, BoundNode> _boundNodeCache => _bindingState.BoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 => _bindingState.BoundNodeCacheWithBinder;
+    private ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> _contextualBoundNodeCache => _bindingState.ContextualBoundNodeCache;
+    private ConcurrentDictionary<ContextualBoundNodeCacheKey, (Binder, BoundNode)> _contextualBoundNodeCache2 => _bindingState.ContextualBoundNodeCacheWithBinder;
     private ConcurrentDictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache => _bindingState.LoweredBoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 => _bindingState.LoweredBoundNodeCacheWithBinder;
     private ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> _functionExpressionSymbolCache => _bindingState.FunctionExpressionSymbolCache;
@@ -82,6 +85,8 @@ public partial class SemanticModel
         public ConcurrentDictionary<SyntaxNode, SymbolInfo> SymbolMappings { get; } = new();
         public ConcurrentDictionary<SyntaxNode, BoundNode> BoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> BoundNodeCacheWithBinder { get; } = new();
+        public ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> ContextualBoundNodeCache { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
+        public ConcurrentDictionary<ContextualBoundNodeCacheKey, (Binder, BoundNode)> ContextualBoundNodeCacheWithBinder { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
         public ConcurrentDictionary<SyntaxNode, BoundNode> LoweredBoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> LoweredBoundNodeCacheWithBinder { get; } = new();
         public ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> FunctionExpressionSymbolCache { get; } = new();
@@ -93,6 +98,22 @@ public partial class SemanticModel
         public ConcurrentDictionary<SyntaxNode, ImmutableArray<Compilation.VisibleValueDeclaration>> VisibleValueScopeCache { get; } = new();
         public DiagnosticBag DeclarationDiagnostics { get; } = new();
         public IImmutableList<Diagnostic>? Diagnostics { get; set; }
+    }
+
+    private readonly record struct ContextualBoundNodeCacheKey(SyntaxNode Node, ITypeSymbol TargetType);
+
+    private sealed class ContextualBoundNodeCacheKeyComparer : IEqualityComparer<ContextualBoundNodeCacheKey>
+    {
+        public static readonly ContextualBoundNodeCacheKeyComparer Instance = new();
+
+        public bool Equals(ContextualBoundNodeCacheKey x, ContextualBoundNodeCacheKey y)
+            => ReferenceEquals(x.Node, y.Node) &&
+               SymbolEqualityComparer.Default.Equals(x.TargetType, y.TargetType);
+
+        public int GetHashCode(ContextualBoundNodeCacheKey obj)
+            => HashCode.Combine(
+                RuntimeHelpers.GetHashCode(obj.Node),
+                SymbolEqualityComparer.Default.GetHashCode(obj.TargetType));
     }
 
     /// <summary>
@@ -692,6 +713,12 @@ public partial class SemanticModel
                 goto Complete;
             }
 
+            if (TryRebindExpressionFromEnclosingFunctionContext(expression, out var functionContextInfo))
+            {
+                info = functionContextInfo;
+                goto Complete;
+            }
+
             if (TryResolveInterestLocalSymbol(expression) is { } interestLocalSymbol)
             {
                 info = new SymbolInfo(interestLocalSymbol);
@@ -1053,6 +1080,33 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private bool TryRebindExpressionFromEnclosingFunctionContext(
+        ExpressionSyntax expression,
+        out SymbolInfo info)
+    {
+        info = default;
+
+        if (!TryGetEnclosingFunctionExpression(expression, out var enclosingFunctionExpression))
+            return false;
+
+        var rebindRoot = GetFunctionExpressionRebindRoot(enclosingFunctionExpression);
+        ClearCachedSemanticState(rebindRoot);
+
+        var reboundRoot = GetBoundNode(rebindRoot, BoundTreeView.Original);
+        if (!TryFindBoundNodeBySyntax(reboundRoot, expression, out var reboundNode) ||
+            reboundNode is not BoundExpression reboundExpression)
+        {
+            return false;
+        }
+
+        var reboundInfo = reboundExpression.GetSymbolInfo();
+        if (reboundInfo.Symbol is null && reboundInfo.CandidateSymbols.IsDefaultOrEmpty)
+            return false;
+
+        info = reboundInfo;
+        return true;
     }
 
     private static bool InvocationContainsFunctionArguments(InvocationExpressionSyntax invocation)
@@ -3844,7 +3898,10 @@ public partial class SemanticModel
         if (declared is null)
             return null;
 
-        if (declared.IsAsync || methodDeclaration is not MethodDeclarationSyntax methodSyntax)
+        if (declared.IsAsync && !declared.IsSignatureSkeleton)
+            return declared;
+
+        if (methodDeclaration is not MethodDeclarationSyntax methodSyntax)
             return declared;
 
         if (!methodSyntax.Modifiers.Any(modifier => modifier.Kind == SyntaxKind.AsyncKeyword))
@@ -3861,6 +3918,7 @@ public partial class SemanticModel
             .OfType<SourceMethodSymbol>()
             .FirstOrDefault(candidate =>
                 candidate.IsAsync &&
+                !candidate.IsSignatureSkeleton &&
                 candidate.Parameters.Length == parameterCount &&
                 candidate.TypeParameters.Length == arity &&
                 candidate.DeclaringSyntaxReferences.Any(reference =>
@@ -4206,6 +4264,7 @@ public partial class SemanticModel
             var exact = containingType
                 .GetMembers(methodDeclaration.Identifier.ValueText)
                 .OfType<IMethodSymbol>()
+                .OrderBy(method => method is SourceMethodSymbol { IsSignatureSkeleton: true } ? 1 : 0)
                 .FirstOrDefault(method =>
                     method.Parameters.Length == parameterCount &&
                     method.Arity == arity &&

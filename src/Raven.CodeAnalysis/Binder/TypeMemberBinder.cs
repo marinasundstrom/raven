@@ -806,7 +806,9 @@ internal partial class TypeMemberBinder : Binder
 
         var methodSymbol = SemanticModel.GetOrCreateMethodSymbolForBinding(
             methodDecl,
-            () => new SourceMethodSymbol(
+            () => TryFindReusableMethodSignatureSkeleton(metadataName, methodDecl, paramInfos.Count, isExtensionContainer && !hasStaticModifier, out var skeleton)
+                ? skeleton
+                : new SourceMethodSymbol(
                     metadataName,
                     defaultReturnType,
                     ImmutableArray<SourceParameterSymbol>.Empty,
@@ -824,8 +826,6 @@ internal partial class TypeMemberBinder : Binder
                     isAbstract: isAbstract,
                     isExtern: isExtern,
                     declaredAccessibility: methodAccessibility));
-        methodSymbol.MarkSignatureBindingComplete();
-
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
 
         if (isExtensionMember)
@@ -844,9 +844,11 @@ internal partial class TypeMemberBinder : Binder
         {
             var methodTypeParameters = methodSymbol.TypeParameters;
 
-            // Expected invariant: extension type params are the first method type params.
-            if (!methodTypeParameters.IsDefaultOrEmpty &&
-                methodTypeParameters.Length >= _containingType.TypeParameters.Length)
+            // Expected invariant: lowered extension type params are the first method type params.
+            // Do not infer this from arity alone: a generic extension method like
+            // extension E<T> { func M<TResult>(...) } starts with TResult until the
+            // receiver type parameters are projected onto the method symbol.
+            if (StartsWithLoweredExtensionTypeParameters(methodTypeParameters))
             {
                 var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
                 for (int i = 0; i < _containingType.TypeParameters.Length; i++)
@@ -1073,6 +1075,8 @@ internal partial class TypeMemberBinder : Binder
 
         methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
+        methodSymbol.MarkSignatureBindingComplete();
+        RemoveStaleMethodSignatureSkeletons(metadataName, methodSymbol);
 
         if (isPartial)
         {
@@ -1100,6 +1104,152 @@ internal partial class TypeMemberBinder : Binder
         if (hasInvalidAsyncReturnType)
             methodSymbol.MarkAsyncReturnTypeError();
         return methodBinder;
+    }
+
+    private void RemoveStaleMethodSignatureSkeletons(
+        string metadataName,
+        SourceMethodSymbol completedMethod)
+    {
+        if (_containingType is not SourceNamedTypeSymbol sourceType)
+            return;
+
+        foreach (var method in _containingType.GetMembers(metadataName).OfType<SourceMethodSymbol>().ToArray())
+        {
+            if (ReferenceEquals(method, completedMethod) ||
+                !method.IsSignatureSkeleton ||
+                !MethodParameterSignaturesMatch(method, completedMethod))
+            {
+                continue;
+            }
+
+            sourceType.RemoveMember(method);
+        }
+    }
+
+    private bool TryFindReusableMethodSignatureSkeleton(
+        string metadataName,
+        MethodDeclarationSyntax methodDecl,
+        int declaredParameterCount,
+        bool isExtensionMember,
+        out SourceMethodSymbol skeleton)
+    {
+        var expectedParameterCount = declaredParameterCount + (isExtensionMember ? 1 : 0);
+
+        SourceMethodSymbol? parameterMatch = null;
+        foreach (var method in _containingType.GetMembers(metadataName).OfType<SourceMethodSymbol>())
+        {
+            if (!method.IsSignatureSkeleton ||
+                method.Parameters.Length != expectedParameterCount)
+            {
+                continue;
+            }
+
+            foreach (var reference in method.DeclaringSyntaxReferences)
+            {
+                if (reference.GetSyntax() is not MethodDeclarationSyntax skeletonDeclaration)
+                    continue;
+
+                if (skeletonDeclaration.Identifier.ValueText == methodDecl.Identifier.ValueText &&
+                    skeletonDeclaration.Identifier.Span == methodDecl.Identifier.Span)
+                {
+                    skeleton = method;
+                    return true;
+                }
+            }
+
+            if (ParameterSyntaxMatchesSkeleton(methodDecl, method, isExtensionMember))
+            {
+                if (parameterMatch is not null)
+                {
+                    parameterMatch = null;
+                    break;
+                }
+
+                parameterMatch = method;
+            }
+        }
+
+        if (parameterMatch is not null)
+        {
+            skeleton = parameterMatch;
+            return true;
+        }
+
+        skeleton = null!;
+        return false;
+    }
+
+    private bool ParameterSyntaxMatchesSkeleton(
+        MethodDeclarationSyntax methodDecl,
+        SourceMethodSymbol skeleton,
+        bool isExtensionMember)
+    {
+        var parameterOffset = isExtensionMember ? 1 : 0;
+        if (skeleton.Parameters.Length != methodDecl.ParameterList.Parameters.Count + parameterOffset)
+            return false;
+
+        for (var i = 0; i < methodDecl.ParameterList.Parameters.Count; i++)
+        {
+            var parameterSyntax = methodDecl.ParameterList.Parameters[i];
+            var skeletonParameter = skeleton.Parameters[i + parameterOffset];
+            if (parameterSyntax.TypeAnnotation is null)
+                return false;
+
+            var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
+            var parameterType = ResolveParameterTypeSyntaxForSignature(
+                this,
+                parameterSyntax.TypeAnnotation.Type,
+                refKind);
+
+            if (skeletonParameter.RefKind != refKind ||
+                !SignatureTypesMatch(skeletonParameter.Type, parameterType))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool MethodParameterSignaturesMatch(IMethodSymbol left, IMethodSymbol right)
+    {
+        if (left.Parameters.Length != right.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < left.Parameters.Length; i++)
+        {
+            var leftParameter = left.Parameters[i];
+            var rightParameter = right.Parameters[i];
+            if (leftParameter.RefKind != rightParameter.RefKind ||
+                !SignatureTypesMatch(leftParameter.Type, rightParameter.Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool SignatureTypesMatch(ITypeSymbol left, ITypeSymbol right)
+        => left.MetadataIdentityEquals(right) ||
+           SymbolEqualityComparer.Default.Equals(left, right) ||
+           string.Equals(left.ToDisplayString(), right.ToDisplayString(), StringComparison.Ordinal);
+
+    private bool StartsWithLoweredExtensionTypeParameters(ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        if (methodTypeParameters.IsDefaultOrEmpty ||
+            methodTypeParameters.Length < _containingType.TypeParameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < _containingType.TypeParameters.Length; i++)
+        {
+            if (!string.Equals(methodTypeParameters[i].Name, _containingType.TypeParameters[i].Name, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
     }
 
     private string CreateSignature(
@@ -3991,6 +4141,10 @@ internal partial class TypeMemberBinder : Binder
         if (!hasDeclared && !hasExtension)
             return;
 
+        var declaredCount = typeParameterList?.Parameters.Count ?? 0;
+        if (AreMethodTypeParametersInitialized(methodSymbol.TypeParameters, declaredCount, hasExtension))
+            return;
+
         if (hasDeclared)
         {
             TypeParameterInitializer.InitializeMethodTypeParameters(
@@ -4023,6 +4177,21 @@ internal partial class TypeMemberBinder : Binder
         }
 
         methodSymbol.SetTypeParameters(builder);
+    }
+
+    private bool AreMethodTypeParametersInitialized(
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters,
+        int declaredCount,
+        bool hasExtension)
+    {
+        if (methodTypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        if (!hasExtension)
+            return methodTypeParameters.Length == declaredCount;
+
+        return methodTypeParameters.Length == _containingType.TypeParameters.Length + declaredCount &&
+               StartsWithLoweredExtensionTypeParameters(methodTypeParameters);
     }
 
     private SourceTypeParameterSymbol CloneTypeParameter(

@@ -524,6 +524,14 @@ class MethodBodyBinder : BlockBinder
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
+        lock (_executionGate)
+        {
+            return GetOrBindCore(node);
+        }
+    }
+
+    private BoundNode GetOrBindCore(SyntaxNode node)
+    {
         if (TryGetCachedBoundNode(node) is BoundNode cached)
             return cached;
 

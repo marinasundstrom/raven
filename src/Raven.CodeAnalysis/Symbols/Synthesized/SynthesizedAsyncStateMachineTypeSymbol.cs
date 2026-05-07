@@ -811,8 +811,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         if (returnType is INamedTypeSymbol named &&
             named.TypeArguments.Length == 1 &&
-            named.ConstructedFrom is INamedTypeSymbol constructed &&
-            IsTaskOfT(constructed))
+            IsTaskOfT(named.OriginalDefinition as INamedTypeSymbol ?? named.ConstructedFrom as INamedTypeSymbol ?? named))
         {
             var awaitedType = SubstituteAsyncMethodTypeParameters(named.TypeArguments[0]);
 
@@ -829,8 +828,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         if (returnType is INamedTypeSymbol valueTaskNamed &&
             valueTaskNamed.TypeArguments.Length == 1 &&
-            valueTaskNamed.ConstructedFrom is INamedTypeSymbol valueTaskConstructed &&
-            IsValueTaskOfT(valueTaskConstructed))
+            IsValueTaskOfT(valueTaskNamed.OriginalDefinition as INamedTypeSymbol ?? valueTaskNamed.ConstructedFrom as INamedTypeSymbol ?? valueTaskNamed))
         {
             var awaitedType = SubstituteAsyncMethodTypeParameters(valueTaskNamed.TypeArguments[0]);
             if (awaitedType.TypeKind == TypeKind.Error)

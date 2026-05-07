@@ -142,4 +142,29 @@ func test(foo: Foo?) -> int {
             d => d.Severity == DiagnosticSeverity.Error &&
                  d.Descriptor != CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
     }
+
+    [Fact]
+    public void InvocationOperator_DiagnosticsOnly_BindsToInvokeMethod()
+    {
+        var source = """
+class Foo {
+    func self(value: int) -> int {
+        value + 1
+    }
+}
+
+func test(foo: Foo) -> int {
+    foo(2)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(
+            diagnostics,
+            d => d.Severity == DiagnosticSeverity.Error &&
+                 d.Descriptor == CompilerDiagnostics.NonInvocableMember);
+    }
 }

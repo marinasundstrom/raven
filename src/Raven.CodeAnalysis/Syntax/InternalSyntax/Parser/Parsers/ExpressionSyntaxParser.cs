@@ -2854,6 +2854,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.OpenParenToken or
             SyntaxKind.OpenBracketToken or
             SyntaxKind.OpenBraceToken or
+            SyntaxKind.DotToken or
             SyntaxKind.FuncKeyword or
             SyntaxKind.AsyncKeyword or
             SyntaxKind.TryKeyword or

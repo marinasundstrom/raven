@@ -16,7 +16,9 @@ public partial class SemanticModel
 
         try
         {
-            if (methodSymbol is not SourceMethodSymbol sourceMethod || sourceMethod.AsyncStateMachine is not null)
+            if (methodSymbol is not SourceMethodSymbol sourceMethod ||
+                sourceMethod.IsSignatureSkeleton ||
+                sourceMethod.AsyncStateMachine is not null)
                 return;
 
             var hasAwaitSyntax = methodDeclaration.Body is not null
@@ -70,30 +72,30 @@ public partial class SemanticModel
                 }
             }
 
-        if (sourceMethod.AsyncStateMachine is null)
-        {
-            BoundBlockStatement? originalBody = null;
-
-            if (methodDeclaration.Body is not null)
+            if (sourceMethod.AsyncStateMachine is null)
             {
-                originalBody = GetBoundNode(methodDeclaration.Body, BoundTreeView.Original) as BoundBlockStatement;
+                BoundBlockStatement? originalBody = null;
 
-                if ((originalBody is null || !originalBody.Statements.Any()) &&
-                    methodDeclaration.Body.Statements.Count > 0 &&
-                    TryForceBindMethodBody(methodDeclaration, sourceMethod) is { } reboundBody)
+                if (methodDeclaration.Body is not null)
                 {
-                    originalBody = reboundBody;
+                    originalBody = GetBoundNode(methodDeclaration.Body, BoundTreeView.Original) as BoundBlockStatement;
+
+                    if ((originalBody is null || !originalBody.Statements.Any()) &&
+                        methodDeclaration.Body.Statements.Count > 0 &&
+                        TryForceBindMethodBody(methodDeclaration, sourceMethod) is { } reboundBody)
+                    {
+                        originalBody = reboundBody;
+                    }
                 }
-            }
-            else if (methodDeclaration.ExpressionBody is not null &&
-                GetBoundNode(methodDeclaration.ExpressionBody.Expression, BoundTreeView.Original) is BoundExpression expressionBody)
-            {
-                originalBody = ConvertExpressionBodyToBlock(sourceMethod, expressionBody);
+                else if (methodDeclaration.ExpressionBody is not null &&
+                    GetBoundNode(methodDeclaration.ExpressionBody.Expression, BoundTreeView.Original) is BoundExpression expressionBody)
+                {
+                    originalBody = ConvertExpressionBodyToBlock(sourceMethod, expressionBody);
                 }
 
-            if (originalBody is not null && AsyncLowerer.ShouldRewrite(sourceMethod, originalBody))
-                _ = AsyncLowerer.Rewrite(sourceMethod, originalBody);
-        }
+                if (originalBody is not null && AsyncLowerer.ShouldRewrite(sourceMethod, originalBody))
+                    _ = AsyncLowerer.Rewrite(sourceMethod, originalBody);
+            }
 
             if (sourceMethod.AsyncStateMachine is null &&
                 sourceMethod.ContainingAssembly is SourceAssemblySymbol sourceAssembly)

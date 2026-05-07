@@ -810,6 +810,9 @@ internal class TypeGenerator
             {
                 case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove):
                     {
+                        if (methodSymbol is SourceMethodSymbol { IsSignatureSkeleton: true })
+                            break;
+
                         if (methodSymbol is SynthesizedMainMethodSymbol { ContainsExecutableCode: false })
                             break;
 

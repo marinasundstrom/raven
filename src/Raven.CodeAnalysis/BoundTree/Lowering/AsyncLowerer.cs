@@ -702,7 +702,7 @@ internal static class AsyncLowerer
         if (body is null)
             throw new ArgumentNullException(nameof(body));
 
-        return method.IsAsync && !method.IsIterator;
+        return method.IsAsync && !method.IsIterator && !method.IsSignatureSkeleton;
     }
 
     public static bool ShouldRewrite(SourceLambdaSymbol lambda, BoundBlockStatement body)

@@ -11,6 +11,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 {
     private readonly List<ISymbol> _members = new List<ISymbol>();
+    private readonly object _membersGate = new();
     private readonly string _metadataName;
     private bool _isStatic;
     private ImmutableArray<INamedTypeSymbol> _interfaces = ImmutableArray<INamedTypeSymbol>.Empty;
@@ -25,6 +26,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     private ImmutableArray<INamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<INamedTypeSymbol>.Empty;
     private string? _sealedHierarchySourceFile;
     private bool? _lazyHasPrimaryConstructorSyntax;
+    private bool _primaryConstructorMembersEnsured;
+    private bool _ensuringPrimaryConstructorMembers;
 
     public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable, string? metadataName = null)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
@@ -84,7 +87,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
 
-    public ImmutableArray<IMethodSymbol> Constructors => _members
+    public ImmutableArray<IMethodSymbol> Constructors => GetMembers()
         .OfType<SourceMethodSymbol>()
         .Where(x => x.MethodKind == MethodKind.Constructor)
         .Cast<IMethodSymbol>()
@@ -92,7 +95,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
 
-    public IMethodSymbol? StaticConstructor => _members
+    public IMethodSymbol? StaticConstructor => GetMembers()
         .OfType<IMethodSymbol>()
         .FirstOrDefault(m => m.MethodKind == MethodKind.StaticConstructor);
     public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
@@ -173,15 +176,23 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ImmutableArray<ISymbol> GetMembers()
     {
-        return _members.Distinct(SymbolReferenceComparer.Instance).ToImmutableArray();
+        EnsurePrimaryConstructorMembersDeclared();
+
+        lock (_membersGate)
+            return _members.Distinct(SymbolReferenceComparer.Instance).ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        return _members
-            .Where(x => x.Name == name)
-            .Distinct(SymbolReferenceComparer.Instance)
-            .ToImmutableArray();
+        EnsurePrimaryConstructorMembersDeclared();
+
+        lock (_membersGate)
+        {
+            return _members
+                .Where(x => x.Name == name)
+                .Distinct(SymbolReferenceComparer.Instance)
+                .ToImmutableArray();
+        }
     }
 
     private sealed class SymbolReferenceComparer : IEqualityComparer<ISymbol>
@@ -194,16 +205,18 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     }
 
     public ITypeSymbol? LookupType(string name) =>
-        TypeLookupUtilities.SelectBestTypeByName(_members.OfType<ITypeSymbol>().Where(t => t.Name == name));
+        TypeLookupUtilities.SelectBestTypeByName(GetMembers(name).OfType<ITypeSymbol>());
 
     internal void AddMember(ISymbol member)
     {
-        _members.Add(member);
+        lock (_membersGate)
+            _members.Add(member);
     }
 
     internal void RemoveMember(ISymbol member)
     {
-        _members.Remove(member);
+        lock (_membersGate)
+            _members.Remove(member);
     }
 
     internal void SetInterfaces(IEnumerable<INamedTypeSymbol> interfaces)
@@ -338,7 +351,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        symbol = _members.FirstOrDefault(m => m.Name == name);
+        symbol = GetMembers(name).FirstOrDefault();
         return symbol is not null;
     }
 
@@ -421,6 +434,46 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     {
         if (!subtypes.IsDefault)
             _permittedDirectSubtypes = subtypes;
+    }
+
+    private void EnsurePrimaryConstructorMembersDeclared()
+    {
+        if (!HasPrimaryConstructorSyntax)
+            return;
+
+        lock (_membersGate)
+        {
+            if (_primaryConstructorMembersEnsured || _ensuringPrimaryConstructorMembers)
+                return;
+
+            _ensuringPrimaryConstructorMembers = true;
+        }
+
+        try
+        {
+            var compilation = GetDeclaringCompilation();
+            if (compilation is null)
+                return;
+
+            foreach (var syntaxReference in DeclaringSyntaxReferences)
+            {
+                if (syntaxReference.GetSyntax() is not TypeDeclarationSyntax { ParameterList: not null } typeDeclaration)
+                    continue;
+
+                if (typeDeclaration.SyntaxTree is not { } syntaxTree)
+                    continue;
+
+                compilation.GetSemanticModel(syntaxTree).EnsureRootBinderCreated();
+            }
+        }
+        finally
+        {
+            lock (_membersGate)
+            {
+                _primaryConstructorMembersEnsured = true;
+                _ensuringPrimaryConstructorMembers = false;
+            }
+        }
     }
 
     public void SetEnumUnderlyingType(ITypeSymbol underlyingType)

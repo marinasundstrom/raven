@@ -1821,9 +1821,17 @@ internal abstract partial class Binder
     protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
         => SemanticModel?.TryGetCachedBoundNode(node);
 
+    protected BoundNode? TryGetCachedBoundNode(SyntaxNode node, ITypeSymbol? targetType)
+        => SemanticModel?.TryGetCachedBoundNode(node, targetType);
+
     protected void CacheBoundNode(SyntaxNode node, BoundNode bound)
     {
         SemanticModel?.CacheBoundNode(node, bound, this);
+    }
+
+    protected void CacheBoundNode(SyntaxNode node, BoundNode bound, ITypeSymbol? targetType)
+    {
+        SemanticModel?.CacheBoundNode(node, bound, this, targetType);
     }
 
     protected void RemoveCachedBoundNode(SyntaxNode node)

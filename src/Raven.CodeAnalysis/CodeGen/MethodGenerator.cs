@@ -644,6 +644,15 @@ internal class MethodGenerator
                 return builder;
         }
 
+        var nameMatches = _parameterBuilders
+            .Where(entry => string.Equals(entry.Symbol.Name, parameterSymbol.Name, StringComparison.Ordinal))
+            .ToArray();
+        // Skeleton and completed source method symbols can currently carry equivalent
+        // parameter symbols across primary-constructor body binding. Prefer the single
+        // emitted parameter with the same name until symbol completion owns that identity.
+        if (nameMatches.Length == 1)
+            return nameMatches[0].Builder;
+
         throw new KeyNotFoundException($"Missing parameter builder for '{parameterSymbol.Name}'.");
     }
 

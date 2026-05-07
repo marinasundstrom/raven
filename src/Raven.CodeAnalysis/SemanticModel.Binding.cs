@@ -5691,6 +5691,16 @@ public partial class SemanticModel
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
         => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
 
+    internal BoundNode? TryGetCachedBoundNode(SyntaxNode node, ITypeSymbol? targetType)
+    {
+        if (targetType is null)
+            return TryGetCachedBoundNode(node);
+
+        return _contextualBoundNodeCache.TryGetValue(new ContextualBoundNodeCacheKey(node, targetType), out var bound)
+            ? bound
+            : null;
+    }
+
     internal BoundNode? TryGetCachedLoweredBoundNode(SyntaxNode node)
         => _loweredBoundNodeCache.TryGetValue(node, out var bound) ? bound : null;
 
@@ -5710,6 +5720,7 @@ public partial class SemanticModel
             });
 
         _syntaxCache[selectedBound] = node;
+        CacheSymbolInfo(node, selectedBound);
         if (IsDebuggingEnabled && binder is not null)
         {
             _boundNodeCache2.AddOrUpdate(
@@ -5730,6 +5741,65 @@ public partial class SemanticModel
             RemoveCachedSymbolMapping(functionExpression);
             _ = TryUpgradeFunctionExpressionSymbolFromBoundFunction(functionExpression, boundFunction, out _);
         }
+    }
+
+    internal void CacheBoundNode(SyntaxNode node, BoundNode bound, Binder? binder, ITypeSymbol? targetType)
+    {
+        if (targetType is null)
+        {
+            CacheBoundNode(node, bound, binder);
+            return;
+        }
+
+        BoundNode selectedBound = bound;
+        var key = new ContextualBoundNodeCacheKey(node, targetType);
+        _contextualBoundNodeCache.AddOrUpdate(
+            key,
+            _ => bound,
+            (_, existing) =>
+            {
+                if (ShouldReplaceCachedBoundNode(existing, bound))
+                    return bound;
+
+                selectedBound = existing;
+                return existing;
+            });
+
+        _syntaxCache[selectedBound] = node;
+        CacheSymbolInfo(node, selectedBound);
+        if (IsDebuggingEnabled && binder is not null)
+        {
+            _contextualBoundNodeCache2.AddOrUpdate(
+                key,
+                _ => (binder, selectedBound),
+                (_, existing) =>
+                {
+                    if (ShouldReplaceCachedBoundNode(existing.Item2, bound))
+                        return (binder, bound);
+
+                    return existing;
+                });
+        }
+
+        if (node is FunctionExpressionSyntax functionExpression &&
+            selectedBound is BoundFunctionExpression boundFunction)
+        {
+            RemoveCachedSymbolMapping(functionExpression);
+            _ = TryUpgradeFunctionExpressionSymbolFromBoundFunction(functionExpression, boundFunction, out _);
+        }
+    }
+
+    private void CacheSymbolInfo(SyntaxNode node, BoundNode bound)
+    {
+        var info = bound switch
+        {
+            BoundExpression expression => expression.GetSymbolInfo(),
+            BoundStatement statement => statement.GetSymbolInfo(),
+            _ => default
+        };
+
+        if (info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty)
+            _symbolMappings[node] = info;
     }
 
     private static bool ShouldReplaceCachedBoundNode(BoundNode existing, BoundNode incoming)
@@ -5895,6 +5965,15 @@ public partial class SemanticModel
             _syntaxCache.TryRemove(bound, out _);
 
         _boundNodeCache.TryRemove(node, out _);
+        foreach (var key in _contextualBoundNodeCache.Keys.Where(key => ReferenceEquals(key.Node, node)))
+        {
+            if (_contextualBoundNodeCache.TryRemove(key, out var contextualBound))
+                _syntaxCache.TryRemove(contextualBound, out _);
+
+            if (IsDebuggingEnabled)
+                _contextualBoundNodeCache2.TryRemove(key, out _);
+        }
+
         _symbolMappings.TryRemove(node, out _);
         _operationCache.TryRemove(node, out _);
         if (_loweredBoundNodeCache.TryGetValue(node, out var loweredBound))

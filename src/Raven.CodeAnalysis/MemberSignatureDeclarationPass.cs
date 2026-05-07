@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -71,8 +74,12 @@ internal static class MemberSignatureDeclarationPass
             ? ResolveSkeletonType(compilation, returnTypeSyntax.Type, defaultReturnType, containingType)
             : defaultReturnType;
 
+        var methodName = methodDeclaration.Identifier.Kind == SyntaxKind.SelfKeyword
+            ? "Invoke"
+            : methodDeclaration.Identifier.ValueText;
+
         var methodSymbol = new SourceMethodSymbol(
-            methodDeclaration.Identifier.ValueText,
+            methodName,
             returnType,
             ImmutableArray<SourceParameterSymbol>.Empty,
             containingType,
@@ -90,20 +97,158 @@ internal static class MemberSignatureDeclarationPass
             isExtern: isExtern,
             declaredAccessibility: methodAccessibility);
 
-        TypeParameterInitializer.InitializeMethodTypeParameters(
-            methodSymbol,
-            containingType,
-            methodDeclaration.TypeParameterList,
-            methodDeclaration.ConstraintClauses,
-            methodDeclaration.SyntaxTree);
+        var isExtensionMember = containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true } &&
+                                !methodDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
 
-        var parameters = methodDeclaration.ParameterList?.Parameters
-            .Select(parameter => CreateSkeletonParameterSymbol(compilation, parameter, methodSymbol, containingType))
-            .ToImmutableArray() ?? ImmutableArray<SourceParameterSymbol>.Empty;
+        if (containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+            InitializeExtensionMethodTypeParameters(methodSymbol, containingType, methodDeclaration);
+        else
+            TypeParameterInitializer.InitializeMethodTypeParameters(
+                methodSymbol,
+                containingType,
+                methodDeclaration.TypeParameterList,
+                methodDeclaration.ConstraintClauses,
+                methodDeclaration.SyntaxTree);
 
-        methodSymbol.SetParameters(parameters);
+        if (isExtensionMember)
+            methodSymbol.MarkDeclaredInExtension();
+
+        var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
+
+        if (isExtensionMember &&
+            methodDeclaration.Parent is ExtensionDeclarationSyntax extensionDeclaration)
+        {
+            var receiverType = ResolveSkeletonType(
+                compilation,
+                extensionDeclaration.ReceiverType,
+                compilation.ErrorTypeSymbol,
+                containingType,
+                methodSymbol.TypeParameters);
+
+            parameters.Add(new SourceParameterSymbol(
+                "self",
+                receiverType,
+                methodSymbol,
+                containingType,
+                containingType.ContainingNamespace,
+                [extensionDeclaration.ReceiverType.GetLocation()],
+                [extensionDeclaration.ReceiverType.GetReference()]));
+        }
+
+        if (methodDeclaration.ParameterList is not null)
+        {
+            foreach (var parameter in methodDeclaration.ParameterList.Parameters)
+                parameters.Add(CreateSkeletonParameterSymbol(compilation, parameter, methodSymbol, containingType));
+        }
+
+        methodSymbol.SetParameters(parameters.ToImmutable());
         methodSymbol.MarkSignatureSkeleton();
         compilation.RegisterMethodSymbol(methodDeclaration, methodSymbol);
+    }
+
+    private static void InitializeExtensionMethodTypeParameters(
+        SourceMethodSymbol methodSymbol,
+        SourceNamedTypeSymbol containingType,
+        MethodDeclarationSyntax methodDeclaration)
+    {
+        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>();
+        var ordinal = 0;
+
+        foreach (var typeParameter in containingType.TypeParameters.OfType<SourceTypeParameterSymbol>())
+        {
+            builder.Add(new SourceTypeParameterSymbol(
+                typeParameter.Name,
+                methodSymbol,
+                containingType,
+                methodSymbol.ContainingNamespace,
+                typeParameter.Locations.ToArray(),
+                typeParameter.DeclaringSyntaxReferences.ToArray(),
+                ordinal++,
+                typeParameter.ConstraintKind,
+                typeParameter.ConstraintTypeReferences,
+                typeParameter.Variance));
+        }
+
+        foreach (var typeParameter in CreateMethodTypeParameters(
+                     methodSymbol,
+                     containingType,
+                     methodDeclaration.TypeParameterList,
+                     methodDeclaration.ConstraintClauses,
+                     methodDeclaration.SyntaxTree,
+                     ordinal))
+        {
+            builder.Add(typeParameter);
+        }
+
+        methodSymbol.SetTypeParameters(builder);
+    }
+
+    private static IEnumerable<ITypeParameterSymbol> CreateMethodTypeParameters(
+        SourceMethodSymbol methodSymbol,
+        INamedTypeSymbol containingType,
+        TypeParameterListSyntax? typeParameterList,
+        SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
+        SyntaxTree syntaxTree,
+        int ordinal)
+    {
+        if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
+            yield break;
+
+        Dictionary<string, List<TypeParameterConstraintClauseSyntax>>? clausesByName = null;
+        if (constraintClauses.Count > 0)
+        {
+            clausesByName = new(StringComparer.Ordinal);
+
+            foreach (var clause in constraintClauses)
+            {
+                var name = clause.TypeParameter.Identifier.ValueText;
+                if (!clausesByName.TryGetValue(name, out var list))
+                    clausesByName[name] = list = new List<TypeParameterConstraintClauseSyntax>();
+
+                list.Add(clause);
+            }
+        }
+
+        foreach (var parameter in typeParameterList.Parameters)
+        {
+            var identifier = parameter.Identifier;
+            var location = syntaxTree.GetLocation(identifier.Span);
+            var reference = parameter.GetReference();
+
+            var (inlineKind, inlineRefs) = TypeParameterConstraintAnalyzer.AnalyzeInline(parameter);
+            var clauseKind = TypeParameterConstraintKind.None;
+            var clauseRefsBuilder = ImmutableArray.CreateBuilder<SyntaxReference>();
+
+            if (clausesByName is not null &&
+                clausesByName.TryGetValue(identifier.ValueText, out var matchingClauses))
+            {
+                foreach (var clause in matchingClauses)
+                {
+                    var (kind, refs) = TypeParameterConstraintAnalyzer.AnalyzeClause(clause);
+                    clauseKind |= kind;
+                    clauseRefsBuilder.AddRange(refs);
+                }
+            }
+
+            var variance = parameter.VarianceKeyword.Kind switch
+            {
+                SyntaxKind.OutKeyword => VarianceKind.Out,
+                SyntaxKind.InKeyword => VarianceKind.In,
+                _ => VarianceKind.None,
+            };
+
+            yield return new SourceTypeParameterSymbol(
+                identifier.ValueText,
+                methodSymbol,
+                containingType,
+                methodSymbol.ContainingNamespace,
+                [location],
+                [reference],
+                ordinal++,
+                inlineKind | clauseKind,
+                inlineRefs.AddRange(clauseRefsBuilder.ToImmutable()),
+                variance);
+        }
     }
 
     public static void DeclarePropertySignature(
@@ -396,8 +541,39 @@ internal static class MemberSignatureDeclarationPass
                 methodTypeParameters,
                 fallbackType),
             ByRefTypeSyntax byRef => ResolveSkeletonType(compilation, byRef.ElementType, fallbackType, containingType, methodTypeParameters),
+            GenericNameSyntax genericName => ResolveGenericSkeletonType(compilation, genericName, fallbackType, containingType, methodTypeParameters),
             _ => fallbackType
         };
+
+    private static ITypeSymbol ResolveGenericSkeletonType(
+        Compilation compilation,
+        GenericNameSyntax genericName,
+        ITypeSymbol fallbackType,
+        INamedTypeSymbol? containingType,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        var definition = ResolveIdentifierSkeletonType(
+            compilation,
+            genericName.Identifier.ValueText,
+            containingType,
+            methodTypeParameters,
+            fallbackType);
+
+        if (definition is not INamedTypeSymbol namedDefinition ||
+            genericName.TypeArgumentList.Arguments.Count != namedDefinition.Arity)
+        {
+            return fallbackType;
+        }
+
+        var arguments = genericName.TypeArgumentList.Arguments
+            .Select(argument => ResolveSkeletonType(compilation, argument.Type, fallbackType, containingType, methodTypeParameters))
+            .ToArray();
+
+        if (arguments.Any(static argument => argument.TypeKind == TypeKind.Error))
+            return fallbackType;
+
+        return namedDefinition.Construct(arguments);
+    }
 
     private static ITypeSymbol ResolveQualifiedSkeletonType(
         Compilation compilation,

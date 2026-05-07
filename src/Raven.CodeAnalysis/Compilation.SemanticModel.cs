@@ -127,6 +127,12 @@ public partial class Compilation
             _sourceDeclarationThreadId = currentThreadId;
             try
             {
+                EnsureSemanticModelsCreated();
+                var semanticModels = _semanticModels.Values.ToArray();
+
+                foreach (var model in semanticModels)
+                    model.EnsureRootBinderCreated();
+
                 _sourceDeclarationsComplete = true;
             }
             finally
