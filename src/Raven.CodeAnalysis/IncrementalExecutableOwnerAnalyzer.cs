@@ -120,6 +120,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
             PropertyDeclarationSyntax property => (owner.Kind, $"property:{property.Identifier.ValueText}"),
             EventDeclarationSyntax @event => (owner.Kind, $"event:{@event.Identifier.ValueText}"),
             AccessorDeclarationSyntax accessor => (owner.Kind, $"accessor:{accessor.Keyword.Kind}"),
+            GlobalStatementSyntax global => (owner.Kind, CreateGlobalStatementMatchIdentity(global)),
             _ => (owner.Kind, owner.ToFullString())
         };
     }
@@ -143,6 +144,27 @@ internal static class IncrementalExecutableOwnerAnalyzer
     {
         var parameterTypes = FormatParameterTypeIdentity(ctor.ParameterList?.Parameters);
         return $"ctor:({parameterTypes})";
+    }
+
+    private static string CreateGlobalStatementMatchIdentity(GlobalStatementSyntax global)
+    {
+        var ordinal = global.Parent is null
+            ? -1
+            : global.Parent
+                .ChildNodes()
+                .OfType<GlobalStatementSyntax>()
+                .TakeWhile(sibling => !ReferenceEquals(sibling, global))
+                .Count();
+
+        var parentIdentity = global.Parent switch
+        {
+            CompilationUnitSyntax => "root",
+            BaseNamespaceDeclarationSyntax namespaceDeclaration => $"namespace:{namespaceDeclaration.Name}",
+            SyntaxNode parent => parent.Kind.ToString(),
+            _ => "none"
+        };
+
+        return $"global:{parentIdentity}:{ordinal}:{global.Statement.Kind}";
     }
 
     private static string FormatParameterTypeIdentity(IEnumerable<ParameterSyntax>? parameters)

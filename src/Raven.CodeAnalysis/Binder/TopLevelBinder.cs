@@ -14,6 +14,7 @@ class TopLevelBinder : BlockBinder
 {
     private readonly CompilationUnitSyntax _compilationUnit;
     private readonly SourceMethodSymbol _scriptMethod;
+    private bool _globalFunctionsDeclared;
     private bool _globalStatementsBound;
 
     public TopLevelBinder(
@@ -38,6 +39,30 @@ class TopLevelBinder : BlockBinder
 
     public IMethodSymbol MainMethod => _scriptMethod;
 
+    public void DeclareGlobalFunctions(IEnumerable<GlobalStatementSyntax> statements)
+    {
+        if (_globalFunctionsDeclared)
+            return;
+
+        foreach (var stmt in statements)
+        {
+            if (stmt.Statement is not FunctionStatementSyntax localFunc)
+                continue;
+
+            var binder = SemanticModel.GetBinder(localFunc, this);
+            if (binder is FunctionBinder lfBinder)
+            {
+                var symbol = lfBinder.GetMethodSymbol();
+                if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                    _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
+                else
+                    DeclareFunction(symbol);
+            }
+        }
+
+        _globalFunctionsDeclared = true;
+    }
+
     public void BindGlobalStatements(IEnumerable<GlobalStatementSyntax> statements)
     {
         if (_globalStatementsBound)
@@ -49,22 +74,8 @@ class TopLevelBinder : BlockBinder
 
         ApplyInferredTopLevelReturnTypes(globalStatements);
 
-        // Declare all functions first so they are available to subsequent statements
-        foreach (var stmt in globalStatements)
-        {
-            if (stmt.Statement is FunctionStatementSyntax localFunc)
-            {
-                var binder = SemanticModel.GetBinder(localFunc, this);
-                if (binder is FunctionBinder lfBinder)
-                {
-                    var symbol = lfBinder.GetMethodSymbol();
-                    if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
-                        _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
-                    else
-                        DeclareFunction(symbol);
-                }
-            }
-        }
+        // Declare all functions first so they are available to subsequent statements.
+        DeclareGlobalFunctions(globalStatements);
 
         // Bind each statement
         var boundStatements = new List<BoundStatement>(globalStatements.Count);

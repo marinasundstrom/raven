@@ -297,6 +297,9 @@ public partial class SemanticModel
             foreach (var owner in ownersToBind)
             {
                 var beforeCount = diagnosticsBuilder.Count;
+                if (owner is GlobalStatementSyntax globalOwner)
+                    BindPrecedingGlobalStatementsForScope(root, globalOwner);
+
                 var ownerBinder = ReferenceEquals(owner, root) ? rootBinder : GetBinder(owner);
                 Traverse(owner, ownerBinder);
 
@@ -500,6 +503,19 @@ public partial class SemanticModel
             _symbolMappings.TryRemove(node, out _);
         }
 
+        if (node is IdentifierNameSyntax earlyMemberIdentifier &&
+            earlyMemberIdentifier.Parent is MemberAccessExpressionSyntax earlyMemberAccess &&
+            IsSameSyntaxNode(earlyMemberAccess.Name, earlyMemberIdentifier) &&
+            TryResolveMemberAccessFromVisibleReceiver(earlyMemberAccess, earlyMemberIdentifier, out var earlyMemberInfo))
+        {
+            earlyMemberInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, earlyMemberInfo);
+            if (earlyMemberInfo.Symbol is { } earlyMemberSymbol)
+                StoreNodeInterestSymbolDescriptor(node, earlyMemberSymbol);
+
+            _symbolMappings[node] = earlyMemberInfo;
+            return earlyMemberInfo;
+        }
+
         if (TryGetNodeInterestSymbolInfo(node, out var nodeInterestInfo))
         {
             nodeInterestInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, nodeInterestInfo);
@@ -559,6 +575,12 @@ public partial class SemanticModel
             identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
             IsSameSyntaxNode(memberAccess.Name, identifier))
         {
+            if (TryResolveMemberAccessFromVisibleReceiver(memberAccess, identifier, out var fastMemberInfo))
+            {
+                info = fastMemberInfo;
+                goto Complete;
+            }
+
             if (TryBindExactSymbol(node, out var exactInfo))
             {
                 info = exactInfo;
@@ -786,6 +808,9 @@ public partial class SemanticModel
 
     Complete:
         info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
+        if (info.Symbol is { } resolvedSymbol)
+            StoreNodeInterestSymbolDescriptor(node, resolvedSymbol);
+
         _symbolMappings[node] = info;
         return info;
     }
@@ -1006,6 +1031,35 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private bool TryResolveMemberAccessFromVisibleReceiver(
+        MemberAccessExpressionSyntax memberAccess,
+        IdentifierNameSyntax memberName,
+        out SymbolInfo info)
+    {
+        info = default;
+
+        var receiverSymbol = TryLookupVisibleValueSymbol(memberAccess.Expression);
+        var receiverType = GetTypeFromSymbol(receiverSymbol);
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        var members = receiverType.GetMembers(memberName.Identifier.ValueText)
+            .Where(static member => member is IFieldSymbol or IPropertySymbol or IEventSymbol or IMethodSymbol)
+            .ToImmutableArray();
+
+        if (members.IsDefaultOrEmpty)
+            return false;
+
+        var selected = members.Length == 1
+            ? members[0]
+            : members.FirstOrDefault(static member => member is IPropertySymbol or IFieldSymbol or IEventSymbol);
+
+        info = selected is not null
+            ? new SymbolInfo(selected, members)
+            : new SymbolInfo(CandidateReason.MemberGroup, members);
+        return true;
     }
 
     private bool TryGetCasePatternHeadSymbol(SimpleNameSyntax nameSyntax, out ISymbol symbol)
@@ -1384,6 +1438,9 @@ public partial class SemanticModel
             return true;
         }
 
+        if (TryBindLocalDeclarationForStableLocalSymbol(variableDeclarator, out localSymbol))
+            return true;
+
         if (variableDeclarator.TypeAnnotation is not null ||
             variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any() != true)
         {
@@ -1411,6 +1468,50 @@ public partial class SemanticModel
 
         localSymbol = null;
         return false;
+    }
+
+    private bool TryBindLocalDeclarationForStableLocalSymbol(
+        VariableDeclaratorSyntax variableDeclarator,
+        out ILocalSymbol? localSymbol)
+    {
+        if (variableDeclarator.Ancestors().OfType<GlobalStatementSyntax>().FirstOrDefault() is { } globalStatement)
+            BindPrecedingGlobalStatementsForScope(SyntaxTree.GetRoot(), globalStatement);
+
+        var bindingRoot =
+            variableDeclarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().FirstOrDefault()
+            ?? (SyntaxNode?)variableDeclarator;
+
+        if (bindingRoot is null)
+        {
+            localSymbol = null;
+            return false;
+        }
+
+        _ = GetBinder(bindingRoot).GetOrBind(bindingRoot);
+
+        if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
+            !reboundDeclarator.Local.Type.ContainsErrorType())
+        {
+            localSymbol = reboundDeclarator.Local;
+            return true;
+        }
+
+        localSymbol = null;
+        return false;
+    }
+
+    private void BindPrecedingGlobalStatementsForScope(SyntaxNode root, GlobalStatementSyntax owner)
+    {
+        foreach (var global in root.DescendantNodesAndSelf().OfType<GlobalStatementSyntax>())
+        {
+            if (!ReferenceEquals(global.Parent, owner.Parent))
+                continue;
+
+            if (global.Span.Start >= owner.Span.Start)
+                break;
+
+            GetBinder(global.Statement).GetOrBind(global.Statement);
+        }
     }
 
     private void PrimeContextualFunctionExpressions(SyntaxNode root)
@@ -2645,11 +2746,42 @@ public partial class SemanticModel
     private ISymbol? TryResolveVisibleValueSymbol(Compilation.VisibleValueDeclaration declaration)
         => declaration.DeclarationNode switch
         {
-            ParameterSyntax parameter => GetDeclaredSymbol(parameter),
+            ParameterSyntax parameter => TryResolveParameterSymbolFast(parameter, out var parameterSymbol)
+                ? parameterSymbol
+                : GetDeclaredSymbol(parameter),
             VariableDeclaratorSyntax variableDeclarator => GetDeclaredSymbol(variableDeclarator),
             SingleVariableDesignationSyntax designation => GetDeclaredSymbol(designation),
             _ => null
         };
+
+    private bool TryResolveParameterSymbolFast(ParameterSyntax parameterSyntax, out IParameterSymbol? parameterSymbol)
+    {
+        parameterSymbol = null;
+
+        if (!DeclarationsComplete)
+            EnsureDeclarations();
+
+        if (parameterSyntax.Parent?.Parent is TypeDeclarationSyntax parameterContainingType &&
+            TryGetClassSymbol(parameterContainingType, out var containingType))
+        {
+            parameterSymbol = containingType
+                .GetMembers(".ctor")
+                .OfType<IMethodSymbol>()
+                .SelectMany(method => method.Parameters)
+                .FirstOrDefault(parameter => SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return parameterSymbol is not null;
+        }
+
+        if (parameterSyntax.Parent?.Parent is MethodDeclarationSyntax methodDeclaration &&
+            TryResolveMethodSymbolForDeclaration(methodDeclaration, out var methodSymbol))
+        {
+            parameterSymbol = methodSymbol.Parameters.FirstOrDefault(parameter =>
+                SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return parameterSymbol is not null;
+        }
+
+        return false;
+    }
 
     private static ITypeSymbol? GetTypeFromSymbol(ISymbol? symbol)
     {
@@ -3480,6 +3612,17 @@ public partial class SemanticModel
     internal Compilation.MatchedExecutableOwner? GetMatchedExecutableOwnerForTesting(SyntaxNode node)
     {
         return Compilation.GetMatchedExecutableOwnerForTesting(node);
+    }
+
+    internal bool HasCachedBoundNodeForTesting(SyntaxNode node)
+        => TryGetCachedBoundNode(node) is not null;
+
+    internal void EnsureCompilationUnitDeclarationBindersCreated()
+    {
+        EnsureDeclarations();
+
+        if (SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
+            _ = GetBinder(compilationUnit);
     }
 
     public IParameterSymbol? GetFunctionExpressionParameterSymbol(ParameterSyntax parameterSyntax)

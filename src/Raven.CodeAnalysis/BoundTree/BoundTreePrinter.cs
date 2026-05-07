@@ -187,6 +187,10 @@ public static class BoundTreePrinter
         if (field?.GetValue(model) is IEnumerable<KeyValuePair<SyntaxNode, (Binder, BoundNode)>> cache)
             return cache.ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value);
 
+        var property = typeof(SemanticModel).GetProperty(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+        if (property?.GetValue(model) is IEnumerable<KeyValuePair<SyntaxNode, (Binder, BoundNode)>> propertyCache)
+            return propertyCache.ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value);
+
         return [];
     }
 

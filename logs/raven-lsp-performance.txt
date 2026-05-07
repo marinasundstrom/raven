@@ -1,219 +1,85 @@
 Raven Language Server Performance Report
-Generated: 2026-05-06T21:43:25.6316630+00:00
+Generated: 2026-05-07T11:54:12.3102510+00:00
 Operation: hover
-  Count: 22
-  TotalMs: 11566,1
-  AvgMs: 525,7
-  MaxMs: 1405,8
-  Stages:
-    resolution: count=22 total=6916,8ms avg=314,4ms max=1315,4ms
-    semanticModel: count=22 total=618,0ms avg=28,1ms max=72,0ms
-    analysisContext: count=22 total=0,8ms avg=0,0ms max=0,1ms
-    gateWait: count=22 total=0,3ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    1405,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 59:10 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1321,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 32:17 semantic=[symbolInfo=2, symbolCacheHits=2, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1178,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 56:12
-    1094,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 52:25 semantic=[symbolInfo=2, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=0, typeBoundFallbacks=1, typeDiagnosticFallbacks=0, boundNode=1, boundCacheHits=1, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1007,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 56:12 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=1, typeInfo=1, typeSymbolHits=0, typeBoundFallbacks=1, typeDiagnosticFallbacks=0, boundNode=3, boundCacheHits=3, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-
-Operation: publishDiagnosticsSkipped
-  Count: 23
-  TotalMs: 8839,1
-  AvgMs: 384,3
-  MaxMs: 2375,0
-  AvgResultCount: 0,0
-  SlowestSamples:
-    2375,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=8 mode=Full outcome=SkippedRequeued
-    1478,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=5 mode=Full outcome=SkippedRequeued
-    1101,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=7 mode=Full outcome=SkippedRequeued
-    1020,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=7 mode=Full outcome=SkippedRequeued
-    939,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=5 mode=Full outcome=SkippedRequeued
-
-Operation: computeDocumentDiagnostics
   Count: 4
-  TotalMs: 8828,2
-  AvgMs: 2207,1
-  MaxMs: 2375,0
+  TotalMs: 212,0
+  AvgMs: 53,0
+  MaxMs: 169,1
   Stages:
-    diagnosticsFetch: count=4 total=5099,4ms avg=1274,9ms max=1530,8ms
-    syntaxTree: count=4 total=3728,6ms avg=932,1ms max=1140,7ms
-    gateWait: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    resolution: count=4 total=44,3ms avg=11,1ms max=23,5ms
+    analysisContext: count=4 total=0,2ms avg=0,1ms max=0,1ms
+    semanticModel: count=4 total=0,1ms avg=0,0ms max=0,0ms
+    gateWait: count=4 total=0,1ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    2375,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full setup=[ensureModels=1, modelsCreated=2, ensureSourceDeclsDeclared=2365, ensureSourceDeclsComplete=2355, ensureDecls=2, declarationPasses=2, ensureRootBinders=1, rootBindersCreated=1] binder=[invocations=28, repeated=0, cacheHits=9, bindExecutions=19] semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    2306,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full setup=[ensureModels=1, modelsCreated=2, ensureSourceDeclsDeclared=2364, ensureSourceDeclsComplete=2356, ensureDecls=2, declarationPasses=2, ensureRootBinders=1, rootBindersCreated=1] binder=[invocations=28, repeated=0, cacheHits=9, bindExecutions=19] semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    2237,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full setup=[ensureModels=1, modelsCreated=2, ensureSourceDeclsDeclared=2227, ensureSourceDeclsComplete=2218, ensureDecls=2, declarationPasses=2, ensureRootBinders=1, rootBindersCreated=1] binder=[invocations=28, repeated=0, cacheHits=9, bindExecutions=19] semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1909,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full setup=[ensureModels=1, modelsCreated=2, ensureSourceDeclsDeclared=2365, ensureSourceDeclsComplete=2355, ensureDecls=2, declarationPasses=2, ensureRootBinders=1, rootBindersCreated=1] binder=[invocations=28, repeated=0, cacheHits=9, bindExecutions=19] semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-
-Operation: completion
-  Count: 3
-  TotalMs: 6889,8
-  AvgMs: 2296,6
-  MaxMs: 3882,0
-  AvgResultCount: 9,0
-  Stages:
-    provider: count=3 total=4397,8ms avg=1465,9ms max=1732,2ms
-    gateWait: count=3 total=1260,0ms avg=420,0ms max=1260,0ms
-    analysisContext: count=3 total=985,7ms avg=328,6ms max=985,7ms
-    semanticModel: count=3 total=241,9ms avg=80,6ms max=98,1ms
-    materializeItems: count=3 total=1,9ms avg=0,6ms max=1,0ms
-  SlowestSamples:
-    3882,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 59:23 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=1, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1800,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 59:12 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1207,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 59:13 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-
-Operation: computeDiagnosticsSkipped
-  Count: 22
-  TotalMs: 6456,2
-  AvgMs: 293,5
-  MaxMs: 1477,6
-  Stages:
-    syntaxTree: count=22 total=6455,1ms avg=293,4ms max=1477,5ms
-    gateWait: count=22 total=0,8ms avg=0,0ms max=0,6ms
-    diagnosticsFetch: count=22 total=0,0ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    1477,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full
-    1099,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full
-    1018,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full
-    939,5ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full
-    846,3ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full
-
-Operation: publishDiagnosticsUnchanged
-  Count: 2
-  TotalMs: 4216,7
-  AvgMs: 2108,3
-  MaxMs: 2306,9
-  AvgResultCount: 0,0
-  SlowestSamples:
-    2306,9ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=4 mode=Full outcome=SkippedUnchanged
-    1909,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=10 mode=Full outcome=SkippedUnchanged
-
-Operation: publishDiagnostics
-  Count: 1
-  TotalMs: 2239,4
-  AvgMs: 2239,4
-  MaxMs: 2239,4
-  AvgResultCount: 1,0
-  SlowestSamples:
-    2239,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=7 mode=Full outcome=Published
+    169,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 34:14 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    38,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 13:29 semantic=[symbolInfo=1, symbolCacheHits=3, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    2,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 13:30 semantic=[symbolInfo=1, symbolCacheHits=3, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    2,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 30:7
 
 Operation: semanticTokens
-  Count: 7
-  TotalMs: 1580,6
-  AvgMs: 225,8
-  MaxMs: 1508,7
-  AvgResultCount: 46,6
+  Count: 1
+  TotalMs: 24,1
+  AvgMs: 24,1
+  MaxMs: 24,1
+  AvgResultCount: 163,0
   Stages:
-    classify: count=7 total=1550,6ms avg=221,5ms max=1487,6ms
-    materialize: count=7 total=15,2ms avg=2,2ms max=8,2ms
-    push: count=7 total=12,3ms avg=1,8ms max=11,8ms
-    gateWait: count=7 total=0,6ms avg=0,1ms max=0,5ms
-    analysisContext: count=7 total=0,2ms avg=0,0ms max=0,1ms
-    semanticModel: count=7 total=0,1ms avg=0,0ms max=0,1ms
-    root: count=7 total=0,0ms avg=0,0ms max=0,0ms
+    push: count=1 total=10,2ms avg=10,2ms max=10,2ms
+    materialize: count=1 total=7,5ms avg=7,5ms max=7,5ms
+    classify: count=1 total=4,6ms avg=4,6ms max=4,6ms
+    gateWait: count=1 total=0,4ms avg=0,4ms max=0,4ms
+    analysisContext: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    semanticModel: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    root: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    1508,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=Completed semantic=[symbolInfo=26, symbolCacheHits=69, symbolBoundHits=42, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    71,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=Completed semantic=[symbolInfo=26, symbolCacheHits=70, symbolBoundHits=41, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    0,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=SkippedBusy semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    0,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=SkippedBusy semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    0,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=SkippedBusy semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-
-Operation: didChange
-  Count: 9
-  TotalMs: 113,9
-  AvgMs: 12,7
-  MaxMs: 49,0
-  Stages:
-    updateDocument: count=9 total=109,4ms avg=12,2ms max=47,8ms
-    scheduleDiagnostics: count=9 total=1,9ms avg=0,2ms max=0,4ms
-    applyChanges: count=9 total=0,6ms avg=0,1ms max=0,3ms
-    getCurrentText: count=9 total=0,5ms avg=0,1ms max=0,4ms
-    gateWait: count=9 total=0,1ms avg=0,0ms max=0,1ms
-  SlowestSamples:
-    49,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=2
-    22,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=4
-    11,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=3
-    6,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=6
-    6,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=10
+    24,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=Completed semantic=[symbolInfo=26, symbolCacheHits=114, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
 Operation: didOpen
   Count: 1
-  TotalMs: 35,2
-  AvgMs: 35,2
-  MaxMs: 35,2
+  TotalMs: 22,7
+  AvgMs: 22,7
+  MaxMs: 22,7
   SlowestSamples:
-    35,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1
+    22,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1
 
 Operation: publishSyntaxDiagnostics
-  Count: 3
-  TotalMs: 35,1
-  AvgMs: 11,7
-  MaxMs: 29,2
-  AvgResultCount: 0,7
+  Count: 1
+  TotalMs: 7,7
+  AvgMs: 7,7
+  MaxMs: 7,7
+  AvgResultCount: 0,0
   SlowestSamples:
-    29,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
-    4,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=3 mode=SyntaxOnly outcome=Published
-    1,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=5 mode=SyntaxOnly outcome=Published
+    7,7ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
 
 Operation: documentSymbols
-  Count: 15
-  TotalMs: 10,2
-  AvgMs: 0,7
-  MaxMs: 6,6
-  CacheHits: 8
+  Count: 2
+  TotalMs: 5,4
+  AvgMs: 2,7
+  MaxMs: 5,1
+  CacheHits: 1
   AvgResultCount: 5,0
-  FirstLookupAfterEditCount: 7
-  FirstLookupAfterEditAvgMs: 850,0
-  FirstLookupAfterEditMaxMs: 3169,8
+  FirstLookupAfterEditCount: 1
+  FirstLookupAfterEditAvgMs: 3606,6
+  FirstLookupAfterEditMaxMs: 3606,6
   FirstLookupAfterEditSources:
-    didChange: 6
     didOpen: 1
   Stages:
-    buildSymbols: count=15 total=8,0ms avg=0,5ms max=5,5ms
-    analysisContext: count=15 total=0,7ms avg=0,0ms max=0,4ms
-    root: count=15 total=0,4ms avg=0,0ms max=0,3ms
+    buildSymbols: count=2 total=4,2ms avg=2,1ms max=4,2ms
+    root: count=2 total=0,3ms avg=0,2ms max=0,3ms
+    analysisContext: count=2 total=0,1ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    6,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
-    0,5ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
-    0,5ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
-    0,5ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
-    0,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
+    5,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
+    0,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
 
 Operation: computeSyntaxDiagnostics
-  Count: 7
-  TotalMs: 2,7
-  AvgMs: 0,4
-  MaxMs: 1,6
-  Stages:
-    diagnosticsFetch: count=7 total=2,5ms avg=0,4ms max=1,6ms
-    syntaxTree: count=7 total=0,1ms avg=0,0ms max=0,1ms
-    documentLookup: count=7 total=0,0ms avg=0,0ms max=0,0ms
-    gateWait: count=7 total=0,0ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    1,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
-    0,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
-    0,3ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
-    0,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
-    0,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
-
-Operation: publishSyntaxDiagnosticsUnchanged
-  Count: 4
-  TotalMs: 1,0
-  AvgMs: 0,2
-  MaxMs: 0,8
-  AvgResultCount: 0,0
-  SlowestSamples:
-    0,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=4 mode=SyntaxOnly outcome=SkippedUnchanged
-    0,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=7 mode=SyntaxOnly outcome=SkippedUnchanged
-    0,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=10 mode=SyntaxOnly outcome=SkippedUnchanged
-    0,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=8 mode=SyntaxOnly outcome=SkippedUnchanged
-
-Operation: publishSyntaxDiagnosticsAlreadyCompleted
   Count: 1
-  TotalMs: 0,0
-  AvgMs: 0,0
-  MaxMs: 0,0
-  AvgResultCount: 0,0
+  TotalMs: 0,2
+  AvgMs: 0,2
+  MaxMs: 0,2
+  Stages:
+    diagnosticsFetch: count=1 total=0,1ms avg=0,1ms max=0,1ms
+    syntaxTree: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    documentLookup: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    0,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=4 mode=SyntaxOnly outcome=SkippedAlreadyCompleted
+    0,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
 

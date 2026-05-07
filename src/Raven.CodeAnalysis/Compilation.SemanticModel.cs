@@ -106,6 +106,10 @@ public partial class Compilation
     internal void EnsureSourceDeclarationsComplete()
     {
         EnsureSetup();
+
+        if (_sourceDeclarationsComplete)
+            return;
+
         PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsCompleteCall();
 
         EnsureSourceDeclarationsDeclared();
@@ -131,7 +135,7 @@ public partial class Compilation
                 var semanticModels = _semanticModels.Values.ToArray();
 
                 foreach (var model in semanticModels)
-                    model.EnsureRootBinderCreated();
+                    model.EnsureCompilationUnitDeclarationBindersCreated();
 
                 _sourceDeclarationsComplete = true;
             }
@@ -147,10 +151,11 @@ public partial class Compilation
     internal void EnsureSourceDeclarationsDeclared()
     {
         EnsureSetup();
-        PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsDeclaredCall();
 
         if (_sourceDeclarationsDeclared)
             return;
+
+        PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsDeclaredCall();
 
         var currentThreadId = Environment.CurrentManagedThreadId;
 

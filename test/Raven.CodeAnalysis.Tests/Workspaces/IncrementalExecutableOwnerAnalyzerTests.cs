@@ -207,4 +207,38 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
         result.MatchedOwners.ShouldNotContain(match => match.CurrentOwner == currentStringDescriptor);
         result.ChangedOwners.ShouldContain(currentStringDescriptor);
     }
+
+    [Fact]
+    public void Analyze_MatchesGlobalStatement_ByTopLevelOrdinalAcrossBodyEdit()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            val first = 1
+            val second = first + 1
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            val first = 10
+            val second = first + 1
+            """));
+        var previousFirstGlobal = previousTree.GetRoot()
+            .DescendantNodes()
+            .OfType<GlobalStatementSyntax>()
+            .First();
+        var currentFirstGlobal = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<GlobalStatementSyntax>()
+            .First();
+        var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentFirstGlobal.Span, currentFirstGlobal.Kind);
+        var previousDescriptor = new Compilation.ExecutableOwnerDescriptor(previousFirstGlobal.Span, previousFirstGlobal.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.MatchedOwners.ShouldContain(match =>
+            match.CurrentOwner == currentDescriptor &&
+            match.PreviousOwner == previousDescriptor);
+        result.ChangedOwners.ShouldContain(currentDescriptor);
+        result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
+        change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyDeclaration);
+    }
 }

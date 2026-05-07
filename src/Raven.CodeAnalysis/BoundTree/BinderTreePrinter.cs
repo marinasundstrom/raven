@@ -19,6 +19,8 @@ public static class BinderTreePrinter
     public static void PrintBinderTree(this SemanticModel model, bool colorize = true)
     {
         Colorize = colorize;
+        model.EnsureRootBinderCreated();
+        ForceCreateBinders(model);
 
         var cache = GetBinderCache(model);
         var binderNodes = cache
@@ -47,6 +49,22 @@ public static class BinderTreePrinter
         {
             PrintRoot(root, parentToChildren, binderNodes);
             PrintChildren(root, parentToChildren, binderNodes, "");
+        }
+    }
+
+    private static void ForceCreateBinders(SemanticModel model)
+    {
+        var root = model.SyntaxTree.GetRoot();
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            try
+            {
+                _ = model.GetBinder(node);
+            }
+            catch
+            {
+                // This is a debug printer. Keep rendering the binders that can be recovered.
+            }
         }
     }
 
@@ -167,7 +185,7 @@ public static class BinderTreePrinter
         // Kind in yellow so the tree reads like a legend.
         var coloredKind = MaybeColorize(kind, AnsiColor.Yellow);
 
-        return binder switch
+        var description = binder switch
         {
             GlobalBinder => coloredKind,
 
@@ -194,6 +212,47 @@ public static class BinderTreePrinter
 
             _ => MaybeColorize(binder.GetType().Name, AnsiColor.Yellow)
         };
+
+        return description + DescribeCachedSyntaxNodes(binder, binderNodes);
+    }
+
+    private static string DescribeCachedSyntaxNodes(
+        Binder binder,
+        Dictionary<Binder, List<SyntaxNode>> binderNodes)
+    {
+        if (!binderNodes.TryGetValue(binder, out var nodes))
+            return string.Empty;
+
+        var relevantNodes = nodes
+            .Where(static node => node is
+                CompilationUnitSyntax or
+                GlobalStatementSyntax or
+                BaseNamespaceDeclarationSyntax or
+                TypeDeclarationSyntax or
+                MethodDeclarationSyntax or
+                ConstructorDeclarationSyntax or
+                OperatorDeclarationSyntax or
+                ConversionOperatorDeclarationSyntax or
+                FunctionStatementSyntax or
+                AccessorDeclarationSyntax or
+                PropertyDeclarationSyntax or
+                EventDeclarationSyntax or
+                IndexerDeclarationSyntax or
+                ExtensionDeclarationSyntax or
+                BlockSyntax or
+                BlockStatementSyntax or
+                ArrowExpressionClauseSyntax)
+            .GroupBy(static node => node.Kind)
+            .Select(static group => group.Count() == 1
+                ? group.Key.ToString()
+                : $"{group.Key} x{group.Count()}")
+            .OrderBy(static text => text, StringComparer.Ordinal)
+            .ToArray();
+
+        if (relevantNodes.Length == 0)
+            return string.Empty;
+
+        return " [" + MaybeColorize("Syntax", AnsiColor.BrightGreen) + "=" + MaybeColorize(string.Join(", ", relevantNodes), AnsiColor.BrightBlack) + "]";
     }
 
     private static IEnumerable<KeyValuePair<SyntaxNode, Binder>> GetBinderCache(SemanticModel model)
@@ -201,6 +260,10 @@ public static class BinderTreePrinter
         var field = typeof(SemanticModel).GetField("_binderCache", BindingFlags.NonPublic | BindingFlags.Instance);
         if (field?.GetValue(model) is IEnumerable<KeyValuePair<SyntaxNode, Binder>> cache)
             return cache;
+
+        var property = typeof(SemanticModel).GetProperty("_binderCache", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (property?.GetValue(model) is IEnumerable<KeyValuePair<SyntaxNode, Binder>> propertyCache)
+            return propertyCache;
 
         return [];
     }

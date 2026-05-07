@@ -1664,15 +1664,17 @@ public sealed class IncrementalCompilationReuseTests
         var updatedMemberName = (IdentifierNameSyntax)updatedMemberAccess.Name;
 
         instrumentation.BinderReentry.Reset();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
 
         var updatedInfo = updatedModel.GetSymbolInfo(updatedMemberName);
 
         updatedInfo.Symbol?.Name.ShouldBe("Name");
+        updatedModel.RootBinderCreated.ShouldBeFalse();
         updatedModel.GetMatchedExecutableOwnerForTesting(updatedMemberName).ShouldNotBeNull();
-        updatedCompilation.HasTransferredBinderParentAnchorDescriptorForTesting(updatedMemberName).ShouldBeTrue();
+        updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedMemberName).ShouldBeTrue();
         instrumentation.BinderReentry.GetBindExecutionCount(updatedMemberName).ShouldBe(0);
-        instrumentation.BinderReentry.TotalBindExecutions.ShouldBeLessThanOrEqualTo(1);
-        instrumentation.BinderReentry.GetBindExecutionCount(updatedMemberAccess).ShouldBeLessThanOrEqualTo(1);
+        instrumentation.BinderReentry.GetBindExecutionCount(updatedMemberAccess).ShouldBe(0);
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
     }
 
     [Fact]
@@ -3102,6 +3104,252 @@ public sealed class IncrementalCompilationReuseTests
 
         updatedCompilation.GetDiagnostics()
             .ShouldContain(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_TransfersGlobalStatementHoverState_AcrossEarlierGlobalBodyEdit()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            val first = 1
+            val second = first + 1
+            val text = second.ToString()
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialSecondReceiver = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(node => node.Identifier.ValueText == "second");
+
+        initialModel.GetSymbolInfo(initialSecondReceiver).Symbol?.Name.ShouldBe("second");
+        initialModel.GetNodeInterestSymbolDescriptorForTesting(initialSecondReceiver).ShouldNotBeNull();
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("val first = 1", "val first = 10", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedSecondReceiver = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(node => node.Identifier.ValueText == "second");
+
+        updatedModel.GetMatchedExecutableOwnerForTesting(updatedSecondReceiver).ShouldNotBeNull();
+        updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedSecondReceiver).ShouldBeTrue();
+        updatedModel.GetSymbolInfo(updatedSecondReceiver).Symbol?.Name.ShouldBe("second");
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_TransferredGlobalHoverState_DoesNotCreateRootBinder()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            val first = 1
+            val second = first + 1
+            val text = second.ToString()
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialSecondReceiver = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(node => node.Identifier.ValueText == "second");
+
+        initialModel.GetSymbolInfo(initialSecondReceiver).Symbol?.Name.ShouldBe("second");
+        initialModel.GetNodeInterestSymbolDescriptorForTesting(initialSecondReceiver).ShouldNotBeNull();
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("val first = 1", "val first = 10", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedSecondReceiver = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(node => node.Identifier.ValueText == "second");
+
+        updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedSecondReceiver).ShouldBeTrue();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+        updatedModel.GetSymbolInfo(updatedSecondReceiver).Symbol?.Name.ShouldBe("second");
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_RootBinderCreation_DoesNotEagerlyBindGlobalStatements()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                val first = 1
+                val second = first + 1
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot().ShouldBeOfType<CompilationUnitSyntax>();
+        var globals = root.Members.OfType<GlobalStatementSyntax>().ToArray();
+
+        model.EnsureRootBinderCreated();
+
+        model.RootBinderCreated.ShouldBeTrue();
+        model.HasCachedBoundNodeForTesting(root).ShouldBeFalse();
+        model.HasCachedBoundNodeForTesting(globals[0].Statement).ShouldBeFalse();
+        model.HasCachedBoundNodeForTesting(globals[1].Statement).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_DiagnosticsAfterLaterGlobalEdit_BindsPriorGlobalsForScope()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            val first = 1
+            val second = first + 1
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        workspace.GetCompilation(projectId).GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("first + 1", "first + 2", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedRoot = updatedTree.GetRoot();
+        var updatedGlobals = updatedRoot.DescendantNodes().OfType<GlobalStatementSyntax>().ToArray();
+
+        updatedCompilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedGlobals[1]).ShouldBeTrue();
+        updatedCompilation.HasTransferredSemanticDiagnosticsForTesting(updatedGlobals[0]).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_RootBinderCreation_DeclaresTopLevelFunctionsWithoutBindingGlobalBodies()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                val value = compute()
+
+                func compute() -> int {
+                    return 1
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot().ShouldBeOfType<CompilationUnitSyntax>();
+        var globals = root.Members.OfType<GlobalStatementSyntax>().ToArray();
+
+        model.EnsureRootBinderCreated();
+
+        model.HasCachedBoundNodeForTesting(root).ShouldBeFalse();
+        model.HasCachedBoundNodeForTesting(globals[0].Statement).ShouldBeFalse();
+        model.HasCachedBoundNodeForTesting(globals[1].Statement).ShouldBeFalse();
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
     }
 
 }

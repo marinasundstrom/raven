@@ -455,16 +455,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
             if (compilation is null)
                 return;
 
-            foreach (var syntaxReference in DeclaringSyntaxReferences)
-            {
-                if (syntaxReference.GetSyntax() is not TypeDeclarationSyntax { ParameterList: not null } typeDeclaration)
-                    continue;
-
-                if (typeDeclaration.SyntaxTree is not { } syntaxTree)
-                    continue;
-
-                compilation.GetSemanticModel(syntaxTree).EnsureRootBinderCreated();
-            }
+            compilation.EnsureSourceDeclarationsComplete();
         }
         finally
         {

@@ -1614,7 +1614,7 @@ public partial class SemanticModel
         foreach (var stmt in bindableGlobals)
             CacheBinder(stmt, topLevelBinder);
 
-        topLevelBinder.BindGlobalStatements(bindableGlobals);
+        topLevelBinder.DeclareGlobalFunctions(bindableGlobals);
 
         return topLevelBinder;
 
