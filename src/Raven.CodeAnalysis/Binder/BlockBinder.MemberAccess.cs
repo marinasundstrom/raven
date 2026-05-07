@@ -2731,6 +2731,7 @@ partial class BlockBinder
             if (argumentExprs.Any(argument => IsRangeType(argument.Type)))
             {
                 _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                    FormatIndexableReceiverType(receiverType),
                     syntax.GetLocation());
                 return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
             }
@@ -2745,8 +2746,7 @@ partial class BlockBinder
 
         if (indexer is null)
         {
-            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
-                syntax.GetLocation());
+            ReportIndexerResolutionFailure(receiverType, argumentExprs, syntax.GetLocation(), requireSetter: false);
             return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
         }
 
@@ -2762,13 +2762,8 @@ partial class BlockBinder
     {
         convertedArguments = arguments;
 
-        var candidates = receiverType
-            .GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(p => p.GetMethod is not null &&
-                        (p.IsIndexer || p.GetMethod.Parameters.Length > 0) &&
-                        (!requireSetter || p.SetMethod is not null) &&
-                        p.GetMethod.Parameters.Length == arguments.Length)
+        var candidates = GetIndexerCandidates(receiverType, requireSetter)
+            .Where(p => p.GetMethod!.Parameters.Length == arguments.Length)
             .ToArray();
 
         IPropertySymbol? best = null;
@@ -2822,6 +2817,68 @@ partial class BlockBinder
         return best;
     }
 
+    private void ReportIndexerResolutionFailure(
+        ITypeSymbol receiverType,
+        BoundExpression[] arguments,
+        Location location,
+        bool requireSetter)
+    {
+        var candidates = GetIndexerCandidates(receiverType, requireSetter).ToArray();
+        var receiverTypeText = FormatIndexableReceiverType(receiverType);
+
+        if (candidates.Length == 0)
+        {
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(receiverTypeText, location);
+            return;
+        }
+
+        _diagnostics.ReportNoMatchingIndexer(
+            receiverTypeText,
+            FormatIndexerArgumentTypes(arguments),
+            FormatIndexerParameterTypes(candidates),
+            location);
+    }
+
+    private static IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter)
+        => receiverType
+            .GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(p => p.GetMethod is not null &&
+                        (p.IsIndexer || p.GetMethod.Parameters.Length > 0) &&
+                        (!requireSetter || p.SetMethod is not null));
+
+    private static string FormatIndexableReceiverType(ITypeSymbol type)
+        => type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+    private static string FormatIndexerArgumentTypes(BoundExpression[] arguments)
+    {
+        if (arguments.Length == 0)
+            return "no arguments";
+
+        return string.Join(", ", arguments.Select(argument => argument.Type is { } type
+            ? type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            : "unknown"));
+    }
+
+    private static string FormatIndexerParameterTypes(IEnumerable<IPropertySymbol> candidates)
+        => string.Join("; ", candidates
+            .Select(FormatIndexerParameterTypes)
+            .Distinct(StringComparer.Ordinal));
+
+    private static string FormatIndexerParameterTypes(IPropertySymbol indexer)
+    {
+        var parameters = indexer.GetMethod!.Parameters;
+        if (parameters.Length == 0)
+            return "none";
+
+        var parameterTypes = parameters.Select(parameter =>
+            $"'{parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}'");
+
+        return parameters.Length == 1
+            ? parameterTypes.Single()
+            : $"({string.Join(", ", parameterTypes)})";
+    }
+
     private BoundExpression BindArrayRangeAccess(
         BoundExpression receiver,
         IArrayTypeSymbol arrayType,
@@ -2830,7 +2887,9 @@ partial class BlockBinder
     {
         if (arrayType.Rank != 1)
         {
-            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(rangeSyntax.GetLocation());
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                FormatIndexableReceiverType(arrayType),
+                rangeSyntax.GetLocation());
             return new BoundErrorExpression(arrayType, null, BoundExpressionReason.NotFound);
         }
 
@@ -2852,7 +2911,9 @@ partial class BlockBinder
         var subArrayMethod = ResolveArraySliceMethod(arrayType);
         if (subArrayMethod is null)
         {
-            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(rangeSyntax.GetLocation());
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                FormatIndexableReceiverType(arrayType),
+                rangeSyntax.GetLocation());
             return new BoundErrorExpression(arrayType, null, BoundExpressionReason.NotFound);
         }
 
@@ -2890,13 +2951,17 @@ partial class BlockBinder
 
         if (arguments.Length != arrayType.Rank)
         {
-            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(syntax.GetLocation());
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                FormatIndexableReceiverType(arrayType),
+                syntax.GetLocation());
             return false;
         }
 
         if (arguments.Any(argument => argument is BoundIndexExpression))
         {
-            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(syntax.GetLocation());
+            _diagnostics.ReportCannotApplyIndexingWithToAnExpressionOfType(
+                FormatIndexableReceiverType(arrayType),
+                syntax.GetLocation());
             return false;
         }
 

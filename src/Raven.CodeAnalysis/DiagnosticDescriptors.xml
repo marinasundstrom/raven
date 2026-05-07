@@ -1,8 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
 <Diagnostics>
   <Descriptor Id="RAV0021" Identifier="CannotApplyIndexingWithToAnExpressionOfType"
-    Title="Not indexable" Message="Not indexable" Category="compiler" Severity="Error"
-    EnabledByDefault="true" Description="" HelpLinkUri="" />
+    Title="Not indexable" Message="Cannot apply indexing with [] to an expression of type '{receiverType}'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0022" Identifier="NoMatchingIndexer"
+    Title="No matching indexer"
+    Message="No indexer on '{receiverType}' accepts argument type(s) '{argumentTypes}'. Available indexer parameter type(s): {parameterTypes}."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0023" Identifier="OperatorCannotBeAppliedToOperandOfType"
     Title="Operator not supported" Message="'{operatorToken}' is not supported for '{operandType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
