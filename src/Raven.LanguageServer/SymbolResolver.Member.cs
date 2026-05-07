@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -57,27 +56,22 @@ internal static partial class SymbolResolver
             return false;
         }
 
-        // Prime member-access binding first so receiver symbols are resolved in the
-        // final overload-selected lambda scope.
-        _ = TryGetSymbolInfo(semanticModel, memberAccess, out _);
-
         if (!TryGetSymbolInfo(semanticModel, identifier, out var receiverInfo))
             return false;
         var receiverCandidate = ChoosePreferredSymbol(receiverInfo.Symbol, receiverInfo.CandidateSymbols, identifier);
-        if (receiverCandidate is IParameterSymbol parameter &&
-            parameter.Type?.TypeKind != TypeKind.Error)
+        if (receiverCandidate is IParameterSymbol { Type.TypeKind: not TypeKind.Error } parameter)
         {
             symbol = ProjectSymbolForDisplay(parameter);
             return symbol is not null;
         }
 
-        var operation = semanticModel.GetOperation(memberAccess);
-        var referenced = FindReferencedSymbolAtToken(operation, identifier.Identifier.Span);
-        if (referenced is null)
-            return false;
+        if (receiverCandidate is ILocalSymbol { Type.TypeKind: not TypeKind.Error } local)
+        {
+            symbol = ProjectSymbolForDisplay(local);
+            return symbol is not null;
+        }
 
-        symbol = ProjectSymbolForDisplay(referenced);
-        return symbol is not null;
+        return false;
     }
 
     private static bool TryResolveMemberSegmentSymbol(
@@ -131,40 +125,6 @@ internal static partial class SymbolResolver
             symbol = ChoosePreferredSymbol(directInfo.Symbol, directInfo.CandidateSymbols, targetNode);
             symbol = ProjectSymbolForDisplay(symbol);
             return symbol is not null;
-        }
-
-        foreach (var conditionalAccess in targetNode.AncestorsAndSelf().OfType<ConditionalAccessExpressionSyntax>())
-        {
-            if (!conditionalAccess.WhenNotNull.Span.Contains(token.Span))
-                continue;
-
-            var operation = TryGetOperation(semanticModel, conditionalAccess);
-            var referenced = FindReferencedSymbolAtToken(operation, token.Span);
-            if (referenced is not null)
-            {
-                symbol = ProjectSymbolForDisplay(referenced);
-                return true;
-            }
-        }
-
-        var fallbackOperation = TryGetOperation(semanticModel, targetNode);
-        var fallbackSymbol = FindReferencedSymbolAtToken(fallbackOperation, token.Span);
-        if (fallbackSymbol is not null)
-        {
-            symbol = ProjectSymbolForDisplay(fallbackSymbol);
-            return true;
-        }
-
-        var containingStatement = targetNode.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
-        if (containingStatement is not null)
-        {
-            var statementOperation = TryGetOperation(semanticModel, containingStatement);
-            var statementSymbol = FindReferencedSymbolAtToken(statementOperation, token.Span);
-            if (statementSymbol is not null)
-            {
-                symbol = ProjectSymbolForDisplay(statementSymbol);
-                return true;
-            }
         }
 
         return false;
@@ -234,7 +194,12 @@ internal static partial class SymbolResolver
         TypeSyntax typeSyntax,
         out ITypeSymbol? resolvedType)
     {
-        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        if (!semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var typeInfo))
+        {
+            resolvedType = null;
+            return false;
+        }
+
         resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolvedType is not null && resolvedType.TypeKind != TypeKind.Error)
             return true;
@@ -269,7 +234,7 @@ internal static partial class SymbolResolver
         }
 
         if (memberAccess.Name.Span.Contains(tokenSpan) &&
-            semanticModel.TryGetCachedSymbolInfo(memberAccess, out var cachedMemberAccessInfo))
+            semanticModel.TryGetAvailableSymbolInfo(memberAccess, out var cachedMemberAccessInfo))
         {
             var chosenCachedMemberAccessSymbol = ProjectSymbolForDisplay(
                 ChoosePreferredSymbol(cachedMemberAccessInfo.Symbol, cachedMemberAccessInfo.CandidateSymbols, memberAccess));
@@ -278,20 +243,12 @@ internal static partial class SymbolResolver
         }
 
         if (memberAccess.Name.Span.Contains(tokenSpan) &&
-            semanticModel.TryGetCachedSymbolInfo(memberAccess.Name, out var cachedNameInfo))
+            semanticModel.TryGetAvailableSymbolInfo(memberAccess.Name, out var cachedNameInfo))
         {
             var chosenCachedNameSymbol = ProjectSymbolForDisplay(
                 ChoosePreferredSymbol(cachedNameInfo.Symbol, cachedNameInfo.CandidateSymbols, memberAccess.Name));
             if (chosenCachedNameSymbol is not null)
                 return chosenCachedNameSymbol;
-        }
-
-        if (memberAccess.Name.Span.Contains(tokenSpan) &&
-            TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var resolvedFromReceiver))
-        {
-            var projectedReceiverSymbol = ProjectSymbolForDisplay(resolvedFromReceiver);
-            if (projectedReceiverSymbol is not null)
-                return projectedReceiverSymbol;
         }
 
         if (TryGetSymbolInfo(semanticModel, memberAccess, out var memberAccessInfo))
@@ -302,13 +259,6 @@ internal static partial class SymbolResolver
                 return chosenMemberAccessSymbol;
         }
 
-        if (TryResolveMemberFromReceiverType(semanticModel, memberAccess, out var fallbackResolvedFromReceiver))
-        {
-            var projectedReceiverSymbol = ProjectSymbolForDisplay(fallbackResolvedFromReceiver);
-            if (projectedReceiverSymbol is not null)
-                return projectedReceiverSymbol;
-        }
-
         if (TryGetSymbolInfo(semanticModel, memberAccess.Name, out var nameInfo))
         {
             var chosenNameSymbol = ProjectSymbolForDisplay(
@@ -317,223 +267,7 @@ internal static partial class SymbolResolver
                 return chosenNameSymbol;
         }
 
-        var operationSymbol = ProjectSymbolForDisplay(
-            FindReferencedSymbolAtToken(semanticModel.GetOperation(memberAccess), tokenSpan));
-        if (operationSymbol is not null)
-            return operationSymbol;
-
         return null;
-    }
-
-    private static bool TryResolveMemberFromReceiverType(
-        SemanticModel semanticModel,
-        MemberAccessExpressionSyntax memberAccess,
-        out ISymbol? symbol)
-    {
-        symbol = null;
-
-        if (memberAccess.Name is not IdentifierNameSyntax identifierName)
-            return false;
-
-        var memberName = identifierName.Identifier.ValueText;
-        if (string.IsNullOrWhiteSpace(memberName))
-            return false;
-
-        var receiverType = TryGetCachedReceiverType(semanticModel, memberAccess.Expression);
-        receiverType ??= semanticModel.GetTypeInfo(memberAccess.Expression).Type;
-        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
-        {
-            var receiverSymbol = TryGetSymbolInfo(semanticModel, memberAccess.Expression, out var receiverInfo)
-                ? receiverInfo.Symbol
-                : null;
-            receiverType = receiverSymbol switch
-            {
-                ILocalSymbol local => local.Type,
-                IParameterSymbol parameter => parameter.Type,
-                IPropertySymbol property => property.Type,
-                IFieldSymbol field => field.Type,
-                _ => null
-            };
-        }
-
-        if ((receiverType is null || receiverType.TypeKind == TypeKind.Error) &&
-            memberAccess.Expression is IdentifierNameSyntax receiverIdentifier &&
-            TryGetEnclosingFunctionExpression(memberAccess, out var enclosingFunctionExpression))
-        {
-            if (TryInferFunctionParameterTypeFromInvocationContext(
-                    semanticModel,
-                    enclosingFunctionExpression,
-                    receiverIdentifier.Identifier.ValueText,
-                    memberName,
-                    out var inferredFromInvocation))
-            {
-                receiverType = inferredFromInvocation;
-            }
-
-            var functionType = semanticModel.GetTypeInfo(enclosingFunctionExpression).ConvertedType ??
-                               semanticModel.GetTypeInfo(enclosingFunctionExpression).Type;
-            if (functionType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
-                delegateType.GetDelegateInvokeMethod() is { } invokeMethod)
-            {
-                IParameterSymbol? matchedParameter = null;
-
-                if (invokeMethod.Parameters.Length == 1)
-                {
-                    matchedParameter = invokeMethod.Parameters[0];
-                }
-                else
-                {
-                    matchedParameter = invokeMethod.Parameters.FirstOrDefault(
-                        p => string.Equals(p.Name, receiverIdentifier.Identifier.ValueText, StringComparison.Ordinal));
-                }
-
-                if (matchedParameter is not null)
-                    receiverType = matchedParameter.Type;
-            }
-
-            if (TryGetSymbolInfo(semanticModel, enclosingFunctionExpression, out var functionInfo) &&
-                functionInfo.Symbol is IMethodSymbol lambdaMethod)
-            {
-                var parameter = lambdaMethod.Parameters.FirstOrDefault(
-                    p => string.Equals(p.Name, receiverIdentifier.Identifier.ValueText, StringComparison.Ordinal));
-
-                if (parameter is not null)
-                    receiverType = parameter.Type;
-            }
-        }
-
-        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
-            return false;
-
-        var namedReceiverType = receiverType as INamedTypeSymbol;
-        if (namedReceiverType is null)
-            return false;
-
-        foreach (var candidate in namedReceiverType.GetMembers(memberName))
-        {
-            if (candidate is IPropertySymbol or IFieldSymbol or IEventSymbol or IMethodSymbol)
-            {
-                symbol = candidate;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static ITypeSymbol? TryGetCachedReceiverType(
-        SemanticModel semanticModel,
-        ExpressionSyntax receiver)
-    {
-        if (!semanticModel.TryGetCachedSymbolInfo(receiver, out var receiverInfo))
-            return null;
-
-        return receiverInfo.Symbol switch
-        {
-            ILocalSymbol local => local.Type,
-            IParameterSymbol parameter => parameter.Type,
-            IPropertySymbol property => property.Type,
-            IFieldSymbol field => field.Type,
-            IMethodSymbol method => method.ReturnType,
-            _ => null
-        };
-    }
-
-    private static bool TryInferFunctionParameterTypeFromInvocationContext(
-        SemanticModel semanticModel,
-        FunctionExpressionSyntax functionExpression,
-        string receiverIdentifierName,
-        string requiredMemberName,
-        out ITypeSymbol? inferredType)
-    {
-        inferredType = null;
-
-        if (functionExpression.Parent is not ArgumentSyntax argument ||
-            argument.Parent is not ArgumentListSyntax argumentList ||
-            argumentList.Parent is not InvocationExpressionSyntax invocation)
-        {
-            return false;
-        }
-
-        var argumentIndex = 0;
-        foreach (var candidate in argumentList.Arguments)
-        {
-            if (HaveEquivalentSpan(candidate, argument))
-                break;
-
-            argumentIndex++;
-        }
-
-        IEnumerable<IMethodSymbol> candidateMethods;
-        if (invocation.Expression is MemberAccessExpressionSyntax invocationMemberAccess &&
-            invocationMemberAccess.Name is IdentifierNameSyntax memberIdentifier)
-        {
-            var invocationReceiverType = semanticModel.GetTypeInfo(invocationMemberAccess.Expression).Type;
-            if (invocationReceiverType is not INamedTypeSymbol invocationReceiverNamed)
-                return false;
-
-            candidateMethods = invocationReceiverNamed
-                .GetMembers(memberIdentifier.Identifier.ValueText)
-                .OfType<IMethodSymbol>();
-        }
-        else
-        {
-            return false;
-        }
-
-        ITypeSymbol? fallback = null;
-        foreach (var method in candidateMethods)
-        {
-            if (method.Parameters.Length <= argumentIndex)
-                continue;
-
-            var delegateType = method.Parameters[argumentIndex].Type as INamedTypeSymbol;
-            if (delegateType?.TypeKind != TypeKind.Delegate)
-                continue;
-
-            var invokeMethod = delegateType.GetDelegateInvokeMethod();
-            if (invokeMethod is null || invokeMethod.Parameters.IsDefaultOrEmpty)
-                continue;
-
-            IParameterSymbol? lambdaParameter = invokeMethod.Parameters.Length == 1
-                ? invokeMethod.Parameters[0]
-                : invokeMethod.Parameters.FirstOrDefault(
-                    p => string.Equals(p.Name, receiverIdentifierName, StringComparison.Ordinal));
-
-            if (lambdaParameter is null)
-                continue;
-
-            var parameterType = lambdaParameter.Type is NullableTypeSymbol nullable
-                ? nullable.UnderlyingType
-                : lambdaParameter.Type;
-
-            fallback ??= parameterType;
-
-            if (parameterType is INamedTypeSymbol named &&
-                named.GetMembers(requiredMemberName).Length > 0)
-            {
-                inferredType = parameterType;
-                return true;
-            }
-        }
-
-        inferredType = fallback;
-        return inferredType is not null;
-    }
-
-    private static bool TryGetEnclosingFunctionExpression(SyntaxNode node, out FunctionExpressionSyntax functionExpression)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            if (current is FunctionExpressionSyntax candidate)
-            {
-                functionExpression = candidate;
-                return true;
-            }
-        }
-
-        functionExpression = null!;
-        return false;
     }
 
     private static bool TryResolveEnclosingLambdaParameterReference(

@@ -2,7 +2,6 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -77,7 +76,18 @@ internal static partial class SymbolResolver
 
         foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
-            var memberAccess = root.DescendantNodes()
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var memberAccess = token.Parent?
+                .AncestorsAndSelf()
                 .OfType<MemberAccessExpressionSyntax>()
                 .FirstOrDefault(access => access.Name.Span.Contains(normalizedOffset));
 
@@ -441,8 +451,9 @@ internal static partial class SymbolResolver
             if (IsFunctionExpressionIdentifierToken(lambdaExpression, token) && lambdaSymbol is not null)
                 return ProjectSymbolForDisplay(lambdaSymbol);
 
-            var lambdaTypeInfo = semanticModel.GetTypeInfo(lambdaExpression);
-            var lambdaTargetType = lambdaTypeInfo.ConvertedType ?? lambdaTypeInfo.Type;
+            var lambdaTargetType = semanticModel.TryGetAvailableTypeInfo(lambdaExpression, out var lambdaTypeInfo)
+                ? lambdaTypeInfo.ConvertedType ?? lambdaTypeInfo.Type
+                : null;
             if (lambdaTargetType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
                 return delegateType;
 
@@ -465,6 +476,13 @@ internal static partial class SymbolResolver
         if (TryResolveMemberReceiverSymbol(semanticModel, node, token, out var receiverSymbol))
             return receiverSymbol;
 
+        if (node is MemberAccessExpressionSyntax memberAccess &&
+            !memberAccess.Name.Span.Contains(token.Span) &&
+            memberAccess.OperatorToken != token)
+        {
+            return null;
+        }
+
         if (IsInvocationTargetPosition(node, token))
             return null;
 
@@ -484,33 +502,8 @@ internal static partial class SymbolResolver
             return chosen;
         }
 
-        if (TryResolvePatternOperationDeclaredLocal(semanticModel, node, token, out var patternOperationSymbol))
-            return patternOperationSymbol;
-
-        if (TryResolveContainingStatementDesignatorSymbol(semanticModel, node, token, out var statementDesignatorSymbol))
-            return statementDesignatorSymbol;
-
         if (TryResolveFromEnclosingBlockLocals(semanticModel, node, token, out var blockLocalSymbol))
             return blockLocalSymbol;
-
-        var operation = TryGetOperation(semanticModel, node);
-        var tokenReferencedSymbol = FindReferencedSymbolAtToken(operation, token.Span);
-        if (tokenReferencedSymbol is not null)
-            return ProjectSymbolForDisplay(tokenReferencedSymbol);
-
-        var operationSymbol = operation is null ? null : GetOperationSymbol(operation);
-
-        if (operationSymbol is not null)
-            return ProjectSymbolForDisplay(operationSymbol);
-
-        var containingStatement = node.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
-        if (containingStatement is not null)
-        {
-            var statementOperation = TryGetOperation(semanticModel, containingStatement);
-            var statementSymbol = FindReferencedSymbolAtToken(statementOperation, token.Span);
-            if (statementSymbol is not null)
-                return ProjectSymbolForDisplay(statementSymbol);
-        }
 
         if (TryResolveByDeclaringSyntaxReference(semanticModel, token, out var declaringReferenceSymbol))
             return ProjectSymbolForDisplay(declaringReferenceSymbol);
@@ -592,18 +585,6 @@ internal static partial class SymbolResolver
             return false;
         }
 
-        if (semanticModel.GetOperation(pattern) is ICasePatternOperation casePattern)
-        {
-            symbol = casePattern.CaseSymbol;
-            return true;
-        }
-
-        if (semanticModel.GetBoundNode(pattern) is BoundCasePattern boundCasePattern)
-        {
-            symbol = boundCasePattern.CaseSymbol;
-            return true;
-        }
-
         if (pattern is not NominalDeconstructionPatternSyntax nominalPattern ||
             !TryGetCasePatternName(pattern, token, out var caseName))
         {
@@ -615,10 +596,16 @@ internal static partial class SymbolResolver
 
         ITypeSymbol? scrutineeType = null;
 
-        if (nominalPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
-            scrutineeType = semanticModel.GetTypeInfo(matchExpression.Expression).Type;
-        else if (nominalPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
-            scrutineeType = semanticModel.GetTypeInfo(matchStatement.Expression).Type;
+        if (nominalPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression &&
+            semanticModel.TryGetAvailableTypeInfo(matchExpression.Expression, out var matchExpressionTypeInfo))
+        {
+            scrutineeType = matchExpressionTypeInfo.Type ?? matchExpressionTypeInfo.ConvertedType;
+        }
+        else if (nominalPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement &&
+                 semanticModel.TryGetAvailableTypeInfo(matchStatement.Expression, out var matchStatementTypeInfo))
+        {
+            scrutineeType = matchStatementTypeInfo.Type ?? matchStatementTypeInfo.ConvertedType;
+        }
 
         if (scrutineeType is null)
             return false;
@@ -716,13 +703,6 @@ internal static partial class SymbolResolver
         {
             symbol = ProjectSymbolForDisplay(pipeInfo.CandidateSymbols[0]);
             return symbol is not null;
-        }
-
-        if (semanticModel.GetOperation(pipeExpr) is IInvocationOperation op &&
-            op.TargetMethod is not null)
-        {
-            symbol = op.TargetMethod;
-            return true;
         }
 
         return false;

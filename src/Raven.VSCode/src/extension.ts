@@ -1,8 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { execFile, ExecFileOptions } from 'child_process';
 import * as vscode from 'vscode';
 import { CloseAction, ErrorAction, LanguageClient, LanguageClientOptions, ServerOptions, State, StateChangeEvent, Trace } from 'vscode-languageclient/node';
 
@@ -10,9 +9,51 @@ let client: LanguageClient | undefined;
 let clientStopPromise: Promise<void> | undefined;
 let clientStartPromise: Promise<void> | undefined;
 let languageServerBuildPromise: Promise<void> | undefined;
-const execFileAsync = promisify(execFile);
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
+
+type ExecFileTextOptions = Omit<ExecFileOptions, 'encoding'>;
+
+interface ExecFileTextResult {
+  stdout: string;
+  stderr: string;
+}
+
+interface ExecFileTextError extends Error {
+  stdout?: string;
+  stderr?: string;
+}
+
+function execFileText(command: string, args: readonly string[], options: ExecFileTextOptions = {}): Promise<ExecFileTextResult> {
+  return new Promise((resolve, reject) => {
+    execFile(command, [...args], { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
+      const result = {
+        stdout: bufferToText(stdout),
+        stderr: bufferToText(stderr)
+      };
+
+      if (error) {
+        const execError = error as ExecFileTextError;
+        execError.stdout = result.stdout;
+        execError.stderr = result.stderr;
+        reject(execError);
+        return;
+      }
+
+      resolve(result);
+    });
+  });
+}
+
+function bufferToText(value: string | Buffer | Uint8Array | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return Buffer.isBuffer(value) || value instanceof Uint8Array
+    ? Buffer.from(value).toString('utf8')
+    : value;
+}
 
 function appendLifecycleLog(message: string): void {
   output.appendLine(`[lifecycle ${new Date().toISOString()}] ${message}`);
@@ -129,7 +170,7 @@ async function ensureLanguageServerBuilt(): Promise<void> {
     appendLifecycleLog(`Building language server: dotnet ${args.join(' ')}`);
 
     try {
-      const { stdout, stderr } = await execFileAsync('dotnet', args, {
+      const { stdout, stderr } = await execFileText('dotnet', args, {
         cwd: projectDirectory,
         maxBuffer: 10 * 1024 * 1024
       });
@@ -216,8 +257,8 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
         return { action: ErrorAction.Continue };
       },
       closed() {
-        appendLifecycleLog('Language client transport closed.');
-        return { action: CloseAction.DoNotRestart };
+        appendLifecycleLog('Language client transport closed. Requesting restart.');
+        return { action: CloseAction.Restart };
       }
     },
     middleware: {
@@ -867,7 +908,7 @@ async function compileForDebug(targetPath: string): Promise<{ outputDllPath: str
   output.appendLine(`Compiling for debug via ${compilerInvocation.description}: ${compilerInvocation.executable} ${dotnetArgs.join(' ')}`);
 
   try {
-    const { stdout, stderr } = await execFileAsync(compilerInvocation.executable, dotnetArgs, {
+    const { stdout, stderr } = await execFileText(compilerInvocation.executable, dotnetArgs, {
       cwd: layout.workspaceFolder,
       maxBuffer: 10 * 1024 * 1024
     });
@@ -918,7 +959,7 @@ async function buildTarget(targetPath: string): Promise<{ outputPath: string; cw
   output.appendLine(`Building Raven target via ${compilerInvocation.description}: ${compilerInvocation.executable} ${dotnetArgs.join(' ')}`);
 
   try {
-    const { stdout, stderr } = await execFileAsync(compilerInvocation.executable, dotnetArgs, {
+    const { stdout, stderr } = await execFileText(compilerInvocation.executable, dotnetArgs, {
       cwd: layout.workspaceFolder,
       maxBuffer: 10 * 1024 * 1024
     });

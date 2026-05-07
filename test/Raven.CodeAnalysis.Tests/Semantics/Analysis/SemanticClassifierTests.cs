@@ -322,4 +322,36 @@ func Main() {
         delta.SymbolInfoBinderFallbacks.ShouldBe(0);
         delta.BoundNodeBindFallbacks.ShouldBe(0);
     }
+
+    [Fact]
+    public void CacheOnlyClassification_DoesNotBindColdExpressionSymbols()
+    {
+        var source = """
+class Service {
+    func Render(value: string) -> string {
+        return value.ToString()
+    }
+}
+""";
+        var instrumentation = new PerformanceInstrumentation();
+        var (compilation, tree) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithPerformanceInstrumentation(instrumentation));
+        var model = compilation.GetSemanticModel(tree);
+        var toStringName = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(memberAccess => memberAccess.Name.Identifier.Text == "ToString")
+            .Name;
+
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+        var result = SemanticClassifier.Classify(tree.GetRoot(), model, allowBinding: false);
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+
+        result.Tokens[toStringName.Identifier].ShouldBe(SemanticClassification.Method);
+        delta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
 }

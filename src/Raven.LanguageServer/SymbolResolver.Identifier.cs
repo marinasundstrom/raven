@@ -62,17 +62,17 @@ internal static partial class SymbolResolver
             return true;
         }
 
-        if (TryResolveExplicitTypeIdentifierSymbol(semanticModel, identifier, token, out var explicitTypeSymbol) &&
-            explicitTypeSymbol is not null)
-        {
-            symbol = explicitTypeSymbol;
-            return true;
-        }
-
         if (TryResolveReferencedIdentifierSymbol(semanticModel, identifier, token, out var referencedSymbol) &&
             referencedSymbol is not null)
         {
             symbol = referencedSymbol;
+            return true;
+        }
+
+        if (TryResolveExplicitTypeIdentifierSymbol(semanticModel, identifier, token, out var explicitTypeSymbol) &&
+            explicitTypeSymbol is not null)
+        {
+            symbol = explicitTypeSymbol;
             return true;
         }
 
@@ -116,9 +116,7 @@ internal static partial class SymbolResolver
         if (symbol is not null)
             return true;
 
-        var operationSymbol = FindReferencedSymbolAtToken(TryGetOperation(semanticModel, identifier), token.Span);
-        symbol = ProjectSymbolForDisplay(operationSymbol);
-        return symbol is not null;
+        return false;
     }
 
     private static bool TryResolveExplicitTypeIdentifierSymbol(

@@ -13,6 +13,7 @@ using Raven.LanguageServer;
 namespace Raven.Editor.Tests;
 
 using CodeFixAction = Raven.CodeAnalysis.CodeAction;
+using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 public sealed class LanguageServerCodeActionTests : IDisposable
@@ -71,6 +72,65 @@ func Main() -> unit {
         actions[1].Command!.Title.ShouldBe("Preview: Valid refactoring");
     }
 
+    [Fact]
+    public async Task Handle_QuickFix_UsesRequestDiagnosticsWithoutProjectDiagnosticPassAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+val x = 1
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(
+            workspace,
+            NullLogger<WorkspaceManager>.Instance,
+            ImmutableArray.Create<CodeFixProvider>(new RequestDiagnosticCodeFixProvider()),
+            ImmutableArray<CodeRefactoringProvider>.Empty);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(uri, code);
+
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new LspRange(new Position(0, 4), new Position(0, 5)),
+                Context = new CodeActionContext
+                {
+                    Only = new Container<CodeActionKind>(CodeActionKind.QuickFix),
+                    Diagnostics = new Container<LspDiagnostic>(new LspDiagnostic
+                    {
+                        Code = RequestDiagnosticCodeFixProvider.DiagnosticId,
+                        Message = "Request supplied diagnostic",
+                        Source = "raven",
+                        Range = new LspRange(new Position(0, 4), new Position(0, 5))
+                    })
+                }
+            },
+            timeout.Token);
+
+        result.ShouldNotBeNull();
+        var actions = result!.ToArray();
+        actions.Length.ShouldBe(2);
+        actions[0].CodeAction.ShouldNotBeNull();
+        actions[0].CodeAction!.Title.ShouldBe("Apply request diagnostic fix");
+        actions[1].Command.ShouldNotBeNull();
+        actions[1].Command!.Title.ShouldBe("Preview: Apply request diagnostic fix");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
@@ -89,6 +149,24 @@ func Main() -> unit {
                 "Valid refactoring",
                 context.Document.Id,
                 new TextChange(new TextSpan(0, 0), "// valid\n")));
+        }
+    }
+
+    private sealed class RequestDiagnosticCodeFixProvider : CodeFixProvider
+    {
+        public const string DiagnosticId = "TEST001";
+
+        public override IEnumerable<string> FixableDiagnosticIds => [DiagnosticId];
+
+        public override void RegisterCodeFixes(CodeFixContext context)
+        {
+            if (!string.Equals(context.Diagnostic.Id, DiagnosticId, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            context.RegisterCodeFix(CodeFixAction.CreateTextChange(
+                "Apply request diagnostic fix",
+                context.Document.Id,
+                new TextChange(context.Diagnostic.Location.SourceSpan, "y")));
         }
     }
 }

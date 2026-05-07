@@ -4,6 +4,7 @@ using System.Diagnostics;
 
 using Microsoft.Extensions.Logging;
 
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -119,32 +120,26 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 return;
             }
 
-            var gateWaitStopwatch = Stopwatch.StartNew();
-            using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(identifier.TextDocument.Uri, cancellationToken, "semanticTokens").ConfigureAwait(false);
-            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
-            if (semanticLease is null)
-            {
-                skippedBusy = true;
-                return;
-            }
-
             stageStopwatch.Restart();
             var root = syntaxTree.GetRoot(cancellationToken);
             rootMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticModelResult.SemanticModel;
+            skippedBusy = semanticModelResult.WasSkipped;
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            if (semanticModel is null)
-                return;
 
             stageStopwatch.Restart();
-            var classification = SemanticClassifier.Classify(root, semanticModel, allowBinding: false);
+            var classification = semanticModel is null
+                ? SemanticClassifier.Classify(root, allowBinding: false)
+                : SemanticClassifier.Classify(root, semanticModel, allowBinding: false);
             classifyMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
+            var declaredTypeTokenTypes = CollectDeclaredTypeTokenTypes(root);
             var tokenEntries = classification.Tokens
-                .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel, root, allowBinding: false))
+                .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel, root, declaredTypeTokenTypes, allowBinding: false))
                 .Where(static entry => entry!.TokenType is not null)
                 .Cast<SemanticTokenEntry>()
                 .ToArray();
@@ -239,6 +234,21 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         _tokenEntryCache[cacheKey] = entries;
     }
 
+    private async Task<(SemanticModel? SemanticModel, bool WasSkipped)> TryGetSemanticModelForSemanticTokensAsync(
+        DocumentUri uri,
+        CancellationToken cancellationToken)
+    {
+        using var lease = await _documents.TryEnterDocumentSemanticAccessAsync(
+            uri,
+            cancellationToken,
+            "semanticTokens-semanticModel").ConfigureAwait(false);
+        if (lease is null)
+            return (null, true);
+
+        var semanticModel = await _documents.GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
+        return (semanticModel, false);
+    }
+
     private static IEnumerable<SemanticTokenEntry> FilterEntriesForRange(
         IEnumerable<SemanticTokenEntry> entries,
         TextSpan? requestedRange)
@@ -283,11 +293,12 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         TextSpan span,
         SemanticClassification classification,
         SyntaxToken token,
-        SemanticModel semanticModel,
+        SemanticModel? semanticModel,
         SyntaxNode root,
+        IReadOnlyDictionary<string, SemanticTokenType> declaredTypeTokenTypes,
         bool allowBinding)
     {
-        var tokenType = MapTokenType(classification, token, semanticModel, root, allowBinding);
+        var tokenType = MapTokenType(classification, token, semanticModel, root, declaredTypeTokenTypes, allowBinding);
         if (tokenType is null)
             return null;
 
@@ -327,36 +338,43 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     private static SemanticTokenType? MapTokenType(
         SemanticClassification classification,
         SyntaxToken token,
-        SemanticModel semanticModel,
+        SemanticModel? semanticModel,
         SyntaxNode root,
+        IReadOnlyDictionary<string, SemanticTokenType> declaredTypeTokenTypes,
         bool allowBinding)
     {
         if (classification == SemanticClassification.Type)
         {
-            var symbol = TryGetAssociatedSymbol(token, semanticModel, allowBinding);
-            if (symbol is ITypeSymbol typeSymbol)
+            if (allowBinding)
             {
-                return typeSymbol.TypeKind switch
+                var symbol = TryGetAssociatedSymbol(token, semanticModel, allowBinding);
+                if (symbol is ITypeSymbol typeSymbol)
                 {
-                    TypeKind.Class => SemanticTokenType.Class,
-                    TypeKind.Struct => SemanticTokenType.Struct,
-                    TypeKind.Interface => SemanticTokenType.Interface,
-                    TypeKind.Enum => SemanticTokenType.Enum,
-                    _ => SemanticTokenType.Type
-                };
+                    return typeSymbol.TypeKind switch
+                    {
+                        TypeKind.Class => SemanticTokenType.Class,
+                        TypeKind.Struct => SemanticTokenType.Struct,
+                        TypeKind.Interface => SemanticTokenType.Interface,
+                        TypeKind.Enum => SemanticTokenType.Enum,
+                        _ => SemanticTokenType.Type
+                    };
+                }
+
+                if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } containingType })
+                {
+                    return containingType.TypeKind switch
+                    {
+                        TypeKind.Class => SemanticTokenType.Class,
+                        TypeKind.Struct => SemanticTokenType.Struct,
+                        TypeKind.Interface => SemanticTokenType.Interface,
+                        TypeKind.Enum => SemanticTokenType.Enum,
+                        _ => SemanticTokenType.Type
+                    };
+                }
             }
 
-            if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } containingType })
-            {
-                return containingType.TypeKind switch
-                {
-                    TypeKind.Class => SemanticTokenType.Class,
-                    TypeKind.Struct => SemanticTokenType.Struct,
-                    TypeKind.Interface => SemanticTokenType.Interface,
-                    TypeKind.Enum => SemanticTokenType.Enum,
-                    _ => SemanticTokenType.Type
-                };
-            }
+            if (declaredTypeTokenTypes.TryGetValue(token.Text, out var declaredTypeTokenType))
+                return declaredTypeTokenType;
 
             return token.Parent switch
             {
@@ -369,7 +387,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         }
 
         if (classification == SemanticClassification.StringLiteral &&
-            TryGetStringSyntax(token, semanticModel, root, out var stringSyntax) &&
+            TryGetStringSyntax(token, semanticModel, root, allowBinding, out var stringSyntax) &&
             string.Equals(stringSyntax, "Regex", StringComparison.Ordinal))
         {
             return SemanticTokenType.Regexp;
@@ -378,21 +396,64 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         return MapTokenType(classification);
     }
 
+    private static IReadOnlyDictionary<string, SemanticTokenType> CollectDeclaredTypeTokenTypes(SyntaxNode root)
+    {
+        var tokenTypes = new Dictionary<string, SemanticTokenType>(StringComparer.Ordinal);
+
+        foreach (var declaration in root.DescendantNodesAndSelf())
+        {
+            switch (declaration)
+            {
+                case ClassDeclarationSyntax classDeclaration:
+                    tokenTypes.TryAdd(classDeclaration.Identifier.Text, SemanticTokenType.Class);
+                    break;
+
+                case StructDeclarationSyntax structDeclaration:
+                    tokenTypes.TryAdd(structDeclaration.Identifier.Text, SemanticTokenType.Struct);
+                    break;
+
+                case RecordDeclarationSyntax recordDeclaration:
+                    tokenTypes.TryAdd(recordDeclaration.Identifier.Text, SemanticTokenType.Struct);
+                    break;
+
+                case UnionDeclarationSyntax unionDeclaration:
+                    tokenTypes.TryAdd(unionDeclaration.Identifier.Text, SemanticTokenType.Struct);
+                    break;
+
+                case InterfaceDeclarationSyntax interfaceDeclaration:
+                    tokenTypes.TryAdd(interfaceDeclaration.Identifier.Text, SemanticTokenType.Interface);
+                    break;
+
+                case EnumDeclarationSyntax enumDeclaration:
+                    tokenTypes.TryAdd(enumDeclaration.Identifier.Text, SemanticTokenType.Enum);
+                    break;
+            }
+        }
+
+        return tokenTypes;
+    }
+
     private static bool TryGetStringSyntax(
         SyntaxToken token,
-        SemanticModel semanticModel,
+        SemanticModel? semanticModel,
         SyntaxNode root,
+        bool allowBinding,
         out string syntax)
     {
-        if (TryGetStringSyntax(token, semanticModel, out syntax))
+        if (TryGetStringSyntaxCore(token, semanticModel, root, allowBinding, out syntax))
             return true;
 
         var rootedToken = root.FindToken(token.Span.Start);
         return rootedToken.Span == token.Span &&
-            TryGetStringSyntax(rootedToken, semanticModel, out syntax);
+            TryGetStringSyntaxCore(rootedToken, semanticModel, root, allowBinding, out syntax);
     }
 
-    private static bool TryGetStringSyntax(SyntaxToken token, SemanticModel semanticModel, out string syntax)
+    private static bool TryGetStringSyntaxCore(
+        SyntaxToken token,
+        SemanticModel? semanticModel,
+        SyntaxNode root,
+        bool allowBinding,
+        out string syntax)
     {
         syntax = string.Empty;
 
@@ -415,7 +476,13 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         if (invocation is null)
             return false;
 
-        var method = TryGetInvocationMethod(invocation, semanticModel);
+        if (TryGetStringSyntaxFromSourceInvocation(root, invocation, argument, out syntax))
+            return true;
+
+        if (!allowBinding)
+            return false;
+
+        var method = TryGetInvocationMethod(invocation, semanticModel, allowBinding);
         if (method is null)
             return false;
 
@@ -448,36 +515,130 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             if (reference.GetSyntax() is not ParameterSyntax parameterSyntax)
                 continue;
 
-            foreach (var attribute in parameterSyntax.AttributeLists.SelectMany(static list => list.Attributes))
+            if (TryGetStringSyntaxFromParameterSyntax(parameterSyntax, out syntax))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetStringSyntaxFromSourceInvocation(
+        SyntaxNode root,
+        InvocationExpressionSyntax invocation,
+        ArgumentSyntax argument,
+        out string syntax)
+    {
+        syntax = string.Empty;
+
+        if (!TryGetInvocationName(invocation, out var invocationName))
+            return false;
+
+        foreach (var declaration in root.DescendantNodesAndSelf())
+        {
+            var parameterList = declaration switch
             {
-                var attributeName = attribute.Name.ToString();
-                if (!attributeName.EndsWith("StringSyntax", StringComparison.Ordinal) &&
-                    !attributeName.EndsWith("StringSyntaxAttribute", StringComparison.Ordinal))
-                {
-                    continue;
-                }
+                FunctionStatementSyntax function when function.Identifier.Text == invocationName => function.ParameterList,
+                MethodDeclarationSyntax method when method.Identifier.Text == invocationName => method.ParameterList,
+                _ => null
+            };
 
-                var argumentExpression = attribute.ArgumentList?.Arguments.FirstOrDefault()?.Expression;
-                if (argumentExpression is LiteralExpressionSyntax { Token.Value: string literalValue })
-                {
-                    syntax = literalValue;
-                    return !string.IsNullOrWhiteSpace(syntax);
-                }
+            if (parameterList is null)
+                continue;
 
-                if (argumentExpression is MemberAccessExpressionSyntax memberAccess)
-                {
-                    syntax = memberAccess.Name.Identifier.ValueText;
-                    return !string.IsNullOrWhiteSpace(syntax);
-                }
+            var parameter = TryGetArgumentParameterSyntax(invocation.ArgumentList, argument, parameterList);
+            if (parameter is not null && TryGetStringSyntaxFromParameterSyntax(parameter, out syntax))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetInvocationName(InvocationExpressionSyntax invocation, out string name)
+    {
+        switch (invocation.Expression)
+        {
+            case IdentifierNameSyntax identifier:
+                name = identifier.Identifier.Text;
+                return !string.IsNullOrEmpty(name);
+
+            case GenericNameSyntax genericName:
+                name = genericName.Identifier.Text;
+                return !string.IsNullOrEmpty(name);
+
+            case MemberAccessExpressionSyntax memberAccess:
+                name = memberAccess.Name.Identifier.Text;
+                return !string.IsNullOrEmpty(name);
+
+            default:
+                name = string.Empty;
+                return false;
+        }
+    }
+
+    private static ParameterSyntax? TryGetArgumentParameterSyntax(
+        ArgumentListSyntax argumentList,
+        ArgumentSyntax argument,
+        ParameterListSyntax parameterList)
+    {
+        var name = argument.NameColon?.Name.Identifier.Text;
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            return parameterList.Parameters.FirstOrDefault(parameter =>
+                string.Equals(parameter.Identifier.Text, name, StringComparison.Ordinal));
+        }
+
+        for (var i = 0; i < argumentList.Arguments.Count; i++)
+        {
+            if (argumentList.Arguments[i].Span != argument.Span)
+                continue;
+
+            return i < parameterList.Parameters.Count ? parameterList.Parameters[i] : null;
+        }
+
+        return null;
+    }
+
+    private static bool TryGetStringSyntaxFromParameterSyntax(ParameterSyntax parameterSyntax, out string syntax)
+    {
+        syntax = string.Empty;
+
+        foreach (var attribute in parameterSyntax.AttributeLists.SelectMany(static list => list.Attributes))
+        {
+            var attributeName = attribute.Name.ToString();
+            if (!attributeName.EndsWith("StringSyntax", StringComparison.Ordinal) &&
+                !attributeName.EndsWith("StringSyntaxAttribute", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var argumentExpression = attribute.ArgumentList?.Arguments.FirstOrDefault()?.Expression;
+            if (argumentExpression is LiteralExpressionSyntax { Token.Value: string literalValue })
+            {
+                syntax = literalValue;
+                return !string.IsNullOrWhiteSpace(syntax);
+            }
+
+            if (argumentExpression is MemberAccessExpressionSyntax memberAccess)
+            {
+                syntax = memberAccess.Name.Identifier.Text;
+                return !string.IsNullOrWhiteSpace(syntax);
             }
         }
 
         return false;
     }
 
-    private static IMethodSymbol? TryGetInvocationMethod(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static IMethodSymbol? TryGetInvocationMethod(
+        InvocationExpressionSyntax invocation,
+        SemanticModel? semanticModel,
+        bool allowBinding)
     {
-        var invocationInfo = semanticModel.GetSymbolInfo(invocation);
+        if (semanticModel is null)
+            return null;
+
+        var invocationInfo = semanticModel.TryGetAvailableSymbolInfo(invocation, out var availableInvocationInfo)
+            ? availableInvocationInfo
+            : default;
         if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
             return invocationMethod;
 
@@ -485,7 +646,9 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         if (candidate is not null)
             return candidate;
 
-        var expressionInfo = semanticModel.GetSymbolInfo(invocation.Expression);
+        var expressionInfo = semanticModel.TryGetAvailableSymbolInfo(invocation.Expression, out var availableExpressionInfo)
+            ? availableExpressionInfo
+            : default;
         if (expressionInfo.Symbol is IMethodSymbol expressionMethod)
             return expressionMethod;
 
@@ -523,12 +686,18 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
     private static ImmutableArray<SemanticTokenModifier> GetModifiers(
         SyntaxToken token,
-        SemanticModel semanticModel,
+        SemanticModel? semanticModel,
         bool allowBinding)
     {
         var modifiers = ImmutableArray.CreateBuilder<SemanticTokenModifier>();
         if (IsDeclarationToken(token))
             modifiers.Add(SemanticTokenModifier.Declaration);
+
+        if (!allowBinding)
+        {
+            AddSyntaxDerivedModifiers(token, modifiers);
+            return modifiers.ToImmutable();
+        }
 
         var symbol = TryGetAssociatedSymbol(token, semanticModel, allowBinding);
         if (symbol is null)
@@ -549,30 +718,84 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         return modifiers.ToImmutable();
     }
 
+    private static void AddSyntaxDerivedModifiers(
+        SyntaxToken token,
+        ImmutableArray<SemanticTokenModifier>.Builder modifiers)
+    {
+        if (HasSyntaxModifier(token, SyntaxKind.StaticKeyword))
+            modifiers.Add(SemanticTokenModifier.Static);
+
+        if (HasSyntaxModifier(token, SyntaxKind.ReadonlyKeyword))
+            modifiers.Add(SemanticTokenModifier.Readonly);
+
+        if (HasSyntaxModifier(token, SyntaxKind.AsyncKeyword))
+            modifiers.Add(SemanticTokenModifier.Async);
+
+        if (HasSyntaxModifier(token, SyntaxKind.AbstractKeyword))
+            modifiers.Add(SemanticTokenModifier.Abstract);
+    }
+
+    private static bool HasSyntaxModifier(SyntaxToken token, SyntaxKind modifierKind)
+    {
+        if (token.Parent is null)
+            return false;
+
+        if (token.Parent.AncestorsAndSelf().OfType<FunctionStatementSyntax>().FirstOrDefault() is { } function &&
+            function.Identifier == token)
+        {
+            return function.Modifiers.Any(modifier => modifier.Kind == modifierKind);
+        }
+
+        if (token.Parent.AncestorsAndSelf().OfType<MemberDeclarationSyntax>().FirstOrDefault() is { } member)
+        {
+            return member.Modifiers.Any(modifier => modifier.Kind == modifierKind);
+        }
+
+        return token.Parent switch
+        {
+            SimpleFunctionExpressionSyntax simple =>
+                modifierKind == SyntaxKind.StaticKeyword && simple.StaticKeyword.Kind == SyntaxKind.StaticKeyword ||
+                modifierKind == SyntaxKind.AsyncKeyword && simple.AsyncKeyword.Kind == SyntaxKind.AsyncKeyword,
+
+            ParenthesizedFunctionExpressionSyntax parenthesized =>
+                modifierKind == SyntaxKind.StaticKeyword && parenthesized.StaticKeyword.Kind == SyntaxKind.StaticKeyword ||
+                modifierKind == SyntaxKind.AsyncKeyword && parenthesized.AsyncKeyword.Kind == SyntaxKind.AsyncKeyword,
+
+            _ => false
+        };
+    }
+
     private static ISymbol? TryGetAssociatedSymbol(
         SyntaxToken token,
-        SemanticModel semanticModel,
+        SemanticModel? semanticModel,
         bool allowBinding)
     {
+        if (semanticModel is null)
+            return null;
+
         if (token.Kind != SyntaxKind.IdentifierToken)
+            return null;
+
+        if (!allowBinding)
             return null;
 
         var bindNode = GetBindableParent(token);
         if (bindNode is null)
             return null;
 
-        var declaredSymbol = semanticModel.GetDeclaredSymbol(bindNode);
-        if (declaredSymbol is not null)
-            return declaredSymbol;
-
-        if (semanticModel.TryGetCachedSymbolInfo(bindNode, out var cachedInfo))
-            return cachedInfo.Symbol ?? cachedInfo.CandidateSymbols.FirstOrDefault();
-
-        if (!allowBinding)
+        try
+        {
+            if (semanticModel.TryGetAvailableSymbolInfo(bindNode, out var info))
+                return info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
+        }
+        catch
+        {
             return null;
+        }
 
-        var info = semanticModel.GetSymbolInfo(bindNode);
-        return info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
+        return CanResolveDeclaredSymbolWithoutBinding(bindNode)
+            ? semanticModel.GetDeclaredSymbol(bindNode)
+            : null;
     }
 
     private static bool IsDeclarationToken(SyntaxToken token)
@@ -592,6 +815,9 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             VariableDeclaratorSyntax declaration => declaration.Identifier == token,
             _ => false
         };
+
+    private static bool IsLocalDeclarationNode(SyntaxNode node)
+        => node is VariableDeclaratorSyntax or SingleVariableDesignationSyntax;
 
     private static SyntaxNode? GetBindableParent(SyntaxToken token)
     {
@@ -625,6 +851,23 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
         return node;
     }
+
+    private static bool CanResolveDeclaredSymbolWithoutBinding(SyntaxNode node)
+        => node switch
+        {
+            NamespaceDeclarationSyntax => true,
+            TypeDeclarationSyntax => true,
+            UnionDeclarationSyntax => true,
+            CaseDeclarationSyntax => true,
+            DelegateDeclarationSyntax => true,
+            BaseMethodDeclarationSyntax => true,
+            FunctionStatementSyntax => true,
+            PropertyDeclarationSyntax => true,
+            EventDeclarationSyntax => true,
+            AccessorDeclarationSyntax => true,
+            ParameterSyntax parameter => parameter.Parent?.Parent is TypeDeclarationSyntax or BaseMethodDeclarationSyntax,
+            _ => false
+        };
 
     private static void PushSpan(
         SemanticTokensBuilder builder,

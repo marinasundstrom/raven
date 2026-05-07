@@ -177,6 +177,46 @@ class C {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_FullMode_IncludesBuiltInAnalyzerDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> unit {
+    let count = 0
+    count
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DocumentDiagnosticsMode.Full,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            StringComparison.Ordinal)).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TopLevelGenericWhereClauseSelfConstraint_DoesNotReportTypeParameterOutOfScopeAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -465,7 +505,7 @@ record Person(
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_FullMode_SkipsWhenDocumentSemanticGateIsBusyAsync()
+    public async Task TryGetDiagnosticsAsync_FullMode_DoesNotRequireDocumentSemanticGateAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -498,9 +538,12 @@ func Main() -> () {
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
+        var completedTask = await Task.WhenAny(diagnosticsTask, Task.Delay(1000));
+        completedTask.ShouldBe(diagnosticsTask);
+
         var result = await diagnosticsTask;
-        result.WasSkipped.ShouldBeTrue();
-        result.Diagnostics.ShouldBeEmpty();
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.ShouldNotBeEmpty();
     }
 
     [Fact]

@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -152,51 +151,6 @@ internal static partial class SymbolResolver
         return symbol;
     }
 
-    private static ISymbol? FindReferencedSymbolAtToken(IOperation? operation, TextSpan tokenSpan)
-    {
-        if (operation is null || !operation.Syntax.Span.Contains(tokenSpan))
-            return null;
-
-        var current = GetOperationSymbol(operation);
-
-        foreach (var child in GetChildOperations(operation))
-        {
-            if (!child.Syntax.Span.Contains(tokenSpan))
-                continue;
-
-            var childSymbol = FindReferencedSymbolAtToken(child, tokenSpan);
-            if (childSymbol is not null)
-                return childSymbol;
-        }
-
-        return current;
-    }
-
-    private static ImmutableArray<IOperation> GetChildOperations(IOperation operation)
-    {
-        try
-        {
-            return operation.ChildOperations;
-        }
-        catch
-        {
-            return ImmutableArray<IOperation>.Empty;
-        }
-    }
-
-    private static ISymbol? GetOperationSymbol(IOperation operation)
-    {
-        return operation switch
-        {
-            ILiteralOperation literal => literal.Type?.UnwrapLiteralType(),
-            ISymbolReferenceOperation<ISymbol> symbolReference => symbolReference.Symbol,
-            ISingleVariableDesignatorOperation designator => designator.Local,
-            IVariableDeclaratorOperation declarator => declarator.Symbol,
-            IInvocationOperation invocation => invocation.TargetMethod,
-            _ => null
-        };
-    }
-
     private static bool ShouldSkipCandidateNode(SyntaxNode node, SyntaxToken token)
     {
         return node switch
@@ -295,38 +249,18 @@ internal static partial class SymbolResolver
     {
         try
         {
-            if (semanticModel.TryGetNodeInterestSymbolInfo(node, out symbolInfo) &&
+            if (semanticModel.TryGetAvailableSymbolInfo(node, out symbolInfo) &&
                 (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
             {
                 return true;
             }
-
-            if (semanticModel.TryGetCachedSymbolInfo(node, out symbolInfo) &&
-                (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
-            {
-                return true;
-            }
-
-            symbolInfo = semanticModel.GetSymbolInfo(node);
-            return true;
         }
         catch
         {
-            symbolInfo = default;
-            return false;
         }
-    }
 
-    private static IOperation? TryGetOperation(SemanticModel semanticModel, SyntaxNode node)
-    {
-        try
-        {
-            return semanticModel.GetOperation(node);
-        }
-        catch
-        {
-            return null;
-        }
+        symbolInfo = default;
+        return false;
     }
 
     private static TextSpan? GetDeclarationIdentifierSpan(SyntaxReference reference)

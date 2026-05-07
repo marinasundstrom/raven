@@ -39,16 +39,40 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const crypto = __importStar(require("crypto"));
 const child_process_1 = require("child_process");
-const util_1 = require("util");
 const vscode = __importStar(require("vscode"));
 const node_1 = require("vscode-languageclient/node");
 let client;
 let clientStopPromise;
 let clientStartPromise;
 let languageServerBuildPromise;
-const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
+function execFileText(command, args, options = {}) {
+    return new Promise((resolve, reject) => {
+        (0, child_process_1.execFile)(command, [...args], { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
+            const result = {
+                stdout: bufferToText(stdout),
+                stderr: bufferToText(stderr)
+            };
+            if (error) {
+                const execError = error;
+                execError.stdout = result.stdout;
+                execError.stderr = result.stderr;
+                reject(execError);
+                return;
+            }
+            resolve(result);
+        });
+    });
+}
+function bufferToText(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return Buffer.isBuffer(value) || value instanceof Uint8Array
+        ? Buffer.from(value).toString('utf8')
+        : value;
+}
 function appendLifecycleLog(message) {
     output.appendLine(`[lifecycle ${new Date().toISOString()}] ${message}`);
 }
@@ -141,7 +165,7 @@ async function ensureLanguageServerBuilt() {
         const args = ['build', projectPath, '/property:WarningLevel=0'];
         appendLifecycleLog(`Building language server: dotnet ${args.join(' ')}`);
         try {
-            const { stdout, stderr } = await execFileAsync('dotnet', args, {
+            const { stdout, stderr } = await execFileText('dotnet', args, {
                 cwd: projectDirectory,
                 maxBuffer: 10 * 1024 * 1024
             });
@@ -221,8 +245,8 @@ function createLanguageClient(context) {
                 return { action: node_1.ErrorAction.Continue };
             },
             closed() {
-                appendLifecycleLog('Language client transport closed.');
-                return { action: node_1.CloseAction.DoNotRestart };
+                appendLifecycleLog('Language client transport closed. Requesting restart.');
+                return { action: node_1.CloseAction.Restart };
             }
         },
         middleware: {
@@ -752,7 +776,7 @@ async function compileForDebug(targetPath) {
     ];
     output.appendLine(`Compiling for debug via ${compilerInvocation.description}: ${compilerInvocation.executable} ${dotnetArgs.join(' ')}`);
     try {
-        const { stdout, stderr } = await execFileAsync(compilerInvocation.executable, dotnetArgs, {
+        const { stdout, stderr } = await execFileText(compilerInvocation.executable, dotnetArgs, {
             cwd: layout.workspaceFolder,
             maxBuffer: 10 * 1024 * 1024
         });
@@ -796,7 +820,7 @@ async function buildTarget(targetPath) {
     ];
     output.appendLine(`Building Raven target via ${compilerInvocation.description}: ${compilerInvocation.executable} ${dotnetArgs.join(' ')}`);
     try {
-        const { stdout, stderr } = await execFileAsync(compilerInvocation.executable, dotnetArgs, {
+        const { stdout, stderr } = await execFileText(compilerInvocation.executable, dotnetArgs, {
             cwd: layout.workspaceFolder,
             maxBuffer: 10 * 1024 * 1024
         });

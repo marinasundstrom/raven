@@ -57,4 +57,4 @@ val x = JsonObject([
     "name": 32
 ])
 
-WriteLine(x.Properties.Item)
+WriteLine(x)

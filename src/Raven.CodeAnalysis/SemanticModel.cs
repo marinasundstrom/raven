@@ -44,6 +44,7 @@ public partial class SemanticModel
     private ConcurrentDictionary<SyntaxNode, Binder> _binderCache => _bindingState.BinderCache;
     private ConcurrentDictionary<SyntaxNodeMapKey, Binder> _binderCacheByKey => _bindingState.BinderCacheByKey;
     private ConcurrentDictionary<SyntaxNode, SymbolInfo> _symbolMappings => _bindingState.SymbolMappings;
+    private ConcurrentDictionary<SyntaxNode, TypeInfo> _typeMappings => _bindingState.TypeMappings;
     private ConcurrentDictionary<SyntaxNode, BoundNode> _boundNodeCache => _bindingState.BoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 => _bindingState.BoundNodeCacheWithBinder;
     private ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> _contextualBoundNodeCache => _bindingState.ContextualBoundNodeCache;
@@ -83,6 +84,7 @@ public partial class SemanticModel
         public ConcurrentDictionary<SyntaxNode, Binder> BinderCache { get; } = new();
         public ConcurrentDictionary<SyntaxNodeMapKey, Binder> BinderCacheByKey { get; } = new();
         public ConcurrentDictionary<SyntaxNode, SymbolInfo> SymbolMappings { get; } = new();
+        public ConcurrentDictionary<SyntaxNode, TypeInfo> TypeMappings { get; } = new();
         public ConcurrentDictionary<SyntaxNode, BoundNode> BoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> BoundNodeCacheWithBinder { get; } = new();
         public ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> ContextualBoundNodeCache { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
@@ -882,6 +884,704 @@ public partial class SemanticModel
         return false;
     }
 
+    /// <summary>
+    /// Tries to retrieve symbol information from semantic state that is already available.
+    /// This method does not bind cold bodies, create operations, or run diagnostics.
+    /// </summary>
+    public bool TryGetAvailableSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        if (TryGetCachedSymbolInfo(node, out info))
+            return true;
+
+        if (node is IdentifierNameSyntax identifier &&
+            TryLookupVisibleValueSymbol(identifier) is { } visibleSymbol)
+        {
+            info = new SymbolInfo(visibleSymbol);
+            _symbolMappings[node] = info;
+            StoreNodeInterestSymbolDescriptor(node, visibleSymbol);
+            return true;
+        }
+
+        if (node is IdentifierNameSyntax namedTypeIdentifier &&
+            IsAvailableNamedTypeLookupContext(namedTypeIdentifier) &&
+            TryLookupAvailableNamedType(namedTypeIdentifier.Identifier.ValueText, 0, out var namedType) &&
+            namedType is not null)
+        {
+            info = new SymbolInfo(namedType);
+            _symbolMappings[node] = info;
+            StoreNodeInterestSymbolDescriptor(node, namedType);
+            return true;
+        }
+
+        if (TryGetAvailableMemberAccessSymbolInfo(node, out info))
+            return true;
+
+        if (TryGetCachedNodeInterestSymbolInfo(node, out info))
+            return true;
+
+        if (TryGetDeclarationSymbolInfo(node, out info))
+            return true;
+
+        info = default;
+        return false;
+    }
+
+    private static bool IsAvailableNamedTypeLookupContext(IdentifierNameSyntax identifier)
+    {
+        if (identifier.AncestorsAndSelf().OfType<TypeSyntax>().Any())
+            return true;
+
+        if (identifier.Parent is InvocationExpressionSyntax invocation &&
+            IsSameSyntaxNode(invocation.Expression, identifier))
+        {
+            return true;
+        }
+
+        return identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
+               IsSameSyntaxNode(memberAccess.Expression, identifier);
+    }
+
+    /// <summary>
+    /// Tries to retrieve invocation candidates from semantic state and declarations that are already available.
+    /// This method does not bind cold bodies, create operations, or run diagnostics.
+    /// </summary>
+    public bool TryGetAvailableInvocationCandidates(InvocationExpressionSyntax invocation, out ImmutableArray<IMethodSymbol> methods)
+    {
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        void AddIfNotPresent(IMethodSymbol? method)
+        {
+            if (method is null)
+                return;
+
+            foreach (var existing in builder)
+            {
+                if (SymbolEqualityComparer.Default.Equals(existing, method))
+                    return;
+            }
+
+            builder.Add(method);
+        }
+
+        void AddSymbolInfoCandidates(SymbolInfo symbolInfo)
+        {
+            if (symbolInfo.Symbol is IMethodSymbol method)
+                AddIfNotPresent(method);
+
+            if (symbolInfo.Symbol is INamedTypeSymbol type)
+                AddAvailableConstructors(type, AddIfNotPresent);
+
+            if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                foreach (var candidateMethod in symbolInfo.CandidateSymbols.OfType<IMethodSymbol>())
+                    AddIfNotPresent(candidateMethod);
+
+                foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                    AddAvailableConstructors(candidateType, AddIfNotPresent);
+            }
+        }
+
+        if (TryGetAvailableSymbolInfo(invocation, out var invocationInfo))
+            AddSymbolInfoCandidates(invocationInfo);
+
+        if (TryGetAvailableSymbolInfo(invocation.Expression, out var expressionInfo))
+            AddSymbolInfoCandidates(expressionInfo);
+
+        if (TryGetAvailableExtensionInvocationCandidates(invocation, out var extensionCandidates))
+        {
+            foreach (var extensionCandidate in extensionCandidates)
+                AddIfNotPresent(extensionCandidate);
+        }
+
+        if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
+            TryLookupAvailableFunctionDeclarations(invocationIdentifier, invocationIdentifier.Identifier.ValueText, out var availableFunctions))
+        {
+            foreach (var function in availableFunctions)
+                AddIfNotPresent(function);
+        }
+
+        if (TryResolveAvailableCallableExpression(invocation.Expression, out var callableSymbol))
+        {
+            switch (callableSymbol)
+            {
+                case IMethodSymbol method:
+                    AddIfNotPresent(method);
+                    break;
+                case INamedTypeSymbol type:
+                    AddAvailableConstructors(type, AddIfNotPresent);
+                    break;
+            }
+        }
+
+        if (builder.Count == 0 &&
+            TryGetAvailableTypeInfo(invocation.Expression, out var typeInfo) &&
+            (typeInfo.Type ?? typeInfo.ConvertedType) is INamedTypeSymbol expressionType)
+        {
+            if (expressionType.GetDelegateInvokeMethod() is { } invokeMethod)
+                AddIfNotPresent(invokeMethod);
+
+            AddInvokeCandidatesFromType(expressionType, AddIfNotPresent);
+            AddAvailableConstructors(expressionType, AddIfNotPresent);
+        }
+
+        methods = builder.ToImmutable();
+        return methods.Length > 0;
+    }
+
+    public bool TryGetAvailableExtensionInvocationCandidates(InvocationExpressionSyntax invocation, out ImmutableArray<IMethodSymbol> methods)
+    {
+        methods = ImmutableArray<IMethodSymbol>.Empty;
+
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: IdentifierNameSyntax memberName } memberAccess)
+            return false;
+
+        var receiverType = TryGetAvailableReceiverType(memberAccess.Expression);
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        var extensions = LookupApplicableExtensionMembers(
+            receiverType,
+            invocation,
+            memberName.Identifier.ValueText,
+            kinds: ExtensionMemberKinds.InstanceMethods | ExtensionMemberKinds.StaticMethods);
+        var candidates = extensions.InstanceMethods
+            .Concat(extensions.StaticMethods)
+            .Where(method => string.Equals(method.Name, memberName.Identifier.ValueText, StringComparison.Ordinal))
+            .Where(method => method.Parameters.Length == invocation.ArgumentList.Arguments.Count + 1)
+            .ToImmutableArray();
+
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        methods = candidates
+            .OrderByDescending(method => SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, receiverType))
+            .ThenByDescending(method => method.Parameters[0].Type.TypeKind != TypeKind.Error &&
+                                       Compilation.ClassifyConversion(receiverType, method.Parameters[0].Type, includeUserDefined: true).Exists)
+            .ToImmutableArray();
+        return methods.Length > 0;
+    }
+
+    public bool TryGetAvailablePipeInvocationCandidates(InvocationExpressionSyntax invocation, out ImmutableArray<IMethodSymbol> methods)
+    {
+        methods = ImmutableArray<IMethodSymbol>.Empty;
+
+        if (invocation.Parent is not InfixOperatorExpressionSyntax
+            {
+                OperatorToken.Kind: SyntaxKind.PipeToken
+            } pipeExpression ||
+            !IsSameSyntaxNode(pipeExpression.Right, invocation))
+        {
+            return false;
+        }
+
+        var methodName = invocation.Expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax identifier } => identifier.Identifier.ValueText,
+            _ => null
+        };
+        if (string.IsNullOrWhiteSpace(methodName))
+            return false;
+
+        if (!TryGetAvailableTypeInfo(pipeExpression.Left, out var receiverTypeInfo))
+            return false;
+
+        var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        var extensions = LookupApplicableExtensionMembers(
+            receiverType,
+            invocation,
+            methodName,
+            kinds: ExtensionMemberKinds.InstanceMethods | ExtensionMemberKinds.StaticMethods);
+        var candidates = extensions.InstanceMethods
+            .Concat(extensions.StaticMethods)
+            .Where(method => string.Equals(method.Name, methodName, StringComparison.Ordinal))
+            .Where(method => method.Parameters.Length == invocation.ArgumentList.Arguments.Count + 1)
+            .ToImmutableArray();
+
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        methods = candidates
+            .OrderByDescending(method => SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, receiverType))
+            .ThenByDescending(method => method.Parameters[0].Type.TypeKind != TypeKind.Error &&
+                                       Compilation.ClassifyConversion(receiverType, method.Parameters[0].Type, includeUserDefined: true).Exists)
+            .ThenByDescending(static method => method.Parameters.Length > 1 &&
+                                              IsExpressionTreeDelegateParameter(method.Parameters[1].Type))
+            .ToImmutableArray();
+        return methods.Length > 0;
+    }
+
+    private bool TryResolveAvailableCallableExpression(ExpressionSyntax expression, out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (expression is IdentifierNameSyntax identifier)
+        {
+            if (TryLookupVisibleValueSymbol(identifier) is { } visibleSymbol)
+            {
+                symbol = visibleSymbol;
+                return true;
+            }
+
+            if (TryLookupAvailableFunctionDeclaration(identifier, identifier.Identifier.ValueText, out var method))
+            {
+                symbol = method;
+                return true;
+            }
+
+            if (TryLookupAvailableNamedType(identifier.Identifier.ValueText, 0, out var namedType))
+            {
+                symbol = namedType;
+                return true;
+            }
+        }
+        else if (expression is GenericNameSyntax genericName)
+        {
+            var typeArguments = ResolveAvailableTypeArguments(genericName.TypeArgumentList);
+            if (typeArguments.IsDefault)
+                return false;
+
+            if (TryLookupAvailableNamedType(genericName.Identifier.ValueText, typeArguments.Length, out var genericType))
+            {
+                symbol = genericType.TypeParameters.Length == typeArguments.Length
+                    ? genericType.Construct(typeArguments.ToArray()) as INamedTypeSymbol
+                    : genericType;
+                return symbol is not null;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryLookupAvailableFunctionDeclaration(
+        SyntaxNode contextNode,
+        string name,
+        out IMethodSymbol? method)
+    {
+        method = TryLookupAvailableFunctionDeclarations(contextNode, name, out var methods)
+            ? methods[0]
+            : null;
+        return method is not null;
+    }
+
+    private bool TryLookupAvailableFunctionDeclarations(
+        SyntaxNode contextNode,
+        string name,
+        out ImmutableArray<IMethodSymbol> methods)
+    {
+        methods = ImmutableArray<IMethodSymbol>.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        var root = contextNode.SyntaxTree.GetRoot();
+        methods = root
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Where(function => string.Equals(function.Identifier.ValueText, name, StringComparison.Ordinal))
+            .Select(function => GetDeclaredSymbol(function) as IMethodSymbol)
+            .Where(static symbol => symbol is not null)
+            .Cast<IMethodSymbol>()
+            .ToImmutableArray();
+
+        return methods.Length > 0;
+    }
+
+    private bool TryLookupAvailableNamedType(string name, int arity, out INamedTypeSymbol? type)
+    {
+        type = null;
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        var root = SyntaxTree.GetRoot();
+        type = root
+            .DescendantNodes()
+            .OfType<TypeDeclarationSyntax>()
+            .Where(declaration => string.Equals(declaration.Identifier.ValueText, name, StringComparison.Ordinal))
+            .Select(declaration => GetDeclaredSymbol(declaration) as INamedTypeSymbol)
+            .FirstOrDefault(candidate => candidate is not null && (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
+        if (type is not null)
+            return true;
+
+        type = root
+            .DescendantNodes()
+            .OfType<UnionDeclarationSyntax>()
+            .Where(declaration => string.Equals(declaration.Identifier.ValueText, name, StringComparison.Ordinal))
+            .Select(declaration => GetDeclaredSymbol(declaration) as INamedTypeSymbol)
+            .FirstOrDefault(candidate => candidate is not null && (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
+        if (type is not null)
+            return true;
+
+        type = Compilation.GlobalNamespace
+            .GetMembers(name)
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault(candidate => candidate.Arity == arity || candidate.TypeParameters.Length == arity);
+        if (type is not null)
+            return true;
+
+        type = Compilation.GlobalNamespace
+            .GetAllMembersRecursive()
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, name, StringComparison.Ordinal) &&
+                (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
+        return type is not null;
+    }
+
+    private ImmutableArray<ITypeSymbol> ResolveAvailableTypeArguments(TypeArgumentListSyntax typeArgumentList)
+    {
+        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(typeArgumentList.Arguments.Count);
+        foreach (var argument in typeArgumentList.Arguments)
+        {
+            if (!TryResolveAvailableTypeSyntax(argument.Type, out var type))
+                return default;
+
+            builder.Add(type);
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private bool TryResolveAvailableTypeSyntax(TypeSyntax typeSyntax, out ITypeSymbol type)
+    {
+        if (TryGetAvailableTypeInfo(typeSyntax, out var typeInfo) &&
+            (typeInfo.Type ?? typeInfo.ConvertedType) is { TypeKind: not TypeKind.Error } availableType)
+        {
+            type = availableType;
+            return true;
+        }
+
+        if (TryGetSpecialType(typeSyntax.ToString(), out type))
+            return true;
+
+        if (typeSyntax is IdentifierNameSyntax identifier &&
+            TryLookupAvailableNamedType(identifier.Identifier.ValueText, 0, out var namedType))
+        {
+            type = namedType;
+            return true;
+        }
+
+        type = Compilation.ErrorTypeSymbol;
+        return false;
+    }
+
+    private bool TryGetSpecialType(string typeName, out ITypeSymbol type)
+    {
+        type = typeName switch
+        {
+            "bool" => Compilation.GetSpecialType(SpecialType.System_Boolean),
+            "double" => Compilation.GetSpecialType(SpecialType.System_Double),
+            "float" => Compilation.GetSpecialType(SpecialType.System_Single),
+            "int" => Compilation.GetSpecialType(SpecialType.System_Int32),
+            "nint" => Compilation.GetSpecialType(SpecialType.System_IntPtr),
+            "nuint" => Compilation.GetSpecialType(SpecialType.System_UIntPtr),
+            "string" => Compilation.GetSpecialType(SpecialType.System_String),
+            "uint" => Compilation.GetSpecialType(SpecialType.System_UInt32),
+            "unit" => Compilation.GetSpecialType(SpecialType.System_Unit),
+            _ => Compilation.ErrorTypeSymbol
+        };
+
+        return type.TypeKind != TypeKind.Error;
+    }
+
+    private void AddAvailableConstructors(INamedTypeSymbol type, Action<IMethodSymbol?> addIfNotPresent)
+    {
+        if (type.TryGetUnion() is { } union)
+        {
+            foreach (var memberType in union.MemberTypes)
+            {
+                if (type.TryGetUnionCarrierConstructor(memberType, out var unionConstructor))
+                    addIfNotPresent(unionConstructor);
+            }
+
+            foreach (var caseType in union.DeclaredCaseTypes)
+            {
+                if (type.TryGetUnionCarrierConstructor(caseType, out var unionConstructor))
+                    addIfNotPresent(unionConstructor);
+            }
+
+            if (type.InstanceConstructors.IsDefaultOrEmpty || type.InstanceConstructors.Length == 0)
+                AddAvailableStandardUnionConstructors(type, addIfNotPresent);
+        }
+
+        foreach (var constructor in type.InstanceConstructors)
+            addIfNotPresent(constructor);
+    }
+
+    private void AddAvailableStandardUnionConstructors(INamedTypeSymbol unionType, Action<IMethodSymbol?> addIfNotPresent)
+    {
+        var declaration = unionType.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OfType<UnionDeclarationSyntax>()
+            .FirstOrDefault();
+        if (declaration?.MemberTypes is not { } memberTypes)
+            return;
+
+        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        var namespaceSymbol = unionType.ContainingNamespace;
+
+        foreach (var memberTypeSyntax in memberTypes.Types)
+        {
+            if (!TryResolveAvailableTypeSyntax(memberTypeSyntax, out var memberType))
+                continue;
+
+            var constructor = new SourceMethodSymbol(
+                ".ctor",
+                unitType,
+                ImmutableArray<SourceParameterSymbol>.Empty,
+                unionType,
+                unionType,
+                namespaceSymbol,
+                [memberTypeSyntax.GetLocation()],
+                Array.Empty<SyntaxReference>(),
+                isStatic: false,
+                methodKind: MethodKind.Constructor,
+                declaredAccessibility: Accessibility.Public);
+
+            var parameter = new SourceParameterSymbol(
+                "value",
+                memberType,
+                constructor,
+                unionType,
+                namespaceSymbol,
+                [memberTypeSyntax.GetLocation()],
+                Array.Empty<SyntaxReference>());
+
+            constructor.SetParameters([parameter]);
+            addIfNotPresent(constructor);
+        }
+    }
+
+    private static void AddInvokeCandidatesFromType(INamedTypeSymbol type, Action<IMethodSymbol?> addIfNotPresent)
+    {
+        foreach (var invokeCandidate in type.GetMembers("Invoke").OfType<IMethodSymbol>())
+        {
+            if (!invokeCandidate.IsStatic)
+                addIfNotPresent(invokeCandidate);
+        }
+    }
+
+    private bool TryGetAvailableMemberAccessSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        var memberAccess = node switch
+        {
+            MemberAccessExpressionSyntax access => access,
+            IdentifierNameSyntax identifier when
+                identifier.Parent is MemberAccessExpressionSyntax access &&
+                IsSameSyntaxNode(access.Name, identifier) => access,
+            _ => null
+        };
+
+        if (memberAccess?.Name is not IdentifierNameSyntax memberName)
+        {
+            info = default;
+            return false;
+        }
+
+        var receiverType = TryGetAvailableReceiverType(memberAccess.Expression);
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        {
+            info = default;
+            return false;
+        }
+
+        var member = LookupAvailableMember(receiverType, memberName.Identifier.ValueText);
+        if (member is null)
+        {
+            info = default;
+            return false;
+        }
+
+        info = ProjectBackingFieldSymbolsToAssociatedProperty(node, new SymbolInfo(member));
+        _symbolMappings[node] = info;
+        if (!ReferenceEquals(node, memberAccess))
+            _symbolMappings[memberAccess] = info;
+
+        StoreNodeInterestSymbolDescriptor(node, member);
+        return true;
+    }
+
+    private ITypeSymbol? TryGetAvailableReceiverType(ExpressionSyntax receiver)
+    {
+        if (TryGetAvailableTypeInfo(receiver, out var receiverTypeInfo))
+        {
+            var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
+            if (receiverType is not null && receiverType.TypeKind != TypeKind.Error)
+                return receiverType;
+        }
+
+        if (TryGetAvailableSymbolInfo(receiver, out var receiverInfo))
+            return GetTypeFromSymbol(receiverInfo.Symbol?.UnderlyingSymbol ?? receiverInfo.Symbol);
+
+        return null;
+    }
+
+    private static ISymbol? LookupAvailableMember(ITypeSymbol receiverType, string memberName)
+    {
+        if (string.IsNullOrWhiteSpace(memberName))
+            return null;
+
+        for (var current = receiverType as INamedTypeSymbol; current is not null; current = current.BaseType)
+        {
+            var member = current
+                .GetMembers(memberName)
+                .FirstOrDefault(static candidate => candidate is IPropertySymbol or IFieldSymbol or IEventSymbol or IMethodSymbol);
+            if (member is not null)
+                return member;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Tries to retrieve type information from semantic state that is already available.
+    /// This method does not bind cold bodies, create operations, or run diagnostics.
+    /// </summary>
+    public bool TryGetAvailableTypeInfo(ExpressionSyntax expression, out TypeInfo typeInfo)
+    {
+        if (_typeMappings.TryGetValue(expression, out typeInfo) &&
+            HasTypeInfo(typeInfo))
+        {
+            return true;
+        }
+
+        if (TryGetAvailableLiteralType(expression, out var literalType) &&
+            literalType is not null &&
+            literalType.TypeKind != TypeKind.Error)
+        {
+            typeInfo = new TypeInfo(literalType, literalType, ComputeConversion(literalType, literalType));
+            _typeMappings[expression] = typeInfo;
+            return true;
+        }
+
+        if (expression is FunctionExpressionSyntax functionExpression &&
+            TryGetFunctionExpressionDelegateType(functionExpression, out var functionDelegateType) &&
+            functionDelegateType is not null &&
+            functionDelegateType.TypeKind != TypeKind.Error)
+        {
+            typeInfo = new TypeInfo(
+                functionDelegateType,
+                functionDelegateType,
+                ComputeConversion(functionDelegateType, functionDelegateType));
+            _typeMappings[expression] = typeInfo;
+            return true;
+        }
+
+        if (TryGetCachedBoundNode(expression) is BoundExpression cachedExpression &&
+            !IsLikelyStaleFunctionBodyNode(cachedExpression))
+        {
+            var type = cachedExpression.Type;
+            var convertedType = cachedExpression.GetConvertedType() ?? type;
+            if ((type is not null && type.TypeKind != TypeKind.Error) ||
+                (convertedType is not null && convertedType.TypeKind != TypeKind.Error))
+            {
+                typeInfo = new TypeInfo(type, convertedType, ComputeConversion(type, convertedType));
+                _typeMappings[expression] = typeInfo;
+                return true;
+            }
+        }
+
+        if (expression is InvocationExpressionSyntax invocation &&
+            TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates))
+        {
+            var inferredType = invocationCandidates
+                .Select(static method => method.MethodKind == MethodKind.Constructor ? method.ContainingType : method.ReturnType)
+                .FirstOrDefault(static type => type is not null && type.TypeKind != TypeKind.Error);
+            if (inferredType is not null)
+            {
+                typeInfo = new TypeInfo(inferredType, inferredType, ComputeConversion(inferredType, inferredType));
+                _typeMappings[expression] = typeInfo;
+                return true;
+            }
+        }
+
+        if (TryGetAvailableSymbolInfo(expression, out var symbolInfo) &&
+            GetTypeFromSymbol(symbolInfo.Symbol?.UnderlyingSymbol ?? symbolInfo.Symbol) is { } symbolType &&
+            symbolType.TypeKind != TypeKind.Error)
+        {
+            typeInfo = new TypeInfo(symbolType, symbolType, ComputeConversion(symbolType, symbolType));
+            _typeMappings[expression] = typeInfo;
+            return true;
+        }
+
+        typeInfo = new TypeInfo(null, null);
+        return false;
+    }
+
+    private bool TryGetAvailableLiteralType(ExpressionSyntax expression, out ITypeSymbol? type)
+    {
+        type = null;
+
+        if (expression is not LiteralExpressionSyntax literal)
+            return false;
+
+        if (literal.Kind == SyntaxKind.NullLiteralExpression)
+        {
+            type = Compilation.NullTypeSymbol;
+            return true;
+        }
+
+        type = literal.Token.Value switch
+        {
+            byte => Compilation.GetSpecialType(SpecialType.System_Byte),
+            int => Compilation.GetSpecialType(SpecialType.System_Int32),
+            long => Compilation.GetSpecialType(SpecialType.System_Int64),
+            float => Compilation.GetSpecialType(SpecialType.System_Single),
+            double => Compilation.GetSpecialType(SpecialType.System_Double),
+            decimal => Compilation.GetSpecialType(SpecialType.System_Decimal),
+            bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
+            char => Compilation.GetSpecialType(SpecialType.System_Char),
+            string => Compilation.GetSpecialType(SpecialType.System_String),
+            _ => null
+        };
+
+        return type is not null;
+    }
+
+    /// <summary>
+    /// Tries to retrieve type syntax information from semantic state that is already available.
+    /// This method does not bind cold bodies, create operations, or run diagnostics.
+    /// </summary>
+    public bool TryGetAvailableTypeInfo(TypeSyntax typeSyntax, out TypeInfo typeInfo)
+    {
+        if (_typeMappings.TryGetValue(typeSyntax, out typeInfo) &&
+            HasTypeInfo(typeInfo))
+        {
+            return true;
+        }
+
+        if (typeSyntax is ExpressionSyntax expressionSyntax &&
+            !IsExplicitTypeSyntaxContext(typeSyntax))
+        {
+            return TryGetAvailableTypeInfo(expressionSyntax, out typeInfo);
+        }
+
+        if (TryGetAvailableSymbolInfo(typeSyntax, out var symbolInfo))
+        {
+            var type = symbolInfo.Symbol switch
+            {
+                ITypeSymbol typeSymbol => typeSymbol,
+                IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasedType } => aliasedType,
+                _ => null
+            };
+
+            if (type is not null && type.TypeKind != TypeKind.Error)
+            {
+                typeInfo = new TypeInfo(type, type, ComputeConversion(type, type));
+                _typeMappings[typeSyntax] = typeInfo;
+                return true;
+            }
+        }
+
+        typeInfo = new TypeInfo(null, null);
+        return false;
+    }
+
+    private static bool HasTypeInfo(TypeInfo typeInfo)
+        => typeInfo.Type is not null || typeInfo.ConvertedType is not null;
+
     private bool TryGetCachedBoundSymbolInfo(SyntaxNode node, out SymbolInfo info)
     {
         if (TryGetCachedBoundNode(node) is not { } boundNode)
@@ -908,6 +1608,72 @@ public partial class SemanticModel
     private static bool HasSymbolInfo(SymbolInfo info)
         => info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
 
+    private bool TryGetCachedNodeInterestSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        if (Compilation.TryGetNodeInterestSymbolDescriptor(node, out var cachedDescriptor) &&
+            TryResolveNodeInterestSymbolDescriptor(cachedDescriptor, out var cachedSymbol))
+        {
+            info = new SymbolInfo(cachedSymbol);
+            return true;
+        }
+
+        info = default;
+        return false;
+    }
+
+    private bool TryGetDeclarationSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        var declarationNode = node switch
+        {
+            ParameterSyntax => node,
+            VariableDeclaratorSyntax => node,
+            SingleVariableDesignationSyntax => node,
+            FunctionExpressionSyntax => node,
+            IdentifierNameSyntax identifier => TryGetIdentifierDeclarationParent(identifier),
+            _ => null
+        };
+
+        var symbol = declarationNode switch
+        {
+            null => null,
+            FunctionExpressionSyntax functionExpression when TryGetFunctionExpressionSymbol(functionExpression, out var functionSymbol) => functionSymbol,
+            ParameterSyntax parameter => GetFunctionExpressionParameterSymbol(parameter) ??
+                                         (TryResolveParameterSymbolFast(parameter, out var parameterSymbol) ? parameterSymbol : GetDeclaredSymbol(parameter)),
+            VariableDeclaratorSyntax variableDeclarator when TryResolveAvailableLocalSymbol(variableDeclarator, out var localSymbol) => localSymbol,
+            SingleVariableDesignationSyntax => null,
+            _ => GetDeclaredSymbol(declarationNode)
+        };
+
+        if (symbol is null)
+        {
+            info = default;
+            return false;
+        }
+
+        info = new SymbolInfo(symbol);
+        StoreNodeInterestSymbolDescriptor(node, symbol);
+        return true;
+    }
+
+    private static SyntaxNode? TryGetIdentifierDeclarationParent(IdentifierNameSyntax identifier)
+        => identifier.Parent switch
+        {
+            TypeDeclarationSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            UnionDeclarationSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            CaseDeclarationSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            DelegateDeclarationSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            MethodDeclarationSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            ConstructorDeclarationSyntax declaration when declaration.InitKeyword.Span == identifier.Identifier.Span => declaration,
+            ParameterlessConstructorDeclarationSyntax declaration when declaration.InitKeyword.Span == identifier.Identifier.Span => declaration,
+            FunctionStatementSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            PropertyDeclarationSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            EventDeclarationSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            AccessorDeclarationSyntax declaration when declaration.Keyword.Span == identifier.Identifier.Span => declaration,
+            ParameterSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            VariableDeclaratorSyntax declaration when declaration.Identifier.Span == identifier.Identifier.Span => declaration,
+            _ => null
+        };
+
     private bool TryBindExactSymbol(SyntaxNode node, out SymbolInfo info)
     {
         var binder = GetBinder(node);
@@ -929,12 +1695,8 @@ public partial class SemanticModel
     {
         info = default;
 
-        if (Compilation.TryGetNodeInterestSymbolDescriptor(node, out var cachedDescriptor) &&
-            TryResolveNodeInterestSymbolDescriptor(cachedDescriptor, out var cachedSymbol))
-        {
-            info = new SymbolInfo(cachedSymbol);
+        if (TryGetCachedNodeInterestSymbolInfo(node, out info))
             return true;
-        }
 
         switch (node)
         {
@@ -1637,16 +2399,24 @@ public partial class SemanticModel
     {
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoQuery();
 
+        TypeInfo Cache(TypeInfo info)
+        {
+            if (HasTypeInfo(info))
+                _typeMappings[expr] = info;
+
+            return info;
+        }
+
         if (expr is FunctionExpressionSyntax functionExpression &&
             TryGetFunctionExpressionDelegateType(functionExpression, out var functionDelegateType) &&
             functionDelegateType is not null &&
             functionDelegateType.TypeKind != TypeKind.Error)
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
-            return new TypeInfo(
+            return Cache(new TypeInfo(
                 functionDelegateType,
                 functionDelegateType,
-                ComputeConversion(functionDelegateType, functionDelegateType));
+                ComputeConversion(functionDelegateType, functionDelegateType)));
         }
 
         if (TryGetNodeInterestSymbolType(expr, out var nodeInterestType) &&
@@ -1654,7 +2424,7 @@ public partial class SemanticModel
             nodeInterestType.TypeKind != TypeKind.Error)
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
-            return new TypeInfo(nodeInterestType, nodeInterestType, ComputeConversion(nodeInterestType, nodeInterestType));
+            return Cache(new TypeInfo(nodeInterestType, nodeInterestType, ComputeConversion(nodeInterestType, nodeInterestType)));
         }
 
         var symbolInfo = GetSymbolInfo(expr);
@@ -1667,7 +2437,7 @@ public partial class SemanticModel
         if (symbolType is not null && symbolType.TypeKind != TypeKind.Error)
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
-            return new TypeInfo(symbolType, symbolType, ComputeConversion(symbolType, symbolType));
+            return Cache(new TypeInfo(symbolType, symbolType, ComputeConversion(symbolType, symbolType)));
         }
 
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoBoundFallback();
@@ -1703,7 +2473,7 @@ public partial class SemanticModel
             _ => ComputeConversion(naturalType, convertedType)
         };
 
-        return new TypeInfo(naturalType, convertedType, conversion);
+        return Cache(new TypeInfo(naturalType, convertedType, conversion));
     }
 
     private bool TryGetNodeInterestSymbolType(ExpressionSyntax expression, out ITypeSymbol? type)
@@ -2749,10 +3519,71 @@ public partial class SemanticModel
             ParameterSyntax parameter => TryResolveParameterSymbolFast(parameter, out var parameterSymbol)
                 ? parameterSymbol
                 : GetDeclaredSymbol(parameter),
-            VariableDeclaratorSyntax variableDeclarator => GetDeclaredSymbol(variableDeclarator),
-            SingleVariableDesignationSyntax designation => GetDeclaredSymbol(designation),
+            VariableDeclaratorSyntax variableDeclarator => TryResolveAvailableLocalSymbol(variableDeclarator, out var localSymbol)
+                ? localSymbol
+                : null,
+            SingleVariableDesignationSyntax => null,
             _ => null
         };
+
+    private bool TryResolveAvailableLocalSymbol(
+        VariableDeclaratorSyntax variableDeclarator,
+        out ILocalSymbol? localSymbol)
+    {
+        localSymbol = null;
+
+        ITypeSymbol? type = null;
+        if (variableDeclarator.TypeAnnotation?.Type is { } typeSyntax &&
+            TryGetAvailableTypeInfo(typeSyntax, out var explicitTypeInfo))
+        {
+            type = explicitTypeInfo.Type ?? explicitTypeInfo.ConvertedType;
+        }
+
+        if ((type is null || type.TypeKind == TypeKind.Error) &&
+            variableDeclarator.Initializer?.Value is { } initializer &&
+            TryGetAvailableTypeInfo(initializer, out var initializerTypeInfo))
+        {
+            type = initializerTypeInfo.Type ?? initializerTypeInfo.ConvertedType;
+        }
+
+        if (type is null || type.TypeKind == TypeKind.Error)
+            return false;
+
+        var containingSymbol = TryGetAvailableContainingSymbol(variableDeclarator) ?? Compilation.GlobalNamespace;
+        var containingType = containingSymbol as INamedTypeSymbol;
+        var containingNamespace = containingSymbol as INamespaceSymbol;
+        var isMutable = variableDeclarator.Parent is VariableDeclarationSyntax variableDeclaration &&
+                        variableDeclaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+
+        localSymbol = new SourceLocalSymbol(
+            variableDeclarator.Identifier.ValueText,
+            type,
+            isMutable,
+            containingSymbol,
+            containingType,
+            containingNamespace,
+            [variableDeclarator.Identifier.GetLocation()],
+            [variableDeclarator.GetReference()]);
+        return true;
+    }
+
+    private ISymbol? TryGetAvailableContainingSymbol(SyntaxNode node)
+    {
+        foreach (var ancestor in node.Ancestors())
+        {
+            switch (ancestor)
+            {
+                case FunctionStatementSyntax:
+                case BaseMethodDeclarationSyntax:
+                case TypeDeclarationSyntax:
+                case UnionDeclarationSyntax:
+                case NamespaceDeclarationSyntax:
+                    return GetDeclaredSymbol(ancestor);
+            }
+        }
+
+        return null;
+    }
 
     private bool TryResolveParameterSymbolFast(ParameterSyntax parameterSyntax, out IParameterSymbol? parameterSymbol)
     {
@@ -3009,6 +3840,14 @@ public partial class SemanticModel
             return GetTypeInfo(expressionSyntax);
         }
 
+        TypeInfo Cache(TypeInfo info)
+        {
+            if (HasTypeInfo(info))
+                _typeMappings[typeSyntax] = info;
+
+            return info;
+        }
+
         var binder = GetBinder(typeSyntax);
         try
         {
@@ -3020,7 +3859,7 @@ public partial class SemanticModel
             if (type is null || type.TypeKind == TypeKind.Error)
                 return new TypeInfo(null, null);
 
-            return new TypeInfo(type, type, ComputeConversion(type, type));
+            return Cache(new TypeInfo(type, type, ComputeConversion(type, type)));
         }
         catch
         {
@@ -3413,6 +4252,7 @@ public partial class SemanticModel
     private void RemoveCachedSymbolMapping(SyntaxNode node)
     {
         _symbolMappings.TryRemove(node, out _);
+        _typeMappings.TryRemove(node, out _);
     }
 
     private static bool IsLikelyStaleFunctionBodyNode(BoundNode node)

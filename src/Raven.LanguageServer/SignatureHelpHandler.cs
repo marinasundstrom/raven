@@ -78,9 +78,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
             if (invocation is not null)
             {
-                var symbolInfo = semanticModel.TryGetCachedSymbolInfo(invocation, out var cachedInvocationInfo)
-                    ? cachedInvocationInfo
-                    : semanticModel.GetSymbolInfo(invocation);
+                semanticModel.TryGetAvailableSymbolInfo(invocation, out var symbolInfo);
                 var methods = GetCandidateMethods(symbolInfo, semanticModel, invocation);
                 if (methods.IsDefaultOrEmpty)
                     return null;
@@ -112,9 +110,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 return null;
 
             var bracketArgumentIndex = GetArgumentIndex(elementAccessContext.ArgumentList, offset);
-            var selectedIndexer = semanticModel.TryGetCachedSymbolInfo(elementAccessContext.SymbolInfoNode, out var cachedIndexerInfo)
-                ? cachedIndexerInfo.Symbol as IPropertySymbol
-                : semanticModel.GetSymbolInfo(elementAccessContext.SymbolInfoNode).Symbol as IPropertySymbol;
+            var selectedIndexer = semanticModel.TryGetAvailableSymbolInfo(elementAccessContext.SymbolInfoNode, out var indexerInfo)
+                ? indexerInfo.Symbol as IPropertySymbol
+                : null;
             var activeIndexerSignature = GetActiveSignatureIndex(indexers, selectedIndexer, bracketArgumentIndex);
             var activeIndexerParameter = GetActiveParameterIndex(indexers[activeIndexerSignature], elementAccessContext.ArgumentList, offset, bracketArgumentIndex);
 
@@ -293,26 +291,10 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             builder.Add(method);
         }
 
-        if (symbolInfo.Symbol is IMethodSymbol selectedMethod)
-            AddIfNotPresent(selectedMethod);
-
-        if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableCandidates))
         {
-            foreach (var candidate in symbolInfo.CandidateSymbols.OfType<IMethodSymbol>())
-                AddIfNotPresent(candidate);
-        }
-
-        var expressionSymbolInfo = semanticModel.TryGetCachedSymbolInfo(invocation.Expression, out var cachedExpressionSymbolInfo)
-            ? cachedExpressionSymbolInfo
-            : semanticModel.GetSymbolInfo(invocation.Expression);
-
-        if (expressionSymbolInfo.Symbol is IMethodSymbol expressionMethod)
-            AddIfNotPresent(expressionMethod);
-
-        if (!expressionSymbolInfo.CandidateSymbols.IsDefaultOrEmpty)
-        {
-            foreach (var candidate in expressionSymbolInfo.CandidateSymbols.OfType<IMethodSymbol>())
-                AddIfNotPresent(candidate);
+            foreach (var method in availableCandidates)
+                AddIfNotPresent(method);
         }
 
         foreach (var method in builder.ToImmutableArray())
@@ -320,41 +302,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         if (builder.Count == 0)
         {
-            if (symbolInfo.Symbol is INamedTypeSymbol selectedType)
-            {
-                foreach (var constructor in selectedType.InstanceConstructors)
-                    AddIfNotPresent(constructor);
-            }
-
-            if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
-            {
-                foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
-                {
-                    foreach (var constructor in candidateType.InstanceConstructors)
-                        AddIfNotPresent(constructor);
-                }
-            }
-
-            if (expressionSymbolInfo.Symbol is INamedTypeSymbol expressionTypeSymbol)
-            {
-                foreach (var constructor in expressionTypeSymbol.InstanceConstructors)
-                    AddIfNotPresent(constructor);
-            }
-
-            if (!expressionSymbolInfo.CandidateSymbols.IsDefaultOrEmpty)
-            {
-                foreach (var candidateType in expressionSymbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
-                {
-                    foreach (var constructor in candidateType.InstanceConstructors)
-                        AddIfNotPresent(constructor);
-                }
-            }
-        }
-
-        if (builder.Count == 0)
-        {
-            var typeInfo = semanticModel.GetTypeInfo(invocation.Expression);
-            if ((typeInfo.Type ?? typeInfo.ConvertedType) is INamedTypeSymbol expressionType)
+            if (semanticModel.TryGetAvailableTypeInfo(invocation.Expression, out var typeInfo) &&
+                (typeInfo.Type ?? typeInfo.ConvertedType) is INamedTypeSymbol expressionType)
             {
                 if (expressionType.GetDelegateInvokeMethod() is { } invokeMethod)
                     AddIfNotPresent(invokeMethod);
@@ -370,7 +319,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             invocation.Expression is ReceiverBindingExpressionSyntax &&
             invocation.Parent is ConditionalAccessExpressionSyntax conditionalAccess)
         {
-            var receiverType = GetConditionalAccessLookupType(semanticModel.GetTypeInfo(conditionalAccess.Expression).Type);
+            var receiverType = semanticModel.TryGetAvailableTypeInfo(conditionalAccess.Expression, out var receiverTypeInfo)
+                ? GetConditionalAccessLookupType(receiverTypeInfo.Type)
+                : null;
             if (receiverType is INamedTypeSymbol receiverNamedType)
             {
                 if (receiverNamedType.GetDelegateInvokeMethod() is { } invokeMethod)
@@ -449,21 +400,23 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             builder.Add(property);
         }
 
-        var symbolInfo = semanticModel.TryGetCachedSymbolInfo(context.SymbolInfoNode, out var cachedSymbolInfo)
-            ? cachedSymbolInfo
-            : semanticModel.GetSymbolInfo(context.SymbolInfoNode);
-        if (symbolInfo.Symbol is IPropertySymbol selectedIndexer)
-            AddIfNotPresent(selectedIndexer);
-
-        if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+        if (semanticModel.TryGetAvailableSymbolInfo(context.SymbolInfoNode, out var symbolInfo))
         {
-            foreach (var candidate in symbolInfo.CandidateSymbols.OfType<IPropertySymbol>())
-                AddIfNotPresent(candidate);
+            if (symbolInfo.Symbol is IPropertySymbol selectedIndexer)
+                AddIfNotPresent(selectedIndexer);
+
+            if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                foreach (var candidate in symbolInfo.CandidateSymbols.OfType<IPropertySymbol>())
+                    AddIfNotPresent(candidate);
+            }
         }
 
         if (builder.Count == 0)
         {
-            var receiverType = GetConditionalAccessLookupType(semanticModel.GetTypeInfo(context.ReceiverExpression).Type);
+            var receiverType = semanticModel.TryGetAvailableTypeInfo(context.ReceiverExpression, out var receiverTypeInfo)
+                ? GetConditionalAccessLookupType(receiverTypeInfo.Type)
+                : null;
             if (receiverType is ITypeSymbol type)
             {
                 foreach (var indexer in type.GetMembers().OfType<IPropertySymbol>().Where(static p => p.IsIndexer))

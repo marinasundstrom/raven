@@ -78,34 +78,6 @@ internal static partial class SymbolResolver
             }
         }
 
-        switch (semanticModel.GetOperation(invocation))
-        {
-            case IUnionCaseOperation unionCaseOperation:
-                symbol = unionCaseOperation.CaseType;
-                return true;
-            case IInvocationOperation operation when operation.TargetMethod is not null:
-                var projectedTargetMethod = ProjectInvocationSymbolForDisplay(operation.TargetMethod, semanticModel, invocation);
-                if (!IsUnitTypeSymbol(projectedTargetMethod))
-                {
-                    symbol = projectedTargetMethod;
-                    return true;
-                }
-
-                break;
-        }
-
-        var invocationExpressionOperation = TryGetOperation(semanticModel, invocation.Expression);
-        var invocationExpressionSymbol = invocationExpressionOperation is null
-            ? null
-            : ProjectSymbolForDisplay(GetOperationSymbol(invocationExpressionOperation));
-        if (invocationExpressionSymbol is not null &&
-            invocationExpressionSymbol is not ILocalSymbol &&
-            !IsUnitTypeSymbol(invocationExpressionSymbol))
-        {
-            symbol = ProjectInvocationSymbolForDisplay(invocationExpressionSymbol, semanticModel, invocation);
-            return true;
-        }
-
         // When this invocation is the right-hand side of a pipe expression the binder
         // resolves overloads using the piped value as an implicit first argument and
         // stores the constructed symbol on the BinaryExpression node, not on the
@@ -124,6 +96,13 @@ internal static partial class SymbolResolver
         [NotNullWhen(true)] out ISymbol? symbol)
     {
         symbol = null;
+
+        if (semanticModel.TryGetAvailablePipeInvocationCandidates(invocation, out var availablePipeCandidates) &&
+            !availablePipeCandidates.IsDefaultOrEmpty)
+        {
+            symbol = ProjectInvocationSymbolForDisplay(availablePipeCandidates[0], semanticModel, invocation);
+            return symbol is not null && !IsUnitTypeSymbol(symbol);
+        }
 
         if (TryResolveInvocationExpressionSymbol(semanticModel, invocation, out var invocationSymbol))
         {
@@ -162,37 +141,9 @@ internal static partial class SymbolResolver
             }
         }
 
-        switch (semanticModel.GetOperation(pipeExpr))
-        {
-            case IUnionCaseOperation pipeUnionCaseOperation:
-                symbol = pipeUnionCaseOperation.CaseType;
-                return true;
-            case IInvocationOperation pipeOperation when pipeOperation.TargetMethod is not null:
-                var projectedPipeTargetMethod = ProjectInvocationSymbolForDisplay(pipeOperation.TargetMethod, semanticModel, invocation);
-                if (!IsUnitTypeSymbol(projectedPipeTargetMethod))
-                {
-                    symbol = projectedPipeTargetMethod;
-                    return true;
-                }
-
-                break;
-        }
-
         if (TryResolveContainingTypePipeTargetMethod(semanticModel, invocation, out var containingTypeMethod))
         {
             symbol = ProjectInvocationSymbolForDisplay(containingTypeMethod, semanticModel, invocation);
-            return true;
-        }
-
-        var invocationExpressionOperation = TryGetOperation(semanticModel, invocation.Expression);
-        var invocationExpressionSymbol = invocationExpressionOperation is null
-            ? null
-            : ProjectSymbolForDisplay(GetOperationSymbol(invocationExpressionOperation));
-        if (invocationExpressionSymbol is not null &&
-            invocationExpressionSymbol is not ILocalSymbol &&
-            !IsUnitTypeSymbol(invocationExpressionSymbol))
-        {
-            symbol = ProjectInvocationSymbolForDisplay(invocationExpressionSymbol, semanticModel, invocation);
             return true;
         }
 
@@ -336,39 +287,10 @@ internal static partial class SymbolResolver
     {
         if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
         {
-            // Prefer the instantiated type at this call site (for example Option<int>)
-            // instead of the constructor's containing generic definition.
-            if (TryGetInstantiatedInvocationType(semanticModel, invocation) is { } instantiated)
-                return instantiated;
-
             return constructor.ContainingType ?? symbol;
         }
 
         return symbol;
-    }
-
-    private static INamedTypeSymbol? TryGetInstantiatedInvocationType(
-        SemanticModel semanticModel,
-        InvocationExpressionSyntax invocation)
-    {
-        if (semanticModel.GetBoundNode(invocation) is BoundObjectCreationExpression { Type: INamedTypeSymbol boundType })
-            return boundType;
-
-        if (semanticModel.GetOperation(invocation) is IInvocationOperation { TargetMethod: { MethodKind: MethodKind.Constructor } method } &&
-            method.ContainingType is INamedTypeSymbol methodContainingType)
-        {
-            return methodContainingType;
-        }
-
-        var invocationTypeInfo = semanticModel.GetTypeInfo(invocation);
-        if ((invocationTypeInfo.ConvertedType ?? invocationTypeInfo.Type) is INamedTypeSymbol invocationType)
-            return invocationType;
-
-        var expressionTypeInfo = semanticModel.GetTypeInfo(invocation.Expression);
-        if ((expressionTypeInfo.ConvertedType ?? expressionTypeInfo.Type) is INamedTypeSymbol expressionType)
-            return expressionType;
-
-        return null;
     }
 
     private static bool TryResolveUnionCaseFromInvocationContext(
@@ -388,16 +310,10 @@ internal static partial class SymbolResolver
         if (string.IsNullOrWhiteSpace(invokedName))
             return false;
 
-        var typeInfo = semanticModel.GetTypeInfo(invocation);
-        var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
-        if ((targetType is null || (!targetType.IsUnion && !targetType.IsUnionCase)) &&
-            TryResolveContextualUnionTargetType(invocation, semanticModel, out var contextualTargetType))
+        if (!TryResolveContextualUnionTargetType(invocation, semanticModel, out var targetType))
         {
-            targetType = contextualTargetType;
-        }
-
-        if (targetType is null)
             return false;
+        }
 
         if (targetType is IUnionSymbol union && targetType.IsUnion)
         {
@@ -433,19 +349,6 @@ internal static partial class SymbolResolver
         {
             targetType = functionReturnType;
             return true;
-        }
-
-        if (invocation.AncestorsAndSelf().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } functionExpression)
-        {
-            var functionTypeInfo = semanticModel.GetTypeInfo(functionExpression);
-            var functionType = functionTypeInfo.ConvertedType ?? functionTypeInfo.Type;
-            if (functionType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
-                delegateType.GetDelegateInvokeMethod() is { ReturnType: { } delegateReturnType } &&
-                (delegateReturnType.IsUnion || delegateReturnType.IsUnionCase))
-            {
-                targetType = delegateReturnType;
-                return true;
-            }
         }
 
         return false;

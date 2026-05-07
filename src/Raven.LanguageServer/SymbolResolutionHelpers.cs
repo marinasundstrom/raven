@@ -9,26 +9,18 @@ internal static class SymbolResolutionHelpers
     {
         try
         {
-            if (semanticModel.TryGetNodeInterestSymbolInfo(node, out symbolInfo) &&
+            if (semanticModel.TryGetAvailableSymbolInfo(node, out symbolInfo) &&
                 (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
             {
                 return true;
             }
-
-            if (semanticModel.TryGetCachedSymbolInfo(node, out symbolInfo) &&
-                (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
-            {
-                return true;
-            }
-
-            symbolInfo = semanticModel.GetSymbolInfo(node);
-            return true;
         }
         catch
         {
-            symbolInfo = default;
-            return false;
         }
+
+        symbolInfo = default;
+        return false;
     }
 
     public static ISymbol GetNavigationTargetSymbol(SymbolResolutionResult resolution)

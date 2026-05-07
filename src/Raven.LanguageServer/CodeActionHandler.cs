@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Microsoft.Extensions.Logging;
@@ -15,9 +16,12 @@ using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
 using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
+using CodeDiagnosticSeverity = Raven.CodeAnalysis.DiagnosticSeverity;
 using CodeFixAction = Raven.CodeAnalysis.CodeAction;
+using CodeLocation = Raven.CodeAnalysis.Location;
 using LspCodeAction = OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
+using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 
@@ -53,7 +57,6 @@ internal sealed class CodeActionHandler : ICodeActionHandler
     {
         try
         {
-            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "codeAction").ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new CommandOrCodeActionContainer();
@@ -62,15 +65,15 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             var syntaxTree = context.Value.SyntaxTree;
             var documentText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
             var selectionSpan = GetRequestedSpan(documentText, request.Range);
-            if (!_workspaceManager.TryGetCodeFixes(request.TextDocument.Uri, out var fixes, cancellationToken: cancellationToken))
-                return new CommandOrCodeActionContainer();
             if (!_workspaceManager.TryGetRefactorings(request.TextDocument.Uri, selectionSpan, out var refactorings, cancellationToken))
                 return new CommandOrCodeActionContainer();
 
-            var filteredFixes = fixes
-                .Where(fix => IsFixInRequestedRange(fix, request.Range, documentText))
-                .Where(fix => MatchesRequestedDiagnostics(fix, request.Context?.Diagnostics, documentText))
-                .ToArray();
+            var filteredFixes = SupportsKind(request.Context?.Only, CodeActionKind.QuickFix)
+                ? GetQuickFixesForRequest(request, documentText, syntaxTree, cancellationToken)
+                    .Where(fix => IsFixInRequestedRange(fix, request.Range, documentText))
+                    .Where(fix => MatchesRequestedDiagnostics(fix, request.Context?.Diagnostics, documentText))
+                    .ToArray()
+                : [];
             var filteredRefactorings = SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite)
                 ? refactorings.ToArray()
                 : [];
@@ -160,6 +163,68 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             return new CommandOrCodeActionContainer();
         }
     }
+
+    private CodeFix[] GetQuickFixesForRequest(
+        CodeActionParams request,
+        SourceText documentText,
+        SyntaxTree syntaxTree,
+        CancellationToken cancellationToken)
+    {
+        if (_workspaceManager.TryGetCachedCodeFixes(request.TextDocument.Uri, out var cachedFixes, cancellationToken))
+            return cachedFixes.ToArray();
+
+        var diagnostics = CreateDiagnosticsFromRequest(request.Context?.Diagnostics, documentText, syntaxTree);
+        if (diagnostics.Length == 0)
+            return [];
+
+        return _workspaceManager.TryGetCodeFixesForDiagnostics(request.TextDocument.Uri, diagnostics, out var fixes, cancellationToken)
+            ? fixes.ToArray()
+            : [];
+    }
+
+    private static ImmutableArray<CodeDiagnostic> CreateDiagnosticsFromRequest(
+        Container<LspDiagnostic>? requestDiagnostics,
+        SourceText documentText,
+        SyntaxTree syntaxTree)
+    {
+        if (requestDiagnostics is null || !requestDiagnostics.Any())
+            return ImmutableArray<CodeDiagnostic>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<CodeDiagnostic>();
+        foreach (var diagnostic in requestDiagnostics)
+        {
+            var id = diagnostic.Code?.String;
+            if (string.IsNullOrWhiteSpace(id))
+                continue;
+
+            var start = PositionHelper.ToOffset(documentText, diagnostic.Range.Start);
+            var end = PositionHelper.ToOffset(documentText, diagnostic.Range.End);
+            if (end < start)
+                (start, end) = (end, start);
+
+            var descriptor = DiagnosticDescriptor.Create(
+                id,
+                title: diagnostic.Message,
+                description: null,
+                helpLinkUri: string.Empty,
+                messageFormat: "{0}",
+                category: "LanguageServer",
+                defaultSeverity: MapSeverity(diagnostic.Severity));
+            var location = CodeLocation.Create(syntaxTree, new TextSpan(start, end - start));
+            builder.Add(CodeDiagnostic.Create(descriptor, location, diagnostic.Message));
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static CodeDiagnosticSeverity MapSeverity(LspDiagnosticSeverity? severity)
+        => severity switch
+        {
+            LspDiagnosticSeverity.Error => CodeDiagnosticSeverity.Error,
+            LspDiagnosticSeverity.Warning => CodeDiagnosticSeverity.Warning,
+            LspDiagnosticSeverity.Hint => CodeDiagnosticSeverity.Hidden,
+            _ => CodeDiagnosticSeverity.Info
+        };
 
     private static bool IsFixInRequestedRange(CodeFix fix, LspRange requestRange, SourceText text)
     {

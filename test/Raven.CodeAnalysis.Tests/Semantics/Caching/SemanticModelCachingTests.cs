@@ -142,6 +142,188 @@ class C {
     }
 
     [Fact]
+    public void TryGetAvailableSymbolInfo_DoesNotBindColdInvocation()
+    {
+        var code = """
+class C {
+    func Test() {
+        Print()
+    }
+
+    func Print() {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        var identifier = (IdentifierNameSyntax)invocation.Expression;
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.False(model.TryGetAvailableSymbolInfo(identifier, out _));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void TryGetAvailableTypeInfo_DoesNotBindColdInvocation()
+    {
+        var code = """
+class C {
+    func Test() {
+        Print()
+    }
+
+    func Print() {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.False(model.TryGetAvailableTypeInfo(invocation, out _));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.TypeInfoBoundFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void TryGetAvailableInvocationCandidates_ResolvesColdFunctionWithoutBinding()
+    {
+        var code = """
+func Foo() -> () {
+}
+
+func Foo(value: int) -> () {
+}
+
+func Main() -> () {
+    Foo()
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        instrumentation.BinderReentry.Reset();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+        Assert.Equal(2, methods.Length);
+        Assert.All(methods, method => Assert.Equal("Foo", method.Name));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void TryGetAvailableInvocationCandidates_ResolvesColdStandardUnionConstructorsWithoutBinding()
+    {
+        var code = """
+func Main() -> () {
+    val x = Foo()
+}
+
+union Foo(int | string)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        instrumentation.BinderReentry.Reset();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+        Assert.Equal(2, methods.Length);
+        Assert.All(methods, method => Assert.Equal(MethodKind.Constructor, method.MethodKind));
+        Assert.Contains(methods, method => method.Parameters.Single().Type.SpecialType == SpecialType.System_Int32);
+        Assert.Contains(methods, method => method.Parameters.Single().Type.SpecialType == SpecialType.System_String);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void TryGetAvailableTypeInfo_ReusesCachedMemberAccessTypeWithoutBinding()
+    {
+        var code = """
+class Item {
+    val DistanceDrivenKm: decimal = 0m
+}
+
+class C {
+    func Test(entry: Item) {
+        val distance = entry.DistanceDrivenKm
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(static memberAccess => memberAccess.Name.Identifier.ValueText == "DistanceDrivenKm");
+
+        var warmed = model.GetTypeInfo(memberAccess);
+        Assert.NotNull(warmed.Type);
+
+        instrumentation.BinderReentry.Reset();
+
+        Assert.True(model.TryGetAvailableTypeInfo(memberAccess, out var cached));
+        Assert.NotNull(cached.Type);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
     public void TryGetCachedSymbolInfo_ReusesCachedMemberAccessSymbolWithoutBinding()
     {
         var code = """

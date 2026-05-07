@@ -738,6 +738,49 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    public bool TryGetCachedCodeFixes(
+        DocumentUri uri,
+        out ImmutableArray<CodeFix> codeFixes,
+        CancellationToken cancellationToken = default)
+    {
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
+        {
+            var project = _workspace.CurrentSolution.GetProject(ownedDocument.ProjectId);
+            if (project is not null &&
+                _diagnosticsCache.TryGetValue(ownedDocument.ProjectId, out var cached) &&
+                cached.Version == project.Version)
+            {
+                codeFixes = _workspace
+                    .GetCodeFixes(ownedDocument.ProjectId, _builtInCodeFixProviders, cached.Diagnostics, cancellationToken)
+                    .Where(fix => fix.DocumentId == ownedDocument.DocumentId)
+                    .ToImmutableArray();
+                return true;
+            }
+        }
+
+        codeFixes = ImmutableArray<CodeFix>.Empty;
+        return false;
+    }
+
+    public bool TryGetCodeFixesForDiagnostics(
+        DocumentUri uri,
+        IEnumerable<CodeDiagnostic> diagnostics,
+        out ImmutableArray<CodeFix> codeFixes,
+        CancellationToken cancellationToken = default)
+    {
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
+        {
+            codeFixes = _workspace
+                .GetCodeFixes(ownedDocument.ProjectId, _builtInCodeFixProviders, diagnostics, cancellationToken)
+                .Where(fix => fix.DocumentId == ownedDocument.DocumentId)
+                .ToImmutableArray();
+            return true;
+        }
+
+        codeFixes = ImmutableArray<CodeFix>.Empty;
+        return false;
+    }
+
     public bool TryGetRefactorings(
         DocumentUri uri,
         TextSpan span,

@@ -385,6 +385,24 @@ public class Workspace
         if (providers is null)
             throw new ArgumentNullException(nameof(providers));
 
+        var diagnostics = GetDiagnostics(projectId, analyzerOptions, cancellationToken);
+        return GetCodeFixes(projectId, providers, diagnostics, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets code fixes for an existing diagnostic set without recomputing project diagnostics.
+    /// </summary>
+    public ImmutableArray<CodeFix> GetCodeFixes(
+        ProjectId projectId,
+        IEnumerable<CodeFixProvider> providers,
+        IEnumerable<Diagnostic> diagnostics,
+        CancellationToken cancellationToken = default)
+    {
+        if (providers is null)
+            throw new ArgumentNullException(nameof(providers));
+        if (diagnostics is null)
+            throw new ArgumentNullException(nameof(diagnostics));
+
         var providerList = providers.ToImmutableArray();
         if (providerList.Length == 0)
             return ImmutableArray<CodeFix>.Empty;
@@ -415,10 +433,10 @@ public class Workspace
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var fixes = ImmutableArray.CreateBuilder<CodeFix>();
-        var diagnostics = GetDiagnostics(projectId, analyzerOptions, cancellationToken);
-
         foreach (var diagnostic in diagnostics)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var hasSpecificProviders = providerMap.TryGetValue(diagnostic.Id, out var specificProviders);
             if (!hasSpecificProviders && wildcardProviders.Count == 0)
                 continue;

@@ -317,7 +317,6 @@ internal sealed class DocumentStore
         string? diagnosticsBinderDelta = null;
         string? diagnosticsSemanticDelta = null;
         var busySkipped = false;
-        var semanticBusySkipped = false;
         var documentOnlyDiagnostics = false;
 
         try
@@ -358,39 +357,18 @@ internal sealed class DocumentStore
             IReadOnlyCollection<CodeDiagnostic> diagnosticsForProject;
             if (allowBusySkip)
             {
-                IDisposable? semanticLease = null;
-                if (mode == DocumentDiagnosticsMode.Full)
-                {
-                    semanticLease = await TryEnterDocumentSemanticAccessAsync(uri, cancellationToken, "diagnostics-semantic").ConfigureAwait(false);
-                    if (semanticLease is null)
-                    {
-                        semanticBusySkipped = true;
-                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
-                    }
-                }
-
-                using var __ = semanticLease;
                 if (mode == DocumentDiagnosticsMode.SyntaxOnly)
                 {
                     diagnosticsForProject = analysis.GetSyntaxDiagnostics();
+                    documentOnlyDiagnostics = true;
                 }
                 else
                 {
-                    var setupBefore = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
-                    var binderBefore = context.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
-                    var semanticBefore = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
-                    diagnosticsForProject = analysis.GetDiagnostics();
-                    var setupAfter = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
-                    var binderAfter = context.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
-                    var semanticAfter = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
-                    diagnosticsSetupDelta = CompilerSetupInstrumentation.FormatDelta(
-                        CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore));
-                    diagnosticsBinderDelta = BinderReentryInstrumentation.FormatDelta(
-                        BinderReentryInstrumentation.Subtract(binderAfter, binderBefore));
-                    diagnosticsSemanticDelta = SemanticQueryInstrumentation.FormatDelta(
-                        SemanticQueryInstrumentation.Subtract(semanticAfter, semanticBefore));
+                    if (!_workspaceManager.TryGetDiagnostics(uri, out var fullProjectDiagnostics, cancellationToken: cancellationToken))
+                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+
+                    diagnosticsForProject = fullProjectDiagnostics;
                 }
-                documentOnlyDiagnostics = true;
             }
             else
             {
@@ -454,7 +432,6 @@ internal sealed class DocumentStore
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 busySkipped
-                    || semanticBusySkipped
                     ? "computeDiagnosticsSkipped"
                     : documentOnlyDiagnostics
                         ? mode == DocumentDiagnosticsMode.SyntaxOnly

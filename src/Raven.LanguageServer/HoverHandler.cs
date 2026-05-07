@@ -97,7 +97,8 @@ internal sealed class HoverHandler : IHoverHandler
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
             var syntaxOnlyHover = TryBuildFunctionExpressionDeclarationHover(sourceText, root, offset)
-                ?? TryBuildDeclarationSyntaxHover(sourceText, root, offset);
+                ?? TryBuildDeclarationSyntaxHover(sourceText, root, offset)
+                ?? TryBuildKnownTypeIdentifierSyntaxHover(sourceText, root, offset);
             if (syntaxOnlyHover is not null)
                 return CacheHover(cacheKey, syntaxOnlyHover);
 
@@ -482,31 +483,47 @@ internal sealed class HoverHandler : IHoverHandler
 
         foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
-            foreach (var identifier in root.DescendantNodes()
-                         .OfType<IdentifierNameSyntax>()
-                         .Where(identifier => identifier.Identifier.Span.Contains(candidateOffset) ||
-                                              identifier.Identifier.Span.End == candidateOffset)
-                         .OrderBy(identifier => identifier.Span.Length))
+            SyntaxToken token;
+            try
             {
-                if (requestedIdentifier is not null &&
-                    !HaveEquivalentSpan(identifier, requestedIdentifier))
-                {
-                    continue;
-                }
-
-                var invocation = identifier.Parent switch
-                {
-                    InvocationExpressionSyntax direct => direct,
-                    MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
-                        when HaveEquivalentSpan(name, identifier) => parent,
-                    _ => null
-                };
-
-                if (invocation is null || !HaveEquivalentSpan(GetInvocationTargetIdentifier(invocation), identifier))
-                    continue;
-
-                yield return (identifier, invocation);
+                token = root.FindToken(candidateOffset);
             }
+            catch
+            {
+                continue;
+            }
+
+            var identifier = token.Parent is IdentifierNameSyntax identifierAtCandidate &&
+                             (identifierAtCandidate.Identifier.Span.Contains(candidateOffset) ||
+                              identifierAtCandidate.Identifier.Span.End == candidateOffset)
+                ? identifierAtCandidate
+                : token.Parent?
+                    .AncestorsAndSelf()
+                    .OfType<IdentifierNameSyntax>()
+                    .FirstOrDefault(identifier => identifier.Identifier.Span.Contains(candidateOffset) ||
+                                                  identifier.Identifier.Span.End == candidateOffset);
+
+            if (identifier is null)
+                continue;
+
+            if (requestedIdentifier is not null &&
+                !HaveEquivalentSpan(identifier, requestedIdentifier))
+            {
+                continue;
+            }
+
+            var invocation = identifier.Parent switch
+            {
+                InvocationExpressionSyntax direct => direct,
+                MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
+                    when HaveEquivalentSpan(name, identifier) => parent,
+                _ => null
+            };
+
+            if (invocation is null || !HaveEquivalentSpan(GetInvocationTargetIdentifier(invocation), identifier))
+                continue;
+
+            yield return (identifier, invocation);
         }
     }
 
@@ -535,113 +552,21 @@ internal sealed class HoverHandler : IHoverHandler
         IdentifierNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
-        if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
-            return true;
-
-        if (invocation.Ancestors()
-                .OfType<InfixOperatorExpressionSyntax>()
-                .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && IsPipeRightExpressionForInvocation(pipe.Right, invocation)) is { } pipeExpression &&
-            semanticModel.GetOperation(pipeExpression) is IInvocationOperation { TargetMethod: { } pipeTargetMethod })
+        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableCandidates) &&
+            !availableCandidates.IsDefaultOrEmpty)
         {
-            var projectedPipeTarget = ProjectInvocationHoverSymbol(pipeTargetMethod, semanticModel, invocation);
-            if (IsUnitTypeSymbol(projectedPipeTarget))
+            var projected = ProjectCachedInvocationHoverSymbol(availableCandidates[0]);
+            if (!IsUnitTypeSymbol(projected))
             {
-                resolution = default;
-                return false;
+                resolution = new SymbolResolutionResult(
+                    SymbolResolutionKind.InvocationTarget,
+                    projected,
+                    identifier);
+                return true;
             }
-
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                projectedPipeTarget,
-                identifier);
-            return true;
         }
 
-        if (semanticModel.GetOperation(invocation) is IInvocationOperation { TargetMethod: { } targetMethod })
-        {
-            var projectedTarget = ProjectInvocationHoverSymbol(targetMethod, semanticModel, invocation);
-            if (IsUnitTypeSymbol(projectedTarget))
-            {
-                resolution = default;
-                return false;
-            }
-
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                projectedTarget,
-                identifier);
-            return true;
-        }
-
-        if (semanticModel.GetSymbolInfo(identifier).Symbol is IMethodSymbol identifierMethod)
-        {
-            var projectedIdentifierMethod = ProjectInvocationHoverSymbol(identifierMethod, semanticModel, invocation);
-            if (IsUnitTypeSymbol(projectedIdentifierMethod))
-            {
-                resolution = default;
-                return false;
-            }
-
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                projectedIdentifierMethod,
-                identifier);
-            return true;
-        }
-
-        var identifierCandidates = semanticModel.GetSymbolInfo(identifier).CandidateSymbols;
-        if (!identifierCandidates.IsDefaultOrEmpty &&
-            identifierCandidates[0] is IMethodSymbol identifierCandidateMethod)
-        {
-            var projectedIdentifierCandidate = ProjectInvocationHoverSymbol(identifierCandidateMethod, semanticModel, invocation);
-            if (IsUnitTypeSymbol(projectedIdentifierCandidate))
-            {
-                resolution = default;
-                return false;
-            }
-
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                projectedIdentifierCandidate,
-                identifier);
-            return true;
-        }
-
-        if (semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol invocationMethod)
-        {
-            var projectedInvocationMethod = ProjectInvocationHoverSymbol(invocationMethod, semanticModel, invocation);
-            if (IsUnitTypeSymbol(projectedInvocationMethod))
-            {
-                resolution = default;
-                return false;
-            }
-
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                projectedInvocationMethod,
-                identifier);
-            return true;
-        }
-
-        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-            semanticModel.GetSymbolInfo(memberAccess.Name).Symbol is IMethodSymbol memberMethod)
-        {
-            var projectedMemberMethod = ProjectInvocationHoverSymbol(memberMethod, semanticModel, invocation);
-            if (IsUnitTypeSymbol(projectedMemberMethod))
-            {
-                resolution = default;
-                return false;
-            }
-
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                projectedMemberMethod,
-                memberAccess.Name);
-            return true;
-        }
-
-        resolution = default;
-        return false;
+        return TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution);
     }
 
     private static bool TryResolveInvocationMethodFromCachedSymbolInfo(
@@ -686,7 +611,7 @@ internal sealed class HoverHandler : IHoverHandler
         if (method is null)
             return false;
 
-        var projected = ProjectInvocationHoverSymbol(method, semanticModel, invocation);
+        var projected = ProjectCachedInvocationHoverSymbol(method);
         if (IsUnitTypeSymbol(projected))
             return false;
 
@@ -702,19 +627,10 @@ internal sealed class HoverHandler : IHoverHandler
            (type.SpecialType == SpecialType.System_Unit ||
             string.Equals(type.Name, "Unit", StringComparison.Ordinal));
 
-    private static ISymbol ProjectInvocationHoverSymbol(
-        IMethodSymbol method,
-        SemanticModel semanticModel,
-        InvocationExpressionSyntax invocation)
+    private static ISymbol ProjectCachedInvocationHoverSymbol(IMethodSymbol method)
     {
         if (method.MethodKind != MethodKind.Constructor)
             return method;
-
-        if (semanticModel.GetBoundNode(invocation) is BoundObjectCreationExpression { Type: INamedTypeSymbol boundType })
-            return boundType;
-
-        if (semanticModel.GetTypeInfo(invocation).Type is INamedTypeSymbol invocationType)
-            return invocationType;
 
         return (ISymbol?)method.ContainingType ?? method;
     }
@@ -995,6 +911,61 @@ internal sealed class HoverHandler : IHoverHandler
             Range = PositionHelper.ToRange(sourceText, token.Span)
         };
         return true;
+    }
+
+    private static Hover? TryBuildKnownTypeIdentifierSyntaxHover(SourceText sourceText, SyntaxNode root, int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Kind != SyntaxKind.IdentifierToken ||
+                token.Parent is not IdentifierNameSyntax identifier ||
+                string.IsNullOrWhiteSpace(identifier.Identifier.ValueText))
+            {
+                continue;
+            }
+
+            var declaration = root.DescendantNodes()
+                .OfType<BaseTypeDeclarationSyntax>()
+                .FirstOrDefault(candidate => string.Equals(
+                    candidate.Identifier.ValueText,
+                    identifier.Identifier.ValueText,
+                    StringComparison.Ordinal));
+            if (declaration is null ||
+                !TryBuildTypeDeclarationSyntaxSignature(sourceText, declaration, out var signature))
+            {
+                continue;
+            }
+
+            var hoverText = BuildHoverText(
+                signature,
+                kind: GetTypeDeclarationSyntaxKindDisplay(declaration),
+                containing: null,
+                documentation: null,
+                capturedVariables: ImmutableArray<ISymbol>.Empty,
+                isCapturedVariable: false);
+
+            return new Hover
+            {
+                Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                {
+                    Kind = MarkupKind.Markdown,
+                    Value = hoverText
+                }),
+                Range = PositionHelper.ToRange(sourceText, identifier.Identifier.Span)
+            };
+        }
+
+        return null;
     }
 
     private static bool TryBuildCallableDeclarationSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
@@ -1432,7 +1403,9 @@ internal sealed class HoverHandler : IHoverHandler
         ExpressionSyntax right,
         SemanticModel semanticModel)
     {
-        var rightType = semanticModel.GetTypeInfo(right).Type;
+        var rightType = semanticModel.TryGetAvailableTypeInfo(right, out var rightTypeInfo)
+            ? rightTypeInfo.Type ?? rightTypeInfo.ConvertedType
+            : null;
         if (rightType is null)
             return null;
 
@@ -2065,13 +2038,11 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static ITypeSymbol? GetExpressionType(SemanticModel semanticModel, ExpressionSyntax expression)
     {
-        var type = semanticModel.GetTypeInfo(expression).Type;
+        var type = semanticModel.TryGetAvailableTypeInfo(expression, out var expressionTypeInfo)
+            ? expressionTypeInfo.Type ?? expressionTypeInfo.ConvertedType
+            : null;
         if (type is not null && type.TypeKind != TypeKind.Error)
             return type;
-
-        var operationType = semanticModel.GetOperation(expression)?.Type;
-        if (operationType is not null && operationType.TypeKind != TypeKind.Error)
-            return operationType;
 
         var symbol = SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, expression, out var symbolInfo)
             ? symbolInfo.Symbol
@@ -2482,7 +2453,9 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
         }
 
-        var receiverType = semanticModel.GetTypeInfo(memberAccess.Expression).Type;
+        var receiverType = semanticModel.TryGetAvailableTypeInfo(memberAccess.Expression, out var receiverTypeInfo)
+            ? receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType
+            : null;
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
             if (TryInferLambdaParameterTypeByNameFromContext(symbolName, receiverIdentifier, semanticModel, out var inferredLambdaType))
@@ -2952,8 +2925,9 @@ internal sealed class HoverHandler : IHoverHandler
 
         var functionType = semanticModel.TryGetFunctionExpressionDelegateType(functionExpression, out var contextualFunctionType)
             ? contextualFunctionType
-            : semanticModel.GetTypeInfo(functionExpression).ConvertedType
-                ?? semanticModel.GetTypeInfo(functionExpression).Type;
+            : semanticModel.TryGetAvailableTypeInfo(functionExpression, out var functionTypeInfo)
+                ? functionTypeInfo.ConvertedType ?? functionTypeInfo.Type
+                : null;
 
         var delegateType = UnwrapDelegateType(functionType);
         var invokeMethod = delegateType?.GetDelegateInvokeMethod();
@@ -3018,8 +2992,9 @@ internal sealed class HoverHandler : IHoverHandler
 
         var functionType = semanticModel.TryGetFunctionExpressionDelegateType(functionExpression, out var contextualFunctionType)
             ? contextualFunctionType
-            : semanticModel.GetTypeInfo(functionExpression).ConvertedType
-                ?? semanticModel.GetTypeInfo(functionExpression).Type;
+            : semanticModel.TryGetAvailableTypeInfo(functionExpression, out var functionTypeInfo)
+                ? functionTypeInfo.ConvertedType ?? functionTypeInfo.Type
+                : null;
 
         var delegateType = UnwrapDelegateType(functionType);
         var invokeMethod = delegateType?.GetDelegateInvokeMethod();
@@ -3106,7 +3081,9 @@ internal sealed class HoverHandler : IHoverHandler
     {
         inferredType = null!;
 
-        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        if (!semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var typeInfo))
+            return false;
+
         var resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
         {
@@ -3268,7 +3245,8 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Name is IdentifierNameSyntax memberNameIdentifier &&
-            semanticModel.GetTypeInfo(memberAccess.Expression).Type is INamedTypeSymbol invocationReceiverType &&
+            semanticModel.TryGetAvailableTypeInfo(memberAccess.Expression, out var invocationReceiverTypeInfo) &&
+            (invocationReceiverTypeInfo.Type ?? invocationReceiverTypeInfo.ConvertedType) is INamedTypeSymbol invocationReceiverType &&
             invocationReceiverType.TypeKind != TypeKind.Error)
         {
             foreach (var method in invocationReceiverType.GetMembers(memberNameIdentifier.Identifier.ValueText).OfType<IMethodSymbol>())
@@ -3363,15 +3341,17 @@ internal sealed class HoverHandler : IHoverHandler
         if (targetExpression is null)
             return false;
 
-        var targetType = semanticModel.GetTypeInfo(targetExpression).ConvertedType
-            ?? semanticModel.GetTypeInfo(targetExpression).Type;
+        var targetType = semanticModel.TryGetAvailableTypeInfo(targetExpression, out var targetTypeInfo)
+            ? targetTypeInfo.ConvertedType ?? targetTypeInfo.Type
+            : null;
 
         var delegateType = UnwrapDelegateType(targetType);
         if (delegateType is null)
         {
             if (targetExpression is MemberAccessExpressionSyntax memberAccess &&
                 memberAccess.Name is IdentifierNameSyntax memberName &&
-                semanticModel.GetTypeInfo(memberAccess.Expression).Type is INamedTypeSymbol receiverType &&
+                semanticModel.TryGetAvailableTypeInfo(memberAccess.Expression, out var memberReceiverTypeInfo) &&
+                (memberReceiverTypeInfo.Type ?? memberReceiverTypeInfo.ConvertedType) is INamedTypeSymbol receiverType &&
                 receiverType.TypeKind != TypeKind.Error)
             {
                 for (var currentType = receiverType; currentType is not null; currentType = currentType.BaseType)
@@ -3526,7 +3506,9 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
         }
 
-        var receiverType = semanticModel.GetTypeInfo(receiverMemberAccess.Expression).Type;
+        var receiverType = semanticModel.TryGetAvailableTypeInfo(receiverMemberAccess.Expression, out var receiverTypeInfo)
+            ? receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType
+            : null;
         if ((receiverType is null || receiverType.TypeKind == TypeKind.Error) &&
             TryInferLambdaParameterTypeByNameFromContext(symbolName, receiverIdentifier, semanticModel, out var inferredLambdaType))
         {
