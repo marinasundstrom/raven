@@ -7058,21 +7058,21 @@ partial class BlockBinder : Binder
 
         if (symbol is null)
         {
+            var isInvocationCallee =
+                syntax.Parent is InvocationExpressionSyntax inv &&
+                ReferenceEquals(inv.Expression, syntax);
+
+            var contextualTargetType = GetTargetType(syntax);
+            if (contextualTargetType is not null && !isInvocationCallee)
+            {
+                var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
+                if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
+                    return contextualUnionCase;
+            }
+
             var type = LookupType(name);
             if (type is not null)
             {
-                var isInvocationCallee =
-                    syntax.Parent is InvocationExpressionSyntax inv &&
-                    ReferenceEquals(inv.Expression, syntax);
-
-                var contextualTargetType = GetTargetType(syntax);
-                if (contextualTargetType is not null && !isInvocationCallee)
-                {
-                    var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
-                    if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
-                        return contextualUnionCase;
-                }
-
                 if (BindDiscriminatedUnionCaseType(type) is { } unionCaseFromLookup)
                 {
                     if (!isInvocationCallee &&
@@ -8653,6 +8653,14 @@ partial class BlockBinder : Binder
         }
         else if (syntax.Expression is IdentifierNameSyntax id)
         {
+            var invocationTargetType = GetTargetType(syntax);
+            if (invocationTargetType is not null)
+            {
+                var unwrappedTargetType = UnwrapTaskLikeTargetType(invocationTargetType);
+                if (TryBindDiscriminatedUnionCase(unwrappedTargetType, id.Identifier.ValueText, id.Identifier.GetLocation()) is BoundUnionCaseExpression contextualUnionCase)
+                    return BindInvokedUnionCaseExpression(contextualUnionCase, syntax);
+            }
+
             var boundIdentifier = BindIdentifierName(id, allowEventAccess: true);
             if (IsErrorExpression(boundIdentifier))
             {
@@ -8725,14 +8733,6 @@ partial class BlockBinder : Binder
                         _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
                         return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                     }
-                }
-
-                var invocationTargetType = GetTargetType(syntax);
-                if (invocationTargetType is not null)
-                {
-                    var unwrappedTargetType = UnwrapTaskLikeTargetType(invocationTargetType);
-                    if (TryBindDiscriminatedUnionCase(unwrappedTargetType, id.Identifier.ValueText, id.Identifier.GetLocation()) is BoundUnionCaseExpression contextualUnionCase)
-                        return BindInvokedUnionCaseExpression(contextualUnionCase, syntax);
                 }
 
                 return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
