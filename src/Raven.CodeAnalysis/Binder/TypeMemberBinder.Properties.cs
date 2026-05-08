@@ -249,19 +249,27 @@ internal partial class TypeMemberBinder : Binder
         }
         else
         {
-            sourcePropertySymbol = SemanticModel.GetOrCreatePropertySymbolForBinding(
-                propertyDecl,
-                () => new SourcePropertySymbol(
-                    propertyName,
-                    propertyType,
-                    _containingType,
-                    _containingType,
-                    CurrentNamespace!.AsSourceNamespace(),
-                    [propertyDecl.GetLocation()],
-                    [propertyDecl.GetReference()],
-                    isStatic: isStatic,
-                    metadataName: metadataName,
-                    declaredAccessibility: propertyAccessibility));
+            sourcePropertySymbol = TryGetExistingEffectivePropertySymbol(propertyName, isStatic, propertyDecl);
+            if (sourcePropertySymbol is not null)
+            {
+                SemanticModel.RegisterPropertySymbol(propertyDecl, sourcePropertySymbol);
+            }
+            else
+            {
+                sourcePropertySymbol = SemanticModel.GetOrCreatePropertySymbolForBinding(
+                    propertyDecl,
+                    () => new SourcePropertySymbol(
+                        propertyName,
+                        propertyType,
+                        _containingType,
+                        _containingType,
+                        CurrentNamespace!.AsSourceNamespace(),
+                        [propertyDecl.GetLocation()],
+                        [propertyDecl.GetReference()],
+                        isStatic: isStatic,
+                        metadataName: metadataName,
+                        declaredAccessibility: propertyAccessibility));
+            }
 
             propertySymbol = sourcePropertySymbol;
         }
@@ -471,7 +479,7 @@ internal partial class TypeMemberBinder : Binder
             .OfType<IPropertySymbol>()
             .FirstOrDefault(p =>
                 !ReferenceEquals(p, propertySymbol) &&
-                !SymbolDeclarationUtilities.HasDeclaringSyntax(p, propertyDecl) &&
+                !IsSameEffectiveDeclaration(p, propertyDecl) &&
                 !p.IsIndexer &&
                 p.IsStatic == isStatic &&
                 TypesMatchForExplicitImplementation(p.Type, propertyType));

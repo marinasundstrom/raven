@@ -1,93 +1,92 @@
 Raven Language Server Performance Report
-Generated: 2026-05-08T14:39:32.4838780+00:00
+Generated: 2026-05-08T15:44:15.4143970+00:00
 Operation: hover
-  Count: 12
-  TotalMs: 4613,5
-  AvgMs: 384,5
-  MaxMs: 2144,6
+  Count: 4
+  TotalMs: 1450,7
+  AvgMs: 362,7
+  MaxMs: 805,1
   Stages:
-    semanticModel: count=12 total=311,4ms avg=26,0ms max=128,1ms
-    documentation: count=12 total=9,0ms avg=0,8ms max=9,0ms
-    hoverText: count=12 total=3,4ms avg=0,3ms max=3,4ms
-    signature: count=12 total=2,9ms avg=0,2ms max=2,9ms
-    resolution: count=12 total=1,5ms avg=0,1ms max=1,5ms
-    analysisContext: count=12 total=0,8ms avg=0,1ms max=0,3ms
-    gateWait: count=12 total=0,8ms avg=0,1ms max=0,6ms
-    containing: count=12 total=0,5ms avg=0,0ms max=0,5ms
-    range: count=12 total=0,3ms avg=0,0ms max=0,3ms
-    invocationOverride: count=12 total=0,1ms avg=0,0ms max=0,1ms
-    captures: count=12 total=0,1ms avg=0,0ms max=0,1ms
+    semanticModel: count=4 total=82,0ms avg=20,5ms max=82,0ms
+    gateWait: count=4 total=1,1ms avg=0,3ms max=1,0ms
+    analysisContext: count=4 total=0,2ms avg=0,0ms max=0,1ms
+    resolution: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    invocationOverride: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    signature: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    containing: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    documentation: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    captures: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    hoverText: count=4 total=0,0ms avg=0,0ms max=0,0ms
+    range: count=4 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    2144,6ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn 189:38 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=1, typeInfo=2, typeSymbolHits=1, typeBoundFallbacks=1, typeDiagnosticFallbacks=0, boundNode=3, boundCacheHits=1, boundContextHits=2, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1245,6ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn 189:36 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=1, typeInfo=2, typeSymbolHits=1, typeBoundFallbacks=1, typeDiagnosticFallbacks=0, boundNode=3, boundCacheHits=1, boundContextHits=2, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    1128,1ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn 189:44 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=1, typeInfo=2, typeSymbolHits=1, typeBoundFallbacks=1, typeDiagnosticFallbacks=0, boundNode=3, boundCacheHits=1, boundContextHits=2, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    27,6ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn 190:13 semantic=[symbolInfo=1, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    22,4ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn 185:26
+    805,1ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn 20:13 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    644,8ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn 20:14 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    0,4ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn 16:21
+    0,4ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn 11:24
 
 Operation: semanticTokens
   Count: 1
-  TotalMs: 422,6
-  AvgMs: 422,6
-  MaxMs: 422,6
-  AvgResultCount: 898,0
+  TotalMs: 442,5
+  AvgMs: 442,5
+  MaxMs: 442,5
+  AvgResultCount: 51,0
   Stages:
-    materialize: count=1 total=380,9ms avg=380,9ms max=380,9ms
-    classify: count=1 total=26,4ms avg=26,4ms max=26,4ms
-    push: count=1 total=10,9ms avg=10,9ms max=10,9ms
-    semanticModel: count=1 total=3,0ms avg=3,0ms max=3,0ms
+    classify: count=1 total=421,3ms avg=421,3ms max=421,3ms
+    push: count=1 total=11,7ms avg=11,7ms max=11,7ms
+    materialize: count=1 total=6,2ms avg=6,2ms max=6,2ms
+    semanticModel: count=1 total=1,6ms avg=1,6ms max=1,6ms
     analysisContext: count=1 total=0,1ms avg=0,1ms max=0,1ms
     root: count=1 total=0,0ms avg=0,0ms max=0,0ms
     gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    422,6ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=264, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    442,5ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
 Operation: didOpen
   Count: 1
-  TotalMs: 42,3
-  AvgMs: 42,3
-  MaxMs: 42,3
+  TotalMs: 21,7
+  AvgMs: 21,7
+  MaxMs: 21,7
   SlowestSamples:
-    42,3ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn version=1
-
-Operation: publishSyntaxDiagnostics
-  Count: 1
-  TotalMs: 8,5
-  AvgMs: 8,5
-  MaxMs: 8,5
-  AvgResultCount: 0,0
-  SlowestSamples:
-    8,5ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
+    21,7ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn version=1
 
 Operation: documentSymbols
   Count: 2
-  TotalMs: 7,1
-  AvgMs: 3,5
-  MaxMs: 6,8
+  TotalMs: 12,5
+  AvgMs: 6,3
+  MaxMs: 12,3
   CacheHits: 1
-  AvgResultCount: 14,0
+  AvgResultCount: 2,0
   FirstLookupAfterEditCount: 1
-  FirstLookupAfterEditAvgMs: 2438,4
-  FirstLookupAfterEditMaxMs: 2438,4
+  FirstLookupAfterEditAvgMs: 20,4
+  FirstLookupAfterEditMaxMs: 20,4
   FirstLookupAfterEditSources:
     didOpen: 1
   Stages:
-    buildSymbols: count=2 total=5,7ms avg=2,8ms max=5,7ms
-    root: count=2 total=0,4ms avg=0,2ms max=0,4ms
-    analysisContext: count=2 total=0,1ms avg=0,1ms max=0,1ms
+    buildSymbols: count=2 total=8,6ms avg=4,3ms max=8,6ms
+    analysisContext: count=2 total=2,9ms avg=1,4ms max=2,9ms
+    root: count=2 total=0,3ms avg=0,2ms max=0,3ms
   SlowestSamples:
-    6,8ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn
-    0,2ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn
+    12,3ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn
+    0,2ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn
+
+Operation: publishSyntaxDiagnostics
+  Count: 1
+  TotalMs: 7,8
+  AvgMs: 7,8
+  MaxMs: 7,8
+  AvgResultCount: 0,0
+  SlowestSamples:
+    7,8ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
 
 Operation: computeSyntaxDiagnostics
   Count: 1
-  TotalMs: 0,3
-  AvgMs: 0,3
-  MaxMs: 0,3
+  TotalMs: 0,2
+  AvgMs: 0,2
+  MaxMs: 0,2
   Stages:
     diagnosticsFetch: count=1 total=0,1ms avg=0,1ms max=0,1ms
     syntaxTree: count=1 total=0,0ms avg=0,0ms max=0,0ms
     documentLookup: count=1 total=0,0ms avg=0,0ms max=0,0ms
     gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    0,3ms file:///Users/robert/Projects/Raven/samples/projects/test-case/src/main.rvn syntaxOnly
+    0,2ms file:///Users/robert/Projects/Raven/samples/projects/macro-reactive/app/src/main.rvn syntaxOnly
 

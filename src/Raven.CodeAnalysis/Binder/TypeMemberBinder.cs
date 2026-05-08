@@ -2312,7 +2312,7 @@ internal partial class TypeMemberBinder : Binder
                 continue;
 
             if (currentDeclaration is not null &&
-                SymbolDeclarationUtilities.HasDeclaringSyntax(method, currentDeclaration))
+                IsSameEffectiveDeclaration(method, currentDeclaration))
                 continue;
 
             if (SignaturesMatch(method, parameters))
@@ -2322,6 +2322,35 @@ internal partial class TypeMemberBinder : Binder
             }
         }
     }
+
+    private bool IsSameEffectiveDeclaration(ISymbol symbol, SyntaxNode currentDeclaration)
+    {
+        if (SymbolDeclarationUtilities.HasDeclaringSyntax(symbol, currentDeclaration))
+            return true;
+
+        foreach (var reference in symbol.DeclaringSyntaxReferences)
+        {
+            var declaringSyntax = reference.GetSyntax();
+            if (SemanticModel.TryGetMacroReplacementSyntax(declaringSyntax, out var replacement) &&
+                ReferenceEquals(replacement, currentDeclaration))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private SourcePropertySymbol? TryGetExistingEffectivePropertySymbol(
+        string propertyName,
+        bool isStatic,
+        PropertyDeclarationSyntax propertyDeclaration)
+        => _containingType.GetMembers(propertyName)
+            .OfType<SourcePropertySymbol>()
+            .FirstOrDefault(property =>
+                property.IsStatic == isStatic &&
+                !property.IsIndexer &&
+                IsSameEffectiveDeclaration(property, propertyDeclaration));
 
     private bool TryMergePartialMethodDeclaration(
         string searchName,
@@ -2707,7 +2736,7 @@ internal partial class TypeMemberBinder : Binder
             .OfType<IEventSymbol>()
             .FirstOrDefault(e =>
                 !ReferenceEquals(e, eventSymbol) &&
-                !SymbolDeclarationUtilities.HasDeclaringSyntax(e, eventDecl) &&
+                !IsSameEffectiveDeclaration(e, eventDecl) &&
                 e.IsStatic == isStatic &&
                 TypesMatchForExplicitImplementation(e.Type, eventType));
 

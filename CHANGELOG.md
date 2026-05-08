@@ -2,6 +2,11 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 
+## 2026-05-08
+
+### Changed
+- Attached property macros that replace their target declaration with syntax derived from the original property now reuse the effective declaration symbol, preventing false duplicate-member diagnostics while preserving generated accessors.
+
 ## 2026-05-07
 
 ### Changed
