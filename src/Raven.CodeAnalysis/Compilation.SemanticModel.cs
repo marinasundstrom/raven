@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -12,8 +13,8 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
-    private readonly Dictionary<SyntaxTree, SemanticModel> _semanticModels = new();
-    private readonly Dictionary<SyntaxTree, SemanticModel> _generatedSemanticModels = new();
+    private readonly ConcurrentDictionary<SyntaxTree, SemanticModel> _semanticModels = new();
+    private readonly ConcurrentDictionary<SyntaxTree, SemanticModel> _generatedSemanticModels = new();
 
     internal bool SourceDeclarationsComplete => _sourceDeclarationsComplete;
 
@@ -75,12 +76,7 @@ public partial class Compilation
 
     private SemanticModel GetOrCreateSemanticModel(SyntaxTree syntaxTree)
     {
-        if (_semanticModels.TryGetValue(syntaxTree, out var semanticModel))
-        {
-            return semanticModel;
-        }
-
-        if (_generatedSemanticModels.TryGetValue(syntaxTree, out semanticModel))
+        if (_generatedSemanticModels.TryGetValue(syntaxTree, out var semanticModel))
         {
             return semanticModel;
         }
@@ -90,9 +86,7 @@ public partial class Compilation
             throw new ArgumentNullException(nameof(syntaxTree), "Syntax tree is not part of compilation");
         }
 
-        semanticModel = new SemanticModel(this, syntaxTree);
-        _semanticModels[syntaxTree] = semanticModel;
-        return semanticModel;
+        return _semanticModels.GetOrAdd(syntaxTree, tree => new SemanticModel(this, tree));
     }
 
     internal SemanticModel CreateTransientSemanticModel(SyntaxTree syntaxTree)
@@ -234,12 +228,11 @@ public partial class Compilation
             {
                 foreach (var syntaxTree in _syntaxTrees)
                 {
-                    if (_semanticModels.ContainsKey(syntaxTree))
-                        continue;
-
-                    var model = new SemanticModel(this, syntaxTree);
-                    _semanticModels[syntaxTree] = model;
-                    PerformanceInstrumentation.Setup.RecordSemanticModelCreated();
+                    _semanticModels.GetOrAdd(syntaxTree, tree =>
+                    {
+                        PerformanceInstrumentation.Setup.RecordSemanticModelCreated();
+                        return new SemanticModel(this, tree);
+                    });
                 }
 
                 _sourceTypesInitialized = true;

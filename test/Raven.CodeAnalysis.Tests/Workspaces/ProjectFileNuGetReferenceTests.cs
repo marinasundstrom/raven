@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
 
@@ -172,6 +173,169 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_FrameworkReference_MapGetAvailableInvocationCandidates_ReusesBoundSymbolWithoutBinding()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        var sourceDir = Path.Combine(projectDir, "src");
+
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(sourceDir);
+
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
+        File.WriteAllText(
+            sourcePath,
+            """
+            import Microsoft.AspNetCore.Builder.*
+
+            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            val app = builder.Build()
+            app.MapGet("/", () => "Hello from Raven Minimal API")
+            app.Run()
+            """);
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            </Project>
+            """);
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: "MapGet" } });
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.Equal("MapGet", boundInvocation.Method.Name);
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var candidates));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Contains(candidates, method => SymbolEqualityComparer.Default.Equals(method, boundInvocation.Method));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void OpenProject_FrameworkReference_MapGetAvailableInvocationCandidates_ColdLookupDoesNotBindInvocation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        var sourceDir = Path.Combine(projectDir, "src");
+
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(sourceDir);
+
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
+        File.WriteAllText(
+            sourcePath,
+            """
+            import Microsoft.AspNetCore.Builder.*
+
+            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            val app = builder.Build()
+            app.MapGet("/", () => "Hello from Raven Minimal API")
+            app.Run()
+            """);
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            </Project>
+            """);
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: "MapGet" } });
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var candidates));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Contains(candidates, static method => method.Name == "MapGet");
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void OpenProject_EfCoreSample_GenericExtensionLambdaCandidates_DoNotBindColdBodies()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var addDbContext = FindMemberInvocation(root, "AddDbContext");
+        var useNpgsql = FindMemberInvocation(root, "UseNpgsql");
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(addDbContext, out var dbContextCandidates));
+        Assert.Contains(dbContextCandidates, static method => method.Name == "AddDbContext");
+        Assert.True(model.TryGetAvailableInvocationCandidates(useNpgsql, out var npgsqlCandidates));
+        Assert.Contains(npgsqlCandidates, static method => method.Name == "UseNpgsql");
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
     public void OpenProject_FrameworkReference_EmitsMinimalApiProjectWithParameterizedSyncLambda()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -209,6 +373,27 @@ public sealed class ProjectFileNuGetReferenceTests
         using var peStream = new MemoryStream();
         var emitResult = compilation.Emit(peStream);
         Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+    }
+
+    private static InvocationExpressionSyntax FindMemberInvocation(SyntaxNode root, string name)
+        => root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName } &&
+                string.Equals(memberName.Identifier.ValueText, name, StringComparison.Ordinal));
+
+    private static string FindRepositoryRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "Raven.sln")))
+                return current.FullName;
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate Raven.sln from test base directory.");
     }
 
     [Fact]

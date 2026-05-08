@@ -78,4 +78,6 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
     }
 
     public Assembly GetAssemblyInfo() => _assembly;
+
+    internal PEMetadataAssemblyState MetadataState => PEMetadataAssemblyState.Create(_assembly);
 }

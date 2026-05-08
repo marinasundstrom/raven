@@ -65,22 +65,24 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             var syntaxTree = context.Value.SyntaxTree;
             var documentText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
             var selectionSpan = GetRequestedSpan(documentText, request.Range);
-            if (!_workspaceManager.TryGetRefactorings(request.TextDocument.Uri, selectionSpan, out var refactorings, cancellationToken))
-                return new CommandOrCodeActionContainer();
+            var supportsRefactorRewrite = SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite);
+            var supportsQuickFix = SupportsKind(request.Context?.Only, CodeActionKind.QuickFix);
 
-            var filteredFixes = SupportsKind(request.Context?.Only, CodeActionKind.QuickFix)
+            var filteredFixes = supportsQuickFix
                 ? GetQuickFixesForRequest(request, documentText, syntaxTree, cancellationToken)
                     .Where(fix => IsFixInRequestedRange(fix, request.Range, documentText))
                     .Where(fix => MatchesRequestedDiagnostics(fix, request.Context?.Diagnostics, documentText))
                     .ToArray()
                 : [];
-            var filteredRefactorings = SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite)
-                ? refactorings.ToArray()
-                : [];
+            var filteredRefactorings =
+                supportsRefactorRewrite &&
+                _workspaceManager.TryGetRefactorings(request.TextDocument.Uri, selectionSpan, out var refactorings, cancellationToken)
+                    ? refactorings.ToArray()
+                    : [];
 
             var actions = new List<CommandOrCodeAction>(filteredFixes.Length + filteredRefactorings.Length + 1);
 
-            if (SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite))
+            if (supportsRefactorRewrite)
             {
                 var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
                 var root = syntaxTree.GetRoot(cancellationToken);
@@ -91,7 +93,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                 }
             }
 
-            if (SupportsKind(request.Context?.Only, CodeActionKind.QuickFix))
+            if (supportsQuickFix)
             {
                 foreach (var fix in filteredFixes)
                 {

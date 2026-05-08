@@ -955,6 +955,41 @@ class Runner {
     }
 
     [Fact]
+    public async Task HoverHandler_MethodParameterDeclaration_UsesSyntaxHoverWithoutSemanticGateAsync()
+    {
+        var text = """
+class Runner {
+    static async func Main(args: string[]) -> Task {
+        return Task.CompletedTask
+    }
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var argsOffset = text.IndexOf("args: string[]", StringComparison.Ordinal);
+        argsOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(argsOffset + 2, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("args: string[]");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Parameter in `static async func Main(args: string[]) -> Task`");
+    }
+
+    [Fact]
     public async Task HoverHandler_ProjectBackedExplicitTypeIdentifiers_ShowNamedTypeSignaturesAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1283,6 +1318,119 @@ record CustomError(val Message: string)
     }
 
     [Fact]
+    public async Task HoverHandler_InlineExtensionLambdaReplay_ResolvesOrchestratedTargetsWithoutBindingFallbackAsync()
+    {
+        const string text = """
+class ServiceCollection {
+}
+
+class DbContextOptionsBuilder {
+}
+
+class VehicleDbContext {
+}
+
+class ConnectionFactory {
+    static func GetConnectionString() -> string {
+        return "Host=localhost"
+    }
+}
+
+class Runner {
+    func Configure(services: ServiceCollection) -> ServiceCollection {
+        services.AddDbContext<VehicleDbContext>(func (options: DbContextOptionsBuilder) {
+            options.UseProvider(ConnectionFactory.GetConnectionString())
+        })
+    }
+}
+
+extension ServiceCollectionExtensions for ServiceCollection {
+    func AddDbContext<T>(configure: (DbContextOptionsBuilder -> ())?) -> ServiceCollection {
+        return ServiceCollection()
+    }
+}
+
+extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
+    func UseProvider(connectionString: string) -> DbContextOptionsBuilder {
+        return DbContextOptionsBuilder()
+    }
+}
+""";
+
+        var results = await ReplayInlineHoversAsync(
+            text,
+            new HoverReplayTarget("AddDbContext", "AddDbContext<", 2, "AddDbContext"),
+            new HoverReplayTarget("options", "options.UseProvider", 2, "options: DbContextOptionsBuilder"),
+            new HoverReplayTarget("UseProvider", "UseProvider(", 2, "UseProvider"),
+            new HoverReplayTarget("ConnectionFactory", "ConnectionFactory.GetConnectionString", 2, "ConnectionFactory"),
+            new HoverReplayTarget("UseProvider again", "UseProvider(", 2, "UseProvider"));
+
+        foreach (var result in results)
+        {
+            result.SemanticDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+            result.SemanticDelta.TypeInfoBoundFallbacks.ShouldBe(0);
+        }
+    }
+
+    [Fact]
+    public async Task HoverHandler_RepoEfCoreSample_ReplaysRecordedHoverPositionsWithoutBindingFallbackAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs");
+        var filePath = Path.Combine(projectRoot, "src", "Api", "Main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var text = File.ReadAllText(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-vehicle-costs",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(uri, text);
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var targets = new[]
+        {
+            new HoverPositionTarget("UseNpgsql", 15, 29, "UseNpgsql"),
+            new HoverPositionTarget("Task", 10, 49, "class Task"),
+            new HoverPositionTarget("CreateBuilder", 11, 42, "CreateBuilder"),
+            new HoverPositionTarget("builder", 11, 16, "builder: WebApplicationBuilder"),
+            new HoverPositionTarget("VehicleAppServices", 15, 41, "VehicleAppServices")
+        };
+
+        foreach (var target in targets)
+        {
+            var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = new Position(target.Line, target.Character)
+            }, CancellationToken.None);
+            var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+            var delta = SemanticQueryInstrumentation.Subtract(after, before);
+
+            hover.ShouldNotBeNull();
+            hover!.Contents.MarkupContent.ShouldNotBeNull();
+            hover.Contents.MarkupContent!.Value.ShouldContain(target.ExpectedText);
+            delta.SymbolInfoBinderFallbacks.ShouldBe(0);
+            delta.TypeInfoBoundFallbacks.ShouldBe(0);
+            delta.BoundNodeBindFallbacks.ShouldBe(0);
+        }
+    }
+
+    [Fact]
     public async Task GetAnalysisContextAsync_RepoEfCoreSample_MinAgeEdit_DoesNotPoisonDiagnosticsOrHoverAsync()
     {
         var repoRoot = FindRepositoryRoot();
@@ -1579,6 +1727,57 @@ class C {
         hover.Range.ShouldNotBeNull();
     }
 
+    private async Task<IReadOnlyList<HoverReplayResult>> ReplayInlineHoversAsync(
+        string text,
+        params HoverReplayTarget[] targets)
+    {
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var results = new List<HoverReplayResult>(targets.Length);
+
+        foreach (var target in targets)
+        {
+            var targetOffset = IndexOfOccurrence(text, target.SearchText, target.Occurrence);
+            targetOffset.ShouldBeGreaterThanOrEqualTo(0);
+
+            var hoverPosition = PositionHelper.ToRange(
+                context.Value.SourceText,
+                new TextSpan(targetOffset + target.CharacterOffset, 0)).Start;
+            var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = hoverPosition
+            }, CancellationToken.None);
+            var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+            var delta = SemanticQueryInstrumentation.Subtract(after, before);
+
+            hover.ShouldNotBeNull();
+            hover!.Contents.MarkupContent.ShouldNotBeNull();
+            hover.Contents.MarkupContent!.Value.ShouldContain(target.ExpectedText);
+
+            results.Add(new HoverReplayResult(target.Label, hoverPosition, delta));
+        }
+
+        return results;
+    }
+
+    private static int IndexOfOccurrence(string text, string searchText, int occurrence)
+    {
+        var index = -1;
+        for (var i = 0; i < occurrence; i++)
+        {
+            index = text.IndexOf(searchText, index + 1, StringComparison.Ordinal);
+            if (index < 0)
+                return -1;
+        }
+
+        return index;
+    }
+
     private (DocumentStore store, WorkspaceManager manager, DocumentUri uri) CreateWorkspace(string text)
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1629,6 +1828,24 @@ class C {
 
         throw new DirectoryNotFoundException("Could not locate Raven.sln from test base directory.");
     }
+
+    private sealed record HoverReplayTarget(
+        string Label,
+        string SearchText,
+        int CharacterOffset,
+        string ExpectedText,
+        int Occurrence = 1);
+
+    private sealed record HoverPositionTarget(
+        string Label,
+        int Line,
+        int Character,
+        string ExpectedText);
+
+    private sealed record HoverReplayResult(
+        string Label,
+        Position Position,
+        SemanticQueryInstrumentation.Snapshot SemanticDelta);
 
     public void Dispose()
     {

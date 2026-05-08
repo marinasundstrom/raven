@@ -97,13 +97,6 @@ internal static partial class SymbolResolver
     {
         symbol = null;
 
-        if (semanticModel.TryGetAvailablePipeInvocationCandidates(invocation, out var availablePipeCandidates) &&
-            !availablePipeCandidates.IsDefaultOrEmpty)
-        {
-            symbol = ProjectInvocationSymbolForDisplay(availablePipeCandidates[0], semanticModel, invocation);
-            return symbol is not null && !IsUnitTypeSymbol(symbol);
-        }
-
         if (TryResolveInvocationExpressionSymbol(semanticModel, invocation, out var invocationSymbol))
         {
             symbol = invocationSymbol;

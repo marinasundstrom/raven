@@ -29,7 +29,14 @@ internal sealed class DeclaredSymbolLookup
             return fastSymbol;
 
         if (node is ParameterSyntax fastParameterSyntax &&
-            TryLookupParameterSymbolFast(fastParameterSyntax, out var fastParameterSymbol))
+            _semanticModel.TryResolveFunctionExpressionParameterSymbolFast(fastParameterSyntax, out var fastFunctionParameterSymbol) &&
+            fastFunctionParameterSymbol is not null)
+        {
+            return fastFunctionParameterSymbol;
+        }
+
+        if (node is ParameterSyntax fastParameterSyntax2 &&
+            TryLookupParameterSymbolFast(fastParameterSyntax2, out var fastParameterSymbol))
         {
             return fastParameterSymbol;
         }
@@ -41,7 +48,14 @@ internal sealed class DeclaredSymbolLookup
             return fastSymbol;
 
         if (node is ParameterSyntax declaredParameterSyntax &&
-            TryLookupParameterSymbolFast(declaredParameterSyntax, out var declaredParameterSymbol))
+            _semanticModel.TryResolveFunctionExpressionParameterSymbolFast(declaredParameterSyntax, out var declaredFunctionParameterSymbol) &&
+            declaredFunctionParameterSymbol is not null)
+        {
+            return declaredFunctionParameterSymbol;
+        }
+
+        if (node is ParameterSyntax declaredParameterSyntax2 &&
+            TryLookupParameterSymbolFast(declaredParameterSyntax2, out var declaredParameterSymbol))
         {
             return declaredParameterSymbol;
         }

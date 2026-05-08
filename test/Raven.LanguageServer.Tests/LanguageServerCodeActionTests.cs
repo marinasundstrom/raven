@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
@@ -129,6 +130,93 @@ val x = 1
         actions[0].CodeAction!.Title.ShouldBe("Apply request diagnostic fix");
         actions[1].Command.ShouldNotBeNull();
         actions[1].Command!.Title.ShouldBe("Preview: Apply request diagnostic fix");
+    }
+
+    [Fact]
+    public async Task Handle_RefactorRewrite_ExtensionLambdaSelection_DoesNotBindColdBodiesAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+class ServiceCollection {
+}
+
+class DbContextOptionsBuilder {
+}
+
+class ConnectionFactory {
+    static func GetConnectionString() -> string {
+        return "Host=localhost"
+    }
+}
+
+class Runner {
+    func Configure(services: ServiceCollection) -> ServiceCollection {
+        services.AddDbContext(func (options: DbContextOptionsBuilder) {
+            options.UseProvider(ConnectionFactory.GetConnectionString())
+        })
+    }
+}
+
+extension ServiceCollectionExtensions for ServiceCollection {
+    func AddDbContext(configure: (DbContextOptionsBuilder -> ())?) -> ServiceCollection {
+        return ServiceCollection()
+    }
+}
+
+extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
+    func UseProvider(connectionString: string) -> DbContextOptionsBuilder {
+        return DbContextOptionsBuilder()
+    }
+}
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(
+            workspace,
+            NullLogger<WorkspaceManager>.Instance,
+            ImmutableArray<CodeFixProvider>.Empty,
+            ImmutableArray.Create<CodeRefactoringProvider>(new TargetTypedUnionCaseRefactoringProvider()));
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(uri, code);
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var useProviderOffset = code.IndexOf("UseProvider", StringComparison.Ordinal);
+        useProviderOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var range = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(useProviderOffset + 2, 0));
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+
+        var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = range,
+                Context = new CodeActionContext
+                {
+                    Only = new Container<CodeActionKind>(CodeActionKind.RefactorRewrite)
+                }
+            },
+            CancellationToken.None);
+        var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+
+        result.ShouldNotBeNull();
+        delta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        delta.TypeInfoBoundFallbacks.ShouldBe(0);
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
     }
 
     public void Dispose()

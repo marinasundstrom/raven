@@ -451,9 +451,8 @@ internal static partial class SymbolResolver
             if (IsFunctionExpressionIdentifierToken(lambdaExpression, token) && lambdaSymbol is not null)
                 return ProjectSymbolForDisplay(lambdaSymbol);
 
-            var lambdaTargetType = semanticModel.TryGetAvailableTypeInfo(lambdaExpression, out var lambdaTypeInfo)
-                ? lambdaTypeInfo.ConvertedType ?? lambdaTypeInfo.Type
-                : null;
+            var lambdaTypeInfo = semanticModel.GetTypeInfo(lambdaExpression);
+            var lambdaTargetType = lambdaTypeInfo.ConvertedType ?? lambdaTypeInfo.Type;
             if (lambdaTargetType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
                 return delegateType;
 
@@ -596,14 +595,14 @@ internal static partial class SymbolResolver
 
         ITypeSymbol? scrutineeType = null;
 
-        if (nominalPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression &&
-            semanticModel.TryGetAvailableTypeInfo(matchExpression.Expression, out var matchExpressionTypeInfo))
+        if (nominalPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
         {
+            var matchExpressionTypeInfo = semanticModel.GetTypeInfo(matchExpression.Expression);
             scrutineeType = matchExpressionTypeInfo.Type ?? matchExpressionTypeInfo.ConvertedType;
         }
-        else if (nominalPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement &&
-                 semanticModel.TryGetAvailableTypeInfo(matchStatement.Expression, out var matchStatementTypeInfo))
+        else if (nominalPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
+            var matchStatementTypeInfo = semanticModel.GetTypeInfo(matchStatement.Expression);
             scrutineeType = matchStatementTypeInfo.Type ?? matchStatementTypeInfo.ConvertedType;
         }
 

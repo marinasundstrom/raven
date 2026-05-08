@@ -1422,6 +1422,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
     private readonly ImmutableArray<ITypeParameterSymbol> _typeParameters;
     private readonly Dictionary<ITypeParameterSymbol, ITypeParameterSymbol> _methodTypeParameterMap;
+    private ITypeSymbol? _returnType;
 
     public SubstitutedMethodSymbol(IMethodSymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -1460,7 +1461,7 @@ internal sealed class SubstitutedMethodSymbol : IMethodSymbol
     }
 
     public string Name => _original.Name;
-    public ITypeSymbol ReturnType => _constructed.ReanchorNestedTypeIfNeeded(
+    public ITypeSymbol ReturnType => _returnType ??= _constructed.ReanchorNestedTypeIfNeeded(
         _constructed.Substitute(_original.ReturnType, _methodTypeParameterMap),
         _methodTypeParameterMap);
 
@@ -1984,6 +1985,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
 {
     private readonly IFieldSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
+    private ITypeSymbol? _type;
 
     public SubstitutedFieldSymbol(IFieldSymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -1992,7 +1994,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     }
 
     public string Name => _original.Name;
-    public ITypeSymbol Type => _constructed.Substitute(_original.Type);
+    public ITypeSymbol Type => _type ??= _constructed.Substitute(_original.Type);
     public ISymbol ContainingSymbol => _constructed;
 
     public bool IsConst => _original.IsConst;
@@ -2167,6 +2169,7 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     private readonly IPropertySymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
     private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
+    private ITypeSymbol? _type;
 
     public SubstitutedPropertySymbol(IPropertySymbol original, ConstructedNamedTypeSymbol constructed)
     {
@@ -2175,7 +2178,7 @@ internal sealed class SubstitutedPropertySymbol : IPropertySymbol
     }
 
     public string Name => _original.Name;
-    public ITypeSymbol Type => _constructed.Substitute(_original.Type);
+    public ITypeSymbol Type => _type ??= _constructed.Substitute(_original.Type);
     public ISymbol ContainingSymbol => _constructed;
     public IPropertySymbol? OriginalDefinition { get; }
     public IMethodSymbol? GetMethod => _original.GetMethod is null ? null : new SubstitutedMethodSymbol(_original.GetMethod, _constructed);
@@ -2356,6 +2359,7 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     private readonly IParameterSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
     private readonly Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? _methodMap;
+    private ITypeSymbol? _type;
 
     public SubstitutedParameterSymbol(
         IParameterSymbol original,
@@ -2368,7 +2372,7 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     }
 
     public string Name => _original.Name;
-    public ITypeSymbol Type => _constructed.ReanchorNestedTypeIfNeeded(
+    public ITypeSymbol Type => _type ??= _constructed.ReanchorNestedTypeIfNeeded(
         _constructed.Substitute(_original.Type, _methodMap),
         _methodMap);
 

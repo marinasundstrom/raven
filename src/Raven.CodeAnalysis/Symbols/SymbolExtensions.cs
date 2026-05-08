@@ -1148,6 +1148,9 @@ public static partial class SymbolExtensions
 
             if (IsSystemFuncOrAction(named))
             {
+                if (TryFormatSystemFuncOrActionFromTypeArguments(named, format, out display))
+                    return true;
+
                 var invoke = named.GetDelegateInvokeMethod();
                 if (invoke is null)
                 {
@@ -1164,6 +1167,37 @@ public static partial class SymbolExtensions
         }
 
         display = null!;
+        return false;
+    }
+
+    private static bool TryFormatSystemFuncOrActionFromTypeArguments(
+        INamedTypeSymbol named,
+        SymbolDisplayFormat format,
+        out string display)
+    {
+        display = null!;
+
+        if (named.Name == "Action")
+        {
+            var parameterDisplays = named.TypeArguments.IsDefaultOrEmpty
+                ? []
+                : named.TypeArguments.Select(type => FormatFunctionParameter(type, RefKind.None, format)).ToArray();
+            display = FormatFunctionSignatureText(parameterDisplays, "()", isLambda: false);
+            return true;
+        }
+
+        if (named.Name == "Func" &&
+            !named.TypeArguments.IsDefaultOrEmpty)
+        {
+            var parameterDisplays = named.TypeArguments
+                .Take(named.TypeArguments.Length - 1)
+                .Select(type => FormatFunctionParameter(type, RefKind.None, format))
+                .ToArray();
+            var returnDisplay = FormatType(named.TypeArguments[^1], format);
+            display = FormatFunctionSignatureText(parameterDisplays, returnDisplay, isLambda: false);
+            return true;
+        }
+
         return false;
     }
 
@@ -1189,12 +1223,8 @@ public static partial class SymbolExtensions
             }
         }
 
-        string parameterText = parameterDisplays.Count switch
-        {
-            0 => "()",
-            1 when parameterTypes[0] is not ITupleTypeSymbol and not UnitTypeSymbol => isLambda ? $"({parameterDisplays[0]})" : parameterDisplays[0],
-            _ => $"({string.Join(", ", parameterDisplays)})"
-        };
+        var shouldParenthesizeSingleParameter = parameterTypes.Length == 1 &&
+                                                parameterTypes[0] is not ITupleTypeSymbol and not UnitTypeSymbol;
 
         var returnDisplay = FormatType(returnType, format);
 
@@ -1202,6 +1232,26 @@ public static partial class SymbolExtensions
         {
             returnDisplay = $"({returnDisplay})";
         }
+
+        return FormatFunctionSignatureText(
+            parameterDisplays.ToArray(),
+            returnDisplay,
+            isLambda,
+            shouldParenthesizeSingleParameter);
+    }
+
+    private static string FormatFunctionSignatureText(
+        IReadOnlyList<string> parameterDisplays,
+        string returnDisplay,
+        bool isLambda,
+        bool shouldParenthesizeSingleParameter = true)
+    {
+        string parameterText = parameterDisplays.Count switch
+        {
+            0 => "()",
+            1 when shouldParenthesizeSingleParameter => isLambda ? $"({parameterDisplays[0]})" : parameterDisplays[0],
+            _ => $"({string.Join(", ", parameterDisplays)})"
+        };
 
         return $"{parameterText} -> {returnDisplay}";
     }

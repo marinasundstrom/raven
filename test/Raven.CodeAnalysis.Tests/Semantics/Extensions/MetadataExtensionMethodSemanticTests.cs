@@ -14,6 +14,51 @@ public sealed class MetadataExtensionMethodSemanticTests : CompilationTestBase
         => TestMetadataReferences.DefaultWithoutSystemLinqWithExtensionMethods;
 
     [Fact]
+    public void MetadataType_GetMembersByName_DoesNotHydrateUnrelatedMembersOrDuplicateOnFullLoad()
+    {
+        var (compilation, _) = CreateCompilation(
+            "",
+            references: TestMetadataReferences.Default);
+        compilation.EnsureSetup();
+
+        var systemNamespace = compilation.GetNamespaceSymbol("System");
+        Assert.NotNull(systemNamespace);
+
+        var linqNamespace = systemNamespace.GetMembers("Linq").OfType<INamespaceSymbol>().SingleOrDefault();
+        Assert.NotNull(linqNamespace);
+
+        var collectionsNamespace = systemNamespace.GetMembers("Collections").OfType<INamespaceSymbol>().SingleOrDefault();
+        Assert.NotNull(collectionsNamespace);
+
+        var genericNamespace = collectionsNamespace.GetMembers("Generic").OfType<INamespaceSymbol>().SingleOrDefault();
+        Assert.NotNull(genericNamespace);
+
+        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            genericNamespace.GetMembers("List").Single());
+        Assert.Equal(1, listType.Arity);
+
+        var enumerableType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            linqNamespace.GetMembers("Enumerable").Single());
+
+        var exactMembersBeforeFullLoad = enumerableType.GetMembers("Any")
+            .OfType<IMethodSymbol>()
+            .ToArray();
+
+        Assert.NotEmpty(exactMembersBeforeFullLoad);
+
+        _ = enumerableType.GetMembers();
+
+        var exactMembersAfterFullLoad = enumerableType.GetMembers("Any")
+            .OfType<IMethodSymbol>()
+            .ToArray();
+
+        Assert.Equal(exactMembersBeforeFullLoad.Length, exactMembersAfterFullLoad.Length);
+        Assert.Equal(
+            exactMembersAfterFullLoad.Length,
+            exactMembersAfterFullLoad.Select(method => method.GetLookupIdentityKey()).Distinct().Count());
+    }
+
+    [Fact]
     public void MemberAccess_OnIEnumerableReceiver_UsesSystemLinqExtensions()
     {
         const string source = """
@@ -128,6 +173,79 @@ val projection = numbers.Select(value => value)
         Assert.True(boundInvocation.Method.IsExtensionMethod);
         Assert.NotNull(boundInvocation.ExtensionReceiver);
         Assert.Equal(selected.Name, boundInvocation.Method.Name);
+    }
+
+    [Fact]
+    public void TryGetAvailableInvocationCandidates_ReusesCachedExtensionLookupWithoutBinding()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val projection = numbers.Select(value => value)
+""";
+
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Select");
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(memberAccess.Parent);
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var candidates));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Contains(candidates, method => SymbolEqualityComparer.Default.Equals(method, boundInvocation.Method));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void ExtensionLookup_CachesNegativeMetadataResult()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+val numbers = List<int>()
+val projection = numbers.NotAnExtension()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "NotAnExtension");
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(memberAccess.Parent);
+
+        _ = model.GetBoundNode(invocation);
+
+        var receiverType = Assert.IsAssignableFrom<ITypeSymbol>(
+            model.GetTypeInfo(memberAccess.Expression).Type ?? model.GetTypeInfo(memberAccess.Expression).ConvertedType);
+        var binder = model.GetBinder(invocation);
+
+        Assert.True(ExtensionMemberLookup.TryGetCached(
+            binder,
+            receiverType,
+            out var cached,
+            "NotAnExtension",
+            includePartialMatches: false,
+            kinds: ExtensionMemberKinds.InstanceMethods));
+        Assert.True(cached.IsEmpty);
     }
 
     [Fact]

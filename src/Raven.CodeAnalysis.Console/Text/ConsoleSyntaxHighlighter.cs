@@ -145,7 +145,7 @@ public static class ConsoleSyntaxHighlighter
             includeDiagnostics = true;
 
         var model = compilation.GetSemanticModel(syntaxTree);
-        var classification = SemanticClassifier.Classify(node, model);
+        var classification = SemanticClassifier.Classify(node, model, allowBinding: !diagnosticsOnly);
 
         var sourceText = syntaxTree.GetText()!;
         var text = sourceText.ToString();

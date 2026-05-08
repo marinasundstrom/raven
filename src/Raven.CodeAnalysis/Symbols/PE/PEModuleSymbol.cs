@@ -157,25 +157,13 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             return value;
         }
 
-        // If no type found, try to verify as a namespace
-        // Does any type start with "System.Text."?
-        bool namespaceLikelyExists = assembly.GetTypes()
-            .Any(t => t.FullName.StartsWith(fullName + ".", StringComparison.Ordinal));
-
-        if (namespaceLikelyExists && namespaceSymbol is INamespaceSymbol parentNs)
+        if (MetadataNamespaceExists(fullName) && namespaceSymbol is INamespaceSymbol parentNs)
         {
             // Check if the namespace already exists in the parent
             if (parentNs.IsMemberDefined(name, out var existingSymbol))
                 return existingSymbol;
 
-            if (parentNs is PENamespaceSymbol peParent)
-            {
-                var module = peParent.ContainingModule as PEModuleSymbol ?? this;
-                var nestedNamespace = new PENamespaceSymbol(_reflectionTypeLoader, module, name, peParent, peParent);
-                return nestedNamespace;
-            }
-
-            return new PENamespaceSymbol(_reflectionTypeLoader, name, parentNs, parentNs);
+            return GetOrCreateNamespaceSymbol(fullName);
         }
 
         return null;
@@ -200,6 +188,21 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         return null;
     }
+
+    internal ImmutableArray<Type> GetTopLevelTypesInNamespace(string namespaceMetadataName)
+        => _assembly.MetadataState.GetTopLevelTypes(namespaceMetadataName);
+
+    internal ImmutableArray<Type> GetTopLevelTypesInNamespace(string namespaceMetadataName, string name)
+        => _assembly.MetadataState.GetTopLevelTypes(namespaceMetadataName, name);
+
+    internal bool MetadataNamespaceExists(string metadataName)
+        => _assembly.MetadataState.NamespaceExists(metadataName);
+
+    internal ImmutableArray<string> GetDirectNestedNamespaceNames(string namespaceMetadataName)
+        => _assembly.MetadataState.GetDirectNestedNamespaceNames(namespaceMetadataName);
+
+    internal ImmutableArray<Type> GetExtensionMethodContainersInNamespace(string namespaceMetadataName, string methodName)
+        => PEMetadataAssemblyState.GetExtensionMethodContainers(_assembly.GetAssemblyInfo(), namespaceMetadataName, methodName);
 
     /*
         private ITypeSymbol GetOrCreateTypeSymbol(Type type)
@@ -312,35 +315,34 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         return $"{assemblyName}:{metadataName}";
     }
 
-    private INamespaceSymbol GetOrCreateNamespaceSymbol(string? ns)
+    internal INamespaceSymbol GetOrCreateNamespaceSymbol(string? ns)
     {
         if (string.IsNullOrEmpty(ns))
             return GlobalNamespace;
 
-        var parts = ns.Split('.');
-        var current = (INamespaceSymbol)GlobalNamespace;
-        var prefix = string.Empty;
-
-        foreach (var part in parts)
+        lock (_globalNamespaceGate)
         {
-            prefix = string.IsNullOrEmpty(prefix) ? part : $"{prefix}.{part}";
-            if (_namespaceSymbolByMetadataName.TryGetValue(prefix, out var cached))
+            var parts = ns.Split('.');
+            var current = (INamespaceSymbol)GlobalNamespace;
+            var prefix = string.Empty;
+
+            foreach (var part in parts)
             {
-                current = cached;
-                continue;
+                prefix = string.IsNullOrEmpty(prefix) ? part : $"{prefix}.{part}";
+                if (_namespaceSymbolByMetadataName.TryGetValue(prefix, out var cached))
+                {
+                    current = cached;
+                    continue;
+                }
+
+                var next = new PENamespaceSymbol(_reflectionTypeLoader, this, part, current, current);
+
+                _namespaceSymbolByMetadataName.TryAdd(prefix, next);
+                current = next;
             }
 
-            var next = current.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
-
-            if (next is null)
-            {
-                next = new PENamespaceSymbol(_reflectionTypeLoader, part, _assembly, current);
-            }
-
-            _namespaceSymbolByMetadataName.TryAdd(prefix, next);
-            current = next;
+            return current;
         }
-
-        return current;
     }
+
 }

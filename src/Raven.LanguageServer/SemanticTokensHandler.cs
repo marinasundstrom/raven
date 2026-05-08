@@ -636,9 +636,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         if (semanticModel is null)
             return null;
 
-        var invocationInfo = semanticModel.TryGetAvailableSymbolInfo(invocation, out var availableInvocationInfo)
-            ? availableInvocationInfo
-            : default;
+        var invocationInfo = semanticModel.GetSymbolInfo(invocation);
         if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
             return invocationMethod;
 
@@ -646,9 +644,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         if (candidate is not null)
             return candidate;
 
-        var expressionInfo = semanticModel.TryGetAvailableSymbolInfo(invocation.Expression, out var availableExpressionInfo)
-            ? availableExpressionInfo
-            : default;
+        var expressionInfo = semanticModel.GetSymbolInfo(invocation.Expression);
         if (expressionInfo.Symbol is IMethodSymbol expressionMethod)
             return expressionMethod;
 
@@ -785,8 +781,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
         try
         {
-            if (semanticModel.TryGetAvailableSymbolInfo(bindNode, out var info))
-                return info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
+            var info = semanticModel.GetSymbolInfo(bindNode);
+            return info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
         }
         catch
         {

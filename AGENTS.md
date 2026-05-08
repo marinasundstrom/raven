@@ -57,6 +57,14 @@ dotnet build <project path> --property WarningLevel=0
 - Fix clearly wrong compiler behavior rather than working around it in Raven code.
 - If intended behavior is unclear, reduce the repro, inspect `docs/`, then fix or clarify the behavior.
 
+## Compiler API Design
+
+- Keep the public compiler API Roslyn-like unless there is an intentional Raven-specific divergence.
+- Do not expose cache-specific or incremental-state helper APIs to analyzers, refactorings, completion, hover, or LSP code.
+- Public APIs such as `GetTypeInfo`, `GetSymbolInfo`, and `GetDeclaredSymbol` decide internally whether to answer from cache, available incremental state, or re-bind when necessary.
+- If language-service usage makes a public semantic API too expensive or prone to blocking, fix the compiler API implementation rather than bypassing it from the language server.
+- The language server should mainly present data from `Raven.CodeAnalysis`; semantic caching and lookup correctness belong in the compiler API.
+
 ## Testing And Coverage
 
 - Compiler bug fixes must be locked with focused tests.

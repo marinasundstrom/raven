@@ -249,11 +249,8 @@ internal static partial class SymbolResolver
     {
         try
         {
-            if (semanticModel.TryGetAvailableSymbolInfo(node, out symbolInfo) &&
-                (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
-            {
+            if (semanticModel.TryGetSymbolInfo(node, out symbolInfo))
                 return true;
-            }
         }
         catch
         {

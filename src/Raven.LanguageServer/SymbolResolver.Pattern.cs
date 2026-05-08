@@ -88,7 +88,8 @@ internal static partial class SymbolResolver
             if (!string.Equals(candidate.Identifier.ValueText, token.ValueText, StringComparison.Ordinal))
                 continue;
 
-            if (!semanticModel.TryGetAvailableSymbolInfo(candidate, out var info))
+            var info = semanticModel.GetSymbolInfo(candidate);
+            if (info.Symbol is null && info.CandidateSymbols.IsDefaultOrEmpty)
                 continue;
 
             if (TryMatchDeclaringSpan(info.Symbol, token))

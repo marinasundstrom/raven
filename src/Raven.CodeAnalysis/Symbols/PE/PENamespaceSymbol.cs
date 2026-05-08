@@ -1,5 +1,5 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -9,7 +9,10 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     private readonly PEModuleSymbol _module = default!;
     private readonly List<ISymbol> _members = new(); // new(SymbolEqualityComparer.Default);
     private readonly object _membersGate = new();
+    private readonly HashSet<string> _memberNamesLoaded = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _memberNamesLoading = new(StringComparer.Ordinal);
     private readonly string _name;
+    private bool _membersLoading;
     private bool _membersLoaded;
 
     public PENamespaceSymbol(ReflectionTypeLoader reflectionTypeLoader, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
@@ -60,21 +63,21 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        EnsureMembersLoaded();
+        EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
             return _members.Where(m => m.Name == name).ToImmutableArray();
     }
 
     public INamespaceSymbol? LookupNamespace(string name)
     {
-        EnsureMembersLoaded();
+        EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
             return _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
     }
 
     public ITypeSymbol? LookupType(string name)
     {
-        EnsureMembersLoaded();
+        EnsureMemberWithNameLoaded(name);
         ITypeSymbol? type;
         lock (_membersGate)
             type = TypeLookupUtilities.SelectBestTypeByName(_members.OfType<ITypeSymbol>().Where(t => t.Name == name));
@@ -87,10 +90,27 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        EnsureMembersLoaded();
+        EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
             symbol = _members.FirstOrDefault(m => m.Name == name);
         return symbol is not null;
+    }
+
+    internal ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
+    {
+        if (string.IsNullOrWhiteSpace(methodName))
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var module = (PEModuleSymbol)ContainingModule;
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+
+        foreach (var type in module.GetExtensionMethodContainersInNamespace(MetadataName, methodName))
+        {
+            if (module.GetType(type) is INamedTypeSymbol typeSymbol)
+                builder.Add(typeSymbol);
+        }
+
+        return builder.ToImmutable();
     }
 
     public override string ToString() => IsGlobalNamespace ? "<global>" : ToMetadataName();
@@ -108,50 +128,94 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     {
         lock (_membersGate)
         {
+            while (_membersLoading || _memberNamesLoading.Count > 0)
+                Monitor.Wait(_membersGate);
+
             if (_membersLoaded)
                 return;
 
-            _membersLoaded = true;
+            _membersLoading = true;
+        }
 
-            var assemblyInfo = PEContainingAssembly.GetAssemblyInfo();
+        try
+        {
+            var module = (PEModuleSymbol)ContainingModule;
 
-            foreach (var type in assemblyInfo.GetTypes().Where(x => !x.IsNested))
+            foreach (var type in module.GetTopLevelTypesInNamespace(MetadataName))
             {
-                if (type.Namespace != MetadataName)
-                    continue;
-
                 // IMPORTANT: Always intern types via the module's Type-based cache.
                 // Creating symbols directly here bypasses the module cache and can create duplicate type symbols
                 // (e.g., two instances of Result`2 with different loaded states).
-                var module = (PEModuleSymbol)ContainingModule;
                 _ = module.GetType(type);
             }
 
-            foreach (var nsName in FindNestedNamespaces(assemblyInfo))
+            foreach (var childName in module.GetDirectNestedNamespaceNames(MetadataName))
             {
-                var childName = nsName.Split('.').Last(); // e.g., for "System.IO", take "IO"
-                var nestedNamespace = new PENamespaceSymbol(_reflectionTypeLoader, _module, childName, this, this);
-                //AddMember(nestedNamespace);
+                var fullName = string.IsNullOrEmpty(MetadataName)
+                    ? childName
+                    : MetadataName + "." + childName;
+                _ = module.GetOrCreateNamespaceSymbol(fullName);
             }
 
-            foreach (var member in _members.OfType<PEAssemblySymbol>())
-            {
+            ImmutableArray<PEAssemblySymbol> assemblyMembers;
+            lock (_membersGate)
+                assemblyMembers = _members.OfType<PEAssemblySymbol>().ToImmutableArray();
+
+            foreach (var member in assemblyMembers)
                 member.Complete();
+        }
+        finally
+        {
+            lock (_membersGate)
+            {
+                _membersLoaded = true;
+                _membersLoading = false;
+                Monitor.PulseAll(_membersGate);
             }
         }
     }
 
-    private IEnumerable<string> FindNestedNamespaces(Assembly assembly)
+    private void EnsureMemberWithNameLoaded(string name)
     {
-        var thisName = MetadataName;
-        var prefix = string.IsNullOrEmpty(thisName) ? "" : thisName + ".";
+        if (string.IsNullOrEmpty(name))
+        {
+            EnsureMembersLoaded();
+            return;
+        }
 
-        return assembly.GetTypes()
-            .Select(t => t.Namespace ?? string.Empty)
-            .Where(ns => ns.StartsWith(prefix) && ns.Length > prefix.Length)
-            .Select(ns => ns.Substring(0, ns.IndexOf('.', prefix.Length) > -1
-                ? ns.IndexOf('.', prefix.Length)
-                : ns.Length))
-            .Distinct();
+        lock (_membersGate)
+        {
+            while (_membersLoading || _memberNamesLoading.Contains(name))
+                Monitor.Wait(_membersGate);
+
+            if (_membersLoaded || _memberNamesLoaded.Contains(name))
+                return;
+
+            _memberNamesLoading.Add(name);
+        }
+
+        try
+        {
+            var module = (PEModuleSymbol)ContainingModule;
+
+            foreach (var type in module.GetTopLevelTypesInNamespace(MetadataName, name))
+                _ = module.GetType(type);
+
+            var childNamespaceName = string.IsNullOrEmpty(MetadataName)
+                ? name
+                : MetadataName + "." + name;
+
+            if (module.MetadataNamespaceExists(childNamespaceName))
+                _ = module.GetOrCreateNamespaceSymbol(childNamespaceName);
+        }
+        finally
+        {
+            lock (_membersGate)
+            {
+                _memberNamesLoaded.Add(name);
+                _memberNamesLoading.Remove(name);
+                Monitor.PulseAll(_membersGate);
+            }
+        }
     }
 }

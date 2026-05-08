@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Threading;
 
 using Raven.CodeAnalysis.Diagnostics;
 
@@ -25,10 +26,7 @@ public class AnalyzerReference
 
     /// <summary>Create a reference from an assembly containing analyzers.</summary>
     public AnalyzerReference(Assembly assembly)
-        : this(() =>
-            assembly.GetTypes()
-                .Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)
-                .Select(t => (DiagnosticAnalyzer)Activator.CreateInstance(t)!))
+        : this(CreateAssemblyAnalyzerFactory(assembly))
     {
     }
 
@@ -38,4 +36,15 @@ public class AnalyzerReference
     }
 
     internal IEnumerable<DiagnosticAnalyzer> GetAnalyzers() => _analyzerFactory();
+
+    private static Func<IEnumerable<DiagnosticAnalyzer>> CreateAssemblyAnalyzerFactory(Assembly assembly)
+    {
+        var analyzerTypes = new Lazy<Type[]>(
+            () => assembly.GetTypes()
+                .Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)
+                .ToArray(),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+
+        return () => analyzerTypes.Value.Select(t => (DiagnosticAnalyzer)Activator.CreateInstance(t)!);
+    }
 }

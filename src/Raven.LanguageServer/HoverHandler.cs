@@ -67,12 +67,22 @@ internal sealed class HoverHandler : IHoverHandler
         double analysisContextMs = 0;
         double semanticModelMs = 0;
         double resolutionMs = 0;
+        double invocationOverrideMs = 0;
+        double signatureMs = 0;
+        double containingMs = 0;
+        double documentationMs = 0;
+        double capturesMs = 0;
+        double hoverTextMs = 0;
+        double rangeMs = 0;
         var cacheHit = false;
         Compilation? semanticCompilation = null;
         SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
+        var currentStage = "starting";
+        using var hoverWatchdog = StartHoverWatchdog(request, totalStopwatch, () => currentStage, cancellationToken);
 
         try
         {
+            currentStage = "analysisContext";
             var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -93,9 +103,11 @@ internal sealed class HoverHandler : IHoverHandler
                 return cachedEntry.Hover;
             }
 
+            currentStage = "syntaxRoot";
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
+            currentStage = "syntaxOnlyHover";
             var syntaxOnlyHover = TryBuildFunctionExpressionDeclarationHover(sourceText, root, offset)
                 ?? TryBuildDeclarationSyntaxHover(sourceText, root, offset)
                 ?? TryBuildKnownTypeIdentifierSyntaxHover(sourceText, root, offset);
@@ -104,10 +116,12 @@ internal sealed class HoverHandler : IHoverHandler
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            currentStage = "semanticGate";
             var gateWaitStopwatch = Stopwatch.StartNew();
             using var semanticLease = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "hover").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
 
+            currentStage = "semanticModel";
             stageStopwatch.Restart();
             var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -118,24 +132,28 @@ internal sealed class HoverHandler : IHoverHandler
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            currentStage = "macroHover";
             var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
             if (macroHover is not null)
                 return CacheHover(cacheKey, macroHover);
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            currentStage = "literalHover";
             var literalHover = TryBuildLiteralHover(sourceText, semanticModel, root, offset);
             if (literalHover is not null)
                 return CacheHover(cacheKey, literalHover);
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            currentStage = "patternHover";
             var patternHover = TryBuildPatternDeclarationHover(sourceText, semanticModel, root, offset);
             if (patternHover is not null)
                 return CacheHover(cacheKey, patternHover);
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            currentStage = "resolution";
             stageStopwatch.Restart();
             var resolution = TryResolveInvocationTargetHoverDirect(semanticModel, root, offset)
                 ?? TryResolveDeclaredHoverSymbol(semanticModel, root, offset)
@@ -147,11 +165,17 @@ internal sealed class HoverHandler : IHoverHandler
             cancellationToken.ThrowIfCancellationRequested();
 
             var resolvedValue = resolution.Value;
+            currentStage = "invocationOverride";
+            stageStopwatch.Restart();
             if (TryResolveInvocationTargetHoverOverride(semanticModel, root, offset, resolvedValue, out var invocationOverride))
                 resolvedValue = invocationOverride;
+            invocationOverrideMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             var symbol = resolvedValue.Symbol;
+            currentStage = "signature";
+            stageStopwatch.Restart();
             var signature = BuildDisplaySignatureForResolvedHover(resolvedValue, semanticModel, root, offset);
+            signatureMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (signature == "()" &&
                 resolvedValue.Node is IdentifierNameSyntax identifier &&
                 (resolvedValue.Kind == SymbolResolutionKind.TypePosition ||
@@ -167,12 +191,30 @@ internal sealed class HoverHandler : IHoverHandler
                     symbol.Kind,
                     FormatTrackedHoverSymbolDisplay(symbol));
             }
+            currentStage = "containing";
+            stageStopwatch.Restart();
             var containing = BuildContainingDisplay(symbol, semanticModel);
+            containingMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            currentStage = "documentation";
+            stageStopwatch.Restart();
             var documentation = symbol.GetDocumentationComment();
-            var functionCaptures = semanticModel.GetCapturedVariables(symbol);
-            if (functionCaptures.IsDefaultOrEmpty)
-                functionCaptures = semanticModel.GetCapturedVariables(resolvedValue.Node);
-            var isCapturedVariable = semanticModel.IsCapturedVariable(symbol);
+            documentationMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            currentStage = "captures";
+            stageStopwatch.Restart();
+            var functionCaptures = ImmutableArray<ISymbol>.Empty;
+            var isCapturedVariable = false;
+            if (ShouldComputeCaptureInfo(symbol, resolvedValue.Node))
+            {
+                functionCaptures = semanticModel.GetCapturedVariables(symbol);
+                if (functionCaptures.IsDefaultOrEmpty)
+                    functionCaptures = semanticModel.GetCapturedVariables(resolvedValue.Node);
+            }
+            capturesMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            currentStage = "hoverText";
+            stageStopwatch.Restart();
             var hoverText = BuildHoverText(
                 signature,
                 BuildKindDisplayForResolution(resolvedValue.Kind, symbol),
@@ -180,8 +222,13 @@ internal sealed class HoverHandler : IHoverHandler
                 documentation,
                 functionCaptures,
                 isCapturedVariable);
+            hoverTextMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
+            currentStage = "range";
+            stageStopwatch.Restart();
             var hoverRange = PositionHelper.ToRange(sourceText, GetHoverSpanForResolution(resolvedValue));
+            rangeMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            currentStage = "cache";
             return CacheHover(cacheKey, new Hover
             {
                 Contents = new MarkedStringsOrMarkupContent(new MarkupContent
@@ -239,13 +286,20 @@ internal sealed class HoverHandler : IHoverHandler
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
-                    new LanguageServerPerformanceInstrumentation.StageTiming("resolution", resolutionMs)
+                    new LanguageServerPerformanceInstrumentation.StageTiming("resolution", resolutionMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("invocationOverride", invocationOverrideMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("signature", signatureMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("containing", containingMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("documentation", documentationMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("captures", capturesMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("hoverText", hoverTextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("range", rangeMs)
                 ]);
 
             if (totalStopwatch.Elapsed.TotalMilliseconds >= SlowHoverThresholdMs)
             {
                 _logger.LogInformation(
-                    "Slow hover for {Uri} at {Line}:{Character}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms resolution={ResolutionMs:F1}ms.",
+                    "Slow hover for {Uri} at {Line}:{Character}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms resolution={ResolutionMs:F1}ms invocationOverride={InvocationOverrideMs:F1}ms signature={SignatureMs:F1}ms containing={ContainingMs:F1}ms documentation={DocumentationMs:F1}ms captures={CapturesMs:F1}ms hoverText={HoverTextMs:F1}ms range={RangeMs:F1}ms lastStage={LastStage}.",
                     request.TextDocument.Uri,
                     request.Position.Line,
                     request.Position.Character,
@@ -253,7 +307,15 @@ internal sealed class HoverHandler : IHoverHandler
                     gateWaitMs,
                     analysisContextMs,
                     semanticModelMs,
-                    resolutionMs);
+                    resolutionMs,
+                    invocationOverrideMs,
+                    signatureMs,
+                    containingMs,
+                    documentationMs,
+                    capturesMs,
+                    hoverTextMs,
+                    rangeMs,
+                    currentStage);
             }
             else if (totalStopwatch.Elapsed.TotalMilliseconds >= HoverLifecycleLogThresholdMs)
             {
@@ -274,6 +336,63 @@ internal sealed class HoverHandler : IHoverHandler
 
         _hoverCache[cacheKey] = new HoverCacheEntry(hover);
         return hover;
+    }
+
+    private IDisposable StartHoverWatchdog(
+        HoverParams request,
+        Stopwatch stopwatch,
+        Func<string> getCurrentStage,
+        CancellationToken cancellationToken)
+    {
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _ = LogSlowHoverProgressAsync(request, stopwatch, getCurrentStage, cancellation.Token);
+        return new CancellationDisposable(cancellation);
+    }
+
+    private async Task LogSlowHoverProgressAsync(
+        HoverParams request,
+        Stopwatch stopwatch,
+        Func<string> getCurrentStage,
+        CancellationToken cancellationToken)
+    {
+        var checkpoints = new[] { 1_000, 3_000, 10_000 };
+        var previous = 0;
+
+        try
+        {
+            foreach (var checkpoint in checkpoints)
+            {
+                await Task.Delay(checkpoint - previous, cancellationToken).ConfigureAwait(false);
+                previous = checkpoint;
+
+                _logger.LogWarning(
+                    "Hover request still running for {Uri} at {Line}:{Character}: elapsed={ElapsedMs:F1}ms stage={Stage}.",
+                    request.TextDocument.Uri,
+                    request.Position.Line,
+                    request.Position.Character,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    getCurrentStage());
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private sealed class CancellationDisposable : IDisposable
+    {
+        private readonly CancellationTokenSource _cancellation;
+
+        public CancellationDisposable(CancellationTokenSource cancellation)
+        {
+            _cancellation = cancellation;
+        }
+
+        public void Dispose()
+        {
+            _cancellation.Cancel();
+            _cancellation.Dispose();
+        }
     }
 
     private static string BuildHoverText(
@@ -471,12 +590,12 @@ internal sealed class HoverHandler : IHoverHandler
         return null;
     }
 
-    private static IEnumerable<(IdentifierNameSyntax Identifier, InvocationExpressionSyntax Invocation)> FindInvocationTargetIdentifiersAtOffset(
+    private static IEnumerable<(SimpleNameSyntax Identifier, InvocationExpressionSyntax Invocation)> FindInvocationTargetIdentifiersAtOffset(
         SyntaxNode root,
         int offset)
     {
         var requestedToken = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
-        var requestedIdentifier = requestedToken.Parent is IdentifierNameSyntax identifierAtOffset &&
+        var requestedIdentifier = requestedToken.Parent is SimpleNameSyntax identifierAtOffset &&
                                   identifierAtOffset.Identifier.Span.Contains(offset)
             ? identifierAtOffset
             : null;
@@ -493,13 +612,13 @@ internal sealed class HoverHandler : IHoverHandler
                 continue;
             }
 
-            var identifier = token.Parent is IdentifierNameSyntax identifierAtCandidate &&
+            var identifier = token.Parent is SimpleNameSyntax identifierAtCandidate &&
                              (identifierAtCandidate.Identifier.Span.Contains(candidateOffset) ||
                               identifierAtCandidate.Identifier.Span.End == candidateOffset)
                 ? identifierAtCandidate
                 : token.Parent?
                     .AncestorsAndSelf()
-                    .OfType<IdentifierNameSyntax>()
+                    .OfType<SimpleNameSyntax>()
                     .FirstOrDefault(identifier => identifier.Identifier.Span.Contains(candidateOffset) ||
                                                   identifier.Identifier.Span.End == candidateOffset);
 
@@ -527,12 +646,12 @@ internal sealed class HoverHandler : IHoverHandler
         }
     }
 
-    private static IdentifierNameSyntax? GetInvocationTargetIdentifier(InvocationExpressionSyntax invocation)
+    private static SimpleNameSyntax? GetInvocationTargetIdentifier(InvocationExpressionSyntax invocation)
     {
         return invocation.Expression switch
         {
-            IdentifierNameSyntax identifier => identifier,
-            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax identifier } => identifier,
+            SimpleNameSyntax identifier => identifier,
+            MemberAccessExpressionSyntax { Name: SimpleNameSyntax identifier } => identifier,
             _ => null
         };
     }
@@ -549,20 +668,31 @@ internal sealed class HoverHandler : IHoverHandler
     private static bool TryResolveInvocationMethodFromSyntax(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        IdentifierNameSyntax identifier,
+        SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
-        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableCandidates) &&
-            !availableCandidates.IsDefaultOrEmpty)
+        var invocationInfo = semanticModel.GetSymbolInfo(invocation);
+        var availableCandidates = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+        if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
+            availableCandidates = availableCandidates.Insert(0, invocationMethod);
+
+        if (!availableCandidates.IsDefaultOrEmpty)
         {
-            var projected = ProjectCachedInvocationHoverSymbol(availableCandidates[0]);
-            if (!IsUnitTypeSymbol(projected))
+            var targetName = identifier.Identifier.ValueText;
+            var candidate = availableCandidates.FirstOrDefault(method =>
+                string.Equals(method.Name, targetName, StringComparison.Ordinal) ||
+                method.MethodKind == MethodKind.Constructor && string.Equals(method.ContainingType?.Name, targetName, StringComparison.Ordinal));
+            if (candidate is not null)
             {
-                resolution = new SymbolResolutionResult(
-                    SymbolResolutionKind.InvocationTarget,
-                    projected,
-                    identifier);
-                return true;
+                var projected = ProjectCachedInvocationHoverSymbol(candidate);
+                if (!IsUnitTypeSymbol(projected))
+                {
+                    resolution = new SymbolResolutionResult(
+                        SymbolResolutionKind.InvocationTarget,
+                        projected,
+                        identifier);
+                    return true;
+                }
             }
         }
 
@@ -572,7 +702,7 @@ internal sealed class HoverHandler : IHoverHandler
     private static bool TryResolveInvocationMethodFromCachedSymbolInfo(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        IdentifierNameSyntax identifier,
+        SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
         if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, invocation, identifier, out resolution))
@@ -603,7 +733,8 @@ internal sealed class HoverHandler : IHoverHandler
     {
         resolution = default;
 
-        if (!semanticModel.TryGetCachedSymbolInfo(queryNode, out var cachedInfo))
+        var cachedInfo = semanticModel.GetSymbolInfo(queryNode);
+        if (cachedInfo.Symbol is null && cachedInfo.CandidateSymbols.IsDefaultOrEmpty)
             return false;
 
         var method = cachedInfo.Symbol as IMethodSymbol
@@ -755,6 +886,18 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.Kind != SyntaxKind.IdentifierToken)
                 continue;
 
+            if (token.Parent is VariableDeclaratorSyntax declarator &&
+                token == declarator.Identifier)
+            {
+                var declaratorInfo = semanticModel.GetSymbolInfo(declarator);
+                var declaratorSymbol = declaratorInfo.Symbol ?? declaratorInfo.CandidateSymbols.FirstOrDefault();
+                if (declaratorSymbol is not null)
+                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaratorSymbol, declarator);
+
+                if (semanticModel.GetDeclaredSymbol(declarator) is { } declaredSymbol)
+                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaredSymbol, declarator);
+            }
+
             if (token.Parent is SingleVariableDesignationSyntax single &&
                 token == single.Identifier &&
                 semanticModel.GetDeclaredSymbol(single) is { } singleSymbol)
@@ -855,6 +998,9 @@ internal sealed class HoverHandler : IHoverHandler
 
             if (TryBuildCallableDeclarationSyntaxHover(sourceText, token, out var callableHover))
                 return callableHover;
+
+            if (TryBuildCallableParameterSyntaxHover(sourceText, token, out var callableParameterHover))
+                return callableParameterHover;
 
             if (TryBuildPrimaryConstructorParameterSyntaxHover(sourceText, token, out var parameterHover))
                 return parameterHover;
@@ -1031,6 +1177,56 @@ internal sealed class HoverHandler : IHoverHandler
         return false;
     }
 
+    private static bool TryBuildCallableParameterSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
+    {
+        hover = null!;
+
+        if (token.Parent is not ParameterSyntax parameter ||
+            token != parameter.Identifier ||
+            parameter.Identifier.IsMissing)
+        {
+            return false;
+        }
+
+        if (parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any())
+            return false;
+
+        var containing = parameter.Parent switch
+        {
+            ParameterListSyntax { Parent: MethodDeclarationSyntax methodDeclaration }
+                when TryBuildMethodDeclarationSyntaxSignature(sourceText, methodDeclaration, out var methodSignature) => methodSignature,
+            ParameterListSyntax { Parent: FunctionStatementSyntax functionStatement }
+                when TryBuildFunctionStatementSyntaxSignature(sourceText, functionStatement, out var functionSignature) => functionSignature,
+            ParameterListSyntax { Parent: FunctionExpressionSyntax functionExpression } => BuildFunctionExpressionSyntaxSignature(functionExpression),
+            SimpleFunctionExpressionSyntax simpleFunction => BuildFunctionExpressionSyntaxSignature(simpleFunction),
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(containing))
+            return false;
+
+        var signature = BuildCallableParameterSyntaxSignature(parameter);
+        if (string.IsNullOrWhiteSpace(signature))
+            return false;
+
+        hover = new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = BuildHoverText(
+                    signature,
+                    kind: "Parameter",
+                    containing: containing,
+                    documentation: null,
+                    capturedVariables: ImmutableArray<ISymbol>.Empty,
+                    isCapturedVariable: false)
+            }),
+            Range = PositionHelper.ToRange(sourceText, token.Span)
+        };
+        return true;
+    }
+
     private static bool TryBuildPrimaryConstructorParameterSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
     {
         hover = null!;
@@ -1065,6 +1261,25 @@ internal sealed class HoverHandler : IHoverHandler
             Range = PositionHelper.ToRange(sourceText, token.Span)
         };
         return true;
+    }
+
+    private static string BuildCallableParameterSyntaxSignature(ParameterSyntax parameter)
+    {
+        var refPrefix = parameter.RefKindKeyword.Kind switch
+        {
+            SyntaxKind.RefKeyword => "ref ",
+            SyntaxKind.OutKeyword => "out ",
+            SyntaxKind.InKeyword => "in ",
+            _ => string.Empty
+        };
+        var bindingPrefix = parameter.BindingKeyword.Kind switch
+        {
+            SyntaxKind.ValKeyword => "val ",
+            SyntaxKind.VarKeyword => "var ",
+            _ => string.Empty
+        };
+        var typeDisplay = parameter.TypeAnnotation?.Type.ToString() ?? "?";
+        return $"{refPrefix}{bindingPrefix}{parameter.Identifier.ValueText}: {typeDisplay}";
     }
 
     private static bool TryBuildMethodDeclarationSyntaxSignature(
@@ -1403,9 +1618,8 @@ internal sealed class HoverHandler : IHoverHandler
         ExpressionSyntax right,
         SemanticModel semanticModel)
     {
-        var rightType = semanticModel.TryGetAvailableTypeInfo(right, out var rightTypeInfo)
-            ? rightTypeInfo.Type ?? rightTypeInfo.ConvertedType
-            : null;
+        var rightTypeInfo = semanticModel.GetTypeInfo(right);
+        var rightType = rightTypeInfo.Type ?? rightTypeInfo.ConvertedType;
         if (rightType is null)
             return null;
 
@@ -1461,6 +1675,9 @@ internal sealed class HoverHandler : IHoverHandler
     private static string BuildSignature(ISymbol symbol, SyntaxNode contextNode, SemanticModel semanticModel)
     {
         var plainTypeFormat = CreatePlainTypeFormat();
+
+        if (symbol is INamespaceSymbol namespaceSymbol)
+            return $"namespace {FormatNamespaceDisplay(namespaceSymbol)}";
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod } lambda)
         {
@@ -2038,9 +2255,8 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static ITypeSymbol? GetExpressionType(SemanticModel semanticModel, ExpressionSyntax expression)
     {
-        var type = semanticModel.TryGetAvailableTypeInfo(expression, out var expressionTypeInfo)
-            ? expressionTypeInfo.Type ?? expressionTypeInfo.ConvertedType
-            : null;
+        var expressionTypeInfo = semanticModel.GetTypeInfo(expression);
+        var type = expressionTypeInfo.Type ?? expressionTypeInfo.ConvertedType;
         if (type is not null && type.TypeKind != TypeKind.Error)
             return type;
 
@@ -2453,9 +2669,8 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
         }
 
-        var receiverType = semanticModel.TryGetAvailableTypeInfo(memberAccess.Expression, out var receiverTypeInfo)
-            ? receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType
-            : null;
+        var receiverTypeInfo = semanticModel.GetTypeInfo(memberAccess.Expression);
+        var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
             if (TryInferLambdaParameterTypeByNameFromContext(symbolName, receiverIdentifier, semanticModel, out var inferredLambdaType))
@@ -2584,6 +2799,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         return symbol switch
         {
+            INamespaceSymbol namespaceSymbol => $"namespace {FormatNamespaceDisplay(namespaceSymbol)}",
             ILocalSymbol local => $"{(local.IsMutable ? "var" : "val")} {local.Name}: {FormatType(local.Type, tooltipFormat)}",
             IParameterSymbol parameter => $"{parameter.Name}: {FormatType(parameter.Type, tooltipFormat)}",
             ITypeSymbol type => FormatType(type, tooltipFormat),
@@ -2651,6 +2867,15 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
         }
 
+        // Most Raven extension calls are ordinary instance-style member accesses.
+        // Avoid querying the receiver symbol during hover signature construction
+        // unless the syntax looks like static-style type or namespace access.
+        if (parentAccess.Expression is IdentifierNameSyntax receiverIdentifier &&
+            !IsLikelyTypeOrNamespaceIdentifier(receiverIdentifier.Identifier.ValueText))
+        {
+            return true;
+        }
+
         // If the receiver resolves to a type/namespace, this is a static-style access.
         var receiverSymbol = SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, parentAccess.Expression, out var receiverInfo)
             ? receiverInfo.Symbol
@@ -2661,8 +2886,14 @@ internal sealed class HoverHandler : IHoverHandler
         return true;
     }
 
+    private static bool IsLikelyTypeOrNamespaceIdentifier(string name)
+        => !string.IsNullOrEmpty(name) && char.IsUpper(name[0]);
+
     private static string? BuildContainingDisplay(ISymbol symbol, SemanticModel semanticModel)
     {
+        if (symbol is INamespaceSymbol)
+            return null;
+
         if (TryGetExtensionContainerDisplay(symbol, out var extensionContaining))
             return extensionContaining;
 
@@ -2687,6 +2918,27 @@ internal sealed class HoverHandler : IHoverHandler
         var containing = GetUserFacingContainingSymbol(symbol);
         return containing?.ToDisplayString(
             SymbolDisplayFormat.RavenSignatureFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly));
+    }
+
+    private static bool ShouldComputeCaptureInfo(ISymbol symbol, SyntaxNode node)
+    {
+        if (symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return false;
+
+        return symbol is IMethodSymbol ||
+               node is FunctionExpressionSyntax or FunctionStatementSyntax;
+    }
+
+    private static string FormatNamespaceDisplay(INamespaceSymbol namespaceSymbol)
+    {
+        var names = new Stack<string>();
+        for (var current = namespaceSymbol; current is not null && !current.IsGlobalNamespace; current = current.ContainingNamespace)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Name))
+                names.Push(current.Name);
+        }
+
+        return names.Count == 0 ? "<global>" : string.Join(".", names);
     }
 
     private static bool TryGetLambdaContainingDisplay(ISymbol symbol, SemanticModel semanticModel, out string containingDisplay)
@@ -2925,7 +3177,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         var functionType = semanticModel.TryGetFunctionExpressionDelegateType(functionExpression, out var contextualFunctionType)
             ? contextualFunctionType
-            : semanticModel.TryGetAvailableTypeInfo(functionExpression, out var functionTypeInfo)
+            : semanticModel.GetTypeInfo(functionExpression) is var functionTypeInfo
                 ? functionTypeInfo.ConvertedType ?? functionTypeInfo.Type
                 : null;
 
@@ -2945,6 +3197,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         return SymbolDisplayFormat.RavenSignatureFormat
             .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+            .WithDelegateStyle(SymbolDisplayDelegateStyle.NameOnly)
             .WithKindOptions(SymbolDisplayKindOptions.None)
             .WithMiscellaneousOptions(miscOptions);
     }
@@ -2992,7 +3245,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         var functionType = semanticModel.TryGetFunctionExpressionDelegateType(functionExpression, out var contextualFunctionType)
             ? contextualFunctionType
-            : semanticModel.TryGetAvailableTypeInfo(functionExpression, out var functionTypeInfo)
+            : semanticModel.GetTypeInfo(functionExpression) is var functionTypeInfo
                 ? functionTypeInfo.ConvertedType ?? functionTypeInfo.Type
                 : null;
 
@@ -3081,8 +3334,7 @@ internal sealed class HoverHandler : IHoverHandler
     {
         inferredType = null!;
 
-        if (!semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var typeInfo))
-            return false;
+        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
 
         var resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
@@ -3245,7 +3497,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Name is IdentifierNameSyntax memberNameIdentifier &&
-            semanticModel.TryGetAvailableTypeInfo(memberAccess.Expression, out var invocationReceiverTypeInfo) &&
+            semanticModel.GetTypeInfo(memberAccess.Expression) is var invocationReceiverTypeInfo &&
             (invocationReceiverTypeInfo.Type ?? invocationReceiverTypeInfo.ConvertedType) is INamedTypeSymbol invocationReceiverType &&
             invocationReceiverType.TypeKind != TypeKind.Error)
         {
@@ -3341,16 +3593,15 @@ internal sealed class HoverHandler : IHoverHandler
         if (targetExpression is null)
             return false;
 
-        var targetType = semanticModel.TryGetAvailableTypeInfo(targetExpression, out var targetTypeInfo)
-            ? targetTypeInfo.ConvertedType ?? targetTypeInfo.Type
-            : null;
+        var targetTypeInfo = semanticModel.GetTypeInfo(targetExpression);
+        var targetType = targetTypeInfo.ConvertedType ?? targetTypeInfo.Type;
 
         var delegateType = UnwrapDelegateType(targetType);
         if (delegateType is null)
         {
             if (targetExpression is MemberAccessExpressionSyntax memberAccess &&
                 memberAccess.Name is IdentifierNameSyntax memberName &&
-                semanticModel.TryGetAvailableTypeInfo(memberAccess.Expression, out var memberReceiverTypeInfo) &&
+                semanticModel.GetTypeInfo(memberAccess.Expression) is var memberReceiverTypeInfo &&
                 (memberReceiverTypeInfo.Type ?? memberReceiverTypeInfo.ConvertedType) is INamedTypeSymbol receiverType &&
                 receiverType.TypeKind != TypeKind.Error)
             {
@@ -3506,9 +3757,8 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
         }
 
-        var receiverType = semanticModel.TryGetAvailableTypeInfo(receiverMemberAccess.Expression, out var receiverTypeInfo)
-            ? receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType
-            : null;
+        var receiverTypeInfo = semanticModel.GetTypeInfo(receiverMemberAccess.Expression);
+        var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
         if ((receiverType is null || receiverType.TypeKind == TypeKind.Error) &&
             TryInferLambdaParameterTypeByNameFromContext(symbolName, receiverIdentifier, semanticModel, out var inferredLambdaType))
         {

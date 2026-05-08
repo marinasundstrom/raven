@@ -30,28 +30,59 @@ public static partial class SymbolExtensions
     private static string GetMethodLookupIdentityKey(IMethodSymbol method)
     {
         var definition = method.OriginalDefinition ?? method;
-        var containingType = definition.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
-        var parameters = string.Join(",", method.Parameters.Select(static p => $"{p.RefKind}:{p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"));
+        var containingType = GetTypeLookupIdentityKey(definition.ContainingType);
+        var parameters = string.Join(",", method.Parameters.Select(static p => $"{p.RefKind}:{GetTypeLookupIdentityKey(p.Type)}"));
         var typeArguments = method.TypeArguments.IsDefaultOrEmpty
             ? string.Empty
-            : string.Join(",", method.TypeArguments.Select(static t => t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
-        var returnType = method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            : string.Join(",", method.TypeArguments.Select(static type => GetTypeLookupIdentityKey(type)));
+        var returnType = GetTypeLookupIdentityKey(method.ReturnType);
         return $"M:{containingType}|{definition.MetadataName}|{method.Arity}|{typeArguments}|{parameters}|{returnType}";
     }
 
     private static string GetPropertyLookupIdentityKey(IPropertySymbol property)
     {
         var definition = property.OriginalDefinition ?? property;
-        var containingType = definition.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
-        var parameters = string.Join(",", property.Parameters.Select(static p => $"{p.RefKind}:{p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"));
-        var propertyType = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var containingType = GetTypeLookupIdentityKey(definition.ContainingType);
+        var parameters = string.Join(",", property.Parameters.Select(static p => $"{p.RefKind}:{GetTypeLookupIdentityKey(p.Type)}"));
+        var propertyType = GetTypeLookupIdentityKey(property.Type);
         return $"P:{containingType}|{definition.MetadataName}|{parameters}|{propertyType}";
     }
 
-    private static string GetTypeLookupIdentityKey(ITypeSymbol type)
+    private static string GetTypeLookupIdentityKey(ITypeSymbol? type)
     {
+        if (type is null)
+            return string.Empty;
+
+        if (type is IArrayTypeSymbol array)
+            return $"A:{array.Rank}:{GetTypeLookupIdentityKey(array.ElementType)}";
+
+        if (type is NullableTypeSymbol nullable)
+            return $"N:{GetTypeLookupIdentityKey(nullable.UnderlyingType)}";
+
+        if (type is ITypeParameterSymbol typeParameter)
+            return $"TP:{typeParameter.ContainingSymbol?.MetadataName}:{typeParameter.MetadataName}";
+
         var definition = type.OriginalDefinition ?? type;
-        return $"T:{definition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
+        var container = GetTypeLookupIdentityKey(definition.ContainingType);
+        if (string.IsNullOrEmpty(container))
+            container = GetNamespaceLookupIdentityKey(definition.ContainingNamespace);
+
+        var typeArguments = type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty
+            ? $"<{string.Join(",", namedType.TypeArguments.Select(static typeArgument => GetTypeLookupIdentityKey(typeArgument)))}>"
+            : string.Empty;
+
+        return $"T:{container}|{definition.MetadataName}{typeArguments}";
+    }
+
+    private static string GetNamespaceLookupIdentityKey(INamespaceSymbol? namespaceSymbol)
+    {
+        if (namespaceSymbol is null)
+            return string.Empty;
+
+        var containing = GetNamespaceLookupIdentityKey(namespaceSymbol.ContainingNamespace);
+        return string.IsNullOrEmpty(containing)
+            ? namespaceSymbol.MetadataName
+            : $"{containing}.{namespaceSymbol.MetadataName}";
     }
 
     public static ITypeSymbol GetByRefElementType(this IParameterSymbol parameter)
@@ -379,11 +410,11 @@ public static partial class SymbolExtensions
         if (method.IsExtensionMethod)
             return true;
 
-        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
-            return false;
-
         var receiverType = method.GetExtensionReceiverType();
         if (receiverType is null)
+            return false;
+
+        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
             return false;
 
         return SymbolEqualityComparer.Default.Equals(receiverType, method.Parameters[0].Type);

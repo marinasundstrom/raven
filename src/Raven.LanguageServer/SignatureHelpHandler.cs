@@ -78,7 +78,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
             if (invocation is not null)
             {
-                semanticModel.TryGetAvailableSymbolInfo(invocation, out var symbolInfo);
+                var symbolInfo = semanticModel.GetSymbolInfo(invocation);
                 var methods = GetCandidateMethods(symbolInfo, semanticModel, invocation);
                 if (methods.IsDefaultOrEmpty)
                     return null;
@@ -110,9 +110,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 return null;
 
             var bracketArgumentIndex = GetArgumentIndex(elementAccessContext.ArgumentList, offset);
-            var selectedIndexer = semanticModel.TryGetAvailableSymbolInfo(elementAccessContext.SymbolInfoNode, out var indexerInfo)
-                ? indexerInfo.Symbol as IPropertySymbol
-                : null;
+            var indexerInfo = semanticModel.GetSymbolInfo(elementAccessContext.SymbolInfoNode);
+            var selectedIndexer = indexerInfo.Symbol as IPropertySymbol;
             var activeIndexerSignature = GetActiveSignatureIndex(indexers, selectedIndexer, bracketArgumentIndex);
             var activeIndexerParameter = GetActiveParameterIndex(indexers[activeIndexerSignature], elementAccessContext.ArgumentList, offset, bracketArgumentIndex);
 
@@ -291,19 +290,16 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             builder.Add(method);
         }
 
-        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableCandidates))
-        {
-            foreach (var method in availableCandidates)
-                AddIfNotPresent(method);
-        }
+        foreach (var method in symbolInfo.CandidateSymbols.OfType<IMethodSymbol>())
+            AddIfNotPresent(method);
 
         foreach (var method in builder.ToImmutableArray())
             AddSiblingOverloads(method, AddIfNotPresent);
 
         if (builder.Count == 0)
         {
-            if (semanticModel.TryGetAvailableTypeInfo(invocation.Expression, out var typeInfo) &&
-                (typeInfo.Type ?? typeInfo.ConvertedType) is INamedTypeSymbol expressionType)
+            var typeInfo = semanticModel.GetTypeInfo(invocation.Expression);
+            if ((typeInfo.Type ?? typeInfo.ConvertedType) is INamedTypeSymbol expressionType)
             {
                 if (expressionType.GetDelegateInvokeMethod() is { } invokeMethod)
                     AddIfNotPresent(invokeMethod);
@@ -319,9 +315,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             invocation.Expression is ReceiverBindingExpressionSyntax &&
             invocation.Parent is ConditionalAccessExpressionSyntax conditionalAccess)
         {
-            var receiverType = semanticModel.TryGetAvailableTypeInfo(conditionalAccess.Expression, out var receiverTypeInfo)
-                ? GetConditionalAccessLookupType(receiverTypeInfo.Type)
-                : null;
+            var receiverTypeInfo = semanticModel.GetTypeInfo(conditionalAccess.Expression);
+            var receiverType = GetConditionalAccessLookupType(receiverTypeInfo.Type);
             if (receiverType is INamedTypeSymbol receiverNamedType)
             {
                 if (receiverNamedType.GetDelegateInvokeMethod() is { } invokeMethod)
@@ -400,7 +395,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             builder.Add(property);
         }
 
-        if (semanticModel.TryGetAvailableSymbolInfo(context.SymbolInfoNode, out var symbolInfo))
+        var symbolInfo = semanticModel.GetSymbolInfo(context.SymbolInfoNode);
+        if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
             if (symbolInfo.Symbol is IPropertySymbol selectedIndexer)
                 AddIfNotPresent(selectedIndexer);
@@ -414,9 +410,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         if (builder.Count == 0)
         {
-            var receiverType = semanticModel.TryGetAvailableTypeInfo(context.ReceiverExpression, out var receiverTypeInfo)
-                ? GetConditionalAccessLookupType(receiverTypeInfo.Type)
-                : null;
+            var receiverTypeInfo = semanticModel.GetTypeInfo(context.ReceiverExpression);
+            var receiverType = GetConditionalAccessLookupType(receiverTypeInfo.Type);
             if (receiverType is ITypeSymbol type)
             {
                 foreach (var indexer in type.GetMembers().OfType<IPropertySymbol>().Where(static p => p.IsIndexer))

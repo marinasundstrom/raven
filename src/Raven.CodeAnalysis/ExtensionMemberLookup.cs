@@ -85,6 +85,62 @@ internal static class ExtensionMemberLookup
         return new ExtensionMemberLookupResult(instanceMethods, instanceProperties, staticMethods, staticProperties);
     }
 
+    public static bool TryGetCached(
+        Binder binder,
+        ITypeSymbol receiverType,
+        out ExtensionMemberLookupResult result,
+        string? name = null,
+        bool includePartialMatches = false,
+        ExtensionMemberKinds kinds = ExtensionMemberKinds.All)
+    {
+        ArgumentNullException.ThrowIfNull(binder);
+
+        result = ExtensionMemberLookupResult.Empty;
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error || kinds == ExtensionMemberKinds.None)
+            return false;
+
+        var allRequestedLookupsCached = true;
+        var instanceMethods = ImmutableArray<IMethodSymbol>.Empty;
+        var instanceProperties = ImmutableArray<IPropertySymbol>.Empty;
+        var staticMethods = ImmutableArray<IMethodSymbol>.Empty;
+        var staticProperties = ImmutableArray<IPropertySymbol>.Empty;
+
+        if (kinds.HasFlag(ExtensionMemberKinds.InstanceMethods))
+        {
+            if (binder.TryGetCachedExtensionMethods(name, receiverType, includePartialMatches, out instanceMethods))
+                instanceMethods = DistinctSymbols(instanceMethods);
+            else
+                allRequestedLookupsCached = false;
+        }
+
+        if (kinds.HasFlag(ExtensionMemberKinds.InstanceProperties))
+        {
+            if (binder.TryGetCachedExtensionProperties(name, receiverType, includePartialMatches, out instanceProperties))
+                instanceProperties = DistinctSymbols(instanceProperties);
+            else
+                allRequestedLookupsCached = false;
+        }
+
+        if (kinds.HasFlag(ExtensionMemberKinds.StaticMethods))
+        {
+            if (binder.TryGetCachedExtensionStaticMethods(name, receiverType, includePartialMatches, out staticMethods))
+                staticMethods = DistinctSymbols(staticMethods);
+            else
+                allRequestedLookupsCached = false;
+        }
+
+        if (kinds.HasFlag(ExtensionMemberKinds.StaticProperties))
+        {
+            if (binder.TryGetCachedExtensionStaticProperties(name, receiverType, includePartialMatches, out staticProperties))
+                staticProperties = DistinctSymbols(staticProperties);
+            else
+                allRequestedLookupsCached = false;
+        }
+
+        result = new ExtensionMemberLookupResult(instanceMethods, instanceProperties, staticMethods, staticProperties);
+        return allRequestedLookupsCached;
+    }
+
     private static ImmutableArray<TSymbol> DistinctSymbols<TSymbol>(IEnumerable<TSymbol> symbols)
         where TSymbol : class, ISymbol
     {

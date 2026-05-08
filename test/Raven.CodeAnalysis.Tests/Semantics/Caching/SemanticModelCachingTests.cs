@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -7,6 +8,29 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class SemanticModelCachingTests : CompilationTestBase
 {
+    [Fact]
+    public void GetSemanticModel_ReturnsStableInstanceUnderConcurrentQueries()
+    {
+        var tree = SyntaxTree.ParseText("""
+class C {
+    func Test() -> int {
+        1
+    }
+}
+""");
+        var compilation = CreateCompilation(tree);
+        var models = new SemanticModel[128];
+
+        Parallel.For(0, models.Length, i =>
+        {
+            models[i] = compilation.GetSemanticModel(tree);
+        });
+
+        var first = models[0];
+        Assert.NotNull(first);
+        Assert.All(models, model => Assert.Same(first, model));
+    }
+
     [Fact]
     public void RepeatedCachedNodeLookup_DoesNotRebindContextualRoot()
     {
@@ -181,6 +205,87 @@ class C {
     }
 
     [Fact]
+    public void TryGetAvailableSymbolInfo_CachesLocalDeclarationSymbolInfo()
+    {
+        var code = """
+class C {
+    func Test() {
+        val scope: string = ""
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "scope");
+
+        Assert.True(model.TryGetAvailableSymbolInfo(declarator, out var first));
+        Assert.IsAssignableFrom<ILocalSymbol>(first.Symbol);
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableSymbolInfo(declarator, out var second));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.IsAssignableFrom<ILocalSymbol>(second.Symbol);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(1, delta.SymbolInfoCacheHits);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_CachesLocalDeclarationSymbolInfo()
+    {
+        var code = """
+class C {
+    func CreateScope() -> string => ""
+
+    func Test() {
+        val scope = CreateScope()
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "scope");
+
+        Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableSymbolInfo(declarator, out var cached));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.IsAssignableFrom<ILocalSymbol>(cached.Symbol);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(1, delta.SymbolInfoCacheHits);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
     public void TryGetAvailableTypeInfo_DoesNotBindColdInvocation()
     {
         var code = """
@@ -251,6 +356,44 @@ func Main() -> () {
         Assert.Equal(2, methods.Length);
         Assert.All(methods, method => Assert.Equal("Foo", method.Name));
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void TryGetAvailableExtensionInvocationCandidates_DoesNotNameScanColdImports()
+    {
+        var code = """
+import System.Linq.*
+
+class C {
+    func Test() {
+        val projection = missing.Where(value => true)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.False(model.TryGetAvailableExtensionInvocationCandidates(invocation, out var methods));
+        Assert.True(methods.IsDefaultOrEmpty);
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }
 
     [Fact]
@@ -390,6 +533,63 @@ class C {
         Assert.Equal(0, instrumentation.BinderReentry.TotalCacheHits);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(0, instrumentation.BinderReentry.GetBindExecutionCount(ifStatement));
+    }
+
+    [Fact]
+    public void ConstructedMethodSymbol_CachesSubstitutedSignatureTypes()
+    {
+        var code = """
+class Box<T> {
+}
+
+class C {
+    func Echo<T>(value: Box<T>) -> Box<T> => value
+
+    func Test(value: Box<int>) {
+        Echo<int>(value)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var parameter = Assert.Single(method.Parameters);
+
+        Assert.Same(parameter.Type, parameter.Type);
+        Assert.Same(method.ReturnType, method.ReturnType);
+    }
+
+    [Fact]
+    public void SubstitutedMethodSymbol_CachesSubstitutedSignatureTypes()
+    {
+        var code = """
+class Box<T> {
+    func Echo(value: Box<T>) -> Box<T> => value
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+        var box = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var constructedBox = box.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            Assert.Single(constructedBox.GetMembers("Echo")));
+        var parameter = Assert.Single(method.Parameters);
+
+        Assert.Same(parameter.Type, parameter.Type);
+        Assert.Same(method.ReturnType, method.ReturnType);
     }
 
     [Fact]

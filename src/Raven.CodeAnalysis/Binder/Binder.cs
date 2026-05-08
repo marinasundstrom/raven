@@ -367,6 +367,25 @@ internal abstract partial class Binder
         return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
     }
 
+    public virtual bool TryGetCachedExtensionMethods(
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches,
+        out ImmutableArray<IMethodSymbol> methods)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        {
+            methods = ImmutableArray<IMethodSymbol>.Empty;
+            return false;
+        }
+
+        if (ParentBinder is not null)
+            return ParentBinder.TryGetCachedExtensionMethods(name, receiverType, includePartialMatches, out methods);
+
+        methods = ImmutableArray<IMethodSymbol>.Empty;
+        return false;
+    }
+
     public virtual IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null)
@@ -376,6 +395,25 @@ internal abstract partial class Binder
             return Enumerable.Empty<IPropertySymbol>();
 
         return ParentBinder?.LookupExtensionProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IPropertySymbol>();
+    }
+
+    public virtual bool TryGetCachedExtensionProperties(
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches,
+        out ImmutableArray<IPropertySymbol> properties)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        {
+            properties = ImmutableArray<IPropertySymbol>.Empty;
+            return false;
+        }
+
+        if (ParentBinder is not null)
+            return ParentBinder.TryGetCachedExtensionProperties(name, receiverType, includePartialMatches, out properties);
+
+        properties = ImmutableArray<IPropertySymbol>.Empty;
+        return false;
     }
 
     public virtual IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
@@ -389,6 +427,25 @@ internal abstract partial class Binder
         return ParentBinder?.LookupExtensionStaticMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
     }
 
+    public virtual bool TryGetCachedExtensionStaticMethods(
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches,
+        out ImmutableArray<IMethodSymbol> methods)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        {
+            methods = ImmutableArray<IMethodSymbol>.Empty;
+            return false;
+        }
+
+        if (ParentBinder is not null)
+            return ParentBinder.TryGetCachedExtensionStaticMethods(name, receiverType, includePartialMatches, out methods);
+
+        methods = ImmutableArray<IMethodSymbol>.Empty;
+        return false;
+    }
+
     public virtual IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null)
@@ -398,6 +455,33 @@ internal abstract partial class Binder
             return Enumerable.Empty<IPropertySymbol>();
 
         return ParentBinder?.LookupExtensionStaticProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IPropertySymbol>();
+    }
+
+    public virtual bool TryGetCachedExtensionStaticProperties(
+        string? name,
+        ITypeSymbol receiverType,
+        bool includePartialMatches,
+        out ImmutableArray<IPropertySymbol> properties)
+    {
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        {
+            properties = ImmutableArray<IPropertySymbol>.Empty;
+            return false;
+        }
+
+        if (ParentBinder is not null)
+            return ParentBinder.TryGetCachedExtensionStaticProperties(name, receiverType, includePartialMatches, out properties);
+
+        properties = ImmutableArray<IPropertySymbol>.Empty;
+        return false;
+    }
+
+    public virtual IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return Enumerable.Empty<IMethodSymbol>();
+
+        return ParentBinder?.LookupExtensionMethodsByName(name) ?? Enumerable.Empty<IMethodSymbol>();
     }
 
     protected IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
@@ -415,6 +499,19 @@ internal abstract partial class Binder
                 continue;
 
             yield return AdjustExtensionForReceiver(method, receiverType);
+        }
+    }
+
+    protected IEnumerable<IMethodSymbol> GetExtensionMethodsByNameFromScope(
+        INamespaceOrTypeSymbol scope,
+        string name)
+    {
+        foreach (var method in EnumerateExtensionMethods(scope, name, includePartialMatches: false))
+        {
+            if (!IsSymbolAccessible(method))
+                continue;
+
+            yield return method;
         }
     }
 
@@ -987,6 +1084,19 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
+            if (!includePartialMatches &&
+                !string.IsNullOrEmpty(name) &&
+                TryGetMetadataExtensionMethodContainers(ns, name, out var extensionContainers))
+            {
+                foreach (var typeMember in extensionContainers)
+                {
+                    foreach (var method in EnumerateExtensionMethods(typeMember, name, includePartialMatches))
+                        yield return method;
+                }
+
+                yield break;
+            }
+
             foreach (var member in ns.GetMembers())
             {
                 if (member is INamedTypeSymbol typeMember)
@@ -1022,6 +1132,21 @@ internal abstract partial class Binder
             foreach (var method in EnumerateExtensionMethods(nested, name, includePartialMatches))
                 yield return method;
         }
+    }
+
+    private static bool TryGetMetadataExtensionMethodContainers(
+        INamespaceSymbol namespaceSymbol,
+        string methodName,
+        out ImmutableArray<INamedTypeSymbol> containers)
+    {
+        containers = namespaceSymbol switch
+        {
+            Symbols.PENamespaceSymbol peNamespace => peNamespace.GetExtensionMethodContainers(methodName),
+            Symbols.MergedNamespaceSymbol mergedNamespace => mergedNamespace.GetExtensionMethodContainers(methodName),
+            _ => ImmutableArray<INamedTypeSymbol>.Empty
+        };
+
+        return !containers.IsDefaultOrEmpty;
     }
 
     private static IEnumerable<IMethodSymbol> EnumerateExtensionStaticMethods(

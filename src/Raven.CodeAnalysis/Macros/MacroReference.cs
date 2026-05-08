@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Threading;
 
 namespace Raven.CodeAnalysis.Macros;
 
@@ -25,10 +26,7 @@ public sealed class MacroReference
     }
 
     public MacroReference(Assembly assembly)
-        : this(() =>
-            assembly.GetTypes()
-                .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
-                .Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!),
+        : this(CreateAssemblyPluginFactory(assembly),
             assembly.Location,
             sourceProjectFilePath: null)
     {
@@ -53,19 +51,39 @@ public sealed class MacroReference
 
         var fullPath = Path.GetFullPath(assemblyPath);
         return new MacroReference(
+            CreateFilePluginFactory(fullPath),
+            fullPath,
+            sourceProjectFilePath);
+    }
+
+    public IEnumerable<IRavenMacroPlugin> GetPlugins() => _pluginFactory();
+
+    private static Func<IEnumerable<IRavenMacroPlugin>> CreateAssemblyPluginFactory(Assembly assembly)
+    {
+        var pluginTypes = new Lazy<Type[]>(
+            () => assembly.GetTypes()
+                .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
+                .ToArray(),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+
+        return () => pluginTypes.Value.Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
+    }
+
+    private static Func<IEnumerable<IRavenMacroPlugin>> CreateFilePluginFactory(string fullPath)
+    {
+        var pluginTypes = new Lazy<Type[]>(
             () =>
             {
                 var loadContext = new MacroAssemblyLoadContext(fullPath);
                 var assembly = loadContext.LoadFromAssemblyPath(fullPath);
                 return assembly.GetTypes()
                     .Where(static t => typeof(IRavenMacroPlugin).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) is not null)
-                    .Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
+                    .ToArray();
             },
-            fullPath,
-            sourceProjectFilePath);
-    }
+            LazyThreadSafetyMode.ExecutionAndPublication);
 
-    public IEnumerable<IRavenMacroPlugin> GetPlugins() => _pluginFactory();
+        return () => pluginTypes.Value.Select(static t => (IRavenMacroPlugin)Activator.CreateInstance(t)!);
+    }
 
     private sealed class MacroAssemblyLoadContext : AssemblyLoadContext
     {

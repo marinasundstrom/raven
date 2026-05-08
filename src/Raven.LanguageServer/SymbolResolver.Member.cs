@@ -194,11 +194,7 @@ internal static partial class SymbolResolver
         TypeSyntax typeSyntax,
         out ITypeSymbol? resolvedType)
     {
-        if (!semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var typeInfo))
-        {
-            resolvedType = null;
-            return false;
-        }
+        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
 
         resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolvedType is not null && resolvedType.TypeKind != TypeKind.Error)
@@ -234,7 +230,7 @@ internal static partial class SymbolResolver
         }
 
         if (memberAccess.Name.Span.Contains(tokenSpan) &&
-            semanticModel.TryGetAvailableSymbolInfo(memberAccess, out var cachedMemberAccessInfo))
+            TryGetSymbolInfo(semanticModel, memberAccess, out var cachedMemberAccessInfo))
         {
             var chosenCachedMemberAccessSymbol = ProjectSymbolForDisplay(
                 ChoosePreferredSymbol(cachedMemberAccessInfo.Symbol, cachedMemberAccessInfo.CandidateSymbols, memberAccess));
@@ -243,7 +239,7 @@ internal static partial class SymbolResolver
         }
 
         if (memberAccess.Name.Span.Contains(tokenSpan) &&
-            semanticModel.TryGetAvailableSymbolInfo(memberAccess.Name, out var cachedNameInfo))
+            TryGetSymbolInfo(semanticModel, memberAccess.Name, out var cachedNameInfo))
         {
             var chosenCachedNameSymbol = ProjectSymbolForDisplay(
                 ChoosePreferredSymbol(cachedNameInfo.Symbol, cachedNameInfo.CandidateSymbols, memberAccess.Name));

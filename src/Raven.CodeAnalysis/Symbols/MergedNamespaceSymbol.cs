@@ -151,6 +151,33 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
                 .Cast<ITypeSymbol>());
     }
 
+    internal ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
+    {
+        if (string.IsNullOrWhiteSpace(methodName))
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var ns in _namespaces)
+        {
+            ImmutableArray<INamedTypeSymbol> containers = ns switch
+            {
+                PENamespaceSymbol peNamespace => peNamespace.GetExtensionMethodContainers(methodName),
+                MergedNamespaceSymbol mergedNamespace => mergedNamespace.GetExtensionMethodContainers(methodName),
+                _ => ImmutableArray<INamedTypeSymbol>.Empty
+            };
+
+            foreach (var container in containers)
+            {
+                if (seen.Add(container))
+                    builder.Add(container);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
     public string ToMetadataName()
     {
         var parts = new Stack<string>();

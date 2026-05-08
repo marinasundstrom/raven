@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
@@ -82,6 +83,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private readonly bool _isValueType;
     private readonly List<ISymbol> _members = new(); //new(SymbolEqualityComparer.Default);
     private readonly object _membersGate = new();
+    private readonly HashSet<string> _memberNamesLoaded = new(StringComparer.Ordinal);
     private INamedTypeSymbol? _baseType;
     private bool _membersLoaded;
     private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
@@ -314,17 +316,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (!methodInfo.IsStatic || !HasExtensionAttribute(GetCustomAttributesSafe(methodInfo)))
                 continue;
 
-            var methodSymbol = new PEMethodSymbol(
-                _reflectionTypeLoader,
-                methodInfo,
-                this,
-                [new MetadataLocation(ContainingModule!)],
-                addAsMember: false);
-
-            if (methodSymbol.Parameters.IsDefaultOrEmpty || methodSymbol.Parameters.Length == 0)
+            if (!TryGetFirstParameterType(methodInfo, out var receiverType))
                 continue;
 
-            _extensionReceiverType = methodSymbol.Parameters[0].Type;
+            _extensionReceiverType = receiverType;
             break;
         }
 
@@ -333,18 +328,22 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (!HasExtensionMarkerMembers())
                 return null;
 
-            foreach (var member in GetMembers())
+            _extensionReceiverType = GetFirstExtensionMarkerReceiverType();
+            if (_extensionReceiverType is null)
             {
-                if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
+                foreach (var member in GetMembers())
                 {
-                    _extensionReceiverType = GetExtensionMarkerReceiverType(peMethod);
-                    break;
-                }
+                    if (member is PEMethodSymbol peMethod && peMethod.TryGetExtensionMarkerName(out _))
+                    {
+                        _extensionReceiverType = GetExtensionMarkerReceiverType(peMethod);
+                        break;
+                    }
 
-                if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
-                {
-                    _extensionReceiverType = GetExtensionMarkerReceiverType(peProperty);
-                    break;
+                    if (member is PEPropertySymbol peProperty && peProperty.TryGetExtensionMarkerName(out _))
+                    {
+                        _extensionReceiverType = GetExtensionMarkerReceiverType(peProperty);
+                        break;
+                    }
                 }
             }
         }
@@ -409,9 +408,23 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         if (string.IsNullOrWhiteSpace(markerName))
             return null;
 
+        return GetExtensionMarkerReceiverType(markerName);
+    }
+
+    private ITypeSymbol? GetExtensionMarkerReceiverType(string markerName)
+    {
+        if (string.IsNullOrWhiteSpace(markerName))
+            return null;
+
         var markerType = FindNestedMarkerType(markerName);
         if (markerType is null)
             return null;
+
+        if (markerType is PENamedTypeSymbol peMarkerType &&
+            peMarkerType.TryGetMarkerExtensionReceiverType(out var receiverType))
+        {
+            return receiverType;
+        }
 
         var markerMethod = markerType.GetMembers("<Extension>$").OfType<IMethodSymbol>().FirstOrDefault()
             ?? markerType.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "<Extension>$");
@@ -419,45 +432,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         if (markerMethod is not null && !markerMethod.Parameters.IsDefaultOrEmpty)
             return markerMethod.Parameters[0].Type;
 
-        if (markerType is not PENamedTypeSymbol peMarkerType)
-            return null;
-
-        try
-        {
-            foreach (var methodInfo in peMarkerType.GetTypeInfo().DeclaredMethods)
-            {
-                if (methodInfo.Name != "<Extension>$")
-                    continue;
-
-                var parameters = methodInfo.GetParameters();
-                if (parameters.Length == 0)
-                    return null;
-
-                return PEContainingModule.GetType(parameters[0].ParameterType);
-            }
-        }
-        catch (BadImageFormatException)
-        {
-            return null;
-        }
-
         return null;
     }
 
     private INamedTypeSymbol? FindNestedMarkerType(string markerName)
     {
-        foreach (var member in GetMembers().OfType<INamedTypeSymbol>())
-        {
-            if (member.Name == markerName)
-                return member;
-
-            if (member is PENamedTypeSymbol nested &&
-                nested.FindNestedMarkerType(markerName) is { } nestedMatch)
-            {
-                return nestedMatch;
-            }
-        }
-
         foreach (var nestedTypeInfo in GetDeclaredNestedTypesSafe())
         {
             var nested = PEContainingModule.GetType(nestedTypeInfo.AsType()) as INamedTypeSymbol;
@@ -474,7 +453,78 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             }
         }
 
+        foreach (var member in GetMembers().OfType<INamedTypeSymbol>())
+        {
+            if (member.Name == markerName)
+                return member;
+
+            if (member is PENamedTypeSymbol nested &&
+                nested.FindNestedMarkerType(markerName) is { } nestedMatch)
+            {
+                return nestedMatch;
+            }
+        }
+
         return null;
+    }
+
+    private ITypeSymbol? GetFirstExtensionMarkerReceiverType()
+    {
+        foreach (var methodInfo in GetDeclaredMethodsSafe())
+        {
+            if (TryGetExtensionMarkerName(GetCustomAttributesSafe(methodInfo), out var markerName) &&
+                GetExtensionMarkerReceiverType(markerName) is { } receiverType)
+            {
+                return receiverType;
+            }
+        }
+
+        foreach (var propertyInfo in GetDeclaredPropertiesSafe())
+        {
+            if (TryGetExtensionMarkerName(GetCustomAttributesSafe(propertyInfo), out var markerName) &&
+                GetExtensionMarkerReceiverType(markerName) is { } receiverType)
+            {
+                return receiverType;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryGetMarkerExtensionReceiverType(out ITypeSymbol? receiverType)
+    {
+        foreach (var methodInfo in GetDeclaredMethodsSafe())
+        {
+            if (methodInfo.Name != "<Extension>$")
+                continue;
+
+            if (TryGetFirstParameterType(methodInfo, out receiverType))
+                return true;
+
+            return false;
+        }
+
+        receiverType = null;
+        return false;
+    }
+
+    private bool TryGetFirstParameterType(MethodBase methodInfo, out ITypeSymbol? parameterType)
+    {
+        parameterType = null;
+
+        try
+        {
+            var parameters = methodInfo.GetParameters();
+            if (parameters.Length == 0)
+                return false;
+
+            parameterType = PEContainingModule.GetType(parameters[0].ParameterType);
+            return parameterType is not null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or TypeLoadException or System.IO.FileNotFoundException or NotSupportedException or InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static bool TryGetExtensionMarkerName(ISymbol member, out string markerName)
@@ -750,7 +800,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
-        EnsureMembersLoaded();
+        EnsureMembersWithNameLoaded(name);
         return GetMembersSnapshot().Where(x => x.Name == name).ToImmutableArray();
     }
 
@@ -805,6 +855,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var methodInfo in _typeInfo.DeclaredMethods)
             {
+                if (_memberNamesLoaded.Contains(methodInfo.Name))
+                    continue;
+
                 if (methodInfo.IsSpecialName &&
                     methodInfo.Name != "<Extension>$" &&
                     methodInfo.Name is not "op_Implicit" and not "op_Explicit")
@@ -829,6 +882,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var propertyInfo in _typeInfo.DeclaredProperties)
             {
+                if (_memberNamesLoaded.Contains(propertyInfo.Name))
+                    continue;
+
                 var property = new PEPropertySymbol(
                     _reflectionTypeLoader,
                     propertyInfo,
@@ -895,6 +951,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var eventInfo in _typeInfo.DeclaredEvents)
             {
+                if (_memberNamesLoaded.Contains(eventInfo.Name))
+                    continue;
+
                 var @event = new PEEventSymbol(
                     _reflectionTypeLoader,
                     eventInfo,
@@ -926,6 +985,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var fieldInfo in _typeInfo.DeclaredFields)
             {
+                if (_memberNamesLoaded.Contains(fieldInfo.Name))
+                    continue;
+
                 if (fieldInfo.IsSpecialName)
                     continue;
 
@@ -938,6 +1000,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var constructorInfo in _typeInfo.DeclaredConstructors)
             {
+                if (_memberNamesLoaded.Contains(constructorInfo.Name))
+                    continue;
+
                 new PEMethodSymbol(
                     _reflectionTypeLoader,
                     constructorInfo,
@@ -947,8 +1012,156 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
             {
+                if (_memberNamesLoaded.Contains(nestedTypeInfo.Name))
+                    continue;
+
                 // Always intern nested types via the module's Type-based cache to avoid creating duplicate symbols.
                 // The module is responsible for placing nested types under the correct containing type.
+                var module = (PEModuleSymbol)ContainingModule;
+                _ = module.GetType(nestedTypeInfo.AsType());
+            }
+        }
+    }
+
+    private void EnsureMembersWithNameLoaded(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            EnsureMembersLoaded();
+            return;
+        }
+
+        lock (_membersGate)
+        {
+            if (_membersLoaded || !_memberNamesLoaded.Add(name))
+                return;
+
+            foreach (var methodInfo in _typeInfo.DeclaredMethods)
+            {
+                if (!string.Equals(methodInfo.Name, name, StringComparison.Ordinal))
+                    continue;
+
+                if (methodInfo.IsSpecialName &&
+                    methodInfo.Name != "<Extension>$" &&
+                    methodInfo.Name is not "op_Implicit" and not "op_Explicit")
+                {
+                    continue;
+                }
+
+                if (name.StartsWith("get_")
+                    || name.StartsWith("set_")
+                    || name.StartsWith("add_")
+                    || name.StartsWith("remove_"))
+                    continue;
+
+                new PEMethodSymbol(
+                    _reflectionTypeLoader,
+                    methodInfo,
+                    this,
+                    [new MetadataLocation(ContainingModule!)]);
+            }
+
+            foreach (var propertyInfo in _typeInfo.DeclaredProperties)
+            {
+                if (!string.Equals(propertyInfo.Name, name, StringComparison.Ordinal))
+                    continue;
+
+                var property = new PEPropertySymbol(
+                    _reflectionTypeLoader,
+                    propertyInfo,
+                    this,
+                    [new MetadataLocation(ContainingModule!)]);
+
+                if (propertyInfo.GetMethod is not null)
+                {
+                    property.GetMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        propertyInfo.GetMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: property);
+                }
+
+                if (propertyInfo.SetMethod is not null)
+                {
+                    property.SetMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        propertyInfo.SetMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: property);
+                }
+            }
+
+            foreach (var eventInfo in _typeInfo.DeclaredEvents)
+            {
+                if (!string.Equals(eventInfo.Name, name, StringComparison.Ordinal))
+                    continue;
+
+                var @event = new PEEventSymbol(
+                    _reflectionTypeLoader,
+                    eventInfo,
+                    this,
+                    [new MetadataLocation(ContainingModule!)]);
+
+                if (eventInfo.AddMethod is not null)
+                {
+                    @event.AddMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        eventInfo.AddMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: @event);
+                }
+
+                if (eventInfo.RemoveMethod is not null)
+                {
+                    @event.RemoveMethod = new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        eventInfo.RemoveMethod,
+                        this,
+                        this,
+                        [new MetadataLocation(ContainingModule!)],
+                        associatedSymbol: @event);
+                }
+            }
+
+            foreach (var fieldInfo in _typeInfo.DeclaredFields)
+            {
+                if (fieldInfo.IsSpecialName ||
+                    !string.Equals(fieldInfo.Name, name, StringComparison.Ordinal))
+                    continue;
+
+                new PEFieldSymbol(
+                    _reflectionTypeLoader,
+                    fieldInfo,
+                    this,
+                    [new MetadataLocation(ContainingModule!)]);
+            }
+
+            if (name is ".ctor" or ".cctor")
+            {
+                foreach (var constructorInfo in _typeInfo.DeclaredConstructors)
+                {
+                    if (!string.Equals(constructorInfo.Name, name, StringComparison.Ordinal))
+                        continue;
+
+                    new PEMethodSymbol(
+                        _reflectionTypeLoader,
+                        constructorInfo,
+                        this,
+                        [new MetadataLocation(ContainingModule!)]);
+                }
+            }
+
+            foreach (var nestedTypeInfo in _typeInfo.DeclaredNestedTypes)
+            {
+                if (!string.Equals(nestedTypeInfo.Name, name, StringComparison.Ordinal))
+                    continue;
+
                 var module = (PEModuleSymbol)ContainingModule;
                 _ = module.GetType(nestedTypeInfo.AsType());
             }
@@ -1034,10 +1247,22 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     private static bool HasExtensionMarkerName(IEnumerable<CustomAttributeData> attributes)
     {
+        return TryGetExtensionMarkerName(attributes, out _);
+    }
+
+    private static bool TryGetExtensionMarkerName(IEnumerable<CustomAttributeData> attributes, out string markerName)
+    {
+        markerName = string.Empty;
+
         foreach (var attribute in attributes)
         {
-            if (GetAttributeTypeName(attribute) == "System.Runtime.CompilerServices.ExtensionMarkerNameAttribute")
-                return true;
+            if (GetAttributeTypeName(attribute) != "System.Runtime.CompilerServices.ExtensionMarkerNameAttribute")
+                continue;
+
+            if (attribute.ConstructorArguments is [{ Value: string name }])
+                markerName = name;
+
+            return true;
         }
 
         return false;

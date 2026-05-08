@@ -1169,6 +1169,12 @@ stopwatch.Stop();
 var allowConsoleOutput = project.Documents.Count() == 1;
 var debugDir = FindDebugDirectory();
 var ilVerifyFailed = false;
+var writeDebugSourceArtifacts = printRawSyntax ||
+                                printSyntaxTree ||
+                                printSyntax ||
+                                macroSourceDumpTarget is not null ||
+                                printBinders ||
+                                printBoundTree;
 
 if (debugDir is not null)
 {
@@ -1188,77 +1194,80 @@ if (debugDir is not null)
         compilation.PerformanceInstrumentation.Setup.GetSummary());
     compilation.PerformanceInstrumentation.Setup.Reset();
 
-    foreach (var document in project.Documents)
+    if (writeDebugSourceArtifacts)
     {
-        var syntaxTree = document.GetSyntaxTreeAsync().Result!;
-        var root = syntaxTree.GetRoot();
-        var name = Path.GetFileNameWithoutExtension(document.FilePath) ?? document.Name;
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        var expandedRoot = semanticModel.GetExpandedRoot();
-        var expandedSyntaxTree = SyntaxTree.Create(
-            expandedRoot,
-            syntaxTree.Options,
-            syntaxTree.Encoding,
-            syntaxTree.FilePath);
-        expandedRoot = expandedSyntaxTree.GetRoot();
-        var expandedCompilation = Compilation.Create(
-            compilation.AssemblyName,
-            [expandedSyntaxTree],
-            compilation.References.ToArray(),
-            compilation.MacroReferences.ToArray(),
-            compilation.Options);
-
-        DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.raw{RavenFileExtensions.Raven}");
-        DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.macro-original{RavenFileExtensions.Raven}");
-        DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.macro-expanded{RavenFileExtensions.Raven}");
-
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.raw.txt"), root.ToFullString());
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-original.txt"), root.ToFullString());
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-expanded.txt"), expandedRoot.ToFullString());
-
-        var treeText = root.GetSyntaxTreeRepresentation(new PrinterOptions
+        foreach (var document in project.Documents)
         {
-            IncludeNames = true,
-            IncludeTokens = true,
-            IncludeTrivia = true,
-            IncludeSpans = true,
-            IncludeLocations = true,
-            Colorize = false,
-            ExpandListsAsProperties = true,
-            IncludeDiagnostics = true,
-            IncludeAnnotations = true,
-            DiagnosticsAsChildren = true,
-            AnnotationsAsChildren = true,
-        }).StripAnsiCodes();
+            var syntaxTree = document.GetSyntaxTreeAsync().Result!;
+            var root = syntaxTree.GetRoot();
+            var name = Path.GetFileNameWithoutExtension(document.FilePath) ?? document.Name;
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var expandedRoot = semanticModel.GetExpandedRoot();
+            var expandedSyntaxTree = SyntaxTree.Create(
+                expandedRoot,
+                syntaxTree.Options,
+                syntaxTree.Encoding,
+                syntaxTree.FilePath);
+            expandedRoot = expandedSyntaxTree.GetRoot();
+            var expandedCompilation = Compilation.Create(
+                compilation.AssemblyName,
+                [expandedSyntaxTree],
+                compilation.References.ToArray(),
+                compilation.MacroReferences.ToArray(),
+                compilation.Options);
 
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax-tree.txt"), treeText);
+            DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.raw{RavenFileExtensions.Raven}");
+            DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.macro-original{RavenFileExtensions.Raven}");
+            DeleteLegacyDebugSourceArtifact(debugDir, $"{name}.macro-expanded{RavenFileExtensions.Raven}");
 
-        ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
-        var syntaxDiagnostics = diagnostics.Where(d => d.Location.SourceTree == syntaxTree);
-        var syntax = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnostics: syntaxDiagnostics)
-            .StripAnsiCodes();
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax.txt"), syntax);
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.raw.txt"), root.ToFullString());
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-original.txt"), root.ToFullString());
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-expanded.txt"), expandedRoot.ToFullString());
 
-        var expandedSyntax = expandedRoot.WriteNodeToText(expandedCompilation, includeDiagnostics: false)
-            .StripAnsiCodes();
-        File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-expanded.syntax.txt"), expandedSyntax);
+            var treeText = root.GetSyntaxTreeRepresentation(new PrinterOptions
+            {
+                IncludeNames = true,
+                IncludeTokens = true,
+                IncludeTrivia = true,
+                IncludeSpans = true,
+                IncludeLocations = true,
+                Colorize = false,
+                ExpandListsAsProperties = true,
+                IncludeDiagnostics = true,
+                IncludeAnnotations = true,
+                DiagnosticsAsChildren = true,
+                AnnotationsAsChildren = true,
+            }).StripAnsiCodes();
 
-        using (var sw = new StringWriter())
-        {
-            var original = Console.Out;
-            Console.SetOut(sw);
-            semanticModel.PrintBinderTree(colorize: false);
-            Console.SetOut(original);
-            File.WriteAllText(Path.Combine(debugDir, $"{name}.binders.txt"), sw.ToString());
-        }
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax-tree.txt"), treeText);
 
-        using (var sw = new StringWriter())
-        {
-            var original = Console.Out;
-            Console.SetOut(sw);
-            semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true, colorize: false);
-            Console.SetOut(original);
-            File.WriteAllText(Path.Combine(debugDir, $"{name}.bound-tree.txt"), sw.ToString());
+            ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
+            var syntaxDiagnostics = diagnostics.Where(d => d.Location.SourceTree == syntaxTree);
+            var syntax = root.WriteNodeToText(compilation, includeDiagnostics: true, diagnostics: syntaxDiagnostics)
+                .StripAnsiCodes();
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.syntax.txt"), syntax);
+
+            var expandedSyntax = expandedRoot.WriteNodeToText(expandedCompilation, includeDiagnostics: false)
+                .StripAnsiCodes();
+            File.WriteAllText(Path.Combine(debugDir, $"{name}.macro-expanded.syntax.txt"), expandedSyntax);
+
+            using (var sw = new StringWriter())
+            {
+                var original = Console.Out;
+                Console.SetOut(sw);
+                semanticModel.PrintBinderTree(colorize: false);
+                Console.SetOut(original);
+                File.WriteAllText(Path.Combine(debugDir, $"{name}.binders.txt"), sw.ToString());
+            }
+
+            using (var sw = new StringWriter())
+            {
+                var original = Console.Out;
+                Console.SetOut(sw);
+                semanticModel.PrintBoundTree(includeChildPropertyNames: true, groupChildCollections: true, colorize: false);
+                Console.SetOut(original);
+                File.WriteAllText(Path.Combine(debugDir, $"{name}.bound-tree.txt"), sw.ToString());
+            }
         }
     }
 

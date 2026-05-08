@@ -446,6 +446,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     {
         private readonly IParameterSymbol _original;
         private readonly ConstructedMethodSymbol _owner;
+        private ITypeSymbol? _type;
 
         public ConstructedParameterSymbol(IParameterSymbol original, ConstructedMethodSymbol owner)
         {
@@ -468,7 +469,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public bool IsAlias => _original.IsAlias;
         public ISymbol UnderlyingSymbol => this;
         public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
-        public ITypeSymbol Type => _owner.Substitute(_original.Type);
+        public ITypeSymbol Type => _type ??= _owner.Substitute(_original.Type);
         public bool IsVarParams => _original.IsVarParams;
         public RefKind RefKind => _original.RefKind;
         public bool IsMutable => _original.IsMutable;
