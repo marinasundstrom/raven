@@ -67,6 +67,7 @@ class C {
 
         AssertMethodHasOnlyHiddenSequencePoints(pdbReader, kickoff);
         AssertMethodHasVisibleSequencePoint(pdbReader, moveNext);
+        AssertMethodHasAttribute(metadataReader, kickoff, "IteratorStateMachineAttribute");
 
         peReader.Dispose();
     }
@@ -916,6 +917,61 @@ class C {
     {
         var names = GetMethodLocalNames(pdbReader, methodHandle);
         Assert.DoesNotContain(names, name => name.Contains(valueFragment, StringComparison.Ordinal));
+    }
+
+    private static void AssertMethodHasAttribute(
+        MetadataReader metadataReader,
+        MethodDefinitionHandle methodHandle,
+        string attributeTypeName)
+    {
+        var method = metadataReader.GetMethodDefinition(methodHandle);
+        var attributes = method.GetCustomAttributes()
+            .Select(handle => GetAttributeTypeName(metadataReader, handle))
+            .Where(static name => !string.IsNullOrEmpty(name))
+            .ToArray();
+
+        Assert.Contains(attributeTypeName, attributes);
+    }
+
+    private static string? GetAttributeTypeName(MetadataReader metadataReader, CustomAttributeHandle attributeHandle)
+    {
+        var attribute = metadataReader.GetCustomAttribute(attributeHandle);
+        EntityHandle constructorHandle = attribute.Constructor;
+
+        return constructorHandle.Kind switch
+        {
+            HandleKind.MemberReference => GetMemberReferenceContainingTypeName(
+                metadataReader,
+                (MemberReferenceHandle)constructorHandle),
+            HandleKind.MethodDefinition => GetMethodDefinitionContainingTypeName(
+                metadataReader,
+                (MethodDefinitionHandle)constructorHandle),
+            _ => null
+        };
+    }
+
+    private static string? GetMemberReferenceContainingTypeName(
+        MetadataReader metadataReader,
+        MemberReferenceHandle memberReferenceHandle)
+    {
+        var memberReference = metadataReader.GetMemberReference(memberReferenceHandle);
+        return memberReference.Parent.Kind switch
+        {
+            HandleKind.TypeReference => metadataReader.GetString(
+                metadataReader.GetTypeReference((TypeReferenceHandle)memberReference.Parent).Name),
+            HandleKind.TypeDefinition => metadataReader.GetString(
+                metadataReader.GetTypeDefinition((TypeDefinitionHandle)memberReference.Parent).Name),
+            _ => null
+        };
+    }
+
+    private static string GetMethodDefinitionContainingTypeName(
+        MetadataReader metadataReader,
+        MethodDefinitionHandle methodDefinitionHandle)
+    {
+        var method = metadataReader.GetMethodDefinition(methodDefinitionHandle);
+        var type = metadataReader.GetTypeDefinition(method.GetDeclaringType());
+        return metadataReader.GetString(type.Name);
     }
 
     private static IReadOnlyList<string> GetMethodLocalNames(

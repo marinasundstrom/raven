@@ -327,7 +327,7 @@ internal class MethodGenerator
         TypeGenerator.CodeGen.ApplyCustomAttributes(methodAttributesToEmit, applyMethodAttribute);
         TypeGenerator.ApplyExtensionMarkerNameAttribute(MethodSymbol, applyMethodAttribute);
 
-        ApplyAsyncStateMachineMetadata(applyMethodAttribute);
+        ApplyStateMachineMetadata(applyMethodAttribute);
         ApplyRuntimeAsyncMethodImplFlags();
 
         if (TypeGenerator.CodeGen.Compilation.IsEntryPointCandidate(MethodSymbol))
@@ -386,50 +386,114 @@ internal class MethodGenerator
         return methodSymbol.MetadataName;
     }
 
-    private void ApplyAsyncStateMachineMetadata(Action<CustomAttributeBuilder> applyMethodAttribute)
+    private void ApplyStateMachineMetadata(Action<CustomAttributeBuilder> applyMethodAttribute)
     {
-        if (MethodSymbol is not SourceMethodSymbol sourceMethod)
-            return;
+        ApplyAsyncStateMachineMetadata();
+        ApplyIteratorStateMachineMetadata();
 
-        var stateMachine = sourceMethod.AsyncStateMachine;
-        if (stateMachine is null)
-            return;
-
-        var codeGen = TypeGenerator.CodeGen;
-        var compilation = Compilation;
-
-        var systemTypeSymbol = compilation.GetSpecialType(SpecialType.System_Type);
-        if (systemTypeSymbol is IErrorTypeSymbol)
-            return;
-
-        var systemType = codeGen.RuntimeSymbolResolver.GetType(systemTypeSymbol);
-
-        var stateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute);
-        if (stateMachineAttributeSymbol is not IErrorTypeSymbol)
+        void ApplyAsyncStateMachineMetadata()
         {
-            var attributeType = codeGen.RuntimeSymbolResolver.GetType(stateMachineAttributeSymbol);
-            var stateMachineCtor = attributeType.GetConstructor(new[] { systemType });
-            if (stateMachineCtor is not null)
+            if (!TryGetAsyncStateMachine(MethodSymbol, out var stateMachine))
+                return;
+
+            var codeGen = TypeGenerator.CodeGen;
+            var compilation = Compilation;
+
+            var systemTypeSymbol = compilation.GetSpecialType(SpecialType.System_Type);
+            if (systemTypeSymbol is IErrorTypeSymbol)
+                return;
+
+            var systemType = codeGen.RuntimeSymbolResolver.GetType(systemTypeSymbol);
+
+            var stateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute);
+            if (stateMachineAttributeSymbol is not IErrorTypeSymbol)
             {
-                var stateMachineTypeName = GetAssemblyQualifiedMetadataName(stateMachine);
-                ApplyMethodCustomAttribute(stateMachineCtor, stateMachineTypeName);
+                var attributeType = codeGen.RuntimeSymbolResolver.GetType(stateMachineAttributeSymbol);
+                var stateMachineCtor = attributeType.GetConstructor(new[] { systemType });
+                if (stateMachineCtor is not null)
+                {
+                    var stateMachineTypeName = GetAssemblyQualifiedMetadataName(stateMachine);
+                    ApplyMethodCustomAttribute(stateMachineCtor, stateMachineTypeName);
+                }
+            }
+
+            var builderAttributeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncMethodBuilderAttribute");
+            if (builderAttributeSymbol is not null && builderAttributeSymbol.TypeKind != TypeKind.Error)
+            {
+                var attributeType = codeGen.RuntimeSymbolResolver.GetType(builderAttributeSymbol);
+                var builderCtor = attributeType.GetConstructor(new[] { systemType });
+                if (builderCtor is not null)
+                {
+                    var builderTypeSymbol = stateMachine.SubstituteStateMachineTypeParameters(stateMachine.BuilderField.Type);
+                    if (!ContainsMethodOwnedTypeParameters(builderTypeSymbol))
+                    {
+                        var builderTypeName = GetAssemblyQualifiedMetadataName(builderTypeSymbol);
+                        ApplyMethodCustomAttribute(builderCtor, builderTypeName);
+                    }
+                }
             }
         }
 
-        var builderAttributeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncMethodBuilderAttribute");
-        if (builderAttributeSymbol is not null && builderAttributeSymbol.TypeKind != TypeKind.Error)
+        void ApplyIteratorStateMachineMetadata()
         {
-            var attributeType = codeGen.RuntimeSymbolResolver.GetType(builderAttributeSymbol);
-            var builderCtor = attributeType.GetConstructor(new[] { systemType });
-            if (builderCtor is not null)
-            {
-                var builderTypeSymbol = stateMachine.SubstituteStateMachineTypeParameters(stateMachine.BuilderField.Type);
-                if (ContainsMethodOwnedTypeParameters(builderTypeSymbol))
-                    return;
+            if (!TryGetIteratorStateMachine(MethodSymbol, out var stateMachine))
+                return;
 
-                var builderTypeName = GetAssemblyQualifiedMetadataName(builderTypeSymbol);
-                ApplyMethodCustomAttribute(builderCtor, builderTypeName);
-            }
+            var codeGen = TypeGenerator.CodeGen;
+            var compilation = Compilation;
+
+            var systemTypeSymbol = compilation.GetSpecialType(SpecialType.System_Type);
+            if (systemTypeSymbol is IErrorTypeSymbol)
+                return;
+
+            var stateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute);
+            if (stateMachineAttributeSymbol is IErrorTypeSymbol)
+                return;
+
+            var systemType = codeGen.RuntimeSymbolResolver.GetType(systemTypeSymbol);
+            var attributeType = codeGen.RuntimeSymbolResolver.GetType(stateMachineAttributeSymbol);
+            var stateMachineCtor = attributeType.GetConstructor(new[] { systemType });
+            if (stateMachineCtor is null)
+                return;
+
+            var stateMachineTypeName = GetAssemblyQualifiedMetadataName(stateMachine);
+            ApplyMethodCustomAttribute(stateMachineCtor, stateMachineTypeName);
+        }
+    }
+
+    private static bool TryGetAsyncStateMachine(
+        IMethodSymbol method,
+        out SynthesizedAsyncStateMachineTypeSymbol stateMachine)
+    {
+        switch (method)
+        {
+            case SourceMethodSymbol { AsyncStateMachine: { } sourceStateMachine }:
+                stateMachine = sourceStateMachine;
+                return true;
+            case SourceLambdaSymbol { AsyncStateMachine: { } lambdaStateMachine }:
+                stateMachine = lambdaStateMachine;
+                return true;
+            default:
+                stateMachine = null!;
+                return false;
+        }
+    }
+
+    private static bool TryGetIteratorStateMachine(
+        IMethodSymbol method,
+        out SynthesizedIteratorTypeSymbol stateMachine)
+    {
+        switch (method)
+        {
+            case SourceMethodSymbol { IteratorStateMachine: { } sourceStateMachine }:
+                stateMachine = sourceStateMachine;
+                return true;
+            case SourceLambdaSymbol { IteratorStateMachine: { } lambdaStateMachine }:
+                stateMachine = lambdaStateMachine;
+                return true;
+            default:
+                stateMachine = null!;
+                return false;
         }
     }
 

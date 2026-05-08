@@ -228,6 +228,8 @@ internal class MethodBodyGenerator
             return;
         if (syntax.SyntaxTree is null)
             return;
+        if (ShouldSuppressStateMachineContainerSequencePoint(syntax))
+            return;
 
         var location = syntax switch
         {
@@ -284,6 +286,22 @@ internal class MethodBodyGenerator
         }
         _lastSequencePoint = signature;
         _emittedSequencePoints.Add(signature);
+    }
+
+    private bool ShouldSuppressStateMachineContainerSequencePoint(SyntaxNode syntax)
+    {
+        if (MethodSymbol.ContainingType is not SynthesizedAsyncStateMachineTypeSymbol &&
+            MethodSymbol.ContainingType is not SynthesizedIteratorTypeSymbol)
+        {
+            return false;
+        }
+
+        if (syntax is not ExpressionStatementSyntax and not InvocationExpressionSyntax)
+            return false;
+
+        return syntax.DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Any(lambda => lambda.Body is not null || lambda.ExpressionBody is not null);
     }
 
     private readonly record struct SequencePointSignature(
@@ -439,6 +457,13 @@ internal class MethodBodyGenerator
         if (matchSpecific is not null)
             return NormalizeMatchSequencePointSyntax(matchSpecific);
 
+        if (statement is BoundBlockStatement block)
+        {
+            return block.Statements
+                .Select(TryGetSequencePointSyntax)
+                .FirstOrDefault(s => s is not null);
+        }
+
         var direct = NormalizeSequencePointSyntax(TryGetSyntax(statement));
         if (direct is not null)
             return direct;
@@ -460,9 +485,6 @@ internal class MethodBodyGenerator
                     .Where(static i => i is not null)
                     .Select(i => TryGetSyntax(i!))
                     .FirstOrDefault(s => s is not null),
-            BoundBlockStatement block => block.Statements
-                .Select(TryGetSequencePointSyntax)
-                .FirstOrDefault(s => s is not null),
             _ => null
         };
 
