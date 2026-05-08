@@ -126,6 +126,8 @@ public sealed class WorkspaceManagerTests : IDisposable
         var generatedPaths = new[]
         {
             Path.Combine(_tempRoot, ".raven", "nuget-restore", "Restore.csproj"),
+            Path.Combine(_tempRoot, ".raven-build", "Debug", "net10.0", "app", "generated.rvn"),
+            Path.Combine(_tempRoot, ".debug", "main.macro-expanded.rvn"),
             Path.Combine(_tempRoot, "obj", "Debug", "net10.0", "raven", "generated", "App.g.rvn"),
             Path.Combine(_tempRoot, "bin", "Debug", "App.rvn"),
             Path.Combine(_tempRoot, "tmp-services-bisect", "probe", "main.rvn")

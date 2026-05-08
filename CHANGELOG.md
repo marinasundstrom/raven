@@ -6,6 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
 
 ### Changed
 - Attached property macros that replace their target declaration with syntax derived from the original property now reuse the effective declaration symbol, preventing false duplicate-member diagnostics while preserving generated accessors.
+- The language server now ignores IDE build/debug artifact folders such as `.raven-build` and `.debug` when deciding whether watched file changes should reload the workspace, so compiling from the editor does not disturb open-document semantic state.
 
 ## 2026-05-07
 

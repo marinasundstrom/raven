@@ -26,7 +26,9 @@ internal sealed class WorkspaceManager
     private static readonly HashSet<string> WorkspaceDiscoveryExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git",
+        ".debug",
         ".raven",
+        ".raven-build",
         ".vs",
         ".vscode",
         "bin",
@@ -38,7 +40,9 @@ internal sealed class WorkspaceManager
     private static readonly HashSet<string> WatchedFileExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git",
+        ".debug",
         ".raven",
+        ".raven-build",
         "bin",
         "node_modules",
         "obj",
