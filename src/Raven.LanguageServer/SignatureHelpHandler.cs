@@ -256,7 +256,27 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         };
 
         var typeDisplay = parameter.Type.ToDisplayString(plainTypeFormat);
-        return $"{paramsPrefix}{refPrefix}{parameter.Name}: {typeDisplay}";
+        var defaultValue = FormatParameterDefaultValue(parameter, plainTypeFormat);
+        return $"{paramsPrefix}{refPrefix}{parameter.Name}: {typeDisplay}{defaultValue}";
+    }
+
+    private static string FormatParameterDefaultValue(IParameterSymbol parameter, SymbolDisplayFormat format)
+    {
+        if (!parameter.HasExplicitDefaultValue)
+            return string.Empty;
+
+        var parameterFormat = format.WithParameterOptions(
+            format.ParameterOptions |
+            SymbolDisplayParameterOptions.IncludeName |
+            SymbolDisplayParameterOptions.IncludeType |
+            SymbolDisplayParameterOptions.IncludeDefaultValue |
+            SymbolDisplayParameterOptions.IncludeParamsRefOut);
+        var parameterDisplay = parameter.ToDisplayString(parameterFormat);
+        var marker = " = ";
+        var markerIndex = parameterDisplay.IndexOf(marker, StringComparison.Ordinal);
+        return markerIndex < 0
+            ? string.Empty
+            : parameterDisplay[markerIndex..];
     }
 
     private static StringOrMarkupContent? FormatDocumentation(DocumentationComment? documentation)

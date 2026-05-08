@@ -55,6 +55,41 @@ class Calculator {
     }
 
     [Fact]
+    public void Invocation_OmitsOptionalArgument_UsesDefaultLiteralValue()
+    {
+        const string source = """
+val result = Calculator.Add()
+
+class Calculator {
+    static func Add(value: int = default) -> int {
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Add");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var argument = Assert.Single(boundInvocation.Arguments);
+        var literal = Assert.IsType<BoundLiteralExpression>(argument);
+        Assert.Equal(0, literal.Value);
+
+        var parameter = boundInvocation.Method.Parameters.Single();
+        Assert.True(parameter.HasExplicitDefaultValue);
+        Assert.Equal(0, parameter.ExplicitDefaultValue);
+    }
+
+    [Fact]
     public void Invocation_UsesDefaultParameterValueAttribute_FromMetadata()
     {
         const string source = """

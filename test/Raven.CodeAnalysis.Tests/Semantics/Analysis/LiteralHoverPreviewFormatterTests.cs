@@ -28,7 +28,7 @@ public sealed class LiteralHoverPreviewFormatterTests
 
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
-        Assert.True(success);
+        Assert.True(success, $"token={token.Kind} parent={token.Parent?.GetType().Name} text={token.Text}");
         Assert.Equal("int = 31", preview);
     }
 
@@ -82,6 +82,37 @@ class CounterViewModel {
 
         Assert.True(success);
         Assert.Equal("int = 0", preview);
+    }
+
+    [Fact]
+    public void TryCreatePreview_DefaultParameterValue_ShowsTypedDefault()
+    {
+        const string code = """
+func Do(no: int = default) -> unit { }
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var defaultExpression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<DefaultExpressionSyntax>()
+            .Single();
+        var token = syntaxTree.GetRoot().FindToken(defaultExpression.Span.Start);
+        Assert.Equal(SyntaxKind.DefaultKeyword, token.Kind);
+
+        var success = LiteralHoverPreviewFormatter.TryCreatePreview(
+            semanticModel,
+            token,
+            out var preview,
+            out var span);
+
+        Assert.True(success);
+        Assert.Equal("int = default", preview);
+        Assert.Equal(defaultExpression.Span, span);
     }
 
     private static (SemanticModel semanticModel, SyntaxToken token) CreateModelAndSingleLiteralToken(string code)

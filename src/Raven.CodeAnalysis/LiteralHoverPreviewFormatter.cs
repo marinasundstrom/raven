@@ -20,6 +20,36 @@ internal static class LiteralHoverPreviewFormatter
         preview = string.Empty;
         span = default;
 
+        if (token.Parent?.AncestorsAndSelf().OfType<DefaultExpressionSyntax>().FirstOrDefault() is { } defaultExpression)
+        {
+            var defaultType = semanticModel.GetTypeInfo(defaultExpression).Type ??
+                              defaultExpression.AncestorsAndSelf()
+                                  .OfType<ParameterSyntax>()
+                                  .Select(parameter => semanticModel.GetDeclaredSymbol(parameter))
+                                  .OfType<IParameterSymbol>()
+                                  .Select(parameter => parameter.Type)
+                                  .Concat(defaultExpression.AncestorsAndSelf()
+                                      .OfType<ParameterSyntax>()
+                                      .Select(parameter => parameter.TypeAnnotation?.Type)
+                                      .OfType<TypeSyntax>()
+                                      .Select(type => semanticModel.GetTypeInfo(type).Type))
+                                  .OfType<ITypeSymbol>()
+                                  .FirstOrDefault();
+
+            string? typeDisplay = null;
+            if (defaultType is not null && defaultType.TypeKind != TypeKind.Error)
+                typeDisplay = defaultType.ToDisplayString(PlainTypeFormat);
+            else if (defaultExpression.AncestorsAndSelf().OfType<ParameterSyntax>().FirstOrDefault()?.TypeAnnotation?.Type is { } parameterTypeSyntax)
+                typeDisplay = parameterTypeSyntax.ToString();
+
+            if (string.IsNullOrWhiteSpace(typeDisplay))
+                return false;
+
+            preview = $"{typeDisplay} = default";
+            span = defaultExpression.Span;
+            return true;
+        }
+
         if (token.Parent is not LiteralExpressionSyntax literalExpression)
             return false;
 

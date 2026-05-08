@@ -126,6 +126,45 @@ class MacroArgument {
     }
 
     [Fact]
+    public void Method_ToDisplayString_IncludesParameterDefaultValues()
+    {
+        const string source = """
+class WebApplication {
+    func Run(port: int = 5000) -> unit { }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+
+        symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("func Run(port: int = 5000) -> ()");
+        symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            .ShouldBe("Run(port: int = 5000) -> ()");
+    }
+
+    [Fact]
+    public void Method_ToDisplayString_PreservesDefaultLiteralParameterValue()
+    {
+        const string source = """
+func Do(no: int = default) -> unit { }
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var parameter = symbol.Parameters.Single();
+
+        parameter.HasExplicitDefaultValue.ShouldBeTrue();
+        parameter.ExplicitDefaultValue.ShouldBe(0);
+        symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("static func Do(no: int = default) -> ()");
+    }
+
+    [Fact]
     public void UnionType_ToDisplayString_IncludesUnionRepresentationKeyword()
     {
         const string source = """

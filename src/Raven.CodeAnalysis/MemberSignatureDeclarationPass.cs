@@ -511,6 +511,8 @@ internal static class MemberSignatureDeclarationPass
         var parameterType = typeSyntax is null
             ? compilation.ErrorTypeSymbol
             : ResolveSkeletonType(compilation, typeSyntax, compilation.ErrorTypeSymbol, containingType, methodSymbol.TypeParameters);
+        var defaultEvaluation = TypeMemberBinder.EvaluateParameterDefaultValue(parameter, parameterType);
+        var hasExplicitDefaultValue = defaultEvaluation is { HasDefaultSyntax: true, Success: true };
 
         return new SourceParameterSymbol(
             parameter.Identifier.ValueText,
@@ -520,7 +522,9 @@ internal static class MemberSignatureDeclarationPass
             containingType.ContainingNamespace,
             [parameter.Identifier.GetLocation()],
             [parameter.GetReference()],
-            ParameterSyntaxUtilities.GetRefKind(parameter));
+            ParameterSyntaxUtilities.GetRefKind(parameter),
+            hasExplicitDefaultValue,
+            hasExplicitDefaultValue ? defaultEvaluation.Value : null);
     }
 
     private static ITypeSymbol ResolveSkeletonType(

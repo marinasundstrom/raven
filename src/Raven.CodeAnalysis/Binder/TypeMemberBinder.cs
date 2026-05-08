@@ -4004,6 +4004,13 @@ internal partial class TypeMemberBinder : Binder
         if (parameterSyntax.DefaultValue is null)
             return new ParameterDefaultEvaluationResult(false, success: false, value: null, ParameterDefaultEvaluationFailure.None);
 
+        if (parameterSyntax.DefaultValue.Value is DefaultExpressionSyntax)
+            return new ParameterDefaultEvaluationResult(
+                true,
+                success: true,
+                value: CreateParameterTypeDefaultValue(parameterType),
+                ParameterDefaultEvaluationFailure.None);
+
         if (!ConstantValueEvaluator.TryEvaluate(parameterSyntax.DefaultValue.Value, out var rawValue))
             return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConstant);
 
@@ -4011,6 +4018,41 @@ internal partial class TypeMemberBinder : Binder
             return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConvertible);
 
         return new ParameterDefaultEvaluationResult(true, success: true, defaultValue, ParameterDefaultEvaluationFailure.None);
+    }
+
+    private static object? CreateParameterTypeDefaultValue(ITypeSymbol parameterType)
+    {
+        if (parameterType.TypeKind == TypeKind.Error)
+            return null;
+
+        if (parameterType is LiteralTypeSymbol literalType)
+            parameterType = literalType.UnderlyingType;
+
+        if (parameterType is NullableTypeSymbol)
+            return null;
+
+        if (!parameterType.IsValueType)
+            return null;
+
+        return parameterType.SpecialType switch
+        {
+            SpecialType.System_Boolean => false,
+            SpecialType.System_Char => '\0',
+            SpecialType.System_SByte => (sbyte)0,
+            SpecialType.System_Byte => (byte)0,
+            SpecialType.System_Int16 => (short)0,
+            SpecialType.System_UInt16 => (ushort)0,
+            SpecialType.System_Int32 => 0,
+            SpecialType.System_UInt32 => 0u,
+            SpecialType.System_Int64 => 0L,
+            SpecialType.System_UInt64 => 0UL,
+            SpecialType.System_Single => 0f,
+            SpecialType.System_Double => 0d,
+            SpecialType.System_Decimal => 0m,
+            SpecialType.System_DateTime => default(DateTime),
+            _ when parameterType.TypeKind == TypeKind.Enum => 0,
+            _ => null
+        };
     }
 
     private static VarianceKind GetDeclaredVariance(TypeParameterSyntax parameter)

@@ -1349,14 +1349,34 @@ public static partial class SymbolExtensions
         // Append the core parameter text
         builder.Append(core);
 
-        // Append explicit default value, if any
-        if (parameter.HasExplicitDefaultValue)
+        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeDefaultValue) &&
+            parameter.HasExplicitDefaultValue)
         {
             builder.Append(" = ");
-            builder.Append(FormatConstant(parameter.ExplicitDefaultValue, parameter.Type, format));
+            builder.Append(FormatParameterDefaultValue(parameter, format));
         }
 
         return builder.ToString();
+    }
+
+    private static string FormatParameterDefaultValue(IParameterSymbol parameter, SymbolDisplayFormat format)
+    {
+        if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true } ||
+            HasDefaultExpressionSyntax(parameter))
+            return "default";
+
+        return FormatConstant(parameter.ExplicitDefaultValue, parameter.Type, format);
+    }
+
+    private static bool HasDefaultExpressionSyntax(IParameterSymbol parameter)
+    {
+        foreach (var syntax in parameter.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()))
+        {
+            if (syntax is ParameterSyntax { DefaultValue.Value: DefaultExpressionSyntax })
+                return true;
+        }
+
+        return false;
     }
 
     private static string GetParameterModifiers(IParameterSymbol parameter)

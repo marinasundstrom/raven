@@ -1785,7 +1785,8 @@ internal sealed class HoverHandler : IHoverHandler
             var parameterType = FormatType(parameterTypeSymbol, plainTypeFormat);
             var accessibilityPrefix = GetNonPublicParameterAccessibilityPrefix(parameter);
             var promotedBindingPrefix = GetPromotedPrimaryConstructorBindingPrefix(parameter);
-            return $"{accessibilityPrefix}{promotedBindingPrefix}{parameter.Name}: {parameterType}";
+            var defaultValue = FormatParameterDefaultValue(parameter, plainTypeFormat);
+            return $"{accessibilityPrefix}{promotedBindingPrefix}{parameter.Name}: {parameterType}{defaultValue}";
         }
 
         if (symbol is ILocalSymbol local)
@@ -3806,8 +3807,28 @@ internal sealed class HoverHandler : IHoverHandler
                     _ => string.Empty
                 };
                 var parameterType = parameter.Type.ToDisplayString(format);
-                return $"{paramsPrefix}{refPrefix}{parameter.Name}: {parameterType}";
+                var defaultValue = FormatParameterDefaultValue(parameter, format);
+                return $"{paramsPrefix}{refPrefix}{parameter.Name}: {parameterType}{defaultValue}";
             }));
+    }
+
+    private static string FormatParameterDefaultValue(IParameterSymbol parameter, SymbolDisplayFormat format)
+    {
+        if (!parameter.HasExplicitDefaultValue)
+            return string.Empty;
+
+        var parameterFormat = format.WithParameterOptions(
+            format.ParameterOptions |
+            SymbolDisplayParameterOptions.IncludeName |
+            SymbolDisplayParameterOptions.IncludeType |
+            SymbolDisplayParameterOptions.IncludeDefaultValue |
+            SymbolDisplayParameterOptions.IncludeParamsRefOut);
+        var parameterDisplay = parameter.ToDisplayString(parameterFormat);
+        var marker = " = ";
+        var markerIndex = parameterDisplay.IndexOf(marker, StringComparison.Ordinal);
+        return markerIndex < 0
+            ? string.Empty
+            : parameterDisplay[markerIndex..];
     }
 
     private static string? FormatDocumentation(DocumentationComment? documentation)

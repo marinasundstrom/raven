@@ -14,6 +14,7 @@ public class SymbolDisplayFormat
                     SymbolDisplayMemberOptions.IncludeModifiers,
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
                            SymbolDisplayParameterOptions.IncludeName |
+                           SymbolDisplayParameterOptions.IncludeDefaultValue |
                            SymbolDisplayParameterOptions.IncludeParamsRefOut,
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
@@ -69,7 +70,10 @@ public class SymbolDisplayFormat
                     SymbolDisplayMemberOptions.IncludeParameters |
                     SymbolDisplayMemberOptions.IncludeModifiers |
                     SymbolDisplayMemberOptions.IncludeAccessibility,
-        ParameterOptions = SymbolDisplayParameterOptions.IncludeType | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeParamsRefOut,
+        ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
+                           SymbolDisplayParameterOptions.IncludeName |
+                           SymbolDisplayParameterOptions.IncludeDefaultValue |
+                           SymbolDisplayParameterOptions.IncludeParamsRefOut,
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                            SymbolDisplayMiscellaneousOptions.RemoveAttributeSuffix
@@ -119,6 +123,7 @@ public class SymbolDisplayFormat
         ParameterOptions = SymbolDisplayParameterOptions.IncludeType |
                            SymbolDisplayParameterOptions.IncludeName |
                            SymbolDisplayParameterOptions.IncludeExtensionThis |
+                           SymbolDisplayParameterOptions.IncludeDefaultValue |
                            SymbolDisplayParameterOptions.IncludeParamsRefOut
     };
 
@@ -157,6 +162,7 @@ public class SymbolDisplayFormat
                 SymbolDisplayParameterOptions.IncludeType
                 | SymbolDisplayParameterOptions.IncludeName
                 | SymbolDisplayParameterOptions.IncludeExtensionThis
+                | SymbolDisplayParameterOptions.IncludeDefaultValue
                 | SymbolDisplayParameterOptions.IncludeParamsRefOut
         };
 
