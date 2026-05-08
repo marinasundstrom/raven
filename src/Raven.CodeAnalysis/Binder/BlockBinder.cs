@@ -111,17 +111,17 @@ partial class BlockBinder : Binder
             return cachedDesignator.Local;
 
         if (singleVariableDesignation.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
-            _ = BindExpression(matchExpression);
+            _ = SemanticModel.GetBoundNode(matchExpression);
         else if (singleVariableDesignation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
-            _ = BindStatement(matchStatement);
+            _ = SemanticModel.GetBoundNode(matchStatement);
         else if (singleVariableDesignation.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
-            _ = BindExpression(isPatternExpression);
+            _ = SemanticModel.GetBoundNode(isPatternExpression);
         else if (singleVariableDesignation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
-            _ = BindStatement(ifPatternStatement);
+            _ = SemanticModel.GetBoundNode(ifPatternStatement);
         else if (singleVariableDesignation.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
-            _ = BindStatement(whilePatternStatement);
+            _ = SemanticModel.GetBoundNode(whilePatternStatement);
         else if (singleVariableDesignation.GetAncestor<ForStatementSyntax>() is { } forStatement)
-            _ = BindStatement(forStatement);
+            _ = SemanticModel.GetBoundNode(forStatement);
 
         if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator)
             return reboundDesignator.Local;

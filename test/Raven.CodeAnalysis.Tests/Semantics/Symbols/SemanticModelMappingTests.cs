@@ -214,6 +214,40 @@ class C {
     }
 
     [Fact]
+    public void GetDeclaredSymbol_ForPatternDeconstructionDesignation_UsesDeconstructParameterType()
+    {
+        const string code = """
+record Person(val Name: string, val Age: int, val Items: string[])
+
+class C {
+    func Run() {
+        val people = [Person("Ada", 42, ["tea", "cake"])]
+        for val (name, age when > 18, [item1, item2]) in people {
+            name.Length + age + item1.Length + item2.Length
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .ToDictionary(designation => designation.Identifier.ValueText);
+
+        var name = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["name"]));
+        var age = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["age"]));
+        var item1 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["item1"]));
+        var item2 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["item2"]));
+
+        Assert.Equal("string", name.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("int", age.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("string", item1.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("string", item2.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_MatchWholeDesignation_UsesMatchedCaseType()
     {
         const string code = """

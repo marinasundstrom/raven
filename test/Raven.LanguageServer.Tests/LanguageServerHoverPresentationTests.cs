@@ -674,6 +674,8 @@ class Base {
         foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
+        _ = compilation.GetDiagnostics();
+
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
@@ -1775,6 +1777,60 @@ class C {
 
         var signature = (string)buildSignatureForHover.Invoke(null, [resolution!.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
         signature.ShouldContain("var x:");
+    }
+
+    [Fact]
+    public void ForDeconstructionPatternDeclarationHover_UsesDeconstructParameterTypes()
+    {
+        const string code = """
+import System.*
+import System.Collections.Immutable.*
+
+record Person(val Name: string, val Age: int, val Items: string[])
+
+class C {
+    func Run() -> unit {
+        val people = [Person("Ada", 42, ["tea", "cake"])]
+        for val (name, age when > 18, [item1, item2]) in people {
+            name.Length + age + item1.Length + item2.Length
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var tryBuildPatternDeclarationHover = typeof(HoverHandler)
+            .GetMethod("TryBuildPatternDeclarationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        foreach (var (name, expectedSignature) in new[]
+                 {
+                     ("name", "val name: string"),
+                     ("age", "val age: int"),
+                     ("item1", "val item1: string"),
+                     ("item2", "val item2: string")
+                 })
+        {
+            var token = root.DescendantTokens().First(t =>
+                t.Kind == SyntaxKind.IdentifierToken &&
+                t.ValueText == name &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is ForStatementSyntax) == true &&
+                t.Parent?.AncestorsAndSelf().Any(static n => n is PatternSyntax) == true);
+
+            var hover = tryBuildPatternDeclarationHover.Invoke(
+                null,
+                [syntaxTree.GetText(), semanticModel, root, token.SpanStart + 1]);
+
+            hover.ShouldNotBeNull();
+            hover.ToString().ShouldContain(expectedSignature);
+        }
     }
 
     [Fact]
