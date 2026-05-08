@@ -990,6 +990,136 @@ class Runner {
     }
 
     [Fact]
+    public async Task HoverHandler_AwaitKeyword_ReturnsNullWithoutSemanticGateAsync()
+    {
+        var text = """
+import System.Threading.Tasks.*
+
+class Runner {
+    static async func Main() -> Task {
+        _ = await Task.CompletedTask
+    }
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var awaitOffset = text.IndexOf("await", StringComparison.Ordinal);
+        awaitOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(awaitOffset + 2, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HoverHandler_ReturnKeyword_ReturnsNullWithoutSemanticGateAsync()
+    {
+        var text = """
+class Runner {
+    static func Main() -> int {
+        return 1
+    }
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var returnOffset = text.IndexOf("return", StringComparison.Ordinal);
+        returnOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(returnOffset + 2, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HoverHandler_EqualsToken_ReturnsNullWithoutSemanticGateAsync()
+    {
+        var text = """
+class Runner {
+    static func Main() -> unit {
+        val value = 1
+    }
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var equalsOffset = text.IndexOf("=", StringComparison.Ordinal);
+        equalsOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(equalsOffset, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HoverHandler_DiscardAssignmentUnderscore_ReturnsNullWithoutSemanticGateAsync()
+    {
+        var text = """
+class Runner {
+    static func Main() -> unit {
+        _ = 1
+    }
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var discardOffset = text.IndexOf("_", StringComparison.Ordinal);
+        discardOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(discardOffset, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task HoverHandler_ProjectBackedExplicitTypeIdentifiers_ShowNamedTypeSignaturesAsync()
     {
         Directory.CreateDirectory(_tempRoot);

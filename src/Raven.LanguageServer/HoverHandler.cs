@@ -114,6 +114,9 @@ internal sealed class HoverHandler : IHoverHandler
             if (syntaxOnlyHover is not null)
                 return CacheHover(cacheKey, syntaxOnlyHover);
 
+            if (ShouldSuppressSemanticHover(root, offset))
+                return CacheHover(cacheKey, null);
+
             cancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "semanticGate";
@@ -1008,6 +1011,128 @@ internal sealed class HoverHandler : IHoverHandler
 
         return null;
     }
+
+    private static bool ShouldSuppressSemanticHover(SyntaxNode root, int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!token.Span.Contains(candidateOffset))
+                continue;
+
+            if (IsSemanticHoverSuppressedToken(token))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsSemanticHoverSuppressedToken(SyntaxToken token)
+        => IsNonSymbolKeywordHoverToken(token.Kind) || IsNonSymbolPunctuationHoverToken(token.Kind);
+
+    private static bool IsNonSymbolKeywordHoverToken(SyntaxKind kind)
+        => kind is SyntaxKind.AbstractKeyword
+            or SyntaxKind.AliasKeyword
+            or SyntaxKind.AsyncKeyword
+            or SyntaxKind.AwaitKeyword
+            or SyntaxKind.BreakKeyword
+            or SyntaxKind.ByKeyword
+            or SyntaxKind.CaseKeyword
+            or SyntaxKind.CatchKeyword
+            or SyntaxKind.ClassKeyword
+            or SyntaxKind.ConstKeyword
+            or SyntaxKind.ContinueKeyword
+            or SyntaxKind.DefaultKeyword
+            or SyntaxKind.DelegateKeyword
+            or SyntaxKind.ElseKeyword
+            or SyntaxKind.EnumKeyword
+            or SyntaxKind.EventKeyword
+            or SyntaxKind.ExplicitKeyword
+            or SyntaxKind.ExtensionKeyword
+            or SyntaxKind.ExternKeyword
+            or SyntaxKind.FieldKeyword
+            or SyntaxKind.FileprivateKeyword
+            or SyntaxKind.FinalKeyword
+            or SyntaxKind.FinallyKeyword
+            or SyntaxKind.FixedKeyword
+            or SyntaxKind.ForKeyword
+            or SyntaxKind.FuncKeyword
+            or SyntaxKind.GetKeyword
+            or SyntaxKind.GotoKeyword
+            or SyntaxKind.IfKeyword
+            or SyntaxKind.ImplicitKeyword
+            or SyntaxKind.ImportKeyword
+            or SyntaxKind.InKeyword
+            or SyntaxKind.InitKeyword
+            or SyntaxKind.InterfaceKeyword
+            or SyntaxKind.InternalKeyword
+            or SyntaxKind.IsKeyword
+            or SyntaxKind.LetKeyword
+            or SyntaxKind.MatchKeyword
+            or SyntaxKind.NameOfKeyword
+            or SyntaxKind.NamespaceKeyword
+            or SyntaxKind.NewKeyword
+            or SyntaxKind.OpenKeyword
+            or SyntaxKind.OperatorKeyword
+            or SyntaxKind.OutKeyword
+            or SyntaxKind.OverrideKeyword
+            or SyntaxKind.ParamsKeyword
+            or SyntaxKind.PartialKeyword
+            or SyntaxKind.PrivateKeyword
+            or SyntaxKind.ProtectedKeyword
+            or SyntaxKind.PublicKeyword
+            or SyntaxKind.ReadonlyKeyword
+            or SyntaxKind.RecordKeyword
+            or SyntaxKind.RefKeyword
+            or SyntaxKind.RemoveKeyword
+            or SyntaxKind.RequiredKeyword
+            or SyntaxKind.ReturnKeyword
+            or SyntaxKind.SealedKeyword
+            or SyntaxKind.SetKeyword
+            or SyntaxKind.SizeOfKeyword
+            or SyntaxKind.StaticKeyword
+            or SyntaxKind.StructKeyword
+            or SyntaxKind.ThrowKeyword
+            or SyntaxKind.TraitKeyword
+            or SyntaxKind.TryKeyword
+            or SyntaxKind.TypeOfKeyword
+            or SyntaxKind.UnsafeKeyword
+            or SyntaxKind.UseKeyword
+            or SyntaxKind.ValKeyword
+            or SyntaxKind.VarKeyword
+            or SyntaxKind.VirtualKeyword
+            or SyntaxKind.WhenKeyword
+            or SyntaxKind.WhereKeyword
+            or SyntaxKind.WhileKeyword
+            or SyntaxKind.WithKeyword
+            or SyntaxKind.YieldKeyword;
+
+    private static bool IsNonSymbolPunctuationHoverToken(SyntaxKind kind)
+        => kind is SyntaxKind.ArrowToken
+            or SyntaxKind.CloseArrayToken
+            or SyntaxKind.CloseBraceToken
+            or SyntaxKind.CloseBracketToken
+            or SyntaxKind.CloseParenToken
+            or SyntaxKind.ColonToken
+            or SyntaxKind.CommaToken
+            or SyntaxKind.EqualsToken
+            or SyntaxKind.FatArrowToken
+            or SyntaxKind.OpenArrayToken
+            or SyntaxKind.OpenBraceToken
+            or SyntaxKind.OpenBracketToken
+            or SyntaxKind.OpenParenToken
+            or SyntaxKind.QuestionToken
+            or SyntaxKind.SemicolonToken
+            or SyntaxKind.UnderscoreToken;
 
     private static bool TryBuildTypeDeclarationSyntaxHover(
         SourceText sourceText,
