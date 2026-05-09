@@ -1,83 +1,82 @@
 Raven Language Server Performance Report
-Generated: 2026-05-09T12:39:00.0322060+00:00
+Generated: 2026-05-09T13:22:56.6659470+00:00
 Operation: hover
-  Count: 13
-  TotalMs: 1814,0
-  AvgMs: 139,5
-  MaxMs: 1578,1
-  CacheHits: 1
+  Count: 7
+  TotalMs: 471,0
+  AvgMs: 67,3
+  MaxMs: 152,9
   Stages:
-    resolution: count=13 total=1740,5ms avg=133,9ms max=1564,7ms
-    signature: count=13 total=7,1ms avg=0,5ms max=2,7ms
-    hoverText: count=13 total=3,2ms avg=0,2ms max=2,8ms
-    containing: count=13 total=2,8ms avg=0,2ms max=2,1ms
-    analysisContext: count=13 total=0,9ms avg=0,1ms max=0,2ms
-    range: count=13 total=0,7ms avg=0,1ms max=0,5ms
-    gateWait: count=13 total=0,6ms avg=0,0ms max=0,4ms
-    semanticModel: count=13 total=0,3ms avg=0,0ms max=0,0ms
-    invocationOverride: count=13 total=0,1ms avg=0,0ms max=0,1ms
-    documentation: count=13 total=0,1ms avg=0,0ms max=0,1ms
-    captures: count=13 total=0,1ms avg=0,0ms max=0,0ms
+    resolution: count=7 total=333,8ms avg=47,7ms max=150,2ms
+    analysisContext: count=7 total=5,9ms avg=0,8ms max=5,5ms
+    signature: count=7 total=4,4ms avg=0,6ms max=2,3ms
+    containing: count=7 total=0,9ms avg=0,1ms max=0,7ms
+    hoverText: count=7 total=0,7ms avg=0,1ms max=0,5ms
+    gateWait: count=7 total=0,6ms avg=0,1ms max=0,5ms
+    range: count=7 total=0,6ms avg=0,1ms max=0,2ms
+    semanticModel: count=7 total=0,3ms avg=0,0ms max=0,1ms
+    invocationOverride: count=7 total=0,1ms avg=0,0ms max=0,1ms
+    captures: count=7 total=0,1ms avg=0,0ms max=0,0ms
+    documentation: count=7 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    1578,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 20:14 semantic=[symbolInfo=2, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=1, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=1, boundCacheHits=1, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    131,8ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 52:24 semantic=[symbolInfo=2, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=1, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    28,9ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 53:36 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    14,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 53:47 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=2, typeSymbolHits=2, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    14,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 18:13 semantic=[symbolInfo=2, symbolCacheHits=2, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    152,9ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn 28:21 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    107,2ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn 26:10 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    65,8ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn 26:34 semantic=[symbolInfo=2, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=1, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    63,5ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn 28:12 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    56,5ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn 27:11 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+
+Operation: documentSymbols
+  Count: 2
+  TotalMs: 44,0
+  AvgMs: 22,0
+  MaxMs: 42,4
+  CacheHits: 1
+  AvgResultCount: 4,0
+  FirstLookupAfterEditCount: 1
+  FirstLookupAfterEditAvgMs: 51,5
+  FirstLookupAfterEditMaxMs: 51,5
+  FirstLookupAfterEditSources:
+    didOpen: 1
+  Stages:
+    buildSymbols: count=2 total=37,4ms avg=18,7ms max=37,4ms
+    analysisContext: count=2 total=3,3ms avg=1,7ms max=3,2ms
+    root: count=2 total=0,4ms avg=0,2ms max=0,4ms
+  SlowestSamples:
+    42,4ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn
+    1,6ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn
 
 Operation: semanticTokens
   Count: 1
-  TotalMs: 610,9
-  AvgMs: 610,9
-  MaxMs: 610,9
-  AvgResultCount: 161,0
+  TotalMs: 41,6
+  AvgMs: 41,6
+  MaxMs: 41,6
+  AvgResultCount: 143,0
   Stages:
-    classify: count=1 total=573,8ms avg=573,8ms max=573,8ms
     materialize: count=1 total=18,5ms avg=18,5ms max=18,5ms
-    push: count=1 total=15,0ms avg=15,0ms max=15,0ms
-    semanticModel: count=1 total=1,5ms avg=1,5ms max=1,5ms
+    push: count=1 total=10,3ms avg=10,3ms max=10,3ms
+    classify: count=1 total=9,3ms avg=9,3ms max=9,3ms
+    semanticModel: count=1 total=1,3ms avg=1,3ms max=1,3ms
     analysisContext: count=1 total=0,1ms avg=0,1ms max=0,1ms
     root: count=1 total=0,0ms avg=0,0ms max=0,0ms
     gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    610,9ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    41,6ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=29, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
 Operation: didOpen
   Count: 1
-  TotalMs: 23,5
-  AvgMs: 23,5
-  MaxMs: 23,5
+  TotalMs: 29,5
+  AvgMs: 29,5
+  MaxMs: 29,5
   SlowestSamples:
-    23,5ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1
+    29,5ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn version=1
 
 Operation: publishSyntaxDiagnostics
   Count: 1
-  TotalMs: 17,5
-  AvgMs: 17,5
-  MaxMs: 17,5
+  TotalMs: 10,4
+  AvgMs: 10,4
+  MaxMs: 10,4
   AvgResultCount: 0,0
   SlowestSamples:
-    17,5ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
-
-Operation: documentSymbols
-  Count: 2
-  TotalMs: 6,3
-  AvgMs: 3,2
-  MaxMs: 6,1
-  CacheHits: 1
-  AvgResultCount: 5,0
-  FirstLookupAfterEditCount: 1
-  FirstLookupAfterEditAvgMs: 254,7
-  FirstLookupAfterEditMaxMs: 254,7
-  FirstLookupAfterEditSources:
-    didOpen: 1
-  Stages:
-    buildSymbols: count=2 total=5,2ms avg=2,6ms max=5,2ms
-    root: count=2 total=0,3ms avg=0,1ms max=0,3ms
-    analysisContext: count=2 total=0,1ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    6,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
-    0,2ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
+    10,4ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
 
 Operation: computeSyntaxDiagnostics
   Count: 1
@@ -90,5 +89,5 @@ Operation: computeSyntaxDiagnostics
     documentLookup: count=1 total=0,0ms avg=0,0ms max=0,0ms
     gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    0,3ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
+    0,3ms file:///Users/robert/Projects/Raven/samples/projects/efcore-expression-trees/src/main.rvn syntaxOnly
 

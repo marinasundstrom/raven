@@ -467,6 +467,13 @@ public partial class SemanticModel
     {
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
 
+        if (TryGetPipeInvocationSymbolInfo(node, out var pipeInvocationInfo))
+        {
+            pipeInvocationInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, pipeInvocationInfo);
+            _symbolMappings[node] = pipeInvocationInfo;
+            return pipeInvocationInfo;
+        }
+
         if (node is IdentifierNameSyntax invokedMemberName &&
             invokedMemberName.Parent is MemberAccessExpressionSyntax invokedMemberAccess &&
             IsSameSyntaxNode(invokedMemberAccess.Name, invokedMemberName) &&
@@ -861,6 +868,50 @@ public partial class SemanticModel
         _symbolMappings[node] = info;
         return info;
     }
+
+    private bool TryGetPipeInvocationSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        var invocation = TryGetPipeInvocationForSymbolNode(node);
+        if (invocation is null)
+            return false;
+
+        if (invocation.Parent is not InfixOperatorExpressionSyntax
+            {
+                OperatorToken.Kind: SyntaxKind.PipeToken
+            } pipeExpression ||
+            !IsSameSyntaxNode(pipeExpression.Right, invocation))
+        {
+            return false;
+        }
+
+        var boundPipe = TryGetCachedBoundNode(pipeExpression) as BoundInvocationExpression
+            ?? GetBoundNode(pipeExpression) as BoundInvocationExpression;
+        if (boundPipe is null)
+            return false;
+
+        info = boundPipe.GetSymbolInfo();
+        return info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
+    }
+
+    private static InvocationExpressionSyntax? TryGetPipeInvocationForSymbolNode(SyntaxNode node)
+        => node switch
+        {
+            InvocationExpressionSyntax invocation => invocation,
+            SimpleNameSyntax simpleName
+                when simpleName.Parent is InvocationExpressionSyntax invocation &&
+                     IsSameSyntaxNode(invocation.Expression, simpleName) => invocation,
+            SimpleNameSyntax simpleName
+                when simpleName.Parent is MemberAccessExpressionSyntax memberAccess &&
+                     IsSameSyntaxNode(memberAccess.Name, simpleName) &&
+                     memberAccess.Parent is InvocationExpressionSyntax invocation &&
+                     IsSameSyntaxNode(invocation.Expression, memberAccess) => invocation,
+            MemberAccessExpressionSyntax memberAccess
+                when memberAccess.Parent is InvocationExpressionSyntax invocation &&
+                     IsSameSyntaxNode(invocation.Expression, memberAccess) => invocation,
+            _ => null
+        };
 
     private bool TryGetMemberBindingTargetMemberSymbolInfo(MemberBindingExpressionSyntax memberBinding, out SymbolInfo info)
     {

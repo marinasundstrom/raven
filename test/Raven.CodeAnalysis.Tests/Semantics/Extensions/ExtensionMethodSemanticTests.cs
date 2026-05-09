@@ -1589,6 +1589,94 @@ val filtered = [1, 2] |> Where(x => x > 2)
     }
 
     [Fact]
+    public void PipeOperator_WithSystemLinqWhere_SymbolInfoOnInvocationTargetUsesBoundMethod()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+
+val filtered = [1, 2] |> Where(x => x > 2)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipeline = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InfixOperatorExpressionSyntax>()
+            .Single(node => node.OperatorToken.Kind == SyntaxKind.PipeToken);
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(pipeline.Right);
+        var target = Assert.IsType<IdentifierNameSyntax>(invocation.Expression);
+
+        var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+        var invocationSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var targetSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(target).Symbol);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, invocationSymbol));
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, targetSymbol));
+        Assert.Equal("Where", invocationSymbol.Name);
+        Assert.True(invocationSymbol.IsExtensionMethod);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(invocationSymbol.TypeArguments).SpecialType);
+    }
+
+    [Fact]
+    public void PipeOperator_WithExpressionTreeLinqChain_SymbolInfoOnEachPipeTargetUsesBoundMethod()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var IsActive: bool)
+
+class C {
+    func Run(users: IQueryable<User>) -> unit {
+        val onlyActiveAdults: Expression<System.Func<User, bool>> = user => user.IsActive
+        val query = users
+            |> Where(onlyActiveAdults)
+            |> OrderBy(user => user.Name)
+            |> Select(user => user.Name)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var pipelines = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InfixOperatorExpressionSyntax>()
+            .Where(node => node.OperatorToken.Kind == SyntaxKind.PipeToken)
+            .ToArray();
+
+        Assert.Equal(3, pipelines.Length);
+
+        foreach (var pipeline in pipelines)
+        {
+            var invocation = Assert.IsType<InvocationExpressionSyntax>(pipeline.Right);
+            var target = Assert.IsType<IdentifierNameSyntax>(invocation.Expression);
+            var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+
+            var invocationSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+            var targetSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(target).Symbol);
+
+            Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, invocationSymbol));
+            Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, targetSymbol));
+            Assert.True(invocationSymbol.IsExtensionMethod);
+            Assert.DoesNotContain(invocationSymbol.TypeArguments, type => type.TypeKind == TypeKind.TypeParameter);
+        }
+    }
+
+    [Fact]
     public void PipeOperator_WithSystemLinqWhere_LambdaParameterDoesNotTriggerUseBeforeDeclarationFromLaterLocal()
     {
         const string source = """
