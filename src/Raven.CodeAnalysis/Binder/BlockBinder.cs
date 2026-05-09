@@ -122,6 +122,8 @@ partial class BlockBinder : Binder
             BindPatternDeclarationOwner(whilePatternStatement);
         else if (singleVariableDesignation.GetAncestor<ForStatementSyntax>() is { } forStatement)
             BindPatternDeclarationOwner(forStatement);
+        else if (singleVariableDesignation.GetAncestor<PatternDeclarationAssignmentStatementSyntax>() is { } patternDeclarationAssignment)
+            BindPatternDeclarationOwner(patternDeclarationAssignment);
 
         if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator)
             return reboundDesignator.Local;

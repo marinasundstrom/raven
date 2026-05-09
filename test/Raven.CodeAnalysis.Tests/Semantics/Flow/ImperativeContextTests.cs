@@ -380,6 +380,45 @@ class C {
     }
 
     [Fact]
+    public void PatternDeclarationAssignment_GetDeclaredSymbol_BindsOwnerBeforeFallback()
+    {
+        var code = """
+class C {
+    func Test() {
+        val (no, _) = Get()
+        no
+    }
+
+    func Get() -> (status: int, message: string) {
+        return (42, "Hej")
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declaration = root.DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "no");
+        var usage = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "no");
+
+        var declared = model.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<ILocalSymbol>();
+        declared.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+
+        var usageSymbol = model.GetSymbolInfo(usage).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        usageSymbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        SymbolEqualityComparer.Default.Equals(declared, usageSymbol).ShouldBeTrue();
+    }
+
+    [Fact]
     public void IfPatternStatement_WithComparisonPatternOfDifferentType_ReportsDiagnostic()
     {
         var code = """
