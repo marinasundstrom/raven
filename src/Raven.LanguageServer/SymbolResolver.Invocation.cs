@@ -25,6 +25,11 @@ internal static partial class SymbolResolver
         {
             InvocationExpressionSyntax direct => direct,
             IdentifierNameSyntax { Parent: InvocationExpressionSyntax direct } => direct,
+            MemberBindingExpressionSyntax { Parent: InvocationExpressionSyntax direct } => direct,
+            IdentifierNameSyntax identifier
+                when identifier.Parent is MemberBindingExpressionSyntax memberBinding &&
+                     HaveEquivalentSpan(memberBinding.Name, identifier) &&
+                     memberBinding.Parent is InvocationExpressionSyntax parent => parent,
             MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax parent } => parent,
             IdentifierNameSyntax identifier
                 when identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
@@ -40,6 +45,18 @@ internal static partial class SymbolResolver
         // not arguments/parameter lists/lambda bodies.
         if (!IsInvocationTargetMatch(invocation.Expression, node, token))
             return false;
+
+        if (TryResolveInvocationTargetTypeFromTypeInfo(semanticModel, invocation, out var targetType))
+        {
+            symbol = targetType;
+            return true;
+        }
+
+        if (TryResolveInvocationTargetTypeFromArgumentContext(semanticModel, invocation, out targetType))
+        {
+            symbol = targetType;
+            return true;
+        }
 
         if (TryResolvePipeBoundInvocationTargetSymbol(semanticModel, invocation, out var pipeBoundSymbol))
         {
@@ -346,4 +363,136 @@ internal static partial class SymbolResolver
 
         return false;
     }
+
+    private static bool TryResolveInvocationTargetTypeFromTypeInfo(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        [NotNullWhen(true)] out ITypeSymbol? targetType)
+    {
+        targetType = null;
+
+        var typeInfo = semanticModel.GetTypeInfo(invocation);
+        var convertedType = typeInfo.ConvertedType;
+        if (convertedType is null ||
+            convertedType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        if (IsTargetTypedConstructorBinding(invocation.Expression))
+        {
+            targetType = convertedType;
+            return true;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(typeInfo.Type, convertedType))
+            return false;
+
+        var naturalUnionCase = typeInfo.Type?.TryGetUnionCase();
+        var convertedUnion = convertedType.TryGetUnion();
+        if (naturalUnionCase is null || convertedUnion is null)
+            return false;
+
+        targetType = convertedType;
+        return true;
+    }
+
+    private static bool TryResolveInvocationTargetTypeFromArgumentContext(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        [NotNullWhen(true)] out ITypeSymbol? targetType)
+    {
+        targetType = null;
+
+        if (invocation.Parent is not ArgumentSyntax argument ||
+            argument.Parent is not ArgumentListSyntax argumentList ||
+            argumentList.Parent is not InvocationExpressionSyntax outerInvocation)
+        {
+            return false;
+        }
+
+        var invokedName = invocation.Expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
+            _ => null
+        };
+
+        var parameter = TryGetInvocationParameter(semanticModel, outerInvocation, argumentList.Arguments, argument);
+        if (parameter?.Type is not { TypeKind: not TypeKind.Error } parameterType)
+            return false;
+
+        var typeInfo = semanticModel.GetTypeInfo(invocation);
+        if (typeInfo.ConvertedType is { TypeKind: not TypeKind.Error } convertedType &&
+            !SymbolEqualityComparer.Default.Equals(typeInfo.Type, convertedType))
+        {
+            targetType = convertedType;
+            return true;
+        }
+
+        if (IsTargetTypedConstructorBinding(invocation.Expression))
+        {
+            targetType = parameterType;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(invokedName))
+            return false;
+
+        if (!ContainsUnionCaseNamed(parameterType, invokedName))
+            return false;
+
+        targetType = parameterType;
+        return true;
+    }
+
+    private static IParameterSymbol? TryGetInvocationParameter(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument)
+    {
+        var symbol = semanticModel.GetSymbolInfo(invocation).Symbol;
+        var method = symbol as IMethodSymbol;
+        if (method is null &&
+            invocation.Expression is TypeSyntax typeSyntax &&
+            semanticModel.GetTypeInfo(typeSyntax).Type is INamedTypeSymbol namedType)
+        {
+            method = namedType.Constructors.FirstOrDefault();
+        }
+        if (method is null &&
+            semanticModel.GetSymbolInfo(invocation.Expression).Symbol is INamedTypeSymbol expressionType)
+        {
+            method = expressionType.Constructors.FirstOrDefault();
+        }
+
+        if (method is null)
+            return null;
+
+        if (argument.NameColon?.Name.Identifier.ValueText is { Length: > 0 } argumentName)
+        {
+            return method.Parameters.FirstOrDefault(parameter =>
+                string.Equals(parameter.Name, argumentName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].Span == argument.Span && i < method.Parameters.Length)
+                return method.Parameters[i];
+        }
+
+        return null;
+    }
+
+    private static bool ContainsUnionCaseNamed(ITypeSymbol type, string caseName)
+    {
+        var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
+        return union?.CaseTypes.Any(caseType => string.Equals(caseType.Name, caseName, StringComparison.Ordinal)) == true;
+    }
+
+    private static bool IsTargetTypedConstructorBinding(ExpressionSyntax expression)
+        => expression is MemberBindingExpressionSyntax memberBinding &&
+           (memberBinding.Name.IsMissing ||
+            memberBinding.Name.Identifier.IsMissing ||
+            string.IsNullOrEmpty(memberBinding.Name.Identifier.ValueText));
 }

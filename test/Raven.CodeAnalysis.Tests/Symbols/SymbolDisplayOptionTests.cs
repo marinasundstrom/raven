@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -45,6 +46,203 @@ class Sample {
         var display = taskType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
         Assert.Equal("Task<TResult>", display);
+    }
+
+    [Fact]
+    public void TypeDisplay_GenericDefinitionUsesTypeParameters()
+    {
+        const string source = """
+union class Option<T> {
+    case Some(value: T)
+    case None
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var optionType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+
+        Assert.Equal("Option<T>", optionType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void TypeDisplay_ConstructedGenericUsesTypeArguments()
+    {
+        const string source = """
+union class Option<T> {
+    case Some(value: T)
+    case None
+}
+
+class Sample {
+    func test() -> unit {
+        val item: Option<string> = null
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("Option<string>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void TypeInfo_GenericNameSyntaxUsesTypeArguments()
+    {
+        const string source = """
+union class Option<T> {
+    case Some(value: T)
+    case None
+}
+
+class Sample {
+    func test() -> unit {
+        val item: Option<string> = null
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var genericName = tree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single();
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
+
+        Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void TypeDisplay_ConstructedMetadataGenericUsesTypeArguments()
+    {
+        var references = GetMetadataReferences()
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+        var compilation = CreateCompilation(references: references);
+        var optionDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Option`1"));
+        var constructedOption = optionDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+
+        Assert.Equal("Option<string>", constructedOption.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void TypeInfo_MetadataGenericNameSyntaxUsesTypeArguments()
+    {
+        const string source = """
+import System.*
+
+class Sample {
+    func test() -> unit {
+        val item: Option<string> = null
+    }
+}
+""";
+
+        var references = GetMetadataReferences()
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+        var (compilation, tree) = CreateCompilation(source, references: references);
+        var model = compilation.GetSemanticModel(tree);
+        var genericName = tree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single();
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
+
+        Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void TypeInfo_TargetTypedMetadataOptionCaseInConstructorArgumentUsesParameterType()
+    {
+        const string source = """
+import System.*
+
+val foo = Foo(
+    Name: "Foo",
+    Item: Some("Foo")
+)
+
+record Foo(
+    val Name: string,
+    val Item: Option<string>
+)
+
+class C {
+    func Test() -> unit {
+        val localFoo = Foo(
+            Name: "Foo",
+            Item: Some("Foo")
+        )
+        val localFoo2 = Foo(
+            Name: "Foo",
+            Item: .Some("Foo")
+        )
+    }
+}
+""";
+
+        var references = GetMetadataReferences()
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+        var (compilation, tree) = CreateCompilation(source, references: references);
+        var model = compilation.GetSemanticModel(tree);
+        _ = compilation.GetDiagnostics();
+
+        var invocations = tree.GetRoot().DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Where(invocation =>
+                invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "Some" } ||
+                invocation.Expression is MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Some" })
+            .ToArray();
+
+        Assert.Equal(3, invocations.Length);
+        foreach (var invocation in invocations)
+        {
+            var typeInfo = model.GetTypeInfo(invocation);
+            Assert.Equal("Some<string>", typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            var type = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
+
+            Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        }
+    }
+
+    [Fact]
+    public void TypeInfo_TargetTypedSourceOptionCaseInConstructorArgumentProjectsUnionTypeArguments()
+    {
+        const string source = """
+union class Option<T> {
+    case Some(value: T)
+    case None
+}
+
+record Foo(
+    val Name: string,
+    val Item: Option<string>
+)
+
+class C {
+    func Test() -> unit {
+        val localFoo = Foo(
+            Name: "Foo",
+            Item: .Some("Foo")
+        )
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        _ = compilation.GetDiagnostics();
+
+        var invocation = tree.GetRoot().DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression is MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Some" });
+        var typeInfo = model.GetTypeInfo(invocation);
+
+        Assert.Equal("Some<string>", typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
+        Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -241,5 +439,15 @@ val tuple: (id: int, name: string) = (1, "x")
 
         var display = local.Type.ToDisplayString(withTupleNames);
         Assert.Equal("(id: int, name: string)", display);
+    }
+
+    private static string GetRavenCorePath()
+    {
+        var outputPath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
+        if (File.Exists(outputPath))
+            return outputPath;
+
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        return Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", "net10.0", "Raven.Core.dll");
     }
 }

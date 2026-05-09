@@ -637,6 +637,8 @@ internal sealed class HoverHandler : IHoverHandler
             var invocation = identifier.Parent switch
             {
                 InvocationExpressionSyntax direct => direct,
+                MemberBindingExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
+                    when HaveEquivalentSpan(name, identifier) => parent,
                 MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
                     when HaveEquivalentSpan(name, identifier) => parent,
                 _ => null
@@ -654,6 +656,7 @@ internal sealed class HoverHandler : IHoverHandler
         return invocation.Expression switch
         {
             SimpleNameSyntax identifier => identifier,
+            MemberBindingExpressionSyntax { Name: SimpleNameSyntax identifier } => identifier,
             MemberAccessExpressionSyntax { Name: SimpleNameSyntax identifier } => identifier,
             _ => null
         };
@@ -674,6 +677,24 @@ internal sealed class HoverHandler : IHoverHandler
         SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
+        if (TryResolveInvocationTargetTypeFromTypeInfo(semanticModel, invocation, out var targetType))
+        {
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                targetType,
+                identifier);
+            return true;
+        }
+
+        if (TryResolveInvocationTargetTypeFromArgumentContext(semanticModel, invocation, out targetType))
+        {
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                targetType,
+                identifier);
+            return true;
+        }
+
         var invocationInfo = semanticModel.GetSymbolInfo(invocation);
         var availableCandidates = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
         if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
@@ -701,6 +722,138 @@ internal sealed class HoverHandler : IHoverHandler
 
         return TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution);
     }
+
+    private static bool TryResolveInvocationTargetTypeFromTypeInfo(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        out ITypeSymbol targetType)
+    {
+        targetType = null!;
+
+        var typeInfo = semanticModel.GetTypeInfo(invocation);
+        var convertedType = typeInfo.ConvertedType;
+        if (convertedType is null ||
+            convertedType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        if (IsTargetTypedConstructorBinding(invocation.Expression))
+        {
+            targetType = convertedType;
+            return true;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(typeInfo.Type, convertedType))
+            return false;
+
+        var naturalUnionCase = typeInfo.Type?.TryGetUnionCase();
+        var convertedUnion = convertedType.TryGetUnion();
+        if (naturalUnionCase is null || convertedUnion is null)
+            return false;
+
+        targetType = convertedType;
+        return true;
+    }
+
+    private static bool TryResolveInvocationTargetTypeFromArgumentContext(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        out ITypeSymbol targetType)
+    {
+        targetType = null!;
+
+        if (invocation.Parent is not ArgumentSyntax argument ||
+            argument.Parent is not ArgumentListSyntax argumentList ||
+            argumentList.Parent is not InvocationExpressionSyntax outerInvocation)
+        {
+            return false;
+        }
+
+        var invokedName = invocation.Expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
+            _ => null
+        };
+
+        var parameter = TryGetInvocationParameter(semanticModel, outerInvocation, argumentList.Arguments, argument);
+        if (parameter?.Type is not { TypeKind: not TypeKind.Error } parameterType)
+            return false;
+
+        var typeInfo = semanticModel.GetTypeInfo(invocation);
+        if (typeInfo.ConvertedType is { TypeKind: not TypeKind.Error } convertedType &&
+            !SymbolEqualityComparer.Default.Equals(typeInfo.Type, convertedType))
+        {
+            targetType = convertedType;
+            return true;
+        }
+
+        if (IsTargetTypedConstructorBinding(invocation.Expression))
+        {
+            targetType = parameterType;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(invokedName))
+            return false;
+
+        if (!ContainsUnionCaseNamed(parameterType, invokedName))
+            return false;
+
+        targetType = parameterType;
+        return true;
+    }
+
+    private static IParameterSymbol? TryGetInvocationParameter(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument)
+    {
+        var symbol = semanticModel.GetSymbolInfo(invocation).Symbol;
+        var method = symbol as IMethodSymbol;
+        if (method is null &&
+            invocation.Expression is TypeSyntax typeSyntax &&
+            semanticModel.GetTypeInfo(typeSyntax).Type is INamedTypeSymbol namedType)
+        {
+            method = namedType.Constructors.FirstOrDefault();
+        }
+        if (method is null &&
+            semanticModel.GetSymbolInfo(invocation.Expression).Symbol is INamedTypeSymbol expressionType)
+        {
+            method = expressionType.Constructors.FirstOrDefault();
+        }
+
+        if (method is null)
+            return null;
+
+        if (argument.NameColon?.Name.Identifier.ValueText is { Length: > 0 } argumentName)
+        {
+            return method.Parameters.FirstOrDefault(parameter =>
+                string.Equals(parameter.Name, argumentName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].Span == argument.Span && i < method.Parameters.Length)
+                return method.Parameters[i];
+        }
+
+        return null;
+    }
+
+    private static bool ContainsUnionCaseNamed(ITypeSymbol type, string caseName)
+    {
+        var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
+        return union?.CaseTypes.Any(caseType => string.Equals(caseType.Name, caseName, StringComparison.Ordinal)) == true;
+    }
+
+    private static bool IsTargetTypedConstructorBinding(ExpressionSyntax expression)
+        => expression is MemberBindingExpressionSyntax memberBinding &&
+           (memberBinding.Name.IsMissing ||
+            memberBinding.Name.Identifier.IsMissing ||
+            string.IsNullOrEmpty(memberBinding.Name.Identifier.ValueText));
 
     private static bool TryResolveInvocationMethodFromCachedSymbolInfo(
         SemanticModel semanticModel,
@@ -1029,8 +1182,11 @@ internal sealed class HoverHandler : IHoverHandler
             if (!token.Span.Contains(candidateOffset))
                 continue;
 
-            if (IsSemanticHoverSuppressedToken(token))
+            if (IsSemanticHoverSuppressedToken(token) ||
+                IsImportDirectiveNameToken(token))
+            {
                 return true;
+            }
         }
 
         return false;
@@ -1133,6 +1289,12 @@ internal sealed class HoverHandler : IHoverHandler
             or SyntaxKind.QuestionToken
             or SyntaxKind.SemicolonToken
             or SyntaxKind.UnderscoreToken;
+
+    private static bool IsImportDirectiveNameToken(SyntaxToken token)
+        => token.Parent?
+            .AncestorsAndSelf()
+            .OfType<ImportDirectiveSyntax>()
+            .Any(import => import.Name.Span.Contains(token.Span)) == true;
 
     private static bool TryBuildTypeDeclarationSyntaxHover(
         SourceText sourceText,
@@ -1484,6 +1646,9 @@ internal sealed class HoverHandler : IHoverHandler
 
         end = Math.Min(end, sourceText.Length);
         signature = NormalizeHoverSignatureText(sourceText.ToString(TextSpan.FromBounds(start, end)));
+        if (declaration is RecordDeclarationSyntax recordDeclaration)
+            signature = IndentRecordPrimaryConstructorParameters(signature, recordDeclaration);
+
         return !string.IsNullOrWhiteSpace(signature);
     }
 
@@ -1571,6 +1736,35 @@ internal sealed class HoverHandler : IHoverHandler
             .Where(static line => line.Length > 0);
 
         return string.Join("\n", trimmedLines).Trim();
+    }
+
+    private static string IndentRecordPrimaryConstructorParameters(string signature, RecordDeclarationSyntax declaration)
+    {
+        if (declaration.ParameterList is null)
+            return signature;
+
+        var lines = signature.Split('\n');
+        if (lines.Length < 3)
+            return signature;
+
+        var openLineIndex = Array.FindIndex(lines, static line => line.Contains('('));
+        if (openLineIndex < 0)
+            return signature;
+
+        var closeLineIndex = Array.FindIndex(
+            lines,
+            openLineIndex + 1,
+            static line => line.StartsWith(")", StringComparison.Ordinal));
+        if (closeLineIndex <= openLineIndex + 1)
+            return signature;
+
+        for (var i = openLineIndex + 1; i < closeLineIndex; i++)
+        {
+            if (lines[i].Length > 0 && !char.IsWhiteSpace(lines[i][0]))
+                lines[i] = "    " + lines[i];
+        }
+
+        return string.Join("\n", lines);
     }
 
     private static string GetTypeDeclarationSyntaxKindDisplay(BaseTypeDeclarationSyntax declaration)
@@ -1897,6 +2091,11 @@ internal sealed class HoverHandler : IHoverHandler
                 parameterTypeSymbol = declaredParameterType;
             }
             else if (parameterTypeSymbol.ContainsErrorType() &&
+                     TryInferParameterDeclaredType(parameter, semanticModel, out var declaredParameterSyntaxType))
+            {
+                parameterTypeSymbol = declaredParameterSyntaxType;
+            }
+            else if (parameterTypeSymbol.ContainsErrorType() &&
                 TryInferLambdaParameterTypeFromContext(parameter, contextNode, semanticModel, out var inferredParameterType))
             {
                 parameterTypeSymbol = inferredParameterType;
@@ -1907,7 +2106,10 @@ internal sealed class HoverHandler : IHoverHandler
                 parameterTypeSymbol = inferredParameterType;
             }
 
-            var parameterType = FormatType(parameterTypeSymbol, plainTypeFormat);
+            var parameterType = parameterTypeSymbol.ContainsErrorType() &&
+                TryGetParameterDeclaredTypeSyntaxDisplay(parameter, out var declaredTypeDisplay)
+                    ? declaredTypeDisplay
+                    : FormatType(parameterTypeSymbol, plainTypeFormat);
             var accessibilityPrefix = GetNonPublicParameterAccessibilityPrefix(parameter);
             var promotedBindingPrefix = GetPromotedPrimaryConstructorBindingPrefix(parameter);
             var defaultValue = FormatParameterDefaultValue(parameter, plainTypeFormat);
@@ -1944,7 +2146,7 @@ internal sealed class HoverHandler : IHoverHandler
             return $"{binding} {local.Name}: {localType}";
         }
 
-        if (symbol is IUnionCaseTypeSymbol unionCase)
+        if (symbol is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase)
         {
             var parameters = FormatParameters(unionCase.ConstructorParameters, plainTypeFormat);
             return $"{unionCase.Name}({parameters})";
@@ -1952,6 +2154,14 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is ITypeSymbol typeSymbol)
         {
+            if (contextNode is TypeSyntax contextTypeSyntax)
+            {
+                var contextTypeInfo = semanticModel.GetTypeInfo(contextTypeSyntax);
+                var contextType = contextTypeInfo.Type ?? contextTypeInfo.ConvertedType;
+                if (contextType is not null && contextType.TypeKind != TypeKind.Error)
+                    typeSymbol = contextType;
+            }
+
             var declarationTypeFormat = CreatePlainTypeFormat()
                 .WithMiscellaneousOptions(
                     CreatePlainTypeFormat().MiscellaneousOptions |
@@ -1973,7 +2183,9 @@ internal sealed class HoverHandler : IHoverHandler
             }
 
             var typeFormat = declarationTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
-            var text = FormatType(typeSymbol, typeFormat);
+            var text = typeSymbol is INamedTypeSymbol { Arity: > 0 } genericNamedType
+                ? BuildGenericNamedTypeSignature(genericNamedType, contextNode, semanticModel, typeFormat, declarationTypeFormat)
+                : FormatType(typeSymbol, typeFormat);
 
             // Append base class / base interface list (e.g. "class Foo: Bar")
             if (typeSymbol is INamedTypeSymbol namedType)
@@ -1995,6 +2207,138 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
+    }
+
+    private static string BuildGenericNamedTypeSignature(
+        INamedTypeSymbol type,
+        SyntaxNode contextNode,
+        SemanticModel semanticModel,
+        SymbolDisplayFormat typeFormat,
+        SymbolDisplayFormat argumentFormat)
+    {
+        var kind = type.TypeKind switch
+        {
+            TypeKind.Interface => "interface",
+            TypeKind.Struct when type.IsUnion => "union struct",
+            TypeKind.Struct => "struct",
+            TypeKind.Enum => "enum",
+            TypeKind.Delegate => "delegate",
+            TypeKind.Class when type.IsUnion => "union class",
+            TypeKind.Class => "class",
+            _ => null
+        };
+
+        var typeArguments = GetTypeParameterOrArgumentDisplay(type, contextNode, semanticModel, argumentFormat);
+        var display = $"{type.Name}{typeArguments}";
+        return typeFormat.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
+               !string.IsNullOrEmpty(kind)
+            ? $"{kind} {display}"
+            : display;
+    }
+
+    private static string GetTypeParameterOrArgumentDisplay(
+        INamedTypeSymbol type,
+        SyntaxNode contextNode,
+        SemanticModel semanticModel,
+        SymbolDisplayFormat argumentFormat)
+    {
+        if (type.Arity <= 0)
+            return string.Empty;
+
+        IEnumerable<string> arguments;
+        if (TryGetConstructedTypeArgumentDisplay(type, out var constructedArguments))
+        {
+            arguments = constructedArguments;
+        }
+        else if (!type.TypeArguments.IsDefaultOrEmpty &&
+            type.TypeArguments.Length == type.TypeParameters.Length &&
+            type.TypeArguments.Any(static argument => argument is not ITypeParameterSymbol && argument.TypeKind != TypeKind.Error))
+        {
+            var offset = type.TypeArguments.Length - type.Arity;
+            arguments = type.TypeArguments
+                .Skip(offset)
+                .Take(type.Arity)
+                .Select(argument => FormatType(argument, argumentFormat));
+        }
+        else if (TryGetExplicitTypeArgumentDisplay(type, contextNode, semanticModel, argumentFormat, out var explicitArguments))
+        {
+            arguments = explicitArguments;
+        }
+        else
+        {
+            arguments = type.TypeParameters
+                .TakeLast(type.Arity)
+                .Select(static parameter => parameter.Name);
+        }
+
+        return $"<{string.Join(", ", arguments)}>";
+    }
+
+    private static bool TryGetConstructedTypeArgumentDisplay(
+        INamedTypeSymbol type,
+        out IEnumerable<string> arguments)
+    {
+        arguments = [];
+
+        if (type.OriginalDefinition is null)
+            return false;
+
+        var displayFormat = CreatePlainTypeFormat();
+        var display = FormatType(type, displayFormat);
+        var definitionDisplay = FormatType(type.OriginalDefinition, displayFormat);
+        if (string.Equals(display, definitionDisplay, StringComparison.Ordinal))
+            return false;
+
+        var open = display.IndexOf('<', StringComparison.Ordinal);
+        var close = display.LastIndexOf('>');
+        if (open < 0 || close <= open)
+            return false;
+
+        arguments = [display[(open + 1)..close]];
+        return true;
+    }
+
+    private static bool TryGetExplicitTypeArgumentDisplay(
+        INamedTypeSymbol type,
+        SyntaxNode contextNode,
+        SemanticModel semanticModel,
+        SymbolDisplayFormat argumentFormat,
+        out IEnumerable<string> arguments)
+    {
+        arguments = [];
+
+        if (contextNode is GenericNameSyntax genericName &&
+            genericName.TypeArgumentList.Arguments.Count == type.Arity)
+        {
+            arguments = genericName.TypeArgumentList.Arguments
+                .Select(argument => FormatTypeSyntaxForSignature(argument.Type, semanticModel, argumentFormat))
+                .ToArray();
+            return true;
+        }
+
+        if (contextNode is UnionTypeSyntax unionType &&
+            type.Name == "Union" &&
+            unionType.Types.Count == type.Arity)
+        {
+            arguments = unionType.Types
+                .Select(member => FormatTypeSyntaxForSignature(member, semanticModel, argumentFormat))
+                .ToArray();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string FormatTypeSyntaxForSignature(
+        TypeSyntax typeSyntax,
+        SemanticModel semanticModel,
+        SymbolDisplayFormat argumentFormat)
+    {
+        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        var type = typeInfo.Type ?? typeInfo.ConvertedType;
+        return type is not null && type.TypeKind != TypeKind.Error
+            ? FormatType(type, argumentFormat)
+            : typeSyntax.ToString();
     }
 
     private static IMethodSymbol GetPreferredMethodForDisplay(IMethodSymbol method)
@@ -2191,19 +2535,16 @@ internal sealed class HoverHandler : IHoverHandler
         var kind = type.TypeKind switch
         {
             TypeKind.Interface => "interface",
+            TypeKind.Struct when type.IsUnion => "union struct",
             TypeKind.Struct => "struct",
             TypeKind.Enum => "enum",
             TypeKind.Delegate => "delegate",
+            TypeKind.Class when type.IsUnion => "union class",
             TypeKind.TypeUnion => "union",
             _ => "class"
         };
 
-        var typeArguments = !type.TypeArguments.IsDefaultOrEmpty &&
-                            type.TypeArguments.Length == type.TypeParameters.Length
-            ? $"<{string.Join(", ", type.TypeArguments.Select(argument => FormatType(argument, plainTypeFormat)))}>"
-            : string.Empty;
-
-        var text = $"{kind} {type.Name}{typeArguments}";
+        var text = $"{kind} {FormatType(type, plainTypeFormat)}";
         var bases = new System.Collections.Generic.List<string>();
 
         if (type.BaseType is { SpecialType: SpecialType.None } baseType)
@@ -3390,6 +3731,46 @@ internal sealed class HoverHandler : IHoverHandler
 
         inferredType = parameterType is NullableTypeSymbol nullable ? nullable.UnderlyingType : parameterType;
         return true;
+    }
+
+    private static bool TryInferParameterDeclaredType(
+        IParameterSymbol parameter,
+        SemanticModel semanticModel,
+        out ITypeSymbol inferredType)
+    {
+        inferredType = null!;
+
+        foreach (var syntaxReference in parameter.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not ParameterSyntax { TypeAnnotation.Type: { } typeSyntax })
+                continue;
+
+            if (!TryResolveTypeSymbolFromSyntax(semanticModel, typeSyntax, out var resolvedType))
+                continue;
+
+            inferredType = resolvedType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetParameterDeclaredTypeSyntaxDisplay(
+        IParameterSymbol parameter,
+        out string typeDisplay)
+    {
+        typeDisplay = string.Empty;
+
+        foreach (var syntaxReference in parameter.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not ParameterSyntax { TypeAnnotation.Type: { } typeSyntax })
+                continue;
+
+            typeDisplay = typeSyntax.ToString();
+            return !string.IsNullOrWhiteSpace(typeDisplay);
+        }
+
+        return false;
     }
 
     private static bool TryInferDeclaredTypeFromContext(

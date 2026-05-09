@@ -18,8 +18,14 @@ internal static partial class SymbolResolver
     // forcing every hover/definition through one generic fallback chain.
     public static SymbolResolutionResult? ResolveSymbolAtPosition(SemanticModel semanticModel, SyntaxNode root, int offset)
     {
+        if (IsImportDirectiveNamePosition(root, offset))
+            return null;
+
         if (TryResolveMemberAccessAtOffset(semanticModel, root, offset, out var memberAccessResolution))
             return memberAccessResolution;
+
+        if (TryResolveMemberBindingAtOffset(semanticModel, root, offset, out var memberBindingResolution))
+            return memberBindingResolution;
 
         if (TryResolveInvocationIdentifierAtOffset(semanticModel, root, offset, out var invocationIdentifierResolution))
             return invocationIdentifierResolution;
@@ -32,6 +38,9 @@ internal static partial class SymbolResolver
 
         if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
             return patternCaseResolution;
+
+        if (TryResolveWholeTypeSyntaxAtOffset(semanticModel, root, offset, out var typeSyntaxResolution))
+            return typeSyntaxResolution;
 
         if (TryResolveExactIdentifierSymbol(semanticModel, root, offset, out var exactIdentifierResolution))
             return exactIdentifierResolution;
@@ -105,6 +114,46 @@ internal static partial class SymbolResolver
         return false;
     }
 
+    private static bool TryResolveMemberBindingAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var memberBinding = token.Parent?
+                .AncestorsAndSelf()
+                .OfType<MemberBindingExpressionSyntax>()
+                .FirstOrDefault(binding => binding.Name.Span.Contains(normalizedOffset));
+            if (memberBinding is null)
+                continue;
+
+            if (!TryResolveMemberSegmentSymbol(semanticModel, memberBinding, token, out var symbol) ||
+                symbol is null)
+            {
+                continue;
+            }
+
+            resolution = new SymbolResolutionResult(SymbolResolutionKind.MemberAccess, symbol.UnderlyingSymbol, memberBinding.Name);
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool TryResolvePipeInvocationTargetAtOffset(
         SemanticModel semanticModel,
         SyntaxNode root,
@@ -172,6 +221,8 @@ internal static partial class SymbolResolver
                 continue;
 
             var isInvocationIdentifier = identifier.Parent is InvocationExpressionSyntax ||
+                                         identifier.Parent is MemberBindingExpressionSyntax { Name: var bindingName, Parent: InvocationExpressionSyntax } &&
+                                         HaveEquivalentSpan(bindingName, identifier) ||
                                          identifier.Parent is MemberAccessExpressionSyntax { Name: var memberName, Parent: InvocationExpressionSyntax } &&
                                          HaveEquivalentSpan(memberName, identifier);
             if (!isInvocationIdentifier)
@@ -180,6 +231,8 @@ internal static partial class SymbolResolver
             var invocation = identifier.Parent switch
             {
                 InvocationExpressionSyntax direct => direct,
+                MemberBindingExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
+                    when HaveEquivalentSpan(name, identifier) => parent,
                 MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
                     when HaveEquivalentSpan(name, identifier) => parent,
                 _ => null
@@ -233,6 +286,8 @@ internal static partial class SymbolResolver
             var invocation = identifier.Parent switch
             {
                 InvocationExpressionSyntax direct => direct,
+                MemberBindingExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
+                    when HaveEquivalentSpan(name, identifier) => parent,
                 MemberAccessExpressionSyntax { Name: var name, Parent: InvocationExpressionSyntax parent }
                     when HaveEquivalentSpan(name, identifier) => parent,
                 _ => null
@@ -291,6 +346,115 @@ internal static partial class SymbolResolver
 
         return false;
     }
+
+    private static bool TryResolveWholeTypeSyntaxAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var typeSyntax = GetWholeTypeSyntaxForResolution(token);
+            if (typeSyntax is null)
+                continue;
+
+            if (!TryResolveWholeTypeSymbolFromSyntax(semanticModel, typeSyntax, out var resolvedType) ||
+                resolvedType is null)
+            {
+                continue;
+            }
+
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.TypePosition,
+                resolvedType,
+                typeSyntax);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static TypeSyntax? GetWholeTypeSyntaxForResolution(SyntaxToken token)
+    {
+        if (IsImportDirectiveNameToken(token) ||
+            IsWithAssignmentNameToken(token) ||
+            IsArgumentNameToken(token))
+        {
+            return null;
+        }
+
+        var typeSyntaxes = token.Parent?
+            .AncestorsAndSelf()
+            .OfType<TypeSyntax>()
+            .Where(typeSyntax => typeSyntax.Span.Contains(token.Span))
+            .ToArray();
+        if (typeSyntaxes is null || typeSyntaxes.Length == 0)
+            return null;
+
+        var innermost = typeSyntaxes.OrderBy(static typeSyntax => typeSyntax.Span.Length).First();
+        if (typeSyntaxes.Any(IsCompoundTypeSyntax) &&
+            !IsCompoundTypeSyntax(innermost) &&
+            innermost.Span.Contains(token.Span))
+        {
+            return innermost;
+        }
+
+        return typeSyntaxes.OrderByDescending(static typeSyntax => typeSyntax.Span.Length).First();
+    }
+
+    private static bool IsCompoundTypeSyntax(TypeSyntax typeSyntax)
+        => typeSyntax is UnionTypeSyntax or TupleTypeSyntax or FunctionTypeSyntax;
+
+    private static bool IsImportDirectiveNamePosition(SyntaxNode root, int offset)
+    {
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Span.Contains(normalizedOffset) && IsImportDirectiveNameToken(token))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsImportDirectiveNameToken(SyntaxToken token)
+        => token.Parent?
+            .AncestorsAndSelf()
+            .OfType<ImportDirectiveSyntax>()
+            .Any(import => import.Name.Span.Contains(token.Span)) == true;
+
+    private static bool IsWithAssignmentNameToken(SyntaxToken token)
+        => token.Parent is IdentifierNameSyntax identifier &&
+           identifier.Parent is WithAssignmentSyntax assignment &&
+           HaveEquivalentSpan(assignment.Name, identifier);
+
+    private static bool IsArgumentNameToken(SyntaxToken token)
+        => token.Parent is IdentifierNameSyntax identifier &&
+           identifier.Parent is NameColonSyntax nameColon &&
+           nameColon.Parent is ArgumentSyntax &&
+           HaveEquivalentSpan(nameColon.Name, identifier);
 
     private static SymbolResolutionKind GetResolutionKindForNode(SyntaxNode node, SyntaxToken token)
     {

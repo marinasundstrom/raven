@@ -494,6 +494,25 @@ public partial class SemanticModel
             }
         }
 
+        if (node is IdentifierNameSyntax earlyWithAssignmentIdentifier &&
+            earlyWithAssignmentIdentifier.Parent is WithAssignmentSyntax earlyWithAssignment &&
+            IsSameSyntaxNode(earlyWithAssignment.Name, earlyWithAssignmentIdentifier) &&
+            TryGetWithAssignmentMemberSymbolInfo(earlyWithAssignment, out var earlyWithAssignmentInfo))
+        {
+            _symbolMappings[node] = earlyWithAssignmentInfo;
+            return earlyWithAssignmentInfo;
+        }
+
+        if (node is IdentifierNameSyntax earlyArgumentName &&
+            earlyArgumentName.Parent is NameColonSyntax earlyNameColon &&
+            earlyNameColon.Parent is ArgumentSyntax earlyArgument &&
+            IsSameSyntaxNode(earlyNameColon.Name, earlyArgumentName) &&
+            TryGetArgumentParameterSymbolInfo(earlyArgument, out var earlyArgumentInfo))
+        {
+            _symbolMappings[node] = earlyArgumentInfo;
+            return earlyArgumentInfo;
+        }
+
         if (_symbolMappings.TryGetValue(node, out var symbolInfo))
         {
             if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
@@ -692,7 +711,11 @@ public partial class SemanticModel
                  memberBindingIdentifier.Parent is MemberBindingExpressionSyntax memberBinding &&
                  IsSameSyntaxNode(memberBinding.Name, memberBindingIdentifier))
         {
-            if (TryBindExactSymbol(node, out var exactInfo))
+            if (TryGetMemberBindingTargetMemberSymbolInfo(memberBinding, out var targetMemberInfo))
+            {
+                info = targetMemberInfo;
+            }
+            else if (TryBindExactSymbol(node, out var exactInfo))
             {
                 info = exactInfo;
             }
@@ -705,6 +728,21 @@ public partial class SemanticModel
                 var boundMemberBinding = (BoundExpression)GetBoundNode(memberBinding);
                 info = boundMemberBinding.GetSymbolInfo();
             }
+        }
+        else if (node is IdentifierNameSyntax withAssignmentIdentifier &&
+                 withAssignmentIdentifier.Parent is WithAssignmentSyntax withAssignment &&
+                 IsSameSyntaxNode(withAssignment.Name, withAssignmentIdentifier) &&
+                 TryGetWithAssignmentMemberSymbolInfo(withAssignment, out var withAssignmentInfo))
+        {
+            info = withAssignmentInfo;
+        }
+        else if (node is IdentifierNameSyntax argumentNameIdentifier &&
+                 argumentNameIdentifier.Parent is NameColonSyntax nameColon &&
+                 nameColon.Parent is ArgumentSyntax argument &&
+                 IsSameSyntaxNode(nameColon.Name, argumentNameIdentifier) &&
+                 TryGetArgumentParameterSymbolInfo(argument, out var argumentInfo))
+        {
+            info = argumentInfo;
         }
         else if (node is ExpressionSyntax expression)
         {
@@ -822,6 +860,151 @@ public partial class SemanticModel
 
         _symbolMappings[node] = info;
         return info;
+    }
+
+    private bool TryGetMemberBindingTargetMemberSymbolInfo(MemberBindingExpressionSyntax memberBinding, out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        var memberName = memberBinding.Name.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(memberName))
+            return false;
+
+        if (!TryGetTargetTypeForExpression(memberBinding, out var targetType) ||
+            targetType is null ||
+            targetType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        var members = targetType
+            .GetMembers(memberName)
+            .Where(static member => member is IPropertySymbol or IFieldSymbol or IMethodSymbol)
+            .ToImmutableArray<ISymbol>();
+        if (members.IsDefaultOrEmpty)
+            return false;
+
+        var preferred = members.OfType<IPropertySymbol>().FirstOrDefault()
+            ?? members.OfType<IFieldSymbol>().FirstOrDefault() as ISymbol
+            ?? members.OfType<IMethodSymbol>().FirstOrDefault()
+            ?? members[0];
+
+        info = members.Length == 1
+            ? new SymbolInfo(preferred)
+            : new SymbolInfo(preferred, members, CandidateReason.MemberGroup);
+        return true;
+    }
+
+    private bool TryGetTargetTypeForExpression(ExpressionSyntax expression, out ITypeSymbol? targetType)
+    {
+        targetType = null;
+
+        if (expression.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax variableDeclarator } &&
+            variableDeclarator.TypeAnnotation?.Type is { } annotationType)
+        {
+            targetType = GetTypeInfo(annotationType).Type;
+            return targetType is not null && targetType.TypeKind != TypeKind.Error;
+        }
+
+        if (expression.Parent is WithAssignmentSyntax withAssignment &&
+            TryGetWithAssignmentMemberSymbolInfo(withAssignment, out var withAssignmentInfo))
+        {
+            targetType = withAssignmentInfo.Symbol switch
+            {
+                IPropertySymbol property => property.Type,
+                IFieldSymbol field => field.Type,
+                _ => null
+            };
+
+            return targetType is not null && targetType.TypeKind != TypeKind.Error;
+        }
+
+        return false;
+    }
+
+    private bool TryGetWithAssignmentMemberSymbolInfo(WithAssignmentSyntax assignment, out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        var withExpression = assignment.Parent as WithExpressionSyntax
+            ?? assignment.Ancestors().OfType<WithExpressionSyntax>().FirstOrDefault();
+        if (withExpression is null)
+            return false;
+
+        if (!TryGetWithReceiverType(withExpression.Expression, out var receiverType) ||
+            receiverType is null ||
+            receiverType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        var memberName = assignment.Name.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(memberName))
+            return false;
+
+        var members = receiverType
+            .GetMembers(memberName)
+            .Where(static member => member is IPropertySymbol or IFieldSymbol)
+            .Where(static member => !member.IsStatic)
+            .ToImmutableArray<ISymbol>();
+        if (members.IsDefaultOrEmpty)
+            return false;
+
+        var preferred = members.OfType<IPropertySymbol>().FirstOrDefault()
+            ?? members.OfType<IFieldSymbol>().FirstOrDefault() as ISymbol
+            ?? members[0];
+
+        info = members.Length == 1
+            ? new SymbolInfo(preferred)
+            : new SymbolInfo(preferred, members, CandidateReason.MemberGroup);
+        return true;
+    }
+
+    private bool TryGetWithReceiverType(ExpressionSyntax receiver, out INamedTypeSymbol? receiverType)
+    {
+        receiverType = null;
+
+        if (receiver is TypeSyntax typeSyntax)
+        {
+            receiverType = GetTypeInfo(typeSyntax).Type as INamedTypeSymbol;
+            if (receiverType is not null && receiverType.TypeKind != TypeKind.Error)
+                return true;
+        }
+
+        if (GetTypeInfo(receiver).Type is INamedTypeSymbol expressionType &&
+            expressionType.TypeKind != TypeKind.Error)
+        {
+            receiverType = expressionType;
+            return true;
+        }
+
+        var symbol = GetSymbolInfo(receiver).Symbol;
+        receiverType = symbol switch
+        {
+            INamedTypeSymbol namedType => namedType,
+            ILocalSymbol { Type: INamedTypeSymbol localType } => localType,
+            IParameterSymbol { Type: INamedTypeSymbol parameterType } => parameterType,
+            IPropertySymbol { Type: INamedTypeSymbol propertyType } => propertyType,
+            IFieldSymbol { Type: INamedTypeSymbol fieldType } => fieldType,
+            _ => null
+        };
+
+        if (receiverType is not null && receiverType.TypeKind != TypeKind.Error)
+            return true;
+
+        if (TryGetCachedBoundNode(receiver) is BoundTypeExpression { Type: INamedTypeSymbol boundType })
+        {
+            receiverType = boundType;
+            return receiverType.TypeKind != TypeKind.Error;
+        }
+
+        if (TryGetCachedBoundNode(receiver) is BoundObjectCreationExpression { Type: INamedTypeSymbol createdType })
+        {
+            receiverType = createdType;
+            return receiverType.TypeKind != TypeKind.Error;
+        }
+
+        return false;
     }
 
     public bool TryGetSymbolInfo(SyntaxNode node, out SymbolInfo info, CancellationToken cancellationToken = default)
@@ -1529,6 +1712,16 @@ public partial class SemanticModel
         if (_typeMappings.TryGetValue(expression, out typeInfo) &&
             HasTypeInfo(typeInfo))
         {
+            if (TryGetContextualArgumentConvertedType(expression, typeInfo.Type, out var contextualConvertedType) &&
+                !SymbolEqualityComparer.Default.Equals(typeInfo.ConvertedType, contextualConvertedType))
+            {
+                typeInfo = new TypeInfo(
+                    typeInfo.Type,
+                    contextualConvertedType,
+                    ComputeConversion(typeInfo.Type, contextualConvertedType));
+                _typeMappings[expression] = typeInfo;
+            }
+
             return true;
         }
 
@@ -1559,6 +1752,9 @@ public partial class SemanticModel
         {
             var type = cachedExpression.Type;
             var convertedType = cachedExpression.GetConvertedType() ?? type;
+            if (TryGetContextualArgumentConvertedType(expression, type, out var contextualConvertedType))
+                convertedType = contextualConvertedType;
+
             if ((type is not null && type.TypeKind != TypeKind.Error) ||
                 (convertedType is not null && convertedType.TypeKind != TypeKind.Error))
             {
@@ -1576,7 +1772,11 @@ public partial class SemanticModel
                 .FirstOrDefault(static type => type is not null && type.TypeKind != TypeKind.Error);
             if (inferredType is not null)
             {
-                typeInfo = new TypeInfo(inferredType, inferredType, ComputeConversion(inferredType, inferredType));
+                var convertedType = inferredType;
+                if (TryGetContextualArgumentConvertedType(expression, inferredType, out var contextualConvertedType))
+                    convertedType = contextualConvertedType;
+
+                typeInfo = new TypeInfo(inferredType, convertedType, ComputeConversion(inferredType, convertedType));
                 _typeMappings[expression] = typeInfo;
                 return true;
             }
@@ -1706,6 +1906,17 @@ public partial class SemanticModel
             binderType is not null &&
             binderType.TypeKind != TypeKind.Error)
         {
+            if (typeName is GenericNameSyntax genericName &&
+                binderType is INamedTypeSymbol namedType)
+            {
+                var typeArguments = ResolveAvailableTypeArguments(genericName.TypeArgumentList);
+                if (!typeArguments.IsDefaultOrEmpty &&
+                    typeArguments.Length == genericName.TypeArgumentList.Arguments.Count)
+                {
+                    binderType = namedType.Construct(typeArguments.ToArray());
+                }
+            }
+
             typeInfo = new TypeInfo(binderType, binderType, ComputeConversion(binderType, binderType));
             _typeMappings[typeSyntax] = typeInfo;
             return true;
@@ -2716,6 +2927,8 @@ public partial class SemanticModel
         ITypeSymbol? naturalType = boundExpr.Type;
 
         ITypeSymbol? convertedType = boundExpr.GetConvertedType() ?? boundExpr.Type;
+        if (TryGetContextualArgumentConvertedType(expr, naturalType, out var contextualConvertedType))
+            convertedType = contextualConvertedType;
 
         var conversion = boundExpr switch
         {
@@ -2725,6 +2938,217 @@ public partial class SemanticModel
         };
 
         return Cache(new TypeInfo(naturalType, convertedType, conversion));
+    }
+
+    private bool TryGetContextualArgumentConvertedType(
+        ExpressionSyntax expression,
+        ITypeSymbol? naturalType,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? convertedType)
+    {
+        convertedType = null;
+
+        if (naturalType is null ||
+            naturalType.TypeKind == TypeKind.Error ||
+            expression.Parent is not ArgumentSyntax argument ||
+            !IsSameSyntaxNode(argument.Expression, expression) ||
+            argument.Parent is not ArgumentListSyntax argumentList ||
+            argumentList.Parent is not InvocationExpressionSyntax invocation ||
+            IsSameSyntaxNode(invocation, expression))
+        {
+            return false;
+        }
+
+        if (!TryGetInvocationMethodSymbol(invocation, out var method) || method is null)
+            return false;
+
+        var parameter = GetParameterForArgument(method, argumentList.Arguments, argument);
+        if (parameter?.Type is not { TypeKind: not TypeKind.Error } parameterType)
+            return false;
+
+        convertedType = ProjectContextualConvertedType(parameterType, naturalType);
+        return true;
+    }
+
+    private bool TryGetArgumentParameterSymbolInfo(ArgumentSyntax argument, out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        if (argument.Parent is not ArgumentListSyntax argumentList ||
+            argumentList.Parent is not InvocationExpressionSyntax invocation ||
+            !TryGetInvocationMethodSymbol(invocation, out var method) ||
+            method is null)
+        {
+            return false;
+        }
+
+        var parameter = GetParameterForArgument(method, argumentList.Arguments, argument);
+        if (parameter is null)
+            return false;
+
+        info = new SymbolInfo(parameter);
+        return true;
+    }
+
+    private bool TryGetInvocationMethodSymbol(
+        InvocationExpressionSyntax invocation,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? method)
+    {
+        var invocationInfo = GetSymbolInfo(invocation);
+        method = invocationInfo.Symbol as IMethodSymbol
+            ?? invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        if (method is not null)
+            return true;
+
+        var boundInvocation = GetBoundNode(invocation);
+        method = boundInvocation switch
+        {
+            BoundInvocationExpression invocationExpression => invocationExpression.Method,
+            BoundObjectCreationExpression objectCreation => objectCreation.Constructor,
+            _ => null
+        };
+        if (method is not null)
+            return true;
+
+        if (invocation.Expression is TypeSyntax typeSyntax &&
+            GetTypeInfo(typeSyntax).Type is INamedTypeSymbol namedType)
+        {
+            method = namedType.Constructors.FirstOrDefault();
+        }
+        if (method is not null)
+            return true;
+
+        if (GetSymbolInfo(invocation.Expression).Symbol is INamedTypeSymbol expressionType)
+            method = expressionType.Constructors.FirstOrDefault();
+
+        return method is not null;
+    }
+
+    private static ITypeSymbol ProjectContextualConvertedType(ITypeSymbol parameterType, ITypeSymbol naturalType)
+    {
+        if (parameterType is not INamedTypeSymbol parameterNamed ||
+            naturalType is not INamedTypeSymbol naturalNamed ||
+            naturalNamed.TryGetUnionCase() is not { } naturalCase ||
+            !TryProjectUnionFromCaseArguments(naturalNamed, naturalCase, out var projectedUnion) ||
+            projectedUnion is null)
+        {
+            return parameterType;
+        }
+
+        var parameterDefinition = parameterNamed.OriginalDefinition as INamedTypeSymbol ?? parameterNamed;
+        var projectedDefinition = projectedUnion.OriginalDefinition as INamedTypeSymbol ?? projectedUnion;
+        if (SymbolEqualityComparer.Default.Equals(parameterDefinition, projectedDefinition))
+            return projectedUnion;
+
+        var parameterUnionDefinition = parameterNamed.TryGetUnion()?.OriginalDefinition as INamedTypeSymbol;
+        if (parameterUnionDefinition is not null &&
+            SymbolEqualityComparer.Default.Equals(parameterUnionDefinition, projectedDefinition))
+        {
+            return projectedUnion;
+        }
+
+        return parameterType;
+    }
+
+    private static bool TryProjectUnionFromCaseArguments(
+        INamedTypeSymbol caseType,
+        IUnionCaseTypeSymbol caseSymbol,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out INamedTypeSymbol? projectedUnion)
+    {
+        projectedUnion = null;
+
+        if (caseType.TypeArguments.IsDefaultOrEmpty)
+            return false;
+
+        var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
+        if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+            caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
+            caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
+        {
+            return false;
+        }
+
+        var unionDefinition = caseDefinition.Union.OriginalDefinition as INamedTypeSymbol ?? caseDefinition.Union as INamedTypeSymbol;
+        if (unionDefinition is null || unionDefinition.TypeParameters.IsDefaultOrEmpty)
+            return false;
+
+        var unionTypeArguments = unionDefinition.TypeParameters
+            .Select(typeParameter => (ITypeSymbol)typeParameter)
+            .ToArray();
+
+        var changed = false;
+
+        for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
+        {
+            var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
+            ITypeParameterSymbol? unionTypeParameter = null;
+
+            if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
+                sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
+            {
+                unionTypeParameter = mapped;
+            }
+            else
+            {
+                unionTypeParameter = unionDefinition.TypeParameters
+                    .FirstOrDefault(tp => string.Equals(tp.Name, caseTypeParameter.Name, StringComparison.Ordinal));
+            }
+
+            if (unionTypeParameter is null)
+                continue;
+
+            var unionIndex = -1;
+            for (var unionParameterIndex = 0; unionParameterIndex < unionDefinition.TypeParameters.Length; unionParameterIndex++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(unionDefinition.TypeParameters[unionParameterIndex], unionTypeParameter))
+                {
+                    unionIndex = unionParameterIndex;
+                    break;
+                }
+            }
+
+            if (unionIndex < 0 || unionIndex >= unionTypeArguments.Length)
+                continue;
+
+            unionTypeArguments[unionIndex] = caseType.TypeArguments[i];
+            changed = true;
+        }
+
+        if (!changed)
+            return false;
+
+        projectedUnion = (INamedTypeSymbol)unionDefinition.Construct(unionTypeArguments);
+        return true;
+    }
+
+    private static IParameterSymbol? GetParameterForArgument(
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument)
+    {
+        if (argument.NameColon?.Name.Identifier.ValueText is { Length: > 0 } argumentName)
+        {
+            return method.Parameters.FirstOrDefault(parameter =>
+                string.Equals(parameter.Name, argumentName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var argumentIndex = -1;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i] == argument)
+            {
+                argumentIndex = i;
+                break;
+            }
+        }
+
+        if (argumentIndex < 0)
+            return null;
+
+        if (argumentIndex < method.Parameters.Length)
+            return method.Parameters[argumentIndex];
+
+        var lastParameter = method.Parameters.LastOrDefault();
+        return lastParameter?.IsVarParams == true ? lastParameter : null;
     }
 
     public bool TryGetTypeInfo(ExpressionSyntax expression, out TypeInfo typeInfo)
