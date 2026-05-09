@@ -6,6 +6,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ### Changed
 - Language-server open and save events now schedule a deferred full diagnostic pass after the immediate syntax pass, so analyzer diagnostics appear without requiring a document edit and stale analyzer diagnostics can be cleared after saving.
+- Language-server semantic tokens now skip unmapped classifications instead of emitting default keyword tokens, and classify local declaration/designation identifiers from syntax so open-document tuple deconstruction edits keep correct spans and token types.
 
 ## 2026-05-08
 

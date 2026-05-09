@@ -175,6 +175,8 @@ public static class SemanticClassifier
             MemberBindingExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
             MemberPatternPathSyntax => SemanticClassification.Type,
             ParameterSyntax => SemanticClassification.Parameter,
+            VariableDeclaratorSyntax => SemanticClassification.Local,
+            SingleVariableDesignationSyntax => SemanticClassification.Local,
             TypeSyntax => SemanticClassification.Type,
             _ => SemanticClassification.Default
         };

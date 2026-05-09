@@ -413,6 +413,137 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
     }
 
     [Fact]
+    public async Task SemanticTokens_FullRequest_AfterAppendingOpenDocumentCode_UsesUpdatedSpansAsync()
+    {
+        const string initialCode = """
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+var people: ImmutableList<Person> = [
+    .("Alice", 25, [ "Horse", "Saddle" ]),
+    .("John", 18, [ "Keys", "Wallet" ]),
+    .("Jane", 15, [ "Sunglasses", "Purse" ])
+]
+
+people = people.Add(.("Test", 30, ["A", "B"]))
+
+for val (name, age when > 15, [ item1, item2 ]) in people {
+    WriteLine("$name ($age) has $item1 and $item2")
+}
+
+record Person(
+    val Name: string
+    val Age: int
+    val Items: string[]
+)
+""";
+
+        const string updatedCode = """
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+var people: ImmutableList<Person> = [
+    .("Alice", 25, [ "Horse", "Saddle" ]),
+    .("John", 18, [ "Keys", "Wallet" ]),
+    .("Jane", 15, [ "Sunglasses", "Purse" ])
+]
+
+people = people.Add(.("Test", 30, ["A", "B"]))
+
+for val (name, age when > 15, [ item1, item2 ]) in people {
+    WriteLine("$name ($age) has $item1 and $item2")
+}
+
+record Person(
+    val Name: string
+    val Age: int
+    val Items: string[]
+)
+
+val (no, _) = Get()
+
+WriteLine(no)
+
+func Get() -> (int, string) {
+    return (42, "Hej")
+}
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var projectPath = Path.Combine(tempRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, initialCode);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            store.UpsertDocument(uri, initialCode);
+
+            var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+            var initialResult = await handler.Handle(new SemanticTokensParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri)
+            }, CancellationToken.None);
+
+            initialResult.ShouldNotBeNull();
+
+            store.UpsertDocument(uri, updatedCode);
+
+            var updatedResult = await handler.Handle(new SemanticTokensParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri)
+            }, CancellationToken.None);
+
+            updatedResult.ShouldNotBeNull();
+
+            var decoded = Decode(updatedCode, updatedResult.Data, SemanticTokensHandler.Legend);
+
+            Find(decoded, 23, "val").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 23, "no").Type.ShouldBe(SemanticTokenType.Variable);
+            Find(decoded, 23, "Get").Type.ShouldBe(SemanticTokenType.Method);
+            Find(decoded, 25, "WriteLine").Type.ShouldBe(SemanticTokenType.Method);
+            Find(decoded, 25, "no").Type.ShouldBe(SemanticTokenType.Variable);
+            Find(decoded, 27, "func").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 27, "Get").Type.ShouldBe(SemanticTokenType.Method);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task SemanticTokens_RangeRequest_ReturnsOnlyTokensInsideRequestedRangeAsync()
     {
         const string code = """
