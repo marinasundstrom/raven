@@ -336,6 +336,46 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_EfCoreSample_SemanticModelReturnsHoverSymbols()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var sourceText = tree.GetText().ToString();
+
+        AssertSymbolName(model.GetSymbolInfo(FindMemberName(root, "UseNpgsql")).Symbol, "UseNpgsql");
+        AssertSymbolName(model.GetSymbolInfo(FindMemberName(root, "CreateBuilder")).Symbol, "CreateBuilder");
+        AssertSymbolName(model.GetSymbolInfo(FindIdentifier(root, "VehicleAppServices")).Symbol, "VehicleAppServices");
+
+        var taskType = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier =>
+                string.Equals(identifier.Identifier.ValueText, "Task", StringComparison.Ordinal) &&
+                identifier.Ancestors().OfType<ArrowTypeClauseSyntax>().Any());
+        AssertSymbolName(model.GetSymbolInfo(taskType).Symbol, "Task");
+
+        var builderDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "builder");
+        AssertSymbolName(model.GetDeclaredSymbol(builderDeclarator), "builder");
+
+        AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 15, character: 29), "UseNpgsql");
+        AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 10, character: 49), "Task");
+        AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 11, character: 42), "CreateBuilder");
+        AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 11, character: 16), "builder");
+        AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 15, character: 14), "options");
+        AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 15, character: 41), "VehicleAppServices");
+    }
+
+    [Fact]
     public void OpenProject_FrameworkReference_EmitsMinimalApiProjectWithParameterizedSyncLambda()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -381,6 +421,69 @@ public sealed class ProjectFileNuGetReferenceTests
             .Single(invocation =>
                 invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName } &&
                 string.Equals(memberName.Identifier.ValueText, name, StringComparison.Ordinal));
+
+    private static SimpleNameSyntax FindMemberName(SyntaxNode root, string name)
+        => root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Select(static memberAccess => memberAccess.Name)
+            .Single(memberName => string.Equals(memberName.Identifier.ValueText, name, StringComparison.Ordinal));
+
+    private static IdentifierNameSyntax FindIdentifier(SyntaxNode root, string name)
+        => root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(identifier => string.Equals(identifier.Identifier.ValueText, name, StringComparison.Ordinal));
+
+    private static void AssertSymbolName(ISymbol? symbol, string expectedName)
+    {
+        Assert.NotNull(symbol);
+        Assert.Equal(expectedName, symbol!.Name);
+    }
+
+    private static ISymbol? QuerySymbolAt(
+        SemanticModel model,
+        SyntaxNode root,
+        string sourceText,
+        int line,
+        int character)
+    {
+        var position = GetPosition(sourceText, line, character);
+        var token = root.FindToken(position);
+        var node = token.Parent;
+
+        return node switch
+        {
+            VariableDeclaratorSyntax declarator when token == declarator.Identifier => model.GetDeclaredSymbol(declarator),
+            SimpleNameSyntax name => model.GetSymbolInfo(name).Symbol,
+            InvocationExpressionSyntax invocation => model.GetSymbolInfo(invocation).Symbol,
+            TypeSyntax typeSyntax => model.GetSymbolInfo(typeSyntax).Symbol ?? model.GetTypeInfo(typeSyntax).Type,
+            _ => node?.AncestorsAndSelf()
+                .Select(ancestor => ancestor switch
+                {
+                    VariableDeclaratorSyntax declarator when token == declarator.Identifier => model.GetDeclaredSymbol(declarator),
+                    SimpleNameSyntax name => model.GetSymbolInfo(name).Symbol,
+                    InvocationExpressionSyntax invocation => model.GetSymbolInfo(invocation).Symbol,
+                    TypeSyntax typeSyntax => model.GetSymbolInfo(typeSyntax).Symbol ?? model.GetTypeInfo(typeSyntax).Type,
+                    _ => null
+                })
+                .FirstOrDefault(static symbol => symbol is not null)
+        };
+    }
+
+    private static int GetPosition(string sourceText, int line, int character)
+    {
+        var currentLine = 0;
+        var lineStart = 0;
+        for (var i = 0; i < sourceText.Length && currentLine < line; i++)
+        {
+            if (sourceText[i] != '\n')
+                continue;
+
+            currentLine++;
+            lineStart = i + 1;
+        }
+
+        return Math.Min(sourceText.Length, lineStart + character);
+    }
 
     private static string FindRepositoryRoot()
     {

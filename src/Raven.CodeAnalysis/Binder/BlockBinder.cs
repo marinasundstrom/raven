@@ -111,22 +111,34 @@ partial class BlockBinder : Binder
             return cachedDesignator.Local;
 
         if (singleVariableDesignation.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
-            _ = SemanticModel.GetBoundNode(matchExpression);
+            BindPatternDeclarationOwner(matchExpression);
         else if (singleVariableDesignation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
-            _ = SemanticModel.GetBoundNode(matchStatement);
+            BindPatternDeclarationOwner(matchStatement);
         else if (singleVariableDesignation.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
-            _ = SemanticModel.GetBoundNode(isPatternExpression);
+            BindPatternDeclarationOwner(isPatternExpression);
         else if (singleVariableDesignation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
-            _ = SemanticModel.GetBoundNode(ifPatternStatement);
+            BindPatternDeclarationOwner(ifPatternStatement);
         else if (singleVariableDesignation.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
-            _ = SemanticModel.GetBoundNode(whilePatternStatement);
+            BindPatternDeclarationOwner(whilePatternStatement);
         else if (singleVariableDesignation.GetAncestor<ForStatementSyntax>() is { } forStatement)
-            _ = SemanticModel.GetBoundNode(forStatement);
+            BindPatternDeclarationOwner(forStatement);
 
         if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator)
             return reboundDesignator.Local;
 
         return BindSingleVariableDesignation(singleVariableDesignation)?.Local;
+    }
+
+    private void BindPatternDeclarationOwner(SyntaxNode owner)
+    {
+        var semanticModel = SemanticModel;
+        if (semanticModel is not null)
+        {
+            _ = semanticModel.GetBoundNode(owner);
+            return;
+        }
+
+        _ = GetOrBind(owner);
     }
 
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
