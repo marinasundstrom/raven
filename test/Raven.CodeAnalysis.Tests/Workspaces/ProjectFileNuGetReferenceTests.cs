@@ -336,6 +336,295 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_EfCoreSample_AddDbContextColdSymbolInfo_DoesNotBindBodies()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var addDbContext = FindMemberInvocation(root, "AddDbContext");
+        var addDbContextName = FindMemberName(root, "AddDbContext");
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var memberInfo = model.GetSymbolInfo(addDbContextName);
+        var invocationInfo = model.GetSymbolInfo(addDbContext);
+        var typeInfo = model.GetTypeInfo(addDbContext);
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        AssertSymbolInfoContains(memberInfo, "AddDbContext");
+        AssertSymbolInfoContains(invocationInfo, "AddDbContext");
+        Assert.NotNull(typeInfo.Type);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+        Assert.Equal(0, delta.TypeInfoBoundFallbacks);
+        Assert.Equal(0, delta.TypeInfoDiagnosticFallbacks);
+    }
+
+    [Fact]
+    public void OpenProject_EfCoreSample_LambdaParameterHoverApis_DoNotBindBodies()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var addDbContextParameter = FindFunctionParameter(root, "options", enclosingInvocationName: "AddDbContext");
+        var orderByParameter = FindFunctionParameter(root, "vehicle", enclosingInvocationName: "OrderBy");
+        var orderByFunction = orderByParameter.Ancestors().OfType<FunctionExpressionSyntax>().First();
+        var orderByReceiver = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier =>
+                identifier.Identifier.ValueText == "vehicle" &&
+                identifier.Parent is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "RegistrationNumber" }
+                } &&
+                identifier.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault() is
+                {
+                    Expression: MemberAccessExpressionSyntax { Name: SimpleNameSyntax { Identifier.ValueText: "OrderBy" } }
+                });
+
+        T QueryWithoutBinding<T>(string label, Func<T> query)
+        {
+            instrumentation.BinderReentry.Reset();
+            var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+            var result = query();
+
+            var after = instrumentation.SemanticQuery.CaptureSnapshot();
+            var delta = SemanticQueryInstrumentation.Subtract(after, before);
+            Assert.True(instrumentation.BinderReentry.TotalBindExecutions == 0, $"{label} bound {instrumentation.BinderReentry.TotalBindExecutions} node(s).");
+            Assert.True(delta.SymbolInfoBinderFallbacks == 0, $"{label} used {delta.SymbolInfoBinderFallbacks} symbol binder fallback(s).");
+            Assert.True(delta.BoundNodeBindFallbacks == 0, $"{label} used {delta.BoundNodeBindFallbacks} bound-node fallback(s).");
+            Assert.True(delta.TypeInfoBoundFallbacks == 0, $"{label} used {delta.TypeInfoBoundFallbacks} type-info bound fallback(s).");
+            Assert.True(delta.TypeInfoDiagnosticFallbacks == 0, $"{label} used {delta.TypeInfoDiagnosticFallbacks} type-info diagnostic fallback(s).");
+            return result;
+        }
+
+        AssertSymbolName(QueryWithoutBinding("AddDbContext GetFunctionExpressionParameterSymbol", () => model.GetFunctionExpressionParameterSymbol(addDbContextParameter)), "options");
+        AssertSymbolName(
+            QueryWithoutBinding("AddDbContext TryResolveFunctionExpressionParameterSymbolFast", () =>
+            {
+                Assert.True(model.TryResolveFunctionExpressionParameterSymbolFast(addDbContextParameter, out var symbol));
+                return symbol;
+            }),
+            "options");
+        AssertSymbolName(QueryWithoutBinding("AddDbContext GetDeclaredSymbol", () => model.GetDeclaredSymbol(addDbContextParameter)), "options");
+        AssertSymbolInfoContains(QueryWithoutBinding("AddDbContext GetSymbolInfo", () => model.GetSymbolInfo(addDbContextParameter)), "options");
+
+        AssertSymbolName(QueryWithoutBinding("OrderBy GetFunctionExpressionParameterSymbol", () => model.GetFunctionExpressionParameterSymbol(orderByParameter)), "vehicle");
+        AssertSymbolName(
+            QueryWithoutBinding("OrderBy TryGetFunctionExpressionSymbol", () =>
+            {
+                Assert.True(model.TryGetFunctionExpressionSymbol(orderByFunction, out var symbol));
+                return symbol?.Parameters.FirstOrDefault();
+            }),
+            "vehicle");
+        AssertSymbolName(QueryWithoutBinding("OrderBy GetDeclaredSymbol", () => model.GetDeclaredSymbol(orderByParameter)), "vehicle");
+        AssertSymbolInfoContains(QueryWithoutBinding("OrderBy GetSymbolInfo", () => model.GetSymbolInfo(orderByParameter)), "vehicle");
+        AssertSymbolInfoContains(QueryWithoutBinding("OrderBy receiver GetSymbolInfo", () => model.GetSymbolInfo(orderByReceiver)), "vehicle");
+        Assert.Equal("VehicleEntity", QueryWithoutBinding("OrderBy receiver GetTypeInfo", () => model.GetTypeInfo(orderByReceiver)).Type?.Name);
+    }
+
+    [Fact]
+    public void OpenProject_EfCoreSample_AwaitSymbolInfo_DoesNotBindBodies()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var sourceText = tree.GetText();
+        var awaitExpression = root.DescendantNodes()
+            .OfType<PrefixOperatorExpressionSyntax>()
+            .First(expression =>
+                expression.Kind == SyntaxKind.AwaitExpression &&
+                sourceText.ToString(expression.Span).Contains("SingleOrDefaultAsync", StringComparison.Ordinal));
+        var vehicleDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .First(declarator =>
+                string.Equals(declarator.Identifier.ValueText, "vehicle", StringComparison.Ordinal) &&
+                declarator.Initializer is not null &&
+                sourceText.ToString(declarator.Initializer.Span).Contains("SingleOrDefaultAsync", StringComparison.Ordinal));
+        var vehiclesDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .First(declarator =>
+                string.Equals(declarator.Identifier.ValueText, "vehicles", StringComparison.Ordinal) &&
+                declarator.Initializer is not null &&
+                sourceText.ToString(declarator.Initializer.Span).Contains("ToListAsync", StringComparison.Ordinal));
+        var vehiclesReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier =>
+                string.Equals(identifier.Identifier.ValueText, "vehicles", StringComparison.Ordinal) &&
+                identifier.Parent is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "Select" }
+                });
+        var toListAsync = vehiclesDeclarator.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "ToListAsync" }
+                });
+        var include = vehiclesDeclarator.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "Include" }
+                });
+        var orderBy = vehiclesDeclarator.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "OrderBy" }
+                });
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(include, out var coldIncludeCandidates), "Include candidates");
+        Assert.True(model.TryGetAvailableInvocationCandidates(orderBy, out var coldOrderByCandidates), "OrderBy candidates");
+        Assert.Contains(coldOrderByCandidates, method => method.ReturnType.ToDisplayString().Contains("VehicleEntity", StringComparison.Ordinal));
+        Assert.True(model.TryGetAvailableInvocationCandidates(toListAsync, out var coldToListCandidates), "ToListAsync candidates");
+        Assert.Contains(coldToListCandidates, method =>
+            method.ReturnType.ToDisplayString().Contains("VehicleEntity", StringComparison.Ordinal) &&
+            !method.ReturnType.ToDisplayString().Contains("TSource", StringComparison.Ordinal));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+
+        instrumentation.BinderReentry.Reset();
+        before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var coldVehiclesInfo = model.GetSymbolInfo(vehiclesReference);
+
+        after = instrumentation.SemanticQuery.CaptureSnapshot();
+        delta = SemanticQueryInstrumentation.Subtract(after, before);
+        AssertSymbolInfoContains(coldVehiclesInfo, "vehicles");
+        var coldVehiclesLocal = Assert.IsAssignableFrom<ILocalSymbol>(coldVehiclesInfo.Symbol ?? coldVehiclesInfo.CandidateSymbols.FirstOrDefault());
+        Assert.Equal("List", coldVehiclesLocal.Type.Name);
+        Assert.Contains("VehicleEntity", coldVehiclesLocal.Type.ToDisplayString());
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+
+        instrumentation.BinderReentry.Reset();
+        before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var info = model.GetSymbolInfo(awaitExpression);
+
+        after = instrumentation.SemanticQuery.CaptureSnapshot();
+        delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Null(info.Symbol);
+        Assert.True(info.CandidateSymbols.IsDefaultOrEmpty);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+
+        instrumentation.BinderReentry.Reset();
+        before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var symbol = model.GetDeclaredSymbol(vehicleDeclarator);
+
+        after = instrumentation.SemanticQuery.CaptureSnapshot();
+        delta = SemanticQueryInstrumentation.Subtract(after, before);
+        AssertSymbolName(symbol, "vehicle");
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+
+        instrumentation.BinderReentry.Reset();
+        before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var vehiclesInitializerType = model.GetTypeInfo(vehiclesDeclarator.Initializer!.Value);
+
+        after = instrumentation.SemanticQuery.CaptureSnapshot();
+        delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("List", vehiclesInitializerType.Type?.Name);
+        Assert.Contains("VehicleEntity", vehiclesInitializerType.Type?.ToDisplayString() ?? string.Empty);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+        Assert.Equal(0, delta.TypeInfoBoundFallbacks);
+        Assert.Equal(0, delta.TypeInfoDiagnosticFallbacks);
+
+        instrumentation.BinderReentry.Reset();
+        before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        info = model.GetSymbolInfo(vehiclesReference);
+
+        after = instrumentation.SemanticQuery.CaptureSnapshot();
+        delta = SemanticQueryInstrumentation.Subtract(after, before);
+        AssertSymbolInfoContains(info, "vehicles");
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+
+        instrumentation.BinderReentry.Reset();
+        before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var vehiclesReferenceType = model.GetTypeInfo(vehiclesReference);
+
+        after = instrumentation.SemanticQuery.CaptureSnapshot();
+        delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("List", vehiclesReferenceType.Type?.Name);
+        Assert.Contains("VehicleEntity", vehiclesReferenceType.Type?.ToDisplayString() ?? string.Empty);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+        Assert.Equal(0, delta.TypeInfoBoundFallbacks);
+        Assert.Equal(0, delta.TypeInfoDiagnosticFallbacks);
+    }
+
+    [Fact]
     public void OpenProject_EfCoreSample_SemanticModelReturnsHoverSymbols()
     {
         var repoRoot = FindRepositoryRoot();
@@ -428,6 +717,20 @@ public sealed class ProjectFileNuGetReferenceTests
             .Select(static memberAccess => memberAccess.Name)
             .Single(memberName => string.Equals(memberName.Identifier.ValueText, name, StringComparison.Ordinal));
 
+    private static ParameterSyntax FindFunctionParameter(SyntaxNode root, string parameterName, string enclosingInvocationName)
+        => root.DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Where(function => function.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault() is { } invocation &&
+                invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName } &&
+                string.Equals(memberName.Identifier.ValueText, enclosingInvocationName, StringComparison.Ordinal))
+            .SelectMany(static function => function switch
+            {
+                SimpleFunctionExpressionSyntax simple => [simple.Parameter],
+                ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
+                _ => Enumerable.Empty<ParameterSyntax>()
+            })
+            .Single(parameter => string.Equals(parameter.Identifier.ValueText, parameterName, StringComparison.Ordinal));
+
     private static IdentifierNameSyntax FindIdentifier(SyntaxNode root, string name)
         => root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
@@ -437,6 +740,17 @@ public sealed class ProjectFileNuGetReferenceTests
     {
         Assert.NotNull(symbol);
         Assert.Equal(expectedName, symbol!.Name);
+    }
+
+    private static void AssertSymbolInfoContains(SymbolInfo info, string expectedName)
+    {
+        if (info.Symbol is not null)
+        {
+            Assert.Equal(expectedName, info.Symbol.Name);
+            return;
+        }
+
+        Assert.Contains(info.CandidateSymbols, symbol => string.Equals(symbol.Name, expectedName, StringComparison.Ordinal));
     }
 
     private static ISymbol? QuerySymbolAt(

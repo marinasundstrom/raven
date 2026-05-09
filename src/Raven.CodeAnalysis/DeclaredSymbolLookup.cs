@@ -203,7 +203,14 @@ internal sealed class DeclaredSymbolLookup
         }
 
         if (node is VariableDeclaratorSyntax variableDeclarator &&
-            _semanticModel.TryGetStableLocalDeclarationSymbol(variableDeclarator, out var stableLocalSymbol))
+            variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().Any(static node => node.Kind == SyntaxKind.AwaitExpression) == true &&
+            _semanticModel.TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var availableLocalSymbol))
+        {
+            return availableLocalSymbol;
+        }
+
+        if (node is VariableDeclaratorSyntax variableDeclaratorForStableLookup &&
+            _semanticModel.TryGetStableLocalDeclarationSymbol(variableDeclaratorForStableLookup, out var stableLocalSymbol))
         {
             return stableLocalSymbol;
         }
