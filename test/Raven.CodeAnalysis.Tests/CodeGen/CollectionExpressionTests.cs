@@ -49,6 +49,45 @@ class Foo {
     }
 
     [Fact]
+    public void DictionaryExpression_UnionValueArrayBranch_TargetsNestedCollectionExpression()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+union JsonValue(string | double | bool | JsonObject | JsonValue[])
+record JsonObject(Properties: IDictionary<string, JsonValue>)
+
+class Foo {
+    public static func GetCount() -> int {
+        val value = JsonObject([
+            "name": 42,
+            "items": [ "true", 42 ]
+        ])
+        return value.Properties.Count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("GetCount", BindingFlags.Static | BindingFlags.Public);
+
+        Assert.Equal(2, (int)method!.Invoke(null, null)!);
+    }
+
+    [Fact]
     public void ListCollectionExpressions_AreInitializedCorrectly()
     {
         var code = """

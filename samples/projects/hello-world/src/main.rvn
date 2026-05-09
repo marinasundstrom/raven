@@ -50,11 +50,13 @@ union Status {
     }
 }
 
-union JsonValue(string | double | bool | JsonObject)
+[RavenUnionJsonConverter("kind")]
+union JsonValue(string | double | bool | JsonObject | JsonValue[])
 record JsonObject(Properties: IDictionary<string, JsonValue>)
 
 val x = JsonObject([ 
-    "name": 32
+    "name": 32,
+    "items": [ "true", 42 ]
 ])
 
-WriteLine(x)
+WriteLine(JsonSerializer.Serialize(x, options))

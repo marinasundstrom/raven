@@ -11939,9 +11939,10 @@ partial class BlockBinder : Binder
         SyntaxNode syntax,
         SeparatedSyntaxList<CollectionElementSyntax> syntaxElements,
         bool inferArrayByDefault,
-        bool isMutableByDefault)
+        bool isMutableByDefault,
+        ITypeSymbol? targetTypeOverride = null)
     {
-        var targetType = GetTargetType(syntax);
+        var targetType = targetTypeOverride ?? GetTargetType(syntax);
 
         // Expression-statement contexts can flow Unit as a target type.
         // Collection literals should still infer a concrete collection type.
@@ -11953,6 +11954,29 @@ partial class BlockBinder : Binder
 
         if (targetType is NullableTypeSymbol nullableTargetType)
             targetType = nullableTargetType.UnderlyingType;
+
+        var hasDictionaryElements = syntaxElements.Any(static element =>
+            element is DictionaryElementSyntax or DictionarySpreadElementSyntax or DictionaryComprehensionElementSyntax);
+
+        if (targetTypeOverride is null &&
+            targetType is not null &&
+            TryGetCollectionExpressionUnionTarget(targetType, hasDictionaryElements, out var unionMemberTarget))
+        {
+            var expression = BindCollectionExpressionCore(
+                syntax,
+                syntaxElements,
+                inferArrayByDefault,
+                isMutableByDefault,
+                unionMemberTarget);
+
+            if (expression.Type is not null &&
+                IsAssignable(targetType, expression.Type, out var unionConversion))
+            {
+                return ApplyConversion(expression, targetType, unionConversion, syntax);
+            }
+
+            return expression;
+        }
 
         // Empty collection: defer to target type if available
         if (syntaxElements.Count == 0)
@@ -11978,8 +12002,6 @@ partial class BlockBinder : Binder
 
         var elements = new List<BoundExpression>(syntaxElements.Count);
         var elementNodes = new List<SyntaxNode>(syntaxElements.Count);
-        var hasDictionaryElements = syntaxElements.Any(static element =>
-            element is DictionaryElementSyntax or DictionarySpreadElementSyntax or DictionaryComprehensionElementSyntax);
 
         if (hasDictionaryElements)
             return BindDictionaryExpressionCore(syntax, syntaxElements, targetType, inferArrayByDefault, isMutableByDefault);
@@ -12246,6 +12268,78 @@ partial class BlockBinder : Binder
             .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 1);
 
         return addMethod?.Parameters[0].Type;
+    }
+
+    private bool TryGetCollectionExpressionUnionTarget(
+        ITypeSymbol unionType,
+        bool hasDictionaryElements,
+        out ITypeSymbol targetType)
+    {
+        targetType = Compilation.ErrorTypeSymbol;
+        IEnumerable<ITypeSymbol> members;
+
+        if (unionType is ITypeUnionSymbol typeUnion)
+            members = GetUnionMembers(typeUnion);
+        else if (unionType.TryGetUnion() is IUnionSymbol discriminatedUnion)
+            members = discriminatedUnion.MemberTypes.Select(UnwrapAlias);
+        else
+            return false;
+
+        var candidates = new List<ITypeSymbol>();
+
+        foreach (var member in members)
+        {
+            if (!IsCollectionExpressionTargetCandidate(member, hasDictionaryElements))
+                continue;
+
+            if (!candidates.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, member)))
+                candidates.Add(member);
+        }
+
+        if (candidates.Count != 1)
+            return false;
+
+        targetType = candidates[0];
+        return true;
+    }
+
+    private bool IsCollectionExpressionTargetCandidate(ITypeSymbol type, bool hasDictionaryElements)
+    {
+        type = UnwrapAlias(type);
+
+        if (hasDictionaryElements)
+        {
+            return type is INamedTypeSymbol namedType &&
+                (TryGetDictionaryInterfaceElementTypes(namedType, out _, out _) ||
+                 TryGetDictionaryAddSignature(namedType, out var dictionaryAddMethod, out _, out _) && dictionaryAddMethod is not null);
+        }
+
+        if (type is IArrayTypeSymbol arrayType)
+            return arrayType.Rank == 1;
+
+        if (type is not INamedTypeSymbol namedTarget)
+            return false;
+
+        if (TryGetCollectionBuilderInfo(namedTarget, out _, out _))
+            return true;
+
+        var addMethod = namedTarget.GetMembers("Add")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 1);
+        var constructor = namedTarget.Constructors
+            .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
+
+        if (addMethod is not null && constructor is not null)
+            return true;
+
+        if (TryGetIEnumerableElementType(namedTarget, out var enumerableElementType))
+        {
+            var arrayTarget = Compilation.CreateArrayTypeSymbol(enumerableElementType);
+            var conversion = Compilation.ClassifyConversion(arrayTarget, namedTarget);
+            return conversion.Exists && conversion.IsImplicit;
+        }
+
+        return false;
     }
 
     private BoundExpression BindDictionaryExpressionCore(
