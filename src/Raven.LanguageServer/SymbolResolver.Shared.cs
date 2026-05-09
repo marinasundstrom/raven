@@ -22,6 +22,7 @@ internal static partial class SymbolResolver
         {
             TypeAnnotationClauseSyntax => true,
             ArrowTypeClauseSyntax => true,
+            TupleElementSyntax => true,
             TypeArgumentSyntax => true,
             TypeSyntax => true,
             TypeOfExpressionSyntax => true,

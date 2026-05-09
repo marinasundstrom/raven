@@ -2274,6 +2274,14 @@ internal sealed class HoverHandler : IHoverHandler
                 return functionTypeSignature;
             }
 
+            var typeFormat = declarationTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
+
+            if (typeSymbol is ITupleTypeSymbol tupleType)
+            {
+                var tupleText = FormatTupleNominalType(tupleType, typeFormat);
+                return AppendBaseTypeList(tupleText, tupleType, declarationTypeFormat);
+            }
+
             if (typeSymbol is INamedTypeSymbol delegateType &&
                 delegateType.TypeKind == TypeKind.Delegate)
             {
@@ -2283,26 +2291,12 @@ internal sealed class HoverHandler : IHoverHandler
                 return FormatType(delegateType, declarationTypeFormat);
             }
 
-            var typeFormat = declarationTypeFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword);
             var text = typeSymbol is INamedTypeSymbol { Arity: > 0 } genericNamedType
                 ? BuildGenericNamedTypeSignature(genericNamedType, contextNode, semanticModel, typeFormat, declarationTypeFormat)
                 : FormatType(typeSymbol, typeFormat);
 
-            // Append base class / base interface list (e.g. "class Foo: Bar")
             if (typeSymbol is INamedTypeSymbol namedType)
-            {
-                var bases = new System.Collections.Generic.List<string>();
-
-                // Only show user-defined base types (SpecialType.None excludes object, ValueType, etc.)
-                if (namedType.BaseType is { SpecialType: SpecialType.None } baseType)
-                    bases.Add(FormatType(baseType, declarationTypeFormat));
-
-                foreach (var iface in namedType.Interfaces)
-                    bases.Add(FormatType(iface, declarationTypeFormat));
-
-                if (bases.Count > 0)
-                    text += ": " + string.Join(", ", bases);
-            }
+                text = AppendBaseTypeList(text, namedType, declarationTypeFormat);
 
             return text;
         }
@@ -3395,6 +3389,32 @@ internal sealed class HoverHandler : IHoverHandler
             return "<Error>";
 
         return type.ToDisplayString(format);
+    }
+
+    private static string FormatTupleNominalType(ITupleTypeSymbol tupleType, SymbolDisplayFormat format)
+    {
+        var underlyingTupleType = tupleType.UnderlyingTupleType;
+        return underlyingTupleType is not null
+            ? FormatType(underlyingTupleType, format)
+            : FormatType(tupleType, format);
+    }
+
+    private static string AppendBaseTypeList(
+        string text,
+        INamedTypeSymbol type,
+        SymbolDisplayFormat declarationTypeFormat)
+    {
+        var bases = new System.Collections.Generic.List<string>();
+
+        if (type.BaseType is { SpecialType: SpecialType.None } baseType)
+            bases.Add(FormatType(baseType, declarationTypeFormat));
+
+        foreach (var iface in type.Interfaces)
+            bases.Add(FormatType(iface, declarationTypeFormat));
+
+        return bases.Count > 0
+            ? text + ": " + string.Join(", ", bases)
+            : text;
     }
 
     private static bool TryFormatDelegateTypeSignature(

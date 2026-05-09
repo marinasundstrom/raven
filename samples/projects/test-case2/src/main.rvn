@@ -20,11 +20,3 @@ record Person(
     val Age: int
     val Items: string[]
 )
-
-val (no, _) = Get()
-
-WriteLine(no)
-
-func Get() -> (status: int, message: string) {
-    return (42, "Hej")
-}

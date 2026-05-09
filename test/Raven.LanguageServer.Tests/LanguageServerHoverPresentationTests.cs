@@ -452,6 +452,103 @@ class C {
     }
 
     [Fact]
+    public void TypePositionHover_TupleSyntaxUsesNominalValueTupleAndInterfaces()
+    {
+        const string code = """
+class C {
+    func Test() -> unit {
+        val pair: (status: int, message: string) = null
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        compilation = compilation.AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var tupleType = root.DescendantNodes().OfType<TupleTypeSyntax>().Single();
+        var typeInfo = semanticModel.GetTypeInfo(tupleType);
+        var tupleSymbol = typeInfo.Type.ShouldBeAssignableTo<ITupleTypeSymbol>();
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForHover.Invoke(
+            null,
+            [tupleSymbol, tupleType, semanticModel, root, tupleType.OpenParenToken.SpanStart])!;
+
+        signature.ShouldStartWith("struct ValueTuple<int, string>: ");
+        signature.ShouldContain("IStructuralComparable");
+        signature.ShouldContain("IStructuralEquatable");
+        signature.ShouldContain("IComparable");
+        signature.ShouldContain("IComparable<ValueTuple<int, string>>");
+        signature.ShouldContain("IEquatable<ValueTuple<int, string>>");
+        signature.ShouldContain("ITuple");
+        signature.ShouldNotContain("(status: int, message: string)");
+    }
+
+    [Fact]
+    public void TypePositionHover_TupleElementTypesResolveForNamedAndUnnamedElements()
+    {
+        const string code = """
+class C {
+    func Test() -> unit {
+        val named: (status: int, message: string) = null
+        val unnamed: (int, string) = null
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        compilation = compilation.AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        SignatureForTupleElement("named", 0).ShouldStartWith("struct int");
+        SignatureForTupleElement("named", 1).ShouldStartWith("class string");
+        SignatureForTupleElement("unnamed", 0).ShouldStartWith("struct int");
+        SignatureForTupleElement("unnamed", 1).ShouldStartWith("class string");
+
+        string SignatureForTupleElement(string declaratorName, int elementIndex)
+        {
+            var tupleElement = root.DescendantNodes()
+                .OfType<VariableDeclaratorSyntax>()
+                .Single(declarator => declarator.Identifier.ValueText == declaratorName)
+                .TypeAnnotation!.Type
+                .DescendantNodes()
+                .OfType<TupleElementSyntax>()
+                .ElementAt(elementIndex);
+            var offset = tupleElement.Type.Span.Start + 1;
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+
+            resolution.ShouldNotBeNull();
+            resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.TypePosition);
+            resolution.Value.Node.ShouldBe(tupleElement.Type);
+
+            return (string)buildSignatureForHover.Invoke(
+                null,
+                [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, offset])!;
+        }
+    }
+
+    [Fact]
     public void InvocationTargetHover_TargetTypedMemberBindingUnionCaseUsesInferredUnionArguments()
     {
         const string code = """
