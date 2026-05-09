@@ -75,26 +75,28 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetSaveDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWithoutWarmup()
+    public void GetSaveDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredFullDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetSaveDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void GetOpenDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWithoutWarmup()
+    public void GetOpenDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredFullDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetOpenDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 

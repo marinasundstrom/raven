@@ -332,7 +332,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: null,
+            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetOpenDiagnosticsPolicy()
@@ -340,7 +340,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: null,
+            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetEditDiagnosticsPolicy()

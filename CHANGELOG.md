@@ -1,6 +1,11 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-05-03**.
+Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
+
+## 2026-05-09
+
+### Changed
+- Language-server open and save events now schedule a deferred full diagnostic pass after the immediate syntax pass, so analyzer diagnostics appear without requiring a document edit and stale analyzer diagnostics can be cleared after saving.
 
 ## 2026-05-08
 
