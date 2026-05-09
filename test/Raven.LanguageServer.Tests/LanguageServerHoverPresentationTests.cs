@@ -496,7 +496,8 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Option<string>");
+        var constructor = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        constructor.MethodKind.ShouldBe(MethodKind.Constructor);
 
         var buildSignatureForResolvedHover = typeof(HoverHandler)
             .GetMethod("BuildSignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -504,7 +505,7 @@ class C {
             null,
             [resolution.Value, semanticModel, root, hoverOffset])!;
 
-        signature.ShouldBe("union class Option<string>");
+        signature.ShouldBe("Some<string>(value: string)");
     }
 
     [Fact]
@@ -823,7 +824,7 @@ import System.Text.Json.Serialization.*
     }
 
     [Fact]
-    public void GenericConstructorInvocationHover_UsesConstructedType()
+    public void GenericConstructorInvocationHover_UsesConstructedConstructor()
     {
         const string code = """
 import System.*
@@ -866,9 +867,10 @@ val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
             getIdentifier.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        var getType = resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>();
-        getType.Name.ShouldBe("GET");
-        getType.TypeArguments.Single().SpecialType.ShouldBe(SpecialType.System_Int32);
+        var getConstructor = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        getConstructor.MethodKind.ShouldBe(MethodKind.Constructor);
+        getConstructor.ContainingType.Name.ShouldBe("GET");
+        getConstructor.ContainingType.TypeArguments.Single().SpecialType.ShouldBe(SpecialType.System_Int32);
 
         var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
             .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -876,8 +878,126 @@ val endpoint = GET("/{id:int}", func (id: int) => id.ToString())
             null,
             [resolution.Value, semanticModel, root, getIdentifier.Identifier.SpanStart + 1])!;
 
-        signature.ShouldStartWith("class GET<int>");
+        signature.ShouldStartWith("GET<int>(");
+        signature.ShouldContain("handler: int -> string");
 
+    }
+
+    [Fact]
+    public void NestedInvocationArgumentHover_PrefersCallableOverOuterResultType()
+    {
+        const string code = """
+class DbContextOptionsBuilder {}
+
+class Services {
+    static func UseNpgsql(connectionString: string) -> DbContextOptionsBuilder {
+        DbContextOptionsBuilder()
+    }
+}
+
+class VehicleAppServices {
+    static func GetConnectionString() -> string => ""
+}
+
+val builder = Services.UseNpgsql(VehicleAppServices.GetConnectionString())
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var getConnectionString = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.Name.Identifier.ValueText == "GetConnectionString")
+            .Name;
+        var hoverOffset = getConnectionString.Identifier.SpanStart + 1;
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.InvocationTarget);
+        var method = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("GetConnectionString");
+
+        var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, hoverOffset])!;
+
+        signature.ShouldBe("static func GetConnectionString() -> string");
+    }
+
+    [Fact]
+    public void GenericInvocationTypeArgumentHover_ResolvesTypeArgument()
+    {
+        const string code = """
+class C {
+    static func Identity<T>(value: T) -> T {
+        value
+    }
+
+    static func Run() -> unit {
+        val value = Identity<string>("ok")
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var typeArgument = root.DescendantNodes()
+            .OfType<GenericNameSyntax>()
+            .Single(name => name.Identifier.ValueText == "Identity")
+            .TypeArgumentList.Arguments.Single().Type;
+        var token = typeArgument.DescendantTokens().Single(static token => token.ValueText == "string");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.TypePosition);
+        resolution.Value.Node.ShouldBe(typeArgument);
+        resolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>()
+            .ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            .ShouldBe("string");
+
+        var invocationName = root.DescendantNodes()
+            .OfType<GenericNameSyntax>()
+            .Single(name => name.Identifier.ValueText == "Identity");
+        var invocationResolution = SymbolResolver.ResolveSymbolAtPosition(
+            semanticModel,
+            root,
+            invocationName.Identifier.SpanStart + 1);
+
+        invocationResolution.ShouldNotBeNull();
+        invocationResolution!.Value.Kind.ShouldBe(SymbolResolutionKind.InvocationTarget);
+
+        var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(
+            null,
+            [invocationResolution.Value, semanticModel, root, invocationName.Identifier.SpanStart + 1])!;
+
+        signature.ShouldBe("static func Identity<string>(value: string) -> string");
     }
 
     [Fact]
@@ -2925,16 +3045,18 @@ class Runner {
     }
 
     [Fact]
-    public void ConstructorInvocationTypeHover_UsesNamedTypeSignatureInsteadOfUnitFallback()
+    public void ConstructorInvocationHover_UsesConstructorSignatureInsteadOfType()
     {
         const string code = """
+import System.*
+
+class PingResult(val Message: int)
+
 class Api {
-    func ping(name: string) -> PingResult {
-        PingResult("pong $name")
+    func ping(value: int) -> PingResult {
+        PingResult(value)
     }
 }
-
-record PingResult(val Message: string)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
@@ -2954,13 +3076,15 @@ record PingResult(val Message: string)
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().Name.ShouldBe("PingResult");
+        var constructor = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        constructor.MethodKind.ShouldBe(MethodKind.Constructor);
+        constructor.ContainingType.Name.ShouldBe("PingResult");
 
         var buildSignatureForHover = typeof(HoverHandler)
             .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         var signature = (string)buildSignatureForHover.Invoke(null, [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
-        signature.ShouldContain("PingResult");
+        signature.ShouldContain("PingResult(");
         signature.ShouldNotBe("()");
     }
 

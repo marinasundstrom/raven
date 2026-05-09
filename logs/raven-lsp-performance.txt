@@ -1,108 +1,100 @@
 Raven Language Server Performance Report
-Generated: 2026-05-09T18:18:26.3348320+00:00
-Operation: hover
-  Count: 66
-  TotalMs: 5297,2
-  AvgMs: 80,3
-  MaxMs: 1656,7
-  CacheHits: 16
-  Stages:
-    resolution: count=66 total=4761,8ms avg=72,1ms max=1644,7ms
-    documentation: count=66 total=56,2ms avg=0,9ms max=43,5ms
-    containing: count=66 total=46,8ms avg=0,7ms max=39,0ms
-    signature: count=66 total=15,0ms avg=0,2ms max=3,7ms
-    hoverText: count=66 total=7,2ms avg=0,1ms max=2,0ms
-    analysisContext: count=66 total=5,3ms avg=0,1ms max=0,8ms
-    range: count=66 total=1,9ms avg=0,0ms max=0,5ms
-    gateWait: count=66 total=1,9ms avg=0,0ms max=0,6ms
-    semanticModel: count=66 total=1,6ms avg=0,0ms max=0,2ms
-    invocationOverride: count=66 total=0,2ms avg=0,0ms max=0,1ms
-    captures: count=66 total=0,1ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    1656,7ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 12:30 semantic=[symbolInfo=3, symbolCacheHits=2, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    780,1ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 10:37 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    648,0ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 15:52 semantic=[symbolInfo=3, symbolCacheHits=2, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=2, typeSymbolHits=2, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    541,9ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 10:47 semantic=[symbolInfo=2, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    383,0ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 31:22 semantic=[symbolInfo=3, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-
+Generated: 2026-05-09T18:35:29.2842370+00:00
 Operation: semanticTokens
-  Count: 1
-  TotalMs: 1916,7
-  AvgMs: 1916,7
-  MaxMs: 1916,7
-  AvgResultCount: 379,0
+  Count: 2
+  TotalMs: 2247,1
+  AvgMs: 1123,6
+  MaxMs: 2210,1
+  AvgResultCount: 374,5
   Stages:
-    semanticModel: count=1 total=1833,1ms avg=1833,1ms max=1833,1ms
-    materialize: count=1 total=30,6ms avg=30,6ms max=30,6ms
-    classify: count=1 total=16,1ms avg=16,1ms max=16,1ms
-    push: count=1 total=10,4ms avg=10,4ms max=10,4ms
-    analysisContext: count=1 total=0,2ms avg=0,2ms max=0,2ms
-    root: count=1 total=0,0ms avg=0,0ms max=0,0ms
-    gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    classify: count=2 total=2175,3ms avg=1087,6ms max=2167,6ms
+    materialize: count=2 total=35,6ms avg=17,8ms max=28,9ms
+    semanticModel: count=2 total=22,0ms avg=11,0ms max=21,9ms
+    push: count=2 total=11,7ms avg=5,8ms max=11,2ms
+    analysisContext: count=2 total=0,1ms avg=0,1ms max=0,1ms
+    root: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    gateWait: count=2 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    1916,7ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    2210,1ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Contracts/Contracts.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=5, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    37,1ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+
+Operation: hover
+  Count: 22
+  TotalMs: 883,3
+  AvgMs: 40,1
+  MaxMs: 152,4
+  CacheHits: 2
+  Stages:
+    resolution: count=22 total=540,2ms avg=24,6ms max=109,6ms
+    documentation: count=22 total=57,5ms avg=2,6ms max=55,8ms
+    signature: count=22 total=6,3ms avg=0,3ms max=2,7ms
+    hoverText: count=22 total=3,9ms avg=0,2ms max=2,9ms
+    analysisContext: count=22 total=2,2ms avg=0,1ms max=1,4ms
+    containing: count=22 total=1,5ms avg=0,1ms max=0,8ms
+    range: count=22 total=1,5ms avg=0,1ms max=0,4ms
+    gateWait: count=22 total=0,8ms avg=0,0ms max=0,5ms
+    semanticModel: count=22 total=0,6ms avg=0,0ms max=0,1ms
+    invocationOverride: count=22 total=0,1ms avg=0,0ms max=0,1ms
+    captures: count=22 total=0,1ms avg=0,0ms max=0,0ms
+  SlowestSamples:
+    152,4ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 14:46 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    95,2ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 30:48 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    88,5ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 18:27 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    76,4ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 30:44 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    76,1ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 29:50 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
 Operation: didOpen
-  Count: 1
-  TotalMs: 47,1
-  AvgMs: 47,1
-  MaxMs: 47,1
-  SlowestSamples:
-    47,1ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn version=1
-
-Operation: documentSymbols
   Count: 2
-  TotalMs: 30,0
-  AvgMs: 15,0
-  MaxMs: 16,4
-  CacheHits: 1
-  AvgResultCount: 1,0
-  FirstLookupAfterEditCount: 1
-  FirstLookupAfterEditAvgMs: 32,7
-  FirstLookupAfterEditMaxMs: 32,7
-  FirstLookupAfterEditSources:
-    didOpen: 1
-  Stages:
-    analysisContext: count=2 total=17,1ms avg=8,5ms max=11,9ms
-    buildSymbols: count=2 total=10,1ms avg=5,1ms max=10,1ms
-    root: count=2 total=0,4ms avg=0,2ms max=0,4ms
+  TotalMs: 251,4
+  AvgMs: 125,7
+  MaxMs: 230,2
   SlowestSamples:
-    16,4ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn
-    13,7ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn
-
-Operation: definition
-  Count: 1
-  TotalMs: 29,1
-  AvgMs: 29,1
-  MaxMs: 29,1
-  AvgResultCount: 0,0
-  Stages:
-    resolution: count=1 total=26,4ms avg=26,4ms max=26,4ms
-    analysisContext: count=1 total=0,0ms avg=0,0ms max=0,0ms
-    gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
-    semanticModel: count=1 total=0,0ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    29,1ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn 15:57
+    230,2ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Contracts/Contracts.rvn version=1
+    21,2ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn version=1
 
 Operation: publishSyntaxDiagnostics
-  Count: 1
-  TotalMs: 12,6
-  AvgMs: 12,6
-  MaxMs: 12,6
+  Count: 2
+  TotalMs: 158,2
+  AvgMs: 79,1
+  MaxMs: 157,9
   AvgResultCount: 0,0
   SlowestSamples:
-    12,6ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn version=1 mode=SyntaxOnly outcome=Published
+    157,9ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Contracts/Contracts.rvn version=1 mode=SyntaxOnly outcome=Published
+    0,2ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn version=1 mode=SyntaxOnly outcome=Published
+
+Operation: documentSymbols
+  Count: 4
+  TotalMs: 129,9
+  AvgMs: 32,5
+  MaxMs: 128,6
+  CacheHits: 2
+  AvgResultCount: 3,5
+  FirstLookupAfterEditCount: 2
+  FirstLookupAfterEditAvgMs: 342,0
+  FirstLookupAfterEditMaxMs: 370,5
+  FirstLookupAfterEditSources:
+    didOpen: 2
+  Stages:
+    buildSymbols: count=4 total=102,7ms avg=25,7ms max=102,3ms
+    analysisContext: count=4 total=6,3ms avg=1,6ms max=6,2ms
+    root: count=4 total=5,6ms avg=1,4ms max=5,6ms
+  SlowestSamples:
+    128,6ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Contracts/Contracts.rvn
+    0,8ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Contracts/Contracts.rvn
+    0,5ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn
+    0,0ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn
 
 Operation: computeSyntaxDiagnostics
-  Count: 1
-  TotalMs: 0,4
-  AvgMs: 0,4
-  MaxMs: 0,4
+  Count: 2
+  TotalMs: 0,6
+  AvgMs: 0,3
+  MaxMs: 0,6
   Stages:
-    diagnosticsFetch: count=1 total=0,2ms avg=0,2ms max=0,2ms
-    syntaxTree: count=1 total=0,1ms avg=0,1ms max=0,1ms
-    documentLookup: count=1 total=0,0ms avg=0,0ms max=0,0ms
-    gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    diagnosticsFetch: count=2 total=0,2ms avg=0,1ms max=0,2ms
+    syntaxTree: count=2 total=0,1ms avg=0,0ms max=0,1ms
+    documentLookup: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    gateWait: count=2 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    0,4ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn syntaxOnly
+    0,6ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Contracts/Contracts.rvn syntaxOnly
+    0,0ms file:///Users/robert/Projects/Raven/samples/projects/efcore-vehicle-costs/src/Api/Main.rvn syntaxOnly
 

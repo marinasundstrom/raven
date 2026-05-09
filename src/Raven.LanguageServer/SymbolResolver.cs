@@ -21,17 +21,17 @@ internal static partial class SymbolResolver
         if (IsImportDirectiveNamePosition(root, offset))
             return null;
 
-        if (TryResolveMemberAccessAtOffset(semanticModel, root, offset, out var memberAccessResolution))
-            return memberAccessResolution;
-
-        if (TryResolveMemberBindingAtOffset(semanticModel, root, offset, out var memberBindingResolution))
-            return memberBindingResolution;
-
         if (TryResolveInvocationIdentifierAtOffset(semanticModel, root, offset, out var invocationIdentifierResolution))
             return invocationIdentifierResolution;
 
         if (TryResolveInvocationTargetDirectAtOffset(semanticModel, root, offset, out var directInvocationResolution))
             return directInvocationResolution;
+
+        if (TryResolveMemberAccessAtOffset(semanticModel, root, offset, out var memberAccessResolution))
+            return memberAccessResolution;
+
+        if (TryResolveMemberBindingAtOffset(semanticModel, root, offset, out var memberBindingResolution))
+            return memberBindingResolution;
 
         if (TryResolvePipeInvocationTargetAtOffset(semanticModel, root, offset, out var pipeInvocationResolution))
             return pipeInvocationResolution;
@@ -248,6 +248,26 @@ internal static partial class SymbolResolver
 
             if (TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
             {
+                if (invocation is not null &&
+                    symbolInfo.Symbol is INamedTypeSymbol namedType &&
+                    TryChooseConstructorForInvocation(namedType, invocation, out var constructor))
+                {
+                    resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, constructor, identifier);
+                    return true;
+                }
+
+                if (invocation is not null)
+                {
+                    foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                    {
+                        if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
+                        {
+                            resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, candidateConstructor, identifier);
+                            return true;
+                        }
+                    }
+                }
+
                 var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
                 if (symbol is not null && symbol is not ILocalSymbol)
                 {

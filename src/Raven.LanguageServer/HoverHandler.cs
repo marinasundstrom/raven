@@ -678,28 +678,15 @@ internal sealed class HoverHandler : IHoverHandler
         SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
-        if (TryResolveInvocationTargetTypeFromTypeInfo(semanticModel, invocation, out var targetType))
-        {
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                targetType,
-                identifier);
-            return true;
-        }
-
-        if (TryResolveInvocationTargetTypeFromArgumentContext(semanticModel, invocation, out targetType))
-        {
-            resolution = new SymbolResolutionResult(
-                SymbolResolutionKind.InvocationTarget,
-                targetType,
-                identifier);
-            return true;
-        }
-
         var invocationInfo = semanticModel.GetSymbolInfo(invocation);
         var availableCandidates = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
         if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
             availableCandidates = availableCandidates.Insert(0, invocationMethod);
+        else if (invocationInfo.Symbol is INamedTypeSymbol invocationType &&
+                 TryChooseConstructorForInvocation(invocationType, invocation, out var invocationConstructor))
+        {
+            availableCandidates = availableCandidates.Insert(0, invocationConstructor);
+        }
 
         if (!availableCandidates.IsDefaultOrEmpty)
         {
@@ -721,7 +708,80 @@ internal sealed class HoverHandler : IHoverHandler
             }
         }
 
-        return TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution);
+        if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
+            return true;
+
+        if (TryResolveInvocationTargetTypeFromTypeInfo(semanticModel, invocation, out var targetType))
+        {
+            if (TryResolveConstructorFromTargetType(invocation, targetType, out var targetTypeConstructor))
+            {
+                resolution = new SymbolResolutionResult(
+                    SymbolResolutionKind.InvocationTarget,
+                    targetTypeConstructor,
+                    identifier);
+                return true;
+            }
+
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                targetType,
+                identifier);
+            return true;
+        }
+
+        if (TryResolveInvocationTargetTypeFromArgumentContext(semanticModel, invocation, out targetType))
+        {
+            if (TryResolveConstructorFromTargetType(invocation, targetType, out var targetTypeConstructor))
+            {
+                resolution = new SymbolResolutionResult(
+                    SymbolResolutionKind.InvocationTarget,
+                    targetTypeConstructor,
+                    identifier);
+                return true;
+            }
+
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                targetType,
+                identifier);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveConstructorFromTargetType(
+        InvocationExpressionSyntax invocation,
+        ITypeSymbol targetType,
+        [NotNullWhen(true)] out IMethodSymbol? constructor)
+    {
+        constructor = null;
+
+        if (targetType is not INamedTypeSymbol namedType)
+            return false;
+
+        var invokedName = invocation.Expression switch
+        {
+            SimpleNameSyntax simpleName => simpleName.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Name: SimpleNameSyntax simpleName } => simpleName.Identifier.ValueText,
+            _ => null
+        };
+
+        if (!string.Equals(invokedName, namedType.Name, StringComparison.Ordinal))
+            return false;
+
+        return TryChooseConstructorForInvocation(namedType, invocation, out constructor);
+    }
+
+    private static bool TryChooseConstructorForInvocation(
+        INamedTypeSymbol type,
+        InvocationExpressionSyntax invocation,
+        [NotNullWhen(true)] out IMethodSymbol? constructor)
+    {
+        constructor = type.Constructors.FirstOrDefault(candidate =>
+            candidate.Parameters.Length == invocation.ArgumentList.Arguments.Count);
+        constructor ??= type.Constructors.FirstOrDefault();
+        return constructor is not null;
     }
 
     private static bool TryResolveInvocationTargetTypeFromTypeInfo(
@@ -894,6 +954,28 @@ internal sealed class HoverHandler : IHoverHandler
         if (cachedInfo.Symbol is null && cachedInfo.CandidateSymbols.IsDefaultOrEmpty)
             return false;
 
+        if (cachedInfo.Symbol is INamedTypeSymbol namedType &&
+            TryChooseConstructorForInvocation(namedType, invocation, out var constructor))
+        {
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                constructor,
+                resultNode);
+            return true;
+        }
+
+        foreach (var candidateType in cachedInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+        {
+            if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
+            {
+                resolution = new SymbolResolutionResult(
+                    SymbolResolutionKind.InvocationTarget,
+                    candidateConstructor,
+                    resultNode);
+                return true;
+            }
+        }
+
         var method = cachedInfo.Symbol as IMethodSymbol
             ?? cachedInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
         if (method is null)
@@ -917,10 +999,7 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static ISymbol ProjectCachedInvocationHoverSymbol(IMethodSymbol method)
     {
-        if (method.MethodKind != MethodKind.Constructor)
-            return method;
-
-        return (ISymbol?)method.ContainingType ?? method;
+        return method;
     }
 
     private static Hover? TryBuildPatternDeclarationHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
@@ -2036,7 +2115,11 @@ internal sealed class HoverHandler : IHoverHandler
 
             var constructorName = containingType?.Name ?? constructor.Name;
             var typeParams = containingType is not null && !containingType.TypeParameters.IsDefaultOrEmpty
-                ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
+                ? !containingType.TypeArguments.IsDefaultOrEmpty &&
+                  containingType.TypeArguments.Length == containingType.TypeParameters.Length &&
+                  containingType.TypeArguments.Any(static argument => argument is not ITypeParameterSymbol)
+                    ? $"<{string.Join(", ", containingType.TypeArguments.Select(argument => FormatType(argument, plainTypeFormat)))}>"
+                    : $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
                 : string.Empty;
             return $"{accessibilityPrefix}{constructorName}{typeParams}({parameters})";
         }
