@@ -143,9 +143,11 @@ internal static partial class SymbolResolver
 
         var typeSyntax = identifier.AncestorsAndSelf()
             .OfType<TypeSyntax>()
-            .FirstOrDefault(candidate =>
+            .Where(candidate =>
                 candidate.Span.Contains(token.Span) &&
-                IsExplicitTypeSyntaxContext(candidate));
+                IsExplicitTypeSyntaxContext(candidate))
+            .OrderBy(candidate => candidate.Span.Length)
+            .FirstOrDefault();
         if (typeSyntax is null)
             return false;
 

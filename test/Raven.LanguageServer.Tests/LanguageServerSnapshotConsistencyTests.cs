@@ -990,6 +990,85 @@ class Runner {
     }
 
     [Fact]
+    public async Task HoverHandler_ArgumentIdentifier_ConsistentlyShowsLocalSymbolAsync()
+    {
+        var text = """
+class Options {
+}
+
+record Foo(val Name: string)
+
+func Test(foo: Foo, options: Options) -> string {
+    "ok"
+}
+
+val foo = Foo("Foo")
+val options = Options()
+val str = Test(foo, options)
+WriteLine(str)
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var fooOffset = text.IndexOf("foo, options", StringComparison.Ordinal);
+        fooOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var optionsOffset = fooOffset + "foo, ".Length;
+
+        for (var i = 0; i < "foo".Length; i++)
+        {
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(fooOffset + i, 0)).Start
+            }, CancellationToken.None);
+
+            hover.ShouldNotBeNull($"foo character offset {i}");
+            hover!.Contents.MarkupContent.ShouldNotBeNull();
+            var value = hover.Contents.MarkupContent!.Value;
+            value.ShouldContain("val foo: Foo");
+            value.ShouldNotContain("```raven\n()\n```");
+        }
+
+        for (var i = 0; i < "options".Length; i++)
+        {
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(optionsOffset + i, 0)).Start
+            }, CancellationToken.None);
+
+            hover.ShouldNotBeNull($"options character offset {i}");
+            hover!.Contents.MarkupContent.ShouldNotBeNull();
+            var value = hover.Contents.MarkupContent!.Value;
+            value.ShouldContain("val options: Options");
+            value.ShouldNotContain("val options: ()");
+            value.ShouldNotContain("```raven\n()\n```");
+        }
+
+        var strOffset = text.IndexOf("WriteLine(str)", StringComparison.Ordinal);
+        strOffset.ShouldBeGreaterThanOrEqualTo(0);
+        strOffset += "WriteLine(".Length;
+
+        for (var i = 0; i < "str".Length; i++)
+        {
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(strOffset + i, 0)).Start
+            }, CancellationToken.None);
+
+            hover.ShouldNotBeNull($"str character offset {i}");
+            hover!.Contents.MarkupContent.ShouldNotBeNull();
+            var value = hover.Contents.MarkupContent!.Value;
+            value.ShouldContain("val str: string");
+            value.ShouldNotContain("```raven\n()\n```");
+        }
+    }
+
+    [Fact]
     public async Task HoverHandler_AwaitKeyword_ReturnsNullWithoutSemanticGateAsync()
     {
         var text = """

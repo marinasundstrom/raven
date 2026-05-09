@@ -184,7 +184,8 @@ internal static partial class SymbolResolver
 
         var typeSyntaxes = node.AncestorsAndSelf()
             .OfType<TypeSyntax>()
-            .Where(typeSyntax => typeSyntax.Span.Contains(token.Span));
+            .Where(typeSyntax => typeSyntax.Span.Contains(token.Span) &&
+                                 IsExplicitTypeSyntaxContext(typeSyntax));
 
         foreach (var typeSyntax in typeSyntaxes)
         {

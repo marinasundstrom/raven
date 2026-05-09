@@ -39,11 +39,11 @@ internal static partial class SymbolResolver
         if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
             return patternCaseResolution;
 
-        if (TryResolveWholeTypeSyntaxAtOffset(semanticModel, root, offset, out var typeSyntaxResolution))
-            return typeSyntaxResolution;
-
         if (TryResolveExactIdentifierSymbol(semanticModel, root, offset, out var exactIdentifierResolution))
             return exactIdentifierResolution;
+
+        if (TryResolveWholeTypeSyntaxAtOffset(semanticModel, root, offset, out var typeSyntaxResolution))
+            return typeSyntaxResolution;
 
         foreach (var candidate in GetCandidateNodes(root, offset))
         {
@@ -396,10 +396,18 @@ internal static partial class SymbolResolver
             return null;
         }
 
+        var typeArgument = token.Parent?
+            .AncestorsAndSelf()
+            .OfType<TypeArgumentSyntax>()
+            .FirstOrDefault(argument => argument.Type.Span.Contains(token.Span));
+        if (typeArgument is not null)
+            return typeArgument.Type;
+
         var typeSyntaxes = token.Parent?
             .AncestorsAndSelf()
             .OfType<TypeSyntax>()
-            .Where(typeSyntax => typeSyntax.Span.Contains(token.Span))
+            .Where(typeSyntax => typeSyntax.Span.Contains(token.Span) &&
+                                 IsExplicitTypeSyntaxContext(typeSyntax))
             .ToArray();
         if (typeSyntaxes is null || typeSyntaxes.Length == 0)
             return null;

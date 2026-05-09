@@ -43,6 +43,9 @@ internal static partial class SymbolResolver
 
         // Only resolve invocation targets when hovering the call target itself,
         // not arguments/parameter lists/lambda bodies.
+        if (node is InvocationExpressionSyntax && !invocation.Expression.Span.Contains(token.Span))
+            return false;
+
         if (!IsInvocationTargetMatch(invocation.Expression, node, token))
             return false;
 

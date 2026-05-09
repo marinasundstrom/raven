@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
@@ -1167,6 +1168,16 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static bool ShouldSuppressSemanticHover(SyntaxNode root, int offset)
     {
+        try
+        {
+            var token = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
+            if (!token.IsMissing && token.Span.Contains(offset))
+                return IsSemanticHoverSuppressedToken(token) || IsImportDirectiveNameToken(token);
+        }
+        catch
+        {
+        }
+
         foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
             SyntaxToken token;
@@ -1182,11 +1193,12 @@ internal sealed class HoverHandler : IHoverHandler
             if (!token.Span.Contains(candidateOffset))
                 continue;
 
-            if (IsSemanticHoverSuppressedToken(token) ||
-                IsImportDirectiveNameToken(token))
-            {
+            if (!IsSemanticHoverSuppressedToken(token) &&
+                !IsImportDirectiveNameToken(token))
+                return false;
+
+            if (candidateOffset == offset)
                 return true;
-            }
         }
 
         return false;
@@ -2142,6 +2154,12 @@ internal sealed class HoverHandler : IHoverHandler
                 localTypeSymbol = inferredLocalType;
             }
 
+            if (localTypeSymbol.SpecialType == SpecialType.System_Unit &&
+                TryInferLocalInitializerType(local, semanticModel, out var initializerType))
+            {
+                localTypeSymbol = initializerType;
+            }
+
             var localType = FormatType(localTypeSymbol, plainTypeFormat);
             return $"{binding} {local.Name}: {localType}";
         }
@@ -2208,6 +2226,75 @@ internal sealed class HoverHandler : IHoverHandler
 
         return symbol.ToDisplayString(SymbolDisplayFormat.RavenTooltipFormat);
     }
+
+    private static bool TryInferLocalInitializerType(
+        ILocalSymbol local,
+        SemanticModel semanticModel,
+        [NotNullWhen(true)] out ITypeSymbol? initializerType)
+    {
+        initializerType = null;
+
+        foreach (var syntaxReference in local.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not VariableDeclaratorSyntax { Initializer.Value: { } initializer })
+                continue;
+
+            if (initializer is InvocationExpressionSyntax invocation &&
+                (TryGetInvocationReturnType(semanticModel.GetSymbolInfo(invocation.Expression), out var invocationReturnType) ||
+                 TryGetInvocationReturnType(semanticModel.GetSymbolInfo(invocation), out invocationReturnType)))
+            {
+                initializerType = invocationReturnType;
+                return true;
+            }
+
+            var type = semanticModel.GetTypeInfo(initializer).Type;
+            if (!IsUsableInferredHoverType(type))
+                continue;
+
+            initializerType = type;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetInvocationReturnType(
+        SymbolInfo symbolInfo,
+        [NotNullWhen(true)] out ITypeSymbol? returnType)
+    {
+        returnType = null;
+
+        foreach (var method in EnumerateMethodSymbols(symbolInfo))
+        {
+            if (!IsUsableInferredHoverType(method.ReturnType))
+                continue;
+
+            returnType = method.ReturnType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<IMethodSymbol> EnumerateMethodSymbols(SymbolInfo symbolInfo)
+    {
+        if (symbolInfo.Symbol is IMethodSymbol method)
+            yield return method;
+
+        foreach (var candidate in symbolInfo.CandidateSymbols)
+        {
+            if (candidate is IMethodSymbol candidateMethod &&
+                !SymbolEqualityComparer.Default.Equals(candidateMethod, symbolInfo.Symbol))
+            {
+                yield return candidateMethod;
+            }
+        }
+    }
+
+    private static bool IsUsableInferredHoverType([NotNullWhen(true)] ITypeSymbol? type)
+        => type is not null &&
+           !type.ContainsErrorType() &&
+           type.SpecialType != SpecialType.System_Unit;
 
     private static string BuildGenericNamedTypeSignature(
         INamedTypeSymbol type,
