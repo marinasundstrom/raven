@@ -131,6 +131,7 @@ Pattern note:
 - `samples/generics/generic-list-basic.rav`
 - `samples/generics/generic-box-basic.rav`
 - `samples/generics/generic-method-type-arguments-basic.rav`
+- `samples/generics/generic-math-async-number-basic.rav`
 - `samples/generics/nested-generic-types-basic.rav`
 - `samples/extensions/extension-methods-basic.rav`
 - `samples/extensions/extension-method-overload-resolution.rav`
@@ -154,6 +155,7 @@ Pattern note:
 - `samples/runtime/raven-api-syntax-tree-basic.rav`
 - `samples/runtime/documentation-comment-basic.rav`
 - `samples/runtime/dsl-window-builder-basic.rav`
+- `samples/runtime/tokenizer-string-reader-basic.rav`
 - `samples/runtime/nameof-basic.rav`
 - `samples/strings/string-interpolation-basic.rav`
 - `samples/strings/string-interpolation-expression-basic.rav`
@@ -179,9 +181,12 @@ Pattern note:
 - `samples/cases/platform-tour-composed.rav`
 
 ## 13) Explicit Bug Repros (keep separate from feature demos)
-- `samples/bugs/prio1/operator-bug.rav`
-- `samples/bugs/advanced/generic-math.rav`
-- `samples/bugs/advanced/tokenizer.rav`
+No active bug repro samples remain in this folder. Promoted historical repros:
+- `samples/bugs/advanced/generic-math.rav` -> `samples/generics/generic-math-async-number-basic.rav`
+- `samples/bugs/advanced/tokenizer.rav` -> `samples/runtime/tokenizer-string-reader-basic.rav`
+
+Dropped historical repros with equivalent current coverage:
+- `samples/bugs/prio1/operator-bug.rav` (covered by nullable `Option<T>` conversion samples)
 
 ## 14) Scratch / Legacy / Rename Candidates
 These should not be promoted as feature cases until renamed and scoped:

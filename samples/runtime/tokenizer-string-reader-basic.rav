@@ -1,0 +1,95 @@
+// Feature: tokenizing TextReader input into union cases.
+
+import System.*
+import System.Console.*
+import System.Text.*
+import System.IO.*
+
+use reader = StringReader("42 Ada")
+
+val lexer = Lexer(reader)
+val first = lexer.ReadToken()
+val second = lexer.ReadToken()
+
+WriteLine(Describe(first))
+WriteLine(Describe(second))
+
+func Describe(token: Token) -> string {
+    return token match {
+        Number(_, val value) => "Number $value"
+        Identifier(val text) => "Identifier $text"
+        EOF => "EOF"
+        Unknown => "Unknown"
+    }
+}
+
+class Lexer {
+    private readonly field _textReader: TextReader
+    private readonly field _builder: StringBuilder = StringBuilder()
+
+    init(textReader: TextReader) {
+        _textReader = textReader
+    }
+
+    func ReadToken() -> Token {
+        if _builder.Length > 0 {
+            _ = _builder.Clear()
+        }
+
+        var next = _textReader.Read()
+        while next != -1 && char.IsWhiteSpace(Convert.ToChar(next)) {
+            next = _textReader.Read()
+        }
+
+        if next == -1 {
+            return EOF
+        }
+
+        var current = Convert.ToChar(next)
+
+        if char.IsDigit(current) {
+            while next != -1 {
+                current = Convert.ToChar(next)
+                if !char.IsDigit(current) {
+                    return MakeNumber()
+                }
+
+                _builder.Append(current)
+                next = _textReader.Read()
+            }
+
+            return MakeNumber()
+        }
+
+        if char.IsLetter(current) {
+            _builder.Append(current)
+            next = _textReader.Read()
+
+            while next != -1 {
+                current = Convert.ToChar(next)
+                if !char.IsLetter(current) {
+                    return Identifier(_builder.ToString())
+                }
+
+                _builder.Append(current)
+                next = _textReader.Read()
+            }
+
+            return Identifier(_builder.ToString())
+        }
+
+        return Unknown
+    }
+
+    func MakeNumber() -> Token {
+        val numberText = _builder.ToString()
+        return Number(numberText, int.Parse(numberText))
+    }
+}
+
+union Token {
+    case Identifier(text: string)
+    case Number(text: string, value: int)
+    case EOF
+    case Unknown
+}

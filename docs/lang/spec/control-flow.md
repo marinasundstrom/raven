@@ -158,6 +158,57 @@ if person is (val id, val name) {
 }
 ```
 
+The two forms have different binding defaults. An `is` expression is a boolean
+test. It has no outer binding keyword, cannot bind the entire pattern result,
+and requires each extraction point to be explicit:
+
+```raven
+if person is { Name: name } {      // compare against an existing `name`
+    WriteLine("same name")
+}
+
+if person is { Name: == name } {   // equivalent explicit comparison
+    WriteLine("same name")
+}
+
+if person is { Name: val name } {  // declare a new binding
+    WriteLine(name)
+}
+
+if person is { Name: val name when name.Length > 0 } {
+    WriteLine(name)
+}
+```
+
+A dedicated pattern statement can supply a binding mode for the whole pattern.
+That ambient mode lets otherwise bare designations inside the pattern destructure
+into new locals, and it can also name the entire matched value. When a pattern
+statement should compare against an existing local instead of capturing, the
+comparison must be explicit with `==`. In practice, `==` is the marker for
+"compare with this existing variable or expression" in a place where a bare
+identifier would otherwise capture. Literal patterns such as `"Bob"`, `42`,
+`true`, `false`, and `null` keep their ordinary literal-matching meaning and do
+not need `==`:
+
+```raven
+if val Person { Name: "Ada", Age: age } matched = input {
+    WriteLine(age)
+    WriteLine(matched.Name)
+}
+
+if val Person { Name: "Bob" } = input {
+    WriteLine("literal match")
+}
+
+if val Person { Name: == expectedName, Age: age } = input {
+    WriteLine(age)
+}
+
+if val Person { Name: "Ada", Age: age when > 20 } = input {
+    WriteLine(age)
+}
+```
+
 The outer binding keyword also applies to typed implicit captures, so nullable
 checks can be written in the same form:
 

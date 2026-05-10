@@ -1,165 +1,111 @@
 Raven Language Server Performance Report
-Generated: 2026-05-10T15:58:37.8748700+00:00
-Operation: computeDiagnostics
-  Count: 3
-  TotalMs: 6936,3
-  AvgMs: 2312,1
-  MaxMs: 2575,2
-  Stages:
-    diagnosticsFetch: count=3 total=6935,0ms avg=2311,7ms max=2574,0ms
-    gateWait: count=3 total=0,5ms avg=0,2ms max=0,4ms
-    syntaxTree: count=3 total=0,1ms avg=0,0ms max=0,0ms
+Generated: 2026-05-10T16:43:36.4550770+00:00
+Operation: publishDiagnosticsUnchanged
+  Count: 1
+  TotalMs: 4901,1
+  AvgMs: 4901,1
+  MaxMs: 4901,1
+  AvgResultCount: 0,0
   SlowestSamples:
-    2575,2ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn mode=Full
-    2501,2ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn mode=Full
-    1860,0ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn mode=Full
+    4901,1ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn version=1 mode=Full outcome=SkippedUnchanged
 
-Operation: publishDiagnostics
-  Count: 2
-  TotalMs: 4445,0
-  AvgMs: 2222,5
-  MaxMs: 2584,4
-  AvgResultCount: 1,5
+Operation: computeDiagnostics
+  Count: 1
+  TotalMs: 4900,0
+  AvgMs: 4900,0
+  MaxMs: 4900,0
+  Stages:
+    diagnosticsFetch: count=1 total=4898,6ms avg=4898,6ms max=4898,6ms
+    gateWait: count=1 total=1,2ms avg=1,2ms max=1,2ms
+    syntaxTree: count=1 total=0,1ms avg=0,1ms max=0,1ms
   SlowestSamples:
-    2584,4ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=1 mode=Full outcome=Published
-    1860,6ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=2 mode=Full outcome=Published
+    4900,0ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn mode=Full
 
 Operation: hover
-  Count: 31
-  TotalMs: 4361,2
-  AvgMs: 140,7
-  MaxMs: 3896,0
-  CacheHits: 1
+  Count: 2
+  TotalMs: 705,1
+  AvgMs: 352,6
+  MaxMs: 652,2
   Stages:
-    resolution: count=31 total=4111,4ms avg=132,6ms max=3881,3ms
-    documentation: count=31 total=14,8ms avg=0,5ms max=14,2ms
-    signature: count=31 total=11,9ms avg=0,4ms max=6,9ms
-    hoverText: count=31 total=10,6ms avg=0,3ms max=4,9ms
-    captures: count=31 total=2,4ms avg=0,1ms max=2,3ms
-    containing: count=31 total=2,3ms avg=0,1ms max=1,2ms
-    range: count=31 total=2,3ms avg=0,1ms max=0,8ms
-    analysisContext: count=31 total=2,2ms avg=0,1ms max=0,3ms
-    gateWait: count=31 total=1,0ms avg=0,0ms max=0,4ms
-    semanticModel: count=31 total=1,0ms avg=0,0ms max=0,1ms
-    invocationOverride: count=31 total=0,4ms avg=0,0ms max=0,3ms
+    resolution: count=2 total=29,3ms avg=14,7ms max=29,3ms
+    gateWait: count=2 total=2,4ms avg=1,2ms max=1,7ms
+    analysisContext: count=2 total=0,3ms avg=0,1ms max=0,2ms
+    semanticModel: count=2 total=0,2ms avg=0,1ms max=0,2ms
+    invocationOverride: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    signature: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    containing: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    documentation: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    captures: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    hoverText: count=2 total=0,0ms avg=0,0ms max=0,0ms
+    range: count=2 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    3896,0ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn 20:38 semantic=[symbolInfo=275, symbolCacheHits=187, symbolBoundHits=0, symbolBinderFallbacks=1, symbolOperationFallbacks=37, typeInfo=2, typeSymbolHits=2, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=118, boundCacheHits=36, boundContextHits=1, boundBindFallbacks=81, loweredCacheHits=0, loweredFallbacks=0]
-    99,2ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn 104:28 semantic=[symbolInfo=1, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    75,7ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn 64:18 semantic=[symbolInfo=1, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    35,3ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn 17:7 semantic=[symbolInfo=1, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    31,7ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn 37:28 semantic=[symbolInfo=1, symbolCacheHits=1, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    652,2ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn 49:25 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    53,0ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn 94:1 semantic=[symbolInfo=2, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=2, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
 Operation: semanticTokens
-  Count: 3
-  TotalMs: 550,2
-  AvgMs: 183,4
-  MaxMs: 522,5
-  AvgResultCount: 242,3
+  Count: 1
+  TotalMs: 97,9
+  AvgMs: 97,9
+  MaxMs: 97,9
+  AvgResultCount: 297,0
   Stages:
-    classify: count=3 total=490,4ms avg=163,5ms max=484,5ms
-    materialize: count=3 total=40,7ms avg=13,6ms max=19,2ms
-    push: count=3 total=12,0ms avg=4,0ms max=11,6ms
-    semanticModel: count=3 total=2,0ms avg=0,7ms max=1,9ms
-    analysisContext: count=3 total=0,1ms avg=0,0ms max=0,1ms
-    root: count=3 total=0,0ms avg=0,0ms max=0,0ms
-    gateWait: count=3 total=0,0ms avg=0,0ms max=0,0ms
+    materialize: count=1 total=54,2ms avg=54,2ms max=54,2ms
+    classify: count=1 total=25,4ms avg=25,4ms max=25,4ms
+    push: count=1 total=15,7ms avg=15,7ms max=15,7ms
+    semanticModel: count=1 total=1,3ms avg=1,3ms max=1,3ms
+    analysisContext: count=1 total=0,1ms avg=0,1ms max=0,1ms
+    root: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    522,5ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    14,2ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=31, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    13,6ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-
-Operation: didChange
-  Count: 2
-  TotalMs: 83,4
-  AvgMs: 41,7
-  MaxMs: 64,8
-  Stages:
-    updateDocument: count=2 total=80,1ms avg=40,0ms max=62,4ms
-    applyChanges: count=2 total=0,9ms avg=0,5ms max=0,8ms
-    getCurrentText: count=2 total=0,8ms avg=0,4ms max=0,8ms
-    scheduleDiagnostics: count=2 total=0,5ms avg=0,2ms max=0,3ms
-    gateWait: count=2 total=0,1ms avg=0,1ms max=0,1ms
-  SlowestSamples:
-    64,8ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=2
-    18,7ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=3
+    97,9ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
 Operation: didOpen
   Count: 1
-  TotalMs: 24,2
-  AvgMs: 24,2
-  MaxMs: 24,2
+  TotalMs: 28,7
+  AvgMs: 28,7
+  MaxMs: 28,7
   SlowestSamples:
-    24,2ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=1
+    28,7ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn version=1
+
+Operation: documentSymbols
+  Count: 2
+  TotalMs: 19,2
+  AvgMs: 9,6
+  MaxMs: 19,0
+  CacheHits: 1
+  AvgResultCount: 7,0
+  FirstLookupAfterEditCount: 1
+  FirstLookupAfterEditAvgMs: 632,9
+  FirstLookupAfterEditMaxMs: 632,9
+  FirstLookupAfterEditSources:
+    didOpen: 1
+  Stages:
+    buildSymbols: count=2 total=17,3ms avg=8,6ms max=17,3ms
+    root: count=2 total=0,4ms avg=0,2ms max=0,4ms
+    analysisContext: count=2 total=0,1ms avg=0,1ms max=0,1ms
+  SlowestSamples:
+    19,0ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn
+    0,3ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn
 
 Operation: publishSyntaxDiagnostics
   Count: 1
-  TotalMs: 7,5
-  AvgMs: 7,5
-  MaxMs: 7,5
+  TotalMs: 9,4
+  AvgMs: 9,4
+  MaxMs: 9,4
   AvgResultCount: 0,0
   SlowestSamples:
-    7,5ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
-
-Operation: documentSymbols
-  Count: 6
-  TotalMs: 6,9
-  AvgMs: 1,2
-  MaxMs: 5,6
-  CacheHits: 3
-  AvgResultCount: 4,0
-  FirstLookupAfterEditCount: 3
-  FirstLookupAfterEditAvgMs: 550,2
-  FirstLookupAfterEditMaxMs: 984,8
-  FirstLookupAfterEditSources:
-    didChange: 2
-    didOpen: 1
-  Stages:
-    buildSymbols: count=6 total=5,7ms avg=0,9ms max=4,6ms
-    root: count=6 total=0,3ms avg=0,1ms max=0,3ms
-    analysisContext: count=6 total=0,1ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    5,6ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn
-    0,6ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn
-    0,5ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn
-    0,2ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn
-    0,0ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn
-
-Operation: definition
-  Count: 1
-  TotalMs: 2,9
-  AvgMs: 2,9
-  MaxMs: 2,9
-  AvgResultCount: 2,0
-  Stages:
-    resolution: count=1 total=0,3ms avg=0,3ms max=0,3ms
-    analysisContext: count=1 total=0,0ms avg=0,0ms max=0,0ms
-    gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
-    semanticModel: count=1 total=0,0ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    2,9ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn 47:21
-
-Operation: publishSyntaxDiagnosticsUnchanged
-  Count: 2
-  TotalMs: 0,4
-  AvgMs: 0,2
-  MaxMs: 0,3
-  AvgResultCount: 0,0
-  SlowestSamples:
-    0,3ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=2 mode=SyntaxOnly outcome=SkippedUnchanged
-    0,1ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn version=3 mode=SyntaxOnly outcome=SkippedUnchanged
+    9,4ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
 
 Operation: computeSyntaxDiagnostics
-  Count: 3
-  TotalMs: 0,3
-  AvgMs: 0,1
+  Count: 1
+  TotalMs: 0,2
+  AvgMs: 0,2
   MaxMs: 0,2
   Stages:
-    diagnosticsFetch: count=3 total=0,1ms avg=0,0ms max=0,1ms
-    syntaxTree: count=3 total=0,1ms avg=0,0ms max=0,0ms
-    documentLookup: count=3 total=0,0ms avg=0,0ms max=0,0ms
-    gateWait: count=3 total=0,0ms avg=0,0ms max=0,0ms
+    diagnosticsFetch: count=1 total=0,1ms avg=0,1ms max=0,1ms
+    syntaxTree: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    documentLookup: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    0,2ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn syntaxOnly
-    0,0ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn syntaxOnly
-    0,0ms file:///Users/robert/Projects/Raven/samples/projects/json-modeling-playground/src/main.rvn syntaxOnly
+    0,2ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn syntaxOnly
 

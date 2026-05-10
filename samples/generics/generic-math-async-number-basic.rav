@@ -1,0 +1,15 @@
+// Feature: generic math constraints through async methods.
+
+import System.Console.*
+import System.Threading.Tasks.*
+import System.Numerics.*
+
+async func Main() -> Task {
+    val value = await EchoNumber(2)
+    WriteLine("Result is: $value")
+}
+
+async func EchoNumber<T : INumber<T>>(value: T) -> Task<T> {
+    await Task.Delay(1)
+    return value
+}

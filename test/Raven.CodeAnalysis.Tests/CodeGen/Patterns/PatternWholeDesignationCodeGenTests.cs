@@ -68,6 +68,34 @@ class Program {
     }
 
     [Fact]
+    public void IsPropertyPattern_WithBareIdentifier_UsesExistingValue()
+    {
+        var code = """
+import System.Console.*
+
+record class Person(Name: string)
+
+class Program {
+    static func Find(person: Person, name: string) -> string {
+        if person is { Name: name } {
+            return "match"
+        }
+
+        return "miss"
+    }
+
+    static func Main() {
+        WriteLine(Find(Person("Ada"), "Ada"))
+        WriteLine(Find(Person("Grace"), "Ada"))
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["match", "miss"], output);
+    }
+
+    [Fact]
     public void WhilePatternStatement_WithTuplePattern_BindsCapturedValue()
     {
         var code = """

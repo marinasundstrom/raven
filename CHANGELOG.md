@@ -2,6 +2,11 @@
 
 Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
+## Unreleased
+
+### Fixed
+- Expression-backed value patterns such as `person is { Name: name }` now compare against the runtime value of `name` even when `name` is a parameter or local rather than a compile-time constant.
+
 ## 2026-05-09
 
 ### Changed

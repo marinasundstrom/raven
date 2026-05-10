@@ -2706,6 +2706,49 @@ These contexts may use comparison/range/property/member/nominal-deconstruction
 patterns, boolean pattern combinators, and optional whole-pattern designations
 where the specific construct allows them.
 
+`expr is pattern` is the expression-oriented member of this group. It produces a
+`bool`, has no outer binding keyword, and does not accept a trailing
+whole-pattern designation. Captures inside an `is` pattern must be written at
+the exact extraction point with `val` / `var` / `let`; a bare identifier is a
+value pattern against an existing symbol. For example, `person is { Name: name }`
+and `person is { Name: == name }` both compare `Name` to the current value of
+`name`, while `person is { Name: val name }` declares a new local.
+
+Dedicated pattern statements such as `if val pattern = expr` and
+`while val pattern = expr` are binding-oriented. Their leading binding keyword
+supplies the binding mode for otherwise bare designations inside the pattern and
+for an optional trailing whole-pattern designation. In these contexts a bare
+member or element designation captures; comparing to an existing value must use
+an explicit comparison pattern such as `== name`. In practice, `==` is the
+marker for "compare with this existing variable or expression" where a bare
+identifier would otherwise capture. Built-in literal patterns such as `"Bob"`,
+`42`, `true`, `false`, and `null` keep their literal-matching meaning and do not
+need `==`.
+
+```raven
+if val Person { Name: name } = person {      // captures `Name` into `name`
+    WriteLine(name)
+}
+
+if val Person { Name: "Bob" } = person {     // compares with literal "Bob"
+    WriteLine("Bob")
+}
+
+if val Person { Name: == name } = person {   // compares with existing `name`
+    WriteLine("same name")
+}
+
+if val Person { Name: == name, Age: age when > 20 } = person {
+    WriteLine(age)
+}
+```
+
+A capture may include a `when` guard. The capture introduces the local, then the
+guard constrains that captured sub-value. In binding statements, the outer
+binding keyword supplies the capture mode for a bare guarded designation such as
+`age when > 20`; in `is` expressions the capture keyword remains explicit, as in
+`Age: val age when > 20`.
+
 **Deconstruction contexts**
 
 These accept the deconstruction subset:
@@ -2952,7 +2995,7 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
 #### Whole-pattern designations
 
 Primary structural patterns may carry an optional trailing designation for the
-entire matched value:
+entire matched value in binding-enabled pattern contexts:
 
 * positional patterns: `(pattern1, pattern2) designation`
 * sequence patterns: `[pattern1, ...pattern2] designation`
@@ -2961,6 +3004,8 @@ entire matched value:
 * property patterns: `Type { ... } designation`
 
 The trailing designation is introduced only if the full pattern succeeds.
+It is not valid in an `expr is pattern` expression. Use a dedicated pattern
+statement when the whole matched value must be named.
 
 ```raven
 if val (2, > 0.5) point = input {
@@ -2984,8 +3029,8 @@ Rules:
 * In constructs that already carry an outer binding keyword (`if val ...`,
   `while val ...`, `for val ...`, `match { val ... => ... }`), the trailing
   designation may omit its own binding keyword and inherits the outer binding mode.
-* Without an outer binding keyword, omitting the binding keyword on the trailing
-  designation introduces an immutable binding.
+* Without a binding-enabled pattern context, a trailing designation is not part
+  of the pattern. In particular, `expr is Type { ... } value` is invalid.
 * Writing `_` discards the matched value while still enforcing the pattern.
 
 * `Type { member1: pattern1, member2: pattern2, … }` — **property pattern**.
@@ -3002,13 +3047,14 @@ Rules:
     as `Type`.
 
 * `Type { … } designation` — **property pattern with designation**. Like
-  `Type { … }`, but also introduces a designation for the matched receiver.
+  `Type { … }`, but also introduces a designation for the matched receiver in a
+  binding-enabled pattern context.
 
   * The designation may use an explicit binding keyword (`val`, `let`, or
     `var`), or inherit the binding mode from an outer construct such as
     `if val` / `while val` / `for val` / an outer match-arm binding keyword.
   * Writing `var p` produces a mutable binding. Omitting a binding keyword
-    without an outer binding mode produces an immutable binding.
+    requires an outer binding mode.
   * The designation is introduced only if the entire property pattern succeeds.
   * Writing `_` discards the receiver value while still enforcing the pattern.
 
@@ -3025,6 +3071,8 @@ Rules:
   * The designation may use an explicit binding keyword (`val`, `let`, or
     `var`), or inherit the binding mode from an outer construct.
   * Writing `var p` produces a mutable binding.
+  * The form is invalid in an `is` expression; use `if val { ... } name = expr`
+    or another dedicated pattern-binding construct to bind the receiver.
 
 #### Nominal deconstruction patterns
 

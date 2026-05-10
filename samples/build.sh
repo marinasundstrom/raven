@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compile all .rav files in samples/ except an exclude list.
+# Compile all .rav/.rvn files in samples/ except an exclude list.
 # Failing one won't stop the others.
 
 set -Euo pipefail
@@ -179,9 +179,32 @@ matches_filter() {
 
 load_exclusions "build"
 
-rav_files=()
+sample_files=()
 
-collect_filtered_rav_files() {
+is_raven_source_file() {
+  case "$1" in
+    *.rav|*.rvn)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+sample_output_stem() {
+  local file="$1"
+  case "$file" in
+    *.rav|*.rvn)
+      printf '%s\n' "${file%.*}"
+      ;;
+    *)
+      printf '%s\n' "$file"
+      ;;
+  esac
+}
+
+collect_filtered_sample_files() {
   local filter resolved stripped matched=()
 
   for filter in "${FILTERS[@]}"; do
@@ -195,7 +218,7 @@ collect_filtered_rav_files() {
       resolved="$SCRIPT_DIR/$filter"
     fi
 
-    if [[ ! -f "$resolved" || "$resolved" != *.rav ]]; then
+    if [[ ! -f "$resolved" ]] || ! is_raven_source_file "$resolved"; then
       return 1
     fi
 
@@ -212,16 +235,16 @@ collect_filtered_rav_files() {
 
 if (( ${#FILTERS[@]} > 0 )); then
   while IFS= read -r file; do
-    [[ -n "$file" ]] && rav_files+=("$file")
-  done < <(collect_filtered_rav_files || find . -type f -name "*.rav" ! -path "./output/*" ! -path "./projects/*" | sort | sed 's#^\./##')
+    [[ -n "$file" ]] && sample_files+=("$file")
+  done < <(collect_filtered_sample_files || find . -type f \( -name "*.rav" -o -name "*.rvn" \) ! -path "./output/*" ! -path "./projects/*" | sort | sed 's#^\./##')
 else
   while IFS= read -r file; do
-    rav_files+=("${file#./}")
-  done < <(find . -type f -name "*.rav" ! -path "./output/*" ! -path "./projects/*" | sort)
+    sample_files+=("${file#./}")
+  done < <(find . -type f \( -name "*.rav" -o -name "*.rvn" \) ! -path "./output/*" ! -path "./projects/*" | sort)
 fi
 
-if (( ${#rav_files[@]} == 0 )); then
-  echo "No .rav files found under samples/."
+if (( ${#sample_files[@]} == 0 )); then
+  echo "No .rav/.rvn files found under samples/."
   exit 0
 fi
 
@@ -317,7 +340,7 @@ if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
   echo "Warning: Raven.Core.dll not found; samples will be built without --raven-core"
 fi
 
-for file in "${rav_files[@]}"; do
+for file in "${sample_files[@]}"; do
   filename=$(basename "$file")
 
   if is_excluded "$file" "$filename"; then
@@ -330,11 +353,11 @@ for file in "${rav_files[@]}"; do
   fi
 
   if [[ "$file" == */* ]]; then
-    output="$OUTPUT_DIR/${file%.rav}.dll"
+    output="$OUTPUT_DIR/$(sample_output_stem "$file").dll"
   else
     # Keep root samples separated to avoid file/dir name collisions
     # (e.g. linq.rav vs linq/*.rav).
-    output="$OUTPUT_DIR/_root/${file%.rav}.dll"
+    output="$OUTPUT_DIR/_root/$(sample_output_stem "$file").dll"
   fi
   output_dir="$(dirname "$output")"
   mkdir -p "$output_dir"

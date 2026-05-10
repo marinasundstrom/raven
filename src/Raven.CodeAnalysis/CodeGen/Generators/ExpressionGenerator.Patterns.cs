@@ -1794,8 +1794,7 @@ internal partial class ExpressionGenerator
         }
 
         // Runtime "value pattern" (e.g. identifier/member access) – compare by object.Equals.
-        if (constantPattern.ConstantValue is not null
-            && constantPattern.Expression is not null
+        if (constantPattern.Expression is not null
             && constantPattern.Expression is not BoundTypeExpression { Type: NullTypeSymbol })
         {
             EmitRuntimeValueConstantCompare(constantPattern.Expression, inputType, scrutineeLocal2);
