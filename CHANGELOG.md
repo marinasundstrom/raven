@@ -5,6 +5,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## 2026-05-09
 
 ### Changed
+- `RavenUnionJsonConverter` has been renamed to `RavenTaggedUnionJsonConverter` to make its tagged JSON shape explicit.
+- `RavenTaggedUnionJsonConverter<TUnion>` now writes direct parenthesized union members such as scalar values and arrays under a tagged `value` payload, preserving existing flattened output for body-form cases while allowing `JsonValue[]` members to serialize.
+- Added a dedicated `json-modeling-playground` sample that models JSON structure with records and unions, using both built-in Raven.Core and custom JSON converters.
 - Collection literals target-typed as a union now use the single collection-shaped union member when one exists, so nested values such as `JsonValue[]` can be inferred inside `JsonValue` dictionaries.
 - Language-server open and save events now schedule a deferred full diagnostic pass after the immediate syntax pass, so analyzer diagnostics appear without requiring a document edit and stale analyzer diagnostics can be cleared after saving.
 - Language-server semantic tokens now skip unmapped classifications instead of emitting default keyword tokens, and classify local declaration/designation identifiers from syntax so open-document tuple deconstruction edits keep correct spans and token types.
@@ -48,8 +51,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## 2026-05-02
 
 ### Changed
-- `Raven.Core` now includes the generic `RavenUnionJsonConverterFactory`/`RavenUnionJsonConverter<TUnion>` implementation for opt-in JSON serialization of ordinary Raven unions, while `Option<T>` and `Result<T, E>` keep their specialized JSON converters.
-- Generic Raven union JSON serialization now supports a configurable case discriminator property. `"$case"` remains the default, and `[RavenUnionJsonConverter("kind")]` can be used when a domain-specific property name fits better.
+- `Raven.Core` now includes the generic `RavenTaggedUnionJsonConverterFactory`/`RavenTaggedUnionJsonConverter<TUnion>` implementation for opt-in JSON serialization of ordinary Raven unions, while `Option<T>` and `Result<T, E>` keep their specialized JSON converters.
+- Generic Raven union JSON serialization now supports a configurable case discriminator property. `"$case"` remains the default, and `[RavenTaggedUnionJsonConverter("kind")]` can be used when a domain-specific property name fits better.
 
 ## 2026-05-01
 

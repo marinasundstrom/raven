@@ -218,7 +218,7 @@ record Foo(
     val Test: int | bool
 )
 
-[RavenUnionJsonConverter("kind")]
+[RavenTaggedUnionJsonConverter("kind")]
 union Status {
     case Active(Date: DateTimeOffset)
     case OnMaintenance(Date: DateTimeOffset, Reason: string)
@@ -850,7 +850,7 @@ record Foo(
     val Test: int | bool
 )
 
-[RavenUnionJsonConverter("kind")]
+[RavenTaggedUnionJsonConverter("kind")]
 union Status {
     case Active
 }

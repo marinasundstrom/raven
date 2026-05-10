@@ -1,6 +1,5 @@
 import System.*
 import System.Console.*
-import System.Collections.Generic.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
@@ -35,7 +34,7 @@ record Foo(
     val Test: int | bool
 )
 
-[RavenUnionJsonConverter("kind")]
+[RavenTaggedUnionJsonConverter("kind")]
 union Status {
     case Active(Date: DateTimeOffset)
     case OnMaintenance(Date: DateTimeOffset, Reason: string)
@@ -49,14 +48,3 @@ union Status {
         }
     }
 }
-
-[RavenUnionJsonConverter("kind")]
-union JsonValue(string | double | bool | JsonObject | JsonValue[])
-record JsonObject(Properties: IDictionary<string, JsonValue>)
-
-val x = JsonObject([ 
-    "name": 32,
-    "items": [ "true", 42 ]
-])
-
-WriteLine(JsonSerializer.Serialize(x, options))

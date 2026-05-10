@@ -6,6 +6,8 @@
   href: project-system.md
 - name: Raven Core Library
   href: raven-core-library.md
+- name: Raven Core JSON serialization
+  href: json-serialization.md
 - name: Diagnostics
   href: diagnostics.md
 - name: Tooling

@@ -734,6 +734,14 @@ carriers. This is intentional: the standard carriers follow the conventional
 `.NET` union contract without exposing the extra default/uninitialized state
 that exists for `union struct` values.
 
+Raven.Core also provides `System.Text.Json` converters for `Option<T>`,
+`Result<T, E>`, and standard type unions. These converters prefer plain JSON
+when the JSON shape can be recovered from the declared target type. Parenthesized
+unions use value-union conversion because their members can be arbitrary types,
+including primitives; case-declaration unions may opt into a tagged case format.
+See
+[Raven Core JSON serialization](../../compiler/json-serialization.md).
+
 #### `Option<T>` helpers
 
 - State checks: `HasSome`, `HasNone`
@@ -4580,6 +4588,8 @@ val paidByCard: Payment = Card("4242")
 The body form declares a carrier with an ordinary member body. That member body
 may contain `case` declarations alongside other members such as methods and
 properties. Each `case` declaration synthesizes a named case type.
+This form is also known as a tagged union because each value belongs to one
+named case in the union's closed case set.
 
 ##### Example
 

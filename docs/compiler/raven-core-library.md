@@ -122,6 +122,10 @@ programs compatible with the .NET type system.
 
 When you want OOP-style subtype semantics, prefer Raven sealed hierarchies instead of unions.
 
+JSON serialization behavior for `Option<T>`, `Result<T, E>`, standard type
+unions, and opt-in tagged Raven unions is documented in
+[Raven Core JSON serialization](json-serialization.md).
+
 ### `Unit`
 
 `unit` is Raven's "no meaningful value" type. The compiler represents it as a

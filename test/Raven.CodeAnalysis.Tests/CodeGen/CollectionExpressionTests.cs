@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -85,6 +86,158 @@ class Foo {
         var method = type!.GetMethod("GetCount", BindingFlags.Static | BindingFlags.Public);
 
         Assert.Equal(2, (int)method!.Invoke(null, null)!);
+    }
+
+    [Fact]
+    public void DictionaryExpression_UnionValueArrayBranch_SerializesWithParenthesizedUnionConverter()
+    {
+        var code = """
+import System.*
+import System.Collections.Generic.*
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
+
+[JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
+union JsonValue(string | double | bool | JsonObject | JsonValue[])
+
+[JsonConverter(typeof(JsonObjectConverter))]
+record JsonObject(Properties: IDictionary<string, JsonValue>)
+
+class JsonObjectConverter : JsonConverter<JsonObject> {
+    override func Read(
+        reader: &Utf8JsonReader,
+        typeToConvert: Type,
+        options: JsonSerializerOptions
+    ) -> JsonObject {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        if root.ValueKind != JsonValueKind.Object {
+            throw JsonException("JsonObject must be a JSON object.")
+        }
+
+        val properties = Dictionary<string, JsonValue>()
+
+        for property in root.EnumerateObject() {
+            properties.Add(property.Name, ReadJsonValue(property.Value, options))
+        }
+
+        return JsonObject(properties)
+    }
+
+    override func Write(
+        writer: Utf8JsonWriter,
+        value: JsonObject,
+        options: JsonSerializerOptions
+    ) -> () {
+        writer.WriteStartObject()
+
+        for property in value.Properties {
+            writer.WritePropertyName(property.Key)
+            JsonSerializer.Serialize(writer, property.Value, options)
+        }
+
+        writer.WriteEndObject()
+    }
+
+    private static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
+        if element.ValueKind == JsonValueKind.String {
+            return JsonValue(element.GetString() ?? "")
+        }
+
+        if element.ValueKind == JsonValueKind.Number {
+            return JsonValue(element.GetDouble())
+        }
+
+        if element.ValueKind == JsonValueKind.True {
+            return JsonValue(true)
+        }
+
+        if element.ValueKind == JsonValueKind.False {
+            return JsonValue(false)
+        }
+
+        if element.ValueKind == JsonValueKind.Array {
+            val values = List<JsonValue>()
+
+            for item in element.EnumerateArray() {
+                values.Add(ReadJsonValue(item, options))
+            }
+
+            return JsonValue(values.ToArray())
+        }
+
+        if element.ValueKind == JsonValueKind.Object {
+            val properties = Dictionary<string, JsonValue>()
+
+            for property in element.EnumerateObject() {
+                properties.Add(property.Name, ReadJsonValue(property.Value, options))
+            }
+
+            return JsonValue(JsonObject(properties))
+        }
+
+        throw JsonException("Unsupported JSON value kind '$element.ValueKind'.")
+    }
+}
+
+class Foo {
+    public static func Serialize() -> string {
+        val options = JsonSerializerOptions with {
+            PropertyNamingPolicy = .CamelCase
+        }
+
+        val value = JsonObject([
+            "name": 32,
+            "items": [ "true", 42 ]
+        ])
+
+        return JsonSerializer.Serialize(value, options)
+    }
+
+    public static func RoundTripCount() -> int {
+        val options = JsonSerializerOptions with {
+            PropertyNamingPolicy = .CamelCase
+        }
+
+        val value = JsonSerializer.Deserialize<JsonObject>(Serialize(), options)
+        return value.Properties.Count
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Foo", true);
+        var method = type!.GetMethod("Serialize", BindingFlags.Static | BindingFlags.Public);
+        var json = (string)method!.Invoke(null, null)!;
+        var roundTripMethod = type.GetMethod("RoundTripCount", BindingFlags.Static | BindingFlags.Public);
+
+        using var document = JsonDocument.Parse(json);
+
+        var name = document.RootElement.GetProperty("name");
+        Assert.Equal(JsonValueKind.Number, name.ValueKind);
+        Assert.Equal(32, name.GetDouble());
+
+        var items = document.RootElement.GetProperty("items");
+        Assert.Equal(JsonValueKind.Array, items.ValueKind);
+        Assert.Equal(2, items.GetArrayLength());
+        Assert.Equal("true", items[0].GetString());
+        Assert.Equal(42, items[1].GetDouble());
+        Assert.Equal(2, (int)roundTripMethod!.Invoke(null, null)!);
     }
 
     [Fact]
@@ -1098,6 +1251,16 @@ class Foo {
         var instance = Activator.CreateInstance(type!);
 
         Assert.Equal(7, (int)method!.Invoke(instance, null)!);
+    }
+
+    private static string GetRavenCorePath()
+    {
+        var outputPath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
+        if (File.Exists(outputPath))
+            return outputPath;
+
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        return Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", "net10.0", "Raven.Core.dll");
     }
 }
 

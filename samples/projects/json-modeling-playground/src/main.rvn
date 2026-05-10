@@ -1,0 +1,107 @@
+import System.*
+import System.Console.*
+import System.Collections.Generic.*
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
+
+val options = JsonSerializerOptions with {
+    WriteIndented = true,
+    PropertyNamingPolicy = .CamelCase
+}
+
+val value = JsonObject([ 
+    "name": 32,
+    "items": [ "true", 42 ]
+])
+
+val json = JsonSerializer.Serialize(value, options)
+WriteLine(json)
+
+val roundTripped = JsonSerializer.Deserialize<JsonObject>(json, options)
+val propertyCount = roundTripped.Properties.Count
+WriteLine("Round-tripped property count: $propertyCount")
+
+[JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
+union JsonValue(string | double | bool | JsonObject | JsonValue[])
+
+[JsonConverter(typeof(JsonObjectConverter))]
+record JsonObject(Properties: IDictionary<string, JsonValue>)
+
+class JsonObjectConverter : JsonConverter<JsonObject> {
+
+    override func Read(
+        reader: &Utf8JsonReader,
+        typeToConvert: Type,
+        options: JsonSerializerOptions
+    ) -> JsonObject {
+        use doc = JsonDocument.ParseValue(reader)
+        val root = doc.RootElement
+
+        if root.ValueKind != JsonValueKind.Object {
+            throw JsonException("JsonObject must be a JSON object.")
+        }
+
+        val properties = Dictionary<string, JsonValue>()
+
+        for property in root.EnumerateObject() {
+            properties.Add(property.Name, ReadJsonValue(property.Value, options))
+        }
+
+        return JsonObject(properties)
+    }
+
+    override func Write(
+        writer: Utf8JsonWriter,
+        value: JsonObject,
+        options: JsonSerializerOptions
+    ) -> () {
+        writer.WriteStartObject()
+
+        for property in value.Properties {
+            writer.WritePropertyName(property.Key)
+            JsonSerializer.Serialize(writer, property.Value, options)
+        }
+
+        writer.WriteEndObject()
+    }
+
+    private static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
+        if element.ValueKind == JsonValueKind.String {
+            return JsonValue(element.GetString() ?? "")
+        }
+
+        if element.ValueKind == JsonValueKind.Number {
+            return JsonValue(element.GetDouble())
+        }
+
+        if element.ValueKind == JsonValueKind.True {
+            return JsonValue(true)
+        }
+
+        if element.ValueKind == JsonValueKind.False {
+            return JsonValue(false)
+        }
+
+        if element.ValueKind == JsonValueKind.Array {
+            val values = List<JsonValue>()
+
+            for item in element.EnumerateArray() {
+                values.Add(ReadJsonValue(item, options))
+            }
+
+            return JsonValue(values.ToArray())
+        }
+
+        if element.ValueKind == JsonValueKind.Object {
+            val properties = Dictionary<string, JsonValue>()
+
+            for property in element.EnumerateObject() {
+                properties.Add(property.Name, ReadJsonValue(property.Value, options))
+            }
+
+            return JsonValue(JsonObject(properties))
+        }
+
+        throw JsonException("Unsupported JSON value kind '$element.ValueKind'.")
+    }
+}

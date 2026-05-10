@@ -6,24 +6,24 @@ import System.Reflection.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-class RavenUnionJsonConverterAttribute : JsonConverterAttribute {
+class RavenTaggedUnionJsonConverterAttribute : JsonConverterAttribute {
 
     private val _caseDiscriminatorPropertyName: string
 
     init() {
-        _caseDiscriminatorPropertyName = RavenUnionJsonConverterFactory.DefaultCaseDiscriminatorPropertyName
+        _caseDiscriminatorPropertyName = RavenTaggedUnionJsonConverterFactory.DefaultCaseDiscriminatorPropertyName
     }
 
     init(caseDiscriminatorPropertyName: string) {
-        _caseDiscriminatorPropertyName = RavenUnionJsonConverterFactory.NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)
+        _caseDiscriminatorPropertyName = RavenTaggedUnionJsonConverterFactory.NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)
     }
 
     override func CreateConverter(typeToConvert: Type) -> JsonConverter {
-        return RavenUnionJsonConverterFactory.CreateUnionConverter(typeToConvert, _caseDiscriminatorPropertyName)
+        return RavenTaggedUnionJsonConverterFactory.CreateUnionConverter(typeToConvert, _caseDiscriminatorPropertyName)
     }
 }
 
-class RavenUnionJsonConverterFactory : JsonConverterFactory {
+class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
 
     static val DefaultCaseDiscriminatorPropertyName: string => "\$case"
 
@@ -64,11 +64,11 @@ class RavenUnionJsonConverterFactory : JsonConverterFactory {
 
     static func CreateUnionConverter(typeToConvert: Type, caseDiscriminatorPropertyName: string) -> JsonConverter {
         val converterType =
-            typeof(RavenUnionJsonConverter<>).MakeGenericType([typeToConvert])!
+            typeof(RavenTaggedUnionJsonConverter<>).MakeGenericType([typeToConvert])!
 
         return (JsonConverter)(
             Activator.CreateInstance(converterType, [NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)])
-                ?? throw InvalidOperationException("Could not create Raven union converter")
+                ?? throw InvalidOperationException("Could not create Raven tagged union converter")
         )
     }
 
@@ -81,9 +81,11 @@ class RavenUnionJsonConverterFactory : JsonConverterFactory {
     }
 }
 
-class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
+class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
     val _unionType: Type = typeof(TUnion)
+
+    val _directPayloadPropertyName: string = "Value"
 
     val _valueProperty: PropertyInfo =
         typeof(TUnion).GetProperty(
@@ -96,7 +98,7 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
     val _caseTypes: Dictionary<string, Type>
 
     init(caseDiscriminatorPropertyName: string) {
-        _caseDiscriminatorPropertyName = RavenUnionJsonConverterFactory.NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)
+        _caseDiscriminatorPropertyName = RavenTaggedUnionJsonConverterFactory.NormalizeCaseDiscriminatorPropertyName(caseDiscriminatorPropertyName)
         _caseTypes = Dictionary<string, Type>()
 
         for constructor in _unionType.GetConstructors(BindingFlags.Public | BindingFlags.Instance) {
@@ -123,6 +125,19 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
 
         if !_caseTypes.TryGetValue(caseName, out var caseType) {
             throw JsonException("Unknown union case '$caseName'.")
+        }
+
+        if !IsGeneratedUnionCaseType(caseType) {
+            val payloadName = GetPropertyName(_directPayloadPropertyName, options)
+            val property = GetRequiredProperty(root, payloadName, options)
+            val directCaseValue =
+                JsonSerializer.Deserialize(
+                    property.GetRawText(),
+                    caseType,
+                    options
+                )
+
+            return CreateUnion(directCaseValue)
         }
 
         val constructor = GetPrimaryConstructor(caseType)
@@ -162,6 +177,20 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         writer.WriteStartObject()
 
         writer.WriteString(_caseDiscriminatorPropertyName, GetCaseName(caseType))
+
+        if !IsGeneratedUnionCaseType(caseType) {
+            writer.WritePropertyName(GetPropertyName(_directPayloadPropertyName, options))
+
+            JsonSerializer.Serialize(
+                writer,
+                caseValue,
+                caseType,
+                options
+            )
+
+            writer.WriteEndObject()
+            return
+        }
 
         for property in caseType.GetProperties(BindingFlags.Public | BindingFlags.Instance) {
             val jsonName = GetPropertyName(property.Name, options)
@@ -220,6 +249,11 @@ class RavenUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         }
 
         throw JsonException("Union type '$_unionType' does not accept case '$caseType'.")
+    }
+
+    private func IsGeneratedUnionCaseType(caseType: Type) -> bool {
+        val prefix = GetUnionName(_unionType) + "_"
+        return caseType.Name.StartsWith(prefix)
     }
 
     private static func GetUnionName(unionType: Type) -> string {

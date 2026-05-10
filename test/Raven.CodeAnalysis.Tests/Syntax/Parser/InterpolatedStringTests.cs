@@ -54,7 +54,7 @@ public class InterpolatedStringTests
     public void InterpolatedStringText_KeywordIdentifierShorthand_PreservesFollowingSpans()
     {
         var source = """
-[RavenUnionJsonConverter("$case")]
+[RavenTaggedUnionJsonConverter("$case")]
 union VehicleStatus {
 }
 """;
