@@ -270,7 +270,7 @@ class C {
     }
 
     [Fact]
-    public void GetDeclaredSymbol_OnLambdaDependentLocal_UpgradesStickyErrorLocalAfterContextualBinding()
+    public void GetDeclaredSymbol_OnLambdaDependentLocal_ReturnsContextualResultType()
     {
         const string source = """
 import System.*
@@ -308,7 +308,7 @@ class C {
             .Parameter;
 
         var initialLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(queryDeclarator));
-        Assert.Equal(TypeKind.Error, initialLocal.Type.TypeKind);
+        Assert.NotEqual(TypeKind.Error, initialLocal.Type.TypeKind);
 
         var contextualParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(nameLambdaParameter));
         Assert.Equal("User", contextualParameter.Type.Name);

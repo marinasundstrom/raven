@@ -725,7 +725,7 @@ partial class BlockBinder : Binder
     }
 
     private static string GetParameterOnlyMethodSignatureKey(IMethodSymbol method)
-        => $"{method.Name}({string.Join(",", method.Parameters.Select(static parameter => parameter.Type.ToDisplayString()))})";
+        => $"{method.Name}({string.Join(",", method.Parameters.Select(static parameter => $"{parameter.RefKind}:{(parameter.IsVarParams ? "params " : string.Empty)}{parameter.Type.ToDisplayString()}"))})";
 
     private static string GetSymbolKindForDiagnostic(ISymbol symbol)
     {
@@ -1161,6 +1161,7 @@ partial class BlockBinder : Binder
             or InvocationExpressionSyntax
             or MemberAccessExpressionSyntax
             or IdentifierNameSyntax
+            or DefaultExpressionSyntax
             or MatchExpressionSyntax
             or IfExpressionSyntax;
 
@@ -5423,6 +5424,8 @@ partial class BlockBinder : Binder
 
         // Target type from binary equality/inequality: `x == .Member` / `.Member == x`.
         if (node.Parent is InfixOperatorExpressionSyntax binary &&
+            node is ExpressionSyntax equalityOperand &&
+            IsTargetTypedEqualityOperand(equalityOperand) &&
             (binary.OperatorToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsExpression))
         {
             var other = ReferenceEquals(binary.Left, node) ? binary.Right : binary.Left;
@@ -5437,6 +5440,12 @@ partial class BlockBinder : Binder
         }
 
         return GetTargetTypeFromBinderChain();
+    }
+
+    private static bool IsTargetTypedEqualityOperand(ExpressionSyntax expression)
+    {
+        return expression is MemberBindingExpressionSyntax ||
+               expression is InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax };
     }
 
     private ITypeSymbol? GetTargetTypeFromBinderChain()
@@ -8483,7 +8492,7 @@ partial class BlockBinder : Binder
                 if (method.MethodKind != MethodKind.UserDefinedOperator)
                     continue;
 
-                if (!method.IsStatic || method.ExtensionMemberKind != ExtensionMemberKind.None)
+                if (!method.IsStatic)
                     continue;
 
                 if (seen.Add(method))
@@ -14642,8 +14651,10 @@ partial class BlockBinder : Binder
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)
     {
-        var seen = new HashSet<ISymbol>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         Binder? current = this;
+
+        static string GetLookupKey(ISymbol symbol) => symbol.GetLookupIdentityKey();
 
         // static func bodies do not close over enclosing locals/parameters.
         var restrict = IsStaticFunctionBody;
@@ -14678,16 +14689,16 @@ partial class BlockBinder : Binder
             {
                 if (allowLocalsAndParams)
                 {
-                    if (block._locals.TryGetValue(name, out var local) && seen.Add(local.Symbol))
+                    if (block._locals.TryGetValue(name, out var local) && seen.Add(GetLookupKey(local.Symbol)))
                         yield return local.Symbol;
 
-                    if (block._localTypes.TryGetValue(name, out var localType) && seen.Add(localType.Symbol))
+                    if (block._localTypes.TryGetValue(name, out var localType) && seen.Add(GetLookupKey(localType.Symbol)))
                         yield return localType.Symbol;
 
-                    if (block._functions.TryGetValue(name, out var func) && seen.Add(func))
+                    if (block._functions.TryGetValue(name, out var func) && seen.Add(GetLookupKey(func)))
                         yield return func;
 
-                    if (block._labelsByName.TryGetValue(name, out var label) && seen.Add(label))
+                    if (block._labelsByName.TryGetValue(name, out var label) && seen.Add(GetLookupKey(label)))
                         yield return label;
                 }
             }
@@ -14695,21 +14706,21 @@ partial class BlockBinder : Binder
             if (allowLocalsAndParams && current is TopLevelBinder topLevelBinder)
             {
                 foreach (var param in topLevelBinder.GetParameters())
-                    if (param.Name == name && seen.Add(param))
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
             }
 
             if (allowLocalsAndParams && current is MethodBinder methodBinder)
             {
                 foreach (var param in methodBinder.GetMethodSymbol().Parameters)
-                    if (param.Name == name && seen.Add(param))
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
             }
 
             if (allowLocalsAndParams && current is FunctionExpressionBinder lambdaBinder)
             {
                 foreach (var param in lambdaBinder.GetParameters())
-                    if (param.Name == name && seen.Add(param))
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
                         yield return param;
             }
 
@@ -14717,14 +14728,14 @@ partial class BlockBinder : Binder
             if (current is TypeMemberBinder typeMemberBinder)
             {
                 foreach (var member in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingTypeSymbol, name))
-                    if (seen.Add(member))
+                    if (seen.Add(GetLookupKey(member)))
                         yield return member;
             }
 
             if (current is ImportBinder importBinder)
             {
                 foreach (var symbol in importBinder.LookupSymbols(name))
-                    if (seen.Add(symbol))
+                    if (seen.Add(GetLookupKey(symbol)))
                         yield return symbol;
             }
 
@@ -14732,7 +14743,7 @@ partial class BlockBinder : Binder
         }
 
         foreach (var member in Compilation.GlobalNamespace.GetMembers(name))
-            if (seen.Add(member))
+            if (seen.Add(GetLookupKey(member)))
                 yield return member;
     }
 

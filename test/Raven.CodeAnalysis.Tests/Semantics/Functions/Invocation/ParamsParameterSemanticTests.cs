@@ -154,6 +154,8 @@ class C {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(node => node.Expression is IdentifierNameSyntax { Identifier.Text: "Pick" });
+        var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(invocation.Expression));
+        Assert.Equal(2, methodGroup.Methods.Length);
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
         Assert.False(boundInvocation.Method.Parameters[0].IsVarParams);

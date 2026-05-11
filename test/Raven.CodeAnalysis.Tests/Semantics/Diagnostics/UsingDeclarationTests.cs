@@ -147,7 +147,7 @@ class Foo : IDisposable {
 }
 
 func test() -> int {
-    use obj = Foo { Value = 2 } in {
+    use obj = Foo with { Value = 2 } in {
         return obj.Run()
     }
 }

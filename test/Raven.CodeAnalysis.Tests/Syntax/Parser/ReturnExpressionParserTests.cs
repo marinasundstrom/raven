@@ -37,6 +37,25 @@ public class ReturnExpressionParserTests
     }
 
     [Fact]
+    public void MatchExpressionArm_WithReturnExpression_ParsesReturnArm()
+    {
+        var lexer = new Lexer(new StringReader("""
+value match {
+    0 => return 0
+    _ => 1
+}
+"""));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+
+        var expression = Assert.IsAssignableFrom<ExpressionSyntax>(parser.ParseExpression().CreateRed());
+        var match = Assert.IsType<MatchExpressionSyntax>(expression);
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.IsType<ReturnExpressionSyntax>(match.Arms[0].Expression);
+    }
+
+    [Fact]
     public void ReturnExpression_WithPostfixNullForgiving_ParsesInsideReturnExpression()
     {
         var lexer = new Lexer(new StringReader("return value!"));

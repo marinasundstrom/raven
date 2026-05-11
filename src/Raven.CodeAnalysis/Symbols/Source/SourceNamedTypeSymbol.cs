@@ -210,7 +210,115 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     internal void AddMember(ISymbol member)
     {
         lock (_membersGate)
+        {
+            var duplicateIndex = _members.FindIndex(existing => IsDuplicateMember(existing, member));
+            if (duplicateIndex >= 0)
+            {
+                if (_members[duplicateIndex] is SourceMethodSymbol { IsSignatureSkeleton: true } &&
+                    member is SourceMethodSymbol { IsSignatureSkeleton: false })
+                {
+                    _members[duplicateIndex] = member;
+                }
+
+                return;
+            }
+
             _members.Add(member);
+        }
+    }
+
+    private static bool IsDuplicateMember(ISymbol existing, ISymbol member)
+    {
+        if (ReferenceEquals(existing, member))
+            return true;
+
+        if (existing.Kind != member.Kind || existing.Name != member.Name)
+            return false;
+
+        if (existing is IMethodSymbol existingMethod &&
+            member is IMethodSymbol method &&
+            IsDuplicateSynthesizedMethod(existingMethod, method))
+        {
+            return true;
+        }
+
+        if (existing.DeclaringSyntaxReferences.IsDefaultOrEmpty ||
+            member.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+        {
+            if (!existing.DeclaringSyntaxReferences.IsDefaultOrEmpty ||
+                !member.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            {
+                return false;
+            }
+
+            return existing is IMethodSymbol existingSignature &&
+                member is IMethodSymbol memberSignature
+                    ? HaveSameSignature(existingSignature, memberSignature)
+                    : true;
+        }
+
+        foreach (var existingReference in existing.DeclaringSyntaxReferences)
+        {
+            foreach (var memberReference in member.DeclaringSyntaxReferences)
+            {
+                if (existingReference.SyntaxTree == memberReference.SyntaxTree &&
+                    existingReference.Span == memberReference.Span)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsDuplicateSynthesizedMethod(IMethodSymbol existing, IMethodSymbol method)
+    {
+        if (!ReferenceEquals(existing.ContainingType, method.ContainingType) &&
+            !SymbolEqualityComparer.Default.Equals(existing.ContainingType, method.ContainingType))
+        {
+            return false;
+        }
+
+        if (existing.Name == ".ctor" &&
+            method.Name == ".ctor" &&
+            IsPrimaryConstructorSymbol(existing) &&
+            IsPrimaryConstructorSymbol(method))
+        {
+            return true;
+        }
+
+        if (IsSynthesizedUnionHelperName(existing.Name))
+            return true;
+
+        if (existing.MethodKind != method.MethodKind ||
+            existing.IsStatic != method.IsStatic)
+            return false;
+
+        return false;
+    }
+
+    private static bool IsPrimaryConstructorSymbol(IMethodSymbol method)
+        => method.DeclaringSyntaxReferences.Any(static reference =>
+            reference.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null });
+
+    private static bool IsSynthesizedUnionHelperName(string name)
+        => name is SynthesizedUnionMethodNames.DisplayNameHelper
+            or SynthesizedUnionMethodNames.FriendlyTypeNameHelper
+            or SynthesizedUnionMethodNames.FormatValueHelper;
+
+    private static bool HaveSameSignature(IMethodSymbol left, IMethodSymbol right)
+    {
+        if (left.Parameters.Length != right.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < left.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(left.Parameters[i].Type, right.Parameters[i].Type))
+                return false;
+        }
+
+        return true;
     }
 
     internal void RemoveMember(ISymbol member)

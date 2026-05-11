@@ -67,62 +67,68 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
-    public void TrailingBlock_WithSingleParameterClosure_BindsItAndDollarZero()
+    public void TrailingBlock_WithExplicitSingleParameterClosure_BindsParameter()
     {
         const string source = """
         func Apply(value: int, transform: int -> int) -> int {
             return transform(value)
         }
 
-        val a = Apply(41) {
-            return it + 1
-        }
-
-        val b = Apply(41) {
-            return $0 + 1
+        val result = Apply(41) { (value: int) =>
+            return value + 1
         }
         """;
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
-        var identifiers = tree.GetRoot()
+        var trailingBlock = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<TrailingBlockExpressionSyntax>()
+            .Single();
+        var bodyStart = trailingBlock.FatArrowToken.Span.End;
+        var bodyEnd = trailingBlock.CloseBraceToken.SpanStart;
+        var identifier = tree.GetRoot()
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
-            .Where(static identifier => identifier.Identifier.ValueText is "it" or "$0")
-            .ToArray();
+            .Single(identifier => identifier.Span.Start > bodyStart &&
+                identifier.Span.End < bodyEnd &&
+                identifier.Identifier.ValueText == "value");
 
-        Assert.Equal(2, identifiers.Length);
-        foreach (var identifier in identifiers)
-        {
-            var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
-            Assert.Equal("$0", symbol.Name);
-        }
-
+        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
+        Assert.Equal("value", symbol.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
-    public void TrailingBlock_WithMultipleParameterClosure_BindsIndexedParameters()
+    public void TrailingBlock_WithExplicitMultipleParameterClosure_BindsParameters()
     {
         const string source = """
         func Combine(left: int, right: int, transform: (int, int) -> int) -> int {
             return transform(left, right)
         }
 
-        val result = Combine(20, 22) {
-            return $0 + $1
+        val result = Combine(20, 22) { (left: int, right: int) =>
+            return left + right
         }
         """;
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
+        var trailingBlock = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<TrailingBlockExpressionSyntax>()
+            .Single();
+        var bodyStart = trailingBlock.FatArrowToken.Span.End;
+        var bodyEnd = trailingBlock.CloseBraceToken.SpanStart;
         var identifiers = tree.GetRoot()
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
-            .Where(static identifier => identifier.Identifier.ValueText is "$0" or "$1")
+            .Where(identifier => identifier.Span.Start > bodyStart &&
+                identifier.Span.End < bodyEnd &&
+                identifier.Identifier.ValueText is "left" or "right")
             .ToArray();
 
-        Assert.Equal(["$0", "$1"], identifiers.Select(static identifier => identifier.Identifier.ValueText).ToArray());
+        Assert.Equal(["left", "right"], identifiers.Select(static identifier => identifier.Identifier.ValueText).ToArray());
         foreach (var identifier in identifiers)
         {
             var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
@@ -133,22 +139,17 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
-    public void FunctionExpression_ItAliasesFirstParameter()
+    public void FunctionExpression_ItIsNotImplicitParameterAlias()
     {
         const string source = """
         val transform: int -> int = x => it + 1
         """;
 
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var identifier = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Single(static identifier => identifier.Identifier.ValueText == "it");
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
 
-        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
-        Assert.Equal("x", symbol.Name);
-        Assert.Empty(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
+        Assert.Equal("'it' is not in scope.", diagnostic.GetMessage());
     }
 
     [Fact]
@@ -428,8 +429,9 @@ public class MethodOverloadTests : CompilationTestBase
         _ = model.GetDeclaredSymbol(methods[0]);
         _ = model.GetDeclaredSymbol(methods[1]);
 
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-        Assert.Equal(CompilerDiagnostics.TypeAlreadyDefinesMember, diagnostic.Descriptor);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeAlreadyDefinesMember);
+        Assert.All(diagnostics, diagnostic => Assert.Equal(CompilerDiagnostics.TypeAlreadyDefinesMember, diagnostic.Descriptor));
     }
 
     [Fact]

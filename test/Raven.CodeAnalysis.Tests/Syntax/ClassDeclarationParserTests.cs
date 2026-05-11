@@ -305,7 +305,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void PropertyDeclaration_WithVarKeyword_ParsesAsStoredProperty()
+    public void PropertyDeclaration_WithVarKeyword_ParsesStoredPropertyWithoutAccessorList()
     {
         var source = """
             class Counter {
@@ -319,8 +319,7 @@ public class ClassDeclarationParserTests : DiagnosticTestBase
         var property = Assert.IsType<PropertyDeclarationSyntax>(Assert.Single(@class.Members));
         Assert.True(property.BindingKeyword.IsKind(SyntaxKind.VarKeyword));
         Assert.NotNull(property.Initializer);
-        Assert.NotNull(property.AccessorList);
-        Assert.Equal(2, property.AccessorList!.Accessors.Count);
+        Assert.Null(property.AccessorList);
         Assert.Empty(tree.GetDiagnostics());
     }
 

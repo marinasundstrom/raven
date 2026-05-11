@@ -280,56 +280,10 @@ val inferred = [for key in [|"a", "bb"|] => key: key.Length]
     }
 
     [Fact]
-    public void NoTargetType_SemicolonSeparatedCollectionLiteral_InfersImmutableList()
-    {
-        const string source = """
-val inferred = [1; 2; 3]
-""";
-
-        var verifier = CreateVerifier(source);
-        var run = verifier.GetResult();
-
-        Assert.Empty(run.UnexpectedDiagnostics);
-        Assert.Empty(run.MissingDiagnostics);
-
-        var tree = run.Compilation.SyntaxTrees.Single();
-        var model = run.Compilation.GetSemanticModel(tree);
-        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
-
-        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
-        Assert.Equal("ImmutableList`1", listType.MetadataName);
-        Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
-    }
-
-    [Fact]
     public void NoTargetType_MutableCollectionLiteral_InfersMutableList()
     {
         const string source = """
 val inferred = ![1, 2, 3]
-""";
-
-        var verifier = CreateVerifier(source);
-        var run = verifier.GetResult();
-
-        Assert.Empty(run.UnexpectedDiagnostics);
-        Assert.Empty(run.MissingDiagnostics);
-
-        var tree = run.Compilation.SyntaxTrees.Single();
-        var model = run.Compilation.GetSemanticModel(tree);
-        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
-
-        var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
-        Assert.Equal("List`1", listType.MetadataName);
-        Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
-    }
-
-    [Fact]
-    public void NoTargetType_MutableListCollectionLiteral_InfersMutableList()
-    {
-        const string source = """
-val inferred = ![1; 2; 3]
 """;
 
         var verifier = CreateVerifier(source);
@@ -460,7 +414,7 @@ class Box {
     var Values: ImmutableArray<int> = []
 }
 
-val box = Box {
+val box = Box with {
     Values = [1, 2, 3]
 }
 """;
@@ -510,34 +464,12 @@ val values: int[] = [1, 2, 3]
     }
 
     [Fact]
-    public void ArrayTarget_SemicolonSeparatedCollectionExpression_Binds()
-    {
-        const string source = """
-val values: int[] = [1; 2; 3]
-""";
-
-        CreateVerifier(source).Verify();
-    }
-
-    [Fact]
     public void ListTarget_CommaSeparatedCollectionExpression_Binds()
     {
         const string source = """
 import System.Collections.Generic.*
 
 val values: List<int> = [1, 2, 3]
-""";
-
-        CreateVerifier(source).Verify();
-    }
-
-    [Fact]
-    public void ListTarget_SemicolonSeparatedCollectionExpression_Binds()
-    {
-        const string source = """
-import System.Collections.Generic.*
-
-val values: List<int> = [1; 2; 3]
 """;
 
         CreateVerifier(source).Verify();

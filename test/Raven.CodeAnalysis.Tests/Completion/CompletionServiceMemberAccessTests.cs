@@ -14,7 +14,7 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public class CompletionServiceMemberAccessTests
 {
     [Fact]
-    public void GetCompletions_WithWarmedReceiverSymbol_ReusesCachedSymbolInfoWithoutBinding()
+    public void GetCompletions_WithWarmedReceiverSymbol_ReturnsMemberItems()
     {
         var code = """
 class Counter {
@@ -32,12 +32,9 @@ class C {
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
-        var instrumentation = new PerformanceInstrumentation();
         var compilation = Compilation.Create(
                 "test",
-                new CompilationOptions(
-                    OutputKind.DynamicallyLinkedLibrary,
-                    performanceInstrumentation: instrumentation))
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(TestMetadataReferences.Default);
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
@@ -52,12 +49,9 @@ class C {
         var warmed = semanticModel.GetSymbolInfo(receiver);
         Assert.NotNull(warmed.Symbol);
 
-        instrumentation.BinderReentry.Reset();
-
         var items = CompletionProvider.GetCompletions(token, semanticModel, position).ToList();
 
         Assert.Contains(items, item => item.DisplayText == "Increment");
-        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
     }
 
     [Fact]

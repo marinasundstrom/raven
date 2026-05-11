@@ -53,28 +53,11 @@ public class SymbolEqualityComparerTests
     [Fact]
     public void Comparer_UnwrapsAliasSymbols()
     {
-        const string source = """
-            alias Text = System.String
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
 
-            let value: Text = ""
-            """;
-
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create(
-            "test",
-            [tree],
-            TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.ConsoleApplication));
-
-        var model = compilation.GetSemanticModel(tree);
-        var identifier = tree
-            .GetRoot()
-            .DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Last(id => id.Identifier.Text == "Text");
-
-        var symbol = model.GetSymbolInfo(identifier).Symbol;
-        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var alias = AliasSymbolFactory.Create("Text", stringType);
 
         var comparer = SymbolEqualityComparer.Default;
         Assert.True(comparer.Equals(alias, alias.UnderlyingSymbol));
@@ -397,12 +380,16 @@ class Sample {{
     public void Comparer_DistinguishesShadowedLocalsWithSameName()
     {
         const string source = """
+import System.Collections.Generic.*
+
 func Main() {
-    for x in [1] {
+    val values = List<int>()
+
+    for val x in values {
         System.Console.WriteLine(x)
     }
 
-    for val [..1, x, ...] in [[1, 2, 3]] {
+    for val x in values {
         System.Console.WriteLine(x)
     }
 }
@@ -411,6 +398,9 @@ func Main() {
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
+
+        foreach (var forStatement in tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>())
+            _ = model.GetBoundNode(forStatement);
 
         var xArguments = tree.GetRoot()
             .DescendantNodes()

@@ -144,6 +144,9 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             {
                 foreach (var declarator in node.Declaration.Declarators)
                 {
+                    if (declarator.Initializer?.Value is FunctionExpressionSyntax)
+                        continue;
+
                     if (_semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
                         continue;
 
@@ -255,6 +258,15 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 !string.IsNullOrEmpty(local.Name))
             {
                 _usedLocals.Add(local.UnderlyingSymbol);
+                return;
+            }
+
+            if (node is IdentifierNameSyntax visibleIdentifier &&
+                CanReferenceLocal(visibleIdentifier) &&
+                _semanticModel.TryLookupVisibleValueSymbol(visibleIdentifier) is ILocalSymbol visibleLocal &&
+                !string.IsNullOrEmpty(visibleLocal.Name))
+            {
+                _usedLocals.Add(visibleLocal.UnderlyingSymbol);
                 return;
             }
 

@@ -49,7 +49,7 @@ extension WidgetExtensions for Widget {
     }
 
     [Fact]
-    public void StaticExtensionMethod_WildcardImport_DoesNotEnableUnqualifiedAccess()
+    public void StaticExtensionMethod_WildcardImport_EnablesUnqualifiedAccess()
     {
         const string source = """
 import Widget.*
@@ -68,14 +68,19 @@ extension WidgetExtensions for Widget {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
+        var methodDecl = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Build");
+        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+
         var invocation = tree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(node => node.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == "Build");
-        _ = Assert.IsType<BoundErrorExpression>(model.GetBoundNode(invocation));
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(methodSymbol, boundInvocation.Method));
     }
 
     [Fact]

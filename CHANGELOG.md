@@ -4,7 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+### Changed
+- Match expression arms now accept direct `return` expressions, aligning them with other expression-oriented value positions while preserving diagnostics for statement `return` inside block-expression arms.
+
 ### Fixed
+- Semantic symbol queries for user-defined unary and binary operator expressions now return the selected operator method instead of rebinding the expression out of scope.
+- Mixed nullable equality checks with user-defined equality operators no longer recurse through target-type lookup.
+- `GetDeclaredSymbol` on field declarators now returns the declared field instead of routing through local-variable binding.
+- `GetDeclaredSymbol` on function-statement parameters now returns the method parameter symbol, and member-access completion can resolve parameter receivers without a prior bind.
+- `GetDeclaredSymbol` on async methods with annotated `Task<T>` return types now completes the method signature before returning the symbol, avoiding stale provisional `Task` skeletons.
+- Early method signature symbols now mark `ref` and `out` parameters as mutable, matching fully bound parameter symbols.
+- Field-targeted attributes on auto-properties are now attributed to the synthesized backing field rather than validated against the property symbol.
 - Expression-backed value patterns such as `person is { Name: name }` now compare against the runtime value of `name` even when `name` is a parameter or local rather than a compile-time constant.
 
 ## 2026-05-09

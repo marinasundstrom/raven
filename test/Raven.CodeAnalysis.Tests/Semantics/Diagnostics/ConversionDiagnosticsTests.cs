@@ -78,7 +78,7 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         val values: int[] = [1, 2, 3]
-        val fixed: int[3] = values
+        val fixedValues: int[3] = values
         """;
 
         var verifier = CreateVerifier(code, [
@@ -95,7 +95,7 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
     {
         const string code = """
         val values: int[2] = [1, 2]
-        val fixed: int[3] = values
+        val fixedValues: int[3] = values
         """;
 
         var verifier = CreateVerifier(code, [

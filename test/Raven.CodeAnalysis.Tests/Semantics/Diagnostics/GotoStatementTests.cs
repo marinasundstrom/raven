@@ -25,7 +25,7 @@ label:
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
                 new DiagnosticResult("RAV2500").WithSpan(2, 1, 2, 6).WithArguments("label"),
-                new DiagnosticResult("RAV0162").WithSpan(4, 1, 6, 1)
+                new DiagnosticResult("RAV0162").WithSpan(4, 1, 5, 11)
             ]);
 
         verifier.Verify();

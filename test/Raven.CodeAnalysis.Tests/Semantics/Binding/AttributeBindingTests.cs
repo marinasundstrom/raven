@@ -306,6 +306,8 @@ class C
 """;
 
         var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        _ = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
         var property = (SourcePropertySymbol)model.GetDeclaredSymbol(declaration)!;

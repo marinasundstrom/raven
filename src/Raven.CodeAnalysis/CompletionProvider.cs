@@ -159,9 +159,39 @@ public static class CompletionProvider
             if (string.IsNullOrWhiteSpace(name))
                 return null;
 
+            if (TryResolveEnclosingTypeParameter(identifier, name) is { } typeParameter)
+                return typeParameter;
+
             return (INamespaceOrTypeSymbol?)binder.LookupType(name)
                 ?? binder.LookupNamespace(name)
                 ?? (binder.LookupSymbol(name)?.UnderlyingSymbol as INamespaceOrTypeSymbol);
+        }
+
+        ITypeParameterSymbol? TryResolveEnclosingTypeParameter(SyntaxNode node, string name)
+        {
+            foreach (var ancestor in node.Ancestors())
+            {
+                switch (ancestor)
+                {
+                    case MethodDeclarationSyntax methodDeclaration
+                        when model.GetDeclaredSymbol(methodDeclaration) is IMethodSymbol method:
+                        return method.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
+
+                    case FunctionStatementSyntax functionStatement
+                        when model.GetDeclaredSymbol(functionStatement) is IMethodSymbol function:
+                        return function.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
+
+                    case TypeDeclarationSyntax typeDeclaration
+                        when model.GetDeclaredSymbol(typeDeclaration) is INamedTypeSymbol type:
+                        return type.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
+
+                    case InterfaceDeclarationSyntax interfaceDeclaration
+                        when model.GetDeclaredSymbol(interfaceDeclaration) is INamedTypeSymbol @interface:
+                        return @interface.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
+                }
+            }
+
+            return null;
         }
 
         INamespaceOrTypeSymbol? TryResolveQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
@@ -679,6 +709,8 @@ public static class CompletionProvider
             {
                 switch (symbol)
                 {
+                    case ITypeSymbol type:
+                        return type;
                     case ILocalSymbol local:
                         return local.Type;
                     case IFieldSymbol field:
@@ -765,6 +797,8 @@ public static class CompletionProvider
 
             if (typeAccessSymbol is not ITypeParameterSymbol typeParameter)
                 return Array.Empty<ISymbol>();
+
+            binder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(typeParameter));
 
             var members = new List<ISymbol>();
             var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);

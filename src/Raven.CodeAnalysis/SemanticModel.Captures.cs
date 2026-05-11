@@ -111,7 +111,7 @@ public partial class SemanticModel
 
             var captures = GetCapturedVariables(functionSymbol);
             if (!captures.IsDefaultOrEmpty &&
-                captures.Contains(symbol, SymbolEqualityComparer.Default))
+                ContainsCapturedSymbol(captures, symbol))
             {
                 return true;
             }
@@ -121,13 +121,26 @@ public partial class SemanticModel
         {
             var captures = GetCapturedVariables(lambda);
             if (!captures.IsDefaultOrEmpty &&
-                captures.Contains(symbol, SymbolEqualityComparer.Default))
+                ContainsCapturedSymbol(captures, symbol))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private static bool ContainsCapturedSymbol(ImmutableArray<ISymbol> captures, ISymbol symbol)
+    {
+        if (captures.Contains(symbol, SymbolEqualityComparer.Default))
+            return true;
+
+        return captures.Any(captured =>
+            captured is not null &&
+            captured.DeclaringSyntaxReferences.Any(capturedReference =>
+                symbol.DeclaringSyntaxReferences.Any(symbolReference =>
+                    capturedReference.SyntaxTree == symbolReference.SyntaxTree &&
+                    capturedReference.Span == symbolReference.Span)));
     }
 
     private ImmutableArray<ISymbol> GetOrComputeFunctionCapturedVariables(SourceMethodSymbol method)

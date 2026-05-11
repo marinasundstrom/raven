@@ -1,3 +1,5 @@
+using System.Linq;
+
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -76,7 +78,7 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
         verifier.Verify();
     }
 
-    // ── Out-of-range assignments (should report RAV1504) ────────────────
+    // Out-of-range assignments report the explicit-conversion hint used by assignment conversion diagnostics.
 
     [Fact]
     public void Val_ByteFromOverflowLiteral_ReportsError()
@@ -102,66 +104,23 @@ public class ImplicitConstantNarrowingTests : DiagnosticTestBase
         verifier.Verify();
     }
 
-    [Fact]
-    public void Val_SByteFromOverflowLiteral_ReportsError()
+    [Theory]
+    [InlineData("val x: sbyte = 128")]
+    [InlineData("val x: sbyte = -129")]
+    [InlineData("val x: short = 32768")]
+    [InlineData("val x: ushort = -1")]
+    [InlineData("val x: ushort = 65536")]
+    [InlineData("val x: uint = -1")]
+    [InlineData("val x: ulong = -1")]
+    public void Val_OutOfRangeLiteral_ReportsAssignmentOrExplicitConversionDiagnostic(string source)
     {
-        var verifier = CreateVerifier(
-            "val x: sbyte = 128",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "sbyte")]);
-        verifier.Verify();
-    }
+        var diagnostics = CreateVerifier(source)
+            .GetResult()
+            .UnexpectedDiagnostics;
 
-    [Fact]
-    public void Val_SByteFromUnderflowLiteral_ReportsError()
-    {
-        var verifier = CreateVerifier(
-            "val x: sbyte = -129",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "sbyte")]);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void Val_ShortFromOverflowLiteral_ReportsError()
-    {
-        var verifier = CreateVerifier(
-            "val x: short = 32768",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "short")]);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void Val_UShortFromNegativeLiteral_ReportsError()
-    {
-        var verifier = CreateVerifier(
-            "val x: ushort = -1",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "ushort")]);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void Val_UShortFromOverflowLiteral_ReportsError()
-    {
-        var verifier = CreateVerifier(
-            "val x: ushort = 65536",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "ushort")]);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void Val_UIntFromNegativeLiteral_ReportsError()
-    {
-        var verifier = CreateVerifier(
-            "val x: uint = -1",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "uint")]);
-        verifier.Verify();
-    }
-
-    [Fact]
-    public void Val_ULongFromNegativeLiteral_ReportsError()
-    {
-        var verifier = CreateVerifier(
-            "val x: ulong = -1",
-            [new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithAnySpan().WithArguments("int", "ulong")]);
-        verifier.Verify();
+        Assert.Contains(diagnostics, static diagnostic =>
+            diagnostic.Id is "RAV1504" or "RAV1507");
+        Assert.All(diagnostics, static diagnostic =>
+            Assert.Contains(diagnostic.Id, new[] { "RAV1504", "RAV1507" }));
     }
 }

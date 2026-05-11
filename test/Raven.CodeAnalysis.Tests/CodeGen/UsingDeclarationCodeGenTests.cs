@@ -79,7 +79,7 @@ import System.*
 class Program {
     static func Run() -> unit {
         Console.WriteLine("Before")
-        use foo = Foo { Value = 2 } in {
+        use foo = Foo with { Value = 2 } in {
             Console.WriteLine(foo.Value)
         }
         Console.WriteLine("After")

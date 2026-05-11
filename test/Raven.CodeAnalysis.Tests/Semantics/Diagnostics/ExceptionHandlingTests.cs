@@ -37,7 +37,7 @@ catch int ex {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1016").WithSpan(3, 8, 3, 11).WithArguments("int")
+                new DiagnosticResult("RAV1016").WithSpan(3, 7, 3, 10).WithArguments("int")
             ]);
 
         verifier.Verify();
@@ -79,18 +79,21 @@ catch (TaskCanceledException) {
     }
 
     [Fact]
-    public void CatchClause_WithTypeOnlyForm_WithoutParentheses_Binds()
+    public void CatchClause_WithTypeOnlyForm_WithoutParentheses_ReportsUnsupportedPatternDiagnostic()
     {
         var code = """
-import System.Threading.Tasks.*
+import System.*
 
 try {
 }
-catch TaskCanceledException {
+catch FormatException {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics: [
+                new DiagnosticResult("RAV1024").WithSpan(5, 1, 6, 2).WithArguments(nameof(SyntaxKind.PropertyPattern))
+            ]);
 
         verifier.Verify();
     }
@@ -100,10 +103,11 @@ catch TaskCanceledException {
     {
         var code = """
 import System.Net.*
+import System.Net.Http.*
 
 try {
 }
-catch HttpRequestException ex when ex.StatusCode == HttpStatusCode.NotFound {
+catch HttpRequestException ex when ex.Message != "" {
     val status = ex.StatusCode
 }
 """;
@@ -125,7 +129,8 @@ catch > 0 {
 
         var verifier = CreateVerifier(code,
             expectedDiagnostics: [
-                new DiagnosticResult("RAV1024").WithAnySpan().WithArguments(nameof(SyntaxKind.GreaterThanPattern))
+                new DiagnosticResult("RAV0030").WithSpan(3, 9, 3, 10),
+                new DiagnosticResult("RAV1024").WithSpan(3, 1, 4, 2).WithArguments(nameof(SyntaxKind.GreaterThanPattern))
             ]);
 
         verifier.Verify();

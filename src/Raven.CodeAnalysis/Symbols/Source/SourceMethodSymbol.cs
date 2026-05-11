@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
-    private IEnumerable<SourceParameterSymbol> _parameters;
+    private IEnumerable<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
     private ITypeSymbol _returnType;
     private bool _isStatic;
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;

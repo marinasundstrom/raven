@@ -80,39 +80,6 @@ class C {
         Assert.DoesNotContain(md.GetCustomAttributes(returnParam), h => IsNullableAttribute(md, h));
     }
 
-    [Fact(Skip = "Legacy nullable-via-type-union coverage; type unions are no longer supported.")]
-    public void UnionContainingNull_EmitsNullableAttribute()
-    {
-        var source = """
-class C {
-    func M(x: string | null) -> string | null { return null }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default);
-
-        using var peStream = new MemoryStream();
-        var result = compilation.Emit(peStream);
-        Assert.True(result.Success);
-
-        using var peReader = new PEReader(ImmutableArray.Create(peStream.ToArray()));
-        var md = peReader.GetMetadataReader();
-        var typeDef = md.TypeDefinitions
-            .Select(h => md.GetTypeDefinition(h))
-            .Single(t => md.GetString(t.Name) == "C");
-        var methodHandle = typeDef.GetMethods()
-            .Single(h => md.GetString(md.GetMethodDefinition(h).Name) == "M");
-        var methodDef = md.GetMethodDefinition(methodHandle);
-        var parameters = methodDef.GetParameters().ToArray();
-        var returnParam = parameters.Single(p => md.GetParameter(p).SequenceNumber == 0);
-        var param = parameters.Single(p => md.GetParameter(p).SequenceNumber == 1);
-
-        Assert.Contains(md.GetCustomAttributes(param), h => IsNullableAttribute(md, h));
-        Assert.Contains(md.GetCustomAttributes(returnParam), h => IsNullableAttribute(md, h));
-    }
-
     private static bool IsNullableAttribute(MetadataReader md, CustomAttributeHandle handle)
     {
         var attr = md.GetCustomAttribute(handle);

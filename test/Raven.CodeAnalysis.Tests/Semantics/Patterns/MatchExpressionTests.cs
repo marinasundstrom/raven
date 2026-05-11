@@ -597,13 +597,7 @@ val result = value match {
 }
 """;
 
-        var verifier = CreateVerifier(
-            code,
-            [
-                new DiagnosticResult(CompilerDiagnostics.DiscardExpressionNotAllowed.Id).WithAnySpan(),
-                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments(string.Empty),
-                new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmUnreachable.Id).WithAnySpan(),
-            ]);
+        var verifier = CreateVerifier(code);
 
         verifier.Verify();
     }
@@ -1026,9 +1020,6 @@ val result = value match {
         var verifier = CreateVerifier(
             code,
             [
-                new DiagnosticResult(CompilerDiagnostics.DiscardExpressionNotAllowed.Id).WithAnySpan(),
-                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithAnySpan().WithArguments(string.Empty),
-                new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmUnreachable.Id).WithAnySpan(),
                 new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmUnreachable.Id).WithAnySpan(),
             ]);
 

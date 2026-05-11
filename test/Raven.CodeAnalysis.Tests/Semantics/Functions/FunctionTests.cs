@@ -114,7 +114,7 @@ func outer() -> int {
         return CounterBox(42)
     }
 
-    struct CounterBox(value: int) { }
+    struct CounterBox(public val value: int) { }
 
     val box = makeBox()
     return box.value

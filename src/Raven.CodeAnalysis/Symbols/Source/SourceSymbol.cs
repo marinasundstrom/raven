@@ -323,13 +323,13 @@ internal abstract class SourceSymbol : Symbol
             return HasExplicitTarget(list, "field");
         }
 
-        if (this is SourcePropertySymbol { BackingField: not null } &&
+        if (this is SourcePropertySymbol &&
             HasExplicitTarget(list, "field"))
         {
             return false;
         }
 
-        if (this is SourceEventSymbol { BackingField: not null } &&
+        if (this is SourceEventSymbol &&
             HasExplicitTarget(list, "field"))
         {
             return false;

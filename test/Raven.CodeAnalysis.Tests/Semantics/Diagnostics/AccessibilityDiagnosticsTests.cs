@@ -35,7 +35,7 @@ val instance = Container();
     {
         const string source = """
 class Container {
-    private var secret: int;
+    private var secret: int { get; set; }
 
     public init() {
         self.secret = 42;

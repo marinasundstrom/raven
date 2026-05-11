@@ -981,7 +981,7 @@ record class RatePlan(Carrier: string)
 
 class Container {
     func HasCarrier(carrier: string) -> bool {
-        val plans = List<RatePlan> { RatePlan("NorthStar") }
+        val plans: List<RatePlan> = [RatePlan("NorthStar")]
         val selected = plans.Where(p => p.Carrier == carrier)
         return selected.Any()
     }
@@ -1667,7 +1667,7 @@ func Main() {
     }
 
     [Fact]
-    public void GenericFunction_WithOpenDelegateInputType_ReportsInferenceDiagnostic()
+    public void GenericFunction_WithOpenDelegateInputType_ReportsNoApplicableOverload()
     {
         const string code = """
 class Container {
@@ -1688,7 +1688,7 @@ class Container {
             diagnostics,
             diagnostic => ReferenceEquals(
                 diagnostic.Descriptor,
-                CompilerDiagnostics.LambdaParameterTypeCannotBeInferred));
+                CompilerDiagnostics.NoOverloadForMethod));
     }
 
     [Fact]

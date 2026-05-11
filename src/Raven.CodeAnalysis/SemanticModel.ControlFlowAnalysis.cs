@@ -207,6 +207,10 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 return _endPointIsReachable;
             case TryStatementSyntax tryStatement:
                 return AnalyzeTryStatement(tryStatement, isReachable);
+            case UseDeclarationStatementSyntax { InBlockClause.Block: { } inBlock } useDeclaration:
+                Visit(useDeclaration.Declaration);
+                _endPointIsReachable = AnalyzeStatement(inBlock, isReachable);
+                return _endPointIsReachable;
             case LabeledStatementSyntax labeledStatement:
                 VisitLabeledStatement(labeledStatement);
                 _endPointIsReachable = AnalyzeStatement(labeledStatement.Statement, isReachable);

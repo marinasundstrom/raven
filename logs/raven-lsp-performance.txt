@@ -1,111 +1,113 @@
 Raven Language Server Performance Report
-Generated: 2026-05-10T16:43:36.4550770+00:00
-Operation: publishDiagnosticsUnchanged
+Generated: 2026-05-11T05:44:46.2169160+00:00
+Operation: publishDiagnostics
   Count: 1
-  TotalMs: 4901,1
-  AvgMs: 4901,1
-  MaxMs: 4901,1
-  AvgResultCount: 0,0
+  TotalMs: 4278,4
+  AvgMs: 4278,4
+  MaxMs: 4278,4
+  AvgResultCount: 1,0
   SlowestSamples:
-    4901,1ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn version=1 mode=Full outcome=SkippedUnchanged
+    4278,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1 mode=Full outcome=Published
 
 Operation: computeDiagnostics
   Count: 1
-  TotalMs: 4900,0
-  AvgMs: 4900,0
-  MaxMs: 4900,0
+  TotalMs: 4265,1
+  AvgMs: 4265,1
+  MaxMs: 4265,1
   Stages:
-    diagnosticsFetch: count=1 total=4898,6ms avg=4898,6ms max=4898,6ms
-    gateWait: count=1 total=1,2ms avg=1,2ms max=1,2ms
-    syntaxTree: count=1 total=0,1ms avg=0,1ms max=0,1ms
+    diagnosticsFetch: count=1 total=4254,3ms avg=4254,3ms max=4254,3ms
+    gateWait: count=1 total=8,9ms avg=8,9ms max=8,9ms
+    syntaxTree: count=1 total=0,6ms avg=0,6ms max=0,6ms
   SlowestSamples:
-    4900,0ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn mode=Full
-
-Operation: hover
-  Count: 2
-  TotalMs: 705,1
-  AvgMs: 352,6
-  MaxMs: 652,2
-  Stages:
-    resolution: count=2 total=29,3ms avg=14,7ms max=29,3ms
-    gateWait: count=2 total=2,4ms avg=1,2ms max=1,7ms
-    analysisContext: count=2 total=0,3ms avg=0,1ms max=0,2ms
-    semanticModel: count=2 total=0,2ms avg=0,1ms max=0,2ms
-    invocationOverride: count=2 total=0,0ms avg=0,0ms max=0,0ms
-    signature: count=2 total=0,0ms avg=0,0ms max=0,0ms
-    containing: count=2 total=0,0ms avg=0,0ms max=0,0ms
-    documentation: count=2 total=0,0ms avg=0,0ms max=0,0ms
-    captures: count=2 total=0,0ms avg=0,0ms max=0,0ms
-    hoverText: count=2 total=0,0ms avg=0,0ms max=0,0ms
-    range: count=2 total=0,0ms avg=0,0ms max=0,0ms
-  SlowestSamples:
-    652,2ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn 49:25 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
-    53,0ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn 94:1 semantic=[symbolInfo=2, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=2, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    4265,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn mode=Full
 
 Operation: semanticTokens
   Count: 1
-  TotalMs: 97,9
-  AvgMs: 97,9
-  MaxMs: 97,9
-  AvgResultCount: 297,0
+  TotalMs: 971,4
+  AvgMs: 971,4
+  MaxMs: 971,4
+  AvgResultCount: 136,0
   Stages:
-    materialize: count=1 total=54,2ms avg=54,2ms max=54,2ms
-    classify: count=1 total=25,4ms avg=25,4ms max=25,4ms
-    push: count=1 total=15,7ms avg=15,7ms max=15,7ms
-    semanticModel: count=1 total=1,3ms avg=1,3ms max=1,3ms
-    analysisContext: count=1 total=0,1ms avg=0,1ms max=0,1ms
+    classify: count=1 total=918,1ms avg=918,1ms max=918,1ms
+    push: count=1 total=23,0ms avg=23,0ms max=23,0ms
+    materialize: count=1 total=21,4ms avg=21,4ms max=21,4ms
+    semanticModel: count=1 total=1,8ms avg=1,8ms max=1,8ms
+    analysisContext: count=1 total=0,3ms avg=0,3ms max=0,3ms
     root: count=1 total=0,0ms avg=0,0ms max=0,0ms
     gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    97,9ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    971,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn outcome=Completed semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
-Operation: didOpen
-  Count: 1
-  TotalMs: 28,7
-  AvgMs: 28,7
-  MaxMs: 28,7
-  SlowestSamples:
-    28,7ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn version=1
-
-Operation: documentSymbols
-  Count: 2
-  TotalMs: 19,2
-  AvgMs: 9,6
-  MaxMs: 19,0
-  CacheHits: 1
-  AvgResultCount: 7,0
-  FirstLookupAfterEditCount: 1
-  FirstLookupAfterEditAvgMs: 632,9
-  FirstLookupAfterEditMaxMs: 632,9
-  FirstLookupAfterEditSources:
-    didOpen: 1
+Operation: hover
+  Count: 4
+  TotalMs: 546,6
+  AvgMs: 136,7
+  MaxMs: 362,0
   Stages:
-    buildSymbols: count=2 total=17,3ms avg=8,6ms max=17,3ms
-    root: count=2 total=0,4ms avg=0,2ms max=0,4ms
-    analysisContext: count=2 total=0,1ms avg=0,1ms max=0,1ms
+    resolution: count=4 total=379,3ms avg=94,8ms max=357,7ms
+    documentation: count=4 total=129,9ms avg=32,5ms max=129,9ms
+    signature: count=4 total=9,9ms avg=2,5ms max=7,4ms
+    hoverText: count=4 total=2,7ms avg=0,7ms max=2,6ms
+    containing: count=4 total=0,9ms avg=0,2ms max=0,8ms
+    gateWait: count=4 total=0,7ms avg=0,2ms max=0,6ms
+    range: count=4 total=0,6ms avg=0,1ms max=0,5ms
+    analysisContext: count=4 total=0,3ms avg=0,1ms max=0,1ms
+    invocationOverride: count=4 total=0,3ms avg=0,1ms max=0,3ms
+    semanticModel: count=4 total=0,2ms avg=0,0ms max=0,0ms
+    captures: count=4 total=0,1ms avg=0,0ms max=0,1ms
   SlowestSamples:
-    19,0ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn
-    0,3ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn
+    362,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 17:21 semantic=[symbolInfo=2, symbolCacheHits=2, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=1, typeSymbolHits=1, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    152,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 33:15 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    25,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 38:37 semantic=[symbolInfo=2, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=2, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
+    6,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn 33:18 semantic=[symbolInfo=0, symbolCacheHits=0, symbolBoundHits=0, symbolBinderFallbacks=0, symbolOperationFallbacks=0, typeInfo=0, typeSymbolHits=0, typeBoundFallbacks=0, typeDiagnosticFallbacks=0, boundNode=0, boundCacheHits=0, boundContextHits=0, boundBindFallbacks=0, loweredCacheHits=0, loweredFallbacks=0]
 
 Operation: publishSyntaxDiagnostics
   Count: 1
-  TotalMs: 9,4
-  AvgMs: 9,4
-  MaxMs: 9,4
+  TotalMs: 62,5
+  AvgMs: 62,5
+  MaxMs: 62,5
   AvgResultCount: 0,0
   SlowestSamples:
-    9,4ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
+    62,5ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1 mode=SyntaxOnly outcome=Published
+
+Operation: didOpen
+  Count: 1
+  TotalMs: 48,6
+  AvgMs: 48,6
+  MaxMs: 48,6
+  SlowestSamples:
+    48,6ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn version=1
+
+Operation: documentSymbols
+  Count: 2
+  TotalMs: 19,1
+  AvgMs: 9,5
+  MaxMs: 18,1
+  CacheHits: 1
+  AvgResultCount: 3,0
+  FirstLookupAfterEditCount: 1
+  FirstLookupAfterEditAvgMs: 1655,6
+  FirstLookupAfterEditMaxMs: 1655,6
+  FirstLookupAfterEditSources:
+    didOpen: 1
+  Stages:
+    buildSymbols: count=2 total=16,3ms avg=8,1ms max=16,3ms
+    root: count=2 total=1,0ms avg=0,5ms max=1,0ms
+    analysisContext: count=2 total=0,2ms avg=0,1ms max=0,1ms
+  SlowestSamples:
+    18,1ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
+    1,0ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn
 
 Operation: computeSyntaxDiagnostics
   Count: 1
-  TotalMs: 0,2
-  AvgMs: 0,2
-  MaxMs: 0,2
+  TotalMs: 0,4
+  AvgMs: 0,4
+  MaxMs: 0,4
   Stages:
-    diagnosticsFetch: count=1 total=0,1ms avg=0,1ms max=0,1ms
-    syntaxTree: count=1 total=0,0ms avg=0,0ms max=0,0ms
+    diagnosticsFetch: count=1 total=0,2ms avg=0,2ms max=0,2ms
+    syntaxTree: count=1 total=0,1ms avg=0,1ms max=0,1ms
     documentLookup: count=1 total=0,0ms avg=0,0ms max=0,0ms
     gateWait: count=1 total=0,0ms avg=0,0ms max=0,0ms
   SlowestSamples:
-    0,2ms file:///Users/robert/Projects/Raven/samples/projects/aspnet-minimal-api/src/main.rvn syntaxOnly
+    0,4ms file:///Users/robert/Projects/Raven/samples/projects/hello-world/src/main.rvn syntaxOnly
 

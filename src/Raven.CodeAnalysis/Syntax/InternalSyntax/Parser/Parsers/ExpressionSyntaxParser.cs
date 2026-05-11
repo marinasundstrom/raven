@@ -2858,6 +2858,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.FuncKeyword or
             SyntaxKind.AsyncKeyword or
             SyntaxKind.TryKeyword or
+            SyntaxKind.ReturnKeyword or
             SyntaxKind.ThrowKeyword or
             SyntaxKind.AwaitKeyword or
             SyntaxKind.MinusToken or

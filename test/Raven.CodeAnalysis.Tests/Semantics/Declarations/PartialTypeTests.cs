@@ -61,7 +61,7 @@ internal partial class C { }
     {
         const string source = """
 partial class Box<T> { }
-partial class Box<U, V> { }
+partial class Box<U> { }
 """;
 
         var tree = SyntaxTree.ParseText(source);

@@ -25,6 +25,27 @@ internal sealed class DeclaredSymbolLookup
             node = containingTypeReplacement;
         }
 
+        if (RequiresDeclarationBinding(node) && !_semanticModel.RootBinderCreated)
+        {
+            _semanticModel.EnsureRootBinderCreated();
+
+            if (_semanticModel.TryGetMacroReplacementSyntax(node, out replacementNode))
+                node = replacementNode;
+
+            if (node is TypeDeclarationSyntax reboundGeneratedContainingType &&
+                _semanticModel.TryGetMacroContainingTypeSyntax(reboundGeneratedContainingType, out containingTypeReplacement))
+            {
+                node = containingTypeReplacement;
+            }
+        }
+
+        if (node is MethodDeclarationSyntax methodDeclarationWithReturnType &&
+            methodDeclarationWithReturnType.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword) &&
+            methodDeclarationWithReturnType.ReturnType?.Type is { } methodReturnTypeSyntax)
+        {
+            _ = _semanticModel.GetTypeInfo(methodReturnTypeSyntax);
+        }
+
         if (TryLookupKnownDeclaredSymbolFast(node, out var fastSymbol))
             return fastSymbol;
 
@@ -60,14 +81,6 @@ internal sealed class DeclaredSymbolLookup
             return declaredParameterSymbol;
         }
 
-        if (node is MethodDeclarationSyntax methodDeclarationByContainingType &&
-            methodDeclarationByContainingType.Parent is TypeDeclarationSyntax containingTypeSyntax &&
-            LookupMethodByContainingType(methodDeclarationByContainingType, containingTypeSyntax) is { } methodFromContainingType)
-        {
-            _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclarationByContainingType, methodFromContainingType);
-            return methodFromContainingType;
-        }
-
         if (node is MethodDeclarationSyntax methodSyntaxFromBody)
         {
             if (methodSyntaxFromBody.Body is not null &&
@@ -83,6 +96,14 @@ internal sealed class DeclaredSymbolLookup
                 _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodSyntaxFromBody, methodFromExpressionBodyBinder);
                 return methodFromExpressionBodyBinder;
             }
+        }
+
+        if (node is MethodDeclarationSyntax methodDeclarationByContainingType &&
+            methodDeclarationByContainingType.Parent is TypeDeclarationSyntax containingTypeSyntax &&
+            LookupMethodByContainingType(methodDeclarationByContainingType, containingTypeSyntax) is { } methodFromContainingType)
+        {
+            _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclarationByContainingType, methodFromContainingType);
+            return methodFromContainingType;
         }
 
         if (node is CaseDeclarationSyntax caseClause &&
@@ -270,6 +291,20 @@ internal sealed class DeclaredSymbolLookup
             return symbol is not null;
         }
 
+        if (parameterSyntax.Parent?.Parent is FunctionStatementSyntax functionStatement)
+        {
+            var function = TryLookupKnownDeclaredSymbolFast(functionStatement, out var functionSymbol)
+                ? functionSymbol as IMethodSymbol
+                : _semanticModel.GetDeclaredSymbol(functionStatement) as IMethodSymbol;
+
+            if (function is null)
+                return false;
+
+            symbol = function.Parameters.FirstOrDefault(parameter =>
+                SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return symbol is not null;
+        }
+
         return false;
     }
 
@@ -379,6 +414,9 @@ internal sealed class DeclaredSymbolLookup
     private static bool IsGetAccessor(AccessorDeclarationSyntax accessor)
         => accessor.Kind == SyntaxKind.GetAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.GetKeyword;
 
+    private static bool RequiresDeclarationBinding(SyntaxNode node)
+        => node is MemberDeclarationSyntax or AccessorDeclarationSyntax;
+
     private static bool IsSetAccessor(AccessorDeclarationSyntax accessor)
         => accessor.Kind == SyntaxKind.SetAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.SetKeyword;
 
@@ -403,6 +441,7 @@ internal sealed class DeclaredSymbolLookup
         var exact = containingType
             .GetMembers(methodDeclaration.Identifier.ValueText)
             .OfType<IMethodSymbol>()
+            .OrderBy(static method => method is SourceMethodSymbol { IsSignatureSkeleton: true } ? 1 : 0)
             .FirstOrDefault(method =>
                 method.Parameters.Length == parameterCount &&
                 method.Arity == arity &&
@@ -416,6 +455,7 @@ internal sealed class DeclaredSymbolLookup
         return containingType
             .GetMembers(methodDeclaration.Identifier.ValueText)
             .OfType<IMethodSymbol>()
+            .OrderBy(static method => method is SourceMethodSymbol { IsSignatureSkeleton: true } ? 1 : 0)
             .FirstOrDefault(method =>
                 method.Parameters.Length == parameterCount &&
                 method.Arity == arity);

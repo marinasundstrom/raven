@@ -34,9 +34,8 @@ func Main() -> () {
 
         var info = model.GetSymbolInfo(memberAccess);
 
-        Assert.NotNull(info.Symbol);
-        Assert.Equal(CandidateReason.None, info.CandidateReason);
-        Assert.Equal("Logger.Log(string)", FormatSignature((IMethodSymbol)info.Symbol!));
+        Assert.Null(info.Symbol);
+        Assert.Equal(CandidateReason.OverloadResolutionFailure, info.CandidateReason);
 
         var candidates = info.CandidateSymbols
             .OfType<IMethodSymbol>()
@@ -44,7 +43,7 @@ func Main() -> () {
             .OrderBy(value => value)
             .ToArray();
 
-        Assert.Equal(new[] { "Logger.Log(string)" }, candidates);
+        Assert.Equal(new[] { "Logger.Log(int)", "Logger.Log(string)" }, candidates);
     }
 
     [Fact]

@@ -683,14 +683,9 @@ internal abstract partial class Binder
         IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
-        var arity = union.Types.Count;
-        var definition = Compilation.GetTypeByMetadataName($"System.Union`{arity}") as INamedTypeSymbol;
-        if (definition is null)
-            return Fail(union, TypeResolutionFailureKind.FrameworkTypeNotFound);
-
         var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
         var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
-        var typeArguments = ImmutableArray.CreateBuilder<ITypeSymbol>(arity);
+        var typeArguments = ImmutableArray.CreateBuilder<ITypeSymbol>(union.Types.Count);
 
         foreach (var typeSyntax in union.Types)
         {
@@ -721,7 +716,25 @@ internal abstract partial class Binder
             };
         }
 
-        return Construct(definition, typeArguments.ToImmutable());
+        var resolvedTypeArguments = typeArguments.ToImmutable();
+        var unionMetadataName = $"System.Union`{resolvedTypeArguments.Length}";
+        if (Compilation.GetTypeByMetadataName(unionMetadataName) is INamedTypeSymbol unionDefinition &&
+            unionDefinition.TypeParameters.Length == resolvedTypeArguments.Length)
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = unionDefinition.Construct(resolvedTypeArguments.ToArray())
+            };
+        }
+
+        return new ResolveTypeResult
+        {
+            ResolvedType = TypeSymbolNormalization.NormalizeUnion(
+                resolvedTypeArguments,
+                _diagnostics,
+                union.GetLocation(),
+                Compilation.ErrorTypeSymbol)
+        };
     }
 
     // -----------------------------

@@ -502,6 +502,13 @@ internal partial class TypeMemberBinder : Binder
         {
             ReportMemberNameMatchesContainingTypeIfNeeded(decl.Identifier.ValueText, decl.Identifier.GetLocation());
 
+            if (_containingType.GetMembers(decl.Identifier.ValueText)
+                .OfType<IFieldSymbol>()
+                .Any(field => IsSameEffectiveDeclaration(field, decl)))
+            {
+                return;
+            }
+
             ITypeSymbol? fieldType = decl.TypeAnnotation is null
                 ? null
                 : ResolveTypeSyntaxForSignature(this, decl.TypeAnnotation.Type, RefKind.None);
@@ -1202,6 +1209,7 @@ internal partial class TypeMemberBinder : Binder
                 refKind);
 
             if (skeletonParameter.RefKind != refKind ||
+                skeletonParameter.IsVarParams != IsVarParamsSyntax(parameterSyntax) ||
                 !SignatureTypesMatch(skeletonParameter.Type, parameterType))
             {
                 return false;
@@ -1221,6 +1229,7 @@ internal partial class TypeMemberBinder : Binder
             var leftParameter = left.Parameters[i];
             var rightParameter = right.Parameters[i];
             if (leftParameter.RefKind != rightParameter.RefKind ||
+                leftParameter.IsVarParams != rightParameter.IsVarParams ||
                 !SignatureTypesMatch(leftParameter.Type, rightParameter.Type))
             {
                 return false;
@@ -1572,10 +1581,68 @@ internal partial class TypeMemberBinder : Binder
 
     private bool ImplementsInterface(INamedTypeSymbol interfaceType)
     {
+        TryEnsureSourceInterfaceHierarchyAvailable(_containingType);
+        TryEnsureSourceInterfaceHierarchyAvailable(interfaceType);
+
         if (_containingType.Interfaces.Contains(interfaceType, SymbolEqualityComparer.Default))
             return true;
 
-        return _containingType.AllInterfaces.Contains(interfaceType, SymbolEqualityComparer.Default);
+        if (_containingType.AllInterfaces.Contains(interfaceType, SymbolEqualityComparer.Default))
+            return true;
+
+        foreach (var implementedInterface in _containingType.Interfaces)
+        {
+            if (InterfaceEqualsOrInheritsFrom(implementedInterface, interfaceType))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool InterfaceEqualsOrInheritsFrom(INamedTypeSymbol candidate, INamedTypeSymbol interfaceType)
+    {
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        return InterfaceEqualsOrInheritsFrom(candidate, interfaceType, seen);
+
+        static bool InterfaceEqualsOrInheritsFrom(
+            INamedTypeSymbol candidate,
+            INamedTypeSymbol interfaceType,
+            HashSet<ISymbol> seen)
+        {
+            if (!seen.Add(candidate))
+                return false;
+
+            if (SymbolEqualityComparer.Default.Equals(candidate, interfaceType))
+                return true;
+
+            TryEnsureSourceInterfaceHierarchyAvailable(candidate);
+
+            foreach (var inherited in candidate.Interfaces)
+            {
+                if (InterfaceEqualsOrInheritsFrom(inherited, interfaceType, seen))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    private static void TryEnsureSourceInterfaceHierarchyAvailable(INamedTypeSymbol type)
+    {
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        TryEnsureSourceInterfaceHierarchyAvailable(type, seen);
+
+        static void TryEnsureSourceInterfaceHierarchyAvailable(INamedTypeSymbol type, HashSet<ISymbol> seen)
+        {
+            if (!seen.Add(type))
+                return;
+
+            if (type is SourceNamedTypeSymbol or { OriginalDefinition: SourceNamedTypeSymbol })
+                TryEnsureSourceInterfaceMembersAvailable(type, ExplicitInterfaceMemberLookupKind.PropertyOrEvent);
+
+            foreach (var interfaceType in type.Interfaces)
+                TryEnsureSourceInterfaceHierarchyAvailable(interfaceType, seen);
+        }
     }
 
     private enum ExplicitInterfaceMemberLookupKind

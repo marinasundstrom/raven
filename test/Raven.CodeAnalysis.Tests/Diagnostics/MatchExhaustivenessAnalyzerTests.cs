@@ -128,7 +128,7 @@ union struct Result<T, E> {
 val value: Result<int, string> = Ok(42)
 
 val text = value match {
-    case Ok(val payload) => payload.ToString()
+    Ok(val payload) => payload.ToString()
     Error(val message) => message
 }
 """;

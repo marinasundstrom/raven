@@ -17,7 +17,10 @@ val value = Foo();
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0329").WithAnySpan().WithArguments("Foo")]);
+            [
+                new DiagnosticResult("RAV2810").WithSpan(5, 1, 5, 4).WithArguments("Foo"),
+                new DiagnosticResult("RAV0329").WithSpan(5, 13, 5, 18).WithArguments("Foo")
+            ]);
 
         verifier.Verify();
     }

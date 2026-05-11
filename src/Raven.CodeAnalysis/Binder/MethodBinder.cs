@@ -53,6 +53,8 @@ class MethodBinder : TypeMemberBinder
             or ParameterlessConstructorDeclarationSyntax
             or InitializerBlockDeclarationSyntax
             or FinallyDeclarationSyntax
+            or OperatorDeclarationSyntax
+            or ConversionOperatorDeclarationSyntax
             or AccessorDeclarationSyntax
             or PropertyDeclarationSyntax)
             return _methodSymbol;

@@ -1359,17 +1359,18 @@ initializer entries. Brace trailers after expressions are therefore not object
 initializers. Use `Type with { ... }` for object initialization and `value with
 { ... }` for non-destructive updates.
 
-When the selected function parameter accepts input parameters, a trailing block
-may declare a parameter clause immediately after the opening brace followed by
+When the selected function parameter accepts input parameters, the trailing block
+must declare a parameter clause immediately after the opening brace followed by
 `=>`. A single parameter may be written directly, and multiple or destructured
 parameters use the normal parenthesized function-expression parameter list.
 The parameterized block lowers to the same closure form as an ordinary lambda
-argument and participates in overload resolution using its declared arity.
+argument and participates in overload resolution using its declared arity. A
+trailing block without a parameter clause does not introduce implicit `$0`/`$1`
+parameters or an `it` alias.
 
-When no parameter clause is written, the block receives implicit parameter names
-matching Swift's indexed shorthand: `$0`, `$1`, and so on. Raven also makes `it`
-an alias for the first parameter in a lambda scope, unless an explicit parameter
-named `it` is declared.
+Trailing blocks are function expressions. Async trailing-block closures are not
+currently supported; use an explicit async lambda argument until this gap is
+closed.
 
 ```raven
 func Apply(value: int, transform: int -> int) -> int {
@@ -1380,19 +1381,11 @@ func Combine(left: int, right: int, transform: (int, int) -> int) -> int {
     return transform(left, right)
 }
 
-val next = Apply(41) {
-    it + 1
-}
-
-val explicitNext = Apply(41) { value =>
+val next = Apply(41) { (value: int) =>
     value + 1
 }
 
-val sum = Combine(20, 22) {
-    $0 + $1
-}
-
-val explicitSum = Combine(20, 22) { (left, right) =>
+val sum = Combine(20, 22) { (left: int, right: int) =>
     left + right
 }
 ```
@@ -1449,8 +1442,6 @@ Resolution follows ordinary overload resolution with one additional argument:
    method.
 7. Parameterized trailing blocks filter function-typed candidates by the
    declared parameter count before final overload selection.
-8. Once a candidate supplies the target function type, implicit trailing-block
-   parameters are made available as `$0`, `$1`, etc.; `it` aliases `$0`.
 
 If no candidate can accept the appended closure, overload resolution fails and
 the call is rejected.
@@ -2616,8 +2607,9 @@ return when it is the final statement in a value-returning body.
 In statement form, arm block expressions are interpreted in statement context.
 That means explicit `return`/`throw` statements inside those arm blocks are
 valid. `return` exits the enclosing function/method and `throw` raises an
-exception. In expression form, statement `return`/`throw` remains disallowed in
-arm expressions and reports `RAV1900`/`RAV1907`.
+exception. In expression form, direct arm expressions may use `return` and
+`throw` expressions, but statement `return`/`throw` inside block-expression arms
+remains disallowed and reports `RAV1900`/`RAV1907`.
 
 Arm bodies accept any expression, including block expressions:
 

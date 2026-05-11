@@ -494,7 +494,11 @@ partial class BlockBinder
         {
             if (stmt is FunctionStatementSyntax func)
             {
-                var functionBinder = SemanticModel.GetBinder(func, this);
+                var semanticModel = SemanticModel;
+                if (semanticModel is null)
+                    continue;
+
+                var functionBinder = semanticModel.GetBinder(func, this);
                 if (functionBinder is FunctionBinder lfBinder)
                 {
                     var symbol = lfBinder.GetMethodSymbol();

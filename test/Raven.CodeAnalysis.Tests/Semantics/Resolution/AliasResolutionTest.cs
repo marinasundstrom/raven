@@ -25,7 +25,12 @@ public class AliasResolutionTest : DiagnosticTestBase
         verifier.Verify();
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
-        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().Last();
+        var identifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single()
+            .TypeAnnotation!
+            .Type;
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
@@ -126,7 +131,8 @@ public class AliasResolutionTest : DiagnosticTestBase
             """
             alias Number = int | string
 
-            val n: Number = 1
+            func Accept(value: Number) -> unit {
+            }
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -135,10 +141,15 @@ public class AliasResolutionTest : DiagnosticTestBase
         verifier.Verify();
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
-        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().First(id => id.Identifier.Text == "Number");
-        var symbol = model.GetSymbolInfo(identifier).Symbol;
-        Assert.NotNull(symbol);
-        Assert.True(symbol!.IsAlias);
+        var parameter = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .Single();
+        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
+        Assert.True(symbol.Type.IsAlias);
+        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol.Type);
+        Assert.Equal("Number", alias.Name);
+        Assert.Equal("IComparable", alias.UnderlyingSymbol.Name);
     }
 
     [Fact]

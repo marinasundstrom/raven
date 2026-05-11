@@ -844,8 +844,9 @@ class Test {
 
         var catchClause = Assert.Single(statement.CatchClauses);
         var declaration = Assert.IsType<DeclarationPatternSyntax>(catchClause.Pattern);
-        Assert.IsType<IdentifierNameSyntax>(declaration.Type);
-        Assert.Null(declaration.Designation);
+        Assert.Equal("TaskCanceledException", Assert.IsType<IdentifierNameSyntax>(declaration.Type).Identifier.ValueText);
+        var designation = Assert.IsType<SingleVariableDesignationSyntax>(declaration.Designation);
+        Assert.Equal(SyntaxKind.None, designation.Identifier.Kind);
     }
 
     [Fact]

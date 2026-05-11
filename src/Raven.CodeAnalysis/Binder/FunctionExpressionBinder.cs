@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -33,12 +32,6 @@ class FunctionExpressionBinder : BlockBinder
     {
         if (_parameters.TryGetValue(name, out var param))
             return param;
-
-        if (string.Equals(name, "it", StringComparison.Ordinal) &&
-            _parameters.Values.FirstOrDefault() is { } firstParameter)
-        {
-            return firstParameter;
-        }
 
         if (_functions.TryGetValue(name, out var function))
             return function;

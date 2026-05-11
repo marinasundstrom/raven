@@ -1,67 +1,66 @@
 using System.Linq;
 
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class PropertySemanticTests : CompilationTestBase
 {
     [Fact]
-    public void AutoPropertyGetter_HasSynthesizedBody()
+    public void AutoProperty_HasAccessorSymbolsAndBackingField()
     {
         const string source = """
             class Counter {
-                public var Count: int { get; set; }
+                public var Count: int
             }
             """;
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
+        _ = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
         var counter = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
-        var property = counter.GetMembers("Count").OfType<IPropertySymbol>().Single();
-        var getter = property.GetMethod;
-        Assert.NotNull(getter);
+        var property = Assert.IsAssignableFrom<SourcePropertySymbol>(counter.GetMembers("Count").OfType<IPropertySymbol>().Single());
 
-        Assert.True(compilation.TryGetSynthesizedMethodBody(getter!, BoundTreeView.Original, out var body));
-        Assert.NotNull(body);
-        var returnStatement = Assert.IsType<BoundReturnStatement>(Assert.Single(body!.Statements));
-        var fieldAccess = Assert.IsType<BoundFieldAccess>(returnStatement.Expression);
-        Assert.Equal("<Count>k__BackingField", fieldAccess.Field.Name);
+        Assert.NotNull(property.GetMethod);
+        Assert.NotNull(property.SetMethod);
+        Assert.Equal(MethodKind.PropertyGet, property.GetMethod!.MethodKind);
+        Assert.Equal(MethodKind.PropertySet, property.SetMethod!.MethodKind);
+
+        var backingField = Assert.IsAssignableFrom<IFieldSymbol>(property.BackingField);
+        Assert.Equal("<Count>k__BackingField", backingField.Name);
+        Assert.False(backingField.IsStatic);
+        Assert.Equal(SpecialType.System_Int32, backingField.Type.SpecialType);
     }
 
     [Fact]
-    public void AutoPropertySetter_HasSynthesizedBody()
+    public void StaticAutoProperty_HasAccessorSymbolsAndBackingField()
     {
         const string source = """
             class Counter {
-                public static var Count: int { get; set; }
+                public static var Count: int
             }
             """;
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
+        _ = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
         var counter = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
-        var property = counter.GetMembers("Count").OfType<IPropertySymbol>().Single();
-        var setter = property.SetMethod;
-        Assert.NotNull(setter);
+        var property = Assert.IsAssignableFrom<SourcePropertySymbol>(counter.GetMembers("Count").OfType<IPropertySymbol>().Single());
 
-        Assert.True(compilation.TryGetSynthesizedMethodBody(setter!, BoundTreeView.Original, out var body));
-        Assert.NotNull(body);
+        Assert.True(property.IsStatic);
+        Assert.NotNull(property.GetMethod);
+        Assert.NotNull(property.SetMethod);
+        Assert.True(property.GetMethod!.IsStatic);
+        Assert.True(property.SetMethod!.IsStatic);
 
-        Assert.Collection(
-            body!.Statements,
-            statement =>
-            {
-                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
-                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
-                Assert.Equal("<Count>k__BackingField", fieldAssignment.Field.Name);
-                Assert.Null(fieldAssignment.Receiver);
-            },
-            statement => Assert.IsType<BoundReturnStatement>(statement));
+        var backingField = Assert.IsAssignableFrom<IFieldSymbol>(property.BackingField);
+        Assert.Equal("<Count>k__BackingField", backingField.Name);
+        Assert.True(backingField.IsStatic);
+        Assert.Equal(SpecialType.System_Int32, backingField.Type.SpecialType);
     }
 }

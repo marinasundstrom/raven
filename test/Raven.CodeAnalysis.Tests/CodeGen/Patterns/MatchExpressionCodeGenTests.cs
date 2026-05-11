@@ -115,34 +115,6 @@ System.Console.WriteLine(foo + "," + empty)
         Assert.Equal("str,None", output);
     }
 
-    [Fact(Skip = "Legacy tuple type-union pattern coverage; type unions are no longer supported.")]
-    public void MatchExpression_WithUnionTupleArm_EmitsAndRuns()
-    {
-        const string code = """
-val describer = Describer()
-val tuple: bool | (flag: bool, text: string) = (false, "tuple")
-val boolResult = describer.Describe(false)
-val tupleResult = describer.Describe(tuple)
-
-System.Console.WriteLine(boolResult + "," + tupleResult)
-
-class Describer {
-    public func Describe(value: bool | (flag: bool, text: string)) -> string {
-        return value match {
-            true => "true"
-            false => "false"
-            (val flag: bool, val text: string) => text
-        }
-    }
-}
-""";
-
-        var output = EmitAndRun(code, "match_union_tuple");
-        if (output is null)
-            return;
-        Assert.Equal("false,tuple", output);
-    }
-
     [Fact]
     public void MatchExpression_WithArrayCollectionPattern_EmitsAndRuns()
     {
@@ -423,61 +395,6 @@ class Program {
             return;
 
         Assert.Equal("foo,none", output);
-    }
-
-    [Fact(Skip = "Legacy tuple type-union pattern coverage; type unions are no longer supported.")]
-    public void MatchExpression_WithUnionTupleFallback_EmitsAndRuns()
-    {
-        const string code = """
-val tuple = (42, 2)
-val foo = tuple.Item1
-val tuple2 = (42, "Bar")
-val name = tuple2.Item2
-val x: bool | (flag: bool, text: string) = false
-
-val r = x match {
-    (val flag: bool, val text: string) => "tuple"
-    _ => "none"
-}
-
-System.Console.WriteLine(r)
-""";
-
-        var output = EmitAndRun(code, "match_union_tuple_fallback");
-        if (output is null)
-            return;
-
-        Assert.Equal("none", output);
-    }
-
-    [Fact(Skip = "Legacy tuple type-union pattern coverage; type unions are no longer supported.")]
-    public void MatchExpression_WithMixedPrimitiveAndTupleArms_EmitsAndRuns()
-    {
-        const string code = """
-val describer = Describer()
-val boolResult = describer.Describe(false)
-val tupleValue: bool | (flag: bool, text: string) = (false, "tuple")
-val tupleResult = describer.Describe(tupleValue)
-
-System.Console.WriteLine(boolResult + "," + tupleResult)
-
-class Describer {
-    public func Describe(value: bool | (flag: bool, text: string)) -> string {
-        return value match {
-            false => "false"
-            true => "true"
-            (val flag: bool, val text: string) => text
-            _ => "none"
-        }
-    }
-}
-""";
-
-        var output = EmitAndRun(code, "match_union_mixed_tuple");
-        if (output is null)
-            return;
-
-        Assert.Equal("false,tuple", output);
     }
 
     private static IEnumerable<MethodBase> GetCalledMethods(MethodInfo method)

@@ -70,9 +70,6 @@ internal static class MemberSignatureDeclarationPass
         var defaultReturnType = isAsync
             ? compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : compilation.GetSpecialType(SpecialType.System_Unit);
-        var returnType = methodDeclaration.ReturnType is { } returnTypeSyntax
-            ? ResolveSkeletonType(compilation, returnTypeSyntax.Type, defaultReturnType, containingType)
-            : defaultReturnType;
 
         var methodName = methodDeclaration.Identifier.Kind == SyntaxKind.SelfKeyword
             ? "Invoke"
@@ -80,7 +77,7 @@ internal static class MemberSignatureDeclarationPass
 
         var methodSymbol = new SourceMethodSymbol(
             methodName,
-            returnType,
+            defaultReturnType,
             ImmutableArray<SourceParameterSymbol>.Empty,
             containingType,
             containingType,
@@ -109,6 +106,16 @@ internal static class MemberSignatureDeclarationPass
                 methodDeclaration.TypeParameterList,
                 methodDeclaration.ConstraintClauses,
                 methodDeclaration.SyntaxTree);
+
+        if (methodDeclaration.ReturnType is { } returnTypeSyntax)
+        {
+            methodSymbol.SetReturnType(ResolveSkeletonType(
+                compilation,
+                returnTypeSyntax.Type,
+                defaultReturnType,
+                containingType,
+                methodSymbol.TypeParameters));
+        }
 
         if (isExtensionMember)
             methodSymbol.MarkDeclaredInExtension();
@@ -513,6 +520,7 @@ internal static class MemberSignatureDeclarationPass
             : ResolveSkeletonType(compilation, typeSyntax, compilation.ErrorTypeSymbol, containingType, methodSymbol.TypeParameters);
         var defaultEvaluation = TypeMemberBinder.EvaluateParameterDefaultValue(parameter, parameterType);
         var hasExplicitDefaultValue = defaultEvaluation is { HasDefaultSyntax: true, Success: true };
+        var refKind = ParameterSyntaxUtilities.GetRefKind(parameter);
 
         return new SourceParameterSymbol(
             parameter.Identifier.ValueText,
@@ -522,9 +530,11 @@ internal static class MemberSignatureDeclarationPass
             containingType.ContainingNamespace,
             [parameter.Identifier.GetLocation()],
             [parameter.GetReference()],
-            ParameterSyntaxUtilities.GetRefKind(parameter),
+            refKind,
             hasExplicitDefaultValue,
-            hasExplicitDefaultValue ? defaultEvaluation.Value : null);
+            hasExplicitDefaultValue ? defaultEvaluation.Value : null,
+            isMutable: refKind is RefKind.Ref or RefKind.Out,
+            isVarParams: TypeMemberBinder.IsVarParamsSyntax(parameter));
     }
 
     private static ITypeSymbol ResolveSkeletonType(
@@ -544,10 +554,44 @@ internal static class MemberSignatureDeclarationPass
                 containingType,
                 methodTypeParameters,
                 fallbackType),
+            ArrayTypeSyntax array => ResolveArraySkeletonType(compilation, array, fallbackType, containingType, methodTypeParameters),
             ByRefTypeSyntax byRef => ResolveSkeletonType(compilation, byRef.ElementType, fallbackType, containingType, methodTypeParameters),
             GenericNameSyntax genericName => ResolveGenericSkeletonType(compilation, genericName, fallbackType, containingType, methodTypeParameters),
             _ => fallbackType
         };
+
+    private static ITypeSymbol ResolveArraySkeletonType(
+        Compilation compilation,
+        ArrayTypeSyntax array,
+        ITypeSymbol fallbackType,
+        INamedTypeSymbol? containingType,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        var type = ResolveSkeletonType(compilation, array.ElementType, fallbackType, containingType, methodTypeParameters);
+        if (type.TypeKind == TypeKind.Error)
+            return fallbackType;
+
+        foreach (var rankSpecifier in array.RankSpecifiers)
+        {
+            var rank = rankSpecifier.CommaTokens.Count + 1;
+            type = compilation.CreateArrayTypeSymbol(type, rank, TryGetFixedArraySize(rankSpecifier));
+        }
+
+        return type;
+    }
+
+    private static int? TryGetFixedArraySize(ArrayRankSpecifierSyntax rankSpecifier)
+    {
+        if (rankSpecifier.CommaTokens.Count != 0 ||
+            rankSpecifier.SizeToken.Kind != SyntaxKind.NumericLiteralToken)
+        {
+            return null;
+        }
+
+        return int.TryParse(rankSpecifier.SizeToken.ValueText, out var fixedSize)
+            ? fixedSize
+            : null;
+    }
 
     private static ITypeSymbol ResolveGenericSkeletonType(
         Compilation compilation,

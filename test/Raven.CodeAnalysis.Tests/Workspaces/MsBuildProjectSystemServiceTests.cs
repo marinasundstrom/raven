@@ -373,7 +373,7 @@ val value = WidgetFactory.CreateDefault()
                             return MacroExpansionResult.Empty
                         }
 
-                        MacroExpansionResult {
+                        MacroExpansionResult with {
                             ReplacementDeclaration = replacement
                             IntroducedMembers = [container.Members[0]]
                         }
@@ -507,7 +507,7 @@ val value = WidgetFactory.CreateDefault()
                             return MacroExpansionResult.Empty
                         }
 
-                        MacroExpansionResult {
+                        MacroExpansionResult with {
                             ReplacementDeclaration = replacement
                             IntroducedMembers = [container.Members[0]]
                         }
@@ -630,7 +630,7 @@ val value = WidgetFactory.CreateDefault()
                             return MacroExpansionResult.Empty
                         }
 
-                        MacroExpansionResult {
+                        MacroExpansionResult with {
                             ReplacementDeclaration = property.WithAttributeLists(FilterNonMacroAttributeLists(property.AttributeLists))
                         }
                     }
@@ -713,17 +713,37 @@ val value = WidgetFactory.CreateDefault()
     [Fact]
     public void GetRavenMacroOutputPath_IncludesTargetFrameworkSegment()
     {
-        var projectPath = Path.Combine(Path.GetTempPath(), "macros", "ObservableMacros.rvnproj");
+        var root = CreateTempDirectory();
+        try
+        {
+            var macrosDirectory = Path.Combine(root, "macros");
+            Directory.CreateDirectory(macrosDirectory);
 
-        var outputPath = MsBuildProjectSystemService.GetRavenMacroOutputPath(
-            projectPath,
-            configuration: "Debug",
-            targetFramework: "net11.0",
-            assemblyName: "ObservableMacros");
+            var projectPath = Path.Combine(macrosDirectory, "ObservableMacros.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net11.0</TargetFramework>
+                    <AssemblyName>ObservableMacros</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
 
-        Assert.Equal(
-            Path.Combine(Path.GetTempPath(), "macros", "bin", "Debug", "net11.0", "ObservableMacros.dll"),
-            outputPath);
+            var outputPath = MsBuildProjectSystemService.GetRavenMacroOutputPath(
+                projectPath,
+                configuration: "Debug",
+                targetFramework: "net11.0",
+                assemblyName: "ObservableMacros");
+
+            Assert.Equal(
+                Path.Combine(macrosDirectory, "bin", "Debug", "net11.0", "ObservableMacros.dll"),
+                outputPath);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
     }
 
     [Fact]

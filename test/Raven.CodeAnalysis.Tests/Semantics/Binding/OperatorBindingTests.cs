@@ -229,7 +229,7 @@ class Number
     }
 
     [Fact]
-    public void NullCheck_WithUserDefinedEquality_DoesNotNarrow()
+    public void NullCheck_WithUserDefinedEquality_NarrowsLikeRoslyn()
     {
         var source = """
 class Number
@@ -256,6 +256,7 @@ class C
         var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PossibleNullReferenceAccess);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OperatorCannotBeAppliedToOperandsOfTypes);
     }
 }

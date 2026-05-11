@@ -178,7 +178,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         // Optionally consume a variable designation
         VariableDesignationSyntax designation;
-        if (CanTokenBeIdentifier(PeekToken()))
+        if (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken))
         {
             designation = ParseDesignation();
         }

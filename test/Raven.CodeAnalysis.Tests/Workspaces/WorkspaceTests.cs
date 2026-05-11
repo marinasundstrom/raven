@@ -532,6 +532,7 @@ func Test(maybeText: Option<string>) {
             Console.WriteLine("missing")
         }
     }
+
 }
 """,
             updatedText.ToString());
@@ -579,6 +580,7 @@ func Test(person: Person) {
             Console.WriteLine("missing")
         }
     }
+
 }
 """,
             updatedText.ToString());
@@ -626,6 +628,7 @@ func Test(maybeText: Option<string>) {
             Console.WriteLine("missing")
         }
     }
+
 }
 """,
             updatedText.ToString());
@@ -673,6 +676,7 @@ func Test(result: Result<string, string>) {
             Console.WriteLine("missing")
         }
     }
+
 }
 """,
             updatedText.ToString());
@@ -720,6 +724,7 @@ func Test(result: Result<string, string>) {
             Console.WriteLine("missing")
         }
     }
+
 }
 """,
             updatedText.ToString());

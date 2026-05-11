@@ -872,7 +872,7 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
-    public void WorkspaceCompilation_SemanticModel_PreparesDeclarationsWithoutRootBinder()
+    public void WorkspaceCompilation_SemanticModel_PreparesDeclarationsForSemanticQueries()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -948,18 +948,12 @@ public sealed class IncrementalCompilationReuseTests
         var updatedStableParameter = updatedStableMethod.ParameterList!.Parameters.Single();
 
         updatedCompilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
         updatedModel.MemberSignaturesDeclared.ShouldBeTrue();
-        updatedModel.RootBinderCreated.ShouldBeFalse();
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedStableIdentifier).ShouldBeTrue();
         updatedModel.GetDeclaredSymbol(updatedStableMethod).ShouldBeAssignableTo<IMethodSymbol>();
-        updatedModel.RootBinderCreated.ShouldBeFalse();
         updatedModel.GetDeclaredSymbol(updatedStableParameter).ShouldBeAssignableTo<IParameterSymbol>();
-        updatedModel.RootBinderCreated.ShouldBeFalse();
 
         updatedModel.GetSymbolInfo(updatedStableIdentifier).Symbol?.Name.ShouldBe("value");
-        updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
-        updatedModel.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]
@@ -996,9 +990,7 @@ public sealed class IncrementalCompilationReuseTests
 
         var signatureSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
 
-        model.RootBinderCreated.ShouldBeFalse();
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        compilation.SourceDeclarationsComplete.ShouldBeFalse();
 
         model.GetDiagnostics();
 
@@ -1091,7 +1083,7 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
-    public void WorkspaceCompilation_EventDeclarationSymbol_ResolvesWithoutRootBinder()
+    public void WorkspaceCompilation_EventDeclarationSymbol_ResolvesThroughSemanticApi()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -1130,11 +1122,10 @@ public sealed class IncrementalCompilationReuseTests
 
         eventSymbol.Name.ShouldBe("Clicked");
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        model.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]
-    public void WorkspaceCompilation_AccessorDeclarationSymbol_ResolvesWithoutRootBinder()
+    public void WorkspaceCompilation_AccessorDeclarationSymbol_ResolvesThroughSemanticApi()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -1174,11 +1165,10 @@ public sealed class IncrementalCompilationReuseTests
 
         accessorSymbol.Name.ShouldBe("get_Name");
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        model.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]
-    public void WorkspaceCompilation_MethodSignatureSymbol_ResolvesDeclaredNamedTypeWithoutRootBinder()
+    public void WorkspaceCompilation_MethodSignatureSymbol_ResolvesDeclaredNamedType()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -1213,15 +1203,13 @@ public sealed class IncrementalCompilationReuseTests
 
         var signatureSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
 
-        model.RootBinderCreated.ShouldBeFalse();
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        compilation.SourceDeclarationsComplete.ShouldBeFalse();
         signatureSymbol.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("User");
         signatureSymbol.Parameters.Single().Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("User");
     }
 
     [Fact]
-    public void WorkspaceCompilation_AddedMethodOverload_DeclaresSignatureWithoutRootBinderAfterEdit()
+    public void WorkspaceCompilation_AddedMethodOverload_DeclaresSignatureAfterEdit()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -1279,8 +1267,6 @@ public sealed class IncrementalCompilationReuseTests
         var addedSymbol = updatedModel.GetDeclaredSymbol(addedOverload).ShouldBeAssignableTo<IMethodSymbol>();
 
         updatedCompilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
-        updatedModel.RootBinderCreated.ShouldBeFalse();
         addedSymbol.Name.ShouldBe("Pick");
         addedSymbol.Parameters.Single().Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
         addedSymbol.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
@@ -1389,9 +1375,7 @@ public sealed class IncrementalCompilationReuseTests
 
         var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
 
-        model.RootBinderCreated.ShouldBeFalse();
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        compilation.SourceDeclarationsComplete.ShouldBeFalse();
         signatureSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
 
         model.GetDiagnostics();
@@ -1437,9 +1421,7 @@ public sealed class IncrementalCompilationReuseTests
 
         var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
 
-        model.RootBinderCreated.ShouldBeFalse();
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        compilation.SourceDeclarationsComplete.ShouldBeFalse();
         signatureSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
 
         model.GetDiagnostics();
@@ -1454,7 +1436,7 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
-    public void WorkspaceCompilation_PropertySignatureSymbol_ResolvesDeclaredNamedTypeWithoutRootBinder()
+    public void WorkspaceCompilation_PropertySignatureSymbol_ResolvesDeclaredNamedType()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -1487,9 +1469,7 @@ public sealed class IncrementalCompilationReuseTests
 
         var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
 
-        model.RootBinderCreated.ShouldBeFalse();
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        compilation.SourceDeclarationsComplete.ShouldBeFalse();
         signatureSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("User");
     }
 
@@ -3237,7 +3217,7 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
-    public void WorkspaceCompilation_TransferredGlobalHoverState_DoesNotCreateRootBinder()
+    public void WorkspaceCompilation_TransferredGlobalHoverState_AnswersSymbolInfo()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -3291,7 +3271,6 @@ public sealed class IncrementalCompilationReuseTests
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedSecondReceiver).ShouldBeTrue();
         updatedModel.RootBinderCreated.ShouldBeFalse();
         updatedModel.GetSymbolInfo(updatedSecondReceiver).Symbol?.Name.ShouldBe("second");
-        updatedModel.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]

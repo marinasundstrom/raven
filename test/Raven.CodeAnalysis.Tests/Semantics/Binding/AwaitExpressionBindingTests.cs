@@ -98,7 +98,7 @@ async func outer() {
     {
         const string source = """
 async func outer() {
-    await new Awaitable();
+    await Awaitable();
 }
 
 class Awaitable
@@ -123,7 +123,7 @@ class MissingIsCompletedAwaiter
     {
         const string source = """
 async func outer() {
-    await new Awaitable();
+    await Awaitable();
 }
 
 class Awaitable

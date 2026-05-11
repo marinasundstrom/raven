@@ -225,7 +225,16 @@ public class TypeSymbolInterfacesTests
     private static INamedTypeSymbol GetSourceType(Compilation compilation, string name)
     {
         foreach (var syntaxTree in compilation.SyntaxTrees)
-            _ = compilation.GetSemanticModel(syntaxTree);
+        {
+            var declaration = syntaxTree.GetRoot()
+                .DescendantNodes()
+                .OfType<BaseTypeDeclarationSyntax>()
+                .FirstOrDefault(type => type.Identifier.ValueText == name);
+
+            if (declaration is not null)
+                return Assert.IsAssignableFrom<INamedTypeSymbol>(
+                    compilation.GetSemanticModel(syntaxTree).GetDeclaredSymbol(declaration));
+        }
 
         return Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType(name));
     }

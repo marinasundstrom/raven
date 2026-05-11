@@ -78,4 +78,24 @@ class Foo(name: string) {
         Assert.Equal(primaryParameter.Identifier.Span, primarySymbol.Locations[0].SourceSpan);
         Assert.Equal(ctorParameter.Identifier.Span, ctorSymbol.Locations[0].SourceSpan);
     }
+
+    [Fact]
+    public void FunctionStatementParameter_GetDeclaredSymbol_ReturnsMethodParameter()
+    {
+        const string source = """
+func Touch(counter: string) -> unit {
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var parameterSyntax = function.ParameterList!.Parameters.Single();
+        var functionSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+
+        Assert.Same(functionSymbol, parameterSymbol.ContainingSymbol);
+        Assert.Equal("counter", parameterSymbol.Name);
+    }
 }

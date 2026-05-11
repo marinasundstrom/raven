@@ -75,12 +75,12 @@ command.Invoke()
     WriteLine("inside extension-method trailing block")
 }
 
-val next = Apply(41) {
-    it + 1
+val next = Apply(41) { (no: int) => 
+    no + 1
 }
 
-val combined = Combine(20, 22) {
-    $0 + $1
+val combined = Combine(20, 22) { (left: int, right: no) => 
+    left + right
 }
 
 WriteLine("it result: " + next.ToString())

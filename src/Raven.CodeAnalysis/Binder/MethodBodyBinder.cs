@@ -18,6 +18,37 @@ class MethodBodyBinder : BlockBinder
         _methodSymbol = methodSymbol;
     }
 
+    public override Compilation Compilation
+    {
+        get
+        {
+            if (ParentBinder?.Compilation is { } compilation)
+                return compilation;
+
+            if (_methodSymbol.ContainingAssembly is SourceAssemblySymbol assemblySymbol)
+                return assemblySymbol.Compilation;
+
+            return base.Compilation;
+        }
+    }
+
+    public override SemanticModel SemanticModel
+    {
+        get
+        {
+            if (ParentBinder?.SemanticModel is { } semanticModel)
+                return semanticModel;
+
+            if (_methodSymbol.ContainingAssembly is SourceAssemblySymbol assemblySymbol &&
+                _methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.SyntaxTree is { } syntaxTree)
+            {
+                return assemblySymbol.Compilation.GetSemanticModel(syntaxTree);
+            }
+
+            return base.SemanticModel;
+        }
+    }
+
     public override BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
     {
         var bound = base.BindBlockStatement(block);
@@ -193,6 +224,8 @@ class MethodBodyBinder : BlockBinder
         {
             FunctionStatementSyntax function => function.Identifier.GetLocation(),
             MethodDeclarationSyntax method => method.Identifier.GetLocation(),
+            OperatorDeclarationSyntax @operator => @operator.OperatorToken.GetLocation(),
+            ConversionOperatorDeclarationSyntax conversion => conversion.ConversionKindKeyword.GetLocation(),
             _ => blockSyntax.GetLocation()
         };
     }

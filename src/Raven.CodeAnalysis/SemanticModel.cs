@@ -537,6 +537,8 @@ public partial class SemanticModel
         {
             if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
+                symbolInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, symbolInfo);
+                _symbolMappings[node] = symbolInfo;
                 Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoCacheHit();
                 return symbolInfo;
             }
@@ -791,6 +793,7 @@ public partial class SemanticModel
             }
 
             if (expression is not InvocationExpressionSyntax &&
+                expression is not InfixOperatorExpressionSyntax and not PrefixOperatorExpressionSyntax &&
                 TryBindExactSymbol(expression, out var exactInfo))
             {
                 info = exactInfo;
@@ -1286,11 +1289,20 @@ public partial class SemanticModel
         if (invocation is null)
             return false;
 
+        if (invocation.Expression is MemberAccessExpressionSyntax)
+            return false;
+
         if (!TryGetAvailableInvocationCandidates(invocation, out var methods) ||
             methods.IsDefaultOrEmpty)
         {
             return false;
         }
+
+        if (methods.Any(static method => method.TypeParameters.Length > 0))
+            return false;
+
+        if (methods.Length != 1)
+            return false;
 
         var candidates = methods.Cast<ISymbol>().ToImmutableArray();
         var preferred = methods[0];
@@ -1406,6 +1418,14 @@ public partial class SemanticModel
             return methods.Length > 0;
         }
 
+        if (invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName } memberAccess &&
+            TryGetAvailableTypeInfo(memberAccess.Expression, out var receiverTypeInfo) &&
+            (receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType)?.GetPlainType() is INamedTypeSymbol receiverType)
+        {
+            foreach (var method in receiverType.GetMembers(memberName.Identifier.ValueText).OfType<IMethodSymbol>())
+                AddIfNotPresent(method);
+        }
+
         if (TryGetAvailableSymbolInfo(invocation, out var invocationInfo))
             AddSymbolInfoCandidates(invocationInfo);
 
@@ -1434,7 +1454,7 @@ public partial class SemanticModel
 
         if (builder.Count == 0 &&
             TryGetAvailableTypeInfo(invocation.Expression, out var typeInfo) &&
-            (typeInfo.Type ?? typeInfo.ConvertedType) is INamedTypeSymbol expressionType)
+            (typeInfo.Type ?? typeInfo.ConvertedType)?.GetPlainType() is INamedTypeSymbol expressionType)
         {
             if (expressionType.GetDelegateInvokeMethod() is { } invokeMethod)
                 AddIfNotPresent(invokeMethod);
@@ -2035,7 +2055,15 @@ public partial class SemanticModel
             literalType is not null &&
             literalType.TypeKind != TypeKind.Error)
         {
-            typeInfo = new TypeInfo(literalType, literalType, ComputeConversion(literalType, literalType));
+            var convertedType = literalType;
+            if (TryGetTargetTypeForExpression(expression, out var targetType) &&
+                targetType is not null &&
+                targetType.TypeKind != TypeKind.Error)
+            {
+                convertedType = targetType;
+            }
+
+            typeInfo = new TypeInfo(literalType, convertedType, ComputeConversion(literalType, convertedType));
             _typeMappings[expression] = typeInfo;
             return true;
         }
@@ -2074,7 +2102,14 @@ public partial class SemanticModel
             if ((type is not null && type.TypeKind != TypeKind.Error) ||
                 (convertedType is not null && convertedType.TypeKind != TypeKind.Error))
             {
-                typeInfo = new TypeInfo(type, convertedType, ComputeConversion(type, convertedType));
+                var conversion = cachedExpression switch
+                {
+                    BoundConversionExpression cast => cast.Conversion,
+                    BoundAsExpression asExpression => asExpression.Conversion,
+                    _ => ComputeConversion(type, convertedType)
+                };
+
+                typeInfo = new TypeInfo(type, convertedType, conversion);
                 _typeMappings[expression] = typeInfo;
                 return true;
             }
@@ -2083,6 +2118,12 @@ public partial class SemanticModel
         if (expression is InvocationExpressionSyntax invocation &&
             TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates))
         {
+            if (invocationCandidates.Any(static method => method.TypeParameters.Length > 0))
+            {
+                typeInfo = default;
+                return false;
+            }
+
             var inferredType = invocationCandidates
                 .Select(static method => method.MethodKind == MethodKind.Constructor ? method.ContainingType : method.ReturnType)
                 .FirstOrDefault(static type => type is not null && type.TypeKind != TypeKind.Error);
@@ -2999,6 +3040,12 @@ public partial class SemanticModel
         VariableDeclaratorSyntax variableDeclarator,
         out ILocalSymbol? localSymbol)
     {
+        if (!IsLocalVariableDeclarator(variableDeclarator))
+        {
+            localSymbol = null;
+            return false;
+        }
+
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
             !cachedDeclarator.Local.Type.ContainsErrorType())
         {
@@ -3042,6 +3089,12 @@ public partial class SemanticModel
         VariableDeclaratorSyntax variableDeclarator,
         out ILocalSymbol? localSymbol)
     {
+        if (!IsLocalVariableDeclarator(variableDeclarator))
+        {
+            localSymbol = null;
+            return false;
+        }
+
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
             !cachedDeclarator.Local.Type.ContainsErrorType())
         {
@@ -3058,6 +3111,9 @@ public partial class SemanticModel
         localSymbol = null;
         return false;
     }
+
+    private static bool IsLocalVariableDeclarator(VariableDeclaratorSyntax variableDeclarator)
+        => variableDeclarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().Any();
 
     private bool TryBindLocalDeclarationForStableLocalSymbol(
         VariableDeclaratorSyntax variableDeclarator,
@@ -3258,6 +3314,18 @@ public partial class SemanticModel
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
             return Cache(new TypeInfo(nodeInterestType, nodeInterestType, ComputeConversion(nodeInterestType, nodeInterestType)));
+        }
+
+        if (expr is DefaultExpressionSyntax { Type: null } &&
+            TryGetTargetTypeForExpression(expr, out var defaultTargetType) &&
+            defaultTargetType is not null &&
+            defaultTargetType.TypeKind != TypeKind.Error)
+        {
+            Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
+            return Cache(new TypeInfo(
+                defaultTargetType,
+                defaultTargetType,
+                ComputeConversion(defaultTargetType, defaultTargetType)));
         }
 
         var symbolInfo = GetSymbolInfo(expr);
@@ -4493,12 +4561,14 @@ public partial class SemanticModel
     {
         parameterSymbol = null;
 
-        foreach (var functionExpression in contextNode.Ancestors().OfType<FunctionExpressionSyntax>())
+        foreach (var ancestor in contextNode.Ancestors())
         {
-            IEnumerable<ParameterSyntax> parameters = functionExpression switch
+            IEnumerable<ParameterSyntax> parameters = ancestor switch
             {
                 SimpleFunctionExpressionSyntax { Parameter: { } parameter } => [parameter],
                 ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
+                TrailingBlockExpressionSyntax { Parameter: { } parameter } => [parameter],
+                TrailingBlockExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 _ => Enumerable.Empty<ParameterSyntax>()
             };
 
@@ -4507,7 +4577,9 @@ public partial class SemanticModel
                 if (!string.Equals(parameter.Identifier.ValueText, name, StringComparison.Ordinal))
                     continue;
 
-                if (!TryResolveFunctionExpressionParameterSymbolFast(parameter, out parameterSymbol))
+                if (ancestor is TrailingBlockExpressionSyntax trailingBlock)
+                    parameterSymbol = GetTrailingBlockParameterSymbol(trailingBlock, parameter);
+                else if (!TryResolveFunctionExpressionParameterSymbolFast(parameter, out parameterSymbol))
                     return false;
 
                 return parameterSymbol is not null;
@@ -5058,6 +5130,14 @@ public partial class SemanticModel
             return parameterSymbol is not null;
         }
 
+        if (parameterSyntax.Parent?.Parent is FunctionStatementSyntax functionStatement &&
+            GetDeclaredSymbol(functionStatement) is IMethodSymbol functionSymbol)
+        {
+            parameterSymbol = functionSymbol.Parameters.FirstOrDefault(parameter =>
+                SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return parameterSymbol is not null;
+        }
+
         return false;
     }
 
@@ -5462,6 +5542,9 @@ public partial class SemanticModel
         if (TryGetAvailableTypeInfo(typeSyntax, out var availableTypeInfo))
             return Cache(availableTypeInfo);
 
+        if (TryGetTypeFromOwningDeclaration(typeSyntax, out var declaredType))
+            return Cache(new TypeInfo(declaredType, declaredType, ComputeConversion(declaredType, declaredType)));
+
         var binder = GetBinder(typeSyntax);
         try
         {
@@ -5479,6 +5562,29 @@ public partial class SemanticModel
         {
             return new TypeInfo(null, null);
         }
+    }
+
+    private bool TryGetTypeFromOwningDeclaration(TypeSyntax typeSyntax, out ITypeSymbol type)
+    {
+        type = null!;
+
+        if (typeSyntax.Parent is not TypeAnnotationClauseSyntax annotation)
+            return false;
+
+        type = annotation.Parent switch
+        {
+            PropertyDeclarationSyntax propertyDeclaration when GetDeclaredSymbol(propertyDeclaration) is IPropertySymbol property
+                => property.Type,
+            EventDeclarationSyntax eventDeclaration when GetDeclaredSymbol(eventDeclaration) is IEventSymbol @event
+                => @event.Type,
+            IndexerDeclarationSyntax indexerDeclaration when GetDeclaredSymbol(indexerDeclaration) is IPropertySymbol indexer
+                => indexer.Type,
+            ParameterSyntax parameterSyntax when GetDeclaredSymbol(parameterSyntax) is IParameterSymbol parameter
+                => parameter.Type,
+            _ => null!
+        };
+
+        return type is not null && type.TypeKind != TypeKind.Error;
     }
 
     public bool TryGetTypeInfo(TypeSyntax typeSyntax, out TypeInfo typeInfo)
@@ -5714,7 +5820,7 @@ public partial class SemanticModel
                 bound is BoundBlockStatement boundBlock &&
                 !boundBlock.Statements.Any() &&
                 blockSyntax.Statements.Count > 0 &&
-                node.Parent is MethodDeclarationSyntax methodDeclaration &&
+                node.Parent is { } methodDeclaration &&
                 binder is not MethodBodyBinder &&
                 TryResolveMethodSymbolForDeclaration(methodDeclaration, out var methodSymbol))
             {
@@ -6724,12 +6830,33 @@ public partial class SemanticModel
 
         Binder? newBinder;
 
-        if ((node is BlockStatementSyntax or ArrowExpressionClauseSyntax) &&
-            node.Parent is MethodDeclarationSyntax parentMethodDeclaration &&
+        if (node is TypeDeclarationSyntax typeDeclaration &&
+            actualParentBinder is not TypeDeclarationBinder)
+        {
+            var typeParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinder(node.Parent) : Compilation.GlobalBinder);
+            var typeSymbol = GetDeclaredTypeSymbol(typeDeclaration);
+            newBinder = typeDeclaration switch
+            {
+                InterfaceDeclarationSyntax interfaceDeclaration => new InterfaceDeclarationBinder(typeParentBinder, typeSymbol, interfaceDeclaration),
+                _ => new ClassDeclarationBinder(typeParentBinder, typeSymbol, typeDeclaration)
+            };
+        }
+        else if (node is BaseMethodDeclarationSyntax &&
+            actualParentBinder is not MethodBinder &&
+            TryResolveMethodSymbolForDeclaration(node, out var recoveredDeclarationMethodSymbol))
+        {
+            var methodParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinder(node.Parent) : Compilation.GlobalBinder);
+            newBinder = new MethodBinder(recoveredDeclarationMethodSymbol, methodParentBinder);
+        }
+        else if ((node is BlockStatementSyntax or ArrowExpressionClauseSyntax) &&
+            node.Parent is { } parentMethodDeclaration &&
             actualParentBinder is not MethodBinder &&
             TryResolveMethodSymbolForDeclaration(parentMethodDeclaration, out var recoveredMethodSymbol))
         {
-            newBinder = new MethodBodyBinder(recoveredMethodSymbol, actualParentBinder);
+            var methodBodyParentBinder = actualParentBinder ?? GetBinder(parentMethodDeclaration);
+            newBinder = new MethodBodyBinder(recoveredMethodSymbol, methodBodyParentBinder);
         }
         else
         {
@@ -6854,7 +6981,24 @@ public partial class SemanticModel
             FunctionStatementSyntax;
     }
 
-    private bool TryResolveMethodSymbolForDeclaration(MethodDeclarationSyntax methodDeclaration, out IMethodSymbol methodSymbol)
+    private bool TryResolveMethodSymbolForDeclaration(SyntaxNode declaration, out IMethodSymbol methodSymbol)
+    {
+        return declaration switch
+        {
+            MethodDeclarationSyntax methodDeclaration => TryResolveOrdinaryMethodSymbolForDeclaration(methodDeclaration, out methodSymbol),
+            OperatorDeclarationSyntax operatorDeclaration => TryResolveOperatorMethodSymbolForDeclaration(operatorDeclaration, out methodSymbol),
+            ConversionOperatorDeclarationSyntax conversionDeclaration => TryResolveConversionMethodSymbolForDeclaration(conversionDeclaration, out methodSymbol),
+            _ => ReturnFalse(out methodSymbol)
+        };
+
+        static bool ReturnFalse(out IMethodSymbol symbol)
+        {
+            symbol = null!;
+            return false;
+        }
+    }
+
+    private bool TryResolveOrdinaryMethodSymbolForDeclaration(MethodDeclarationSyntax methodDeclaration, out IMethodSymbol methodSymbol)
     {
         if (TryGetMethodSymbol(methodDeclaration, out methodSymbol))
             return true;
@@ -6887,6 +7031,75 @@ public partial class SemanticModel
 
         methodSymbol = null!;
         return false;
+    }
+
+    private bool TryResolveOperatorMethodSymbolForDeclaration(OperatorDeclarationSyntax operatorDeclaration, out IMethodSymbol methodSymbol)
+    {
+        var parameterCount = operatorDeclaration.ParameterList.Parameters.Count;
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(operatorDeclaration.OperatorToken.Kind, parameterCount, out var operatorInfo))
+        {
+            methodSymbol = null!;
+            return false;
+        }
+
+        return TryResolveSpecialMethodSymbolForDeclaration(
+            operatorDeclaration,
+            operatorInfo.MetadataName,
+            parameterCount,
+            arity: 0,
+            out methodSymbol);
+    }
+
+    private bool TryResolveConversionMethodSymbolForDeclaration(ConversionOperatorDeclarationSyntax conversionDeclaration, out IMethodSymbol methodSymbol)
+    {
+        if (!OperatorFacts.TryGetConversionOperatorMetadataName(conversionDeclaration.ConversionKindKeyword.Kind, out var metadataName))
+        {
+            methodSymbol = null!;
+            return false;
+        }
+
+        return TryResolveSpecialMethodSymbolForDeclaration(
+            conversionDeclaration,
+            metadataName,
+            conversionDeclaration.ParameterList.Parameters.Count,
+            arity: 0,
+            out methodSymbol);
+    }
+
+    private bool TryResolveSpecialMethodSymbolForDeclaration(
+        SyntaxNode declaration,
+        string metadataName,
+        int parameterCount,
+        int arity,
+        out IMethodSymbol methodSymbol)
+    {
+        if (declaration.Parent is not { } containingDeclaration ||
+            !Compilation.TryGetDeclaredTypeSymbol(containingDeclaration, out var containingType))
+        {
+            methodSymbol = null!;
+            return false;
+        }
+
+        var targetTree = declaration.SyntaxTree;
+        var targetSpan = declaration.Span;
+        var exact = containingType
+            .GetMembers(metadataName)
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(method =>
+                method.Parameters.Length == parameterCount &&
+                method.Arity == arity &&
+                method.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == targetTree &&
+                    reference.Span == targetSpan));
+
+        if (exact is null)
+        {
+            methodSymbol = null!;
+            return false;
+        }
+
+        methodSymbol = exact;
+        return true;
     }
 
     internal void EnsureRootBinderCreated()

@@ -13,7 +13,7 @@ public class TypeParameterMemberResolutionTests
         const string source = """
 import System.*
 
-func format<T>(value: T) -> string {
+func format<T>(value: T) -> string? {
     return value.ToString()
 }
 """;

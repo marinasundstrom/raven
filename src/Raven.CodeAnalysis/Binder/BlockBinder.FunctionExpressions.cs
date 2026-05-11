@@ -1019,33 +1019,6 @@ partial class BlockBinder
 
             parameterSymbols = builder.ToImmutable();
         }
-        else if (targetSignature is not null)
-        {
-            var builder = ImmutableArray.CreateBuilder<IParameterSymbol>(targetSignature.Parameters.Length);
-            var location = syntax.OpenBraceToken.GetLocation();
-            var reference = syntax.GetReference();
-
-            for (var index = 0; index < targetSignature.Parameters.Length; index++)
-            {
-                var delegateParameter = targetSignature.Parameters[index];
-                var parameter = new SourceParameterSymbol(
-                    $"${index}",
-                    delegateParameter.Type,
-                    lambdaSymbol,
-                    lambdaSymbol.ContainingType,
-                    lambdaSymbol.ContainingNamespace,
-                    [location],
-                    [reference],
-                    delegateParameter.RefKind,
-                    hasExplicitDefaultValue: false,
-                    explicitDefaultValue: null,
-                    isMutable: delegateParameter.RefKind is RefKind.Ref or RefKind.Out);
-
-                builder.Add(parameter);
-            }
-
-            parameterSymbols = builder.ToImmutable();
-        }
         else
         {
             parameterSymbols = ImmutableArray<IParameterSymbol>.Empty;

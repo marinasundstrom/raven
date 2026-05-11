@@ -1,85 +1,111 @@
 # Quick Assessment (Test Sorting)
 
-Date: 2026-02-18
-Scope: `test/Raven.CodeAnalysis.Tests` (`*.cs`)
+Date: 2026-05-10
+Scope: `test/Raven.CodeAnalysis.Tests` (`*.cs`, excluding `bin/`, `obj/`, and `TestResults/`)
 
 ## Snapshot
 
-- Total test files scanned: `349`
+- Total test files scanned: `453`
 - Current top-level distribution:
-  - `Syntax`: 70
-  - `Semantics`: 142
-  - `CodeGen`: 59
-  - `Diagnostics`: 24
-  - `Other` (Bugs/Utilities/etc): 54
+  - `Semantics`: 189
+  - `Syntax`: 82
+  - `CodeGen`: 73
+  - `Diagnostics`: 47
+  - `Workspaces`: 23
+  - `Symbols`: 12
+  - `Completion`: 10
+  - `Other` (Bugs/Utilities/Text/etc): 17
 
-## Quick Heuristic Result
+## Current Cleanup Status
 
-Using a light signal model (`Emit/Assembly/PE` => codegen, semantic-model API => semantics, parser/token API => syntax, explicit diagnostic assertions => diagnostics), there are `57` location mismatches.
+Recently completed:
 
-Important: many are **intentional mixed tests**, not pure misplacements.
+- Removed scratch tests from `Syntax/Foo.cs` and `Syntax/Sandbox.cs`.
+- Removed skipped legacy type-union emission coverage from `CodeGen/Metadata/UnionEmissionTests.cs`.
+- Removed legacy nullable-via-type-union coverage from `CodeGen/Metadata/NullableAttributeEmissionTests.cs`.
+- Removed legacy tuple type-union match codegen cases from `CodeGen/Patterns/MatchExpressionCodeGenTests.cs`.
+- Updated baseline/runtime scripts so CodeGen filtering is derived from the `CodeGen/` folder, not just fully-qualified namespace substrings.
+- Fixed the operator-binding semantic API blocker that previously aborted the baseline through target-type recursion.
+- Reworked a stale null-flow operator test to assert Roslyn-like `x != null` narrowing with user-defined equality.
+- Fixed `GetDeclaredSymbol(VariableDeclaratorSyntax)` so field declarators resolve as fields instead of entering local binding.
+- Fixed early method signature symbols so `ref` and `out` parameters are marked mutable like fully bound parameter symbols.
+- Removed stale semicolon-separated collection literal tests; current collection syntax uses commas, and comma-based coverage already exercises the same inference paths.
+- Updated stale object-initializer coverage from the old `Type { ... }` form to current `Type with { ... }` syntax.
+- Updated match-refactoring output expectations to match current formatter output.
+- Updated macro project-system tests to use current `with` object-initializer syntax and real temp project files for output-path evaluation.
+- Updated stale diagnostic spans/expectations for fixed-array keyword parsing, duplicate labels, catch type spans, static class instantiation, and explicit/static property access.
+- Redesigned unstable constant-narrowing diagnostics to assert the accepted diagnostic family instead of a single order-sensitive diagnostic.
+- Redesigned property semantic coverage from synthesized accessor body shape to compiler API symbol shape after normal binding.
+- Cleaned up exception-handling diagnostics for current catch-pattern support, nullable guard behavior, and current malformed-pattern diagnostics.
 
-## Sorted Triage
+Current baseline result after the script isolation cleanup:
 
-### 1. Move Now (high confidence)
+- `scripts/test-baseline.sh` reaches the end of the core `Raven.CodeAnalysis.Tests` pass instead of aborting.
+- First complete core result after baseline isolation: `123` failed, `2599` passed, `16` skipped, `2738` total.
+- Latest core result after Roslyn-like semantic API fixes and stale-test cleanup: `104` failed, `2614` passed, `16` skipped, `2734` total.
+- Latest core result after diagnostic/test redesign pass: `81` failed, `2637` passed, `16` skipped, `2734` total.
+- The failure list is now actionable: stale syntax expectations, public semantic API gaps, macro/integration drift, and brittle lowered/codegen shape assertions.
 
-Already completed in this reorg pass:
+## Remaining Stale Or Brittle Buckets
 
-- `Semantics/*Emission*` moved to `CodeGen/Metadata/`
-- `Semantics/UnionGenericsTests.cs` moved to `CodeGen/Runtime/`
-- `Semantics/*Diagnostics*` and other diagnostics-first files moved to `Semantics/Diagnostics/`
-- `Semantics/*Lowerer*` and lowerer-shape tests moved to `Semantics/Lowering/`
-- `Semantics/PartialClassTests.cs` split into:
-  - `Semantics/PartialClassTests.cs` (semantic merge behavior)
-  - `Semantics/Diagnostics/PartialClassDiagnosticsTests.cs` (duplicate declaration diagnostic)
-  - `CodeGen/Runtime/PartialClassCodeGenTests.cs` (emit smoke)
-- `Semantics/NamespaceDirectiveTests.cs` updated for current behavior and syntax-only assertion moved to `Syntax/NamespaceDirectiveSyntaxTests.cs`
-- `Semantics/MatchStatementTests.cs` split into:
-  - `Semantics/MatchStatementTests.cs` (binding/semantic behavior)
-  - `Semantics/Diagnostics/MatchStatementDiagnosticsTests.cs` (exhaustiveness/redundancy/ignored-value diagnostics)
-- `Semantics/SealedHierarchyTests.cs` split into:
-  - `Syntax/SealedHierarchySyntaxTests.cs` (parse/bodyless syntax coverage)
-  - `Semantics/Diagnostics/SealedHierarchyDiagnosticsTests.cs` (sealed hierarchy diagnostics)
-  - `Semantics/SealedHierarchyTests.cs` (semantic/model/emit behavior)
-- `Semantics/SealedHierarchyTests.cs` now avoids `Emit` for semantic assertions; IL-specific checks moved to `CodeGen/Runtime/SealedHierarchyCodeGenTests.cs`
-- Moved additional diagnostics-first semantics files to `Semantics/Diagnostics/`:
-  - `BreakAndContinueStatementTests.cs`
-  - `GotoStatementTests.cs`
-  - `ExceptionHandlingTests.cs`
-  - `ConstructorInitializerTests.cs`
-  - `DefaultParameterTests.cs`
-- Moved emit-metadata async tests from `Semantics/Lowering/AsyncLowererTests.cs` to `CodeGen/Metadata/AsyncLowererCodeGenMetadataTests.cs`
-- Reduced direct `Emit(...)` usage in `Semantics/` from 31 to 2 (remaining in `TypeResolutionPrecedenceTests.cs` metadata fixture setup)
+### 0. Recently Resolved Baseline Blocker
 
-### 2. Split Then Move (mixed responsibility)
+The baseline previously aborted before completion because
+`Semantics/Binding/OperatorBindingTests.OperatorUsage_NullableMixedEquality_BindsWithoutOperatorDiagnostic`
+triggered a stack overflow through repeated `BlockBinder.BindIdentifierName` and `BlockBinder.GetTargetType`
+calls. That target-typing recursion is now fixed; keep the operator-binding tests in the core baseline as public semantic API coverage.
 
-These are mixed tests that combine semantic assertions with emit/runtime checks. Split into two files before moving.
+### 1. Skipped Tests To Revisit
 
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Semantics/ExternSemanticTests.cs`
+These should either become focused current-behavior tests or be removed:
 
-### 3. Keep In Place (despite heuristic mismatch)
+- Conditional element access codegen in `CodeGen/ConditionalAccessTests.cs`.
+- Positional pattern codegen in `CodeGen/Patterns/PositionalPatternCodeGenTests.cs`.
+- Legacy async lowering/codegen shape cases in `CodeGen/Async/AsyncTryAwaitCodeGenTests.cs` and `CodeGen/Async/AsyncFunctionExpressionStateMachineTests.cs`.
+- Positional pattern assignment semantics in `Semantics/Patterns/PatternAssignmentSemanticTests.cs`.
+- Environment-dependent reference assembly diagnostics in `Semantics/Diagnostics/FileScopedCodeDiagnosticsTests.cs` and `Semantics/Diagnostics/EntryPointDiagnosticsTests.cs`.
+- Pending metadata accessibility enforcement in `Semantics/Diagnostics/AccessibilityDiagnosticsTests.cs`.
+- Self member-access completion in `Completion/CompletionServiceMemberAccessTests.cs`.
 
-These look syntax-heavy but are still primarily syntax/parser behavior (including parser diagnostics), so they should remain under `Syntax/`.
+### 2. Baseline Noise To Separate
 
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Syntax/AttributeParsingTests.cs`
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Syntax/Parser/ArgumentAndParameterListTests.cs`
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Syntax/Parser/DirectiveOrderTests.cs`
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Syntax/TupleTypeSyntaxTest.cs`
+Tests that exercise sample projects, macro project builds, or language-server sample replays should not run in the core baseline. Keep them in integration/sample suites:
 
-### 4. Diagnostics-heavy Semantics (do not mass-move)
+- `Raven.LanguageServer.Tests` tests with `Sample` in the name.
+- `Workspaces/MsBuildSampleProjectCompilationTests.cs`.
+- Macro project reference tests that build throwaway `.rvnproj` macro assemblies.
 
-A large set in `Semantics/` is diagnostics-focused but still tied to semantic rules. Keep folder placement for now; consider adding a naming suffix (`*DiagnosticsTests`) as the organizational marker instead of moving.
+### 3. Shape Assertions To Replace
 
-Examples:
+Keep exact lowered/IL shape assertions only as development scaffolding. Prefer diagnostics, symbols, metadata shape, or observable runtime behavior:
 
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Semantics/Diagnostics/WithExpressionTests.cs`
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Semantics/Diagnostics/ThrowStatementDiagnosticsTests.cs`
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Semantics/Diagnostics/TypeModifierDiagnosticsTests.cs`
-- `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Semantics/Diagnostics/VariableRedeclarationTests.cs`
+- Lowered-tree mapping and lowerer-shape assertions in `Semantics/Lowering/`.
+- Synthesized union helper/body tests that assert internal body availability rather than public symbol or emitted behavior.
+- Opcode/called-member assertions in CodeGen tests when runtime behavior or metadata shape would prove the same contract.
+- Exact full-string refactoring outputs where formatting-only differences are irrelevant; normalize or parse and compare syntax structure.
 
-## Recommended Next Sort Step
+## Organization Recommendation
 
-1. Split `PartialClassTests` into semantic-only and emit/runtime assertions.
-2. Continue moving clearly diagnostics-first files from `Semantics/` to `Semantics/Diagnostics/`.
+Keep the primary layer split:
 
-This keeps moves safe and avoids churn from broad folder-only reshuffles.
+- `Syntax/`
+- `Semantics/`
+- `CodeGen/`
+- `Diagnostics/`
+- `Completion/`
+- `Workspaces/`
+
+Within each layer, prefer feature cohesion over broad flat folders. The current `Semantics/Functions/*` and `CodeGen/Functions/*` split is the right direction, but older broad files remain:
+
+- Move invocation and overload coverage into `Semantics/Functions/Invocation/` and `CodeGen/Functions/Invocation/`.
+- Move async semantic coverage into `Semantics/Functions/Async/`.
+- Keep parser-only pattern tests under `Syntax/`; keep semantic pattern binding under `Semantics/Patterns/`; keep emission/runtime behavior under `CodeGen/Patterns/`.
+- Keep `Bugs/` temporary. Promote reduced regressions into the layer/feature folder once the behavior can be named generically.
+
+## Recommended Next Pass
+
+1. Continue public semantic API stabilization first. Highest-value buckets are declared symbols, type/base/interface resolution, nullable/default/type-info queries, lambda/contextual function binding, and completion through public semantic queries.
+2. Triage the stale syntax buckets: nested recursive pattern parser expectations, parenthesized type-only catch syntax, and stored-property parser expectations.
+3. Convert fragile lowered/IL/synthesized-body assertions in touched areas into symbol, diagnostic, metadata, or runtime assertions.
+4. Split or update macro semantic tests so macro API drift is either fixed or isolated as integration coverage.
+5. Add explicit test traits/categories for `CodeGen`, `Sample`, `Integration`, and `Development`, then simplify the scripts to trait filters.

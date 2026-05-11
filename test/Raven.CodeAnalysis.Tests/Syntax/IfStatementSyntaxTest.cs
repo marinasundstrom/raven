@@ -122,7 +122,7 @@ if val (id, name) = person {
     public void IfPatternStatement_WithRecursivePattern_ParsesNestedImplicitBindings()
     {
         const string testCode = """
-if val Person(1, name, _) = person {
+if val Person(1, let name, _) = person {
 }
 """;
 
@@ -133,14 +133,14 @@ if val Person(1, name, _) = person {
         var arguments = pattern.ArgumentList!.Arguments;
 
         arguments.Count.ShouldBe(3);
-        arguments[1].ShouldBeOfType<VariablePatternSyntax>();
+        arguments[1].Pattern.ShouldBeOfType<VariablePatternSyntax>();
     }
 
     [Fact]
     public void IfPatternStatement_WithNestedTypedRecursivePattern_ParsesNestedNominalDeconstruction()
     {
         const string testCode = """
-if val Error(ParseIntError(kind, _)) = value {
+if val Error(ParseIntError(let kind, _)) = value {
 }
 """;
 
@@ -148,14 +148,14 @@ if val Error(ParseIntError(kind, _)) = value {
         var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
         var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
         var outerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(ifBinding.Pattern);
-        var innerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(Assert.Single(outerPattern.ArgumentList!.Arguments));
+        var innerPattern = Assert.IsType<NominalDeconstructionPatternSyntax>(Assert.Single(outerPattern.ArgumentList!.Arguments).Pattern);
         var innerArguments = innerPattern.ArgumentList!.Arguments;
 
         outerPattern.Type.ToString().ShouldBe("Error");
         innerPattern.Type.ToString().ShouldBe("ParseIntError");
         innerArguments.Count.ShouldBe(2);
-        innerArguments[0].ShouldBeOfType<VariablePatternSyntax>();
-        innerArguments[1].ShouldBeOfType<DiscardPatternSyntax>();
+        innerArguments[0].Pattern.ShouldBeOfType<VariablePatternSyntax>();
+        innerArguments[1].Pattern.ShouldBeOfType<DiscardPatternSyntax>();
     }
 
     [Fact]
