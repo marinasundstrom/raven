@@ -5,10 +5,10 @@ import System.Linq.Expressions.*
 import Microsoft.EntityFrameworkCore.*
 
 func Seed(db: AppDbContext) {
-    db.Users.Add(User(1, "Ana", 29, true))
-    db.Users.Add(User(2, "Bob", 17, true))
-    db.Users.Add(User(3, "Cara", 42, false))
-    db.Users.Add(User(4, "Dan", 34, true))
+    db.Users.Add(.(1, "Ana", 29, true))
+    db.Users.Add(.(2, "Bob", 17, true))
+    db.Users.Add(.(3, "Cara", 42, false))
+    db.Users.Add(.(4, "Dan", 34, true))
     _ = db.SaveChanges()
 }
 
