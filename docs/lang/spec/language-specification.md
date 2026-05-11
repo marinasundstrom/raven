@@ -4592,7 +4592,7 @@ For non-normative rationale and interop notes, see
 
 | Form | Syntax | Cases | Typical pattern form |
 | --- | --- | --- | --- |
-| Parenthesized | `union Payment(Cash | Card)` | existing member types | `Cash(...)`, `Card(...)` |
+| Parenthesized | `union Payment(Cash \| Card)` | existing member types | `Cash(...)`, `Card(...)` |
 | Body form | `union LookupResult { case Found(id: int) case Missing }` | synthesized case types | `Found(...)`, `Missing` |
 
 #### Parenthesized unions
