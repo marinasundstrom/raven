@@ -428,6 +428,30 @@ internal sealed class HoverHandler : IHoverHandler
         return string.Join("\n\n", parts);
     }
 
+    internal static string BuildInlayTypeHoverText(
+        ITypeSymbol type,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SyntaxNode contextNode,
+        int offset,
+        string insertionText)
+    {
+        var signature = BuildDisplaySignatureForResolvedHover(
+            new SymbolResolutionResult(SymbolResolutionKind.TypePosition, type, contextNode),
+            semanticModel,
+            root,
+            offset);
+        var hoverText = BuildHoverText(
+            signature,
+            BuildKindDisplayForResolution(SymbolResolutionKind.TypePosition, type),
+            BuildContainingDisplay(type, semanticModel),
+            type.GetDocumentationComment(),
+            ImmutableArray<ISymbol>.Empty,
+            isCapturedVariable: false);
+
+        return hoverText + $"\n\nInferred type `{insertionText}`.";
+    }
+
     private static Hover? TryBuildLiteralHover(SourceText sourceText, SemanticModel semanticModel, SyntaxNode root, int offset)
     {
         foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))

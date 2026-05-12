@@ -226,6 +226,152 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_UnimportedMetadataType_UsesQualifiedAnnotationAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> unit {
+    val json = System.Text.Json.Nodes.JsonObject()
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hint = result.Single(static hint => hint.Label.String == ": System.Text.Json.Nodes.JsonObject");
+        AssertSourceApplicable(
+            sourceText,
+            hint,
+            code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
+            ": System.Text.Json.Nodes.JsonObject");
+        AssertTooltipMentionsInsertion(hint, ": System.Text.Json.Nodes.JsonObject");
+    }
+
+    [Fact]
+    public async Task Handle_ImportedMetadataType_UsesSimpleAnnotationAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.Text.Json.Nodes.*
+
+func Main() -> unit {
+    val json = JsonObject()
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hint = result.Single(static hint => hint.Label.String == ": JsonObject");
+        AssertSourceApplicable(
+            sourceText,
+            hint,
+            code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
+            ": JsonObject");
+        AssertTooltipMentionsInsertion(hint, ": JsonObject");
+    }
+
+    [Fact]
+    public async Task Handle_AmbiguousVisibleTypeName_UsesQualifiedAnnotationAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+namespace First {
+    class JsonObject {
+    }
+}
+
+namespace Second {
+    class JsonObject {
+    }
+}
+
+import First.*
+import Second.*
+
+func Main() -> unit {
+    val json = First.JsonObject()
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hint = result.Single(static hint => hint.Label.String == ": First.JsonObject");
+        AssertSourceApplicable(
+            sourceText,
+            hint,
+            code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
+            ": First.JsonObject");
+    }
+
+    [Fact]
     public async Task Handle_EfCoreVehicleSample_ProvidesHintsForUseDeclarationsAndRouteFunctionExpressionsAsync()
     {
         var repoRoot = FindRepositoryRoot();
@@ -298,6 +444,16 @@ func Main() -> unit {
             hint.Label.String.StartsWith(labelPrefix, StringComparison.Ordinal) &&
             hint.Position.Line == expectedPosition.Line &&
             hint.Position.Character == expectedPosition.Character);
+    }
+
+    private static void AssertTooltipMentionsInsertion(InlayHint hint, string insertionText)
+    {
+        hint.Tooltip.ShouldNotBeNull();
+        var tooltip = hint.Tooltip.MarkupContent;
+        tooltip.ShouldNotBeNull();
+        tooltip.Kind.ShouldBe(MarkupKind.Markdown);
+        tooltip.Value.ShouldContain("Inferred type");
+        tooltip.Value.ShouldContain(insertionText);
     }
 
     private static string FindRepositoryRoot()
