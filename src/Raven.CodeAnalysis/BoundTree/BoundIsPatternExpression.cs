@@ -575,6 +575,19 @@ internal partial class BlockBinder
             }
         }
 
+        if (syntax is DeclarationPatternSyntax declarationSyntax &&
+            IsUndesignatedDeclarationPattern(declarationSyntax) &&
+            TryBindTypeSyntaxAsMemberAccessExpression(declarationSyntax.Type, out var valueExpression) &&
+            valueExpression is not BoundTypeExpression)
+        {
+            var constant = BindConstantPatternFromExpression(
+                valueExpression,
+                declarationSyntax.Type,
+                inputType ?? Compilation.GetSpecialType(SpecialType.System_Object));
+            CacheBoundNode(syntax, constant);
+            return constant;
+        }
+
         var bound = syntax switch
         {
             GuardedPatternSyntax guarded => BindGuardedPattern(guarded, inputType),
@@ -597,6 +610,11 @@ internal partial class BlockBinder
 
         CacheBoundNode(syntax, bound);
         return bound;
+
+        static bool IsUndesignatedDeclarationPattern(DeclarationPatternSyntax declaration)
+            => declaration.Designation is null
+               || declaration.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true }
+               || declaration.Designation is SingleVariableDesignationSyntax { Identifier.Kind: SyntaxKind.None };
     }
 
     private BoundPattern BindGuardedPattern(GuardedPatternSyntax syntax, ITypeSymbol? inputType)

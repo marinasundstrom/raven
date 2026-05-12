@@ -188,7 +188,11 @@ comparison must be explicit with `==`. In practice, `==` is the marker for
 "compare with this existing variable or expression" in a place where a bare
 identifier would otherwise capture. Literal patterns such as `"Bob"`, `42`,
 `true`, `false`, and `null` keep their ordinary literal-matching meaning and do
-not need `==`:
+not need `==`. Qualified constant members, such as `Math.PI` and enum members
+such as `JsonValueKind.True`, are also value patterns in `is`/`match` contexts.
+Enum patterns may use target-typed member shorthand (`value is .True`) when the
+scrutinee supplies the enum type; equality comparisons use the qualified form
+(`value == JsonValueKind.True`):
 
 ```raven
 if val Person { Name: "Ada", Age: age } matched = input {

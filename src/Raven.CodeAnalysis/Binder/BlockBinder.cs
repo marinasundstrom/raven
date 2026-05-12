@@ -5434,9 +5434,15 @@ partial class BlockBinder : Binder
             if (other is not MemberBindingExpressionSyntax)
             {
                 var otherBound = BindExpression(other);
-                if (otherBound.Type is { } otherType && otherType.TypeKind != TypeKind.Error)
+                if (otherBound.Type is { } otherType &&
+                    otherType.TypeKind != TypeKind.Error &&
+                    (UnwrapAlias(otherType.UnwrapLiteralType() ?? otherType) is not INamedTypeSymbol { TypeKind: TypeKind.Enum }))
+                {
                     return otherType;
+                }
             }
+
+            return null;
         }
 
         return GetTargetTypeFromBinderChain();

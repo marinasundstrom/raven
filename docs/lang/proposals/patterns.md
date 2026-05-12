@@ -31,7 +31,23 @@ if expr is 0 {
 if expr is "yes" {
     confirm()
 }
+
+if value is Math.PI {
+    Console.WriteLine("pi")
+}
+
+if element.ValueKind is JsonValueKind.True {
+    Console.WriteLine("true")
+}
+
+if element.ValueKind is .True {
+    Console.WriteLine("also true")
+}
 ```
+
+Constants include literals and qualified constant members. Target-typed member
+shorthand is available in pattern position when the scrutinee supplies the enum
+or static-member target type.
 
 ### Typed discards
 

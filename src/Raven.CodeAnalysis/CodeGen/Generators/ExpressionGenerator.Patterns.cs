@@ -1797,6 +1797,9 @@ internal partial class ExpressionGenerator
         if (constantPattern.Expression is not null
             && constantPattern.Expression is not BoundTypeExpression { Type: NullTypeSymbol })
         {
+            if (TryEmitCompileTimeConstantPattern(constantPattern.Expression, inputType, scrutineeLocal2))
+                return;
+
             EmitRuntimeValueConstantCompare(constantPattern.Expression, inputType, scrutineeLocal2);
             return;
         }
@@ -1855,6 +1858,73 @@ internal partial class ExpressionGenerator
         // Reference types
         EmitReferenceConstantCompare(value, literal, scrutineeLocal2);
     }
+
+    private bool TryEmitCompileTimeConstantPattern(BoundExpression expression, ITypeSymbol inputType, IILocal? scrutineeLocal2)
+    {
+        if (!TryGetCompileTimeConstantValue(expression, out var value, out var sourceType))
+            return false;
+
+        var scrutineeType = inputType;
+        var scrutineeClr = ResolveClrType(scrutineeType);
+
+        if (value is null)
+        {
+            EmitNullConstantPattern(scrutineeType, scrutineeClr, scrutineeLocal2);
+            return true;
+        }
+
+        if (scrutineeType.SpecialType == SpecialType.System_String && value is string stringValue)
+        {
+            ILGenerator.Emit(OpCodes.Ldstr, stringValue);
+            var opEq = typeof(string).GetMethod("op_Equality", new[] { typeof(string), typeof(string) })!;
+            ILGenerator.Emit(OpCodes.Call, opEq);
+            return true;
+        }
+
+        if (scrutineeType.IsNullable && scrutineeType.GetNullableUnderlyingType()!.IsValueType)
+        {
+            EmitNullableValueConstantCompare(scrutineeType, value, sourceType);
+            return true;
+        }
+
+        if (scrutineeType.IsValueType)
+        {
+            var loc = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
+            ILGenerator.Emit(OpCodes.Stloc, loc);
+            ILGenerator.Emit(OpCodes.Ldloc, loc);
+
+            EmitLiteralInTargetType(value, scrutineeType, sourceType);
+            ILGenerator.Emit(OpCodes.Ceq);
+            return true;
+        }
+
+        EmitReferenceConstantCompare(value, sourceType, scrutineeLocal2);
+        return true;
+    }
+
+    private static bool TryGetCompileTimeConstantValue(BoundExpression expression, out object? value, out ITypeSymbol sourceType)
+    {
+        switch (expression)
+        {
+            case BoundFieldAccess fieldAccess when IsCompileTimeConstantField(fieldAccess.Field):
+                value = fieldAccess.Field.GetConstantValue();
+                sourceType = fieldAccess.Field.Type;
+                return true;
+
+            case BoundMemberAccessExpression { Member: IFieldSymbol field } when IsCompileTimeConstantField(field):
+                value = field.GetConstantValue();
+                sourceType = field.Type;
+                return true;
+
+            default:
+                value = null;
+                sourceType = null!;
+                return false;
+        }
+    }
+
+    private static bool IsCompileTimeConstantField(IFieldSymbol field)
+        => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 
     private void EmitNullConstantPattern(ITypeSymbol scrutineeType, Type scrutineeClr, IILocal? scrutineeLocal2)
     {

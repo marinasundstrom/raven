@@ -2846,9 +2846,18 @@ patterns, and other pure match-only forms are not assignment/declaration heads.
   Value patterns are *not* bindings. To introduce a new binding, an explicit
   binding keyword (`val`, or `var`) is required.
 
+* `Type.Member` — **qualified constant/value pattern**. When the qualified name
+  resolves to a static constant-like value, such as `Math.PI` or an enum member
+  such as `JsonValueKind.True`, the pattern matches when the scrutinee equals
+  that value. Qualified names that resolve to types remain type/declaration
+  patterns.
+
 * `.Member` — **target-typed value pattern**. When the scrutinee type is known
   (for example, an enum type or a type with static fields), the leading-dot
   expression resolves against that target type and matches the resulting value.
+  This target-typed member shorthand is a pattern form; equality expressions use
+  the qualified enum/member form (`value == EnumType.Member`) instead of
+  `value == .Member`.
 
 > 🧭 **Disambiguation:** A bare identifier in pattern position is context-sensitive. If the
 > name resolves to a value symbol, it forms a value pattern. Otherwise, it is
@@ -3342,6 +3351,19 @@ member syntax when an expected enum type is available:
 ```raven
 val target: AttributeTargets = AttributeTargets.Delegate
 val shorthand: AttributeTargets = .Delegate
+
+if target is AttributeTargets.Delegate {
+}
+
+if target is .Delegate {
+}
+```
+
+Equality comparisons use qualified enum members:
+
+```raven
+if target == AttributeTargets.Delegate {
+}
 ```
 
 Type wildcard imports include enum members in unqualified value scope. For
