@@ -1,5 +1,5 @@
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Symbols;
@@ -9,6 +9,115 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class PESymbolRegressionTests : CompilationTestBase
 {
+    [Fact]
+    public void MetadataEnums_ReportEnumTypeKind()
+    {
+        var compilation = Compilation.Create("pe_enum_kind")
+            .AddReferences(TestMetadataReferences.Default);
+
+        var attributeTargets = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.AttributeTargets"));
+
+        Assert.Equal(TypeKind.Enum, attributeTargets.TypeKind);
+    }
+
+    [Fact]
+    public void MetadataTypes_ReportDeclaredAccessibility()
+    {
+        const string metadataSource = """
+namespace Lib
+
+internal class InternalTopLevel {}
+
+public class PublicContainer {
+    public class PublicNested {}
+    internal class InternalNested {}
+    private class PrivateNested {}
+    protected class ProtectedNested {}
+    protected internal class ProtectedInternalNested {}
+    private protected class PrivateProtectedNested {}
+}
+""";
+
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            metadataSource,
+            assemblyName: "pe-accessibility-fixture");
+        var compilation = Compilation.Create("pe_accessibility_consumer")
+            .AddReferences(TestMetadataReferences.Default.Append(metadataReference).ToArray());
+
+        AssertAccessibility("Lib.InternalTopLevel", Accessibility.Internal);
+        AssertAccessibility("Lib.PublicContainer", Accessibility.Public);
+        AssertAccessibility("Lib.PublicContainer+PublicNested", Accessibility.Public);
+        AssertAccessibility("Lib.PublicContainer+InternalNested", Accessibility.Internal);
+        AssertAccessibility("Lib.PublicContainer+PrivateNested", Accessibility.Private);
+        AssertAccessibility("Lib.PublicContainer+ProtectedNested", Accessibility.ProtectedAndProtected);
+        AssertAccessibility("Lib.PublicContainer+ProtectedInternalNested", Accessibility.ProtectedOrInternal);
+        AssertAccessibility("Lib.PublicContainer+PrivateProtectedNested", Accessibility.ProtectedAndInternal);
+
+        void AssertAccessibility(string metadataName, Accessibility expected)
+        {
+            var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
+            Assert.Equal(expected, type.DeclaredAccessibility);
+        }
+    }
+
+    [Fact]
+    public void MetadataMembers_ReportDeclaredAccessibility()
+    {
+        const string metadataSource = """
+namespace Lib
+
+public class MemberContainer {
+    public field PublicField: int = 0
+    internal field InternalField: int = 0
+    private field PrivateField: int = 0
+    protected field ProtectedField: int = 0
+    protected internal field ProtectedInternalField: int = 0
+    private protected field PrivateProtectedField: int = 0
+
+    public func PublicMethod() -> unit { return }
+    internal func InternalMethod() -> unit { return }
+    private func PrivateMethod() -> unit { return }
+    protected func ProtectedMethod() -> unit { return }
+    protected internal func ProtectedInternalMethod() -> unit { return }
+    private protected func PrivateProtectedMethod() -> unit { return }
+}
+""";
+
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            metadataSource,
+            assemblyName: "pe-member-accessibility-fixture");
+        var compilation = Compilation.Create("pe_member_accessibility_consumer")
+            .AddReferences(TestMetadataReferences.Default.Append(metadataReference).ToArray());
+        var container = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Lib.MemberContainer"));
+
+        AssertFieldAccessibility("PublicField", Accessibility.Public);
+        AssertFieldAccessibility("InternalField", Accessibility.Internal);
+        AssertFieldAccessibility("PrivateField", Accessibility.Private);
+        AssertFieldAccessibility("ProtectedField", Accessibility.ProtectedAndProtected);
+        AssertFieldAccessibility("ProtectedInternalField", Accessibility.ProtectedOrInternal);
+        AssertFieldAccessibility("PrivateProtectedField", Accessibility.ProtectedAndInternal);
+
+        AssertMethodAccessibility("PublicMethod", Accessibility.Public);
+        AssertMethodAccessibility("InternalMethod", Accessibility.Internal);
+        AssertMethodAccessibility("PrivateMethod", Accessibility.Private);
+        AssertMethodAccessibility("ProtectedMethod", Accessibility.ProtectedAndProtected);
+        AssertMethodAccessibility("ProtectedInternalMethod", Accessibility.ProtectedOrInternal);
+        AssertMethodAccessibility("PrivateProtectedMethod", Accessibility.ProtectedAndInternal);
+
+        void AssertFieldAccessibility(string name, Accessibility expected)
+        {
+            var field = Assert.Single(container.GetMembers(name).OfType<IFieldSymbol>());
+            Assert.Equal(expected, field.DeclaredAccessibility);
+        }
+
+        void AssertMethodAccessibility(string name, Accessibility expected)
+        {
+            var method = Assert.Single(container.GetMembers(name).OfType<IMethodSymbol>());
+            Assert.Equal(expected, method.DeclaredAccessibility);
+        }
+    }
+
     [Fact]
     public void ConstructedMetadataMethod_AcrossCompilations_HasStableSymbolEquality()
     {

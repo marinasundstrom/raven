@@ -87,6 +87,52 @@ string.
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnEnumType_ReturnsEnumMembers()
+    {
+        var code = """
+import System.*
+
+AttributeTargets.
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Delegate");
+    }
+
+    [Fact]
+    public void GetCompletions_TargetTypedEnumMemberInAttributeArgument_ReturnsEnumMembers()
+    {
+        var code = """
+import System.*
+
+[AttributeUsage(.De)]
+class DelegateOnlyAttribute : Attribute {
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.IndexOf(".De", StringComparison.Ordinal) + ".De".Length;
+
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Delegate");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnType_IncludesStaticExtensionMethodsAndProperties()
     {
         var code = """

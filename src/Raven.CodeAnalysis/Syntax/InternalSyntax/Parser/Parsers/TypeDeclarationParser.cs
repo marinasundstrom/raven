@@ -463,7 +463,6 @@ internal class TypeDeclarationParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.DelegateKeyword)
             {
-                memberDeclarationCheckpoint.Rewind();
                 return ParseDelegateDeclaration(attributeLists, modifiers);
             }
         }

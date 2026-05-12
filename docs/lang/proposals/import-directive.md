@@ -24,13 +24,28 @@ import System.*
 ### Import members of a type
 
 Applying the wildcard to a type name brings its nested types and static
-members into scope:
+members into scope. Static constants are included, including enum members:
 
 ```raven
 import System.Math.*
 
 let pi = PI
 ```
+
+Enum members may be imported with wildcard type imports or individual member
+imports:
+
+```raven
+import System.AttributeTargets.*
+import System.AttributeTargets.Delegate
+
+[AttributeUsage(Delegate)]
+[AttributeUsage(AttributeTargets.Delegate)]
+[AttributeUsage(.Delegate)]
+```
+
+Individual enum-member imports follow the same precedence rules as other
+specific imports.
 
 ### Resolution
 

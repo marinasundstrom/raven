@@ -206,6 +206,40 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void SpecificStaticConstantImport_MakesConstantAvailable()
+    {
+        string testCode =
+            """
+            import System.Math.PI
+
+            val pi = PI
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void WildcardTypeImport_MakesSourceConstFieldsAvailable()
+    {
+        string testCode =
+            """
+            import Constants.*
+
+            val value = Answer
+
+            public static class Constants {
+                public const Answer: int = 42
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void NamespaceImportWithoutWildcard_Should_ProduceDiagnostic()
     {
         string testCode =

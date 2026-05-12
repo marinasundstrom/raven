@@ -221,6 +221,7 @@ public partial class SemanticModel
         INamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(classDecl, isNestedType: false, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(classDecl, publicIsDefault: true, _declarationDiagnostics);
         ReportRedundantTypeModifiers(classDecl, _declarationDiagnostics);
 
         var declaredTypeKind = IsStructLikeNominalType(classDecl)
@@ -550,6 +551,7 @@ public partial class SemanticModel
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
                         ReportInvalidTypeModifiers(nestedClass, isNestedType: true, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(nestedClass, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
                         ReportRedundantTypeModifiers(nestedClass, _declarationDiagnostics);
 
                         var nestedTypeKind = IsStructLikeNominalType(nestedClass)
@@ -663,6 +665,7 @@ public partial class SemanticModel
                 case InterfaceDeclarationSyntax nestedInterface:
                     {
                         ReportInvalidTypeModifiers(nestedInterface, isNestedType: true, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(nestedInterface, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
 
                         var nestedHasSealedModifier = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
                         var nestedHasPermitsClause = nestedInterface.PermitsClause is not null;
@@ -747,6 +750,7 @@ public partial class SemanticModel
                 case EnumDeclarationSyntax enumDecl:
                     {
                         ReportInvalidTypeModifiers(enumDecl, isNestedType: true, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
 
                         var enumSymbol = new SourceNamedTypeSymbol(
                             enumDecl.Identifier.ValueText,
@@ -774,6 +778,7 @@ public partial class SemanticModel
                 case UnionDeclarationSyntax nestedUnion:
                     {
                         ReportInvalidTypeModifiers(nestedUnion, isNestedType: true, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(nestedUnion, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
                         var nestedUnionTypeKind = GetUnionTypeKind(nestedUnion);
                         var nestedUnionBaseType = GetUnionBaseType(nestedUnionTypeKind);
 
@@ -802,6 +807,7 @@ public partial class SemanticModel
                 case DelegateDeclarationSyntax delegateDecl:
                     {
                         ReportInvalidTypeModifiers(delegateDecl, isNestedType: true, _declarationDiagnostics);
+                        ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
 
                         var delegateAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             delegateDecl.Modifiers,
@@ -836,6 +842,7 @@ public partial class SemanticModel
     private void DeclareDelegateSymbol(DelegateDeclarationSyntax delegateDecl, INamespaceSymbol parentNamespace)
     {
         ReportInvalidTypeModifiers(delegateDecl, isNestedType: false, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: true, _declarationDiagnostics);
 
         ReportExternalTypeRedeclaration(
             parentNamespace,
@@ -874,6 +881,7 @@ public partial class SemanticModel
     private void DeclareInterfaceSymbol(InterfaceDeclarationSyntax interfaceDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(interfaceDecl, isNestedType: false, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(interfaceDecl, publicIsDefault: true, _declarationDiagnostics);
 
         var hasSealedModifier = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
         var hasPermitsClause = interfaceDecl.PermitsClause is not null;
@@ -961,6 +969,7 @@ public partial class SemanticModel
     private void DeclareExtensionSymbol(ExtensionDeclarationSyntax extensionDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(extensionDecl, isNestedType: false, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(extensionDecl, publicIsDefault: true, _declarationDiagnostics);
 
         var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             extensionDecl.Modifiers,
@@ -1013,6 +1022,7 @@ public partial class SemanticModel
     private void DeclareEnumSymbol(EnumDeclarationSyntax enumDecl, INamespaceSymbol parentNamespace)
     {
         ReportInvalidTypeModifiers(enumDecl, isNestedType: false, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: true, _declarationDiagnostics);
 
         var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
             enumDecl.Modifiers,
@@ -1046,6 +1056,7 @@ public partial class SemanticModel
     private void DeclareUnionSymbol(UnionDeclarationSyntax unionDecl, INamespaceSymbol parentNamespace)
     {
         ReportInvalidTypeModifiers(unionDecl, isNestedType: false, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(unionDecl, publicIsDefault: true, _declarationDiagnostics);
 
         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
         var namespaceSymbol = parentNamespace.AsSourceNamespace();
@@ -1152,6 +1163,7 @@ public partial class SemanticModel
         var typeImports = new List<ITypeSymbol>();
         var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
         var deferredWildcardImports = new List<NameSyntax>();
+        var deferredConstantImports = new List<NameSyntax>();
 
         var provisionalImportBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
 
@@ -1161,9 +1173,7 @@ public partial class SemanticModel
 
             if (IsWildcard(import.Name, out var nsName))
             {
-                INamespaceOrTypeSymbol? nsImport =
-                    ResolveType(targetNamespace, nsName.ToString())
-                    ?? (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, nsName.ToString());
+                var nsImport = ResolveWildcardImportTarget(targetNamespace, nsName);
                 if (nsImport != null)
                 {
                     namespaceImports.Add(nsImport);
@@ -1191,9 +1201,13 @@ public partial class SemanticModel
             {
                 typeImports.Add(typeSymbol);
             }
+            else if (TryResolveImportedConstant(targetNamespace, import.Name) is { } constant)
+            {
+                AddAliasImport(constant.Name, constant);
+            }
             else
             {
-                namespaceBinder.Diagnostics.ReportInvalidImportTarget(import.Name.GetLocation());
+                deferredConstantImports.Add(import.Name);
             }
         }
 
@@ -1206,9 +1220,7 @@ public partial class SemanticModel
 
         foreach (var baseName in deferredWildcardImports)
         {
-            INamespaceOrTypeSymbol? resolved =
-                ResolveType(targetNamespace, baseName.ToString())
-                ?? (INamespaceOrTypeSymbol?)ResolveNamespace(targetNamespace, baseName.ToString());
+            var resolved = ResolveWildcardImportTarget(targetNamespace, baseName);
 
             if (resolved != null)
             {
@@ -1217,6 +1229,18 @@ public partial class SemanticModel
             else
             {
                 namespaceBinder.Diagnostics.ReportInvalidImportTarget(baseName.GetLocation());
+            }
+        }
+
+        foreach (var constantImport in deferredConstantImports)
+        {
+            if (TryResolveImportedConstant(targetNamespace, constantImport) is { } constant)
+            {
+                AddAliasImport(constant.Name, constant);
+            }
+            else
+            {
+                namespaceBinder.Diagnostics.ReportInvalidImportTarget(constantImport.GetLocation());
             }
         }
 
@@ -1471,6 +1495,45 @@ public partial class SemanticModel
             }
         }
 
+        INamespaceOrTypeSymbol? ResolveWildcardImportTarget(INamespaceSymbol current, NameSyntax name)
+        {
+            var targetName = GetRightmostIdentifier(name);
+            var nameText = name.ToString();
+
+            if (ResolveType(current, nameText) is { } resolvedType &&
+                string.Equals(resolvedType.Name, targetName, StringComparison.Ordinal))
+                return resolvedType;
+
+            return ResolveNamespace(current, nameText);
+        }
+
+        IFieldSymbol? TryResolveImportedConstant(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
+                return null;
+
+            var ownerType = ResolveType(current, left.ToString())
+                ?? TryResolveTypeSyntaxSilently(left);
+            if (ownerType is null)
+                return null;
+
+            return ownerType.GetMembers(right.Identifier.ValueText)
+                .OfType<IFieldSymbol>()
+                .FirstOrDefault(IsImportableConstant);
+        }
+
+        void AddAliasImport(string name, ISymbol symbol)
+        {
+            var alias = AliasSymbolFactory.Create(name, symbol);
+            if (aliases.TryGetValue(name, out var existing))
+            {
+                aliases[name] = existing.Concat([alias]).ToArray();
+                return;
+            }
+
+            aliases[name] = [alias];
+        }
+
         bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out ITypeSymbol[] args)
         {
             args = new ITypeSymbol[list.Arguments.Count];
@@ -1502,6 +1565,9 @@ public partial class SemanticModel
                 _ => nameSyntax.ToString()
             };
         }
+
+        static bool IsImportableConstant(IFieldSymbol field)
+            => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 
         static bool IsWildcard(NameSyntax nameSyntax, out NameSyntax baseName)
         {
@@ -2312,6 +2378,46 @@ public partial class SemanticModel
         diagnostics.ReportAbstractModifierRedundantOnSealedClass(
             declaration.Identifier.ValueText,
             abstractModifier.GetLocation());
+    }
+
+    private static void ReportRedundantPublicTypeModifierIfNeeded(
+        MemberDeclarationSyntax declaration,
+        bool publicIsDefault,
+        DiagnosticBag diagnostics)
+    {
+        if (!publicIsDefault)
+            return;
+
+        SyntaxTokenList modifiers;
+        switch (declaration)
+        {
+            case TypeDeclarationSyntax typeDeclaration:
+                modifiers = typeDeclaration.Modifiers;
+                break;
+            case EnumDeclarationSyntax enumDeclaration:
+                modifiers = enumDeclaration.Modifiers;
+                break;
+            case DelegateDeclarationSyntax delegateDeclaration:
+                modifiers = delegateDeclaration.Modifiers;
+                break;
+            case ExtensionDeclarationSyntax extensionDeclaration:
+                modifiers = extensionDeclaration.Modifiers;
+                break;
+            case UnionDeclarationSyntax unionDeclaration:
+                modifiers = unionDeclaration.Modifiers;
+                break;
+            default:
+                return;
+        }
+
+        foreach (var modifier in modifiers)
+        {
+            if (modifier.Kind != SyntaxKind.PublicKeyword)
+                continue;
+
+            diagnostics.ReportPublicModifierRedundantInPublicByDefaultMode(modifier.GetLocation());
+            return;
+        }
     }
 
     private static void ReportInvalidTypeModifiers(

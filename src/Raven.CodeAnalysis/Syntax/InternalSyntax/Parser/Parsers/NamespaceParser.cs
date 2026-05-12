@@ -359,8 +359,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.DelegateKeyword)
             {
-                checkpoint.Rewind();
-
                 var delegateDeclaration = new TypeDeclarationParser(this).ParseDelegateDeclaration(attributeLists, modifiers);
 
                 AddMemberDeclarationWithSeparatorValidation(delegateDeclaration);

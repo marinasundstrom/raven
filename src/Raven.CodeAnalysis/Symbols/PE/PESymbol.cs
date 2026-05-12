@@ -31,12 +31,14 @@ internal abstract class PESymbol : Symbol
         {
             if (method.IsPublic)
                 return Accessibility.Public;
-            //if (method.IsFamily)
-            //    return Accessibility.Protected;
+            if (method.IsFamily)
+                return Accessibility.ProtectedAndProtected;
             if (method.IsAssembly)
                 return Accessibility.Internal;
             if (method.IsFamilyOrAssembly)
                 return Accessibility.ProtectedOrInternal;
+            if (method.IsFamilyAndAssembly)
+                return Accessibility.ProtectedAndInternal;
             if (method.IsPrivate)
                 return Accessibility.Private;
 
@@ -47,12 +49,14 @@ internal abstract class PESymbol : Symbol
         {
             if (field.IsPublic)
                 return Accessibility.Public;
-            //if (field.IsFamily)
-            //    return Accessibility.Protected;
+            if (field.IsFamily)
+                return Accessibility.ProtectedAndProtected;
             if (field.IsAssembly)
                 return Accessibility.Internal;
             if (field.IsFamilyOrAssembly)
                 return Accessibility.ProtectedOrInternal;
+            if (field.IsFamilyAndAssembly)
+                return Accessibility.ProtectedAndInternal;
             if (field.IsPrivate)
                 return Accessibility.Private;
 
@@ -81,12 +85,14 @@ internal abstract class PESymbol : Symbol
             {
                 if (type.IsNestedPublic)
                     return Accessibility.Public;
-                //if (type.IsNestedFamily)
-                //    return Accessibility.Protected;
+                if (type.IsNestedFamily)
+                    return Accessibility.ProtectedAndProtected;
                 if (type.IsNestedAssembly)
                     return Accessibility.Internal;
                 if (type.IsNestedFamORAssem)
                     return Accessibility.ProtectedOrInternal;
+                if (type.IsNestedFamANDAssem)
+                    return Accessibility.ProtectedAndInternal;
                 if (type.IsNestedPrivate)
                     return Accessibility.Private;
             }

@@ -47,6 +47,51 @@ class Container
     }
 
     [Fact]
+    public void DelegateDeclaration_BindsAttributesToDelegateType()
+    {
+        const string source = """
+import System.*
+
+class DelegateMarkerAttribute : Attribute {
+}
+
+[DelegateMarker]
+delegate Callback(value: int) -> string
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var model = compilation.GetSemanticModel(tree);
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
+
+        var attribute = Assert.Single(delegateSymbol.GetAttributes());
+        Assert.Equal("DelegateMarkerAttribute", attribute.AttributeClass.Name);
+        Assert.Empty(attribute.ConstructorArguments);
+    }
+
+    [Fact]
+    public void DelegateDeclaration_RejectsAttributesForWrongTarget()
+    {
+        const string source = """
+[System.Flags]
+delegate Callback(value: int) -> string
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
+        _ = delegateSymbol.GetAttributes();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AttributeNotValidForTarget));
+        Assert.Equal("Attribute 'FlagsAttribute' is not valid on target 'delegate'. Valid targets are 'enum'", diagnostic.GetMessage());
+        Assert.Equal(delegateDeclaration.AttributeLists.Single().Attributes.Single().GetLocation(), diagnostic.Location);
+    }
+
+    [Fact]
     public void MethodDeclaration_BindsTupleAndFunctionSignatureInNestedType()
     {
         const string source = """

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
@@ -119,9 +120,16 @@ internal static class AttributeDataFactory
                 constant = TypedConstant.CreateArray(emptyCollection.Type, ImmutableArray<TypedConstant>.Empty);
                 return true;
 
-            case BoundFieldAccess fieldAccess when fieldAccess.Field.IsConst:
-                constant = TypedConstant.CreatePrimitive(fieldAccess.Type, fieldAccess.Field.GetConstantValue());
+            case BoundFieldAccess fieldAccess when IsConstantField(fieldAccess.Field):
+                constant = CreateConstant(fieldAccess.Type, fieldAccess.Field.GetConstantValue());
                 return true;
+
+            case BoundMemberAccessExpression { Member: IFieldSymbol field } memberAccess when IsConstantField(field):
+                constant = CreateConstant(memberAccess.Type, field.GetConstantValue());
+                return true;
+
+            case BoundBinaryExpression binary:
+                return TryCreateBinaryConstant(binary, out constant);
 
             case BoundErrorExpression error:
                 constant = TypedConstant.CreateError(error.Type);
@@ -131,4 +139,49 @@ internal static class AttributeDataFactory
         constant = TypedConstant.CreateError(expression.Type);
         return false;
     }
+
+    private static TypedConstant CreateConstant(ITypeSymbol? type, object? value)
+        => IsEnumType(type)
+            ? TypedConstant.CreateEnum(type, value)
+            : TypedConstant.CreatePrimitive(type, value);
+
+    private static bool TryCreateBinaryConstant(BoundBinaryExpression binary, out TypedConstant constant)
+    {
+        if (!TryCreateTypedConstantCore(binary.Left, out var left) ||
+            !TryCreateTypedConstantCore(binary.Right, out var right))
+        {
+            constant = TypedConstant.CreateError(binary.Type);
+            return false;
+        }
+
+        if (left.Value is null || right.Value is null)
+        {
+            constant = TypedConstant.CreateError(binary.Type);
+            return false;
+        }
+
+        var operatorKind = binary.Operator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+        var result = operatorKind switch
+        {
+            BinaryOperatorKind.BitwiseAnd => Convert.ToInt64(left.Value) & Convert.ToInt64(right.Value),
+            BinaryOperatorKind.BitwiseOr => Convert.ToInt64(left.Value) | Convert.ToInt64(right.Value),
+            BinaryOperatorKind.BitwiseXor => Convert.ToInt64(left.Value) ^ Convert.ToInt64(right.Value),
+            _ => (long?)null
+        };
+
+        if (result is not { } value)
+        {
+            constant = TypedConstant.CreateError(binary.Type);
+            return false;
+        }
+
+        constant = CreateConstant(binary.Type, value);
+        return true;
+    }
+
+    private static bool IsEnumType(ITypeSymbol? type)
+        => type is INamedTypeSymbol { TypeKind: TypeKind.Enum };
+
+    private static bool IsConstantField(IFieldSymbol field)
+        => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 }

@@ -3189,6 +3189,13 @@ import System.Math.*
 val pi = PI
 ```
 
+Enum members are constants and participate in type-member imports. A wildcard
+type import such as `import System.AttributeTargets.*` brings all enum members
+into unqualified value scope, and an individual import such as
+`import System.AttributeTargets.Delegate` brings that single member into scope.
+An individual enum-member import is deliberate and follows the existing
+precedence rules for specific imports.
+
 Extension methods defined on imported types are also brought into scope. This
 enables consuming .NET helpers such as `System.Linq.Enumerable.Where` or
 `System.MemoryExtensions.AsSpan` directly from Raven source:
@@ -3314,6 +3321,25 @@ Each enum member introduces a public constant whose type is the enclosing enum.
 
 Enum members carry no associated payload or structure beyond their constant
 value. They cannot declare fields, parameters, or additional data.
+
+Enum members may be referenced with their qualified name or with target-typed
+member syntax when an expected enum type is available:
+
+```raven
+val target: AttributeTargets = AttributeTargets.Delegate
+val shorthand: AttributeTargets = .Delegate
+```
+
+Type wildcard imports include enum members in unqualified value scope. For
+example, `import System.AttributeTargets.*` makes `Delegate` available as a
+simple name. Individual enum members can also be imported explicitly:
+
+```raven
+import System.AttributeTargets.Delegate
+```
+
+Explicit enum-member imports are deliberate and use the same precedence as other
+specific imports. Qualified and target-typed enum access remain supported.
 
 An enum member may optionally declare an explicit value using `=` followed by a
 constant expression that is convertible to the enum’s underlying type:
@@ -3484,7 +3510,7 @@ Delegates are emitted as sealed, abstract types that inherit from `System.Multic
 * A constructor `.ctor(object, IntPtr)` that binds a target and method pointer.
 * An `Invoke` method whose parameters (including any `ref`/`out`/`in` modifiers) and return type match the declaration.
 
-If the return type clause is omitted, the delegate returns `unit`. Delegate declarations support generic type parameters and constraints using the same `where` clause rules as other type declarations. Accessibility defaults follow the standard type rules: top-level delegates are `internal` unless marked `public`, and nested delegates default to `private` except when declared inside interfaces.
+If the return type clause is omitted, the delegate returns `unit`. Delegate declarations support generic type parameters and constraints using the same `where` clause rules as other type declarations. Accessibility defaults follow the standard type rules: top-level delegates are `public` unless marked `internal`, and an explicit top-level `public` modifier is redundant and diagnosed. Nested delegates default to `private` except when declared inside interfaces.
 
 ## Functions
 

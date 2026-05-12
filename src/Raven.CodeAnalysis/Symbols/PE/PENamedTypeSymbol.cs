@@ -97,6 +97,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     private bool _extensionMarkerMembersComputed;
     private bool _hasExtensionMarkerMembers;
     private ImmutableArray<INamedTypeSymbol>? _nestedTypes;
+    private Accessibility? _accessibility;
 
     internal static PENamedTypeSymbol Create(
         ReflectionTypeLoader reflectionTypeLoader,
@@ -284,7 +285,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             return;
         }
 
-        if (typeInfo.IsEnum)
+        if (IsEnumType(typeInfo))
             TypeKind = TypeKind.Enum;
         else if (IsDelegateType(typeInfo))
             TypeKind = TypeKind.Delegate;
@@ -302,7 +303,34 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         (_constructedFrom, _originalDefinition) = ResolveGenericOrigins();
     }
 
+    private static bool IsEnumType(System.Reflection.TypeInfo typeInfo)
+    {
+        try
+        {
+            if (typeInfo.IsEnum)
+                return true;
+        }
+        catch (ArgumentException)
+        {
+            // MetadataLoadContext can throw for incomplete type graphs.
+        }
+
+        try
+        {
+            if (typeInfo.FullName == "System.Enum" || typeInfo.AsType().FullName == "System.Enum")
+                return false;
+
+            return typeInfo.BaseType?.FullName == "System.Enum";
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
     internal PETypeIdentity MetadataIdentity => _metadataIdentity;
+
+    public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_typeInfo.AsType());
 
     internal ITypeSymbol? GetExtensionReceiverType()
     {

@@ -4,12 +4,28 @@ import System.Console.*
 // Feature: attributes applied on type declarations.
 Console.WriteLine("Test")
 
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple: true, Inherited: false)]
+class QualifiedTypeAttribute : Attribute {
+    init() {
+    }
+}
+
+[AttributeUsage(.Class | .Struct, AllowMultiple: true, Inherited: false)]
+class TargetTypedTypeAttribute : Attribute {
+    init() {
+    }
+}
+
 [ObsoleteAttribute("Hello")]
 class Foo {
 
 }
 
 [Obsolete("Hello")]
+[QualifiedType]
+[QualifiedType]
+[TargetTypedType]
+[TargetTypedType]
 class Foo2 {
 
 }

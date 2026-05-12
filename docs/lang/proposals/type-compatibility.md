@@ -47,6 +47,23 @@ let a: double = 3       // int → double
 let b: long = 1         // int → long
 ```
 
+### Enum conversions
+
+Enums follow C#/CLR conversion rules. Explicit casts are available from an enum
+to any integral type, from any integral type to an enum, and from one enum type
+to another enum type. These casts operate on the underlying integral value; the
+value does not need to be one of the enum's declared members.
+
+```raven
+enum DeviceType : int {
+    Harddrive = 1
+    Monitor = 2
+}
+
+let value = (DeviceType)123
+let raw = (int)value
+```
+
 ### Reference conversions
 
 Reference types convert to their base types or implemented interfaces.
@@ -162,4 +179,3 @@ let b = 0.2       // b : double
 
 * **literal type** - the type representation or symbol of a literal or constant value
 * **literal type expression** - the expression that yields a literal or constant value
-

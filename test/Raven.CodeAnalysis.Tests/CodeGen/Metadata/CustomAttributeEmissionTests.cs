@@ -95,6 +95,44 @@ class Widget
     }
 
     [Fact]
+    public void SourceDefinedTypeAttribute_IsEmitted()
+    {
+        const string source = """
+import System.*
+
+class MarkerAttribute : Attribute
+{
+    init(value: string) { }
+
+    var Label: string {
+        get
+        set
+    }
+}
+
+[Marker("type", Label: "demo")]
+class Widget { }
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var widgetType = assembly.GetType("Widget", throwOnError: true)!;
+        var attribute = Assert.Single(widgetType.GetCustomAttributesData(), a => a.AttributeType.Name == "MarkerAttribute");
+
+        Assert.Equal("type", attribute.ConstructorArguments[0].Value);
+        var named = Assert.Single(attribute.NamedArguments);
+        Assert.Equal("Label", named.MemberName);
+        Assert.Equal("demo", named.TypedValue.Value);
+    }
+
+    [Fact]
     public void AutoPropertyMembers_HaveSynthesizedAttributes()
     {
         const string source = """

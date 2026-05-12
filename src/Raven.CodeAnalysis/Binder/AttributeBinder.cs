@@ -83,7 +83,25 @@ internal sealed class AttributeBinder : BlockBinder
                 continue;
             }
 
-            var boundArgumentExpression = BindExpression(argumentSyntax.Expression);
+            var targetType = TryGetAttributeConstructorParameterType(attributeType, argumentSyntaxes, i);
+            var enumTargetType = targetType ?? TryGetAttributeConstructorEnumParameterType(attributeType, argumentSyntaxes, i);
+            BoundExpression boundArgumentExpression;
+            if (enumTargetType is not null &&
+                TryBindAttributeEnumConstant(argumentSyntax.Expression, enumTargetType, out var enumConstant))
+            {
+                boundArgumentExpression = enumConstant;
+            }
+            else if (TryBindImportedAttributeEnumConstant(argumentSyntax.Expression, out enumConstant))
+            {
+                boundArgumentExpression = enumConstant;
+            }
+            else
+            {
+                boundArgumentExpression = targetType is null
+                    ? BindExpression(argumentSyntax.Expression)
+                    : BindAttributeArgumentExpression(argumentSyntax.Expression, targetType);
+            }
+
             var hasArgumentErrors = boundArgumentExpression is BoundErrorExpression ||
                 boundArgumentExpression.Type?.ContainsErrorType() == true;
 
@@ -140,6 +158,166 @@ internal sealed class AttributeBinder : BlockBinder
 
         _diagnostics.ReportNoOverloadForMethod("constructor for type", attributeType.Name, arguments.Length, attribute.GetLocation());
         return new BoundErrorExpression(attributeType, null, BoundExpressionReason.OverloadResolutionFailed);
+    }
+
+    private BoundExpression BindAttributeArgumentExpression(ExpressionSyntax expression, ITypeSymbol targetType)
+    {
+        using var _ = PushTargetType(targetType);
+        return BindExpression(expression);
+    }
+
+    private bool TryBindAttributeEnumConstant(ExpressionSyntax expression, ITypeSymbol targetType, out BoundExpression bound)
+    {
+        bound = null!;
+
+        targetType = targetType.UnwrapLiteralType() ?? targetType;
+        if (targetType is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            return false;
+
+        var memberName = expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(memberName))
+            return false;
+
+        var field = GetFieldsByName(enumType, memberName)
+            .FirstOrDefault()
+            ?? new SymbolQuery(memberName, enumType, IsStatic: true)
+                .Lookup(this)
+                .OfType<IFieldSymbol>()
+                .FirstOrDefault();
+        if (field is null)
+            return false;
+
+        bound = new BoundMemberAccessExpression(new BoundTypeExpression(enumType), field);
+        return true;
+    }
+
+    private static IEnumerable<IFieldSymbol> GetFieldsByName(INamedTypeSymbol type, string name)
+    {
+        foreach (var member in type.GetMembers(name).OfType<IFieldSymbol>())
+            yield return member;
+
+        foreach (var member in type.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (member.Name == name)
+                yield return member;
+        }
+    }
+
+    private bool TryBindImportedAttributeEnumConstant(ExpressionSyntax expression, out BoundExpression bound)
+    {
+        bound = null!;
+
+        if (expression is not IdentifierNameSyntax identifier)
+            return false;
+
+        var memberName = identifier.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(memberName))
+            return false;
+
+        var field = LookupSymbols(memberName)
+            .OfType<IFieldSymbol>()
+            .FirstOrDefault(static field => field.ContainingType?.TypeKind == TypeKind.Enum);
+        if (field?.ContainingType is not INamedTypeSymbol enumType)
+            return false;
+
+        bound = new BoundMemberAccessExpression(new BoundTypeExpression(enumType), field);
+        return true;
+    }
+
+    private static ITypeSymbol? TryGetAttributeConstructorParameterType(
+        INamedTypeSymbol attributeType,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        int argumentIndex)
+    {
+        if (arguments[argumentIndex].NameColon is not null)
+            return null;
+
+        var positionalIndex = 0;
+        for (var i = 0; i < argumentIndex; i++)
+        {
+            if (arguments[i].NameColon is null)
+                positionalIndex++;
+        }
+
+        ITypeSymbol? targetType = null;
+        foreach (var constructor in attributeType.Constructors.Where(static constructor => !constructor.IsStatic))
+        {
+            if (constructor.Parameters.Length <= positionalIndex)
+                continue;
+
+            var parameterType = constructor.Parameters[positionalIndex].Type;
+            if (targetType is null)
+            {
+                targetType = parameterType;
+                continue;
+            }
+
+            if (!HaveSameTypeIdentity(targetType, parameterType))
+                return null;
+        }
+
+        return targetType;
+    }
+
+    private static ITypeSymbol? TryGetAttributeConstructorEnumParameterType(
+        INamedTypeSymbol attributeType,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        int argumentIndex)
+    {
+        if (arguments[argumentIndex].NameColon is not null)
+            return null;
+
+        var positionalIndex = 0;
+        for (var i = 0; i < argumentIndex; i++)
+        {
+            if (arguments[i].NameColon is null)
+                positionalIndex++;
+        }
+
+        ITypeSymbol? enumType = null;
+        foreach (var constructor in attributeType.Constructors.Where(static constructor => !constructor.IsStatic))
+        {
+            if (constructor.Parameters.Length <= positionalIndex)
+                continue;
+
+            var parameterType = constructor.Parameters[positionalIndex].Type.UnwrapLiteralType()
+                ?? constructor.Parameters[positionalIndex].Type;
+            if (parameterType is not INamedTypeSymbol { TypeKind: TypeKind.Enum })
+                continue;
+
+            if (enumType is null || HaveSameTypeIdentity(enumType, parameterType))
+            {
+                enumType = parameterType;
+                continue;
+            }
+
+            return null;
+        }
+
+        return enumType;
+    }
+
+    private static bool HaveSameTypeIdentity(ITypeSymbol left, ITypeSymbol right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        if (left is INamedTypeSymbol leftNamed &&
+            right is INamedTypeSymbol rightNamed)
+        {
+            return string.Equals(
+                leftNamed.ToFullyQualifiedMetadataName(),
+                rightNamed.ToFullyQualifiedMetadataName(),
+                StringComparison.Ordinal);
+        }
+
+        return false;
     }
 
     private INamedTypeSymbol? BindAttributeType(TypeSyntax attributeName)

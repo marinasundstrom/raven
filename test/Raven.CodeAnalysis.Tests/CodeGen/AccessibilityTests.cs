@@ -14,17 +14,45 @@ public class AccessibilityTests
     public void TypeAccessibility_IsEmittedCorrectly()
     {
         var code = """
+class DefaultType { }
 internal class InternalType { }
 public class PublicType { }
 """;
 
         using var metadataContext = Emit(code, out var assembly);
 
+        var defaultType = assembly.GetType("DefaultType", throwOnError: true)!;
         var internalType = assembly.GetType("InternalType", throwOnError: true)!;
         var publicType = assembly.GetType("PublicType", throwOnError: true)!;
 
+        Assert.True(defaultType.IsPublic);
         Assert.True(internalType.IsNotPublic);
         Assert.True(publicType.IsPublic);
+    }
+
+    [Fact]
+    public void NestedTypeDefaultAccessibility_IsEmittedCorrectly()
+    {
+        var code = """
+public class Container {
+    class DefaultNested { }
+    public class PublicNested { }
+}
+
+public interface IContainer {
+    class InterfaceNested { }
+}
+""";
+
+        using var metadataContext = Emit(code, out var assembly);
+
+        var container = assembly.GetType("Container", throwOnError: true)!;
+        var interfaceContainer = assembly.GetType("IContainer", throwOnError: true)!;
+        var flags = BindingFlags.Public | BindingFlags.NonPublic;
+
+        AssertNestedVisibility(container, "DefaultNested", TypeAttributes.NestedPrivate, flags);
+        AssertNestedVisibility(container, "PublicNested", TypeAttributes.NestedPublic, flags);
+        AssertNestedVisibility(interfaceContainer, "InterfaceNested", TypeAttributes.NestedPublic, flags);
     }
 
     [Fact]
@@ -58,6 +86,7 @@ public class MethodContainer {
     public void SemanticModel_ReportsDeclaredAccessibility()
     {
         var code = """
+class DefaultType { }
 internal class Sample {
     private init() { }
     protected internal init(value: int) { }
@@ -69,11 +98,16 @@ internal class Sample {
         var compilation = CreateCompilation(syntaxTree);
 
         var model = compilation.GetSemanticModel(syntaxTree);
-        var classDecl = syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var classDecls = syntaxTree.GetRoot().DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .ToDictionary(static declaration => declaration.Identifier.ValueText);
         var ctorDecls = syntaxTree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToArray();
         var methodDecl = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
 
-        var classSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
+        var defaultTypeSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecls["DefaultType"])!;
+        Assert.Equal(Accessibility.Public, defaultTypeSymbol.DeclaredAccessibility);
+
+        var classSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecls["Sample"])!;
         Assert.Equal(Accessibility.Internal, classSymbol.DeclaredAccessibility);
 
         var firstCtor = (IMethodSymbol)model.GetDeclaredSymbol(ctorDecls[0])!;
@@ -83,6 +117,36 @@ internal class Sample {
 
         var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodDecl)!;
         Assert.Equal(Accessibility.Public, methodSymbol.DeclaredAccessibility);
+    }
+
+    [Fact]
+    public void SemanticModel_ReportsNestedTypeDefaultAccessibility()
+    {
+        var code = """
+class Container {
+    class DefaultNested { }
+    public class PublicNested { }
+}
+
+interface IContainer {
+    class InterfaceNested { }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(syntaxTree);
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var declarations = syntaxTree.GetRoot().DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .ToDictionary(static declaration => declaration.Identifier.ValueText);
+
+        var defaultNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["DefaultNested"])!;
+        var publicNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["PublicNested"])!;
+        var interfaceNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["InterfaceNested"])!;
+
+        Assert.Equal(Accessibility.Private, defaultNested.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Public, publicNested.DeclaredAccessibility);
+        Assert.Equal(Accessibility.Public, interfaceNested.DeclaredAccessibility);
     }
 
     private static void AssertNestedVisibility(Type container, string nestedName, TypeAttributes expected, BindingFlags flags)

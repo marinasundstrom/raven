@@ -170,10 +170,10 @@ one keyword produces the expected CLR combinations:
 
 Default accessibility depends on the declaration context:
 
-* Top-level classes, structs, interfaces, and enums default to `internal` and
-  must be marked `public` to be exposed from the assembly. Other accessibility
-  keywords collapse to the same effective visibility when applied at the
-  top level.
+* Top-level classes, structs, interfaces, and enums default to `public`.
+  Use `internal` when a top-level type should be visible only within the
+  current assembly. An explicit `public` modifier is redundant in this
+  position and is diagnosed.
 * Nested types default to `private` unless they are declared inside an
   interface, in which case they are implicitly `public`.
 * Member declarations (fields, methods, properties, indexers, constructors, and lifecycle blocks)

@@ -81,6 +81,129 @@ class StackPanel : Control { }
     }
 
     [Fact]
+    public void AttributeUsageAttribute_AcceptsQualifiedEnumConstant()
+    {
+        const string source = """
+import System.*
+
+[AttributeUsage(AttributeTargets.Delegate)]
+class DelegateOnlyAttribute : Attribute {
+}
+
+[DelegateOnly]
+delegate Callback()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        _ = delegateSymbol.GetAttributes();
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void AttributeUsageAttribute_AcceptsDirectlyImportedEnumConstant()
+    {
+        const string source = """
+import System.*
+import System.AttributeTargets.Delegate
+
+[AttributeUsage(Delegate)]
+class DelegateOnlyAttribute : Attribute {
+}
+
+[DelegateOnly]
+delegate Callback()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        _ = delegateSymbol.GetAttributes();
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void AttributeUsageAttribute_AcceptsWildcardImportedEnumConstant()
+    {
+        const string source = """
+import System.*
+import System.AttributeTargets.*
+
+[AttributeUsage(Delegate)]
+class DelegateOnlyAttribute : Attribute {
+}
+
+[DelegateOnly]
+delegate Callback()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        _ = delegateSymbol.GetAttributes();
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void AttributeUsageAttribute_AcceptsTargetTypedEnumConstant()
+    {
+        const string source = """
+import System.*
+
+[AttributeUsage(.Delegate)]
+class DelegateOnlyAttribute : Attribute {
+}
+
+[DelegateOnly]
+delegate Callback()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        _ = delegateSymbol.GetAttributes();
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void AttributeUsageAttribute_AcceptsTargetTypedEnumFlagComposition()
+    {
+        const string source = """
+import System.*
+
+[AttributeUsage(.Class | .Delegate)]
+class TypeOrDelegateAttribute : Attribute {
+}
+
+[TypeOrDelegate]
+class C { }
+
+[TypeOrDelegate]
+delegate Callback()
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "C");
+        var classSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
+        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        _ = classSymbol.GetAttributes();
+        _ = delegateSymbol.GetAttributes();
+
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
     public void AttributeArgumentMustBeConstant_ReportsDiagnostic()
     {
         const string source = """

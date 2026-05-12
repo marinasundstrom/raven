@@ -93,6 +93,54 @@ class C {
     }
 
     [Fact]
+    public void TopLevelTypes_ReportRedundantPublicModifier()
+    {
+        const string source = """
+public class C {}
+public struct S {}
+public interface I {}
+public enum E { A }
+public delegate D()
+public union U { case A }
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Id == CompilerDiagnostics.PublicModifierRedundantInPublicByDefaultMode.Id)
+            .ToArray();
+
+        Assert.Equal(6, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity));
+    }
+
+    [Fact]
+    public void NestedType_PublicModifierIsOnlyRedundantWhenPublicIsDefault()
+    {
+        const string source = """
+class C {
+    public class NestedClass {}
+}
+
+interface I {
+    public class NestedInterfaceClass {}
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Id == CompilerDiagnostics.PublicModifierRedundantInPublicByDefaultMode.Id)
+            .ToArray();
+
+        Assert.Single(diagnostics);
+    }
+
+    [Fact]
     public void MembersPublicByDefault_Enabled_DoesNotReportDisabledModeWarning()
     {
         const string source = """

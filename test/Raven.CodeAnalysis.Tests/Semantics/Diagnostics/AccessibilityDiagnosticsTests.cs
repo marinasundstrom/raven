@@ -137,7 +137,7 @@ extension FooExtensions for Foo {
         verifier.Verify();
     }
 
-    [Fact(Skip = "Metadata accessibility enforcement pending")]
+    [Fact]
     public void ReferencingInternalMetadataType_ReportsRAV0500()
     {
         const string librarySource = """
@@ -168,6 +168,12 @@ val value: Hidden = default(Hidden)
         Assert.Equal(Accessibility.Internal, hiddenType.DeclaredAccessibility);
         Assert.False(SymbolEqualityComparer.Default.Equals(hiddenType.ContainingAssembly, compilation.Assembly));
 
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Id == CompilerDiagnostics.SymbolIsInaccessible.Id)
+            .ToArray();
+
+        Assert.Equal(2, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal(["type", "Hidden"], diagnostic.GetMessageArgs()));
     }
 
     private static MetadataReference CreateMetadataReference(string source)

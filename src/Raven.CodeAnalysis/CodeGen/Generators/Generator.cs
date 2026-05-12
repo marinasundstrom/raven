@@ -812,6 +812,9 @@ internal abstract class Generator
         from = from.UnwrapLiteralType() ?? from;
         to = to.UnwrapLiteralType() ?? to;
 
+        from = NormalizeEnumNumericConversionType(from);
+        to = NormalizeEnumNumericConversionType(to);
+
         // Numeric conversion should not be called for nullable.
         // (You already handle nullable earlier, but keep this as a sanity check.)
         if (from is NullableTypeSymbol || to is NullableTypeSymbol)
@@ -828,6 +831,11 @@ internal abstract class Generator
         // existing conv.* path
         EmitPrimitiveNumericConversion(to);
     }
+
+    private static ITypeSymbol NormalizeEnumNumericConversionType(ITypeSymbol type)
+        => type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType }
+            ? underlyingType
+            : type;
 
     private void EmitPrimitiveNumericConversion(ITypeSymbol to)
     {

@@ -42,6 +42,14 @@ public readonly struct TypedConstant
         return new TypedConstant(type, value, TypedConstantKind.Primitive);
     }
 
+    internal static TypedConstant CreateEnum(ITypeSymbol? type, object? value)
+    {
+        if (value is null)
+            return CreateNull(type);
+
+        return new TypedConstant(type, value, TypedConstantKind.Enum);
+    }
+
     internal static TypedConstant CreateNull(ITypeSymbol? type)
         => new(type, null, TypedConstantKind.Null);
 

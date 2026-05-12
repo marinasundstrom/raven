@@ -97,7 +97,7 @@ class ImportBinder : Binder
         // Members from namespace or type-scope imports (including static members of imported types)
         foreach (var ns in _namespaceOrTypeScopeImports)
         {
-            foreach (var member in ns.GetMembers(name))
+            foreach (var member in GetMembersByName(ns, name))
                 if (seen.Add(member))
                     results.Add(member);
 
@@ -118,7 +118,7 @@ class ImportBinder : Binder
             else if (ns is INamespaceSymbol namespaceSymbol &&
                 TryResolveTypeFromNamespaceName(namespaceSymbol, out var namespaceNamedType))
             {
-                foreach (var member in namespaceNamedType.GetMembers(name))
+                foreach (var member in GetMembersByName(namespaceNamedType, name))
                     if (seen.Add(member))
                         results.Add(member);
 
@@ -141,6 +141,21 @@ class ImportBinder : Binder
             return results;
 
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
+    }
+
+    private static IEnumerable<ISymbol> GetMembersByName(INamespaceOrTypeSymbol symbol, string name)
+    {
+        foreach (var member in symbol.GetMembers(name))
+            yield return member;
+
+        if (symbol is not ITypeSymbol type)
+            yield break;
+
+        foreach (var member in type.GetMembers())
+        {
+            if (member.Name == name)
+                yield return member;
+        }
     }
 
     private bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)

@@ -42,6 +42,7 @@ internal class TypeGenerator
 
     ImmutableArray<ITypeParameterSymbol> _inheritedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
     bool _releasedInheritedTypeParameters;
+    bool _memberBuildersDefined;
 
     public TypeGenerator(CodeGenerator codeGen, ITypeSymbol typeSymbol)
     {
@@ -65,10 +66,32 @@ internal class TypeGenerator
             if (named.TypeKind == TypeKind.Delegate)
             {
                 var accessibilityAttributes = GetTypeAccessibilityAttributes(named);
-                TypeBuilder = CodeGen.ModuleBuilder.DefineType(
-                    named.MetadataName,
-                    accessibilityAttributes | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.AutoClass | TypeAttributes.AnsiClass,
-                    ResolveClrType(named.BaseType));
+                var delegateAttributes = accessibilityAttributes |
+                    TypeAttributes.Class |
+                    TypeAttributes.Sealed |
+                    TypeAttributes.Abstract |
+                    TypeAttributes.AutoClass |
+                    TypeAttributes.AnsiClass;
+
+                if (named.ContainingType is INamedTypeSymbol delegateContainingType)
+                {
+                    var containingGenerator = CodeGen.GetOrCreateTypeGenerator(delegateContainingType);
+                    if (containingGenerator.TypeBuilder is null)
+                        containingGenerator.DefineTypeBuilder();
+
+                    TypeBuilder = containingGenerator.TypeBuilder!.DefineNestedType(
+                        GetNestedTypeMetadataName(named),
+                        delegateAttributes,
+                        ResolveClrType(named.BaseType));
+                }
+                else
+                {
+                    TypeBuilder = CodeGen.ModuleBuilder.DefineType(
+                        named.MetadataName,
+                        delegateAttributes,
+                        ResolveClrType(named.BaseType));
+                }
+
                 DefineTypeGenericParameters(named);
                 CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
                 return;
@@ -326,6 +349,7 @@ internal class TypeGenerator
         }
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+        ApplyCompilerGeneratedAttributeIfClosureFrame();
 
         if (TypeSymbol is SourceUnionSymbol discriminatedUnionSymbol)
         {
@@ -734,6 +758,11 @@ internal class TypeGenerator
 
     public void DefineMemberBuilders()
     {
+        if (_memberBuildersDefined)
+            return;
+
+        _memberBuildersDefined = true;
+
         if (TypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
         {
             DefineDelegateMembers(delegateType);
@@ -1042,15 +1071,21 @@ internal class TypeGenerator
         if (invokeSymbol is not null)
         {
             var invokeParameters = invokeSymbol.Parameters
-                .Select(p => ResolveClrType(p.Type))
+                .Select(GetParameterClrType)
                 .ToArray();
 
             var invokeBuilder = TypeBuilder.DefineMethod(
                 invokeSymbol.Name,
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
-                ResolveClrType(invokeSymbol.ReturnType),
+                GetMethodReturnClrType(invokeSymbol.ReturnType),
                 invokeParameters);
             invokeBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+            for (var i = 0; i < invokeSymbol.Parameters.Length; i++)
+            {
+                var parameter = invokeSymbol.Parameters[i];
+                invokeBuilder.DefineParameter(i + 1, GetParameterAttributes(parameter), parameter.Name);
+            }
+
             CodeGen.ApplyCustomAttributes(invokeSymbol.GetAttributes(), attribute => invokeBuilder.SetCustomAttribute(attribute));
             if (invokeSymbol is SourceSymbol invokeSource)
                 CodeGen.AddMemberBuilder(invokeSource, invokeBuilder);
@@ -1189,6 +1224,7 @@ internal class TypeGenerator
         }
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+        ApplyCompilerGeneratedAttributeIfClosureFrame();
 
         var extensionAttribute = CodeGen.CreateExtensionAttributeBuilder();
         if (extensionAttribute is not null)
@@ -1931,10 +1967,6 @@ internal class TypeGenerator
         var closureBuilder = closureGenerator.TypeBuilder
             ?? throw new InvalidOperationException("Failed to define closure type builder.");
 
-        var compilerGeneratedAttr = CodeGen.CreateCompilerGeneratedAttributeBuilder();
-        if (compilerGeneratedAttr is not null)
-            closureBuilder.SetCustomAttribute(compilerGeneratedAttr);
-
         var ctor = closureBuilder.DefineDefaultConstructor(MethodAttributes.Public);
 
         var fields = new Dictionary<ISymbol, FieldBuilder>(SymbolEqualityComparer.Default);
@@ -2512,10 +2544,39 @@ internal class TypeGenerator
     private Type GetParameterClrType(IParameterSymbol parameter)
     {
         var parameterType = ResolveClrType(parameter.Type);
-        return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In
+        return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
             ? parameterType.MakeByRefType()
             : parameterType;
     }
+
+    private Type GetMethodReturnClrType(ITypeSymbol returnType)
+        => returnType.SpecialType == SpecialType.System_Unit
+            ? typeof(void)
+            : ResolveClrType(returnType);
+
+    private static ParameterAttributes GetParameterAttributes(IParameterSymbol parameter)
+    {
+        return parameter.RefKind switch
+        {
+            RefKind.Out => ParameterAttributes.Out,
+            RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter => ParameterAttributes.In,
+            _ => ParameterAttributes.None
+        };
+    }
+
+    private void ApplyCompilerGeneratedAttributeIfClosureFrame()
+    {
+        if (TypeBuilder is null || !IsClosureFrameType(TypeSymbol))
+            return;
+
+        var compilerGeneratedAttr = CodeGen.CreateCompilerGeneratedAttributeBuilder();
+        if (compilerGeneratedAttr is not null)
+            TypeBuilder.SetCustomAttribute(compilerGeneratedAttr);
+    }
+
+    private static bool IsClosureFrameType(ITypeSymbol typeSymbol)
+        => typeSymbol.Name.StartsWith("<>c__DisplayClass", StringComparison.Ordinal) ||
+           typeSymbol.MetadataName.StartsWith("<>c__DisplayClass", StringComparison.Ordinal);
 
     private static bool SignaturesMatch(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
     {

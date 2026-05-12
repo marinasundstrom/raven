@@ -566,21 +566,22 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: false, isUnboxing: true));
         }
 
-        // Explicit enum -> underlying enum type conversion.
-        // Example: `val x: E = ...; val i: int = (int)x`.
-        // Treat as an explicit numeric conversion.
+        // C#-style explicit enum conversions:
+        // - enum -> any integral type
+        // - any integral type -> enum
+        // - enum -> enum
+        // Treat them as explicit numeric conversions for ranking and diagnostics.
         if (source is INamedTypeSymbol sourceNamedEnum &&
             sourceNamedEnum.TypeKind == TypeKind.Enum &&
-            sourceNamedEnum.EnumUnderlyingType is { } enumUnderlyingType &&
-            destination.MetadataIdentityEquals(enumUnderlyingType))
+            (IsIntegralType(destination) ||
+             destination is INamedTypeSymbol { TypeKind: TypeKind.Enum }))
         {
             return Finalize(new Conversion(isImplicit: false, isNumeric: true));
         }
 
         if (destination is INamedTypeSymbol destNamedEnum &&
             destNamedEnum.TypeKind == TypeKind.Enum &&
-            destNamedEnum.EnumUnderlyingType is { } enumUnderlyingType2 &&
-            source.MetadataIdentityEquals(enumUnderlyingType2))
+            IsIntegralType(source))
         {
             return Finalize(new Conversion(isImplicit: false, isNumeric: true));
         }
@@ -1523,6 +1524,18 @@ public partial class Compilation
             _ => false
         };
     }
+
+    private static bool IsIntegralType(ITypeSymbol type)
+        => type.SpecialType is
+            SpecialType.System_SByte or
+            SpecialType.System_Byte or
+            SpecialType.System_Int16 or
+            SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or
+            SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or
+            SpecialType.System_UInt64 or
+            SpecialType.System_Char;
 
     private bool IsExplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
     {

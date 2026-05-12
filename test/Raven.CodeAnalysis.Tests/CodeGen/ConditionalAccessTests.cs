@@ -223,7 +223,7 @@ class Runner {
         Assert.Equal(15, value);
     }
 
-    [Fact(Skip = "Conditional element access (values?[index]) is not supported by current binder/codegen.")]
+    [Fact]
     public void ConditionalElementAccess_NullArray_ReturnsNull()
     {
         var code = """
@@ -248,5 +248,32 @@ class Foo {
         var method = type.GetMethod("Run")!;
         var value = method.Invoke(instance, Array.Empty<object>());
         Assert.Null(value);
+    }
+
+    [Fact]
+    public void ConditionalElementAccess_NonNullArray_ReturnsElement()
+    {
+        var code = """
+class Foo {
+    public func Run() -> int? {
+        var values: int[]? = [1, 2, 3]
+        return values?[1]
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run")!;
+        var value = method.Invoke(instance, Array.Empty<object>());
+        Assert.Equal(2, value);
     }
 }

@@ -286,6 +286,7 @@ internal abstract class SourceSymbol : Symbol
                 .OfType<AttributeListSyntax>()
                 .Where(static list => HasExplicitTarget(list, "module")),
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
+            DelegateDeclarationSyntax delegateDeclaration when this is ITypeSymbol => delegateDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
             FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,

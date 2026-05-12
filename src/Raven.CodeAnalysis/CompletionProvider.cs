@@ -1041,6 +1041,119 @@ public static class CompletionProvider
             return null;
         }
 
+        ITypeSymbol? TryGetTargetTypedMemberCompletionType(MemberBindingExpressionSyntax memberBinding)
+        {
+            var targetType = TryGetLiteralCompletionTargetType(memberBinding.Name.Identifier);
+            if (targetType is not null)
+                return targetType;
+
+            return TryGetAttributeArgumentTargetType(memberBinding);
+        }
+
+        ITypeSymbol? TryGetAttributeArgumentTargetType(MemberBindingExpressionSyntax memberBinding)
+        {
+            var argument = memberBinding.GetAncestor<ArgumentSyntax>();
+            var attribute = argument?.GetAncestor<AttributeSyntax>();
+            if (argument is null ||
+                attribute?.ArgumentList is null ||
+                argument.NameColon is not null)
+            {
+                return null;
+            }
+
+            var arguments = attribute.ArgumentList.Arguments;
+            var argumentIndex = -1;
+            for (var i = 0; i < arguments.Count; i++)
+            {
+                if (ReferenceEquals(arguments[i], argument))
+                {
+                    argumentIndex = i;
+                    break;
+                }
+            }
+
+            if (argumentIndex < 0)
+                return null;
+
+            var attributeType = TryResolveAttributeType(attribute);
+            return attributeType is null
+                ? null
+                : TryGetAttributeConstructorParameterType(attributeType, arguments, argumentIndex);
+        }
+
+        INamedTypeSymbol? TryResolveAttributeType(AttributeSyntax attribute)
+        {
+            if (attribute.Name is NameSyntax name &&
+                TryResolveNamespaceOrType(name) is INamedTypeSymbol namedType &&
+                IsAttributeType(namedType))
+            {
+                return namedType;
+            }
+
+            var attributeName = attribute.Name.ToString();
+            if (!attributeName.EndsWith("Attribute", StringComparison.Ordinal))
+                attributeName += "Attribute";
+
+            return binder.LookupType(attributeName) as INamedTypeSymbol
+                ?? model.Compilation.GetTypeByMetadataName(attributeName) as INamedTypeSymbol;
+        }
+
+        static bool IsAttributeType(INamedTypeSymbol type)
+            => type.Name.EndsWith("Attribute", StringComparison.Ordinal) ||
+               type.BaseType?.ToFullyQualifiedMetadataName() == "System.Attribute";
+
+        static ITypeSymbol? TryGetAttributeConstructorParameterType(
+            INamedTypeSymbol attributeType,
+            SeparatedSyntaxList<ArgumentSyntax> arguments,
+            int argumentIndex)
+        {
+            if (arguments[argumentIndex].NameColon is not null)
+                return null;
+
+            var positionalIndex = 0;
+            for (var i = 0; i < argumentIndex; i++)
+            {
+                if (arguments[i].NameColon is null)
+                    positionalIndex++;
+            }
+
+            ITypeSymbol? targetType = null;
+            foreach (var constructor in attributeType.Constructors.Where(static constructor => !constructor.IsStatic))
+            {
+                if (constructor.Parameters.Length <= positionalIndex)
+                    continue;
+
+                var parameterType = constructor.Parameters[positionalIndex].Type;
+                if (targetType is null)
+                {
+                    targetType = parameterType;
+                    continue;
+                }
+
+                if (!HaveSameTypeIdentity(targetType, parameterType))
+                    return null;
+            }
+
+            return targetType;
+        }
+
+        static bool HaveSameTypeIdentity(ITypeSymbol left, ITypeSymbol right)
+        {
+            if (SymbolEqualityComparer.Default.Equals(left, right))
+                return true;
+
+            if (left is INamedTypeSymbol leftNamed &&
+                right is INamedTypeSymbol rightNamed)
+            {
+                return string.Equals(
+                    leftNamed.ToFullyQualifiedMetadataName(),
+                    rightNamed.ToFullyQualifiedMetadataName(),
+                    StringComparison.Ordinal);
+            }
+
+            return false;
+        }
+
         bool TryCollectLiteralMembers(ITypeSymbol? type, List<ISymbol> results)
         {
             if (type is null)
@@ -1283,6 +1396,31 @@ public static class CompletionProvider
                 if (completions.Count > 0)
                     return completions;
             }
+        }
+
+        var targetTypedMemberBinding = token.GetAncestor<MemberBindingExpressionSyntax>();
+        if (targetTypedMemberBinding is not null &&
+            targetTypedMemberBinding.Parent is not ConditionalAccessExpressionSyntax &&
+            position >= targetTypedMemberBinding.OperatorToken.Span.End &&
+            TryGetTargetTypedMemberCompletionType(targetTypedMemberBinding) is INamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
+        {
+            var hasNameAtCaret = !targetTypedMemberBinding.Name.Identifier.IsMissing &&
+                position > targetTypedMemberBinding.Name.Identifier.Span.Start;
+            var prefix = hasNameAtCaret
+                ? targetTypedMemberBinding.Name.Identifier.ValueText
+                : string.Empty;
+            var nameSpan = hasNameAtCaret
+                ? targetTypedMemberBinding.Name.Identifier.Span
+                : new TextSpan(position, 0);
+
+            foreach (var field in targetEnum.GetMembers()
+                .OfType<IFieldSymbol>()
+                .Where(field => field.IsConst && NameMatchesPrefix(field.Name, prefix)))
+            {
+                AddCompletionItem(field, nameSpan);
+            }
+
+            return completions;
         }
 
         var importDirective = token.GetAncestor<ImportDirectiveSyntax>();

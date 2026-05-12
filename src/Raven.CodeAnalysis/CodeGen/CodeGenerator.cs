@@ -340,7 +340,10 @@ internal class CodeGenerator
 
         foreach (var (name, value) in attribute.NamedArguments)
         {
-            var property = attributeType.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var property = TryResolveSourceAttributeNamedArgument(attribute.AttributeClass, name, out var sourceMember) &&
+                           sourceMember is PropertyInfo sourceProperty
+                ? sourceProperty
+                : GetAttributeProperty(attributeType, name);
             if (property is not null)
             {
                 properties ??= new List<PropertyInfo>();
@@ -350,7 +353,7 @@ internal class CodeGenerator
                 continue;
             }
 
-            var field = attributeType.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var field = sourceMember as FieldInfo ?? GetAttributeField(attributeType, name);
             if (field is not null)
             {
                 fields ??= new List<FieldInfo>();
@@ -369,14 +372,82 @@ internal class CodeGenerator
             fieldValues is not null ? fieldValues.ToArray() : Array.Empty<object?>());
     }
 
+    private bool TryResolveSourceAttributeNamedArgument(INamedTypeSymbol? attributeClass, string name, out MemberInfo memberInfo)
+    {
+        memberInfo = null!;
+
+        if (attributeClass is null)
+            return false;
+
+        foreach (var member in attributeClass.GetMembers(name))
+        {
+            SourceSymbol? sourceSymbol = member switch
+            {
+                SourcePropertySymbol property => property,
+                SourceFieldSymbol field => field,
+                _ => null
+            };
+
+            if (sourceSymbol is null)
+                continue;
+
+            if (TryGetMemberBuilder(sourceSymbol, out memberInfo))
+                return memberInfo is PropertyInfo or FieldInfo;
+        }
+
+        return false;
+    }
+
+    private static PropertyInfo? GetAttributeProperty(Type attributeType, string name)
+    {
+        try
+        {
+            return attributeType.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private static FieldInfo? GetAttributeField(Type attributeType, string name)
+    {
+        try
+        {
+            return attributeType.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private ConstructorInfo? ResolveAttributeConstructor(AttributeData attribute)
     {
         var constructorSymbol = attribute.AttributeConstructor;
 
         if (constructorSymbol is SourceMethodSymbol sourceConstructor)
         {
-            if (GetMemberBuilder(sourceConstructor) is ConstructorInfo sourceCtorInfo)
+            if (TryGetMemberBuilder(sourceConstructor, out var existingMember) &&
+                existingMember is ConstructorInfo existingCtorInfo)
+            {
+                return existingCtorInfo;
+            }
+
+            if (sourceConstructor.ContainingType is INamedTypeSymbol containingType)
+            {
+                var typeGenerator = GetOrCreateTypeGenerator(containingType);
+                if (typeGenerator.TypeBuilder is null && typeGenerator.Type is null)
+                    typeGenerator.DefineTypeBuilder();
+
+                typeGenerator.DefineMemberBuilders();
+            }
+
+            if (TryGetMemberBuilder(sourceConstructor, out var sourceMember) &&
+                sourceMember is ConstructorInfo sourceCtorInfo)
+            {
                 return sourceCtorInfo;
+            }
         }
 
         var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(attribute.AttributeClass, this);

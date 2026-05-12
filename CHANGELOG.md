@@ -9,6 +9,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Match expression arms now accept direct `return` expressions, aligning them with other expression-oriented value positions while preserving diagnostics for statement `return` inside block-expression arms.
 
 ### Fixed
+- Enum conversions now follow C#/CLR rules for explicit enum-to-integral, integral-to-enum, and enum-to-enum conversions, and emitted casts preserve CLR-open enum values that are not declared members.
+- Attribute arguments now accept enum constants in qualified and target-typed forms, including enum flag compositions such as `.Class | .Delegate`.
+- Type wildcard imports now expose enum members alongside normal static members and constants, and individual enum members can be imported as specific constant imports.
+- Delegate declaration attributes now bind to the delegate type, validate against the CLR `delegate` attribute target, and emit to delegate metadata.
+- Generated display-class closure frame types now consistently carry `CompilerGeneratedAttribute` metadata.
+- Metadata type symbols now preserve declared visibility from referenced assemblies, and delegate declarations now emit CLR delegate metadata with nested placement, `abstract sealed` flags, by-ref parameter shapes, and `unit` `Invoke` returns as `void`.
+- Conditional element access such as `values?[index]` now emits correctly for array receivers.
 - Line-leading pointer dereference assignments such as `*ptr = value` now parse as new statements after expression statements instead of being treated as multiplication continuations.
 - Semantic symbol queries for user-defined unary and binary operator expressions now return the selected operator method instead of rebinding the expression out of scope.
 - Mixed nullable equality checks with user-defined equality operators no longer recurse through target-type lookup.

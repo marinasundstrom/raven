@@ -123,9 +123,7 @@ class BinderFactory
 
             if (IsWildcard(importDirective.Name, out var nsName))
             {
-                INamespaceOrTypeSymbol? nsImport =
-                    ResolveType(nsSymbol!, nsName.ToString())
-                    ?? (INamespaceOrTypeSymbol?)ResolveNamespace(nsSymbol!, nsName.ToString());
+                var nsImport = ResolveWildcardImportTarget(nsSymbol!, nsName);
                 if (nsImport != null)
                     namespaceImports.Add(nsImport);
                 else
@@ -145,9 +143,17 @@ class BinderFactory
                 : ResolveType(nsSymbol!, importName);
 
             if (typeSymbol != null)
+            {
                 typeImports.Add(typeSymbol);
+            }
+            else if (TryResolveImportedConstant(nsSymbol!, importDirective.Name) is { } constant)
+            {
+                AddAliasImport(constant.Name, constant);
+            }
             else
+            {
                 nsBinder.Diagnostics.ReportInvalidImportTarget(importDirective.Name.GetLocation());
+            }
         }
 
         foreach (var aliasDirective in nsSyntax.Aliases)
@@ -381,6 +387,45 @@ class BinderFactory
             }
         }
 
+        INamespaceOrTypeSymbol? ResolveWildcardImportTarget(INamespaceSymbol current, NameSyntax name)
+        {
+            var targetName = GetRightmostIdentifier(name);
+            var nameText = name.ToString();
+
+            if (ResolveType(current, nameText) is { } resolvedType &&
+                string.Equals(resolvedType.Name, targetName, StringComparison.Ordinal))
+                return resolvedType;
+
+            return ResolveNamespace(current, nameText);
+        }
+
+        IFieldSymbol? TryResolveImportedConstant(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
+                return null;
+
+            var ownerType = ResolveType(current, left.ToString())
+                ?? TryResolveTypeSyntaxSilently(left);
+            if (ownerType is null)
+                return null;
+
+            return ownerType.GetMembers(right.Identifier.ValueText)
+                .OfType<IFieldSymbol>()
+                .FirstOrDefault(IsImportableConstant);
+        }
+
+        void AddAliasImport(string name, ISymbol symbol)
+        {
+            var alias = AliasSymbolFactory.Create(name, symbol);
+            if (aliases.TryGetValue(name, out var existing))
+            {
+                aliases[name] = existing.Concat([alias]).ToArray();
+                return;
+            }
+
+            aliases[name] = [alias];
+        }
+
         bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out ITypeSymbol[] args)
         {
             args = new ITypeSymbol[list.Arguments.Count];
@@ -412,6 +457,9 @@ class BinderFactory
                 _ => nameSyntax.ToString()
             };
         }
+
+        static bool IsImportableConstant(IFieldSymbol field)
+            => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 
         static bool IsWildcard(NameSyntax nameSyntax, out NameSyntax baseName)
         {

@@ -4321,7 +4321,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private void EmitArrayAccessExpression(BoundArrayAccessExpression boundArrayAccessExpression)
+    private void EmitArrayAccessExpression(BoundArrayAccessExpression boundArrayAccessExpression, bool receiverAlreadyLoaded = false)
     {
         var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
 
@@ -4336,10 +4336,12 @@ internal partial class ExpressionGenerator : Generator
         IILocal? arrayLocal = null;
         if (requiresLength)
         {
-            var receiverInfo = EmitExpression(boundArrayAccessExpression.Receiver);
+            var receiverInfo = receiverAlreadyLoaded
+                ? EmitInfo.ForValue()
+                : EmitExpression(boundArrayAccessExpression.Receiver);
             arrayLocal = SpillValueToLocalIfNeeded(ResolveClrType(arrayType), receiverInfo, keepValueOnStack: true);
         }
-        else
+        else if (!receiverAlreadyLoaded)
         {
             EmitExpression(boundArrayAccessExpression.Receiver);
         }
@@ -4486,14 +4488,14 @@ internal partial class ExpressionGenerator : Generator
                ?? throw new NotSupportedException($"Unable to resolve multidimensional array method '{name}' on '{runtimeArrayType}'.");
     }
 
-    private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression)
+    private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression, bool receiverAlreadyLoaded = false)
     {
         var indexerProperty = boundIndexerAccessExpression.Symbol as IPropertySymbol;
 
         if (indexerProperty is null)
             throw new InvalidOperationException("Indexer symbol is not a property.");
 
-        EmitIndexerReceiver(boundIndexerAccessExpression.Receiver, indexerProperty);
+        EmitIndexerReceiver(boundIndexerAccessExpression.Receiver, indexerProperty, receiverAlreadyLoaded);
 
         foreach (var argument in boundIndexerAccessExpression.Arguments)
         {
@@ -6662,6 +6664,12 @@ internal partial class ExpressionGenerator : Generator
             case BoundInvocationExpression invocation:
                 EmitInvocationExpression(invocation, receiverAlreadyLoaded: true);
                 break;
+            case BoundArrayAccessExpression arrayAccess:
+                EmitArrayAccessExpression(arrayAccess, receiverAlreadyLoaded: true);
+                break;
+            case BoundIndexerAccessExpression indexerAccess:
+                EmitIndexerAccessExpression(indexerAccess, receiverAlreadyLoaded: true);
+                break;
             default:
                 EmitExpression(expression);
                 break;
@@ -6731,13 +6739,19 @@ internal partial class ExpressionGenerator : Generator
         EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
     }
 
-    private void EmitIndexerReceiver(BoundExpression receiver, IPropertySymbol indexerProperty)
+    private void EmitIndexerReceiver(BoundExpression receiver, IPropertySymbol indexerProperty, bool receiverAlreadyLoaded = false)
     {
         if (indexerProperty.IsStatic)
             return;
 
         if (indexerProperty.ContainingType!.IsValueType)
         {
+            if (receiverAlreadyLoaded)
+            {
+                EmitValueTypeAddressIfNeeded(receiver.Type, indexerProperty.ContainingType);
+                return;
+            }
+
             if (TryEmitInvocationReceiverAddress(receiver))
                 return;
 
@@ -6746,7 +6760,8 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        EmitPreservedValue(receiver);
+        if (!receiverAlreadyLoaded)
+            EmitPreservedValue(receiver);
     }
 
     private void EmitPreservedValue(BoundExpression expression)

@@ -7023,6 +7023,27 @@ partial class BlockBinder : Binder
         return false;
     }
 
+    private bool TryGetTargetTypedEnumField(string name, SyntaxNode syntax, out IFieldSymbol field)
+    {
+        field = null!;
+
+        var targetType = GetTargetType(syntax);
+        if (targetType is null)
+            return false;
+
+        targetType = UnwrapTaskLikeTargetType(targetType);
+        if (targetType is not INamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
+            return false;
+
+        field = LookupSymbols(name)
+            .OfType<IFieldSymbol>()
+            .FirstOrDefault(candidate =>
+                (candidate.IsConst || candidate.ContainingType?.TypeKind == TypeKind.Enum) &&
+                SymbolEqualityComparer.Default.Equals(candidate.ContainingType, targetEnum))!;
+
+        return field is not null;
+    }
+
     private BoundExpression BindIdentifierName(IdentifierNameSyntax syntax, bool allowEventAccess = false)
     {
         var name = syntax.Identifier.ValueText;
@@ -7050,6 +7071,9 @@ partial class BlockBinder : Binder
         }
 
         var symbol = LookupSymbol(name);
+
+        if (TryGetTargetTypedEnumField(name, syntax, out var targetTypedEnumField))
+            symbol = targetTypedEnumField;
 
         // Locals/parameters must win over implicit instance members.
         // Otherwise record ctor parameters like `Left`/`Right` get captured by `self.Left`/`self.Right`

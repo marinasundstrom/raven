@@ -158,6 +158,68 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         Assert.True(conversion.IsNumeric);
     }
 
+    [Theory]
+    [InlineData(SpecialType.System_Byte)]
+    [InlineData(SpecialType.System_Int32)]
+    [InlineData(SpecialType.System_UInt64)]
+    [InlineData(SpecialType.System_Char)]
+    public void EnumConversions_ToAndFromIntegralTypes_AreExplicitNumeric(SpecialType integralSpecialType)
+    {
+        const string source = """
+enum Status : byte {
+    Ready
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var enumDeclaration = tree.GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Single();
+        var enumType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var integralType = compilation.GetSpecialType(integralSpecialType);
+
+        var enumToIntegral = compilation.ClassifyConversion(enumType, integralType);
+        Assert.True(enumToIntegral.Exists);
+        Assert.False(enumToIntegral.IsImplicit);
+        Assert.True(enumToIntegral.IsNumeric);
+
+        var integralToEnum = compilation.ClassifyConversion(integralType, enumType);
+        Assert.True(integralToEnum.Exists);
+        Assert.False(integralToEnum.IsImplicit);
+        Assert.True(integralToEnum.IsNumeric);
+    }
+
+    [Fact]
+    public void EnumConversions_BetweenEnumTypes_AreExplicitNumeric()
+    {
+        const string source = """
+enum SourceKind : byte {
+    A
+}
+
+enum DestinationKind : long {
+    B
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var enumTypes = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<EnumDeclarationSyntax>()
+            .Select(declaration => Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration)))
+            .ToArray();
+
+        var conversion = compilation.ClassifyConversion(enumTypes[0], enumTypes[1]);
+
+        Assert.True(conversion.Exists);
+        Assert.False(conversion.IsImplicit);
+        Assert.True(conversion.IsNumeric);
+    }
+
     [Fact]
     public void ReferenceConversion_ToBaseType_IsImplicit()
     {

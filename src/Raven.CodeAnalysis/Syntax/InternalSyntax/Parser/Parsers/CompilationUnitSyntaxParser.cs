@@ -247,8 +247,6 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
             if (typeKeywordKind == SyntaxKind.DelegateKeyword)
             {
-                checkpoint.Rewind();
-
                 var delegateDeclaration = new TypeDeclarationParser(this).ParseDelegateDeclaration(attributeLists, modifiers);
 
                 AddMemberDeclaration(memberDeclarations, delegateDeclaration);

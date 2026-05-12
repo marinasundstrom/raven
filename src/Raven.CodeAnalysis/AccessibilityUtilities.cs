@@ -91,7 +91,7 @@ internal static class AccessibilityUtilities
             return Accessibility.Private;
         }
 
-        return Accessibility.Internal;
+        return Accessibility.Public;
     }
 
     public static Accessibility GetDefaultMemberAccessibility(INamedTypeSymbol containingType)

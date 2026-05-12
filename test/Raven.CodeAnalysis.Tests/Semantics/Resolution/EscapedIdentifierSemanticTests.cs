@@ -59,6 +59,72 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void EscapedIdentifierReferences_BindToDeclaredSymbols()
+    {
+        const string source = """
+class C {
+    func @match(@return: int) -> int {
+        val @and = @return
+        return @and
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var parameter = method.ParameterList.Parameters.Single();
+        var local = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+
+        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
+        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(local));
+        var references = root.DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Where(static identifier => identifier.Identifier.Text is "@return" or "@and")
+            .ToArray();
+
+        var parameterReference = Assert.IsAssignableFrom<IParameterSymbol>(
+            model.GetSymbolInfo(references.Single(identifier => identifier.Identifier.Text == "@return")).Symbol);
+        var localReference = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetSymbolInfo(references.Single(identifier => identifier.Identifier.Text == "@and")).Symbol);
+
+        Assert.Equal(parameterSymbol.Name, parameterReference.Name);
+        Assert.Equal(parameter.Identifier.Span, parameterReference.Locations[0].SourceSpan);
+        Assert.Equal(localSymbol.Name, localReference.Name);
+        Assert.Equal(local.Identifier.Span, localReference.Locations[0].SourceSpan);
+    }
+
+    [Fact]
+    public void DollarAndUnicodeIdentifiers_BindAsOrdinaryLocals()
+    {
+        const string source = """
+class C {
+    func Test() -> int {
+        val $ffiResult = 1
+        val 数据 = $ffiResult + 1
+        return 数据
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(static declarator => declarator.Identifier.ValueText);
+
+        var ffiLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["$ffiResult"]));
+        var dataLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["数据"]));
+
+        Assert.Equal("$ffiResult", ffiLocal.Name);
+        Assert.Equal("数据", dataLocal.Name);
+    }
+
+    [Fact]
     public void ToDisplayString_WithEscapeKeywordOption_EscapesIdentifier()
     {
         var source = """
