@@ -260,7 +260,7 @@ func DecideOrder(
     for line in order.Lines {
         val maybeInventory = LookupInventory(inventoryBySku, line.Sku)
 
-        maybeInventory match {
+        match maybeInventory {
             Some(val stock) => {
                 if requestedWarehouse != "AUTO" && stock.Warehouse != requestedWarehouse {
                     missingSkus.Add(line.Sku)
