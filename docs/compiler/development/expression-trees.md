@@ -67,12 +67,12 @@ Current safeguards:
 ## Tests in place
 
 - Semantic lowering coverage:
-  - `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/Semantics/ExpressionTreeLoweringTests.cs`
+  - `/Users/marina/Projects/Raven/test/Raven.CodeAnalysis.Tests/Semantics/ExpressionTreeLoweringTests.cs`
 - Codegen/runtime coverage:
-  - `/Users/robert/Projects/Raven/test/Raven.CodeAnalysis.Tests/CodeGen/ExpressionTreeCodeGenTests.cs`
+  - `/Users/marina/Projects/Raven/test/Raven.CodeAnalysis.Tests/CodeGen/ExpressionTreeCodeGenTests.cs`
 
 ## Sample playground
 
-- `/Users/robert/Projects/Raven/samples/runtime/expression-trees-basic.rav`
+- `/Users/marina/Projects/Raven/samples/runtime/expression-trees-basic.rav`
 
 Note: this sample currently includes both plain delegate lambdas and expression-tree lambdas; plain delegate lambdas are still expected to emit `<Method>b__...` methods.

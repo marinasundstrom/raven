@@ -56,7 +56,7 @@ Suggestion payload is stored in `Diagnostic.Properties` using:
 - `raven.suggestion.originalCode`
 - `raven.suggestion.rewrittenCode`
 
-Use `/Users/robert/Projects/Raven/src/Raven.CodeAnalysis/Diagnostics/Infrastructure/SuggestionsDiagnosticProperties.cs`:
+Use `/Users/marina/Projects/Raven/src/Raven.CodeAnalysis/Diagnostics/Infrastructure/SuggestionsDiagnosticProperties.cs`:
 
 - `CreateRewriteSuggestion(originalCode, rewrittenCode)`
 - `TryGetRewriteSuggestion(diagnostic, out originalCode, out rewrittenCode)`
@@ -80,5 +80,5 @@ External analyzers can participate by:
 
 No special compiler hook is required beyond the shared property convention.
 
-Context-driven refactorings use `/Users/robert/Projects/Raven/src/Raven.CodeAnalysis/Workspaces/CodeFixes/CodeRefactoringProvider.cs`
+Context-driven refactorings use `/Users/marina/Projects/Raven/src/Raven.CodeAnalysis/Workspaces/CodeFixes/CodeRefactoringProvider.cs`
 and are surfaced by the workspace/language server without requiring a backing diagnostic.

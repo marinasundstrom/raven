@@ -423,3 +423,5 @@ samples/test.docs
 samples/.raven-debug
 
 .raven
+
+logs

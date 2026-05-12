@@ -41,8 +41,8 @@ The process will wait for LSP messages on stdin and emit responses to stdout.
 ## Logging
 Raven language-service troubleshooting uses two different log sinks:
 
-- **Server log:** [Program.cs](/Users/robert/Projects/Raven/src/Raven.LanguageServer/Program.cs) resolves the repository root and writes the language server's file log to `logs/raven-lsp.log`.
-- **VS Code client log:** [extension.ts](/Users/robert/Projects/Raven/src/Raven.VSCode/src/extension.ts) writes lifecycle, request-start, request-complete, and request-failure lines such as `[lifecycle ...]` to the VS Code `Raven` output channel.
+- **Server log:** [Program.cs](/Users/marina/Projects/Raven/src/Raven.LanguageServer/Program.cs) resolves the repository root and writes the language server's file log to `logs/raven-lsp.log`.
+- **VS Code client log:** [extension.ts](/Users/marina/Projects/Raven/src/Raven.VSCode/src/extension.ts) writes lifecycle, request-start, request-complete, and request-failure lines such as `[lifecycle ...]` to the VS Code `Raven` output channel.
 
 When investigating missing diagnostics, hover cancellations, or completion/definition issues, capture both:
 
