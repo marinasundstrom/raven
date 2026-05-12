@@ -60,6 +60,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
             var hints = new List<InlayHint>();
             AddLocalTypeHints(hints, semanticModel, root, sourceText, requestSpan);
+            AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan);
             AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan);
 
             return new InlayHintContainer(hints);
@@ -110,6 +111,37 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             hints.Add(CreateTypeHint(sourceText, insertionPosition, $": {typeDisplay}", local.Type, semanticModel, root, declarator));
+        }
+    }
+
+    private static void AddForTargetTypeHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan)
+    {
+        foreach (var forStatement in root.DescendantNodes().OfType<ForStatementSyntax>())
+        {
+            if (forStatement.Target is not IdentifierNameSyntax identifierTarget ||
+                identifierTarget.Identifier.IsMissing ||
+                string.IsNullOrWhiteSpace(identifierTarget.Identifier.ValueText) ||
+                identifierTarget.Identifier.ValueText == "_")
+            {
+                continue;
+            }
+
+            var insertionPosition = GetTokenEndPosition(sourceText, identifierTarget.Identifier);
+            if (!ContainsPosition(requestSpan, insertionPosition))
+                continue;
+
+            if (semanticModel.GetBoundNode(forStatement) is not BoundForStatement { Local: { } local } ||
+                !TryFormatType(semanticModel, forStatement, local.Type, out var typeDisplay))
+            {
+                continue;
+            }
+
+            hints.Add(CreateTypeHint(sourceText, insertionPosition, $": {typeDisplay}", local.Type, semanticModel, root, forStatement));
         }
     }
 

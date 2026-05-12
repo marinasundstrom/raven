@@ -67,23 +67,23 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
     }
 
     private static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
-        if element.ValueKind == JsonValueKind.String {
+        if element.ValueKind is JsonValueKind.String {
             return JsonValue(element.GetString() ?? "")
         }
 
-        if element.ValueKind == JsonValueKind.Number {
+        if element.ValueKind is JsonValueKind.Number {
             return JsonValue(element.GetDouble())
         }
 
-        if element.ValueKind == JsonValueKind.True {
+        if element.ValueKind is JsonValueKind.True {
             return JsonValue(true)
         }
 
-        if element.ValueKind == JsonValueKind.False {
+        if element.ValueKind is JsonValueKind.False {
             return JsonValue(false)
         }
 
-        if element.ValueKind == JsonValueKind.Array {
+        if element.ValueKind is JsonValueKind.Array {
             val values = List<JsonValue>()
 
             for item in element.EnumerateArray() {
@@ -93,7 +93,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
             return JsonValue(values.ToArray())
         }
 
-        if element.ValueKind == JsonValueKind.Object {
+        if element.ValueKind is JsonValueKind.Object {
             val properties = Dictionary<string, JsonValue>()
 
             for property in element.EnumerateObject() {

@@ -2131,6 +2131,14 @@ for val item in items {
     Console.WriteLine(item)
 }
 
+for item: int in items {
+    Console.WriteLine(item)
+}
+
+for val item: int in items {
+    Console.WriteLine(item)
+}
+
 for val _ in items {
     log("processing")
 }
@@ -2155,7 +2163,13 @@ keyword with inline pattern binding keywords in the same target is an error.
 Simple identifier targets resolve their element type from arrays,
 `IEnumerable<T>`, and enumerator-pattern `Current` members; non-generic
 fallbacks use `object`. For simple identifier targets, `val` and `let` are
-allowed and optional; `var` is rejected. If the element value is unused, the
+allowed and optional; `var` is rejected. A simple identifier target may include
+an explicit type annotation, written after the target name. The annotation is
+part of the iteration target, so `for item: int in items` declares `item` as
+`int`, and the collection element type must be implicitly assignable to the
+annotated type. This form is distinct from type-pattern syntax with a
+designation, which keeps the pattern shape `Type designation`.
+If the element value is unused, the
 iteration target may be written as `_` or omitted entirely:
 
 ```raven

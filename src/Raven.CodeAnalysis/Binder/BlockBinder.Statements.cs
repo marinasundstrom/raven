@@ -719,14 +719,23 @@ partial class BlockBinder
                 break;
 
             case IdentifierNameSyntax identifierName:
-                if (forStmt.BindingKeyword.Kind == SyntaxKind.VarKeyword)
-                {
-                    loopBinder._diagnostics.ReportForIdentifierBindingKeywordMustBeValOrLet(
-                        identifierName.Identifier.ValueText,
-                        forStmt.BindingKeyword.GetLocation());
-                }
+                local = loopBinder.BindForSimpleIterationTarget(
+                    forStmt,
+                    identifierName.Identifier,
+                    typeAnnotation: null,
+                    declaringSyntax: forStmt,
+                    iteration.ElementType);
+                body = loopBinder.BindStatementInLoop(forStmt.Body);
+                break;
 
-                local = loopBinder.CreateLocalSymbol(forStmt, identifierName.Identifier.ValueText, isMutable: false, iteration.ElementType);
+            case VariablePatternSyntax variablePattern
+                when TryGetTypedForSimpleIterationTarget(variablePattern, out var singleDesignation, out var typeAnnotation):
+                local = loopBinder.BindForSimpleIterationTarget(
+                    forStmt,
+                    singleDesignation.Identifier,
+                    typeAnnotation,
+                    singleDesignation,
+                    iteration.ElementType);
                 body = loopBinder.BindStatementInLoop(forStmt.Body);
                 break;
 
@@ -766,6 +775,78 @@ partial class BlockBinder
         }
 
         return new BoundForStatement(local, iteration, collection, body);
+    }
+
+    private SourceLocalSymbol? BindForSimpleIterationTarget(
+        ForStatementSyntax forStmt,
+        SyntaxToken identifier,
+        TypeAnnotationClauseSyntax? typeAnnotation,
+        SyntaxNode declaringSyntax,
+        ITypeSymbol elementType)
+    {
+        if (forStmt.BindingKeyword.Kind == SyntaxKind.VarKeyword)
+        {
+            _diagnostics.ReportForIdentifierBindingKeywordMustBeValOrLet(
+                identifier.ValueText,
+                forStmt.BindingKeyword.GetLocation());
+        }
+
+        var localType = BindForIterationTargetType(typeAnnotation, elementType);
+        if (string.IsNullOrWhiteSpace(identifier.ValueText) || identifier.ValueText == "_")
+            return null;
+
+        var local = CreateLocalSymbol(declaringSyntax, identifier.ValueText, isMutable: false, localType);
+        if (declaringSyntax is SingleVariableDesignationSyntax singleDesignation)
+            CacheBoundNode(singleDesignation, new BoundSingleVariableDesignator(local));
+
+        return local;
+    }
+
+    private ITypeSymbol BindForIterationTargetType(TypeAnnotationClauseSyntax? typeAnnotation, ITypeSymbol elementType)
+    {
+        var normalizedElementType = TypeSymbolNormalization.NormalizeForInference(elementType);
+        if (typeAnnotation is null)
+            return normalizedElementType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedElementType;
+
+        var declaredType = ResolveTypeSyntaxOrError(typeAnnotation.Type);
+        declaredType = EnsureTypeAccessible(declaredType, typeAnnotation.Type.GetLocation());
+        declaredType = EnsureTypeValidForStorageLocation(declaredType, typeAnnotation.Type.GetLocation());
+
+        var sourceType = normalizedElementType.UnwrapLiteralType() ?? normalizedElementType;
+        if (declaredType.TypeKind != TypeKind.Error &&
+            sourceType.TypeKind != TypeKind.Error &&
+            !IsAssignable(declaredType, sourceType, out _))
+        {
+            ReportCannotAssignFromTypeToType(sourceType, declaredType, typeAnnotation.Type.GetLocation());
+            return Compilation.ErrorTypeSymbol;
+        }
+
+        return declaredType;
+    }
+
+    private static bool TryGetTypedForSimpleIterationTarget(
+        VariablePatternSyntax variablePattern,
+        out SingleVariableDesignationSyntax singleDesignation,
+        out TypeAnnotationClauseSyntax typeAnnotation)
+    {
+        if (variablePattern is
+            {
+                BindingKeyword.Kind: SyntaxKind.None,
+                Designation: TypedVariableDesignationSyntax
+                {
+                    Designation: SingleVariableDesignationSyntax single,
+                    TypeAnnotation: { } annotation
+                }
+            })
+        {
+            singleDesignation = single;
+            typeAnnotation = annotation;
+            return true;
+        }
+
+        singleDesignation = null!;
+        typeAnnotation = null!;
+        return false;
     }
 
     private (BoundExpression Collection, ForIterationInfo Iteration) BindForRangeIteration(ForStatementSyntax forStatement, RangeExpressionSyntax rangeSyntax)

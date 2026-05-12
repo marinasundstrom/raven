@@ -563,9 +563,11 @@ internal class StatementGenerator : Generator
 
         var loopLocal = forStatement.Local;
         IILocal? elementLocal = null;
+        ITypeSymbol? targetElementType = null;
         if (loopLocal is not null)
         {
-            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(loopLocal.Type));
+            targetElementType = loopLocal.Type;
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(targetElementType));
             scope.AddLocal(loopLocal, elementLocal);
         }
 
@@ -595,9 +597,20 @@ internal class StatementGenerator : Generator
         ILGenerator.MarkLabel(bodyLabel);
         ILGenerator.Emit(OpCodes.Ldloc, startLocal);
         if (elementLocal is not null)
+        {
+            if (targetElementType is not null && !SymbolEqualityComparer.Default.Equals(elementType, targetElementType))
+            {
+                var conversion = Compilation.ClassifyConversion(elementType, targetElementType);
+                if (conversion.Exists)
+                    EmitConversion(elementType, targetElementType, conversion);
+            }
+
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        }
         else
+        {
             ILGenerator.Emit(OpCodes.Pop);
+        }
 
         new StatementGenerator(scope, forStatement.Body).Emit();
 
@@ -814,12 +827,13 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Stloc, indexLocal);
 
         var loopLocal = forStatement.Local;
-        var elementType = loopLocal?.Type ?? forStatement.Iteration.ElementType;
+        var sourceElementType = arrayType.ElementType;
+        var targetElementType = loopLocal?.Type ?? sourceElementType;
 
         IILocal? elementLocal = null;
         if (loopLocal is not null)
         {
-            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(elementType));
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(targetElementType));
             scope.AddLocal(loopLocal, elementLocal);
         }
 
@@ -833,7 +847,14 @@ internal class StatementGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        EmitLoadElement(elementType);
+        EmitLoadElement(sourceElementType);
+        if (!SymbolEqualityComparer.Default.Equals(sourceElementType, targetElementType))
+        {
+            var conversion = Compilation.ClassifyConversion(sourceElementType, targetElementType);
+            if (conversion.Exists)
+                EmitConversion(sourceElementType, targetElementType, conversion);
+        }
+
         if (elementLocal is not null)
             ILGenerator.Emit(OpCodes.Stloc, elementLocal);
         else

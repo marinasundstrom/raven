@@ -127,6 +127,83 @@ for val number in numbers {
     }
 
     [Fact]
+    public void For_WithTypedIdentifierTarget_UsesAnnotatedLocalType()
+    {
+        const string source = """
+val numbers = [|1, 2, 3|]
+
+for number: long in numbers {
+    val copy = number
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+        var designation = forStatement.Target!
+            .DescendantNodesAndSelf()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single();
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Local.ShouldNotBeNull();
+        boundFor.Local!.Type.SpecialType.ShouldBe(SpecialType.System_Int64);
+
+        var declared = model.GetDeclaredSymbol(designation).ShouldBeOfType<SourceLocalSymbol>();
+        declared.Type.SpecialType.ShouldBe(SpecialType.System_Int64);
+    }
+
+    [Fact]
+    public void For_WithOuterValTypedIdentifierTarget_UsesAnnotatedLocalType()
+    {
+        const string source = """
+val numbers = [|1, 2, 3|]
+
+for val number: long in numbers {
+    val copy = number
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+
+        forStatement.BindingKeyword.Kind.ShouldBe(SyntaxKind.ValKeyword);
+
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        boundFor.Local.ShouldNotBeNull();
+        boundFor.Local!.Type.SpecialType.ShouldBe(SpecialType.System_Int64);
+    }
+
+    [Fact]
+    public void For_WithIncompatibleTypedIdentifierTarget_ReportsDiagnostic()
+    {
+        const string source = """
+val numbers = [|1, 2, 3|]
+
+for number: string in numbers {
+    number
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.Select(d => d.Id).ShouldContain("RAV1504");
+    }
+
+    [Fact]
     public void For_WithOuterValPatternTarget_BindsImplicitPatternCaptures()
     {
         const string source = """

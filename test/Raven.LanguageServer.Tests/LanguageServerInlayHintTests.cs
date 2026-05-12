@@ -158,6 +158,68 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_ForIdentifierTarget_ProvidesSourceApplicableTypeHintAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> unit {
+    val numbers = [|1, 2, 3|]
+    for number in numbers {
+        number
+    }
+
+    for explicit: int in numbers {
+        explicit
+    }
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var loopTargetHint = hints.Single(hint =>
+            hint.Label.String == ": int" &&
+            hint.Position.Line == PositionHelper.ToRange(
+                sourceText,
+                new TextSpan(code.IndexOf("number in", StringComparison.Ordinal) + "number".Length, 0)).Start.Line);
+
+        AssertSourceApplicable(
+            sourceText,
+            loopTargetHint,
+            code.IndexOf("number in", StringComparison.Ordinal) + "number".Length,
+            ": int");
+
+        hints.ShouldNotContain(hint =>
+            hint.Position.Line == PositionHelper.ToRange(
+                sourceText,
+                new TextSpan(code.IndexOf("explicit", StringComparison.Ordinal) + "explicit".Length, 0)).Start.Line &&
+            hint.Label.String == ": int");
+    }
+
+    [Fact]
     public async Task Handle_UseDeclarationAndFunctionExpressions_ProvidesTypeHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);

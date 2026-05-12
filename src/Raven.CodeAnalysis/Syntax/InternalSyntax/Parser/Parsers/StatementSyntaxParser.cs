@@ -575,6 +575,10 @@ internal class StatementSyntaxParser : SyntaxParser
         {
             target = DiscardPattern(ReadToken());
         }
+        else if (IsTypedForIterationIdentifierTarget())
+        {
+            target = ParseTypedForIterationIdentifierTarget();
+        }
         else if (CanTokenBeIdentifier(current) && PeekToken(1).Kind is SyntaxKind.InKeyword)
         {
             target = IdentifierName(ReadIdentifierToken());
@@ -609,6 +613,33 @@ internal class StatementSyntaxParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
 
         return ForStatement(awaitKeyword, forKeyword, bindingKeyword, target, inKeyword, expression!, byKeyword, stepExpression, body!, terminatorToken);
+    }
+
+    private bool IsTypedForIterationIdentifierTarget()
+        => (CanTokenBeIdentifier(PeekToken()) || PeekToken().Kind is SyntaxKind.UnderscoreToken) &&
+           PeekToken(1).Kind is SyntaxKind.ColonToken;
+
+    private ExpressionOrPatternSyntax ParseTypedForIterationIdentifierTarget()
+    {
+        SyntaxToken identifier;
+        if (PeekToken().Kind == SyntaxKind.UnderscoreToken)
+        {
+            var underscore = ReadToken();
+            identifier = ToIdentifierToken(underscore);
+            UpdateLastToken(identifier);
+        }
+        else
+        {
+            identifier = ReadIdentifierToken();
+        }
+
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
+        VariableDesignationSyntax designation = SingleVariableDesignation(Token(SyntaxKind.None), identifier);
+
+        if (typeAnnotation is not null)
+            designation = TypedVariableDesignation(designation, typeAnnotation);
+
+        return VariablePattern(Token(SyntaxKind.None), designation);
     }
 
     private StatementSyntax ParseEmbeddedStatement(bool requireNewLineForNonBlockBody, bool allowAdjacentIfStatement = false)

@@ -352,7 +352,8 @@ WhileStatement           ::= 'while' Expression EmbeddedStatement ;
 WhilePatternStatement    ::= 'while' BindingKeyword Pattern '=' Expression EmbeddedStatement ;
 ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? EmbeddedStatement ;
 ForBindingKeyword        ::= 'val' | 'let' | 'var' ;
-ForIterationTarget       ::= Identifier | Pattern ;
+ForIterationTarget       ::= TypedForIdentifierTarget | Identifier | Pattern ;
+TypedForIdentifierTarget ::= Identifier ':' Type ;
 ForStepClause            ::= 'by' Expression ;
 (* Parser rule: a non-block embedded statement must start on the next line.
    `else if` remains a dedicated exception and may stay on the same line. *)
