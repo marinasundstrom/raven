@@ -1077,7 +1077,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        var expression = new ExpressionSyntaxParser(this, stopOnLeadingNewlineBinaryOperator: true).ParseExpression();
 
         if (expression.IsMissing)
         {

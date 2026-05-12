@@ -70,6 +70,30 @@ class Test {
     }
 
     [Fact]
+    public void PointerDereferenceAssignment_AfterExpressionStatement_ParsesAsSeparateStatement()
+    {
+        var code = """
+class Test {
+    static func Run() {
+        var value = 41
+        val pointer: *int = &value
+        Consume(*pointer)
+        *pointer = 42
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var body = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>().Single();
+        Assert.Equal(4, body.Statements.Count);
+
+        Assert.IsType<ExpressionStatementSyntax>(body.Statements[2]);
+        var assignment = Assert.IsType<AssignmentStatementSyntax>(body.Statements[3]);
+        var left = Assert.IsType<PrefixOperatorExpressionSyntax>(assignment.Left);
+        Assert.Equal(SyntaxKind.DereferenceExpression, left.Kind);
+    }
+
+    [Fact]
     public void UnsafeBlock_ParsesAsUnsafeStatement()
     {
         var code = """

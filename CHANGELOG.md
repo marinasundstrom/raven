@@ -8,6 +8,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Match expression arms now accept direct `return` expressions, aligning them with other expression-oriented value positions while preserving diagnostics for statement `return` inside block-expression arms.
 
 ### Fixed
+- Line-leading pointer dereference assignments such as `*ptr = value` now parse as new statements after expression statements instead of being treated as multiplication continuations.
 - Semantic symbol queries for user-defined unary and binary operator expressions now return the selected operator method instead of rebinding the expression out of scope.
 - Mixed nullable equality checks with user-defined equality operators no longer recurse through target-type lookup.
 - `GetDeclaredSymbol` on field declarators now returns the declared field instead of routing through local-variable binding.

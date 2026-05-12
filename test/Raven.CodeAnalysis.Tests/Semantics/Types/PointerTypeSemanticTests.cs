@@ -11,6 +11,12 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PointerTypeSemanticTests : CompilationTestBase
 {
+    private static string FormatDiagnostic(Diagnostic diagnostic)
+    {
+        var span = diagnostic.Location.GetLineSpan();
+        return $"{span.StartLinePosition.Line + 1}:{span.StartLinePosition.Character + 1}: {diagnostic}";
+    }
+
     [Fact]
     public void PointerTypeSyntax_BindsToPointerTypeSymbol()
     {
@@ -205,6 +211,29 @@ class Test {
 
         var typeInfo = model.GetTypeInfo(dereference);
         Assert.Equal(SpecialType.System_Int32, typeInfo.Type?.SpecialType);
+    }
+
+    [Fact]
+    public void PointerDereferenceAssignment_InTopLevelUnsafeBlock_BindsWithoutErrors()
+    {
+        const string source = """
+import System.*
+import System.Console.*
+
+unsafe {
+    val x = 13
+    val ptr: *int = &x
+    WriteLine(ptr)
+    WriteLine(*ptr)
+    *ptr = 42
+    WriteLine(*ptr)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics.Select(FormatDiagnostic)));
     }
 
     [Fact]
