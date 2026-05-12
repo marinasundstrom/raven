@@ -100,6 +100,20 @@ function formatRequestType(type) {
     }
     return '<unknown>';
 }
+function areInferredTypeInlayHintsEnabled() {
+    return vscode.workspace
+        .getConfiguration('raven')
+        .get('inlayHints.inferredTypes.enabled', true);
+}
+async function refreshInlayHints() {
+    try {
+        await vscode.commands.executeCommand('editor.action.inlayHints.refresh');
+    }
+    catch (error) {
+        const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+        appendLifecycleLog(`Unable to refresh inlay hints: ${message}`);
+    }
+}
 async function stopClient(reason) {
     const activeClient = client;
     if (!activeClient) {
@@ -253,6 +267,7 @@ function createLanguageClient(context) {
             async sendRequest(type, param, token, next) {
                 const method = formatRequestType(type);
                 const interesting = method === 'textDocument/hover' ||
+                    method === 'textDocument/inlayHint' ||
                     method === 'textDocument/semanticTokens/full' ||
                     method === 'textDocument/semanticTokens/range' ||
                     method === 'textDocument/documentSymbol' ||
@@ -287,6 +302,12 @@ function createLanguageClient(context) {
                     appendLifecycleLog(`Notification sent: ${method}`);
                 }
                 return next(type, params);
+            },
+            provideInlayHints(document, viewPort, token, next) {
+                if (document.languageId === 'raven' && !areInferredTypeInlayHintsEnabled()) {
+                    return [];
+                }
+                return next(document, viewPort, token);
             }
         }
     };
@@ -927,6 +948,11 @@ function activate(context) {
         }
     });
     void startClient(context, 'activate');
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('raven.inlayHints.inferredTypes.enabled')) {
+            void refreshInlayHints();
+        }
+    }));
     context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(event => {
         const added = event.added.map(folder => folder.uri.fsPath).join(', ') || '<none>';
         const removed = event.removed.map(folder => folder.uri.fsPath).join(', ') || '<none>';
@@ -935,6 +961,14 @@ function activate(context) {
     }));
     const debugConfigurationProvider = new RavenDebugConfigurationProvider();
     context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('raven', debugConfigurationProvider, vscode.DebugConfigurationProviderTriggerKind.Dynamic));
+    context.subscriptions.push(vscode.commands.registerCommand('raven.toggleInferredTypeInlayHints', async () => {
+        const configuration = vscode.workspace.getConfiguration('raven');
+        const current = configuration.get('inlayHints.inferredTypes.enabled', true);
+        const next = !current;
+        await configuration.update('inlayHints.inferredTypes.enabled', next, vscode.ConfigurationTarget.Global);
+        await refreshInlayHints();
+        void vscode.window.showInformationMessage(`Raven inferred type inlay hints ${next ? 'enabled' : 'disabled'}.`);
+    }));
     context.subscriptions.push(vscode.commands.registerCommand('raven.showMacroExpansion', async (_uri, macroName, expansionText) => {
         if (!expansionText || expansionText.trim().length === 0) {
             void vscode.window.showInformationMessage('No macro expansion is available at the current location.');

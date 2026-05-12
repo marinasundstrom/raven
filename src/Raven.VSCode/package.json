@@ -17,6 +17,7 @@
     "onCommand:raven.debug.compileAndDebug",
     "onCommand:raven.build.activeTarget",
     "onCommand:raven.build.clean",
+    "onCommand:raven.toggleInferredTypeInlayHints",
     "onCommand:raven.showMacroExpansion",
     "onCommand:raven.showCodeActionPreview",
     "onCommand:raven.openDocumentation"
@@ -53,6 +54,10 @@
       {
         "command": "raven.build.clean",
         "title": "Raven: Clean Build Artifacts"
+      },
+      {
+        "command": "raven.toggleInferredTypeInlayHints",
+        "title": "Raven: Toggle Inferred Type Inlay Hints"
       },
       {
         "command": "raven.showMacroExpansion",
@@ -258,6 +263,11 @@
           "type": "boolean",
           "default": true,
           "description": "When the extension can find src/Raven.LanguageServer/Raven.LanguageServer.csproj in the current workspace or extension ancestors, build it on activation before launching the language server. Ignored when raven.languageServerPath is set."
+        },
+        "raven.inlayHints.inferredTypes.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inferred local type annotations and inferred function return type annotations as Raven inlay hints."
         },
         "raven.sdkPath": {
           "type": "string",

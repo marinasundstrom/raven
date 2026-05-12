@@ -51,6 +51,7 @@ internal static class Program
             .WithHandler<ReferencesHandler>()
             .WithHandler<RenameHandler>()
             .WithHandler<HoverHandler>()
+            .WithHandler<InlayHintHandler>()
             .WithHandler<SemanticTokensHandler>()
             .WithHandler<DocumentSymbolHandler>()
             .WithHandler<WorkspaceSymbolsHandler>()

@@ -88,6 +88,21 @@ function formatRequestType(type: string | { method?: string }): string {
   return '<unknown>';
 }
 
+function areInferredTypeInlayHintsEnabled(): boolean {
+  return vscode.workspace
+    .getConfiguration('raven')
+    .get<boolean>('inlayHints.inferredTypes.enabled', true);
+}
+
+async function refreshInlayHints(): Promise<void> {
+  try {
+    await vscode.commands.executeCommand('editor.action.inlayHints.refresh');
+  } catch (error) {
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    appendLifecycleLog(`Unable to refresh inlay hints: ${message}`);
+  }
+}
+
 async function stopClient(reason: string): Promise<void> {
   const activeClient = client;
   if (!activeClient) {
@@ -266,6 +281,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
         const method = formatRequestType(type);
         const interesting =
           method === 'textDocument/hover' ||
+          method === 'textDocument/inlayHint' ||
           method === 'textDocument/semanticTokens/full' ||
           method === 'textDocument/semanticTokens/range' ||
           method === 'textDocument/documentSymbol' ||
@@ -306,6 +322,13 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
         }
 
         return next(type, params);
+      },
+      provideInlayHints(document, viewPort, token, next) {
+        if (document.languageId === 'raven' && !areInferredTypeInlayHintsEnabled()) {
+          return [];
+        }
+
+        return next(document, viewPort, token);
       }
     }
   };
@@ -1095,6 +1118,14 @@ export function activate(context: vscode.ExtensionContext): void {
   void startClient(context, 'activate');
 
   context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(event => {
+      if (event.affectsConfiguration('raven.inlayHints.inferredTypes.enabled')) {
+        void refreshInlayHints();
+      }
+    })
+  );
+
+  context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(event => {
       const added = event.added.map(folder => folder.uri.fsPath).join(', ') || '<none>';
       const removed = event.removed.map(folder => folder.uri.fsPath).join(', ') || '<none>';
@@ -1110,6 +1141,19 @@ export function activate(context: vscode.ExtensionContext): void {
       debugConfigurationProvider,
       vscode.DebugConfigurationProviderTriggerKind.Dynamic
     )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('raven.toggleInferredTypeInlayHints', async () => {
+      const configuration = vscode.workspace.getConfiguration('raven');
+      const current = configuration.get<boolean>('inlayHints.inferredTypes.enabled', true);
+      const next = !current;
+      await configuration.update('inlayHints.inferredTypes.enabled', next, vscode.ConfigurationTarget.Global);
+      await refreshInlayHints();
+      void vscode.window.showInformationMessage(
+        `Raven inferred type inlay hints ${next ? 'enabled' : 'disabled'}.`
+      );
+    })
   );
 
   context.subscriptions.push(
