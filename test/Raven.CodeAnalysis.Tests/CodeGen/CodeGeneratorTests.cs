@@ -811,6 +811,55 @@ class QuietLogger : ILogger {
     }
 
     [Fact]
+    public void Emit_InheritedExplicitInterfacePropertyImplementation_EmitsPrivateOverride()
+    {
+        var code = """
+interface IError {
+    val Message: string
+    val Cause: IError? => null
+}
+
+interface IParseError : IError {
+}
+
+class ParseIntError : IParseError {
+    val Message: string => "parse failed"
+    val IError.Cause: IError? => null
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+
+        var interfaceType = assembly.GetType("IError", throwOnError: true)!;
+        var errorType = assembly.GetType("ParseIntError", throwOnError: true)!;
+        var interfaceProperty = interfaceType.GetProperty("Cause", BindingFlags.Public | BindingFlags.Instance)!;
+        var interfaceMap = errorType.GetInterfaceMap(interfaceType);
+        var getter = interfaceProperty.GetMethod!;
+        var targetGetter = interfaceMap.TargetMethods[Array.IndexOf(interfaceMap.InterfaceMethods, getter)];
+
+        Assert.True(targetGetter.IsPrivate);
+        Assert.Equal("IError.get_Cause", targetGetter.Name);
+
+        var instance = Activator.CreateInstance(errorType)!;
+        var value = getter.Invoke(instance, Array.Empty<object>());
+
+        Assert.Null(value);
+    }
+
+    [Fact]
     public void Emit_ConstructorWithImplicitReceivers_EmitsAndRuns()
     {
         var code = """

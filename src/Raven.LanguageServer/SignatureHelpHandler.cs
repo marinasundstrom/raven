@@ -310,8 +310,10 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             builder.Add(method);
         }
 
-        foreach (var method in symbolInfo.CandidateSymbols.OfType<IMethodSymbol>())
-            AddIfNotPresent(method);
+        AddSymbolInfoMethods(symbolInfo);
+
+        if (builder.Count == 0)
+            AddSymbolInfoMethods(semanticModel.GetSymbolInfo(invocation.Expression));
 
         foreach (var method in builder.ToImmutableArray())
             AddSiblingOverloads(method, AddIfNotPresent);
@@ -350,6 +352,15 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             .OrderBy(method => method.Parameters.Length)
             .ThenBy(method => method.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat))
             .ToImmutableArray();
+
+        void AddSymbolInfoMethods(SymbolInfo info)
+        {
+            if (info.Symbol is IMethodSymbol method)
+                AddIfNotPresent(method);
+
+            foreach (var candidate in info.CandidateSymbols.OfType<IMethodSymbol>())
+                AddIfNotPresent(candidate);
+        }
     }
 
     private static void AddInvokeCandidatesFromType(

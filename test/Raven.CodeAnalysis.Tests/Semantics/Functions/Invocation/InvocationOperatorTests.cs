@@ -132,13 +132,14 @@ func test(foo: Foo?) -> int {
 
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("Invoke", symbol.Name);
         Assert.DoesNotContain(
-            compilation.GetDiagnostics(),
+            diagnostics,
             d => d.Severity == DiagnosticSeverity.Error &&
                  d.Descriptor != CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
     }

@@ -1124,6 +1124,7 @@ internal partial class TypeMemberBinder : Binder
         {
             if (ReferenceEquals(method, completedMethod) ||
                 !method.IsSignatureSkeleton ||
+                method.IsPartialMember ||
                 !MethodParameterSignaturesMatch(method, completedMethod))
             {
                 continue;
@@ -2473,6 +2474,8 @@ internal partial class TypeMemberBinder : Binder
         {
             existingPartial.MarkAsPartialDefinition();
         }
+
+        existingPartial.MarkSignatureBindingComplete();
 
         mergedMethodBinder = new MethodBinder(existingPartial, this);
         mergedMethodBinder.EnsureTypeParameterConstraintTypesResolved(existingPartial.TypeParameters);

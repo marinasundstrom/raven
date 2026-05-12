@@ -179,7 +179,7 @@ internal class TypeGenerator
 
                 if (!nt.Interfaces.IsDefaultOrEmpty)
                 {
-                    foreach (var iface in nt.Interfaces)
+                    foreach (var iface in GetAllInterfaces(nt))
                         TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
                 }
 
@@ -321,7 +321,7 @@ internal class TypeGenerator
 
         if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
         {
-            foreach (var iface in nt2.Interfaces)
+            foreach (var iface in GetAllInterfaces(nt2))
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
         }
 
@@ -917,18 +917,24 @@ internal class TypeGenerator
 
                         if (getterSymbol is not null)
                         {
-                            getGen = new MethodGenerator(this, getterSymbol, CodeGen.ILBuilderFactory);
-                            _methodGenerators[getterSymbol] = getGen;
-                            getGen.DefineMethodBuilder();
-                            CodeGen.AddMemberBuilder((SourceSymbol)getterSymbol, getGen.MethodBase);
+                            if (!_methodGenerators.TryGetValue(getterSymbol, out getGen))
+                            {
+                                getGen = new MethodGenerator(this, getterSymbol, CodeGen.ILBuilderFactory);
+                                _methodGenerators[getterSymbol] = getGen;
+                                getGen.DefineMethodBuilder();
+                                CodeGen.AddMemberBuilder((SourceSymbol)getterSymbol, getGen.MethodBase);
+                            }
                         }
 
                         if (setterSymbol is not null)
                         {
-                            setGen = new MethodGenerator(this, setterSymbol, CodeGen.ILBuilderFactory);
-                            _methodGenerators[setterSymbol] = setGen;
-                            setGen.DefineMethodBuilder();
-                            CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen.MethodBase);
+                            if (!_methodGenerators.TryGetValue(setterSymbol, out setGen))
+                            {
+                                setGen = new MethodGenerator(this, setterSymbol, CodeGen.ILBuilderFactory);
+                                _methodGenerators[setterSymbol] = setGen;
+                                setGen.DefineMethodBuilder();
+                                CodeGen.AddMemberBuilder((SourceSymbol)setterSymbol, setGen.MethodBase);
+                            }
                         }
 
                         var propertyType = ResolveClrType(propertySymbol.Type);
@@ -2155,7 +2161,7 @@ internal class TypeGenerator
 
         foreach (var interfaceType in interfaces)
         {
-            foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
+            foreach (var interfaceMethod in GetInterfaceContractMethods(interfaceType))
             {
                 if (SignaturesMatch(methodSymbol, interfaceMethod))
                     return true;
@@ -2185,7 +2191,7 @@ internal class TypeGenerator
 
         foreach (var interfaceType in interfaces)
         {
-            foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
+            foreach (var interfaceMethod in GetInterfaceContractMethods(interfaceType))
             {
                 if (interfaceMethod.IsStatic)
                     continue;
@@ -2203,6 +2209,37 @@ internal class TypeGenerator
                     continue;
 
                 TypeBuilder.DefineMethodOverride(methodBuilder, interfaceMethodInfo);
+            }
+        }
+    }
+
+    private static IEnumerable<IMethodSymbol> GetInterfaceContractMethods(INamedTypeSymbol interfaceType)
+    {
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+
+        bool Add(IMethodSymbol? method)
+            => method is not null && seen.Add(method);
+
+        foreach (var member in interfaceType.GetMembers())
+        {
+            switch (member)
+            {
+                case IMethodSymbol method:
+                    if (Add(method))
+                        yield return method;
+                    break;
+                case IPropertySymbol property:
+                    if (Add(property.GetMethod))
+                        yield return property.GetMethod;
+                    if (Add(property.SetMethod))
+                        yield return property.SetMethod;
+                    break;
+                case IEventSymbol eventSymbol:
+                    if (Add(eventSymbol.AddMethod))
+                        yield return eventSymbol.AddMethod;
+                    if (Add(eventSymbol.RemoveMethod))
+                        yield return eventSymbol.RemoveMethod;
+                    break;
             }
         }
     }
@@ -2241,24 +2278,44 @@ internal class TypeGenerator
 
     private static ImmutableArray<INamedTypeSymbol> GetAllInterfaces(INamedTypeSymbol named)
     {
-        if (!named.AllInterfaces.IsDefaultOrEmpty)
-            return named.AllInterfaces;
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
 
-        return named.Interfaces;
+        void AddInterface(INamedTypeSymbol interfaceType)
+        {
+            if (builder.Contains(interfaceType, SymbolEqualityComparer.Default))
+                return;
+
+            builder.Add(interfaceType);
+
+            foreach (var inheritedInterface in interfaceType.Interfaces)
+                AddInterface(inheritedInterface);
+        }
+
+        foreach (var interfaceType in named.Interfaces)
+            AddInterface(interfaceType);
+
+        if (!named.AllInterfaces.IsDefaultOrEmpty)
+        {
+            foreach (var interfaceType in named.AllInterfaces)
+                AddInterface(interfaceType);
+        }
+
+        return builder.ToImmutable();
     }
 
     private bool TryFindImplementation(IMethodSymbol interfaceMethod, out IMethodSymbol implementation)
     {
-        foreach (var candidate in TypeSymbol.GetMembers().OfType<IMethodSymbol>())
+        foreach (var candidate in GetImplementationMethodCandidates())
         {
             if (candidate.ExplicitInterfaceImplementations.IsDefaultOrEmpty)
                 continue;
 
-            if (candidate.ExplicitInterfaceImplementations.Contains(interfaceMethod, SymbolEqualityComparer.Default))
+            if (ExplicitInterfaceImplementationsContain(candidate, interfaceMethod))
             {
                 implementation = candidate;
                 return true;
             }
+
         }
 
         foreach (var candidate in TypeSymbol.GetMembers(interfaceMethod.Name).OfType<IMethodSymbol>())
@@ -2271,6 +2328,47 @@ internal class TypeGenerator
         }
 
         implementation = null!;
+        return false;
+
+        IEnumerable<IMethodSymbol> GetImplementationMethodCandidates()
+        {
+            foreach (var member in TypeSymbol.GetMembers())
+            {
+                switch (member)
+                {
+                    case IMethodSymbol method:
+                        yield return method;
+                        break;
+                    case IPropertySymbol property:
+                        if (property.GetMethod is not null)
+                            yield return property.GetMethod;
+                        if (property.SetMethod is not null)
+                            yield return property.SetMethod;
+                        break;
+                    case IEventSymbol eventSymbol:
+                        if (eventSymbol.AddMethod is not null)
+                            yield return eventSymbol.AddMethod;
+                        if (eventSymbol.RemoveMethod is not null)
+                            yield return eventSymbol.RemoveMethod;
+                        break;
+                }
+            }
+        }
+    }
+
+    private static bool ExplicitInterfaceImplementationsContain(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
+    {
+        foreach (var implemented in candidate.ExplicitInterfaceImplementations)
+        {
+            if (SymbolEqualityComparer.Default.Equals(implemented, interfaceMethod))
+                return true;
+
+            var implementedDefinition = implemented.OriginalDefinition ?? implemented;
+            var interfaceDefinition = interfaceMethod.OriginalDefinition ?? interfaceMethod;
+            if (SymbolEqualityComparer.Default.Equals(implementedDefinition, interfaceDefinition))
+                return true;
+        }
+
         return false;
     }
 
@@ -2326,9 +2424,26 @@ internal class TypeGenerator
     private bool TryGetInterfaceDefinitionMethodInfo(IMethodSymbol definitionMethod, out MethodInfo methodInfo)
     {
         // Source-defined interfaces: we should already have MethodBuilder registered.
-        if (definitionMethod is SourceSymbol src)
+        if ((definitionMethod as SourceSymbol ?? definitionMethod.UnderlyingSymbol as SourceSymbol) is { } src)
         {
-            if (CodeGen.GetMemberBuilder(src) is MethodInfo mb)
+            if (CodeGen.TryGetMemberBuilder(src, out var existing) &&
+                existing is MethodInfo existingMethod)
+            {
+                methodInfo = existingMethod;
+                return true;
+            }
+
+            if (definitionMethod.ContainingType is not null)
+            {
+                var interfaceGenerator = CodeGen.GetOrCreateTypeGenerator(definitionMethod.ContainingType);
+                if (interfaceGenerator.TypeBuilder is null)
+                    interfaceGenerator.DefineTypeBuilder();
+
+                interfaceGenerator.DefineMemberBuilders();
+            }
+
+            if (CodeGen.TryGetMemberBuilder(src, out var ensured) &&
+                ensured is MethodInfo mb)
             {
                 methodInfo = mb;
                 return true;
@@ -2339,6 +2454,12 @@ internal class TypeGenerator
         if (definitionMethod.ContainingType is not null)
         {
             var ifaceClr = ResolveClrType(definitionMethod.ContainingType);
+
+            if (ifaceClr is TypeBuilder || ifaceClr.GetType().Name.Contains("TypeBuilderInstantiation"))
+            {
+                methodInfo = null!;
+                return false;
+            }
 
             // Ensure we reflect on the *generic type definition* for the definition method.
             if (ifaceClr.IsGenericType && !ifaceClr.IsGenericTypeDefinition)
@@ -2401,6 +2522,11 @@ internal class TypeGenerator
         if (!string.Equals(candidate.Name, interfaceMethod.Name, StringComparison.Ordinal))
             return false;
 
+        return SignatureTypesMatch(candidate, interfaceMethod);
+    }
+
+    private static bool SignatureTypesMatch(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
+    {
         if (!ReturnTypesMatch(candidate.ReturnType, interfaceMethod.ReturnType))
             return false;
 

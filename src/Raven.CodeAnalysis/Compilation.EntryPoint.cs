@@ -49,6 +49,13 @@ public partial class Compilation
             if (_entryPointComputed)
                 return;
 
+            EnsureSemanticModelsCreated();
+            foreach (var model in _semanticModels.Values.ToArray())
+            {
+                if (model.SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
+                    model.EnsureTopLevelFunctionDeclarations(compilationUnit);
+            }
+
             var uniqueCandidates = new Dictionary<string, IMethodSymbol>(StringComparer.Ordinal);
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
 

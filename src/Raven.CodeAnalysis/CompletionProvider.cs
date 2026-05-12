@@ -1695,6 +1695,11 @@ public static class CompletionProvider
                     if (type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
                         return completions;
                 }
+                else if (memberAccess.Expression is InvocationExpressionSyntax &&
+                    type?.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+                {
+                    return completions;
+                }
 
                 if (symbol is INamespaceSymbol ns)
                 {

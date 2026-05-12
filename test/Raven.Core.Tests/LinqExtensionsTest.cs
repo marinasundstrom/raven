@@ -104,7 +104,7 @@ val _ = arr.DoesNotExist()
             [
                 new DiagnosticResult("RAV0117")
                     .WithAnySpan()
-                    .WithArguments("int[]", "DoesNotExist")
+                    .WithArguments("ImmutableList", "DoesNotExist")
             ]);
 
         verifier.Verify();

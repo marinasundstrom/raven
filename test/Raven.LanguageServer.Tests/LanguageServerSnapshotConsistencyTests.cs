@@ -1523,7 +1523,7 @@ record CustomError(val Message: string)
         hover.ShouldNotBeNull();
         hover!.Contents.MarkupContent.ShouldNotBeNull();
         hover.Contents.MarkupContent!.Value.ShouldContain("user: User");
-        hover.Contents.MarkupContent!.Value.ShouldContain("Parameter in `func (user: User) -> string`");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Parameter in `func (user: User) -> TKey`");
     }
 
     [Fact]
@@ -1612,7 +1612,7 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
         var targets = new[]
         {
-            new HoverPositionTarget("UseNpgsql", 15, 29, "UseNpgsql"),
+            new HoverPositionTarget("UseNpgsql", 15, 24, "UseNpgsql"),
             new HoverPositionTarget("Task", 10, 49, "class Task"),
             new HoverPositionTarget("CreateBuilder", 11, 42, "CreateBuilder"),
             new HoverPositionTarget("builder", 11, 16, "builder: WebApplicationBuilder"),

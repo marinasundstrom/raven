@@ -800,6 +800,13 @@ public partial class SemanticModel
                 goto Complete;
             }
 
+            if (expression is InvocationExpressionSyntax earlyInvocationExpression &&
+                TryResolveInvocationOperatorFromReceiver(earlyInvocationExpression, out var earlyInvocationOperatorInfo))
+            {
+                info = earlyInvocationOperatorInfo;
+                goto Complete;
+            }
+
             if (TryBindInterestRegion(expression, out var regionBoundExpression))
             {
                 var regionInfo = regionBoundExpression.GetSymbolInfo();
@@ -1299,20 +1306,61 @@ public partial class SemanticModel
         }
 
         if (methods.Any(static method => method.TypeParameters.Length > 0))
-            return false;
+        {
+            if (invocation.Expression is not GenericNameSyntax genericName)
+                return false;
 
-        if (methods.Length != 1)
-            return false;
+            var typeArguments = ResolveAvailableTypeArguments(genericName.TypeArgumentList);
+            if (typeArguments.IsDefaultOrEmpty ||
+                typeArguments.Length != genericName.TypeArgumentList.Arguments.Count)
+            {
+                return false;
+            }
+
+            methods = methods
+                .Select(method => method.TypeParameters.Length == typeArguments.Length
+                    ? method.Construct(typeArguments.ToArray())
+                    : method)
+                .ToImmutableArray();
+        }
 
         var candidates = methods.Cast<ISymbol>().ToImmutableArray();
-        var preferred = methods[0];
+        var preferred = methods.Length == 1
+            ? methods[0]
+            : TrySelectSingleCandidateByArgumentCount(methods, invocation);
 
         info = preferred is not null
-            ? new SymbolInfo(preferred)
+            ? new SymbolInfo(preferred, candidates)
             : new SymbolInfo(CandidateReason.MemberGroup, candidates);
 
         CacheAvailableInvocationSymbolInfo(invocation, info);
         return true;
+
+        static IMethodSymbol? TrySelectSingleCandidateByArgumentCount(
+            ImmutableArray<IMethodSymbol> candidateMethods,
+            InvocationExpressionSyntax candidateInvocation)
+        {
+            var argumentCount = candidateInvocation.ArgumentList.Arguments.Count +
+                (candidateInvocation.TrailingBlock is null ? 0 : 1);
+            IMethodSymbol? selected = null;
+
+            foreach (var method in candidateMethods)
+            {
+                var required = method.Parameters.Count(static parameter => !parameter.IsOptional && !parameter.IsVarParams);
+                var hasParams = method.Parameters.Any(static parameter => parameter.IsVarParams);
+                var total = method.Parameters.Length;
+
+                if (argumentCount < required || (!hasParams && argumentCount > total))
+                    continue;
+
+                if (selected is not null)
+                    return null;
+
+                selected = method;
+            }
+
+            return selected;
+        }
     }
 
     private static InvocationExpressionSyntax? TryGetInvocationForSymbolInfoNode(SyntaxNode node)
@@ -1431,6 +1479,30 @@ public partial class SemanticModel
 
         if (TryGetAvailableSymbolInfo(invocation.Expression, out var expressionInfo))
             AddSymbolInfoCandidates(expressionInfo);
+
+        var invocationName = invocation.Expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            GenericNameSyntax genericName => genericName.Identifier.ValueText,
+            _ => null
+        };
+
+        if (invocation.Expression is GenericNameSyntax &&
+            !string.IsNullOrWhiteSpace(invocationName))
+        {
+            var containingType = GetBinder(invocation).ContainingSymbol switch
+            {
+                INamedTypeSymbol type => type,
+                IMethodSymbol method => method.ContainingType,
+                _ => null
+            };
+
+            if (containingType is not null)
+            {
+                foreach (var method in containingType.GetMembers(invocationName).OfType<IMethodSymbol>())
+                    AddIfNotPresent(method);
+            }
+        }
 
         if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
             TryLookupAvailableFunctionDeclarations(invocationIdentifier, invocationIdentifier.Identifier.ValueText, out var availableFunctions))
@@ -1722,6 +1794,9 @@ public partial class SemanticModel
             return false;
 
         var root = contextNode.SyntaxTree.GetRoot();
+        if (root is CompilationUnitSyntax compilationUnit)
+            EnsureTopLevelFunctionDeclarations(compilationUnit);
+
         methods = root
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
@@ -5335,6 +5410,154 @@ public partial class SemanticModel
         return null;
     }
 
+    private bool TryResolveInvocationOperatorFromReceiver(InvocationExpressionSyntax invocation, out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        if (TryGetAvailableTypeInfo(invocation.Expression, out var expressionTypeInfo))
+        {
+            var expressionType = expressionTypeInfo.Type ?? expressionTypeInfo.ConvertedType;
+            if (TryResolveInvocationOperatorFromReceiverType(expressionType, invocation, out info))
+                return true;
+        }
+
+        if (TryGetAvailableSymbolInfo(invocation.Expression, out var availableExpressionInfo) &&
+            TryResolveInvocationOperatorFromReceiverType(
+                GetTypeFromSymbol(availableExpressionInfo.Symbol?.UnderlyingSymbol ?? availableExpressionInfo.Symbol),
+                invocation,
+                out info))
+        {
+            return true;
+        }
+
+        if (invocation.Expression is IdentifierNameSyntax receiverIdentifier &&
+            TryResolveEnclosingParameterType(receiverIdentifier, out var parameterType) &&
+            TryResolveInvocationOperatorFromReceiverType(parameterType, invocation, out info))
+        {
+            return true;
+        }
+
+        var binderInfo = GetBinder(invocation.Expression).BindSymbol(invocation.Expression);
+        if (TryResolveInvocationOperatorFromReceiverType(
+            GetTypeFromSymbol(binderInfo.Symbol?.UnderlyingSymbol ?? binderInfo.Symbol),
+            invocation,
+            out info))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryResolveEnclosingParameterType(
+        IdentifierNameSyntax identifier,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+    {
+        type = null;
+        var name = identifier.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        var methodDeclaration = identifier.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        if (methodDeclaration is not null &&
+            TryResolveParameterTypeSyntax(methodDeclaration.ParameterList?.Parameters, name, out type))
+        {
+            return true;
+        }
+
+        if (methodDeclaration is not null &&
+            GetDeclaredSymbol(methodDeclaration) is IMethodSymbol method)
+        {
+            type = method.Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Type;
+            return type is not null && type.TypeKind != TypeKind.Error;
+        }
+
+        var functionStatement = identifier.Ancestors().OfType<FunctionStatementSyntax>().FirstOrDefault();
+        if (functionStatement is not null &&
+            TryResolveParameterTypeSyntax(functionStatement.ParameterList?.Parameters, name, out type))
+        {
+            return true;
+        }
+
+        if (functionStatement is not null &&
+            GetDeclaredSymbol(functionStatement) is IMethodSymbol function)
+        {
+            type = function.Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Type;
+            return type is not null && type.TypeKind != TypeKind.Error;
+        }
+
+        return false;
+
+        bool TryResolveParameterTypeSyntax(
+            SeparatedSyntaxList<ParameterSyntax>? parameters,
+            string parameterName,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? parameterType)
+        {
+            parameterType = null;
+            if (parameters is null)
+                return false;
+
+            foreach (var parameter in parameters.Value)
+            {
+                if (parameter.Identifier.ValueText != parameterName ||
+                    parameter.TypeAnnotation?.Type is not { } typeSyntax)
+                {
+                    continue;
+                }
+
+                if (TryResolveAvailableTypeSyntax(typeSyntax, out parameterType) &&
+                    parameterType.TypeKind != TypeKind.Error)
+                {
+                    return true;
+                }
+
+                if (typeSyntax is NullableTypeSyntax nullableType &&
+                    TryResolveAvailableTypeSyntax(nullableType.ElementType, out parameterType) &&
+                    parameterType.TypeKind != TypeKind.Error)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            return false;
+        }
+    }
+
+    private static bool TryResolveInvocationOperatorFromReceiverType(
+        ITypeSymbol? receiverType,
+        InvocationExpressionSyntax invocation,
+        out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        if (receiverType is NullableTypeSymbol nullableReceiver)
+            receiverType = nullableReceiver.UnderlyingType;
+
+        if (receiverType?.GetPlainType() is not INamedTypeSymbol namedReceiverType ||
+            namedReceiverType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        var candidates = namedReceiverType
+            .GetMembers("Invoke")
+            .OfType<IMethodSymbol>()
+            .Where(static method => !method.IsStatic)
+            .Where(method => method.Parameters.Length == invocation.ArgumentList.Arguments.Count)
+            .Cast<ISymbol>()
+            .ToImmutableArray();
+
+        if (candidates.Length == 0)
+            return false;
+
+        info = candidates.Length == 1
+            ? new SymbolInfo(candidates[0])
+            : new SymbolInfo(CandidateReason.OverloadResolutionFailure, candidates);
+        return true;
+    }
+
     private bool TryBindInterestRegion(ExpressionSyntax expression, out BoundExpression boundExpression)
     {
         var regionRoot = GetInterestBindingRoot(expression, includeExtendedExecutableRoots: false);
@@ -5417,15 +5640,26 @@ public partial class SemanticModel
 
     private SyntaxNode? GetInterestBindingRoot(SyntaxNode node, bool includeExtendedExecutableRoots)
     {
-        if (Compilation.TryGetInterestBindingRootDescriptor(node, out var cachedDescriptor) &&
+        if (!includeExtendedExecutableRoots &&
+            Compilation.TryGetInterestBindingRootDescriptor(node, out var cachedDescriptor) &&
             TryResolveInterestBindingRootDescriptor(node.SyntaxTree.GetRoot(), cachedDescriptor, out var cachedRoot))
         {
             return cachedRoot;
         }
 
-        var root = node.AncestorsAndSelf().FirstOrDefault(current =>
-            current is StatementSyntax or ArrowExpressionClauseSyntax ||
-            (includeExtendedExecutableRoots && current is ForStatementSyntax or IfPatternStatementSyntax or WhilePatternStatementSyntax));
+        SyntaxNode? root = null;
+        if (includeExtendedExecutableRoots)
+        {
+            root = node.AncestorsAndSelf().FirstOrDefault(current =>
+                current is BlockStatementSyntax &&
+                current.Parent is BaseMethodDeclarationSyntax or FunctionStatementSyntax or AccessorDeclarationSyntax);
+
+            root ??= node.AncestorsAndSelf().FirstOrDefault(current =>
+                current is IfStatementSyntax or IfPatternStatementSyntax or WhileStatementSyntax or WhilePatternStatementSyntax or ForStatementSyntax);
+        }
+
+        root ??= node.AncestorsAndSelf().FirstOrDefault(current =>
+            current is StatementSyntax or ArrowExpressionClauseSyntax);
 
         if (root is not null)
         {
@@ -6725,6 +6959,45 @@ public partial class SemanticModel
             return;
 
         topLevelBinder.BindGlobalStatements(globals);
+    }
+
+    internal void EnsureTopLevelFunctionDeclarations(CompilationUnitSyntax compilationUnit)
+    {
+        static TopLevelBinder? FindTopLevelBinder(Binder? binder)
+        {
+            for (var current = binder; current is not null; current = current.ParentBinder)
+            {
+                if (current is TopLevelBinder topLevel)
+                    return topLevel;
+            }
+
+            return null;
+        }
+
+        var globals = GetTopLevelGlobalStatements(compilationUnit).ToArray();
+        if (globals.Length == 0)
+            return;
+
+        var topLevelBinder = FindTopLevelBinder(GetBinder(compilationUnit))
+            ?? FindTopLevelBinder(GetBinder(globals[0]));
+        topLevelBinder?.DeclareGlobalFunctions(globals);
+
+        foreach (var global in globals)
+        {
+            if (global.Statement is FunctionStatementSyntax function)
+            {
+                var declared = GetDeclaredSymbol(function) as IMethodSymbol;
+                if (declared is null ||
+                    !declared.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == function.SyntaxTree &&
+                        reference.Span == function.Span))
+                {
+                    var parentBinder = (Binder?)topLevelBinder ?? GetBinder(compilationUnit);
+                    var functionBinder = new FunctionBinder(parentBinder, function);
+                    _ = functionBinder.GetMethodSymbol();
+                }
+            }
+        }
     }
 
     private static IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)

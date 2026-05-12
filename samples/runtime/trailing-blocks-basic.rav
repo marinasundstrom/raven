@@ -79,12 +79,12 @@ val next = Apply(41) { (no: int) =>
     no + 1
 }
 
-val combined = Combine(20, 22) { (left: int, right: no) => 
+val combined = Combine(20, 22) { (left: int, right: int) => 
     left + right
 }
 
 WriteLine("it result: " + next.ToString())
-WriteLine("$0/$1 result: " + combined.ToString())
+WriteLine("left/right result: " + combined.ToString())
 
 val markup = Markup {
     "<window>"

@@ -47,6 +47,45 @@ func Main() -> () {
     }
 
     [Fact]
+    public void TopLevelFunctionInvocation_WithOverloads_ReportsCandidatesWithoutDiagnostics()
+    {
+        const string source = """
+class Payload {
+}
+
+func Foo() -> unit {
+}
+
+func Foo(value: Payload) -> unit {
+}
+
+func Main() -> unit {
+    Foo()
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        var info = model.GetSymbolInfo(invocation);
+
+        Assert.NotNull(info.Symbol);
+        Assert.Equal("Program.Foo()", FormatSignature((IMethodSymbol)info.Symbol!));
+
+        var candidates = info.CandidateSymbols
+            .OfType<IMethodSymbol>()
+            .Select(FormatSignature)
+            .OrderBy(value => value)
+            .ToArray();
+
+        Assert.Equal(new[] { "Program.Foo()", "Program.Foo(Payload)" }, candidates);
+    }
+
+    [Fact]
     public void MethodGroupWithExplicitDelegate_ReturnsSelectedMethod()
     {
         const string source = """

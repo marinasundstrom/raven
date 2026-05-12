@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -242,6 +243,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
             return true;
         }
 
+        if (IsTopLevelMainSourceAndSynthesizedPair(existing, member))
+            return false;
+
         if (existing.DeclaringSyntaxReferences.IsDefaultOrEmpty ||
             member.DeclaringSyntaxReferences.IsDefaultOrEmpty)
         {
@@ -270,6 +274,24 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         }
 
         return false;
+    }
+
+    private static bool IsTopLevelMainSourceAndSynthesizedPair(ISymbol existing, ISymbol member)
+    {
+        if (existing.Name != EntryPointSignature.EntryPointName ||
+            member.Name != EntryPointSignature.EntryPointName)
+        {
+            return false;
+        }
+
+        var existingIsSynthesizedMain = existing is SynthesizedMainMethodSymbol;
+        var memberIsSynthesizedMain = member is SynthesizedMainMethodSymbol;
+        if (existingIsSynthesizedMain == memberIsSynthesizedMain)
+            return false;
+
+        var sourceMethod = existingIsSynthesizedMain ? member : existing;
+        return sourceMethod.DeclaringSyntaxReferences.Any(static reference =>
+            reference.GetSyntax() is FunctionStatementSyntax);
     }
 
     private static bool IsDuplicateSynthesizedMethod(IMethodSymbol existing, IMethodSymbol method)

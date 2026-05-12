@@ -39,6 +39,12 @@ internal static partial class SymbolResolver
         if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
             return patternCaseResolution;
 
+        if (TryResolveWholeTypeSyntaxAtOffset(semanticModel, root, offset, out var compoundTypeSyntaxResolution) &&
+            compoundTypeSyntaxResolution.Value.Node is UnionTypeSyntax or TupleTypeSyntax or FunctionTypeSyntax)
+        {
+            return compoundTypeSyntaxResolution;
+        }
+
         if (TryResolveExactIdentifierSymbol(semanticModel, root, offset, out var exactIdentifierResolution))
             return exactIdentifierResolution;
 

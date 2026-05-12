@@ -149,6 +149,14 @@ internal static class MemberSignatureDeclarationPass
         }
 
         methodSymbol.SetParameters(parameters.ToImmutable());
+        if (methodDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.PartialKeyword))
+        {
+            if (methodDeclaration.Body is not null || methodDeclaration.ExpressionBody is not null)
+                methodSymbol.MarkAsPartialImplementation();
+            else
+                methodSymbol.MarkAsPartialDefinition();
+        }
+
         methodSymbol.MarkSignatureSkeleton();
         compilation.RegisterMethodSymbol(methodDeclaration, methodSymbol);
     }
