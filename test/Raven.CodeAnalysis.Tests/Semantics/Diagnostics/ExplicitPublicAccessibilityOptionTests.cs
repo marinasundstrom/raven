@@ -117,6 +117,31 @@ public union U { case A }
     }
 
     [Fact]
+    public void TopLevelTypes_PublicModifierIsNotRedundantWhenPublicIsNotDefault()
+    {
+        const string source = """
+public class C {}
+public struct S {}
+public interface I {}
+public enum E { A }
+public delegate D()
+public union U { case A }
+public extension X for int {}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithMembersPublicByDefault(false));
+
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Id == CompilerDiagnostics.PublicModifierRedundantInPublicByDefaultMode.Id)
+            .ToArray();
+
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
     public void NestedType_PublicModifierIsOnlyRedundantWhenPublicIsDefault()
     {
         const string source = """

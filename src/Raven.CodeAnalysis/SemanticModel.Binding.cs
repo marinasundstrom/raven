@@ -221,7 +221,7 @@ public partial class SemanticModel
         INamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(classDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(classDecl, publicIsDefault: true, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(classDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
         ReportRedundantTypeModifiers(classDecl, _declarationDiagnostics);
 
         var declaredTypeKind = IsStructLikeNominalType(classDecl)
@@ -842,7 +842,7 @@ public partial class SemanticModel
     private void DeclareDelegateSymbol(DelegateDeclarationSyntax delegateDecl, INamespaceSymbol parentNamespace)
     {
         ReportInvalidTypeModifiers(delegateDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: true, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         ReportExternalTypeRedeclaration(
             parentNamespace,
@@ -881,7 +881,7 @@ public partial class SemanticModel
     private void DeclareInterfaceSymbol(InterfaceDeclarationSyntax interfaceDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(interfaceDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(interfaceDecl, publicIsDefault: true, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(interfaceDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var hasSealedModifier = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
         var hasPermitsClause = interfaceDecl.PermitsClause is not null;
@@ -969,7 +969,7 @@ public partial class SemanticModel
     private void DeclareExtensionSymbol(ExtensionDeclarationSyntax extensionDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(extensionDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(extensionDecl, publicIsDefault: true, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(extensionDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var extensionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             extensionDecl.Modifiers,
@@ -1022,7 +1022,7 @@ public partial class SemanticModel
     private void DeclareEnumSymbol(EnumDeclarationSyntax enumDecl, INamespaceSymbol parentNamespace)
     {
         ReportInvalidTypeModifiers(enumDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: true, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var enumAccessibility = AccessibilityUtilities.DetermineAccessibility(
             enumDecl.Modifiers,
@@ -1056,7 +1056,7 @@ public partial class SemanticModel
     private void DeclareUnionSymbol(UnionDeclarationSyntax unionDecl, INamespaceSymbol parentNamespace)
     {
         ReportInvalidTypeModifiers(unionDecl, isNestedType: false, _declarationDiagnostics);
-        ReportRedundantPublicTypeModifierIfNeeded(unionDecl, publicIsDefault: true, _declarationDiagnostics);
+        ReportRedundantPublicTypeModifierIfNeeded(unionDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
         var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
         var namespaceSymbol = parentNamespace.AsSourceNamespace();
