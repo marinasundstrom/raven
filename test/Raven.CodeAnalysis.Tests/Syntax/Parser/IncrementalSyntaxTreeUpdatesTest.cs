@@ -1,6 +1,7 @@
 using System;
 
 using Raven.CodeAnalysis.Text;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
@@ -17,6 +18,37 @@ public class IncrementalSyntaxTreeUpdatesTest
         var normalizedActual = incrementalTree.GetRoot().NormalizeWhitespace().ToFullString();
 
         Assert.Equal(normalizedExpected, normalizedActual);
+    }
+
+    [Fact]
+    public void ChangedTextPolicy_UsesIncrementalParseForSmallSingleChange()
+    {
+        var original = SourceText.From("func Main() -> unit {}\n");
+        var updated = original.Replace(original.Length - 1, 0, "// comment\n");
+        var ranges = updated.GetChangeRanges(original);
+
+        Assert.False(SyntaxTree.ShouldFullyReparseChangedText(original, updated, ranges));
+    }
+
+    [Fact]
+    public void ChangedTextPolicy_UsesFullParseForWholeDocumentChange()
+    {
+        var original = SourceText.From("func Main() -> unit {}\n");
+        var updated = original.Replace(new TextSpan(0, original.Length), "class C {}\n");
+        var ranges = updated.GetChangeRanges(original);
+
+        Assert.True(SyntaxTree.ShouldFullyReparseChangedText(original, updated, ranges));
+    }
+
+    [Fact]
+    public void ChangedTextPolicy_UsesFullParseForLargeInsert()
+    {
+        var original = SourceText.From("func Main() -> unit {}\n");
+        var insertedText = new string(' ', SyntaxTree.IncrementalParseMaxChangeLength + 1);
+        var updated = original.Replace(original.Length - 1, 0, insertedText);
+        var ranges = updated.GetChangeRanges(original);
+
+        Assert.True(SyntaxTree.ShouldFullyReparseChangedText(original, updated, ranges));
     }
 
     [Fact]

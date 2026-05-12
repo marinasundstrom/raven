@@ -7,6 +7,8 @@ namespace Raven.CodeAnalysis.Syntax;
 
 public class SyntaxTree
 {
+    internal const int IncrementalParseMaxChangeLength = 4096;
+
     private CompilationUnitSyntax _compilationUnit;
     private SourceText _sourceText;
     private readonly ParseOptions _options;
@@ -214,10 +216,15 @@ public class SyntaxTree
     {
         var oldText = GetText();
 
-        var changes = newText.GetTextChanges(oldText);
+        var changeRanges = newText.GetChangeRanges(oldText);
 
-        if (changes.Count == 0)
+        if (changeRanges.Count == 0)
             return this;
+
+        if (ShouldFullyReparseChangedText(oldText, newText, changeRanges))
+            return ParseText(newText, _options, FilePath);
+
+        var changes = newText.GetTextChanges(oldText);
 
         var root = GetRoot();
 
@@ -258,6 +265,26 @@ public class SyntaxTree
         }
 
         return updatedTree;
+    }
+
+    internal static bool ShouldFullyReparseChangedText(
+        SourceText oldText,
+        SourceText newText,
+        IReadOnlyList<TextChangeRange> changeRanges)
+    {
+        if (changeRanges.Count != 1)
+            return true;
+
+        var change = changeRanges[0];
+        if (change.Span.Start == 0 &&
+            change.Span.Length == oldText.Length &&
+            change.NewLength == newText.Length)
+        {
+            return true;
+        }
+
+        return change.Span.Length > IncrementalParseMaxChangeLength ||
+               change.NewLength > IncrementalParseMaxChangeLength;
     }
 
     private SyntaxNode? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)

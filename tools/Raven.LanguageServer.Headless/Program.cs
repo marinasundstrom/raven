@@ -12,6 +12,8 @@ using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
+using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
+
 var repoRoot = FindRepositoryRoot();
 var options = ParseOptions(args);
 var projectRoot = options.Positionals.Count > 0
@@ -48,6 +50,12 @@ var root = context.SyntaxTree.GetRoot();
 if (options.RandomHover)
 {
     await RunRandomHoversAsync();
+    return;
+}
+
+if (options.EditReplacements.Count > 0)
+{
+    await RunEditProbeAsync();
     return;
 }
 
@@ -196,6 +204,124 @@ async Task ReplayPerformanceReportAsync()
     }
 }
 
+async Task RunEditProbeAsync()
+{
+    var beforeContext = context;
+    var beforeSourceText = sourceText;
+    var beforeTreesByPath = beforeContext.Compilation.SyntaxTrees
+        .Where(static tree => !string.IsNullOrWhiteSpace(tree.FilePath))
+        .GroupBy(static tree => Path.GetFullPath(tree.FilePath), StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
+    var updatedText = beforeSourceText;
+
+    Console.WriteLine($"edit-probe file={filePath} replacements={options.EditReplacements.Count}");
+    foreach (var replacement in options.EditReplacements)
+    {
+        var replaced = TryReplaceFirst(updatedText, replacement.OldText, replacement.NewText, out var nextText, out var span);
+        if (!replaced)
+        {
+            Console.WriteLine($"edit error missing '{replacement.Label}'");
+            return;
+        }
+
+        Console.WriteLine($"edit replace '{replacement.Label}' span={span} oldLength={replacement.OldText.Length} newLength={replacement.NewText.Length}");
+        updatedText = nextText!;
+    }
+
+    var changeRanges = updatedText.GetChangeRanges(beforeSourceText);
+    Console.WriteLine($"edit changeRanges={changeRanges.Count} " + string.Join("; ", changeRanges.Select(static range => range.ToString())));
+
+    var updateStopwatch = Stopwatch.StartNew();
+    _ = store.UpsertDocument(uri, updatedText);
+    updateStopwatch.Stop();
+
+    var analysisStopwatch = Stopwatch.StartNew();
+    context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No analysis context after edit for '{filePath}'.");
+    analysisStopwatch.Stop();
+
+    sourceText = context.SourceText;
+    root = context.SyntaxTree.GetRoot();
+    var rootMatchesText = string.Equals(root.ToFullString(), updatedText.ToString(), StringComparison.Ordinal);
+
+    var semanticStopwatch = Stopwatch.StartNew();
+    model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No semantic model after edit for '{filePath}'.");
+    semanticStopwatch.Stop();
+
+    var syntaxDiagnosticsStopwatch = Stopwatch.StartNew();
+    var syntaxDiagnostics = await store.TryGetDiagnosticsAsync(
+        uri,
+        DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    syntaxDiagnosticsStopwatch.Stop();
+
+    var diagnosticsStopwatch = Stopwatch.StartNew();
+    var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+    diagnosticsStopwatch.Stop();
+
+    var afterTreesByPath = context.Compilation.SyntaxTrees
+        .Where(static tree => !string.IsNullOrWhiteSpace(tree.FilePath))
+        .GroupBy(static tree => Path.GetFullPath(tree.FilePath), StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
+    var currentPath = Path.GetFullPath(filePath);
+    var unchangedTotal = 0;
+    var unchangedReused = 0;
+    foreach (var (path, beforeTree) in beforeTreesByPath)
+    {
+        if (string.Equals(path, currentPath, StringComparison.OrdinalIgnoreCase))
+            continue;
+
+        unchangedTotal++;
+        if (afterTreesByPath.TryGetValue(path, out var afterTree) && ReferenceEquals(beforeTree, afterTree))
+            unchangedReused++;
+    }
+
+    var editedTreeReused = beforeTreesByPath.TryGetValue(currentPath, out var editedBeforeTree) &&
+                           afterTreesByPath.TryGetValue(currentPath, out var editedAfterTree) &&
+                           ReferenceEquals(editedBeforeTree, editedAfterTree);
+    var errorCount = diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+
+    Console.WriteLine(
+        $"edit summary update={updateStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"analysis={analysisStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"semantic={semanticStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"syntaxDiagnostics={syntaxDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"syntaxDiagnosticsCount={syntaxDiagnostics.Diagnostics.Count} " +
+        $"diagnostics={diagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"diagnosticsCount={diagnostics.Count} errors={errorCount} " +
+        $"rootMatchesText={rootMatchesText} editedTreeReused={editedTreeReused} " +
+        $"unchangedTreeReuse={unchangedReused}/{unchangedTotal}");
+
+    var hoverTargets = options.EditHoverTargets.Count > 0
+        ? options.EditHoverTargets
+        : options.Positionals.Count > 2
+            ? options.Positionals.Skip(2).ToArray()
+            : ["CreateBuilder", "AddDbContext", "UseNpgsql"];
+
+    foreach (var target in hoverTargets)
+    {
+        var offset = sourceText.ToString().IndexOf(target, StringComparison.Ordinal);
+        if (offset < 0)
+        {
+            Console.WriteLine($"edit hover missing {target}");
+            continue;
+        }
+
+        var position = PositionHelper.ToRange(sourceText, new TextSpan(offset + Math.Min(3, target.Length), 0)).Start;
+        var hoverResult = await RunHoverAsync(target, position);
+        var marker = hoverResult.Exception is not null
+            ? "error"
+            : !hoverResult.HasHover
+            ? "null"
+            : hoverResult.ElapsedMs >= options.SlowThresholdMs
+            ? "slow"
+            : "ok";
+        Console.WriteLine(marker + " " + FormatHoverResult(hoverResult));
+    }
+}
+
 async Task<HoverResult> RunHoverAsync(string label, Position position)
 {
     var before = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
@@ -227,6 +353,22 @@ async Task<HoverResult> RunHoverAsync(string label, Position position)
     return new HoverResult(label, position.Line, position.Character, sw.Elapsed.TotalMilliseconds, hover is not null, exception, firstLine, delta);
 }
 
+static bool TryReplaceFirst(SourceText sourceText, string oldText, string newText, out SourceText? updatedText, out TextSpan span)
+{
+    var text = sourceText.ToString();
+    var start = text.IndexOf(oldText, StringComparison.Ordinal);
+    if (start < 0)
+    {
+        updatedText = null;
+        span = default;
+        return false;
+    }
+
+    span = new TextSpan(start, oldText.Length);
+    updatedText = sourceText.Replace(span, newText);
+    return true;
+}
+
 static string FormatHoverResult(HoverResult result)
     => $"{result.Label} hover: {result.ElapsedMs:F1}ms {result.Line}:{result.Character} {result.Preview} [{SemanticQueryInstrumentation.FormatDelta(result.SemanticDelta)}]";
 
@@ -255,6 +397,8 @@ static HeadlessOptions ParseOptions(string[] args)
     var replayPerformanceReport = false;
     string? performanceReportPath = null;
     var replayCount = 50;
+    var editReplacements = new List<EditReplacement>();
+    var editHoverTargets = new List<string>();
 
     for (var i = 0; i < args.Length; i++)
     {
@@ -291,6 +435,14 @@ static HeadlessOptions ParseOptions(string[] args)
                 hoverPositions.Add(targetPosition);
                 i++;
                 break;
+            case "--edit-replace" when i + 2 < args.Length:
+                editReplacements.Add(new EditReplacement(args[i + 1], args[i + 2]));
+                i += 2;
+                break;
+            case "--edit-hover" when i + 1 < args.Length:
+                editHoverTargets.Add(args[i + 1]);
+                i++;
+                break;
             default:
                 positionals.Add(args[i]);
                 break;
@@ -306,7 +458,9 @@ static HeadlessOptions ParseOptions(string[] args)
         hoverPositions,
         replayPerformanceReport,
         performanceReportPath,
-        replayCount);
+        replayCount,
+        editReplacements,
+        editHoverTargets);
 }
 
 static bool TryParsePosition(string text, out PositionTarget position)
@@ -369,7 +523,23 @@ internal sealed record HeadlessOptions(
     IReadOnlyList<PositionTarget> HoverPositions,
     bool ReplayPerformanceReport,
     string? PerformanceReportPath,
-    int ReplayCount);
+    int ReplayCount,
+    IReadOnlyList<EditReplacement> EditReplacements,
+    IReadOnlyList<string> EditHoverTargets);
+
+internal readonly record struct EditReplacement(
+    string OldText,
+    string NewText)
+{
+    public string Label
+    {
+        get
+        {
+            var firstLine = OldText.Split('\n', 2)[0];
+            return firstLine.Length <= 60 ? firstLine : firstLine[..60] + "...";
+        }
+    }
+}
 
 internal readonly record struct PositionTarget(
     int Line,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -9,19 +10,29 @@ namespace Raven.CodeAnalysis.Text;
 
 public class SourceText
 {
+    private const int ChangeRangeChainScanLimit = 32;
+
     private readonly string _text;
     private readonly Encoding _encoding;
     private readonly List<int> _lineStarts;
+    private readonly WeakReference<SourceText>? _previousText;
+    private readonly IReadOnlyList<TextChangeRange>? _changeRanges;
 
     public Encoding Encoding => _encoding;
 
     public int Length => _text.Length;
 
-    private SourceText(string text, Encoding? encoding = default)
+    private SourceText(
+        string text,
+        Encoding? encoding = default,
+        SourceText? previousText = null,
+        IReadOnlyList<TextChangeRange>? changeRanges = null)
     {
         _text = text ?? throw new ArgumentNullException(nameof(text));
         _encoding = encoding ?? Encoding.UTF8;
         _lineStarts = TextUtils.ComputeLineStarts(_text);
+        _previousText = previousText is not null ? new WeakReference<SourceText>(previousText) : null;
+        _changeRanges = changeRanges;
     }
 
     public static SourceText From(string text, Encoding? encoding = default)
@@ -51,9 +62,7 @@ public class SourceText
         if (position < 0 || position > _text.Length)
             throw new ArgumentOutOfRangeException(nameof(position));
 
-        // Apply the change
-        string updatedText = _text.Substring(0, position) + newText + _text.Substring(position);
-        return From(updatedText, Encoding);
+        return WithChange(new TextChange(new TextSpan(position, 0), newText));
     }
 
     public SourceText WithChange(TextChange change)
@@ -62,13 +71,15 @@ public class SourceText
             change.Span.End < 0 || change.Span.End > _text.Length)
             throw new ArgumentOutOfRangeException(nameof(change), "The span is out of bounds.");
 
-        // Apply the change
         string updatedText = _text.Substring(0, change.Span.Start) +
                              change.NewText +
                              _text.Substring(change.Span.End);
 
-        // Return a new SourceText instance with the updated text
-        return SourceText.From(updatedText, Encoding);
+        return new SourceText(
+            updatedText,
+            Encoding,
+            previousText: this,
+            changeRanges: [new TextChangeRange(change.NewText.Length, change.Span)]);
     }
 
     public (int line, int column) GetLineAndColumn(TextSpan span) => GetLineAndColumn(span.Start);
@@ -146,6 +157,86 @@ public class SourceText
         if (oldText == null)
             throw new ArgumentNullException(nameof(oldText));
 
+        var ranges = GetChangeRanges(oldText);
+        if (ranges.Count == 0)
+            return Array.Empty<TextChange>();
+
+        if (!IsFullTextChangeRange(oldText, ranges))
+            return CreateTextChangesFromRanges(ranges);
+
+        return ComputeTextChanges(oldText);
+    }
+
+    public IReadOnlyList<TextChangeRange> GetChangeRanges(SourceText oldText)
+    {
+        if (oldText == null)
+            throw new ArgumentNullException(nameof(oldText));
+
+        if (ReferenceEquals(this, oldText) || ContentEquals(oldText))
+            return Array.Empty<TextChangeRange>();
+
+        if (_previousText is not null &&
+            _previousText.TryGetTarget(out var directPrevious) &&
+            ReferenceEquals(directPrevious, oldText) &&
+            _changeRanges is not null)
+        {
+            return _changeRanges;
+        }
+
+        if (IsChangedFrom(oldText))
+            return ComputeTextChanges(oldText)
+                .Select(change => new TextChangeRange(change.NewText.Length, change.Span))
+                .ToArray();
+
+        return ComputeTextChanges(oldText)
+            .Select(change => new TextChangeRange(change.NewText.Length, change.Span))
+            .ToArray();
+    }
+
+    private IReadOnlyList<TextChange> CreateTextChangesFromRanges(IReadOnlyList<TextChangeRange> ranges)
+    {
+        var changes = new List<TextChange>(ranges.Count);
+        var delta = 0;
+
+        foreach (var range in ranges)
+        {
+            var newStart = range.Span.Start + delta;
+            changes.Add(new TextChange(
+                range.Span,
+                _text.Substring(newStart, range.NewLength)));
+            delta += range.NewLength - range.Span.Length;
+        }
+
+        return changes;
+    }
+
+    private static bool IsFullTextChangeRange(SourceText oldText, IReadOnlyList<TextChangeRange> ranges)
+        => ranges.Count == 1 &&
+           ranges[0].Span.Start == 0 &&
+           ranges[0].Span.Length == oldText.Length;
+
+    private bool IsChangedFrom(SourceText oldText)
+    {
+        var current = this;
+        for (var i = 0; i < ChangeRangeChainScanLimit; i++)
+        {
+            if (current._previousText is null ||
+                !current._previousText.TryGetTarget(out var previous))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(previous, oldText))
+                return true;
+
+            current = previous;
+        }
+
+        return false;
+    }
+
+    private IReadOnlyList<TextChange> ComputeTextChanges(SourceText oldText)
+    {
         var oldTextString = oldText._text;
         var newTextString = this._text;
 
@@ -187,11 +278,6 @@ public class SourceText
         };
     }
 
-    public IReadOnlyList<TextChangeRange> GetChangeRanges(SourceText oldText)
-    {
-        throw new NotImplementedException();
-    }
-
     public bool ContentEquals(SourceText other)
     {
         return _text.Equals(other._text);
@@ -220,12 +306,12 @@ public class SourceText
 
     public SourceText Replace(TextSpan span, string newText)
     {
-        throw new NotImplementedException();
+        return WithChange(new TextChange(span, newText));
     }
 
     public SourceText Replace(int start, int length, string newText)
     {
-        throw new NotImplementedException();
+        return Replace(new TextSpan(start, length), newText);
     }
 
     public TextLineCollection GetLines()

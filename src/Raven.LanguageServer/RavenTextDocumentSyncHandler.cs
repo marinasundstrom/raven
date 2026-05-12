@@ -139,7 +139,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             stageStopwatch.Restart();
             _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
-            _documents.UpsertDocument(notification.TextDocument.Uri, updatedText);
+            _documents.UpsertDocument(notification.TextDocument.Uri, updatedText, deferMacroConsumerRefresh: true);
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
             updateDocumentMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -220,16 +220,16 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return true;
     }
 
-    private async Task<string> GetCurrentDocumentTextAsync(DocumentUri uri, CancellationToken cancellationToken)
+    private async Task<SourceText> GetCurrentDocumentTextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
         if (!_documents.TryGetDocument(uri, out var document))
-            return string.Empty;
+            return SourceText.From(string.Empty);
 
         var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return sourceText?.ToString() ?? string.Empty;
+        return sourceText ?? SourceText.From(string.Empty);
     }
 
-    private static string ApplyContentChanges(string currentText, IEnumerable<TextDocumentContentChangeEvent> contentChanges)
+    private static SourceText ApplyContentChanges(SourceText currentText, IEnumerable<TextDocumentContentChangeEvent> contentChanges)
     {
         var text = currentText;
 
@@ -237,21 +237,17 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             if (change.Range is null)
             {
-                text = change.Text ?? string.Empty;
+                text = text.Replace(new TextSpan(0, text.Length), change.Text ?? string.Empty);
                 continue;
             }
 
-            var source = SourceText.From(text);
-            var start = PositionHelper.ToOffset(source, change.Range.Start);
-            var end = PositionHelper.ToOffset(source, change.Range.End);
+            var start = PositionHelper.ToOffset(text, change.Range.Start);
+            var end = PositionHelper.ToOffset(text, change.Range.End);
 
             start = Math.Clamp(start, 0, text.Length);
             end = Math.Clamp(end, start, text.Length);
 
-            text = string.Concat(
-                text.AsSpan(0, start),
-                (change.Text ?? string.Empty).AsSpan(),
-                text.AsSpan(end));
+            text = text.Replace(new TextSpan(start, end - start), change.Text ?? string.Empty);
         }
 
         return text;
@@ -348,7 +344,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
+            FullDiagnosticsDelayMilliseconds: null,
             DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)

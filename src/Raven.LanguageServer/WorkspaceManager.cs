@@ -21,6 +21,8 @@ namespace Raven.LanguageServer;
 
 internal sealed class WorkspaceManager
 {
+    private const int MacroConsumerRefreshDelayMilliseconds = 750;
+
     private static readonly string MacroShadowOutputRoot = Path.Combine(Path.GetTempPath(), "raven-ls-macros");
     private static readonly TimeSpan ProjectOpenFailureRetryDelay = TimeSpan.FromSeconds(30);
     private static readonly HashSet<string> WorkspaceDiscoveryExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
@@ -57,6 +59,7 @@ internal sealed class WorkspaceManager
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<ProjectId, CachedDiagnostics> _diagnosticsCache = new();
+    private readonly ConcurrentDictionary<ProjectId, CancellationTokenSource> _pendingMacroConsumerRefreshes = new();
     private readonly Dictionary<string, FailedProjectOpen> _failedProjectOpens = new(StringComparer.OrdinalIgnoreCase);
     private readonly PerformanceInstrumentation _compilerPerformanceInstrumentation = new();
     private ImmutableArray<string> _workspaceRoots = ImmutableArray<string>.Empty;
@@ -504,8 +507,10 @@ internal sealed class WorkspaceManager
     }
 
     public Document UpsertDocument(DocumentUri uri, string text)
+        => UpsertDocument(uri, SourceText.From(text), deferMacroConsumerRefresh: false);
+
+    internal Document UpsertDocument(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
     {
-        var sourceText = SourceText.From(text);
         var filePath = uri.GetFileSystemPath();
         var name = Path.GetFileName(filePath) ?? filePath ?? $"document{RavenFileExtensions.Raven}";
 
@@ -525,7 +530,7 @@ internal sealed class WorkspaceManager
                     var updatedDocument = _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
                     _documents[uri] = new OwnedDocument(updatedDocument.Id, ownerProject, updatedDocument.Version, IsProjectDocument: existing.IsProjectDocument);
                     _diagnosticsCache.TryRemove(ownerProject, out _);
-                    RefreshMacroConsumersForProject(ownerProject);
+                    RefreshMacroConsumersForProject(ownerProject, deferMacroConsumerRefresh);
                     return updatedDocument;
                 }
 
@@ -549,7 +554,7 @@ internal sealed class WorkspaceManager
                 _diagnosticsCache.TryRemove(existingOwnerProject, out _);
                 if (staleOwnedDocument is { } staleOwner && staleOwner.ProjectId != existingOwnerProject)
                     _diagnosticsCache.TryRemove(staleOwner.ProjectId, out _);
-                RefreshMacroConsumersForProject(existingOwnerProject);
+                RefreshMacroConsumersForProject(existingOwnerProject, deferMacroConsumerRefresh);
                 return updatedDocument;
             }
 
@@ -818,7 +823,7 @@ internal sealed class WorkspaceManager
                     var solution = _workspace.CurrentSolution.WithDocumentText(ownedDocument.DocumentId, sourceText);
                     _workspace.TryApplyChanges(solution);
                     _diagnosticsCache.TryRemove(ownedDocument.ProjectId, out _);
-                    RefreshMacroConsumersForProject(ownedDocument.ProjectId);
+                    RefreshMacroConsumersForProject(ownedDocument.ProjectId, defer: false);
                 }
             }
             else
@@ -832,7 +837,111 @@ internal sealed class WorkspaceManager
         return true;
     }
 
-    private void RefreshMacroConsumersForProject(ProjectId changedProjectId)
+    private void RefreshMacroConsumersForProject(ProjectId changedProjectId, bool defer)
+    {
+        if (defer)
+        {
+            ScheduleMacroConsumersRefresh(changedProjectId);
+            return;
+        }
+
+        CancelPendingMacroConsumerRefresh(changedProjectId);
+        RefreshMacroConsumersForProjectCore(changedProjectId);
+    }
+
+    private void ScheduleMacroConsumersRefresh(ProjectId changedProjectId)
+    {
+        var source = new CancellationTokenSource();
+        var previous = _pendingMacroConsumerRefreshes.AddOrUpdate(
+            changedProjectId,
+            source,
+            (_, existing) =>
+            {
+                try
+                {
+                    existing.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+
+                return source;
+            });
+
+        if (!ReferenceEquals(previous, source))
+        {
+            source.Dispose();
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(MacroConsumerRefreshDelayMilliseconds, source.Token).ConfigureAwait(false);
+
+                lock (_gate)
+                {
+                    RefreshMacroConsumersForProjectCore(changedProjectId);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                if (_pendingMacroConsumerRefreshes.TryGetValue(changedProjectId, out var active) &&
+                    ReferenceEquals(active, source))
+                {
+                    _pendingMacroConsumerRefreshes.TryRemove(changedProjectId, out _);
+                }
+
+                source.Dispose();
+            }
+        }, CancellationToken.None);
+    }
+
+    private void CancelPendingMacroConsumerRefresh(ProjectId changedProjectId)
+    {
+        if (!_pendingMacroConsumerRefreshes.TryRemove(changedProjectId, out var source))
+            return;
+
+        try
+        {
+            source.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        finally
+        {
+            source.Dispose();
+        }
+    }
+
+    internal async Task FlushPendingMacroConsumerRefreshesAsync(CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            var projectIds = _pendingMacroConsumerRefreshes.Keys.ToArray();
+            if (projectIds.Length == 0)
+                return;
+
+            foreach (var projectId in projectIds)
+            {
+                CancelPendingMacroConsumerRefresh(projectId);
+                cancellationToken.ThrowIfCancellationRequested();
+                lock (_gate)
+                {
+                    RefreshMacroConsumersForProjectCore(projectId);
+                }
+            }
+
+            await Task.Yield();
+        }
+    }
+
+    private void RefreshMacroConsumersForProjectCore(ProjectId changedProjectId)
     {
         var changedProject = _workspace.CurrentSolution.GetProject(changedProjectId);
         if (changedProject?.FilePath is null)

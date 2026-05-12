@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
 using CodeFixAction = Raven.CodeAnalysis.CodeAction;
@@ -576,6 +577,49 @@ func Main() -> unit { }
         manager.TryGetDocumentContext(appUri, out var refreshedDocument, out _).ShouldBeTrue();
         var refreshedMacroReference = refreshedDocument!.Project.MacroReferences.Single().Display;
         refreshedMacroReference.ShouldNotBe(initialMacroReference);
+
+        var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
+        refreshedExpansion.ShouldBe("2");
+    }
+
+    [Fact]
+    public async Task DeferredMacroProjectDocumentUpdate_RefreshesConsumingProjectAfterFlushAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var appPath = Path.Combine(_tempRoot, "app", "src", "main.rvn");
+        var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+        var macroUri = DocumentUri.FromFileSystemPath(macroPath);
+
+        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = manager.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+
+        manager.TryGetDocumentContext(appUri, out var initialDocument, out _).ShouldBeTrue();
+        var initialMacroReference = initialDocument!.Project.MacroReferences.Single().Display;
+
+        var updatedMacroSource = SourceText.From(CreateFreestandingMacroExpansionSource("2"));
+        _ = manager.UpsertDocument(macroUri, updatedMacroSource, deferMacroConsumerRefresh: true);
+
+        manager.TryGetDocumentContext(appUri, out var pendingDocument, out _).ShouldBeTrue();
+        pendingDocument!.Project.MacroReferences.Single().Display.ShouldBe(initialMacroReference);
+
+        await manager.FlushPendingMacroConsumerRefreshesAsync();
+
+        manager.TryGetDocumentContext(appUri, out var refreshedDocument, out _).ShouldBeTrue();
+        refreshedDocument!.Project.MacroReferences.Single().Display.ShouldNotBe(initialMacroReference);
 
         var refreshedExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
         refreshedExpansion.ShouldBe("2");

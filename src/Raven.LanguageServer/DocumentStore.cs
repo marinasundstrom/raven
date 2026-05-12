@@ -65,9 +65,12 @@ internal sealed class DocumentStore
     }
 
     public Document UpsertDocument(DocumentUri uri, string text)
+        => UpsertDocument(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh: false);
+
+    internal Document UpsertDocument(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
     {
         InvalidateDocumentAnalysis(uri);
-        var document = _workspaceManager.UpsertDocument(uri, text);
+        var document = _workspaceManager.UpsertDocument(uri, text, deferMacroConsumerRefresh);
         _openDocumentSnapshots[uri] = document;
         return document;
     }
