@@ -23,7 +23,7 @@ public static class SemanticClassifier
 
             if (kind is SyntaxKind.IsKeyword or SyntaxKind.AsKeyword)
             {
-                tokenMap[descendant] = SemanticClassification.Operator;
+                tokenMap[descendant] = SemanticClassification.Keyword;
             }
             // Reserved words
             else if (descendant.IsKeyword())

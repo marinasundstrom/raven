@@ -238,6 +238,41 @@ union Status {
     }
 
     [Fact]
+    public async Task HoverHandler_QualifiedEnumConstantPattern_ShowsEnumMemberAsync()
+    {
+        const string text = """
+import System.Text.Json.*
+
+func Test(element: JsonElement) -> bool {
+    return element.ValueKind is JsonValueKind.Array
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var markerOffset = text.IndexOf("JsonValueKind.Array", StringComparison.Ordinal);
+        markerOffset.ShouldBeGreaterThanOrEqualTo(0);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(
+                context.Value.SourceText,
+                new TextSpan(markerOffset + "JsonValueKind.".Length + 1, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        var value = hover.Contents.MarkupContent!.Value;
+        value.ShouldContain("Array");
+        value.ShouldContain("JsonValueKind");
+        value.ShouldNotContain("class Array");
+        value.ShouldNotContain("Type in `System`");
+    }
+
+    [Fact]
     public async Task HoverHandler_LocalDeclarationRange_DoesNotCoverPipeInitializerInvocationAsync()
     {
         var (store, _, uri) = CreateWorkspace("""

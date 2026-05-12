@@ -37,7 +37,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
-        if root.ValueKind != JsonValueKind.Object {
+        if root.ValueKind is JsonValueKind.Object {
             #pragma warning disable-next-line RAV9013
             throw JsonException("JsonObject must be a JSON object.")
         }

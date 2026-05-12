@@ -98,8 +98,8 @@ class Customer(name: string, age: int? = null) {
             nameProperty.Type.ShouldBe(SemanticTokenType.Property);
             nameProperty.Modifiers.ShouldContain(SemanticTokenModifier.Declaration);
 
-            Find(decoded, 7, "is").Type.ShouldBe(SemanticTokenType.Operator);
-            Find(decoded, 8, "as").Type.ShouldBe(SemanticTokenType.Operator);
+            Find(decoded, 7, "is").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 8, "as").Type.ShouldBe(SemanticTokenType.Keyword);
 
             Find(decoded, 10, "\"n/a\"").Type.ShouldBe(SemanticTokenType.String);
 

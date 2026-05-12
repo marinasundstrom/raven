@@ -533,6 +533,12 @@ public partial class SemanticModel
             return earlyArgumentInfo;
         }
 
+        if (TryGetPatternConstantValueSymbolInfo(node, out var patternConstantValueInfo))
+        {
+            _symbolMappings[node] = patternConstantValueInfo;
+            return patternConstantValueInfo;
+        }
+
         if (_symbolMappings.TryGetValue(node, out var symbolInfo))
         {
             if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
@@ -1676,6 +1682,82 @@ public partial class SemanticModel
             return GetTypeFromSymbol(receiverInfo.Symbol?.UnderlyingSymbol ?? receiverInfo.Symbol);
 
         return null;
+    }
+
+    private bool TryGetPatternConstantValueSymbolInfo(SyntaxNode node, out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        if (node is not IdentifierNameSyntax identifier)
+            return false;
+
+        var patternSyntax = (PatternSyntax?)identifier
+            .AncestorsAndSelf()
+            .OfType<DeclarationPatternSyntax>()
+            .FirstOrDefault(pattern =>
+                IsUndesignatedDeclarationPattern(pattern) &&
+                pattern.Type.FullSpan.Contains(identifier.Span) &&
+                IsTerminalTypeNameIdentifier(pattern.Type, identifier));
+
+        patternSyntax ??= identifier
+            .AncestorsAndSelf()
+            .OfType<ConstantPatternSyntax>()
+            .FirstOrDefault(pattern =>
+                pattern.Expression is TypeSyntax typeSyntax &&
+                typeSyntax.FullSpan.Contains(identifier.Span) &&
+                IsTerminalTypeNameIdentifier(typeSyntax, identifier));
+
+        if (patternSyntax is null)
+            return false;
+
+        BindPatternOwner(patternSyntax);
+
+        if (TryGetCachedBoundNode(patternSyntax) is not BoundConstantPattern { Expression: { } valueExpression })
+            return false;
+
+        info = valueExpression.GetSymbolInfo();
+        if (info.Symbol is null && info.CandidateSymbols.IsDefaultOrEmpty)
+            return false;
+
+        info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
+        return info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
+
+        static bool IsUndesignatedDeclarationPattern(DeclarationPatternSyntax pattern)
+            => pattern.Designation is null
+               || pattern.Designation is SingleVariableDesignationSyntax { Identifier.IsMissing: true }
+               || pattern.Designation is SingleVariableDesignationSyntax { Identifier.Kind: SyntaxKind.None };
+
+        static bool IsTerminalTypeNameIdentifier(TypeSyntax typeSyntax, IdentifierNameSyntax identifier)
+        {
+            var terminalName = GetTerminalTypeName(typeSyntax);
+            return terminalName is IdentifierNameSyntax terminalIdentifier &&
+                   terminalIdentifier.Kind == identifier.Kind &&
+                   terminalIdentifier.Span == identifier.Span;
+        }
+
+        static SimpleNameSyntax? GetTerminalTypeName(TypeSyntax typeSyntax)
+        {
+            while (typeSyntax is QualifiedNameSyntax qualified)
+                typeSyntax = (TypeSyntax)qualified.Right;
+
+            return typeSyntax as SimpleNameSyntax;
+        }
+    }
+
+    private void BindPatternOwner(PatternSyntax pattern)
+    {
+        var owner = pattern.Ancestors().FirstOrDefault(static ancestor =>
+            ancestor is IsPatternExpressionSyntax or
+                IfPatternStatementSyntax or
+                WhilePatternStatementSyntax or
+                MatchExpressionSyntax or
+                MatchStatementSyntax or
+                ForStatementSyntax or
+                PatternDeclarationAssignmentStatementSyntax or
+                CatchClauseSyntax);
+
+        if (owner is not null)
+            _ = GetBoundNode(owner);
     }
 
     internal bool TryGetAvailablePipeInvocationCandidates(InvocationExpressionSyntax invocation, out ImmutableArray<IMethodSymbol> methods)
