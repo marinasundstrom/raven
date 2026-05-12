@@ -1275,7 +1275,9 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var token = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
             if (!token.IsMissing && token.Span.Contains(offset))
-                return IsSemanticHoverSuppressedToken(token) || IsImportDirectiveNameToken(token);
+                return IsSemanticHoverSuppressedToken(token) ||
+                       IsImportDirectiveNameToken(token) ||
+                       IsInterpolatedStringNonExpressionToken(token);
         }
         catch
         {
@@ -1297,7 +1299,8 @@ internal sealed class HoverHandler : IHoverHandler
                 continue;
 
             if (!IsSemanticHoverSuppressedToken(token) &&
-                !IsImportDirectiveNameToken(token))
+                !IsImportDirectiveNameToken(token) &&
+                !IsInterpolatedStringNonExpressionToken(token))
                 return false;
 
             if (candidateOffset == offset)
@@ -1410,6 +1413,23 @@ internal sealed class HoverHandler : IHoverHandler
             .AncestorsAndSelf()
             .OfType<ImportDirectiveSyntax>()
             .Any(import => import.Name.Span.Contains(token.Span)) == true;
+
+    private static bool IsInterpolatedStringNonExpressionToken(SyntaxToken token)
+    {
+        if (token.Parent is InterpolatedStringTextSyntax)
+            return true;
+
+        if (token.Parent is InterpolatedStringExpressionSyntax interpolatedString)
+            return token == interpolatedString.StringStartToken ||
+                   token == interpolatedString.StringEndToken;
+
+        if (token.Parent is InterpolationSyntax interpolation)
+            return token == interpolation.DollarToken ||
+                   token == interpolation.OpenBraceToken ||
+                   token == interpolation.CloseBraceToken;
+
+        return false;
+    }
 
     private static bool TryBuildTypeDeclarationSyntaxHover(
         SourceText sourceText,

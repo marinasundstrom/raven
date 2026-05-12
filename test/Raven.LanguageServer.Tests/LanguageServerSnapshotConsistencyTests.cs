@@ -77,6 +77,62 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task HoverHandler_InterpolatedStringText_DoesNotShowLoweredConcatAsync()
+    {
+        const string text = """
+func Main() -> unit {
+    val name = "Raven"
+    val message = "Hello $name"
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var textOffset = text.IndexOf("Hello", StringComparison.Ordinal);
+        textOffset.ShouldBeGreaterThanOrEqualTo(0);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(textOffset, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HoverHandler_InterpolatedStringExpression_StillResolvesSymbolAsync()
+    {
+        const string text = """
+func Main() -> unit {
+    val name = "Raven"
+    val message = "Hello $name"
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var nameOffset = text.IndexOf("$name", StringComparison.Ordinal);
+        nameOffset.ShouldBeGreaterThanOrEqualTo(0);
+        nameOffset += 1;
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(nameOffset, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("val name:");
+        hover.Contents.MarkupContent!.Value.ShouldNotContain("Concat");
+    }
+
+    [Fact]
     public async Task HoverHandler_InvalidateDocument_ClearsCachedEntriesForReopenedFileAsync()
     {
         var (store, _, uri) = CreateWorkspace("""
