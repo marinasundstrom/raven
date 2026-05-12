@@ -93,12 +93,12 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (declarator.TypeAnnotation is not null ||
                 declarator.Identifier.IsMissing ||
                 string.IsNullOrWhiteSpace(declarator.Identifier.ValueText) ||
-                !declarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().Any())
+                !IsInferredLocalLikeDeclaration(declarator))
             {
                 continue;
             }
 
-            var insertionPosition = declarator.Identifier.Span.End;
+            var insertionPosition = GetTokenEndPosition(sourceText, declarator.Identifier);
             if (!ContainsPosition(requestSpan, insertionPosition))
                 continue;
 
@@ -144,7 +144,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 function.ParameterList,
                 function.Body ?? (SyntaxNode?)function.ExpressionBody);
         }
+
+        foreach (var functionExpression in root.DescendantNodes().OfType<FunctionExpressionSyntax>())
+        {
+            AddFunctionExpressionReturnTypeHint(hints, semanticModel, sourceText, requestSpan, functionExpression);
+        }
     }
+
+    private static bool IsInferredLocalLikeDeclaration(VariableDeclaratorSyntax declarator)
+        => declarator.Ancestors().Any(static ancestor => ancestor is LocalDeclarationStatementSyntax or UseDeclarationStatementSyntax);
 
     private static void AddReturnTypeHint(
         List<InlayHint> hints,
@@ -173,6 +181,33 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         hints.Add(CreateTypeHint(sourceText, insertionPosition, $" -> {typeDisplay}"));
     }
 
+    private static void AddFunctionExpressionReturnTypeHint(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        FunctionExpressionSyntax functionExpression)
+    {
+        var insertionPosition = functionExpression switch
+        {
+            ParenthesizedFunctionExpressionSyntax { ReturnType: null } parenthesized => parenthesized.ParameterList.Span.End,
+            SimpleFunctionExpressionSyntax { ReturnType: null } simple => GetTokenEndPosition(sourceText, simple.Parameter.Identifier),
+            _ => -1
+        };
+
+        if (insertionPosition < 0 || !ContainsPosition(requestSpan, insertionPosition))
+            return;
+
+        var body = functionExpression.Body ?? (SyntaxNode?)functionExpression.ExpressionBody;
+        if (!TryGetFunctionExpressionReturnType(semanticModel, functionExpression, body, out var returnType) ||
+            !TryFormatType(returnType, out var typeDisplay))
+        {
+            return;
+        }
+
+        hints.Add(CreateTypeHint(sourceText, insertionPosition, $" -> {typeDisplay}"));
+    }
+
     private static InlayHint CreateTypeHint(SourceText sourceText, int insertionPosition, string text)
     {
         var range = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0));
@@ -189,6 +224,51 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 NewText = text
             })
         };
+    }
+
+    private static int GetTokenEndPosition(SourceText sourceText, SyntaxToken token)
+    {
+        var candidate = token.Span.End;
+        var tokenText = token.Text;
+        if (string.IsNullOrEmpty(tokenText))
+            return candidate;
+
+        var content = sourceText.ToString();
+        if (candidate >= tokenText.Length &&
+            candidate <= content.Length &&
+            string.Equals(
+                content.Substring(candidate - tokenText.Length, tokenText.Length),
+                tokenText,
+                StringComparison.Ordinal))
+        {
+            return candidate;
+        }
+
+        var searchPosition = Math.Clamp(candidate, 0, content.Length);
+        var lineStart = content.LastIndexOf('\n', Math.Max(0, searchPosition - 1));
+        lineStart = lineStart < 0 ? 0 : lineStart + 1;
+        var lineEnd = content.IndexOf('\n', searchPosition);
+        if (lineEnd < 0)
+            lineEnd = content.Length;
+
+        var line = content.Substring(lineStart, lineEnd - lineStart);
+        var bestEnd = candidate;
+        var bestDistance = int.MaxValue;
+        var index = line.IndexOf(tokenText, StringComparison.Ordinal);
+        while (index >= 0)
+        {
+            var end = lineStart + index + tokenText.Length;
+            var distance = Math.Abs(end - candidate);
+            if (distance < bestDistance)
+            {
+                bestEnd = end;
+                bestDistance = distance;
+            }
+
+            index = line.IndexOf(tokenText, index + tokenText.Length, StringComparison.Ordinal);
+        }
+
+        return bestEnd;
     }
 
     private static bool TryFormatType(ITypeSymbol? type, out string display)
@@ -220,6 +300,27 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         inferredReturnType = ReturnTypeCollector.Infer(semanticModel.GetBoundNode(body));
         return inferredReturnType is not null &&
             inferredReturnType.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void);
+    }
+
+    private static bool TryGetFunctionExpressionReturnType(
+        SemanticModel semanticModel,
+        FunctionExpressionSyntax functionExpression,
+        SyntaxNode? body,
+        out ITypeSymbol? returnType)
+    {
+        returnType = null;
+
+        if (semanticModel.GetDeclaredSymbol(functionExpression) is IMethodSymbol method &&
+            method.ReturnType.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void))
+        {
+            returnType = method.ReturnType;
+            return true;
+        }
+
+        if (body is null)
+            return false;
+
+        return TryGetInferredReturnType(semanticModel, body, out returnType);
     }
 
     private static TextSpan GetRequestedSpan(SourceText text, LspRange requestRange)

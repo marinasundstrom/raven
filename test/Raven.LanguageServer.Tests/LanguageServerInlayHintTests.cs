@@ -115,6 +115,158 @@ func Main() -> unit {
         hints[0].Label.String.ShouldBe(": string");
     }
 
+    [Fact]
+    public async Task Handle_InsertApplied_DoesNotReturnAnnotationHintAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Add(left: int, right: int) -> int {
+    return left + right
+}
+
+func Main() -> unit {
+    val answer: int = 1 + 2
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_UseDeclarationAndFunctionExpressions_ProvidesTypeHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+class DisposableResource {
+    func Dispose() -> unit {
+    }
+}
+
+func Consume(callback: (int -> int)) -> int {
+    return callback(41)
+}
+
+func Main() -> unit {
+    use resource = DisposableResource()
+    val result = Consume(value => value + 1)
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        hints.Select(static hint => hint.Label.String).ShouldContain(": DisposableResource");
+        hints.Select(static hint => hint.Label.String).ShouldContain(" -> int");
+
+        var resourceHint = hints.Single(static hint => hint.Label.String == ": DisposableResource");
+        AssertSourceApplicable(
+            sourceText,
+            resourceHint,
+            code.IndexOf("resource", StringComparison.Ordinal) + "resource".Length,
+            ": DisposableResource");
+
+        var callbackInsertion = code.IndexOf("value =>", StringComparison.Ordinal) + "value".Length;
+        var callbackPosition = PositionHelper.ToRange(sourceText, new TextSpan(callbackInsertion, 0)).Start;
+        var callbackReturnHint = hints
+            .Where(static hint => hint.Label.String == " -> int")
+            .Single(hint => hint.Position.Line == callbackPosition.Line && hint.Position.Character == callbackPosition.Character);
+        AssertSourceApplicable(
+            sourceText,
+            callbackReturnHint,
+            callbackInsertion,
+            " -> int");
+    }
+
+    [Fact]
+    public async Task Handle_EfCoreVehicleSample_ProvidesHintsForUseDeclarationsAndRouteFunctionExpressionsAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs");
+        var filePath = Path.Combine(projectRoot, "src", "Api", "Main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-vehicle-costs",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf("builder", StringComparison.Ordinal) + "builder".Length, ": ");
+        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf("scope", StringComparison.Ordinal) + "scope".Length, ": ");
+        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf("vehicle =>", StringComparison.Ordinal) + "vehicle".Length, " -> ");
+
+        const string routeHandler = "async func (context: VehicleDbContext, cancellationToken: CancellationToken)";
+        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf(routeHandler, StringComparison.Ordinal) + routeHandler.Length, " -> ");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
@@ -137,5 +289,28 @@ func Main() -> unit {
         edit.Range.Start.Character.ShouldBe(expectedRange.Start.Character);
         edit.Range.End.Line.ShouldBe(expectedRange.End.Line);
         edit.Range.End.Character.ShouldBe(expectedRange.End.Character);
+    }
+
+    private static void AssertHasHintAtInsertion(SourceText sourceText, InlayHint[] hints, int insertionPosition, string labelPrefix)
+    {
+        var expectedPosition = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0)).Start;
+        hints.ShouldContain(hint =>
+            hint.Label.String.StartsWith(labelPrefix, StringComparison.Ordinal) &&
+            hint.Position.Line == expectedPosition.Line &&
+            hint.Position.Character == expectedPosition.Character);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Raven.sln")))
+                return directory.FullName;
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate Raven.sln from test output directory.");
     }
 }

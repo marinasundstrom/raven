@@ -47,6 +47,7 @@ let clientStartPromise;
 let languageServerBuildPromise;
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
+let pendingInlayHintRefresh;
 function execFileText(command, args, options = {}) {
     return new Promise((resolve, reject) => {
         (0, child_process_1.execFile)(command, [...args], { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
@@ -113,6 +114,19 @@ async function refreshInlayHints() {
         const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
         appendLifecycleLog(`Unable to refresh inlay hints: ${message}`);
     }
+}
+function scheduleInlayHintRefresh() {
+    if (pendingInlayHintRefresh) {
+        clearTimeout(pendingInlayHintRefresh);
+    }
+    pendingInlayHintRefresh = setTimeout(() => {
+        pendingInlayHintRefresh = undefined;
+        void refreshInlayHints();
+    }, 50);
+}
+function isInferredTypeHintInsertion(change) {
+    return change.rangeLength === 0 &&
+        (change.text.startsWith(': ') || change.text.startsWith(' -> '));
 }
 async function stopClient(reason) {
     const activeClient = client;
@@ -952,6 +966,14 @@ function activate(context) {
         if (event.affectsConfiguration('raven.inlayHints.inferredTypes.enabled')) {
             void refreshInlayHints();
         }
+    }));
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event => {
+        if (event.document.languageId !== 'raven' ||
+            !areInferredTypeInlayHintsEnabled() ||
+            !event.contentChanges.some(isInferredTypeHintInsertion)) {
+            return;
+        }
+        scheduleInlayHintRefresh();
     }));
     context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(event => {
         const added = event.added.map(folder => folder.uri.fsPath).join(', ') || '<none>';
