@@ -133,7 +133,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             getCurrentTextMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
-            var updatedText = ApplyContentChanges(currentText, notification.ContentChanges);
+            var contentChanges = notification.ContentChanges.ToArray();
+            var updatedText = ApplyContentChanges(currentText, contentChanges);
+            var shouldScheduleFullDiagnostics = ShouldScheduleFullDiagnosticsAfterEdit(currentText, contentChanges);
             applyChangesMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
@@ -151,14 +153,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 "DidChange applied for {Uri} (version={Version}, changeCount={ChangeCount}, previousLength={PreviousLength}, updatedLength={UpdatedLength}).",
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version?.ToString() ?? "<none>",
-                notification.ContentChanges.Count(),
+                contentChanges.Length,
                 currentText.Length,
                 updatedText.Length);
             _logger.LogDebug(
                 "DidChange {Uri} version={Version} changes={ChangeCount} currentLength={CurrentLength} updatedLength={UpdatedLength}.",
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version,
-                notification.ContentChanges.Count(),
+                contentChanges.Length,
                 currentText.Length,
                 updatedText.Length);
             var policy = GetEditDiagnosticsPolicy();
@@ -168,7 +170,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 includeWarmup: policy.IncludeWarmup,
                 warmupDelayMilliseconds: policy.WarmupDelayMilliseconds,
                 initialDiagnosticsMode: policy.InitialMode,
-                fullDiagnosticsDelayMilliseconds: policy.FullDiagnosticsDelayMilliseconds,
+                fullDiagnosticsDelayMilliseconds: shouldScheduleFullDiagnostics
+                    ? FullDiagnosticsAfterEditDelayMilliseconds
+                    : policy.FullDiagnosticsDelayMilliseconds,
                 diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
             scheduleMs = stageStopwatch.Elapsed.TotalMilliseconds;
             return result;
@@ -251,6 +255,61 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
 
         return text;
+    }
+
+    internal static bool ShouldScheduleFullDiagnosticsAfterEdit(
+        SourceText previousText,
+        IReadOnlyList<TextDocumentContentChangeEvent> contentChanges)
+    {
+        var previousTextString = previousText.ToString();
+
+        foreach (var change in contentChanges)
+        {
+            if (ContainsImportSensitiveLine(change.Text))
+                return true;
+
+            if (change.Range is null)
+                return ContainsImportSensitiveLine(previousTextString);
+
+            var start = PositionHelper.ToOffset(previousText, change.Range.Start);
+            var end = PositionHelper.ToOffset(previousText, change.Range.End);
+            start = Math.Clamp(start, 0, previousText.Length);
+            end = Math.Clamp(end, start, previousText.Length);
+
+            var lineStart = start;
+            while (lineStart > 0 && previousTextString[lineStart - 1] is not '\r' and not '\n')
+                lineStart--;
+
+            var lineEnd = end;
+            while (lineEnd < previousTextString.Length && previousTextString[lineEnd] is not '\r' and not '\n')
+                lineEnd++;
+
+            if (ContainsImportSensitiveLine(previousTextString[lineStart..lineEnd]))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ContainsImportSensitiveLine(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        using var reader = new StringReader(text);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var trimmed = line.TrimStart();
+            if (trimmed.StartsWith("import ", StringComparison.Ordinal) ||
+                trimmed.StartsWith("alias ", StringComparison.Ordinal) ||
+                trimmed.StartsWith("global", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public override Task<Unit> Handle(DidCloseTextDocumentParams notification, CancellationToken cancellationToken)
@@ -344,7 +403,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
+            FullDiagnosticsDelayMilliseconds: null,
             DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)

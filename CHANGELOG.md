@@ -15,7 +15,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Equality operands no longer target-type enum member-binding shorthand such as `value == .Case`; use `value == EnumType.Case` or the pattern form `value is .Case`.
 
 ### Fixed
-- Language-server diagnostics after text edits now run a deferred full pass after the fast syntax-only pass, so semantic hidden diagnostics such as redundant global imports reappear after undo/redo.
 - Qualified constant-member patterns such as `value is Math.PI` and enum-member patterns such as `value is JsonValueKind.True` now bind and emit as value comparisons instead of type tests.
 - Enum conversions now follow C#/CLR rules for explicit enum-to-integral, integral-to-enum, and enum-to-enum conversions, and emitted casts preserve CLR-open enum values that are not declared members.
 - Attribute arguments now accept enum constants in qualified and target-typed forms, including enum flag compositions such as `.Class | .Delegate`.

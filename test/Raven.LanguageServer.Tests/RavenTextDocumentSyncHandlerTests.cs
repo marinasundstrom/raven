@@ -9,6 +9,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 
+using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
 using RavenWorkspace = Raven.CodeAnalysis.RavenWorkspace;
@@ -101,16 +102,85 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredFullDiagnostics()
+    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWhileTyping()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
+        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
         policy.DiagnosticsDelayMilliseconds.ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public void ShouldScheduleFullDiagnosticsAfterEdit_ReturnsTrueForDeletedImportLine()
+    {
+        var previousText = SourceText.From("""
+import System.*
+
+func Main() -> unit {}
+""");
+
+        var changes = new[]
+        {
+            new TextDocumentContentChangeEvent
+            {
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                    new Position(0, 0),
+                    new Position(1, 0)),
+                Text = string.Empty
+            }
+        };
+
+        RavenTextDocumentSyncHandler.ShouldScheduleFullDiagnosticsAfterEdit(previousText, changes)
+            .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void ShouldScheduleFullDiagnosticsAfterEdit_ReturnsTrueForInsertedImportLine()
+    {
+        var previousText = SourceText.From("""
+func Main() -> unit {}
+""");
+
+        var changes = new[]
+        {
+            new TextDocumentContentChangeEvent
+            {
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                    new Position(0, 0),
+                    new Position(0, 0)),
+                Text = "import System.*\n\n"
+            }
+        };
+
+        RavenTextDocumentSyncHandler.ShouldScheduleFullDiagnosticsAfterEdit(previousText, changes)
+            .ShouldBeTrue();
+    }
+
+    [Fact]
+    public void ShouldScheduleFullDiagnosticsAfterEdit_ReturnsFalseForOrdinaryBodyEdit()
+    {
+        var previousText = SourceText.From("""
+func Main() -> unit {
+    val number = 1
+}
+""");
+
+        var changes = new[]
+        {
+            new TextDocumentContentChangeEvent
+            {
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                    new Position(1, 17),
+                    new Position(1, 18)),
+                Text = "2"
+            }
+        };
+
+        RavenTextDocumentSyncHandler.ShouldScheduleFullDiagnosticsAfterEdit(previousText, changes)
+            .ShouldBeFalse();
     }
 
     [Fact]
