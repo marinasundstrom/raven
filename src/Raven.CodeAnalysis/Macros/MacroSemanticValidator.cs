@@ -130,6 +130,7 @@ internal static class MacroSemanticValidator
     private static MacroTarget GetTarget(SyntaxNode targetDeclaration)
         => targetDeclaration switch
         {
+            CaseDeclarationSyntax => MacroTarget.Type,
             BaseTypeDeclarationSyntax => MacroTarget.Type,
             MethodDeclarationSyntax or FunctionStatementSyntax => MacroTarget.Method,
             PropertyDeclarationSyntax or IndexerDeclarationSyntax => MacroTarget.Property,
@@ -144,6 +145,7 @@ internal static class MacroSemanticValidator
     private static string DescribeTarget(SyntaxNode targetDeclaration)
         => targetDeclaration switch
         {
+            CaseDeclarationSyntax => "union case declarations",
             BaseTypeDeclarationSyntax => "type declarations",
             MethodDeclarationSyntax or FunctionStatementSyntax => "methods",
             PropertyDeclarationSyntax or IndexerDeclarationSyntax => "properties",

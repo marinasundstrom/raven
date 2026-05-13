@@ -49,6 +49,31 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void TypeMacro_OnUnionCase_IsValidAndExpands()
+    {
+        CaseTrackingAttachedMacro.LastTargetCaseName = null;
+
+        var (compilation, tree) = CreateCompilation("""
+            union Result {
+                #[TrackCase]
+                case Ok(value: int)
+            }
+            """);
+
+        compilation = compilation.AddMacroReferences(new MacroReference(typeof(CaseTrackingMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(tree);
+        var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
+
+        var expansion = model.GetMacroExpansion(attribute);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.NotNull(expansion);
+        Assert.Equal("Ok", CaseTrackingAttachedMacro.LastTargetCaseName);
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAVM011");
+    }
+
+    [Fact]
     public void MacroAttribute_OnInvalidTarget_ReportsDiagnostic()
     {
         var (compilation, _) = CreateCompilation("""
@@ -380,6 +405,32 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         public MacroTarget Targets => MacroTarget.Type;
 
         public MacroExpansionResult Expand(AttachedMacroContext context) => MacroExpansionResult.Empty;
+    }
+
+    public sealed class CaseTrackingMacroPlugin : IRavenMacroPlugin
+    {
+        public string Name => "CaseTrackingMacroPlugin";
+
+        public ImmutableArray<IMacroDefinition> GetMacros()
+            => [new CaseTrackingAttachedMacro()];
+    }
+
+    public sealed class CaseTrackingAttachedMacro : IAttachedDeclarationMacro
+    {
+        public static string? LastTargetCaseName { get; set; }
+
+        public string Name => "TrackCase";
+
+        public MacroKind Kind => MacroKind.AttachedDeclaration;
+
+        public MacroTarget Targets => MacroTarget.Type;
+
+        public MacroExpansionResult Expand(AttachedMacroContext context)
+        {
+            var caseDeclaration = Assert.IsType<CaseDeclarationSyntax>(context.TargetDeclaration);
+            LastTargetCaseName = caseDeclaration.Identifier.ValueText;
+            return MacroExpansionResult.Empty;
+        }
     }
 
     public sealed class ExpandingMacroPlugin : IRavenMacroPlugin

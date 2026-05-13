@@ -60,6 +60,7 @@ Macro attributes follow the same placement rules as declaration attributes:
 * No blank line may separate the macro attribute from the declaration it applies to.
 * Multiple attribute lists may appear before the same declaration.
 * Normal attributes and macro attributes may be mixed in the declaration prelude.
+* Union case declarations are type declarations for attached macro target validation, so macros that target `MacroTarget.Type` may be applied to `case` declarations.
 
 Example:
 
