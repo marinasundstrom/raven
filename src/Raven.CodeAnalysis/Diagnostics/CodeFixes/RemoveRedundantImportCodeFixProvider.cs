@@ -34,11 +34,85 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
 
         var sourceText = context.Document.GetTextAsync(context.CancellationToken).GetAwaiter().GetResult().ToString();
         var removalSpan = GetLineRemovalSpan(sourceText, importDirective.Span);
+        var allRemovalSpans = GetRedundantImportRemovalSpans(context.Document.Project, root, sourceText, context.CancellationToken)
+            .Distinct()
+            .OrderByDescending(static span => span.Start)
+            .ToArray();
+        if (allRemovalSpans.Length > 1)
+        {
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Remove all redundant imports",
+                    (solution, _) =>
+                    {
+                        var document = solution.GetDocument(context.Document.Id);
+                        if (document is null)
+                            return solution;
+
+                        var updatedText = document.Text;
+                        foreach (var span in allRemovalSpans)
+                            updatedText = updatedText.WithChange(new TextChange(span, string.Empty));
+
+                        return solution.WithDocumentText(context.Document.Id, updatedText);
+                    }));
+        }
+
         context.RegisterCodeFix(
             CodeAction.CreateTextChange(
                 "Remove redundant import",
                 context.Document.Id,
                 new TextChange(removalSpan, string.Empty)));
+    }
+
+    private static IEnumerable<TextSpan> GetRedundantImportRemovalSpans(
+        Project project,
+        SyntaxNode root,
+        string sourceText,
+        CancellationToken cancellationToken)
+    {
+        var globalImportKeys = CollectGlobalImportKeys(project, cancellationToken);
+        if (globalImportKeys.Count == 0)
+            yield break;
+
+        foreach (var import in EnumerateSourceImports(root))
+        {
+            if (globalImportKeys.Contains(import.Name.ToString()))
+                yield return GetLineRemovalSpan(sourceText, import.Span);
+        }
+    }
+
+    private static HashSet<string> CollectGlobalImportKeys(Project project, CancellationToken cancellationToken)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var document in project.Documents)
+        {
+            var syntaxTree = document.GetSyntaxTreeAsync(cancellationToken).GetAwaiter().GetResult();
+            if (syntaxTree?.GetRoot(cancellationToken) is not CompilationUnitSyntax root)
+                continue;
+
+            foreach (var globalImport in root.Members.OfType<GlobalImportBlockSyntax>())
+            {
+                foreach (var import in globalImport.Imports)
+                    keys.Add(import.Name.ToString());
+            }
+        }
+
+        return keys;
+    }
+
+    private static IEnumerable<ImportDirectiveSyntax> EnumerateSourceImports(SyntaxNode root)
+    {
+        if (root is not CompilationUnitSyntax compilationUnit)
+            yield break;
+
+        foreach (var import in compilationUnit.Imports)
+            yield return import;
+
+        foreach (var namespaceDeclaration in compilationUnit.Members.OfType<BaseNamespaceDeclarationSyntax>())
+        {
+            foreach (var import in namespaceDeclaration.Imports)
+                yield return import;
+        }
     }
 
     private static ImportDirectiveSyntax? FindSourceImport(SyntaxNode root, TextSpan diagnosticSpan)

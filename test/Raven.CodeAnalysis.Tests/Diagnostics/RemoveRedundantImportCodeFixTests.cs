@@ -37,6 +37,44 @@ WriteLine("ok")
         verifier.Verify();
     }
 
+    [Fact]
+    public void AppliesCodeFix_RemovesAllImportsAlreadyCoveredByGlobalImports()
+    {
+        const string code = """
+import System.*
+import System.Console.*
+import System.Text.*
+
+global {
+    import System.*
+    import System.Console.*
+}
+
+WriteLine("ok")
+""";
+
+        const string fixedCode = """
+import System.Text.*
+
+global {
+    import System.*
+    import System.Console.*
+}
+
+WriteLine("ok")
+""";
+
+        var verifier = CreateCodeFixVerifier<NoOpAnalyzer, RemoveRedundantImportCodeFixProvider>(
+            code,
+            fixedCode,
+            [
+                new DiagnosticResult(CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id).WithAnySpan(),
+                new DiagnosticResult(CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id).WithAnySpan()
+            ]);
+
+        verifier.Verify();
+    }
+
     private sealed class NoOpAnalyzer : DiagnosticAnalyzer
     {
         public override void Initialize(AnalysisContext context)
