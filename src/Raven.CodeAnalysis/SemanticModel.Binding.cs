@@ -4021,6 +4021,8 @@ public partial class SemanticModel
         {
             var member = effectiveMember.EffectiveSyntax;
             var originalSyntax = effectiveMember.OriginalSyntax;
+            ReportInvalidRecordBodyMemberIfNeeded(classDecl, classBinder, member);
+
             switch (member)
             {
                 case FieldDeclarationSyntax fieldDecl:
@@ -4227,6 +4229,116 @@ public partial class SemanticModel
         classBinder.EnsureDefaultConstructor();
 
     }
+
+    private static void ReportInvalidRecordBodyMemberIfNeeded(
+        TypeDeclarationSyntax typeDeclaration,
+        ClassDeclarationBinder classBinder,
+        MemberDeclarationSyntax member)
+    {
+        if (typeDeclaration is not RecordDeclarationSyntax ||
+            classBinder.ContainingSymbol is not SourceNamedTypeSymbol recordSymbol ||
+            !recordSymbol.IsRecord)
+        {
+            return;
+        }
+
+        switch (member)
+        {
+            case FieldDeclarationSyntax fieldDecl when !HasStaticModifier(fieldDecl.Modifiers):
+                foreach (var declarator in fieldDecl.Declaration.Declarators)
+                {
+                    classBinder.Diagnostics.ReportRecordInstanceStorageMemberNotAllowed(
+                        recordSymbol.Name,
+                        "field",
+                        declarator.Identifier.ValueText,
+                        declarator.Identifier.GetLocation());
+                }
+                break;
+
+            case PropertyDeclarationSyntax propertyDecl
+                when !HasStaticModifier(propertyDecl.Modifiers) &&
+                     IsRecordInstanceStorageProperty(propertyDecl):
+                classBinder.Diagnostics.ReportRecordInstanceStorageMemberNotAllowed(
+                    recordSymbol.Name,
+                    "property",
+                    propertyDecl.Identifier.ValueText,
+                    propertyDecl.Identifier.GetLocation());
+                break;
+
+            case EventDeclarationSyntax eventDecl when !HasStaticModifier(eventDecl.Modifiers):
+                classBinder.Diagnostics.ReportRecordInstanceStorageMemberNotAllowed(
+                    recordSymbol.Name,
+                    "event",
+                    eventDecl.Identifier.ValueText,
+                    eventDecl.Identifier.GetLocation());
+                break;
+
+            case ConstructorDeclarationSyntax ctorDecl when !HasStaticModifier(ctorDecl.Modifiers):
+                classBinder.Diagnostics.ReportRecordSecondaryConstructorNotAllowed(
+                    recordSymbol.Name,
+                    ctorDecl.InitKeyword.GetLocation());
+                break;
+
+            case ParameterlessConstructorDeclarationSyntax initDecl when !HasStaticModifier(initDecl.Modifiers):
+                classBinder.Diagnostics.ReportRecordSecondaryConstructorNotAllowed(
+                    recordSymbol.Name,
+                    initDecl.InitKeyword.GetLocation());
+                break;
+
+            case InitializerBlockDeclarationSyntax initBlockDecl when !HasStaticModifier(initBlockDecl.Modifiers):
+                classBinder.Diagnostics.ReportRecordSecondaryConstructorNotAllowed(
+                    recordSymbol.Name,
+                    initBlockDecl.GetLocation());
+                break;
+        }
+    }
+
+    private static bool IsRecordInstanceStorageProperty(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.Initializer is not null)
+            return true;
+
+        if (propertyDecl.ExpressionBody is not null)
+            return false;
+
+        if (propertyDecl.AccessorList is null || propertyDecl.AccessorList.IsMissing)
+            return true;
+
+        if (propertyDecl.AccessorList.Accessors.All(static accessor =>
+                accessor.Body is null &&
+                accessor.ExpressionBody is null))
+        {
+            return true;
+        }
+
+        return UsesAutoPropertyFieldKeyword(propertyDecl);
+    }
+
+    private static bool UsesAutoPropertyFieldKeyword(PropertyDeclarationSyntax propertyDecl)
+    {
+        if (propertyDecl.AccessorList is not { } accessorList)
+            return false;
+
+        foreach (var accessor in accessorList.Accessors)
+        {
+            if (accessor.Body is { } body &&
+                body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
+            {
+                return true;
+            }
+
+            if (accessor.ExpressionBody is { } expressionBody &&
+                expressionBody.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasStaticModifier(SyntaxTokenList modifiers)
+        => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
 
     private static void ReportIncompletePartialMembers(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
     {
@@ -5001,17 +5113,10 @@ public partial class SemanticModel
                     if (isRecord && propertySymbol is not null)
                     {
                         recordProperties?.Add(propertySymbol);
-
-                        if (promotedPropertyAccessibility is not Accessibility.Public)
-                        {
-                            classBinder.Diagnostics.ReportNonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics(
-                                propertySymbol.Name,
-                                parameterSyntax.Identifier.GetLocation());
-                        }
                     }
 
                     if (propertySymbol is not null &&
-                        promotedPropertyAccessibility == Accessibility.Public)
+                        (isRecord || promotedPropertyAccessibility == Accessibility.Public))
                     {
                         deconstructProperties.Add(propertySymbol);
                     }
@@ -5513,7 +5618,7 @@ public partial class SemanticModel
                 methodKind: MethodKind.Ordinary,
                 declaredAccessibility: Accessibility.Public);
 
-            var deconstructProperties = GetPublicRecordValueProperties(recordSymbol);
+            var deconstructProperties = GetRecordValueProperties(recordSymbol);
             var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>(deconstructProperties.Length);
             foreach (var property in deconstructProperties)
             {
@@ -5620,23 +5725,13 @@ public partial class SemanticModel
         if (!typeSymbol.DeconstructProperties.IsDefaultOrEmpty)
             return typeSymbol.DeconstructProperties;
 
-        return GetPublicRecordValueProperties(typeSymbol);
+        return GetRecordValueProperties(typeSymbol);
     }
 
-    private static ImmutableArray<SourcePropertySymbol> GetPublicRecordValueProperties(SourceNamedTypeSymbol typeSymbol)
-    {
-        if (typeSymbol.RecordProperties.IsDefaultOrEmpty)
-            return ImmutableArray<SourcePropertySymbol>.Empty;
-
-        var builder = ImmutableArray.CreateBuilder<SourcePropertySymbol>(typeSymbol.RecordProperties.Length);
-        foreach (var property in typeSymbol.RecordProperties)
-        {
-            if (property.DeclaredAccessibility == Accessibility.Public)
-                builder.Add(property);
-        }
-
-        return builder.ToImmutable();
-    }
+    private static ImmutableArray<SourcePropertySymbol> GetRecordValueProperties(SourceNamedTypeSymbol typeSymbol)
+        => typeSymbol.RecordProperties.IsDefaultOrEmpty
+            ? ImmutableArray<SourcePropertySymbol>.Empty
+            : typeSymbol.RecordProperties;
 
     private void SynthesizeDeconstructMethod(
         TypeDeclarationSyntax classDecl,

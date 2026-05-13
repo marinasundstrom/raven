@@ -441,7 +441,7 @@ record class ShipmentRequest(
 ```
 
 For classes and structs, primary-constructor parameters become properties only when declared with `val`/`var`.
-For records, positional parameters are promoted by default.
+For records, positional parameters are promoted by default and define the record's complete value shape. Record bodies can add computed members and static storage, but not extra instance fields, storage properties, or secondary constructors.
 
 ---
 

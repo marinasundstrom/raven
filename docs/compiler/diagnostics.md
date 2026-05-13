@@ -106,6 +106,8 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0332` | Error | Modifier not valid on member | Modifier '{modifier}' is not valid on {memberKind} '{memberName}' | — |
 | `RAV0333` | Warning | Redundant open modifier on abstract class | Modifier 'open' is redundant on abstract class '{typeName}' | — |
 | `RAV0340` | Warning | Redundant abstract modifier on sealed class | Modifier 'abstract' is redundant on sealed class '{typeName}' | — |
+| `RAV0345` | Error | Record instance storage must come from primary constructor parameters | Record '{recordName}' cannot declare instance {memberKind} '{memberName}'; record instance data must come only from primary constructor parameters. | — |
+| `RAV0346` | Error | Records cannot declare secondary constructors | Record '{recordName}' cannot declare instance constructors; use the primary constructor and static factory methods. | — |
 | `RAV0400` | Error | Nullable type not allowed in union | Nullable types are not allowed in union types | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
 | `RAV0401` | Error | Type parameter cannot be nullable | Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
 | `RAV0402` | Error | Possible null reference access | Possible null reference access | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |

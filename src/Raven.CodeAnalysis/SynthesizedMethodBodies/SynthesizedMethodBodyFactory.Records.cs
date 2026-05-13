@@ -391,8 +391,6 @@ internal static partial class SynthesizedMethodBodyFactory
         if (!typeSymbol.IsRecord)
             return [];
 
-        return typeSymbol.RecordProperties
-            .Where(static property => property.DeclaredAccessibility == Accessibility.Public)
-            .ToArray();
+        return typeSymbol.RecordProperties.ToArray();
     }
 }

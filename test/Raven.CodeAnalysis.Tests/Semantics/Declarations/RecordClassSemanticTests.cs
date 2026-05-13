@@ -547,33 +547,33 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
     }
 
     [Fact]
-    public void RecordClass_NonPublicPromotedParameter_ReportsValueSemanticsWarning()
+    public void RecordClass_NonPublicPrimaryConstructorParameter_ParticipatesInValueSemantics()
     {
         var source = """
             record class Person(Name: string, private var Secret: int);
             """;
 
-        var (compilation, _) = CreateCompilation(source);
-        var diagnostics = compilation.GetDiagnostics();
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var deconstruct = person.GetMembers("Deconstruct").OfType<IMethodSymbol>().Single();
 
-        Assert.Contains(
-            diagnostics,
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics);
+        Assert.Equal(2, deconstruct.Parameters.Length);
+        Assert.Equal(["Name", "Secret"], deconstruct.Parameters.Select(parameter => parameter.Name).ToArray());
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]
-    public void RecordClass_PublicPromotedParameters_DoNotReportValueSemanticsWarning()
+    public void RecordClass_PublicPromotedParameters_BindWithoutValueSemanticsWarning()
     {
         var source = """
             record class Person(Name: string, Age: int);
             """;
 
         var (compilation, _) = CreateCompilation(source);
-        var diagnostics = compilation.GetDiagnostics();
 
-        Assert.DoesNotContain(
-            diagnostics,
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics);
+        Assert.Empty(compilation.GetDiagnostics());
     }
 
     [Fact]

@@ -5,6 +5,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## Unreleased
 
 ### Changed
+- Records now use the full primary-constructor parameter list as their canonical value shape, including non-public promoted parameters, and record bodies now reject extra instance storage and secondary instance constructors.
 - The language server now provides source-applicable inlay hints for inferred local type annotations and inferred function return type annotations, and the VS Code extension can toggle those hints with `raven.inlayHints.inferredTypes.enabled` or `Raven: Toggle Inferred Type Inlay Hints`.
 - Language-server document edits now preserve `SourceText` change ranges through incremental sync, fall back to full parsing for whole-document or large paste edits, debounce macro-consumer refreshes, and keep normal typing diagnostics syntax-only so expensive semantic diagnostics wait for open/save.
 - Match expression arms now accept direct `return` expressions, aligning them with other expression-oriented value positions while preserving diagnostics for statement `return` inside block-expression arms.

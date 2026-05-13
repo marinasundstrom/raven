@@ -32,9 +32,7 @@ struct Point {
     public void RecordStructDeclaration_BindsAsValueType()
     {
         const string source = """
-record struct Point {
-    var X: int = 0
-}
+record struct Point
 """;
 
         var (compilation, tree) = CreateCompilation(source);

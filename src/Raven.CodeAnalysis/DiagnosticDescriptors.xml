@@ -242,11 +242,14 @@
     Title="Permits clause requires sealed modifier"
     Message="The 'permits' clause is only valid on sealed classes, record classes, or interfaces"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
-  <Descriptor Id="RAV0341"
-    Identifier="NonPublicRecordPrimaryConstructorPropertyExcludedFromValueSemantics"
-    Title="Non-public record property excluded from value semantics"
-    Message="Promoted record property '{propertyName}' is non-public and will not participate in synthesized record value semantics."
-    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0345" Identifier="RecordInstanceStorageMemberNotAllowed"
+    Title="Record instance storage must come from primary constructor parameters"
+    Message="Record '{recordName}' cannot declare instance {memberKind} '{memberName}'; record instance data must come only from primary constructor parameters."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0346" Identifier="RecordSecondaryConstructorNotAllowed"
+    Title="Records cannot declare secondary constructors"
+    Message="Record '{recordName}' cannot declare instance constructors; use the primary constructor and static factory methods."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0608" Identifier="AbstractMemberCannotHaveBody"
     Title="Abstract member cannot have a body"
     Message="'{memberName}' cannot declare a body because it is marked abstract" Category="compiler"

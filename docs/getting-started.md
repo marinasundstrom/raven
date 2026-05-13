@@ -73,6 +73,7 @@ dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- 
 - For classes/records with primary constructors:
   - `val`/`var` parameters are promoted properties.
   - For `record class`/`record struct`, positional parameters are promoted by default.
+  - A record's instance data and value semantics come only from its primary-constructor parameters; use computed members or static factory methods instead of body storage or secondary constructors.
 
 Example:
 

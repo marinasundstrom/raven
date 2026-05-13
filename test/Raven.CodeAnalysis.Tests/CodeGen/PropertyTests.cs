@@ -719,7 +719,7 @@ record class Person(Name: string, Age: int)
     }
 
     [Fact]
-    public void RecordEquality_ExcludesNonPublicPromotedProperties()
+    public void RecordEquality_IncludesNonPublicPrimaryConstructorProperties()
     {
         var code = """
 record class Person(Name: string, private var Secret: int)
@@ -762,17 +762,16 @@ record class Person(Name: string, private var Secret: int)
 
         var left = primaryCtor!.Invoke(["Ada", 1]);
         var right = primaryCtor.Invoke(["Ada", 2]);
-        Assert.True(left.Equals(right));
-        Assert.Equal(left.GetHashCode(), right.GetHashCode());
+        Assert.False(left.Equals(right));
 
         var toStringValue = left.ToString();
         Assert.NotNull(toStringValue);
         Assert.Contains("Name = \"Ada\"", toStringValue, StringComparison.Ordinal);
-        Assert.DoesNotContain("Secret", toStringValue, StringComparison.Ordinal);
+        Assert.Contains("Secret = 1", toStringValue, StringComparison.Ordinal);
 
         var deconstruct = personType.GetMethod("Deconstruct", BindingFlags.Instance | BindingFlags.Public);
         Assert.NotNull(deconstruct);
-        Assert.Single(deconstruct!.GetParameters());
+        Assert.Equal(2, deconstruct!.GetParameters().Length);
 
         var copy = copyCtor!.Invoke([left]);
         Assert.True(copy.Equals(left));

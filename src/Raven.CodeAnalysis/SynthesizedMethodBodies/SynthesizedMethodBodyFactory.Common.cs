@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -145,10 +146,30 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundExpression CreatePropertyGetterAccess(BoundExpression receiver, IPropertySymbol property)
     {
+        if (TryGetFieldOnlyBackingField(property, out var backingField))
+            return new BoundFieldAccess(receiver, backingField);
+
         if (property.GetMethod is null)
             throw new InvalidOperationException($"Property '{property.Name}' does not have a getter.");
 
         return new BoundInvocationExpression(property.GetMethod, Array.Empty<BoundExpression>(), receiver);
+    }
+
+    private static bool TryGetFieldOnlyBackingField(
+        IPropertySymbol property,
+        [NotNullWhen(true)] out SourceFieldSymbol? backingField)
+    {
+        var sourceProperty = property as SourcePropertySymbol
+            ?? property.UnderlyingSymbol as SourcePropertySymbol;
+
+        if (sourceProperty is { EmitAsFieldOnly: true, BackingField: { } field })
+        {
+            backingField = field;
+            return true;
+        }
+
+        backingField = null;
+        return false;
     }
 
     private static BoundExpression CreateQuotedStringValue(
