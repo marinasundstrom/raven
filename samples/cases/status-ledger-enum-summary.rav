@@ -9,7 +9,7 @@ for value in data {
     val status = getStatus(value)
     builder.AppendLine("Value: ${value.ToString()}, Status: ${status.ToString()}")
 
-    if status == .Error {
+    if status is .Error {
         Console.WriteLine("Critical value: " + value.ToString())
     }
 }
