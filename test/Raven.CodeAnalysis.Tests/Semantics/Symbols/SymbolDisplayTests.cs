@@ -165,6 +165,37 @@ func Do(no: int = default) -> unit { }
     }
 
     [Fact]
+    public void Method_ToDisplayString_FormatsTargetTypedEnumParameterDefaultValue()
+    {
+        const string source = """
+enum ServiceLifetime {
+    Singleton,
+    Scoped,
+    Transient
+}
+
+func Configure(contextLifetime: ServiceLifetime = .Scoped) -> unit { }
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var parameter = symbol.Parameters.Single();
+
+        parameter.HasExplicitDefaultValue.ShouldBeTrue();
+        parameter.ExplicitDefaultValue.ShouldBe(1);
+        symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("static func Configure(contextLifetime: ServiceLifetime = .Scoped) -> ()");
+
+        var qualifiedFormat = SymbolDisplayFormat.RavenSignatureFormat.WithMiscellaneousOptions(
+            SymbolDisplayFormat.RavenSignatureFormat.MiscellaneousOptions &
+            ~SymbolDisplayMiscellaneousOptions.UseTargetTypedMemberBinding);
+        symbol.ToDisplayString(qualifiedFormat)
+            .ShouldBe("static func Configure(contextLifetime: ServiceLifetime = ServiceLifetime.Scoped) -> ()");
+    }
+
+    [Fact]
     public void UnionType_ToDisplayString_IncludesUnionRepresentationKeyword()
     {
         const string source = """

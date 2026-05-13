@@ -90,6 +90,9 @@ internal static class ConstantValueEvaluator
             }
         }
 
+        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            return TryConvert(enumType.EnumUnderlyingType, value, out converted);
+
         switch (targetType.SpecialType)
         {
             case SpecialType.System_Boolean when value is bool boolValue:

@@ -90,6 +90,50 @@ class Calculator {
     }
 
     [Fact]
+    public void Invocation_OmitsOptionalArgument_UsesTargetTypedEnumDefault()
+    {
+        const string source = """
+val result = Calculator.GetLifetime()
+
+enum ServiceLifetime {
+    Singleton,
+    Scoped,
+    Transient
+}
+
+class Calculator {
+    static func GetLifetime(value: ServiceLifetime = .Scoped) -> ServiceLifetime {
+        return value
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "GetLifetime");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var argument = Assert.Single(boundInvocation.Arguments);
+        var literal = Assert.IsType<BoundLiteralExpression>(argument);
+        Assert.Equal(1, literal.Value);
+
+        var parameter = boundInvocation.Method.Parameters.Single();
+        Assert.True(parameter.HasExplicitDefaultValue);
+        Assert.Equal(1, parameter.ExplicitDefaultValue);
+        Assert.Equal(
+            "value: ServiceLifetime = .Scoped",
+            parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+    }
+
+    [Fact]
     public void Invocation_UsesDefaultParameterValueAttribute_FromMetadata()
     {
         const string source = """

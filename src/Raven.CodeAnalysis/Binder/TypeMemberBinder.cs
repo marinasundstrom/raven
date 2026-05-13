@@ -4110,13 +4110,80 @@ internal partial class TypeMemberBinder : Binder
                 value: CreateParameterTypeDefaultValue(parameterType),
                 ParameterDefaultEvaluationFailure.None);
 
-        if (!ConstantValueEvaluator.TryEvaluate(parameterSyntax.DefaultValue.Value, out var rawValue))
+        var defaultExpression = parameterSyntax.DefaultValue.Value;
+        if (TryEvaluateTargetTypedEnumDefault(defaultExpression, parameterType, out var enumDefaultValue))
+            return new ParameterDefaultEvaluationResult(
+                true,
+                success: true,
+                enumDefaultValue,
+                ParameterDefaultEvaluationFailure.None);
+
+        if (!ConstantValueEvaluator.TryEvaluate(defaultExpression, out var rawValue))
             return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConstant);
 
         if (!ConstantValueEvaluator.TryConvert(parameterType, rawValue, out var defaultValue))
             return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConvertible);
 
         return new ParameterDefaultEvaluationResult(true, success: true, defaultValue, ParameterDefaultEvaluationFailure.None);
+    }
+
+    private static bool TryEvaluateTargetTypedEnumDefault(
+        ExpressionSyntax expression,
+        ITypeSymbol parameterType,
+        out object? value)
+    {
+        value = null;
+
+        var enumType = GetParameterDefaultEnumType(parameterType);
+        if (enumType is null)
+            return false;
+
+        if (expression is not MemberBindingExpressionSyntax memberBinding)
+            return false;
+
+        var memberName = memberBinding.Name.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(memberName))
+            return false;
+
+        var field = enumType.GetMembers(memberName)
+            .OfType<IFieldSymbol>()
+            .FirstOrDefault(static field => field.IsConst && field.ContainingType?.TypeKind == TypeKind.Enum);
+        if (field is null)
+            return false;
+
+        return ConstantValueEvaluator.TryConvert(parameterType, field.GetConstantValue(), out value);
+    }
+
+    private static INamedTypeSymbol? GetParameterDefaultEnumType(ITypeSymbol parameterType)
+    {
+        parameterType = UnwrapParameterDefaultType(parameterType);
+
+        if (parameterType is NullableTypeSymbol nullableType)
+            parameterType = UnwrapParameterDefaultType(nullableType.UnderlyingType);
+
+        return parameterType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            ? enumType
+            : null;
+    }
+
+    private static ITypeSymbol UnwrapParameterDefaultType(ITypeSymbol type)
+    {
+        while (true)
+        {
+            if (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+            {
+                type = alias;
+                continue;
+            }
+
+            if (type is LiteralTypeSymbol literal)
+            {
+                type = literal.UnderlyingType;
+                continue;
+            }
+
+            return type;
+        }
     }
 
     private static object? CreateParameterTypeDefaultValue(ITypeSymbol parameterType)
