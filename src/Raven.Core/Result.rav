@@ -2,6 +2,8 @@ namespace System
 
 import System.*
 import System.Collections.Generic.*
+import System.Option.*
+import System.Result.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 

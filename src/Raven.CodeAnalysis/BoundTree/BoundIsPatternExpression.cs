@@ -1956,25 +1956,43 @@ internal partial class BlockBinder
         if (!TryGetCasePatternHead(syntax.Type, out var caseName, out var qualifierType, out var caseNameLocation))
             return false;
 
-        return TryBindDiscriminatedUnionCasePattern(
-            caseName: caseName!,
-            qualifierType: qualifierType,
-            inputType: inputType,
-            arguments: syntax.ArgumentList.Arguments.Select(argument => argument.Pattern).ToImmutableArray(),
-            designation: syntax.Designation,
-            caseNameLocation: caseNameLocation,
-            argumentListLocation: syntax.ArgumentList.GetLocation(),
-            out pattern)
+        var arguments = syntax.ArgumentList.Arguments.Select(argument => argument.Pattern).ToImmutableArray();
+        var canUseUnqualifiedUnionCase = qualifierType is not null ||
+            IsUnqualifiedUnionCaseImported(caseName!, GetCasePatternTypeArgumentCount(syntax.Type));
+
+        return (canUseUnqualifiedUnionCase &&
+                TryBindDiscriminatedUnionCasePattern(
+                    caseName: caseName!,
+                    qualifierType: qualifierType,
+                    inputType: inputType,
+                    arguments: arguments,
+                    designation: syntax.Designation,
+                    caseNameLocation: caseNameLocation,
+                    argumentListLocation: syntax.ArgumentList.GetLocation(),
+                    out pattern))
             || TryBindSealedHierarchyCasePattern(
                 caseName: caseName!,
                 qualifierType: qualifierType,
                 inputType: inputType,
-                arguments: syntax.ArgumentList.Arguments.Select(argument => argument.Pattern).ToImmutableArray(),
+                arguments: arguments,
                 designation: syntax.Designation,
                 caseNameLocation: caseNameLocation,
                 argumentListLocation: syntax.ArgumentList.GetLocation(),
                 reportMissingCase: false,
                 out pattern);
+    }
+
+    private bool IsUnqualifiedUnionCaseImported(string caseName, int? typeArgumentCount)
+        => LookupUnionCaseTypeCandidates(caseName, typeArgumentCount).Length > 0;
+
+    private static int? GetCasePatternTypeArgumentCount(TypeSyntax typeSyntax)
+    {
+        return typeSyntax switch
+        {
+            GenericNameSyntax generic => generic.TypeArgumentList.Arguments.Count,
+            QualifiedNameSyntax { Right: GenericNameSyntax generic } => generic.TypeArgumentList.Arguments.Count,
+            _ => null
+        };
     }
 
     private bool TryBindSealedHierarchyCasePattern(

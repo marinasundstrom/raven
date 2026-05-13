@@ -21,6 +21,7 @@
   <TokenKind Name="CharKeyword" Text="char" IsReservedWord="true" />
   <TokenKind Name="ObjectKeyword" Text="object" IsReservedWord="true" />
   <TokenKind Name="DelegateKeyword" Text="delegate" IsReservedWord="true" />
+  <TokenKind Name="GlobalKeyword" Text="global" IsReservedWord="false" />
   <TokenKind Name="ImportKeyword" Text="import" IsReservedWord="false" />
   <TokenKind Name="AliasKeyword" Text="alias" IsReservedWord="false" />
   <TokenKind Name="UseKeyword" Text="use" IsReservedWord="false" />

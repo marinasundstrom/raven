@@ -16,10 +16,10 @@ WriteLine(Describe(second))
 
 func Describe(token: Token) -> string {
     return token match {
-        Number(_, val value) => "Number $value"
-        Identifier(val text) => "Identifier $text"
-        EOF => "EOF"
-        Unknown => "Unknown"
+        .Number(_, val value) => "Number $value"
+        .Identifier(val text) => "Identifier $text"
+        .EOF => "EOF"
+        .Unknown => "Unknown"
     }
 }
 
@@ -42,7 +42,7 @@ class Lexer {
         }
 
         if next == -1 {
-            return EOF
+            return .EOF
         }
 
         var current = Convert.ToChar(next)
@@ -68,22 +68,22 @@ class Lexer {
             while next != -1 {
                 current = Convert.ToChar(next)
                 if !char.IsLetter(current) {
-                    return Identifier(_builder.ToString())
+                    return .Identifier(_builder.ToString())
                 }
 
                 _builder.Append(current)
                 next = _textReader.Read()
             }
 
-            return Identifier(_builder.ToString())
+            return .Identifier(_builder.ToString())
         }
 
-        return Unknown
+        return .Unknown
     }
 
     func MakeNumber() -> Token {
         val numberText = _builder.ToString()
-        return Number(numberText, int.Parse(numberText))
+        return .Number(numberText, int.Parse(numberText))
     }
 }
 

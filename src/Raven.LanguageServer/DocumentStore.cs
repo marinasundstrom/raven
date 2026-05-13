@@ -47,6 +47,7 @@ internal sealed class DocumentStore
     private static readonly HashSet<string> UnnecessaryDiagnosticIds = new(StringComparer.OrdinalIgnoreCase)
     {
         CompilerDiagnostics.UnreachableCodeDetected.Id,
+        CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id,
         Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.DiagnosticId
     };
 

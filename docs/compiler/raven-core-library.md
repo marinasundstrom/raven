@@ -120,6 +120,15 @@ default/uninitialized state that struct carriers can expose.
 These unions provide lightweight error-handling primitives while keeping Raven
 programs compatible with the .NET type system.
 
+Project builds include a generated prelude source file that globally imports
+the standard `System` namespaces, `System.Result.*`, and `System.Option.*`.
+That prelude is why standard cases such as `Ok`, `Error`, `Some`, and `None`
+are usually available as simple names in project code. User-defined union cases
+require qualification, target-typed member syntax, or an explicit
+`import UnionType.*`. Global imports are hoisted across the compilation but
+still bind as ordinary imports; type-scope and direct nested-case imports require
+the imported type or nested type to be available to the compilation.
+
 When you want OOP-style subtype semantics, prefer Raven sealed hierarchies instead of unions.
 
 JSON serialization behavior for `Option<T>`, `Result<T, E>`, standard type

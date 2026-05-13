@@ -3243,6 +3243,57 @@ names. To bind a custom name, use an `alias` directive. All imports for a given
 scope must come before any alias directives or member declarations. Placing an
 import directive after an alias or member is a compile-time error (`RAV1005`).
 
+Project builds also include a generated prelude source file. The prelude uses a
+top-level `global` block. Global blocks are top-level constructs whose supported
+`import` entries are processed early during binding as compilation-wide imports:
+
+```raven
+global {
+    import System.*
+    import System.Collections.*
+    import System.Collections.Generic.*
+    import System.IO.*
+    import System.Linq.*
+    import System.Net.Http.*
+    import System.Threading.*
+    import System.Threading.Tasks.*
+    import System.Result.*
+    import System.Option.*
+}
+```
+
+The imports in this generated file participate in ordinary import lookup for
+the project. Global imports are hoisted, but they still use ordinary namespace
+and type import binding rules. Namespace imports are the preferred project-file
+shape. Type-scope imports such as `System.Result.*` and direct nested-case
+imports such as `System.Result.Ok` require the imported type or nested type to
+be available to the compilation; they are supported, but are best reserved for
+stable library/prelude cases.
+
+The standard `Result` and `Option` case imports make `Ok`, `Error`,
+`Some`, and `None` available by simple name in project code. User-defined union
+cases are not automatically available as simple names; use a qualified case
+name, target-typed member syntax, or an explicit wildcard type import such as
+`import FridgeError.*`.
+
+Project files can disable the generated standard imports with
+`GeneratePreludeImports=false`. They can also add generated prelude imports with
+MSBuild `Import` items, including static type-scope imports and generated
+aliases:
+
+```xml
+<ItemGroup>
+  <Import Include="SuperheroApp.Models" />
+  <Import Include="System.Console" Static="True" />
+  <Import Include="System.DateTime" Alias="DT" />
+</ItemGroup>
+```
+
+The first two items generate import entries in the global prelude block; the
+alias item generates a project-wide alias from the generated prelude file.
+Repeating an import that is already supplied globally is redundant and may be
+reported as a hidden diagnostic with an editor fix to remove the local import.
+
 ### Alias directive
 
 The `alias` directive assigns an alternative name to a fully qualified
@@ -4789,7 +4840,7 @@ In pattern position:
 Raven supports the following equivalent case-construction forms:
 
 ```raven
-// Case type construction
+// Case type construction, when the case is imported
 Ok(2)
 Ok<int>(2)
 
@@ -4802,15 +4853,19 @@ val r: Result<int, MyError> = .Ok(2)
 
 Binding model:
 
-* `Case(...)` constructs the case type value directly.
-* Unqualified `Case(...)` is allowed when case resolution is unambiguous in
-  scope; otherwise a qualified form (`Union.Case(...)`) or alias is required.
+* `Case(...)` constructs the case type value directly when the case is in
+  scope through a type wildcard import, direct case import, alias, or generated
+  prelude import.
+* Unqualified `Case(...)` is allowed when imported case resolution is
+  unambiguous; otherwise a qualified form (`Union.Case(...)`) or target-typed
+  member form (`.Case(...)`) is required.
 * `Union.Case(...)` resolves `Case` from the union’s declared case set, then
   constructs the case value.
 * `.Case(...)` resolves `Case` from the target type’s union case set.
 * For an unqualified identifier in expression position, ordinary lexical lookup
-  wins before union-case lookup: locals and parameters first, then visible
-  instance/static members and imported symbols, then unqualified union cases.
+  wins before imported union-case lookup: locals and parameters first, then
+  visible instance/static members and imported symbols, then unqualified union
+  cases made visible by imports.
 * If a union value is required, case-to-union conversion applies implicitly by
   constructing the matching carrier value from the case value.
 

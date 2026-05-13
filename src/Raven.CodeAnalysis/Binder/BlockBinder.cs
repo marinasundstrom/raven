@@ -7119,11 +7119,18 @@ partial class BlockBinder : Binder
             if (contextualTargetType is not null && !isInvocationCallee)
             {
                 var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
-                if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
+                if (LookupUnionCaseTypeCandidates(name).Length > 0 &&
+                    TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
                     return contextualUnionCase;
             }
 
             var type = LookupType(name);
+            if (type is not null)
+            {
+                if (IsUnimportedUnionCaseType(name, type))
+                    type = null;
+            }
+
             if (type is not null)
             {
                 if (BindDiscriminatedUnionCaseType(type) is { } unionCaseFromLookup)
@@ -7186,10 +7193,33 @@ partial class BlockBinder : Binder
 
         switch (symbol)
         {
+            case IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasType }:
+                {
+                    if (IsUnimportedUnionCaseType(name, aliasType))
+                    {
+                        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
+                        var n = ErrorExpression(reason: BoundExpressionReason.NotFound);
+                        CacheBoundNode(syntax, n);
+                        return n;
+                    }
+
+                    if (BindDiscriminatedUnionCaseType(aliasType) is { } unionCase)
+                        return unionCase;
+
+                    return new BoundTypeExpression(aliasType);
+                }
             case INamespaceSymbol ns:
                 return new BoundNamespaceExpression(ns);
             case ITypeSymbol type:
                 {
+                    if (IsUnimportedUnionCaseType(name, type))
+                    {
+                        _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(name, syntax.Identifier.GetLocation());
+                        var n = ErrorExpression(reason: BoundExpressionReason.NotFound);
+                        CacheBoundNode(syntax, n);
+                        return n;
+                    }
+
                     var isInvocationCallee =
                         syntax.Parent is InvocationExpressionSyntax inv &&
                         ReferenceEquals(inv.Expression, syntax);
@@ -7198,7 +7228,8 @@ partial class BlockBinder : Binder
                     if (contextualTargetType is not null && !isInvocationCallee)
                     {
                         var unwrappedTargetType = UnwrapTaskLikeTargetType(contextualTargetType);
-                        if (TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
+                        if (LookupUnionCaseTypeCandidates(name).Length > 0 &&
+                            TryBindDiscriminatedUnionCase(unwrappedTargetType, name, syntax.Identifier.GetLocation()) is BoundExpression contextualUnionCase)
                             return contextualUnionCase;
                     }
 
@@ -7276,6 +7307,11 @@ partial class BlockBinder : Binder
                 }
         }
     }
+
+    private bool IsUnimportedUnionCaseType(string name, ITypeSymbol type)
+        => type is INamedTypeSymbol namedType &&
+           namedType.TryGetUnionCase() is not null &&
+           LookupUnionCaseTypeCandidates(name).Length == 0;
 
     private bool TryBindImplicitInstanceMember(string name, IdentifierNameSyntax syntax, bool allowEventAccess, out BoundExpression expr)
     {
@@ -8710,7 +8746,8 @@ partial class BlockBinder : Binder
             if (invocationTargetType is not null)
             {
                 var unwrappedTargetType = UnwrapTaskLikeTargetType(invocationTargetType);
-                if (TryBindDiscriminatedUnionCase(unwrappedTargetType, id.Identifier.ValueText, id.Identifier.GetLocation()) is BoundUnionCaseExpression contextualUnionCase)
+                if (LookupUnionCaseTypeCandidates(id.Identifier.ValueText).Length > 0 &&
+                    TryBindDiscriminatedUnionCase(unwrappedTargetType, id.Identifier.ValueText, id.Identifier.GetLocation()) is BoundUnionCaseExpression contextualUnionCase)
                     return BindInvokedUnionCaseExpression(contextualUnionCase, syntax);
             }
 
@@ -9627,37 +9664,19 @@ partial class BlockBinder : Binder
             }
         }
 
-        foreach (var symbol in LookupSymbols(name))
-        {
-            if (symbol is IAliasSymbol { UnderlyingSymbol: INamedTypeSymbol aliasNamedType })
-                AddCaseIfMatch(aliasNamedType);
-
-            if (symbol is INamedTypeSymbol namedType)
-                AddCaseIfMatch(namedType);
-        }
-
-        // Case types are not always imported/injected as standalone symbols yet.
-        // Also scan visible union carriers and collect matching cases by logical case name.
-        foreach (var symbol in LookupAvailableSymbols())
-        {
-            if (symbol is not INamedTypeSymbol namedType)
-                continue;
-
-            AddCasesFromUnionCarrier(namedType);
-        }
-
-        // Imported types and aliases can introduce union carriers/cases that are not surfaced
-        // by LookupAvailableSymbols (e.g., explicit type imports). Scan import binders directly.
+        // Imported type scopes can introduce union cases that are not surfaced as ordinary
+        // symbols. Only wildcard type imports (`import UnionType.*`) bring cases into
+        // unqualified scope; importing or aliasing the carrier itself does not.
         for (Binder? current = this; current is not null; current = current.ParentBinder)
         {
             if (current is not ImportBinder importBinder)
                 continue;
 
+            foreach (var importedScope in importBinder.GetImportedNamespacesOrTypeScopes().OfType<INamedTypeSymbol>())
+                AddCasesFromUnionCarrier(importedScope);
+
             foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
-            {
                 AddCaseIfMatch(importedType);
-                AddCasesFromUnionCarrier(importedType);
-            }
 
             foreach (var aliasList in importBinder.GetAliases().Values)
             {
@@ -9666,10 +9685,17 @@ partial class BlockBinder : Binder
                     if (aliasSymbol.UnderlyingSymbol is not INamedTypeSymbol aliasNamedType)
                         continue;
 
-                    if (string.Equals(aliasSymbol.Name, name, StringComparison.Ordinal))
-                        AddCaseIfMatch(aliasNamedType);
+                    if (!string.Equals(aliasSymbol.Name, name, StringComparison.Ordinal))
+                        continue;
 
-                    AddCasesFromUnionCarrier(aliasNamedType);
+                    if (aliasNamedType.TryGetUnionCase() is null)
+                        continue;
+
+                    if (typeArgumentCount is int expectedArity && aliasNamedType.Arity != expectedArity)
+                        continue;
+
+                    if (seenOriginalDefs.Add(aliasNamedType.OriginalDefinition))
+                        builder.Add(aliasNamedType);
                 }
             }
         }
@@ -16266,6 +16292,19 @@ partial class BlockBinder : Binder
         {
             if (current is not ImportBinder importBinder)
                 continue;
+
+            foreach (var importedScope in importBinder.GetImportedNamespacesOrTypeScopes().OfType<INamedTypeSymbol>())
+            {
+                var union = importedScope.TryGetUnion();
+                if (union is not null)
+                {
+                    foreach (var c in union.CaseTypes)
+                    {
+                        if (ReferenceEquals(c.OriginalDefinition, key))
+                            return importedScope;
+                    }
+                }
+            }
 
             foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
             {

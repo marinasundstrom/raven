@@ -1,7 +1,8 @@
+using System.Collections.Immutable;
+
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
-using System.Collections.Immutable;
 using Raven.LanguageServer;
 
 using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
@@ -43,6 +44,29 @@ public class LanguageServerDiagnosticTagTests
             "Usage",
             CodeDiagnosticSeverity.Warning);
         var diagnostic = CodeDiagnostic.Create(descriptor, CodeLocation.None, "count");
+
+        var tags = DocumentStore.MapTags(diagnostic);
+
+        tags.ShouldNotBeNull();
+        tags!.ShouldContain(DiagnosticTag.Unnecessary);
+    }
+
+    [Fact]
+    public void MapTags_RedundantGlobalImport_ReturnsUnnecessaryTag()
+    {
+        var descriptor = DiagnosticDescriptor.Create(
+            "RAV1052",
+            "Import directive is redundant",
+            null,
+            string.Empty,
+            "Import directive '{0}' is redundant because it is already globally imported.",
+            "Compiler",
+            CodeDiagnosticSeverity.Hidden);
+        var diagnostic = CodeDiagnostic.Create(
+            descriptor,
+            CodeLocation.None,
+            CodeDiagnosticSeverity.Hidden,
+            "System.Option.*");
 
         var tags = DocumentStore.MapTags(diagnostic);
 

@@ -79,6 +79,13 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             solution = solution.AddDocument(documentId, document.Name, document.Text, document.FilePath);
         }
 
+        solution = ProjectSystemGeneratedDocumentHelper.AddGeneratedPreludeDocument(
+            solution,
+            projectId,
+            evaluation.GeneratedSourceDirectory,
+            _conventions.GetPreludeFileName(evaluation.Name),
+            evaluation.PreludeOptions);
+
         solution = ProjectSystemGeneratedDocumentHelper.AddGeneratedTargetFrameworkAttributeDocumentIfNeeded(
             solution,
             projectId,
@@ -258,9 +265,10 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             return true;
 
         var filePath = document.FilePath!;
-        var matchesGeneratedTargetFrameworkDocument = RavenFileExtensions.All.Any(
-            ext => filePath.EndsWith($".TargetFrameworkAttribute.g{ext}", StringComparison.OrdinalIgnoreCase));
-        if (!matchesGeneratedTargetFrameworkDocument)
+        var matchesGeneratedDocument = RavenFileExtensions.All.Any(
+            ext => filePath.EndsWith($".TargetFrameworkAttribute.g{ext}", StringComparison.OrdinalIgnoreCase) ||
+                   filePath.EndsWith($".Prelude.g{ext}", StringComparison.OrdinalIgnoreCase));
+        if (!matchesGeneratedDocument)
             return true;
 
         var normalizedPath = filePath.Replace('\\', '/');

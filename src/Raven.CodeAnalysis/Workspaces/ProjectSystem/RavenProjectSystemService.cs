@@ -47,6 +47,15 @@ public sealed class RavenProjectSystemService : IProjectSystemService
             solution = solution.AddDocument(docId, doc.Name, doc.Text, doc.FilePath);
         }
 
+        var projectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
+        var generatedDirectory = _conventions.GetGeneratedSourceDirectory(projectDirectory, projInfo.Configuration);
+        solution = ProjectSystemGeneratedDocumentHelper.AddGeneratedPreludeDocument(
+            solution,
+            projectId,
+            generatedDirectory,
+            _conventions.GetPreludeFileName(projInfo.Info.Name),
+            projInfo.PreludeOptions);
+
         solution = AddGeneratedTargetFrameworkAttributeDocumentIfNeeded(
             solution,
             projectId,
@@ -64,7 +73,6 @@ public sealed class RavenProjectSystemService : IProjectSystemService
 
         foreach (var macroReferencePath in projInfo.MacroReferences)
         {
-            var projectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
             var sourceProjectFilePath = string.Equals(Path.GetExtension(macroReferencePath), RavenFileExtensions.LegacyProject, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Path.GetExtension(macroReferencePath), ".rvnproj", StringComparison.OrdinalIgnoreCase)
                 ? (Path.IsPathRooted(macroReferencePath)

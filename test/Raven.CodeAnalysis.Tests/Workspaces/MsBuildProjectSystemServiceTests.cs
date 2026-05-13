@@ -68,6 +68,85 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.Contains(
                 project.Documents,
                 document => document.Name.EndsWith("TargetFrameworkAttribute.g.rvn", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(
+                project.Documents,
+                document => document.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_MsBuildProject_GeneratesPreludeFromImportItems()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), "class C { }");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                                          <Project Sdk="Microsoft.NET.Sdk">
+                                            <PropertyGroup>
+                                              <TargetFramework>net10.0</TargetFramework>
+                                            </PropertyGroup>
+                                            <ItemGroup>
+                                              <RavenCompile Include="main.rvn" />
+                                              <Import Include="SuperheroApp.Models" />
+                                              <Import Include="System.Console" Static="True" />
+                                              <Import Include="System.DateTime" Alias="DT" />
+                                            </ItemGroup>
+                                          </Project>
+                                          """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            var generated = Assert.Single(
+                project.Documents,
+                static document => document.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+            var source = generated.Text.ToString();
+            Assert.Contains("import SuperheroApp.Models.*", source, StringComparison.Ordinal);
+            Assert.Contains("import System.Console.*", source, StringComparison.Ordinal);
+            Assert.Contains("alias DT = System.DateTime", source, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_MsBuildProject_DoesNotGeneratePreludeWhenDisabled()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), "class C { }");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                                          <Project Sdk="Microsoft.NET.Sdk">
+                                            <PropertyGroup>
+                                              <TargetFramework>net10.0</TargetFramework>
+                                              <GeneratePreludeImports>false</GeneratePreludeImports>
+                                            </PropertyGroup>
+                                            <ItemGroup>
+                                              <RavenCompile Include="main.rvn" />
+                                            </ItemGroup>
+                                          </Project>
+                                          """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            Assert.DoesNotContain(
+                project.Documents,
+                static document => document.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

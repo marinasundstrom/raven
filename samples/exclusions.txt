@@ -13,7 +13,7 @@ build legacy/**
 
 # Special utility samples not part of the main feature run.
 build args-to-generic-methods.rav
-build test.rav
+build oop/test.rav
 build projects/aspnet-minimal-api/src/main.rav
 build projects/efcore-expression-trees/src/main.rav
 build projects/nuget-demo/src/main.rav

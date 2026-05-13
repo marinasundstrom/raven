@@ -548,6 +548,10 @@
     Title="Import directives must come first"
     Message="'import' directives must appear before 'alias' and declarations." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1052" Identifier="ImportDirectiveRedundantWithGlobalImport"
+    Title="Import directive is redundant"
+    Message="Import directive '{importName}' is redundant because it is already globally imported."
+    Category="compiler" Severity="Hidden" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1006" Identifier="AliasDirectiveOutOfOrder"
     Title="Alias directive out of order"
     Message="Alias directives must appear before member declarations" Category="compiler"

@@ -170,6 +170,11 @@ let token = Identifier("bar");
 
 Each case struct is a distinct type, so APIs may accept `Token.Identifier` directly when they are only interested in a single payload shape.
 
+Cases are not automatically available as unqualified names merely because the
+union carrier is visible. Use `Token.Identifier`, target-typed `.Identifier`,
+or an explicit wildcard type import (`import Token.*`) when simple case names
+are desired.
+
 ## Open questions
 
 * How should unions interact with reference-type inheritance once closed hierarchies are available?

@@ -1,0 +1,90 @@
+using System.Collections.Immutable;
+
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
+
+namespace Raven.CodeAnalysis.Diagnostics;
+
+public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
+{
+    private static readonly ImmutableArray<string> FixableIds =
+    [
+        CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id
+    ];
+
+    public override IEnumerable<string> FixableDiagnosticIds => FixableIds;
+
+    public override void RegisterCodeFixes(CodeFixContext context)
+    {
+        var diagnostic = context.Diagnostic;
+        if (!string.Equals(diagnostic.Id, CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!diagnostic.Location.IsInSource)
+            return;
+
+        var syntaxTree = context.Document.GetSyntaxTreeAsync(context.CancellationToken).GetAwaiter().GetResult();
+        var root = syntaxTree?.GetRoot(context.CancellationToken);
+        if (root is null)
+            return;
+
+        var importDirective = FindSourceImport(root, diagnostic.Location.SourceSpan);
+        if (importDirective is null)
+            return;
+
+        var sourceText = context.Document.GetTextAsync(context.CancellationToken).GetAwaiter().GetResult().ToString();
+        var removalSpan = GetLineRemovalSpan(sourceText, importDirective.Span);
+        context.RegisterCodeFix(
+            CodeAction.CreateTextChange(
+                "Remove redundant import",
+                context.Document.Id,
+                new TextChange(removalSpan, string.Empty)));
+    }
+
+    private static ImportDirectiveSyntax? FindSourceImport(SyntaxNode root, TextSpan diagnosticSpan)
+    {
+        if (root is CompilationUnitSyntax compilationUnit)
+        {
+            var import = FindImport(compilationUnit.Imports, diagnosticSpan);
+            if (import is not null)
+                return import;
+
+            foreach (var namespaceDeclaration in compilationUnit.Members.OfType<BaseNamespaceDeclarationSyntax>())
+            {
+                import = FindImport(namespaceDeclaration.Imports, diagnosticSpan);
+                if (import is not null)
+                    return import;
+            }
+        }
+
+        var node = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
+        return node?.FirstAncestorOrSelf<ImportDirectiveSyntax>();
+    }
+
+    private static ImportDirectiveSyntax? FindImport(IEnumerable<ImportDirectiveSyntax> imports, TextSpan diagnosticSpan)
+        => imports
+            .Where(import => import.Span.Start <= diagnosticSpan.Start && import.Span.End >= diagnosticSpan.End)
+            .OrderBy(import => import.Span.Length)
+            .FirstOrDefault();
+
+    private static TextSpan GetLineRemovalSpan(string text, TextSpan span)
+    {
+        var start = span.Start;
+        while (start > 0 && text[start - 1] is not '\r' and not '\n')
+            start--;
+
+        var end = span.End;
+        while (end < text.Length && text[end] is not '\r' and not '\n')
+            end++;
+
+        if (end < text.Length)
+        {
+            if (text[end] == '\r' && end + 1 < text.Length && text[end + 1] == '\n')
+                end += 2;
+            else
+                end++;
+        }
+
+        return TextSpan.FromBounds(start, end);
+    }
+}

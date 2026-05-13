@@ -42,7 +42,9 @@ static class ConsoleEx
         bool highlightDiagnostics,
         bool includeSuggestions)
     {
-        var diagnosticArray = diagnostics.ToArray();
+        var diagnosticArray = diagnostics
+            .Where(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Hidden)
+            .ToArray();
 
         if (!highlightDiagnostics || compilation is null)
         {

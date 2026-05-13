@@ -2,6 +2,7 @@ namespace System
 
 import System.*
 import System.Globalization.*
+import System.Result.*
 
 interface IParseError: IError {
 }

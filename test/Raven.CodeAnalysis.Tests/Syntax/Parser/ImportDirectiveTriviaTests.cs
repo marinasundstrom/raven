@@ -32,4 +32,28 @@ public class ImportDirectiveTriviaTests
         root.Imports[0].Name.ToString().ShouldBe("System.*");
         root.Imports[1].Name.ToString().ShouldBe("System.Console.*");
     }
+
+    [Fact]
+    public void GlobalImportBlock_ParsesImports()
+    {
+        var code = """
+                   global {
+                       import System.*
+                       // Standard union case imports
+                       import System.Result.*
+                       import System.Option.*
+                   }
+                   """;
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+
+        Assert.Empty(tree.GetDiagnostics());
+        root.Imports.Count.ShouldBe(0);
+        var block = root.Members.Single().ShouldBeOfType<GlobalImportBlockSyntax>();
+        block.Imports.Count.ShouldBe(3);
+        block.Imports[0].Name.ToString().ShouldBe("System.*");
+        block.Imports[1].Name.ToString().ShouldBe("System.Result.*");
+        block.Imports[2].Name.ToString().ShouldBe("System.Option.*");
+    }
 }

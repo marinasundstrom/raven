@@ -5,6 +5,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## Unreleased
 
 ### Changed
+- Project and single-file compilations now generate a prelude of global imports by default, including common `System` namespaces plus `System.Result.*` and `System.Option.*`; ordinary union cases are no longer introduced unqualified unless imported or referenced with target-typed `.Case` syntax.
 - Records now use the full primary-constructor parameter list as their canonical value shape, including non-public promoted parameters, and record bodies now reject extra instance storage and secondary instance constructors.
 - The language server now provides source-applicable inlay hints for inferred local type annotations and inferred function return type annotations, and the VS Code extension can toggle those hints with `raven.inlayHints.inferredTypes.enabled` or `Raven: Toggle Inferred Type Inlay Hints`.
 - Language-server document edits now preserve `SourceText` change ranges through incremental sync, fall back to full parsing for whole-document or large paste edits, debounce macro-consumer refreshes, and keep normal typing diagnostics syntax-only so expensive semantic diagnostics wait for open/save.
@@ -13,6 +14,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Equality operands no longer target-type enum member-binding shorthand such as `value == .Case`; use `value == EnumType.Case` or the pattern form `value is .Case`.
 
 ### Fixed
+- Language-server diagnostics after text edits now run a deferred full pass after the fast syntax-only pass, so semantic hidden diagnostics such as redundant global imports reappear after undo/redo.
 - Qualified constant-member patterns such as `value is Math.PI` and enum-member patterns such as `value is JsonValueKind.True` now bind and emit as value comparisons instead of type tests.
 - Enum conversions now follow C#/CLR rules for explicit enum-to-integral, integral-to-enum, and enum-to-enum conversions, and emitted casts preserve CLR-open enum values that are not declared members.
 - Attribute arguments now accept enum constants in qualified and target-typed forms, including enum flag compositions such as `.Class | .Delegate`.

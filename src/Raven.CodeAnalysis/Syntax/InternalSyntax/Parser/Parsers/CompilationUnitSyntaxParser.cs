@@ -115,7 +115,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
 
     private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)
     {
-        return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
+        return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
             SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.FileprivateKeyword or
@@ -145,6 +145,23 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             }
 
             importDirectives.Add(importDirective);
+            order = MemberOrder.Imports;
+        }
+        else if (nextToken.IsKind(SyntaxKind.GlobalKeyword) &&
+                 PeekToken(1).IsKind(SyntaxKind.OpenBraceToken))
+        {
+            var start = Position;
+            var globalImportBlock = ParseGlobalImportBlock();
+
+            if (order > MemberOrder.Imports)
+            {
+                AddDiagnostic(
+                    DiagnosticInfo.Create(
+                        CompilerDiagnostics.ImportDirectiveOutOfOrder,
+                        GetActualTextSpan(start, globalImportBlock)));
+            }
+
+            AddMemberDeclaration(memberDeclarations, globalImportBlock);
             order = MemberOrder.Imports;
         }
         else if (nextToken.IsKind(Raven.CodeAnalysis.Syntax.SyntaxKind.AliasKeyword))
@@ -367,6 +384,45 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
         var globalStatement = GlobalStatement(attributeLists, modifiers, statement, Token(SyntaxKind.None));
 
         memberDeclarations.Add(globalStatement);
+    }
+
+    private GlobalImportBlockSyntax ParseGlobalImportBlock()
+    {
+        var globalKeyword = ReadToken();
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
+
+        List<ImportDirectiveSyntax> imports = [];
+        while (!IsNextToken(SyntaxKind.EndOfFileToken, out var nextToken) &&
+               !nextToken.IsKind(SyntaxKind.CloseBraceToken))
+        {
+            if (nextToken.IsKind(SyntaxKind.ImportKeyword))
+            {
+                imports.Add(new ImportDirectiveSyntaxParser(this).ParseImportDirective());
+                continue;
+            }
+
+            ReadToken();
+        }
+
+        if (!ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken))
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.CharacterExpected,
+                    GetEndOfLastToken(),
+                    ['}']));
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+
+        return GlobalImportBlock(
+            SyntaxList.Empty,
+            SyntaxList.Empty,
+            globalKeyword,
+            openBraceToken,
+            List(imports),
+            closeBraceToken,
+            terminatorToken);
     }
 
     private static SyntaxList ConcatenateSyntaxLists(SyntaxList first, SyntaxList second)

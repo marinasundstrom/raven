@@ -1164,12 +1164,21 @@ public partial class SemanticModel
         var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
         var deferredWildcardImports = new List<NameSyntax>();
         var deferredConstantImports = new List<NameSyntax>();
+        var globalImportKeys = CollectGlobalImportKeys();
 
         var provisionalImportBinder = new ImportBinder(namespaceBinder, namespaceImports, typeImports, aliases);
 
-        foreach (var import in cu.DescendantNodes().OfType<ImportDirectiveSyntax>())
+        foreach (var (import, isGlobalImport) in EnumerateEffectiveImportDirectives(cu))
         {
             var name = import.Name.ToString();
+            if (!isGlobalImport &&
+                globalImportKeys.Contains(name))
+            {
+                namespaceBinder.Diagnostics.ReportImportDirectiveRedundantWithGlobalImport(
+                    name,
+                    import.GetLocation());
+                continue;
+            }
 
             if (IsWildcard(import.Name, out var nsName))
             {
@@ -1226,6 +1235,10 @@ public partial class SemanticModel
             {
                 namespaceImports.Add(resolved);
             }
+            else if (IsOptionalGeneratedPreludeImport(baseName))
+            {
+                continue;
+            }
             else
             {
                 namespaceBinder.Diagnostics.ReportInvalidImportTarget(baseName.GetLocation());
@@ -1244,6 +1257,7 @@ public partial class SemanticModel
             }
         }
 
+        BindAliases(EnumerateGlobalAliasDirectives());
         BindAliases(cu.Aliases);
 
         if (fileScopedNamespace is not null)
@@ -1268,7 +1282,7 @@ public partial class SemanticModel
 
         return topLevelBinder;
 
-        void BindAliases(SyntaxList<AliasDirectiveSyntax> aliasList)
+        void BindAliases(IEnumerable<AliasDirectiveSyntax> aliasList)
         {
             foreach (var alias in aliasList)
             {
@@ -1580,6 +1594,87 @@ public partial class SemanticModel
             baseName = default!;
             return false;
         }
+
+        IEnumerable<(ImportDirectiveSyntax Import, bool IsGlobal)> EnumerateEffectiveImportDirectives(CompilationUnitSyntax compilationUnit)
+        {
+            foreach (var tree in Compilation.SyntaxTrees)
+            {
+                if (tree.GetRoot() is not CompilationUnitSyntax root)
+                    continue;
+
+                foreach (var globalImport in root.Members.OfType<GlobalImportBlockSyntax>())
+                {
+                    foreach (var import in globalImport.Imports)
+                        yield return (import, true);
+                }
+            }
+
+            foreach (var import in compilationUnit.Imports)
+                yield return (import, false);
+
+            foreach (var namespaceDeclaration in compilationUnit.Members.OfType<BaseNamespaceDeclarationSyntax>())
+            {
+                foreach (var import in namespaceDeclaration.Imports)
+                    yield return (import, false);
+            }
+        }
+
+        HashSet<string> CollectGlobalImportKeys()
+        {
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var tree in Compilation.SyntaxTrees)
+            {
+                if (tree.GetRoot() is not CompilationUnitSyntax root)
+                    continue;
+
+                foreach (var globalImport in root.Members.OfType<GlobalImportBlockSyntax>())
+                {
+                    foreach (var import in globalImport.Imports)
+                        keys.Add(import.Name.ToString());
+                }
+            }
+
+            return keys;
+        }
+
+        IEnumerable<AliasDirectiveSyntax> EnumerateGlobalAliasDirectives()
+        {
+            foreach (var tree in Compilation.SyntaxTrees)
+            {
+                if (tree.GetRoot() is not CompilationUnitSyntax root)
+                    continue;
+
+                if (!IsGeneratedPreludeFile(root.SyntaxTree?.FilePath))
+                    continue;
+
+                foreach (var alias in root.Aliases)
+                    yield return alias;
+            }
+        }
+
+        static bool IsOptionalGeneratedPreludeImport(NameSyntax nameSyntax)
+        {
+            if (!IsGeneratedPreludeFile(nameSyntax.SyntaxTree?.FilePath))
+                return false;
+
+            var importName = nameSyntax.ToString();
+            return importName is
+                "System" or
+                "System.Collections" or
+                "System.Collections.Generic" or
+                "System.IO" or
+                "System.Linq" or
+                "System.Net.Http" or
+                "System.Threading" or
+                "System.Threading.Tasks" or
+                "System.Result" or
+                "System.Option";
+        }
+
+        static bool IsGeneratedPreludeFile(string? filePath)
+            => !string.IsNullOrWhiteSpace(filePath) &&
+                filePath.EndsWith(".Prelude.g.rvn", StringComparison.OrdinalIgnoreCase);
     }
 
     private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)

@@ -50,4 +50,7 @@ public class RavenProjectConventions
 
     public virtual string GetTargetFrameworkAttributeFileName(string projectName)
         => $"{projectName}.TargetFrameworkAttribute.g{RavenFileExtensions.Raven}";
+
+    public virtual string GetPreludeFileName(string projectName)
+        => $"{projectName}.Prelude.g{RavenFileExtensions.Raven}";
 }

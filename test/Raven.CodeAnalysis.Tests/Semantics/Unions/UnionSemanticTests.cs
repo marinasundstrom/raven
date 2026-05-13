@@ -293,6 +293,7 @@ func Describe(value: Payment) -> string {
 namespace System
 
 import System.*
+import System.Option.*
 
 union struct Option<T> {
     case Some(value: T)
@@ -325,6 +326,8 @@ class C<T> {
     public void UnionMemberBody_UnqualifiedCaseConstructionAndPatterns_BindWithoutErrors()
     {
         const string source = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None
@@ -337,6 +340,160 @@ union Option<T> {
             None => current
         }
     }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedUserUnionCaseInvocation_WithoutImport_ReportsMissingName()
+    {
+        const string source = """
+func build() -> HeaterResult {
+    return TempTooLow(12)
+}
+
+union HeaterResult {
+    case TempTooLow(value: int)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id);
+    }
+
+    [Fact]
+    public void UnqualifiedUserUnionCaseInvocation_WithWildcardImport_BindsWithoutErrors()
+    {
+        const string source = """
+import HeaterResult.*
+
+func build() -> HeaterResult {
+    return TempTooLow(12)
+}
+
+union HeaterResult {
+    case TempTooLow(value: int)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedUserUnionCaseInvocation_WithGlobalWildcardImportInAnotherFile_BindsWithoutErrors()
+    {
+        var prelude = SyntaxTree.ParseText(
+            """
+            global {
+                import HeaterResult.*
+            }
+            """,
+            path: "Prelude.rvn");
+
+        var source = SyntaxTree.ParseText(
+            """
+            func build() -> HeaterResult {
+                return TempTooLow(12)
+            }
+
+            union HeaterResult {
+                case TempTooLow(value: int)
+            }
+            """,
+            path: "Main.rvn");
+
+        var compilation = CreateCompilation([prelude, source], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void SourceImport_WhenAlreadyGloballyImported_ReportsRedundantImport()
+    {
+        var prelude = SyntaxTree.ParseText(
+            """
+            global {
+                import HeaterResult.*
+            }
+            """,
+            path: "Prelude.rvn");
+
+        var source = SyntaxTree.ParseText(
+            """
+            import HeaterResult.*
+
+            func build() -> HeaterResult {
+                return TempTooLow(12)
+            }
+
+            union HeaterResult {
+                case TempTooLow(value: int)
+            }
+            """,
+            path: "Main.rvn");
+
+        var compilation = CreateCompilation([prelude, source], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        var redundantImport = Assert.Single(diagnostics.Where(d => d.Id == CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id));
+        Assert.Equal(DiagnosticSeverity.Hidden, redundantImport.Severity);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void UnqualifiedUserUnionCasePattern_WithoutImport_DoesNotBindAsCasePattern()
+    {
+        const string source = """
+func describe(result: HeaterResult) -> int {
+    return result match {
+        TempTooLow(val temp) => temp
+    }
+}
+
+union HeaterResult {
+    case TempTooLow(value: int)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.MatchExpressionNotExhaustive.Id);
+    }
+
+    [Fact]
+    public void UnqualifiedUserUnionCasePattern_WithWildcardImport_BindsWithoutErrors()
+    {
+        const string source = """
+import HeaterResult.*
+
+func describe(result: HeaterResult) -> int {
+    return result match {
+        TempTooLow(val temp) => temp
+    }
+}
+
+union HeaterResult {
+    case TempTooLow(value: int)
 }
 """;
 
@@ -1440,7 +1597,7 @@ union Option<T> {
     }
 
     [Fact]
-    public void UnqualifiedCaseInvocation_ReportsAmbiguousWhenUnionTypesAreTypeImported()
+    public void UnqualifiedCaseInvocation_ReportsAmbiguousWhenUnionCasesAreWildcardImported()
     {
         const string source = """
 namespace A {
@@ -1457,8 +1614,8 @@ namespace B {
     }
 }
 
-import A.Result<,>
-import B.Option<>
+import A.Result.*
+import B.Option.*
 
 class C {
     func create() {
@@ -1483,6 +1640,9 @@ class C {
         // Verify that the ambiguity diagnostic message uses the carrier union name in the format
         // "UnionName<TypeParams>.CaseName" rather than just "CaseName<TypeParams>".
         const string source = """
+import Result.*
+import Option.*
+
 class C {
     func create() {
         var value = Ok(42)
@@ -1535,8 +1695,8 @@ namespace B {
     }
 }
 
-import A.Result<,>
-import B.Result<>
+import A.Result.*
+import B.Result.*
 
 class C {
     func create() {

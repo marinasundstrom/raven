@@ -94,6 +94,14 @@ internal static class MsBuildProjectEvaluator
             .Where(static item => !string.IsNullOrWhiteSpace(item.Name))
             .ToImmutableArray();
 
+        var preludeImports = project.GetItems("Import")
+            .Select(item => new ProjectPreludeImportInfo(
+                item.EvaluatedInclude,
+                GetBooleanMetadata(item, "Static") ?? false,
+                GetOptionalMetadata(item, "Alias")))
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Include))
+            .ToImmutableArray();
+
         var outputType = project.GetPropertyValue("OutputType");
         var allowUnsafe = GetBooleanProperty(project, "AllowUnsafe") ?? GetBooleanProperty(project, "AllowUnsafeBlocks") ?? false;
         var allowGlobalStatements = GetBooleanProperty(project, "AllowGlobalStatements")
@@ -104,6 +112,9 @@ internal static class MsBuildProjectEvaluator
             ?? true;
         var membersPublicByDefault = GetBooleanProperty(project, "MembersPublicByDefault")
             ?? GetBooleanProperty(project, "RavenMembersPublicByDefault");
+        var generatePreludeImports = GetBooleanProperty(project, "GeneratePreludeImports")
+            ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
+            ?? true;
 
         var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
             .WithAllowUnsafe(allowUnsafe)
@@ -140,6 +151,7 @@ internal static class MsBuildProjectEvaluator
             macroReferencePaths,
             packageReferences,
             frameworkReferences,
+            new ProjectPreludeOptions(generatePreludeImports, preludeImports),
             generatedSourceDirectory,
             documentationOptions);
     }
@@ -279,6 +291,18 @@ internal static class MsBuildProjectEvaluator
         return bool.TryParse(value, out var parsed) ? parsed : null;
     }
 
+    private static bool? GetBooleanMetadata(ProjectItem item, string metadataName)
+    {
+        var value = item.GetMetadataValue(metadataName);
+        return bool.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private static string? GetOptionalMetadata(ProjectItem item, string metadataName)
+    {
+        var value = item.GetMetadataValue(metadataName);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
     private static string GetPropertyOrDefault(MSBuildProject project, string propertyName, string defaultValue)
     {
         var value = project.GetPropertyValue(propertyName);
@@ -328,5 +352,6 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<string> MacroReferencePaths,
     ImmutableArray<ProjectFile.PackageReferenceInfo> PackageReferences,
     ImmutableArray<ProjectFile.FrameworkReferenceInfo> FrameworkReferences,
+    ProjectPreludeOptions PreludeOptions,
     string GeneratedSourceDirectory,
     ProjectDocumentationOptions DocumentationOptions);

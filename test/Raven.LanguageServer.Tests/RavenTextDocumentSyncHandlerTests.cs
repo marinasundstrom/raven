@@ -101,14 +101,15 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyDiagnosticsWhileTyping()
+    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredFullDiagnostics()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
         policy.DiagnosticsDelayMilliseconds.ShouldBeGreaterThan(0);
     }
 

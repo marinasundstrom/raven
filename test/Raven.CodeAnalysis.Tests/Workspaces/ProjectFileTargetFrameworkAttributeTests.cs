@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Syntax;
+
 namespace Raven.CodeAnalysis.Tests;
 
 public sealed class ProjectFileTargetFrameworkAttributeTests
@@ -133,6 +135,119 @@ public sealed class ProjectFileTargetFrameworkAttributeTests
             $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}raven{Path.DirectorySeparatorChar}generated{Path.DirectorySeparatorChar}",
             generated.FilePath!,
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OpenProject_GeneratesPreludeSource()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" />
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        var generated = Assert.Single(
+            project.Documents,
+            static d => d.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(
+            """
+            global {
+                import System.*
+                import System.Collections.*
+                import System.Collections.Generic.*
+                import System.IO.*
+                import System.Linq.*
+                import System.Net.Http.*
+                import System.Threading.*
+                import System.Threading.Tasks.*
+                import System.Result.*
+                import System.Option.*
+            }
+            """,
+            generated.Text.ToString().TrimEnd());
+
+        var tree = generated.GetSyntaxTreeAsync().GetAwaiter().GetResult()!;
+        var block = Assert.Single(tree.GetRoot().Members.OfType<GlobalImportBlockSyntax>());
+        Assert.Collection(
+            block.Imports,
+            import => Assert.Equal("System.*", import.Name.ToString()),
+            import => Assert.Equal("System.Collections.*", import.Name.ToString()),
+            import => Assert.Equal("System.Collections.Generic.*", import.Name.ToString()),
+            import => Assert.Equal("System.IO.*", import.Name.ToString()),
+            import => Assert.Equal("System.Linq.*", import.Name.ToString()),
+            import => Assert.Equal("System.Net.Http.*", import.Name.ToString()),
+            import => Assert.Equal("System.Threading.*", import.Name.ToString()),
+            import => Assert.Equal("System.Threading.Tasks.*", import.Name.ToString()),
+            import => Assert.Equal("System.Result.*", import.Name.ToString()),
+            import => Assert.Equal("System.Option.*", import.Name.ToString()));
+    }
+
+    [Fact]
+    public void OpenProject_GeneratesPreludeSource_WithProjectImportsAndAliases()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary">
+              <Import Include="SuperheroApp.Models" />
+              <Import Include="System.Console" Static="True" />
+              <Import Include="System.DateTime" Alias="DT" />
+            </Project>
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        var generated = Assert.Single(
+            project.Documents,
+            static d => d.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+
+        var source = generated.Text.ToString();
+        Assert.Contains("import SuperheroApp.Models.*", source, StringComparison.Ordinal);
+        Assert.Contains("import System.Console.*", source, StringComparison.Ordinal);
+        Assert.Contains("alias DT = System.DateTime", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenProject_DoesNotGeneratePreludeSource_WhenPreludeImportsDisabled()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { }");
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" GeneratePreludeImports="false" />
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        Assert.DoesNotContain(
+            project.Documents,
+            static d => d.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

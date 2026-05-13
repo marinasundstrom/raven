@@ -3,6 +3,8 @@ namespace System.Linq
 import System.*
 import System.Linq.*
 import System.Collections.Generic.*
+import System.Option.*
+import System.Result.*
 
 extension EnumerableOption<T> for IEnumerable<T> {
 

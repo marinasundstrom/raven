@@ -871,6 +871,19 @@ else
         project = document.Project;
     }
 
+    if (!embedCoreTypes &&
+        !sourceFiles.Any(static filePath => Path.GetFileName(filePath).EndsWith(".Prelude.g.rvn", StringComparison.OrdinalIgnoreCase)))
+    {
+        var preludeSource = SourceText.From(GetGeneratedPreludeSource());
+        var preludeName = $"{assemblyName}.Prelude.g.rvn";
+        var preludeDirectory = sourceFiles.Count > 0
+            ? Path.GetDirectoryName(sourceFiles[0]) ?? Environment.CurrentDirectory
+            : Environment.CurrentDirectory;
+        var preludePath = Path.Combine(preludeDirectory, preludeName);
+        var preludeDocument = project.AddDocument(preludeName, preludeSource, preludePath);
+        project = preludeDocument.Project;
+    }
+
     var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
         .Select(MetadataReference.CreateFromFile)
         .ToArray();
@@ -2011,6 +2024,23 @@ static bool TryParseSyntaxTreeFormat(string[] args, ref int index, out SyntaxTre
     format = SyntaxTreeFormat.Flat;
     return false;
 }
+
+static string GetGeneratedPreludeSource()
+    => string.Join(
+        Environment.NewLine,
+        "global {",
+        "    import System.*",
+        "    import System.Collections.*",
+        "    import System.Collections.Generic.*",
+        "    import System.IO.*",
+        "    import System.Linq.*",
+        "    import System.Net.Http.*",
+        "    import System.Threading.*",
+        "    import System.Threading.Tasks.*",
+        "    import System.Result.*",
+        "    import System.Option.*",
+        "}",
+        string.Empty);
 
 static int RunInitCommand(string[] args)
 {

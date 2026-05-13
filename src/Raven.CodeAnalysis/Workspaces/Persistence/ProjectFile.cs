@@ -21,6 +21,7 @@ internal static class ProjectFile
         ImmutableArray<string> MacroReferences,
         ImmutableArray<PackageReferenceInfo> PackageReferences,
         ImmutableArray<FrameworkReferenceInfo> FrameworkReferences,
+        ProjectPreludeOptions PreludeOptions,
         string Configuration);
 
     public static void Save(Project project, string filePath)
@@ -109,6 +110,10 @@ internal static class ProjectFile
         var allowGlobalStatementsAttr = (string?)root.Attribute("AllowGlobalStatements");
         var runAnalyzersAttr = (string?)root.Attribute("RunAnalyzers");
         var membersPublicByDefaultAttr = (string?)root.Attribute("MembersPublicByDefault");
+        var generatePreludeImports = true;
+        var generatePreludeImportsAttr = (string?)root.Attribute("GeneratePreludeImports");
+        if (generatePreludeImportsAttr is string gpi && bool.TryParse(gpi, out var parsedGeneratePreludeImports))
+            generatePreludeImports = parsedGeneratePreludeImports;
         CompilationOptions? options = null;
         if (outputKindAttr is string ok && Enum.TryParse<OutputKind>(ok, out var kind))
             options = new CompilationOptions(kind);
@@ -196,6 +201,23 @@ internal static class ProjectFile
             .Select(static value => new FrameworkReferenceInfo(value!))
             .ToImmutableArray();
 
+        var preludeImports = root.Elements("Import")
+            .Select(e =>
+            {
+                var include = (string?)e.Attribute("Include") ?? (string?)e.Attribute("Name");
+                if (string.IsNullOrWhiteSpace(include))
+                    throw new InvalidDataException("Import Include is missing.");
+
+                var isStatic = (string?)e.Attribute("Static") is string staticText &&
+                    bool.TryParse(staticText, out var parsedStatic) &&
+                    parsedStatic;
+                var alias = (string?)e.Attribute("Alias");
+                return new ProjectPreludeImportInfo(include, isStatic, alias);
+            })
+            .ToImmutableArray();
+
+        var preludeOptions = new ProjectPreludeOptions(generatePreludeImports, preludeImports);
+
         var macroRefs = root.Elements("RavenMacro")
             .Select(e => (string?)e.Attribute("Path") ?? (string?)e.Attribute("Include") ?? throw new InvalidDataException("RavenMacro path missing."))
             .Select(p => Path.IsPathRooted(p) ? p : Path.GetFullPath(Path.Combine(projectDir, p)))
@@ -210,6 +232,6 @@ internal static class ProjectFile
 
         var attrInfo = new ProjectInfo.ProjectAttributes(projectId, name, VersionStamp.Create());
         var info = new ProjectInfo(attrInfo, documents, filePath: filePath, analyzerReferences: null, targetFramework: targetFramework, compilationOptions: options, assemblyName: output, documentationOptions: documentationOptions);
-        return new ProjectFileInfo(info, projectRefs, metadataRefs, macroRefs, packageRefs, frameworkRefs, configuration);
+        return new ProjectFileInfo(info, projectRefs, metadataRefs, macroRefs, packageRefs, frameworkRefs, preludeOptions, configuration);
     }
 }

@@ -1037,6 +1037,15 @@
     <Slot Name="Statement" Type="Statement" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
+  <Node Name="GlobalImportBlock" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="GlobalKeyword" Type="Token" DefaultToken="GlobalKeyword" />
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="Imports" Type="List" ElementType="ImportDirective" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
   <Node Name="IncompleteMemberDeclaration" Inherits="MemberDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />

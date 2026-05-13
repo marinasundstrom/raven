@@ -83,6 +83,47 @@ Minimal example:
 
 Legacy `.ravenproj` files and legacy Raven-specific XML are still supported for compatibility, but they are no longer the primary project shape.
 
+## Generated prelude imports
+
+Raven projects generate a `<ProjectName>.Prelude.g.rvn` source file by default.
+It globally imports the common `System` namespaces plus `System.Result.*` and
+`System.Option.*`.
+
+Global imports are hoisted across the compilation, but they still use ordinary
+import binding rules. Namespace imports are the most robust project-file import
+shape because the namespace only has to exist after references and project
+declarations are known. Type-scope imports such as `System.Result.*` and direct
+nested-case imports such as `System.Result.Ok` require the imported type or
+nested type to be available to the compilation. They are supported, but they are
+less flexible than namespace imports and should normally be reserved for stable
+library/prelude cases; user-defined union cases are usually clearer as qualified
+or target-typed `.Case` references.
+
+Set `GeneratePreludeImports` to `false` to disable the generated standard
+imports:
+
+```xml
+<PropertyGroup>
+  <GeneratePreludeImports>false</GeneratePreludeImports>
+</PropertyGroup>
+```
+
+Projects can add prelude imports with `Import` items:
+
+```xml
+<ItemGroup>
+  <Import Include="SuperheroApp.Models" />
+  <Import Include="System.Console" Static="True" />
+  <Import Include="System.DateTime" Alias="DT" />
+</ItemGroup>
+```
+
+Non-aliased items generate global wildcard imports. `Static="True"` is intended
+for type-scope imports such as `System.Console.*`. `Alias` generates a
+project-wide alias in the prelude. If a source file repeats an import that is
+already supplied by a global import, the compiler reports a hidden redundant
+import diagnostic and editors can offer a remove-import fix.
+
 ## NuGet package references
 
 When a `.rvnproj` includes `<PackageReference>`:

@@ -344,7 +344,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
-            FullDiagnosticsDelayMilliseconds: null,
+            FullDiagnosticsDelayMilliseconds: FullDiagnosticsAfterEditDelayMilliseconds,
             DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
