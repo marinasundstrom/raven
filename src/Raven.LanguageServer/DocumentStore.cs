@@ -41,7 +41,8 @@ internal sealed class DocumentStore
     internal enum DocumentDiagnosticsMode
     {
         Full,
-        SyntaxOnly
+        SyntaxOnly,
+        Document
     }
 
     private static readonly HashSet<string> UnnecessaryDiagnosticIds = new(StringComparer.OrdinalIgnoreCase)
@@ -73,7 +74,23 @@ internal sealed class DocumentStore
         InvalidateDocumentAnalysis(uri);
         var document = _workspaceManager.UpsertDocument(uri, text, deferMacroConsumerRefresh);
         _openDocumentSnapshots[uri] = document;
+
+        if (deferMacroConsumerRefresh)
+            PrimeCompilationAfterEdit(uri);
+
         return document;
+    }
+
+    private void PrimeCompilationAfterEdit(DocumentUri uri)
+    {
+        try
+        {
+            _ = _workspaceManager.TryGetCompilation(uri, out _);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Post-edit compilation priming failed for {Uri}.", uri);
+        }
     }
 
     public bool TryGetDocument(DocumentUri uri, [NotNullWhen(true)] out Document? document)
@@ -358,12 +375,22 @@ internal sealed class DocumentStore
             if (shouldSkipWork?.Invoke() == true)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
+            var setupBefore = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+            var semanticBefore = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
             IReadOnlyCollection<CodeDiagnostic> diagnosticsForProject;
             if (allowBusySkip)
             {
                 if (mode == DocumentDiagnosticsMode.SyntaxOnly)
                 {
                     diagnosticsForProject = analysis.GetSyntaxDiagnostics();
+                    documentOnlyDiagnostics = true;
+                }
+                else if (mode == DocumentDiagnosticsMode.Document)
+                {
+                    diagnosticsForProject = context.Compilation.GetDocumentDiagnostics(
+                        syntaxTree,
+                        analyzerOptions: null,
+                        cancellationToken: cancellationToken);
                     documentOnlyDiagnostics = true;
                 }
                 else
@@ -390,14 +417,22 @@ internal sealed class DocumentStore
                 .Where(d => ShouldReport(d, syntaxTree))
                 .Select(MapDiagnostic)
                 .ToArray();
+            diagnosticsSetupDelta = CompilerSetupInstrumentation.FormatDelta(
+                CompilerSetupInstrumentation.Subtract(
+                    context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
+                    setupBefore));
+            diagnosticsSemanticDelta = SemanticQueryInstrumentation.FormatDelta(
+                SemanticQueryInstrumentation.Subtract(
+                    context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
+                    semanticBefore));
 
             stopwatch.Stop();
             if (stopwatch.Elapsed.TotalMilliseconds >= SlowDiagnosticsThresholdMs)
             {
-                if (diagnosticsSetupDelta is not null || diagnosticsBinderDelta is not null)
+                if (diagnosticsSetupDelta is not null || diagnosticsBinderDelta is not null || diagnosticsSemanticDelta is not null)
                 {
                     _logger.LogInformation(
-                        "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count} setupDelta=[{SetupDelta}] binderDelta=[{BinderDelta}].",
+                        "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count} setupDelta=[{SetupDelta}] binderDelta=[{BinderDelta}] semanticDelta=[{SemanticDelta}].",
                         uri,
                         stopwatch.Elapsed.TotalMilliseconds,
                         gateWaitMs,
@@ -405,7 +440,8 @@ internal sealed class DocumentStore
                         diagnosticsFetchMs,
                         diagnostics.Length,
                         diagnosticsSetupDelta ?? "<none>",
-                        diagnosticsBinderDelta ?? "<none>");
+                        diagnosticsBinderDelta ?? "<none>",
+                        diagnosticsSemanticDelta ?? "<none>");
                 }
                 else
                 {

@@ -35,6 +35,7 @@ public partial class Compilation
     private readonly ConcurrentDictionary<string, object> _metadataTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _preferredMetadataTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _scopedMetadataTypeCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<SpecialType, INamedTypeSymbol> _specialTypeCache = new();
     private readonly DescriptorState _descriptorState = new();
     private static readonly ConcurrentDictionary<string, string> s_globalAssemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, Assembly> s_globalRuntimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
@@ -2517,7 +2518,7 @@ public partial class Compilation
 
     private void EnsureSourceTypesInitialized()
     {
-        EnsureSourceDeclarationsComplete();
+        EnsureSourceDeclarationsDeclared();
     }
 
     private INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
@@ -2552,6 +2553,11 @@ public partial class Compilation
         if (specialType is SpecialType.System_Unit)
             return UnitTypeSymbol;
 
+        return _specialTypeCache.GetOrAdd(specialType, ResolveSpecialType);
+    }
+
+    private INamedTypeSymbol ResolveSpecialType(SpecialType specialType)
+    {
         var metadataName = specialType switch
         {
             SpecialType.System_Object => "System.Object",

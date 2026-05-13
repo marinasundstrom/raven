@@ -64,6 +64,12 @@ public partial class SemanticModel
         set => _bindingState.Diagnostics = value;
     }
 
+    private IImmutableList<Diagnostic>? _documentDiagnostics
+    {
+        get => _bindingState.DocumentDiagnostics;
+        set => _bindingState.DocumentDiagnostics = value;
+    }
+
     private DiagnosticBag _declarationDiagnostics => _bindingState.DeclarationDiagnostics;
 
     public bool IsDebuggingEnabled { get; set; } = true;
@@ -100,6 +106,7 @@ public partial class SemanticModel
         public ConcurrentDictionary<SyntaxNode, ImmutableArray<Compilation.VisibleValueDeclaration>> VisibleValueScopeCache { get; } = new();
         public DiagnosticBag DeclarationDiagnostics { get; } = new();
         public IImmutableList<Diagnostic>? Diagnostics { get; set; }
+        public IImmutableList<Diagnostic>? DocumentDiagnostics { get; set; }
     }
 
     private readonly record struct ContextualBoundNodeCacheKey(SyntaxNode Node, ITypeSymbol TargetType);
@@ -154,16 +161,27 @@ public partial class SemanticModel
     public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
         if (_diagnostics is null)
-            EnsureDiagnosticBindingCompleted();
+            EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: true);
 
         return _diagnostics;
     }
 
-    private void EnsureDiagnosticBindingCompleted()
+    internal IImmutableList<Diagnostic> GetDocumentDiagnostics(CancellationToken cancellationToken = default)
+    {
+        if (_documentDiagnostics is null)
+            EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: false);
+
+        return _documentDiagnostics;
+    }
+
+    private void EnsureDiagnosticBindingCompleted(bool requireCompleteDeclarations = true)
     {
         lock (_diagnosticsCollectionGate)
         {
-            if (_diagnostics is not null)
+            if (requireCompleteDeclarations && _diagnostics is not null)
+                return;
+
+            if (!requireCompleteDeclarations && _documentDiagnostics is not null)
                 return;
 
             var currentThreadId = Environment.CurrentManagedThreadId;
@@ -178,7 +196,12 @@ public partial class SemanticModel
 
             try
             {
-                Compilation.EnsureSourceDeclarationsComplete();
+                if (requireCompleteDeclarations)
+                    Compilation.EnsureSourceDeclarationsComplete();
+                else
+                    Compilation.EnsureSourceDeclarationsDeclared();
+
+                EnsureDeclarations();
                 EnsureRootBinderCreated();
                 var root = SyntaxTree.GetRoot();
                 var binder = GetBinder(root);
@@ -195,11 +218,16 @@ public partial class SemanticModel
                 }
 
                 diagnosticsBuilder.AddRange(_declarationDiagnostics.AsEnumerable());
-                _diagnostics = diagnosticsBuilder
+                var diagnostics = diagnosticsBuilder
                     .Distinct()
                     .ToImmutableArray();
 
-                StoreSemanticDiagnosticDescriptors(root, _diagnostics.ToImmutableArray());
+                if (requireCompleteDeclarations)
+                    _diagnostics = diagnostics;
+                else
+                    _documentDiagnostics = diagnostics;
+
+                StoreSemanticDiagnosticDescriptors(root, diagnostics.ToImmutableArray());
             }
             finally
             {
@@ -2235,6 +2263,13 @@ public partial class SemanticModel
             return true;
         }
 
+        if (expression is InfixOperatorExpressionSyntax infixExpression &&
+            TryGetAvailableInfixExpressionType(infixExpression, out typeInfo))
+        {
+            _typeMappings[expression] = typeInfo;
+            return true;
+        }
+
         if (expression is FunctionExpressionSyntax functionExpression &&
             TryGetFunctionExpressionDelegateType(functionExpression, out var functionDelegateType) &&
             functionDelegateType is not null &&
@@ -2315,7 +2350,7 @@ public partial class SemanticModel
         }
 
         if (expression is IdentifierNameSyntax identifier &&
-            TryGetEnclosingFunctionParameterTypeFromSyntax(identifier, out var functionParameterType))
+            TryGetEnclosingParameterTypeFromSyntax(identifier, out var functionParameterType))
         {
             typeInfo = new TypeInfo(functionParameterType, functionParameterType, ComputeConversion(functionParameterType, functionParameterType));
             _typeMappings[expression] = typeInfo;
@@ -2333,6 +2368,50 @@ public partial class SemanticModel
 
         typeInfo = new TypeInfo(null, null);
         return false;
+    }
+
+    private bool TryGetAvailableInfixExpressionType(
+        InfixOperatorExpressionSyntax expression,
+        out TypeInfo typeInfo)
+    {
+        typeInfo = default;
+
+        if (expression.OperatorToken.Kind == SyntaxKind.PipeToken)
+            return false;
+
+        if (!TryGetAvailableTypeInfo(expression.Left, out var leftInfo) ||
+            !TryGetAvailableTypeInfo(expression.Right, out var rightInfo))
+        {
+            return false;
+        }
+
+        var leftType = leftInfo.ConvertedType ?? leftInfo.Type;
+        var rightType = rightInfo.ConvertedType ?? rightInfo.Type;
+        if (leftType is null ||
+            rightType is null ||
+            leftType.TypeKind == TypeKind.Error ||
+            rightType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        if (!BoundBinaryOperator.TryLookup(Compilation, expression.OperatorToken.Kind, leftType, rightType, out var op) ||
+            op.ResultType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        var resultType = op.ResultType;
+        var convertedType = resultType;
+        if (TryGetTargetTypeForExpression(expression, out var targetType) &&
+            targetType is not null &&
+            targetType.TypeKind != TypeKind.Error)
+        {
+            convertedType = targetType;
+        }
+
+        typeInfo = new TypeInfo(resultType, convertedType, ComputeConversion(resultType, convertedType));
+        return true;
     }
 
     private bool TryGetAvailableAwaitExpressionType(
@@ -2365,33 +2444,68 @@ public partial class SemanticModel
         return false;
     }
 
-    private bool TryGetEnclosingFunctionParameterTypeFromSyntax(
+    private bool TryGetEnclosingParameterTypeFromSyntax(
         IdentifierNameSyntax identifier,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
     {
         type = null;
         var name = identifier.Identifier.ValueText;
 
-        foreach (var functionExpression in identifier.Ancestors().OfType<FunctionExpressionSyntax>())
+        foreach (var ancestor in identifier.Ancestors())
         {
-            IEnumerable<ParameterSyntax> parameters = functionExpression switch
+            IEnumerable<ParameterSyntax> parameters = ancestor switch
             {
+                BaseMethodDeclarationSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
+                FunctionStatementSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 SimpleFunctionExpressionSyntax { Parameter: { } parameter } => [parameter],
                 ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
+                TrailingBlockExpressionSyntax { Parameter: { } parameter } => [parameter],
+                TrailingBlockExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 _ => Enumerable.Empty<ParameterSyntax>()
             };
 
             foreach (var parameter in parameters)
             {
-                if (!string.Equals(parameter.Identifier.ValueText, name, StringComparison.Ordinal) ||
-                    parameter.TypeAnnotation?.Type is not SimpleNameSyntax typeName)
+                if (!string.Equals(parameter.Identifier.ValueText, name, StringComparison.Ordinal))
                 {
                     continue;
                 }
 
-                if (TryGetAvailableFunctionParameterType(typeName, out type) && type is not null)
+                if (TryGetAvailableParameterType(parameter, out type) && type is not null)
                     return true;
             }
+        }
+
+        return false;
+    }
+
+    private bool TryGetAvailableParameterType(
+        ParameterSyntax parameter,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+    {
+        type = null;
+
+        if (!parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any() &&
+            TryResolveParameterSymbolFast(parameter, out var parameterSymbol) &&
+            parameterSymbol?.Type is { TypeKind: not TypeKind.Error } symbolType)
+        {
+            type = symbolType;
+            return true;
+        }
+
+        if (TryResolveFunctionExpressionParameterSymbolFast(parameter, out var functionParameterSymbol) &&
+            functionParameterSymbol?.Type is { TypeKind: not TypeKind.Error } functionParameterType)
+        {
+            type = functionParameterType;
+            return true;
+        }
+
+        if (parameter.TypeAnnotation?.Type is { } typeSyntax &&
+            TryGetAvailableFunctionParameterType(typeSyntax, out var syntaxType) &&
+            syntaxType.TypeKind != TypeKind.Error)
+        {
+            type = syntaxType;
+            return true;
         }
 
         return false;
@@ -2436,6 +2550,12 @@ public partial class SemanticModel
         if (_typeMappings.TryGetValue(typeSyntax, out typeInfo) &&
             HasNonErrorTypeInfo(typeInfo))
         {
+            return true;
+        }
+
+        if (TryGetAvailablePredefinedTypeInfo(typeSyntax, out typeInfo))
+        {
+            _typeMappings[typeSyntax] = typeInfo;
             return true;
         }
 
@@ -2485,6 +2605,44 @@ public partial class SemanticModel
 
         typeInfo = new TypeInfo(null, null);
         return false;
+    }
+
+    private bool TryGetAvailablePredefinedTypeInfo(TypeSyntax typeSyntax, out TypeInfo typeInfo)
+    {
+        var specialType = typeSyntax switch
+        {
+            PredefinedTypeSyntax predefined => predefined.Keyword.Kind switch
+            {
+                SyntaxKind.BoolKeyword => SpecialType.System_Boolean,
+                SyntaxKind.DoubleKeyword => SpecialType.System_Double,
+                SyntaxKind.FloatKeyword => SpecialType.System_Single,
+                SyntaxKind.IntKeyword => SpecialType.System_Int32,
+                SyntaxKind.NIntKeyword => SpecialType.System_IntPtr,
+                SyntaxKind.NUIntKeyword => SpecialType.System_UIntPtr,
+                SyntaxKind.StringKeyword => SpecialType.System_String,
+                SyntaxKind.UIntKeyword => SpecialType.System_UInt32,
+                SyntaxKind.UnitKeyword => SpecialType.System_Unit,
+                _ => SpecialType.None
+            },
+            UnitTypeSyntax => SpecialType.System_Unit,
+            _ => SpecialType.None
+        };
+
+        if (specialType == SpecialType.None)
+        {
+            typeInfo = default;
+            return false;
+        }
+
+        var type = Compilation.GetSpecialType(specialType);
+        if (type.TypeKind == TypeKind.Error)
+        {
+            typeInfo = default;
+            return false;
+        }
+
+        typeInfo = new TypeInfo(type, type, ComputeConversion(type, type));
+        return true;
     }
 
     private bool TryLookupAvailableTypeFromBinder(SimpleNameSyntax typeName, out ITypeSymbol? type)

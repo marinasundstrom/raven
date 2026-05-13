@@ -187,6 +187,37 @@ public partial class Compilation
 
     }
 
+    internal ImmutableArray<Diagnostic> GetDocumentDiagnostics(
+        SyntaxTree syntaxTree,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+
+        if (!SyntaxTrees.Contains(syntaxTree))
+            throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
+
+        var diagnostics = new List<Diagnostic>();
+
+        EnsureSetup();
+
+        foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+            Add(diagnostic);
+
+        var model = GetSemanticModel(syntaxTree);
+        foreach (var diagnostic in model.GetDocumentDiagnostics(cancellationToken))
+            Add(diagnostic);
+
+        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+
+        void Add(Diagnostic diagnostic)
+        {
+            var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false, cancellationToken);
+            if (mapped is not null)
+                diagnostics.Add(mapped);
+        }
+    }
+
     public ImmutableArray<Diagnostic> GetSyntaxDiagnostics(
         SyntaxTree syntaxTree,
         CompilationWithAnalyzersOptions? analyzerOptions = null,

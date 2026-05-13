@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
 
-using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -45,6 +45,9 @@ internal partial class BoundBinaryOperator
             op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
             return false;
         }
+
+        if (TryLookupArithmeticPredefinedOperatorFast(kind, left, right, out op))
+            return true;
 
         var nintType = compilation.GetSpecialType(SpecialType.System_IntPtr);
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
@@ -203,6 +206,41 @@ internal partial class BoundBinaryOperator
 
         op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
         return false;
+    }
+
+    private static bool TryLookupArithmeticPredefinedOperatorFast(
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        out BoundBinaryOperator op)
+    {
+        op = default!;
+
+        var leftSpecialType = left.SpecialType;
+        var rightSpecialType = right.SpecialType;
+        if (leftSpecialType == SpecialType.None ||
+            rightSpecialType == SpecialType.None ||
+            leftSpecialType != rightSpecialType ||
+            !IsArithmeticNumericType(leftSpecialType))
+        {
+            return false;
+        }
+
+        var operatorKind = kind switch
+        {
+            SyntaxKind.PlusToken => BinaryOperatorKind.Addition,
+            SyntaxKind.MinusToken => BinaryOperatorKind.Subtraction,
+            SyntaxKind.StarToken => BinaryOperatorKind.Multiplication,
+            SyntaxKind.SlashToken => BinaryOperatorKind.Division,
+            SyntaxKind.PercentToken => BinaryOperatorKind.Modulo,
+            _ => BinaryOperatorKind.None
+        };
+
+        if (operatorKind == BinaryOperatorKind.None)
+            return false;
+
+        op = new BoundBinaryOperator(operatorKind, left, right, left);
+        return true;
     }
 
     private static bool TryLookupPredefinedOperator(

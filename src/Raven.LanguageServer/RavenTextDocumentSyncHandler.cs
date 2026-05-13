@@ -402,7 +402,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         => new(
             IncludeWarmup: false,
             WarmupDelayMilliseconds: 0,
-            InitialMode: DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+            InitialMode: DocumentStore.DocumentDiagnosticsMode.Document,
             FullDiagnosticsDelayMilliseconds: null,
             DiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds);
 
@@ -811,6 +811,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishSyntaxDiagnosticsUnchanged",
             (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishSyntaxDiagnosticsVersionMismatch",
             (DocumentStore.DocumentDiagnosticsMode.SyntaxOnly, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishSyntaxDiagnosticsAlreadyCompleted",
+            (DocumentStore.DocumentDiagnosticsMode.Document, PublishDiagnosticsOutcome.Published) => "publishDocumentDiagnostics",
+            (DocumentStore.DocumentDiagnosticsMode.Document, PublishDiagnosticsOutcome.SkippedRequeued) => "publishDocumentDiagnosticsSkipped",
+            (DocumentStore.DocumentDiagnosticsMode.Document, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishDocumentDiagnosticsUnchanged",
+            (DocumentStore.DocumentDiagnosticsMode.Document, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishDocumentDiagnosticsVersionMismatch",
+            (DocumentStore.DocumentDiagnosticsMode.Document, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishDocumentDiagnosticsAlreadyCompleted",
             (_, PublishDiagnosticsOutcome.Published) => "publishDiagnostics",
             (_, PublishDiagnosticsOutcome.SkippedRequeued) => "publishDiagnosticsSkipped",
             (_, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishDiagnosticsUnchanged",

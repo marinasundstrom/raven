@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -232,7 +232,7 @@ async Task RunEditProbeAsync()
     Console.WriteLine($"edit changeRanges={changeRanges.Count} " + string.Join("; ", changeRanges.Select(static range => range.ToString())));
 
     var updateStopwatch = Stopwatch.StartNew();
-    _ = store.UpsertDocument(uri, updatedText);
+    _ = store.UpsertDocument(uri, updatedText, deferMacroConsumerRefresh: true);
     updateStopwatch.Stop();
 
     var analysisStopwatch = Stopwatch.StartNew();
