@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { execFile, ExecFileOptions } from 'child_process';
 import * as vscode from 'vscode';
-import { CloseAction, ErrorAction, LanguageClient, LanguageClientOptions, ServerOptions, State, StateChangeEvent, Trace } from 'vscode-languageclient/node';
+import { CloseAction, ErrorAction, InlayHintRequest, InlayHintsProviderShape, LanguageClient, LanguageClientOptions, ServerOptions, State, StateChangeEvent, Trace } from 'vscode-languageclient/node';
 
 let client: LanguageClient | undefined;
 let clientStopPromise: Promise<void> | undefined;
@@ -96,11 +96,48 @@ function areInferredTypeInlayHintsEnabled(): boolean {
 }
 
 async function refreshInlayHints(): Promise<void> {
+  fireVisibleInlayHintProviders();
+
   try {
     await vscode.commands.executeCommand('editor.action.inlayHints.refresh');
   } catch (error) {
     const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
     appendLifecycleLog(`Unable to refresh inlay hints: ${message}`);
+  }
+}
+
+function fireVisibleInlayHintProviders(): void {
+  const activeClient = client;
+  if (!activeClient || activeClient.state !== State.Running) {
+    return;
+  }
+
+  let providerCount = 0;
+  const seen = new Set<InlayHintsProviderShape>();
+  try {
+    const feature = activeClient.getFeature(InlayHintRequest.method);
+    for (const editor of vscode.window.visibleTextEditors) {
+      if (editor.document.languageId !== 'raven') {
+        continue;
+      }
+
+      const provider = feature.getProvider(editor.document);
+      if (!provider || seen.has(provider)) {
+        continue;
+      }
+
+      seen.add(provider);
+      provider.onDidChangeInlayHints.fire();
+      providerCount++;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    appendLifecycleLog(`Unable to invalidate inlay hint providers: ${message}`);
+    return;
+  }
+
+  if (providerCount > 0) {
+    appendLifecycleLog(`Invalidated ${providerCount} visible inlay hint provider(s).`);
   }
 }
 

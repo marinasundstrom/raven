@@ -107,12 +107,44 @@ function areInferredTypeInlayHintsEnabled() {
         .get('inlayHints.inferredTypes.enabled', true);
 }
 async function refreshInlayHints() {
+    fireVisibleInlayHintProviders();
     try {
         await vscode.commands.executeCommand('editor.action.inlayHints.refresh');
     }
     catch (error) {
         const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
         appendLifecycleLog(`Unable to refresh inlay hints: ${message}`);
+    }
+}
+function fireVisibleInlayHintProviders() {
+    const activeClient = client;
+    if (!activeClient || activeClient.state !== node_1.State.Running) {
+        return;
+    }
+    let providerCount = 0;
+    const seen = new Set();
+    try {
+        const feature = activeClient.getFeature(node_1.InlayHintRequest.method);
+        for (const editor of vscode.window.visibleTextEditors) {
+            if (editor.document.languageId !== 'raven') {
+                continue;
+            }
+            const provider = feature.getProvider(editor.document);
+            if (!provider || seen.has(provider)) {
+                continue;
+            }
+            seen.add(provider);
+            provider.onDidChangeInlayHints.fire();
+            providerCount++;
+        }
+    }
+    catch (error) {
+        const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+        appendLifecycleLog(`Unable to invalidate inlay hint providers: ${message}`);
+        return;
+    }
+    if (providerCount > 0) {
+        appendLifecycleLog(`Invalidated ${providerCount} visible inlay hint provider(s).`);
     }
 }
 function scheduleInlayHintRefresh() {
