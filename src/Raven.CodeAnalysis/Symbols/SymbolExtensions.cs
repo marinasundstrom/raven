@@ -1400,6 +1400,9 @@ public static partial class SymbolExtensions
         if (value is null)
             return "null";
 
+        if (TryFormatEnumConstant(value, type, format, out var enumConstant))
+            return enumConstant;
+
         // Strings
         if (value is string s)
         {
@@ -1433,6 +1436,77 @@ public static partial class SymbolExtensions
 
         // Fallback
         return value.ToString() ?? "null";
+    }
+
+    private static bool TryFormatEnumConstant(
+        object value,
+        ITypeSymbol type,
+        SymbolDisplayFormat format,
+        out string display)
+    {
+        display = string.Empty;
+
+        if (type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            return false;
+
+        if (!TryConvertEnumConstantValue(value, out var numericValue))
+            return false;
+
+        foreach (var field in enumType.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (!field.IsConst || field.ContainingType?.TypeKind != TypeKind.Enum)
+                continue;
+
+            var fieldValue = field.GetConstantValue();
+            if (fieldValue is null ||
+                !TryConvertEnumConstantValue(fieldValue, out var fieldNumericValue) ||
+                fieldNumericValue != numericValue)
+            {
+                continue;
+            }
+
+            var memberDisplay = EscapeIdentifierIfNeeded(field.Name, format);
+            display = format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseTargetTypedMemberBinding)
+                ? "." + memberDisplay
+                : FormatType(enumType, format) + "." + memberDisplay;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryConvertEnumConstantValue(object value, out decimal numericValue)
+    {
+        try
+        {
+            if (value is Enum enumValue)
+                value = Convert.ChangeType(enumValue, enumValue.GetTypeCode(), CultureInfo.InvariantCulture);
+
+            numericValue = value switch
+            {
+                sbyte v => v,
+                byte v => v,
+                short v => v,
+                ushort v => v,
+                int v => v,
+                uint v => v,
+                long v => v,
+                ulong v => v,
+                _ => default
+            };
+
+            return value is sbyte or byte or short or ushort or int or uint or long or ulong;
+        }
+        catch (InvalidCastException)
+        {
+            numericValue = default;
+            return false;
+        }
+        catch (OverflowException)
+        {
+            numericValue = default;
+            return false;
+        }
     }
 
     private static string FormatPropertyAccessors(IPropertySymbol propertySymbol, SymbolDisplayFormat format)

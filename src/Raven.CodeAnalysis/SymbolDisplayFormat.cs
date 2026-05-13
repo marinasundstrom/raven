@@ -19,7 +19,8 @@ public class SymbolDisplayFormat
         TypeQualificationStyle = SymbolDisplayTypeQualificationStyle.NameOnly,
         MiscellaneousOptions = SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
                            SymbolDisplayMiscellaneousOptions.EscapeIdentifiers |
-                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers
+                           SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                           SymbolDisplayMiscellaneousOptions.UseTargetTypedMemberBinding
     };
 
     public static SymbolDisplayFormat RavenTooltipFormat { get; } = new SymbolDisplayFormat
@@ -361,7 +362,8 @@ public enum SymbolDisplayMiscellaneousOptions
     ExpandedValueTuple = 2048,
     ExpandAliases = 4096,
     IncludeTupleElementNames = 8192,
-    IncludeUnionMemberTypes = 16384
+    IncludeUnionMemberTypes = 16384,
+    UseTargetTypedMemberBinding = 32768
 }
 
 [Flags]

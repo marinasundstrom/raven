@@ -263,6 +263,16 @@ class C {
         var parameter = boundInvocation.Method.Parameters.Single();
         Assert.True(parameter.HasExplicitDefaultValue);
         Assert.Equal((int)DayOfWeek.Wednesday, parameter.ExplicitDefaultValue);
+        Assert.Equal(
+            "value: DayOfWeek = .Wednesday",
+            parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+
+        var qualifiedFormat = SymbolDisplayFormat.RavenSignatureFormat.WithMiscellaneousOptions(
+            SymbolDisplayFormat.RavenSignatureFormat.MiscellaneousOptions &
+            ~SymbolDisplayMiscellaneousOptions.UseTargetTypedMemberBinding);
+        Assert.Equal(
+            "value: DayOfWeek = DayOfWeek.Wednesday",
+            parameter.ToDisplayString(qualifiedFormat));
     }
 
     [Fact]
