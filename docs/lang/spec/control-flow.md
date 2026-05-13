@@ -191,8 +191,9 @@ identifier would otherwise capture. Literal patterns such as `"Bob"`, `42`,
 not need `==`. Qualified constant members, such as `Math.PI` and enum members
 such as `JsonValueKind.True`, are also value patterns in `is`/`match` contexts.
 Enum patterns may use target-typed member shorthand (`value is .True`) when the
-scrutinee supplies the enum type; equality comparisons use the qualified form
-(`value == JsonValueKind.True`):
+scrutinee supplies the enum type. Equality comparisons can also use the
+target-typed shorthand (`value == .True`), while `is` remains the clearer form
+when the code is intentionally written as a pattern match:
 
 ```raven
 if val Person { Name: "Ada", Age: age } matched = input {

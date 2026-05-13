@@ -6,13 +6,17 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class IsPatternExpressionTests : DiagnosticTestBase
 {
     [Fact]
-    public void EnumMemberChecks_WithJsonValueKind_AcceptQualifiedEqualityAndPatternForms()
+    public void EnumMemberChecks_WithJsonValueKind_AcceptEqualityAndPatternForms()
     {
         const string code = """
 import System.Text.Json.*
 
 func Test(element: JsonElement) -> bool {
     return element.ValueKind == JsonValueKind.True ||
+        element.ValueKind == .True ||
+        .True == element.ValueKind ||
+        element.ValueKind != .False ||
+        .False != element.ValueKind ||
         element.ValueKind is JsonValueKind.True ||
         element.ValueKind is .True
 }
@@ -24,7 +28,7 @@ func Test(element: JsonElement) -> bool {
     }
 
     [Fact]
-    public void EnumMemberChecks_WithJsonValueKind_RejectsTargetTypedEqualityShorthand()
+    public void EnumMemberChecks_WithJsonValueKind_AcceptsTargetTypedEqualityShorthand()
     {
         const string code = """
 import System.Text.Json.*
@@ -34,9 +38,7 @@ func Test(element: JsonElement) -> bool {
 }
 """;
 
-        var verifier = CreateVerifier(
-            code,
-            [new DiagnosticResult("RAV2010").WithAnySpan().WithArguments("True")]);
+        var verifier = CreateVerifier(code);
 
         verifier.Verify();
     }

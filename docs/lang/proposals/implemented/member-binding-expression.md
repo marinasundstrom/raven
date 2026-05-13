@@ -68,6 +68,7 @@ Member binding expressions rely on a target type supplied by context. The bindin
 - Return statements (including implicit returns).
 - Argument positions for method **and constructor** invocations.
 - Pattern positions (e.g., match arms) where a target type is available.
+- Equality and inequality expressions where the opposite operand has a known type.
 
 ## Motivation
 

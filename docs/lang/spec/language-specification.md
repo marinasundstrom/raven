@@ -2855,9 +2855,9 @@ patterns, and other pure match-only forms are not assignment/declaration heads.
 * `.Member` — **target-typed value pattern**. When the scrutinee type is known
   (for example, an enum type or a type with static fields), the leading-dot
   expression resolves against that target type and matches the resulting value.
-  This target-typed member shorthand is a pattern form; equality expressions use
-  the qualified enum/member form (`value == EnumType.Member`) instead of
-  `value == .Member`.
+  Equality expressions also provide a target type from the opposite operand, so
+  `value == .Member` is equivalent to `value == EnumType.Member` when `value`
+  has the enum/member-bearing type.
 
 > 🧭 **Disambiguation:** A bare identifier in pattern position is context-sensitive. If the
 > name resolves to a value symbol, it forms a value pattern. Otherwise, it is

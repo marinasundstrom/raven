@@ -5426,17 +5426,16 @@ partial class BlockBinder : Binder
         if (node.Parent is InfixOperatorExpressionSyntax binary &&
             node is ExpressionSyntax equalityOperand &&
             IsTargetTypedEqualityOperand(equalityOperand) &&
-            (binary.OperatorToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsExpression))
+            (binary.OperatorToken.Kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken))
         {
             var other = ReferenceEquals(binary.Left, node) ? binary.Right : binary.Left;
 
             // Avoid recursion if the other side is also target-typed.
-            if (other is not MemberBindingExpressionSyntax)
+            if (other is not ExpressionSyntax otherExpression || !IsTargetTypedEqualityOperand(otherExpression))
             {
                 var otherBound = BindExpression(other);
                 if (otherBound.Type is { } otherType &&
-                    otherType.TypeKind != TypeKind.Error &&
-                    (UnwrapAlias(otherType.UnwrapLiteralType() ?? otherType) is not INamedTypeSymbol { TypeKind: TypeKind.Enum }))
+                    otherType.TypeKind != TypeKind.Error)
                 {
                     return otherType;
                 }
