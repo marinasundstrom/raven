@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -37,12 +38,12 @@ manager.Initialize(new InitializeParams
     })
 });
 
-var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+var store = new DocumentStore(manager, new HeadlessConsoleLogger<DocumentStore>());
 _ = store.UpsertDocument(uri, text);
 var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
     ?? throw new InvalidOperationException($"No analysis context for '{filePath}'.");
 var sourceText = context.SourceText;
-var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+var handler = new HoverHandler(store, new HeadlessConsoleLogger<HoverHandler>());
 var model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
     ?? throw new InvalidOperationException($"No semantic model for '{filePath}'.");
 var root = context.SyntaxTree.GetRoot();
@@ -214,7 +215,23 @@ async Task RunEditProbeAsync()
         .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
     var updatedText = beforeSourceText;
 
+    var warmupDocumentDiagnosticsSetupBefore = CaptureSetupSnapshot();
+    var warmupDocumentDiagnosticsStopwatch = Stopwatch.StartNew();
+    var warmupDocumentDiagnostics = await store.TryGetDiagnosticsAsync(
+        uri,
+        DocumentStore.DocumentDiagnosticsMode.Document,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    warmupDocumentDiagnosticsStopwatch.Stop();
+    var warmupDocumentDiagnosticsSetupDelta = CompilerSetupInstrumentation.Subtract(
+        CaptureSetupSnapshot(),
+        warmupDocumentDiagnosticsSetupBefore);
+
     Console.WriteLine($"edit-probe file={filePath} replacements={options.EditReplacements.Count}");
+    Console.WriteLine(
+        $"edit warmup documentDiagnostics={warmupDocumentDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"documentDiagnosticsCount={warmupDocumentDiagnostics.Diagnostics.Count} " +
+        $"setupDelta=[{CompilerSetupInstrumentation.FormatDelta(warmupDocumentDiagnosticsSetupDelta)}]");
     foreach (var replacement in options.EditReplacements)
     {
         var replaced = TryReplaceFirst(updatedText, replacement.OldText, replacement.NewText, out var nextText, out var span);
@@ -231,9 +248,11 @@ async Task RunEditProbeAsync()
     var changeRanges = updatedText.GetChangeRanges(beforeSourceText);
     Console.WriteLine($"edit changeRanges={changeRanges.Count} " + string.Join("; ", changeRanges.Select(static range => range.ToString())));
 
+    var updateSetupBefore = CaptureSetupSnapshot();
     var updateStopwatch = Stopwatch.StartNew();
     _ = store.UpsertDocument(uri, updatedText, deferMacroConsumerRefresh: true);
     updateStopwatch.Stop();
+    var updateSetupDelta = CompilerSetupInstrumentation.Subtract(CaptureSetupSnapshot(), updateSetupBefore);
 
     var analysisStopwatch = Stopwatch.StartNew();
     context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
@@ -243,12 +262,50 @@ async Task RunEditProbeAsync()
     sourceText = context.SourceText;
     root = context.SyntaxTree.GetRoot();
     var rootMatchesText = string.Equals(root.ToFullString(), updatedText.ToString(), StringComparison.Ordinal);
+    var changedExecutableOwners = GetChangedExecutableOwners(context.Compilation, context.SyntaxTree);
+    var semanticDiagnosticTransferBlocked = GetSemanticDiagnosticTransferBlocked(context.Compilation, context.SyntaxTree);
+
+    var hoverResults = new List<(string Marker, HoverResult Result)>();
+    var hoverTargets = options.EditHoverTargets.Count > 0
+        ? options.EditHoverTargets
+        : options.Positionals.Count > 2
+            ? options.Positionals.Skip(2).ToArray()
+            : ["CreateBuilder", "AddDbContext", "UseNpgsql"];
+
+    foreach (var target in hoverTargets)
+    {
+        var offset = sourceText.ToString().IndexOf(target, StringComparison.Ordinal);
+        if (offset < 0)
+        {
+            Console.WriteLine($"edit hover missing {target}");
+            continue;
+        }
+
+        var position = PositionHelper.ToRange(sourceText, new TextSpan(offset + Math.Min(3, target.Length), 0)).Start;
+        if (Environment.GetEnvironmentVariable("RAVEN_HEADLESS_DEBUG_SYMBOL_INFO") == "1")
+        {
+            model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
+                ?? throw new InvalidOperationException($"No semantic model after edit for '{filePath}'.");
+            PrintInvocationSymbolInfoDebug(target, offset);
+        }
+
+        var hoverResult = await RunHoverAsync(target, position);
+        var marker = hoverResult.Exception is not null
+            ? "error"
+            : !hoverResult.HasHover
+            ? "null"
+            : hoverResult.ElapsedMs >= options.SlowThresholdMs
+            ? "slow"
+            : "ok";
+        hoverResults.Add((marker, hoverResult));
+    }
 
     var semanticStopwatch = Stopwatch.StartNew();
     model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
         ?? throw new InvalidOperationException($"No semantic model after edit for '{filePath}'.");
     semanticStopwatch.Stop();
 
+    var syntaxDiagnosticsSetupBefore = CaptureSetupSnapshot();
     var syntaxDiagnosticsStopwatch = Stopwatch.StartNew();
     var syntaxDiagnostics = await store.TryGetDiagnosticsAsync(
         uri,
@@ -256,10 +313,29 @@ async Task RunEditProbeAsync()
         shouldSkipWork: null,
         CancellationToken.None);
     syntaxDiagnosticsStopwatch.Stop();
+    var syntaxDiagnosticsSetupDelta = CompilerSetupInstrumentation.Subtract(
+        CaptureSetupSnapshot(),
+        syntaxDiagnosticsSetupBefore);
 
-    var diagnosticsStopwatch = Stopwatch.StartNew();
-    var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
-    diagnosticsStopwatch.Stop();
+    var documentDiagnosticsSetupBefore = CaptureSetupSnapshot();
+    var documentDiagnosticsStopwatch = Stopwatch.StartNew();
+    var documentDiagnostics = await store.TryGetDiagnosticsAsync(
+        uri,
+        DocumentStore.DocumentDiagnosticsMode.Document,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    documentDiagnosticsStopwatch.Stop();
+    var documentDiagnosticsSetupDelta = CompilerSetupInstrumentation.Subtract(
+        CaptureSetupSnapshot(),
+        documentDiagnosticsSetupBefore);
+
+    var fullDiagnosticsSetupBefore = CaptureSetupSnapshot();
+    var fullDiagnosticsStopwatch = Stopwatch.StartNew();
+    var fullDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+    fullDiagnosticsStopwatch.Stop();
+    var fullDiagnosticsSetupDelta = CompilerSetupInstrumentation.Subtract(
+        CaptureSetupSnapshot(),
+        fullDiagnosticsSetupBefore);
 
     var afterTreesByPath = context.Compilation.SyntaxTrees
         .Where(static tree => !string.IsNullOrWhiteSpace(tree.FilePath))
@@ -281,7 +357,8 @@ async Task RunEditProbeAsync()
     var editedTreeReused = beforeTreesByPath.TryGetValue(currentPath, out var editedBeforeTree) &&
                            afterTreesByPath.TryGetValue(currentPath, out var editedAfterTree) &&
                            ReferenceEquals(editedBeforeTree, editedAfterTree);
-    var errorCount = diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+    var documentErrorCount = documentDiagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+    var fullErrorCount = fullDiagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
 
     Console.WriteLine(
         $"edit summary update={updateStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
@@ -289,37 +366,64 @@ async Task RunEditProbeAsync()
         $"semantic={semanticStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
         $"syntaxDiagnostics={syntaxDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
         $"syntaxDiagnosticsCount={syntaxDiagnostics.Diagnostics.Count} " +
-        $"diagnostics={diagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
-        $"diagnosticsCount={diagnostics.Count} errors={errorCount} " +
+        $"documentDiagnostics={documentDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"documentDiagnosticsCount={documentDiagnostics.Diagnostics.Count} documentErrors={documentErrorCount} " +
+        $"fullDiagnostics={fullDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"fullDiagnosticsCount={fullDiagnostics.Count} fullErrors={fullErrorCount} " +
         $"rootMatchesText={rootMatchesText} editedTreeReused={editedTreeReused} " +
+        $"changedExecutableOwners={changedExecutableOwners.Count} " +
+        $"semanticDiagnosticTransferBlocked={semanticDiagnosticTransferBlocked} " +
         $"unchangedTreeReuse={unchangedReused}/{unchangedTotal}");
-
-    var hoverTargets = options.EditHoverTargets.Count > 0
-        ? options.EditHoverTargets
-        : options.Positionals.Count > 2
-            ? options.Positionals.Skip(2).ToArray()
-            : ["CreateBuilder", "AddDbContext", "UseNpgsql"];
-
-    foreach (var target in hoverTargets)
-    {
-        var offset = sourceText.ToString().IndexOf(target, StringComparison.Ordinal);
-        if (offset < 0)
-        {
-            Console.WriteLine($"edit hover missing {target}");
-            continue;
-        }
-
-        var position = PositionHelper.ToRange(sourceText, new TextSpan(offset + Math.Min(3, target.Length), 0)).Start;
-        var hoverResult = await RunHoverAsync(target, position);
-        var marker = hoverResult.Exception is not null
-            ? "error"
-            : !hoverResult.HasHover
-            ? "null"
-            : hoverResult.ElapsedMs >= options.SlowThresholdMs
-            ? "slow"
-            : "ok";
+    foreach (var changedOwner in changedExecutableOwners.Take(10))
+        Console.WriteLine($"edit changedOwner {changedOwner}");
+    Console.WriteLine(
+        $"edit setupDeltas update=[{CompilerSetupInstrumentation.FormatDelta(updateSetupDelta)}] " +
+        $"syntaxDiagnostics=[{CompilerSetupInstrumentation.FormatDelta(syntaxDiagnosticsSetupDelta)}] " +
+        $"documentDiagnostics=[{CompilerSetupInstrumentation.FormatDelta(documentDiagnosticsSetupDelta)}] " +
+        $"fullDiagnostics=[{CompilerSetupInstrumentation.FormatDelta(fullDiagnosticsSetupDelta)}]");
+    foreach (var (marker, hoverResult) in hoverResults)
         Console.WriteLine(marker + " " + FormatHoverResult(hoverResult));
+
+    foreach (var diagnostic in documentDiagnostics.Diagnostics
+        .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+        .Take(10))
+    {
+        Console.WriteLine("edit documentError " + FormatDiagnostic(diagnostic));
     }
+
+    foreach (var diagnostic in fullDiagnostics
+        .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+        .Take(10))
+    {
+        Console.WriteLine("edit fullError " + FormatDiagnostic(diagnostic));
+    }
+}
+
+void PrintInvocationSymbolInfoDebug(string target, int offset)
+{
+    var token = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
+    var invocation = token.Parent?
+        .AncestorsAndSelf()
+        .OfType<InvocationExpressionSyntax>()
+        .FirstOrDefault(candidate => candidate.Expression.Span.Contains(token.Span) ||
+                                     candidate.Expression.Span.End == token.SpanStart);
+    if (invocation is null)
+        return;
+
+    var invocationInfo = model.GetSymbolInfo(invocation);
+    var expressionInfo = model.GetSymbolInfo(invocation.Expression);
+    var targetInfo = token.Parent is SyntaxNode targetNode
+        ? model.GetSymbolInfo(targetNode)
+        : default;
+
+    Console.WriteLine(
+        $"edit symbolInfo {target} args={invocation.ArgumentList.Arguments.Count} " +
+        $"invocationSymbol={FormatSymbol(invocationInfo.Symbol)} " +
+        $"invocationCandidates=[{FormatCandidates(invocationInfo.CandidateSymbols)}] " +
+        $"expressionSymbol={FormatSymbol(expressionInfo.Symbol)} " +
+        $"expressionCandidates=[{FormatCandidates(expressionInfo.CandidateSymbols)}] " +
+        $"targetSymbol={FormatSymbol(targetInfo.Symbol)} " +
+        $"targetCandidates=[{FormatCandidates(targetInfo.CandidateSymbols)}]");
 }
 
 async Task<HoverResult> RunHoverAsync(string label, Position position)
@@ -353,6 +457,33 @@ async Task<HoverResult> RunHoverAsync(string label, Position position)
     return new HoverResult(label, position.Line, position.Character, sw.Elapsed.TotalMilliseconds, hover is not null, exception, firstLine, delta);
 }
 
+CompilerSetupInstrumentation.Snapshot CaptureSetupSnapshot()
+{
+    if (!manager.TryGetCompilation(uri, out var compilation) || compilation is null)
+        throw new InvalidOperationException($"No compilation for '{filePath}'.");
+
+    return compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+}
+
+static IReadOnlyList<object> GetChangedExecutableOwners(Compilation compilation, SyntaxTree syntaxTree)
+{
+    var method = typeof(Compilation).GetMethod(
+        "GetChangedExecutableOwnerDescriptorsForTesting",
+        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+    if (method?.Invoke(compilation, [syntaxTree]) is System.Collections.IEnumerable descriptors)
+        return descriptors.Cast<object>().ToArray();
+
+    return [];
+}
+
+static bool? GetSemanticDiagnosticTransferBlocked(Compilation compilation, SyntaxTree syntaxTree)
+{
+    var method = typeof(Compilation).GetMethod(
+        "IsSemanticDiagnosticTransferBlocked",
+        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+    return method?.Invoke(compilation, [syntaxTree]) as bool?;
+}
+
 static bool TryReplaceFirst(SourceText sourceText, string oldText, string newText, out SourceText? updatedText, out TextSpan span)
 {
     var text = sourceText.ToString();
@@ -371,6 +502,32 @@ static bool TryReplaceFirst(SourceText sourceText, string oldText, string newTex
 
 static string FormatHoverResult(HoverResult result)
     => $"{result.Label} hover: {result.ElapsedMs:F1}ms {result.Line}:{result.Character} {result.Preview} [{SemanticQueryInstrumentation.FormatDelta(result.SemanticDelta)}]";
+
+static string FormatDiagnostic(OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic diagnostic)
+{
+    var code = diagnostic.Code?.ToString() ?? "<no-code>";
+    var start = diagnostic.Range.Start;
+    var end = diagnostic.Range.End;
+    return $"{code} {start.Line}:{start.Character}-{end.Line}:{end.Character} {diagnostic.Message}";
+}
+
+static string FormatSymbol(ISymbol? symbol)
+    => symbol is null
+        ? "<null>"
+        : $"{symbol.Kind}:{symbol.Name}/{GetSymbolParameterCount(symbol)}";
+
+static string FormatCandidates(ImmutableArray<ISymbol> symbols)
+    => symbols.IsDefaultOrEmpty
+        ? string.Empty
+        : string.Join(", ", symbols.Take(8).Select(FormatSymbol));
+
+static string GetSymbolParameterCount(ISymbol symbol)
+    => symbol switch
+    {
+        IMethodSymbol method => method.Parameters.Length.ToString(),
+        INamedTypeSymbol type => "ctors:" + type.Constructors.Length,
+        _ => "-"
+    };
 
 static string FindRepositoryRoot()
 {
@@ -555,3 +712,41 @@ internal sealed record HoverResult(
     Exception? Exception,
     string Preview,
     SemanticQueryInstrumentation.Snapshot SemanticDelta);
+
+internal sealed class HeadlessConsoleLogger<T> : ILogger<T>
+{
+    public IDisposable BeginScope<TState>(TState state)
+        where TState : notnull
+        => NoopScope.Instance;
+
+    public bool IsEnabled(LogLevel logLevel)
+        => logLevel >= LogLevel.Information;
+
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        if (!IsEnabled(logLevel))
+            return;
+
+        var message = formatter(state, exception);
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+
+        Console.WriteLine($"{logLevel}: {typeof(T).Name}: {message}");
+        if (exception is not null)
+            Console.WriteLine(exception);
+    }
+
+    private sealed class NoopScope : IDisposable
+    {
+        public static readonly NoopScope Instance = new();
+
+        public void Dispose()
+        {
+        }
+    }
+}

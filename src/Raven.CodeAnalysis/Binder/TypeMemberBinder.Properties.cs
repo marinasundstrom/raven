@@ -1131,6 +1131,7 @@ internal partial class TypeMemberBinder : Binder
             propertyDecl.GetLocation(),
             propertyDecl.GetReference(),
             preferAsPrimary: isImplementationSyntax && !existingPartial.HasPartialImplementation);
+        SemanticModel.RegisterPropertySymbol(propertyDecl, existingPartial);
 
         MergePartialAccessor(existingPartial.GetMethod as SourceMethodSymbol, getMethod, preferAsPrimary: isImplementationSyntax);
         MergePartialAccessor(existingPartial.SetMethod as SourceMethodSymbol, setMethod, preferAsPrimary: isImplementationSyntax);

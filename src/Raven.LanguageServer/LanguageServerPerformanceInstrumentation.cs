@@ -116,6 +116,7 @@ internal static class LanguageServerPerformanceInstrumentation
            string.Equals(operation, "definition", StringComparison.Ordinal) ||
            string.Equals(operation, "signatureHelp", StringComparison.Ordinal) ||
            string.Equals(operation, "references", StringComparison.Ordinal) ||
+           string.Equals(operation, "inlayHint", StringComparison.Ordinal) ||
            string.Equals(operation, "documentSymbols", StringComparison.Ordinal);
 
 #if RAVEN_INSTRUMENTATION

@@ -10,6 +10,7 @@ using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
@@ -48,6 +49,10 @@ partial class BlockBinder : Binder
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
+    private readonly List<ILocalSymbol> _declaredLocalsForTesting = new();
+    private readonly Dictionary<SyntaxReferenceKey, ILocalSymbol> _declaredLocalsBySyntax = new();
+    private readonly Dictionary<string, List<ILocalSymbol>> _declaredLocalsByName = new(StringComparer.Ordinal);
+    private int _localStateVersion;
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private bool _allowReturnsInBlockExpressionsOnly;
@@ -268,6 +273,12 @@ partial class BlockBinder : Binder
         var isUseDeclaration = decl.Parent is UseDeclarationStatementSyntax;
         var isFixedInitializer = variableDeclarator.Initializer?.Value is PrefixOperatorExpressionSyntax { Kind: SyntaxKind.FixedExpression };
         var initializer = variableDeclarator.Initializer;
+
+        if (TryGetDeclaredLocal(variableDeclarator, out var declaredLocal))
+        {
+            _locals[name] = (declaredLocal, _scopeDepth);
+            return new BoundVariableDeclarator(declaredLocal, null);
+        }
 
         var isShadowingExistingInScope = false;
 
@@ -743,6 +754,13 @@ partial class BlockBinder : Binder
 
     private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type, bool isConst = false, object? constantValue = null)
     {
+        var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
+            ? variableDeclarator.Identifier.GetLocation()
+            : declaringSyntax.GetLocation();
+        var syntaxReference = declaringSyntax is VariableDeclaratorSyntax variableDeclaratorReference
+            ? new SyntaxReference(variableDeclaratorReference.SyntaxTree, variableDeclaratorReference.Identifier.Span)
+            : declaringSyntax.GetReference();
+
         var symbol = new SourceLocalSymbol(
             name,
             type,
@@ -750,8 +768,8 @@ partial class BlockBinder : Binder
             _containingSymbol,
             _containingSymbol?.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
-            [declaringSyntax.GetLocation()],
-            [declaringSyntax.GetReference()],
+            [location],
+            [syntaxReference],
             isConst,
             constantValue);
 
@@ -762,7 +780,80 @@ partial class BlockBinder : Binder
 
     protected virtual void OnLocalDeclared(ILocalSymbol local)
     {
+        if (TryGetSyntaxReferenceKey(local, out var key) &&
+            _declaredLocalsBySyntax.ContainsKey(key))
+        {
+            return;
+        }
+
+        _declaredLocalsForTesting.Add(local);
+        if (TryGetSyntaxReferenceKey(local, out key))
+            _declaredLocalsBySyntax[key] = local;
+
+        if (!_declaredLocalsByName.TryGetValue(local.Name, out var localsByName))
+        {
+            localsByName = new List<ILocalSymbol>();
+            _declaredLocalsByName[local.Name] = localsByName;
+        }
+
+        localsByName.Add(local);
+        _localStateVersion++;
     }
+
+    internal ImmutableArray<ILocalSymbol> GetDeclaredLocalsForTesting()
+        => _declaredLocalsForTesting.ToImmutableArray();
+
+    internal ILocalSymbol? GetLocalForTesting(string name)
+        => _declaredLocalsByName.TryGetValue(name, out var locals) && locals.Count > 0
+            ? locals[^1]
+            : null;
+
+    internal int LocalStateVersionForTesting => _localStateVersion;
+
+    private bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
+    {
+        if (TryGetSyntaxReferenceKey(declaringSyntax, out var key) &&
+            _declaredLocalsBySyntax.TryGetValue(key, out local!))
+        {
+            return true;
+        }
+
+        local = null!;
+        return false;
+    }
+
+    private static bool TryGetSyntaxReferenceKey(ISymbol symbol, out SyntaxReferenceKey key)
+    {
+        var reference = symbol.DeclaringSyntaxReferences.FirstOrDefault();
+        if (reference is not null)
+        {
+            key = new SyntaxReferenceKey(reference.SyntaxTree, reference.Span);
+            return true;
+        }
+
+        key = default;
+        return false;
+    }
+
+    private static bool TryGetSyntaxReferenceKey(SyntaxNode node, out SyntaxReferenceKey key)
+    {
+        if (node is VariableDeclaratorSyntax variableDeclarator)
+        {
+            key = new SyntaxReferenceKey(variableDeclarator.SyntaxTree, variableDeclarator.Identifier.Span);
+            return true;
+        }
+
+        if (node.SyntaxTree is not null)
+        {
+            key = new SyntaxReferenceKey(node.SyntaxTree, node.Span);
+            return true;
+        }
+
+        key = default;
+        return false;
+    }
+
+    private readonly record struct SyntaxReferenceKey(SyntaxTree SyntaxTree, TextSpan Span);
 
     private SourceFunctionValueSymbol CreateFunctionValueSymbol(
         SyntaxNode declaringSyntax,
@@ -7664,6 +7755,11 @@ partial class BlockBinder : Binder
                         out var hasExtensionErrors,
                         left);
 
+                    if (hasExtensionErrors)
+                    {
+                        boundExtensionArguments = BindInvocationArguments(invocation.ArgumentList.Arguments, out hasExtensionErrors);
+                    }
+
                     if (!hasExtensionErrors)
                         return BindPipelineInvocationOnMethodGroup(methodGroup, invocation, syntax.Left, left, boundExtensionArguments);
                 }
@@ -7822,6 +7918,9 @@ partial class BlockBinder : Binder
                             : BindIdentifierName(identifier);
 
                     var regularTarget = BindIdentifierName(identifier);
+                    if (regularTarget is BoundErrorExpression && hasExtensionCandidates)
+                        return extensionGroup!;
+
                     if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
                         return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
 
@@ -7837,6 +7936,9 @@ partial class BlockBinder : Binder
                         return extensionGroup!;
 
                     var regularTarget = BindGenericInvocationTarget(generic);
+                    if (regularTarget is BoundErrorExpression && hasExtensionCandidates)
+                        return extensionGroup!;
+
                     if (regularTarget is BoundMethodGroupExpression regularMethodGroup && hasExtensionCandidates)
                     {
                         return MergePipelineMethodGroupCandidates(regularMethodGroup, extensionGroup!.Methods);
@@ -7875,6 +7977,9 @@ partial class BlockBinder : Binder
             return false;
 
         var extensionCandidates = LookupExtensionMethods(methodName, receiverType).ToImmutableArray();
+        if (extensionCandidates.IsDefaultOrEmpty)
+            extensionCandidates = LookupExtensionMethods(methodName, receiverType, includePartialMatches: true).ToImmutableArray();
+
         if (extensionCandidates.IsDefaultOrEmpty)
             return false;
 
@@ -9619,7 +9724,10 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private ImmutableArray<INamedTypeSymbol> LookupUnionCaseTypeCandidates(string name, int? typeArgumentCount = null)
+    private ImmutableArray<INamedTypeSymbol> LookupUnionCaseTypeCandidates(
+        string name,
+        int? typeArgumentCount = null,
+        bool includeNamespaceTypeLookups = false)
     {
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
         // Track seen types by OriginalDefinition reference: the same case type can be found via
@@ -9663,6 +9771,12 @@ partial class BlockBinder : Binder
             }
         }
 
+        if (includeNamespaceTypeLookups &&
+            CurrentNamespace?.LookupType(name) is INamedTypeSymbol currentNamespaceType)
+        {
+            AddCaseIfMatch(currentNamespaceType);
+        }
+
         // Imported type scopes can introduce union cases that are not surfaced as ordinary
         // symbols. Only wildcard type imports (`import UnionType.*`) bring cases into
         // unqualified scope; importing or aliasing the carrier itself does not.
@@ -9671,8 +9785,17 @@ partial class BlockBinder : Binder
             if (current is not ImportBinder importBinder)
                 continue;
 
-            foreach (var importedScope in importBinder.GetImportedNamespacesOrTypeScopes().OfType<INamedTypeSymbol>())
-                AddCasesFromUnionCarrier(importedScope);
+            foreach (var importedScope in importBinder.GetImportedNamespacesOrTypeScopes())
+            {
+                if (importedScope is INamedTypeSymbol importedTypeScope)
+                    AddCasesFromUnionCarrier(importedTypeScope);
+
+                if (includeNamespaceTypeLookups &&
+                    importedScope.LookupType(name) is INamedTypeSymbol importedScopeType)
+                {
+                    AddCaseIfMatch(importedScopeType);
+                }
+            }
 
             foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
                 AddCaseIfMatch(importedType);
@@ -10686,6 +10809,9 @@ partial class BlockBinder : Binder
 
         var local = DeclarePatternLocal(identifier.Parent ?? throw new InvalidOperationException("Identifier token must have a parent syntax node."), identifier.ValueText, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
+        if (identifier.Parent is SingleVariableDesignationSyntax single)
+            CacheBoundNode(single, designator);
+
         return new BoundDeclarationPattern(type, designator);
     }
 
@@ -14965,10 +15091,13 @@ partial class BlockBinder : Binder
                     if (symbol.IsAsync &&
                         asyncResultType is { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
                     {
-                        var methodDisplay = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                        expressionBinder.Diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
-                            methodDisplay,
-                            function.ExpressionBody.Expression.GetLocation());
+                        if (!expressionBinder.TryConvertTaskLikeAsyncReturnExpression(symbol, converted, function.ExpressionBody.Expression, out converted))
+                        {
+                            var methodDisplay = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                            expressionBinder.Diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
+                                methodDisplay,
+                                function.ExpressionBody.Expression.GetLocation());
+                        }
                     }
                     else
                     {

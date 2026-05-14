@@ -125,11 +125,11 @@ union struct Result<T, E> {
     case Error(message: E)
 }
 
-val value: Result<int, string> = Ok(42)
+val value: Result<int, string> = .Ok(42)
 
 val text = value match {
-    Ok(val payload) => payload.ToString()
-    Error(val message) => message
+    .Ok(val payload) => payload.ToString()
+    .Error(val message) => message
 }
 """;
 

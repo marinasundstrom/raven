@@ -251,6 +251,8 @@ class C {
     public void GetDeclaredSymbol_MatchWholeDesignation_UsesMatchedCaseType()
     {
         const string code = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None

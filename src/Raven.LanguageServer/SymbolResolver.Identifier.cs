@@ -62,6 +62,18 @@ internal static partial class SymbolResolver
             return true;
         }
 
+        if (identifier.Parent is WithAssignmentSyntax withAssignment &&
+            HaveEquivalentSpan(withAssignment.Name, identifier) &&
+            TryGetSymbolInfo(semanticModel, identifier, out var withAssignmentInfo))
+        {
+            var withAssignmentSymbol = ChoosePreferredSymbol(withAssignmentInfo.Symbol, withAssignmentInfo.CandidateSymbols, identifier);
+            if (withAssignmentSymbol is IPropertySymbol or IFieldSymbol)
+            {
+                symbol = withAssignmentSymbol;
+                return true;
+            }
+        }
+
         if (TryResolveReferencedIdentifierSymbol(semanticModel, identifier, token, out var referencedSymbol) &&
             referencedSymbol is not null)
         {

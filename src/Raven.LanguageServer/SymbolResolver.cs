@@ -39,6 +39,9 @@ internal static partial class SymbolResolver
         if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
             return patternCaseResolution;
 
+        if (TryResolveWithAssignmentNameAtOffset(semanticModel, root, offset, out var withAssignmentResolution))
+            return withAssignmentResolution;
+
         if (TryResolveWholeTypeSyntaxAtOffset(semanticModel, root, offset, out var compoundTypeSyntaxResolution) &&
             compoundTypeSyntaxResolution.Value.Node is UnionTypeSyntax or TupleTypeSyntax or FunctionTypeSyntax)
         {
@@ -114,6 +117,37 @@ internal static partial class SymbolResolver
                 continue;
 
             resolution = new SymbolResolutionResult(SymbolResolutionKind.MemberAccess, symbol.UnderlyingSymbol, memberAccess.Name);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveWithAssignmentNameAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            if (!TryGetIdentifierTokenAtOffset(root, normalizedOffset, out _, out var identifier))
+                continue;
+
+            if (identifier.Parent is not WithAssignmentSyntax withAssignment ||
+                !HaveEquivalentSpan(withAssignment.Name, identifier) ||
+                !TryGetSymbolInfo(semanticModel, identifier, out var info))
+            {
+                continue;
+            }
+
+            var symbol = ChoosePreferredSymbol(info.Symbol, info.CandidateSymbols, identifier);
+            if (symbol is not IPropertySymbol and not IFieldSymbol)
+                continue;
+
+            resolution = new SymbolResolutionResult(SymbolResolutionKind.MemberAccess, symbol.UnderlyingSymbol, identifier);
             return true;
         }
 

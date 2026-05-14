@@ -3,6 +3,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 public partial class Compilation
@@ -15,12 +17,15 @@ public partial class Compilation
 
         foreach (var syntaxTree in SyntaxTrees)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             AddTreeDiagnostics(syntaxTree);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         foreach (var diagnostic in GetMacroRegistry().Diagnostics)
             Add(diagnostic);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var entryPointDiagnostics = GetEntryPointDiagnostics(cancellationToken);
         foreach (var diagnostic in entryPointDiagnostics)
             Add(diagnostic);
@@ -45,11 +50,17 @@ public partial class Compilation
         void AddTreeDiagnostics(SyntaxTree syntaxTree)
         {
             foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 Add(diagnostic);
+            }
 
             var model = GetSemanticModel(syntaxTree);
             foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 Add(diagnostic);
+            }
         }
 
         void Add(Diagnostic diagnostic)
@@ -89,6 +100,12 @@ public partial class Compilation
             if (bodySyntax is null)
                 return false;
 
+            if (asyncNode is AccessorDeclarationSyntax accessorDeclaration &&
+                ShouldSuppressAwaitlessTaskAccessor(model, accessorDeclaration, bodySyntax))
+            {
+                return true;
+            }
+
             var hasAwaitSyntax = ContainsAwaitExpressionOutsideNestedFunctions(bodySyntax);
             var hasAwaitBound = model.GetBoundNode(bodySyntax) is BoundNode bound && AsyncLowerer.ContainsAwait(bound);
 
@@ -111,20 +128,28 @@ public partial class Compilation
         EnsureSetup();
 
         foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             Add(diagnostic);
+        }
 
         var model = GetSemanticModel(syntaxTree);
         foreach (var diagnostic in model.GetDiagnostics(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             Add(diagnostic);
+        }
 
         foreach (var diagnostic in GetMacroRegistry().Diagnostics)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (BelongsToTree(diagnostic, syntaxTree))
                 Add(diagnostic);
         }
 
         foreach (var diagnostic in GetEntryPointDiagnostics(cancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (BelongsToTree(diagnostic, syntaxTree))
                 Add(diagnostic);
         }
@@ -168,6 +193,12 @@ public partial class Compilation
             if (bodySyntax is null)
                 return false;
 
+            if (asyncNode is AccessorDeclarationSyntax accessorDeclaration &&
+                ShouldSuppressAwaitlessTaskAccessor(model, accessorDeclaration, bodySyntax))
+            {
+                return true;
+            }
+
             var hasAwaitSyntax = ContainsAwaitExpressionOutsideNestedFunctions(bodySyntax);
             var hasAwaitBound = model.GetBoundNode(bodySyntax) is BoundNode bound && AsyncLowerer.ContainsAwait(bound);
 
@@ -187,6 +218,26 @@ public partial class Compilation
 
     }
 
+    private bool ShouldSuppressAwaitlessTaskAccessor(SemanticModel model, AccessorDeclarationSyntax accessor, SyntaxNode bodySyntax)
+    {
+        if (model.GetDeclaredSymbol(accessor) is not IMethodSymbol method ||
+            method.ReturnType is not { TypeKind: not TypeKind.Error } returnType ||
+            AsyncReturnTypeUtilities.ExtractAsyncResultType(this, returnType) is not
+            { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
+        {
+            return false;
+        }
+
+        if (model.GetBoundNode(bodySyntax) is not BoundBlockStatement block)
+            return false;
+
+        return block.Statements
+            .OfType<BoundReturnStatement>()
+            .Any(returnStatement =>
+                returnStatement.Expression?.Type is { TypeKind: not TypeKind.Error } expressionType &&
+                ClassifyConversion(expressionType, returnType, includeUserDefined: true).Exists);
+    }
+
     internal ImmutableArray<Diagnostic> GetDocumentDiagnostics(
         SyntaxTree syntaxTree,
         CompilationWithAnalyzersOptions? analyzerOptions = null,
@@ -202,11 +253,20 @@ public partial class Compilation
         EnsureSetup();
 
         foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             Add(diagnostic);
+        }
 
-        var model = GetSemanticModel(syntaxTree);
-        foreach (var diagnostic in model.GetDocumentDiagnostics(cancellationToken))
-            Add(diagnostic);
+        using (SuppressSourceNamespaceLookupDeclarationCompletion())
+        {
+            var model = GetSemanticModel(syntaxTree);
+            foreach (var diagnostic in model.GetDocumentDiagnostics(cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Add(diagnostic);
+            }
+        }
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
 
@@ -234,6 +294,7 @@ public partial class Compilation
 
         foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var mapped = ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false, cancellationToken);
             if (mapped is not null)
                 diagnostics.Add(mapped);

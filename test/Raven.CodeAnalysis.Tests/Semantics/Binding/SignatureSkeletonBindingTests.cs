@@ -28,10 +28,10 @@ class Foo(value: int) {
         await Task.Delay(20)
 
         if flag {
-            return Some(value)
+            return .Some(value)
         }
 
-        return None
+        return .None
     }
 
     func self(flag: bool) -> Task<Option<int>> {

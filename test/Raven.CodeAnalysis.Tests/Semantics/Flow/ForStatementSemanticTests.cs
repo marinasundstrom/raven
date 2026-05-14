@@ -290,6 +290,8 @@ for val (2, > 0.5) point in points {
     public void For_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
     {
         const string source = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None

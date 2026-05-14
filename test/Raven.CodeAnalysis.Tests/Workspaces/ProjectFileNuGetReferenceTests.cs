@@ -4,6 +4,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -315,7 +316,13 @@ public sealed class ProjectFileNuGetReferenceTests
         var compilation = workspace.GetCompilation(projectId);
         var tree = compilation.SyntaxTrees.Single(tree =>
             string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var semanticModelSetupBefore = compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
         var model = compilation.GetSemanticModel(tree);
+        var semanticModelSetupDelta = CompilerSetupInstrumentation.Subtract(
+            compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
+            semanticModelSetupBefore);
+        Assert.Equal(0, semanticModelSetupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, semanticModelSetupDelta.DeclarationPasses);
         var root = tree.GetRoot();
         var addDbContext = FindMemberInvocation(root, "AddDbContext");
         var useNpgsql = FindMemberInvocation(root, "UseNpgsql");
@@ -353,7 +360,13 @@ public sealed class ProjectFileNuGetReferenceTests
         var compilation = workspace.GetCompilation(projectId);
         var tree = compilation.SyntaxTrees.Single(tree =>
             string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var semanticModelSetupBefore = compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
         var model = compilation.GetSemanticModel(tree);
+        var semanticModelSetupDelta = CompilerSetupInstrumentation.Subtract(
+            compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
+            semanticModelSetupBefore);
+        Assert.Equal(0, semanticModelSetupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, semanticModelSetupDelta.DeclarationPasses);
         var root = tree.GetRoot();
         var addDbContext = FindMemberInvocation(root, "AddDbContext");
         var addDbContextName = FindMemberName(root, "AddDbContext");
@@ -641,7 +654,7 @@ public sealed class ProjectFileNuGetReferenceTests
         var sourceText = tree.GetText().ToString();
 
         AssertSymbolName(model.GetSymbolInfo(FindMemberName(root, "UseNpgsql")).Symbol, "UseNpgsql");
-        AssertSymbolName(model.GetSymbolInfo(FindMemberName(root, "CreateBuilder")).Symbol, "CreateBuilder");
+        AssertSymbolInfoContains(model.GetSymbolInfo(FindMemberName(root, "CreateBuilder")), "CreateBuilder");
         AssertSymbolName(model.GetSymbolInfo(FindIdentifier(root, "VehicleAppServices")).Symbol, "VehicleAppServices");
 
         var taskType = root.DescendantNodes()
@@ -662,6 +675,63 @@ public sealed class ProjectFileNuGetReferenceTests
         AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 11, character: 16), "builder");
         AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 15, character: 14), "options");
         AssertSymbolName(QuerySymbolAt(model, root, sourceText, line: 15, character: 41), "VehicleAppServices");
+    }
+
+    [Fact]
+    public void OpenProject_EfCoreSample_TriviaEditThenHoverQuery_DoesNotReportAwaitableDiagnostic()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document =>
+            string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var sourceText = document.GetTextAsync().GetAwaiter().GetResult()!.ToString();
+        var updatedText = sourceText.Replace("CreateBuilder(args)", "CreateBuilder( args)", StringComparison.Ordinal);
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(document.Id, SourceText.From(updatedText))).ShouldBeTrue();
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var semanticModelSetupBefore = compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+        var model = compilation.GetSemanticModel(tree);
+        var semanticModelSetupDelta = CompilerSetupInstrumentation.Subtract(
+            compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
+            semanticModelSetupBefore);
+        Assert.Equal(0, semanticModelSetupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, semanticModelSetupDelta.DeclarationPasses);
+        var root = tree.GetRoot();
+
+        var instrumentation = compilation.PerformanceInstrumentation;
+        instrumentation.BinderReentry.Reset();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+        var queryBefore = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var createBuilderInfo = model.GetSymbolInfo(FindMemberName(root, "CreateBuilder"));
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        var queryDelta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            queryBefore);
+        AssertSymbolInfoContains(createBuilderInfo, "CreateBuilder");
+        Assert.Equal(0, setupDelta.EnsureRootBinderCreatedCalls);
+        Assert.Equal(0, setupDelta.RootBinderCreations);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, queryDelta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, queryDelta.BoundNodeBindFallbacks);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        var awaitableDiagnostics = diagnostics
+            .Where(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ExpressionIsNotAwaitable)
+            .Select(diagnostic => $"{diagnostic.Location.GetLineSpan().StartLinePosition}-{diagnostic.Location.GetLineSpan().EndLinePosition}: {diagnostic.GetMessage()}")
+            .ToArray();
+        Assert.Empty(awaitableDiagnostics);
     }
 
     [Fact]

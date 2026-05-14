@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Microsoft.Extensions.Logging;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -17,6 +19,9 @@ namespace Raven.LanguageServer;
 
 internal sealed class InlayHintHandler : IInlayHintsHandler
 {
+    private const double MaxCollectionMilliseconds = 250;
+    private const int MaxUnboundedDocumentLength = 2_000;
+
     private readonly DocumentStore _documents;
     private readonly ILogger<InlayHintHandler> _logger;
 
@@ -39,38 +44,77 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     public async Task<InlayHintContainer> Handle(InlayHintParams request, CancellationToken cancellationToken)
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var stageStopwatch = Stopwatch.StartNew();
+        var gateWaitMs = 0d;
+        var analysisContextMs = 0d;
+        var semanticModelMs = 0d;
+        var collectMs = 0d;
+        var resultCount = 0;
+        var outcome = "Completed";
+
         try
         {
-            using var _ = await _documents.EnterDocumentSemanticAccessAsync(
+            stageStopwatch.Restart();
+            using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(
                 request.TextDocument.Uri,
                 cancellationToken,
                 "inlayHint").ConfigureAwait(false);
+            gateWaitMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (semanticLease is null)
+            {
+                outcome = "SkippedBusy";
+                return new InlayHintContainer();
+            }
 
+            stageStopwatch.Restart();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
+            {
+                outcome = "NoContext";
                 return new InlayHintContainer();
+            }
 
+            stageStopwatch.Restart();
             var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
+            {
+                outcome = "NoSemanticModel";
                 return new InlayHintContainer();
+            }
 
             var sourceText = context.Value.SourceText;
             var root = context.Value.SyntaxTree.GetRoot(cancellationToken);
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
 
+            stageStopwatch.Restart();
             var hints = new List<InlayHint>();
-            AddLocalTypeHints(hints, semanticModel, root, sourceText, requestSpan);
-            AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan);
-            AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan);
+            var collectionBudget = new InlayHintCollectionBudget(
+                Stopwatch.StartNew(),
+                cancellationToken,
+                IsLargeDocumentRequest(sourceText, requestSpan)
+                    ? MaxCollectionMilliseconds
+                    : double.PositiveInfinity);
+            AddLocalTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+            AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+            AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+            collectMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            resultCount = hints.Count;
+            if (collectionBudget.IsExpired)
+                outcome = "BudgetExpired";
 
             return new InlayHintContainer(hints);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            outcome = "Canceled";
             return new InlayHintContainer();
         }
         catch (Exception ex)
         {
+            outcome = "Failed";
             _logger.LogError(
                 ex,
                 "Inlay hint request failed for {Uri} at range {StartLine}:{StartChar}-{EndLine}:{EndChar}.",
@@ -81,6 +125,24 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 request.Range.End.Character);
             return new InlayHintContainer();
         }
+        finally
+        {
+            totalStopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "inlayHint",
+                request.TextDocument.Uri,
+                null,
+                totalStopwatch.Elapsed.TotalMilliseconds,
+                resultCount: resultCount,
+                detail: $"{request.TextDocument.Uri} {request.Range.Start.Line}:{request.Range.Start.Character}-{request.Range.End.Line}:{request.Range.End.Character} outcome={outcome}",
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("collect", collectMs)
+                ]);
+        }
     }
 
     private static void AddLocalTypeHints(
@@ -88,10 +150,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SemanticModel semanticModel,
         SyntaxNode root,
         SourceText sourceText,
-        TextSpan requestSpan)
+        TextSpan requestSpan,
+        InlayHintCollectionBudget budget)
     {
         foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
         {
+            if (budget.ShouldStop())
+                return;
+
             if (declarator.TypeAnnotation is not null ||
                 declarator.Identifier.IsMissing ||
                 string.IsNullOrWhiteSpace(declarator.Identifier.ValueText) ||
@@ -104,13 +170,24 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (!ContainsPosition(requestSpan, insertionPosition))
                 continue;
 
+            if (budget.ShouldStop())
+                return;
+
             if (semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local ||
                 !TryFormatType(semanticModel, declarator, local.Type, out var typeDisplay))
             {
                 continue;
             }
 
-            hints.Add(CreateTypeHint(sourceText, insertionPosition, $": {typeDisplay}", local.Type, semanticModel, root, declarator));
+            hints.Add(CreateTypeHint(
+                sourceText,
+                insertionPosition,
+                $": {typeDisplay}",
+                local.Type,
+                semanticModel,
+                root,
+                declarator,
+                includeTooltip: budget.ShouldIncludeTooltip()));
         }
     }
 
@@ -119,10 +196,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SemanticModel semanticModel,
         SyntaxNode root,
         SourceText sourceText,
-        TextSpan requestSpan)
+        TextSpan requestSpan,
+        InlayHintCollectionBudget budget)
     {
         foreach (var forStatement in root.DescendantNodes().OfType<ForStatementSyntax>())
         {
+            if (budget.ShouldStop())
+                return;
+
             if (forStatement.Target is not IdentifierNameSyntax identifierTarget ||
                 identifierTarget.Identifier.IsMissing ||
                 string.IsNullOrWhiteSpace(identifierTarget.Identifier.ValueText) ||
@@ -135,13 +216,24 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (!ContainsPosition(requestSpan, insertionPosition))
                 continue;
 
+            if (budget.ShouldStop())
+                return;
+
             if (semanticModel.GetBoundNode(forStatement) is not BoundForStatement { Local: { } local } ||
                 !TryFormatType(semanticModel, forStatement, local.Type, out var typeDisplay))
             {
                 continue;
             }
 
-            hints.Add(CreateTypeHint(sourceText, insertionPosition, $": {typeDisplay}", local.Type, semanticModel, root, forStatement));
+            hints.Add(CreateTypeHint(
+                sourceText,
+                insertionPosition,
+                $": {typeDisplay}",
+                local.Type,
+                semanticModel,
+                root,
+                forStatement,
+                includeTooltip: budget.ShouldIncludeTooltip()));
         }
     }
 
@@ -150,10 +242,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SemanticModel semanticModel,
         SyntaxNode root,
         SourceText sourceText,
-        TextSpan requestSpan)
+        TextSpan requestSpan,
+        InlayHintCollectionBudget budget)
     {
         foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
+            if (budget.ShouldStop())
+                return;
+
             AddReturnTypeHint(
                 hints,
                 semanticModel,
@@ -163,11 +259,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 method,
                 method.ReturnType,
                 method.ParameterList,
-                method.Body ?? (SyntaxNode?)method.ExpressionBody);
+                method.Body ?? (SyntaxNode?)method.ExpressionBody,
+                budget);
         }
 
         foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())
         {
+            if (budget.ShouldStop())
+                return;
+
             AddReturnTypeHint(
                 hints,
                 semanticModel,
@@ -177,12 +277,16 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 function,
                 function.ReturnType,
                 function.ParameterList,
-                function.Body ?? (SyntaxNode?)function.ExpressionBody);
+                function.Body ?? (SyntaxNode?)function.ExpressionBody,
+                budget);
         }
 
         foreach (var functionExpression in root.DescendantNodes().OfType<FunctionExpressionSyntax>())
         {
-            AddFunctionExpressionReturnTypeHint(hints, semanticModel, root, sourceText, requestSpan, functionExpression);
+            if (budget.ShouldStop())
+                return;
+
+            AddFunctionExpressionReturnTypeHint(hints, semanticModel, root, sourceText, requestSpan, functionExpression, budget);
         }
     }
 
@@ -198,24 +302,40 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SyntaxNode declaration,
         ArrowTypeClauseSyntax? returnType,
         ParameterListSyntax parameterList,
-        SyntaxNode? body)
+        SyntaxNode? body,
+        InlayHintCollectionBudget budget)
     {
-        if (returnType is not null || body is null)
+        if (HasExplicitReturnType(returnType) || body is null)
             return;
 
         var insertionPosition = parameterList.Span.End;
         if (!ContainsPosition(requestSpan, insertionPosition))
             return;
 
-        if (semanticModel.GetDeclaredSymbol(declaration) is not IMethodSymbol ||
-            !TryGetInferredReturnType(semanticModel, body, out var inferredReturnType) ||
+        if (budget.ShouldStop())
+            return;
+
+        if (!TryGetInferredReturnType(semanticModel, body, out var inferredReturnType) ||
             !TryFormatType(semanticModel, declaration, inferredReturnType, out var typeDisplay))
         {
             return;
         }
 
-        hints.Add(CreateTypeHint(sourceText, insertionPosition, $" -> {typeDisplay}", inferredReturnType, semanticModel, root, declaration));
+        hints.Add(CreateTypeHint(
+            sourceText,
+            insertionPosition,
+            $" -> {typeDisplay}",
+            inferredReturnType,
+            semanticModel,
+            root,
+            declaration,
+            includeTooltip: budget.ShouldIncludeTooltip()));
     }
+
+    private static bool HasExplicitReturnType(ArrowTypeClauseSyntax? returnType)
+        => returnType is not null &&
+           !returnType.ArrowToken.IsMissing &&
+           !returnType.Type.IsMissing;
 
     private static void AddFunctionExpressionReturnTypeHint(
         List<InlayHint> hints,
@@ -223,7 +343,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SyntaxNode root,
         SourceText sourceText,
         TextSpan requestSpan,
-        FunctionExpressionSyntax functionExpression)
+        FunctionExpressionSyntax functionExpression,
+        InlayHintCollectionBudget budget)
     {
         var insertionPosition = functionExpression switch
         {
@@ -235,6 +356,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (insertionPosition < 0 || !ContainsPosition(requestSpan, insertionPosition))
             return;
 
+        if (budget.ShouldStop())
+            return;
+
         var body = functionExpression.Body ?? (SyntaxNode?)functionExpression.ExpressionBody;
         if (!TryGetFunctionExpressionReturnType(semanticModel, functionExpression, body, out var returnType) ||
             !TryFormatType(semanticModel, functionExpression, returnType, out var typeDisplay))
@@ -242,7 +366,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return;
         }
 
-        hints.Add(CreateTypeHint(sourceText, insertionPosition, $" -> {typeDisplay}", returnType, semanticModel, root, functionExpression));
+        hints.Add(CreateTypeHint(
+            sourceText,
+            insertionPosition,
+            $" -> {typeDisplay}",
+            returnType,
+            semanticModel,
+            root,
+            functionExpression,
+            includeTooltip: budget.ShouldIncludeTooltip()));
     }
 
     private static InlayHint CreateTypeHint(
@@ -252,7 +384,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         ITypeSymbol type,
         SemanticModel semanticModel,
         SyntaxNode root,
-        SyntaxNode contextNode)
+        SyntaxNode contextNode,
+        bool includeTooltip)
     {
         var range = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0));
         return new InlayHint
@@ -260,7 +393,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             Position = range.Start,
             Label = text,
             Kind = InlayHintKind.Type,
-            Tooltip = CreateTooltip(type, semanticModel, root, contextNode, insertionPosition, text),
+            Tooltip = includeTooltip ? CreateTooltip(type, semanticModel, root, contextNode, insertionPosition, text) : null,
             PaddingLeft = false,
             PaddingRight = false,
             TextEdits = new Container<TextEdit>(new TextEdit
@@ -582,8 +715,65 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static bool TryGetInferredReturnType(SemanticModel semanticModel, SyntaxNode body, out ITypeSymbol? inferredReturnType)
     {
         inferredReturnType = ReturnTypeCollector.Infer(semanticModel.GetBoundNode(body));
-        return inferredReturnType is not null &&
-            inferredReturnType.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void);
+        if (IsInlayHintReturnType(inferredReturnType))
+            return true;
+
+        return TryInferReturnTypeFromReturnSyntax(semanticModel, body, out inferredReturnType) &&
+            IsInlayHintReturnType(inferredReturnType);
+    }
+
+    private static bool IsInlayHintReturnType(ITypeSymbol? type)
+        => type is not null &&
+           type.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void);
+
+    private static bool TryInferReturnTypeFromReturnSyntax(
+        SemanticModel semanticModel,
+        SyntaxNode body,
+        out ITypeSymbol? inferredReturnType)
+    {
+        var types = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var returnStatement in DescendantNodesExcludingNestedExecutableScopes(body).OfType<ReturnStatementSyntax>())
+        {
+            if (returnStatement.Expression is not { } expression)
+                continue;
+
+            var typeInfo = semanticModel.GetTypeInfo(expression);
+            var type = typeInfo.Type ?? typeInfo.ConvertedType;
+            if (type is null ||
+                type.TypeKind == TypeKind.Error ||
+                type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+            {
+                continue;
+            }
+
+            types.Add(TypeSymbolNormalization.NormalizeForInference(type));
+        }
+
+        inferredReturnType = types.Count switch
+        {
+            0 => null,
+            1 => types.First(),
+            _ => TypeSymbolNormalization.NormalizeUnion(types)
+        };
+
+        return inferredReturnType is not null;
+    }
+
+    private static IEnumerable<SyntaxNode> DescendantNodesExcludingNestedExecutableScopes(SyntaxNode node)
+    {
+        foreach (var child in node.ChildNodes())
+        {
+            if (!ReferenceEquals(child, node) &&
+                child is FunctionStatementSyntax or FunctionExpressionSyntax or MethodDeclarationSyntax)
+            {
+                continue;
+            }
+
+            yield return child;
+
+            foreach (var descendant in DescendantNodesExcludingNestedExecutableScopes(child))
+                yield return descendant;
+        }
     }
 
     private static bool TryGetFunctionExpressionReturnType(
@@ -619,4 +809,41 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     private static bool ContainsPosition(TextSpan span, int position)
         => position >= span.Start && position <= span.End;
+
+    private static bool IsLargeDocumentRequest(SourceText sourceText, TextSpan requestSpan)
+        => sourceText.Length > MaxUnboundedDocumentLength &&
+           requestSpan.Length > MaxUnboundedDocumentLength;
+
+    private readonly struct InlayHintCollectionBudget
+    {
+        private const double MinTooltipBudgetMilliseconds = 50;
+
+        private readonly Stopwatch _stopwatch;
+        private readonly CancellationToken _cancellationToken;
+        private readonly double _maxMilliseconds;
+
+        public InlayHintCollectionBudget(
+            Stopwatch stopwatch,
+            CancellationToken cancellationToken,
+            double maxMilliseconds)
+        {
+            _stopwatch = stopwatch;
+            _cancellationToken = cancellationToken;
+            _maxMilliseconds = maxMilliseconds;
+        }
+
+        public bool IsExpired => _stopwatch.Elapsed.TotalMilliseconds >= _maxMilliseconds;
+
+        public bool ShouldStop()
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+            return IsExpired;
+        }
+
+        public bool ShouldIncludeTooltip()
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+            return _stopwatch.Elapsed.TotalMilliseconds <= _maxMilliseconds - MinTooltipBudgetMilliseconds;
+        }
+    }
 }

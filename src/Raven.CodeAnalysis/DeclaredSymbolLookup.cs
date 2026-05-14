@@ -291,6 +291,15 @@ internal sealed class DeclaredSymbolLookup
             return symbol is not null;
         }
 
+        if (parameterSyntax.Parent?.Parent is CaseDeclarationSyntax caseDeclaration &&
+            TryLookupKnownDeclaredSymbolFast(caseDeclaration, out var caseSymbol) &&
+            caseSymbol is IUnionCaseTypeSymbol unionCase)
+        {
+            symbol = unionCase.ConstructorParameters.FirstOrDefault(parameter =>
+                SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
+            return symbol is not null;
+        }
+
         if (parameterSyntax.Parent?.Parent is FunctionStatementSyntax functionStatement)
         {
             var function = TryLookupKnownDeclaredSymbolFast(functionStatement, out var functionSymbol)
@@ -415,7 +424,8 @@ internal sealed class DeclaredSymbolLookup
         => accessor.Kind == SyntaxKind.GetAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.GetKeyword;
 
     private static bool RequiresDeclarationBinding(SyntaxNode node)
-        => node is MemberDeclarationSyntax or AccessorDeclarationSyntax;
+        => node is MemberDeclarationSyntax or AccessorDeclarationSyntax ||
+           node is ParameterSyntax { Parent.Parent: CaseDeclarationSyntax };
 
     private static bool IsSetAccessor(AccessorDeclarationSyntax accessor)
         => accessor.Kind == SyntaxKind.SetAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.SetKeyword;

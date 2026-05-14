@@ -1081,6 +1081,39 @@ class Runner {
     }
 
     [Fact]
+    public async Task HoverHandler_UnionCaseParameterDeclaration_UsesSyntaxHoverWithoutSemanticGateAsync()
+    {
+        var text = """
+union VehicleStatus {
+    case Decommissioned(retiredUtc: DateTimeOffset, reason: string)
+}
+""";
+        var (store, _, uri) = CreateWorkspace(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var parameterOffset = text.IndexOf("retiredUtc: DateTimeOffset", StringComparison.Ordinal);
+        parameterOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(parameterOffset + 2, 0)).Start
+        }, CancellationToken.None);
+
+        var completed = await Task.WhenAny(hoverTask, Task.Delay(1000));
+        completed.ShouldBe(hoverTask);
+
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("retiredUtc: DateTimeOffset");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Parameter in `case Decommissioned(retiredUtc: DateTimeOffset, reason: string)`");
+    }
+
+    [Fact]
     public async Task HoverHandler_ArgumentIdentifier_ConsistentlyShowsLocalSymbolAsync()
     {
         var text = """
@@ -1569,6 +1602,51 @@ record CustomError(val Message: string)
             whereHover.Range.ShouldNotBeNull();
             whereHover.Range.Start.Line.ShouldBe(whereHover.Range.End.Line);
         }
+    }
+
+    [Fact]
+    public async Task HoverHandler_RepoEfCoreExpressionTrees_DbSetAddHover_DoesNotThrowOnMetadataLoadContextAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var text = File.ReadAllText(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-expression-trees",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = store.UpsertDocument(uri, text);
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var addOffset = text.IndexOf("db.Users.Add(.(3", StringComparison.Ordinal);
+        addOffset.ShouldBeGreaterThanOrEqualTo(0);
+        addOffset += "db.Users.".Length + 1;
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(context.Value.SourceText, new TextSpan(addOffset, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("Add");
+        hover.Contents.MarkupContent!.Value.ShouldContain("User");
     }
 
     [Fact]

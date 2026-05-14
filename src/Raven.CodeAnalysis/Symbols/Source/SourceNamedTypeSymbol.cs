@@ -208,6 +208,17 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public ITypeSymbol? LookupType(string name) =>
         TypeLookupUtilities.SelectBestTypeByName(GetMembers(name).OfType<ITypeSymbol>());
 
+    internal ImmutableArray<ISymbol> GetDeclaredMembersWithoutEnsuring(string name)
+    {
+        lock (_membersGate)
+        {
+            return _members
+                .Where(x => x.Name == name)
+                .Distinct(SymbolReferenceComparer.Instance)
+                .ToImmutableArray();
+        }
+    }
+
     internal void AddMember(ISymbol member)
     {
         lock (_membersGate)

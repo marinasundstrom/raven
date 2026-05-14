@@ -33,6 +33,7 @@ public partial class Compilation
     private readonly ConcurrentDictionary<SyntaxTree, bool> _hasNonGlobalMembersCache = new();
     private readonly ConcurrentDictionary<string, object> _namespaceSymbolCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _metadataTypeCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, object> _metadataReferenceTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _preferredMetadataTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _scopedMetadataTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<SpecialType, INamedTypeSymbol> _specialTypeCache = new();
@@ -52,6 +53,7 @@ public partial class Compilation
     private readonly object _semanticModelSetupGate = new();
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
+    private int _sourceNamespaceLookupDeclarationCompletionSuppression;
     private int _semanticModelSetupThreadId;
     private readonly object _declarationGate = new();
     private readonly object _declarationTableGate = new();
@@ -67,6 +69,32 @@ public partial class Compilation
     private bool isSettingUp;
     private int _setupThreadId;
     private MacroRegistry? _macroRegistry;
+
+    internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
+        Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
+
+    private IDisposable SuppressSourceNamespaceLookupDeclarationCompletion()
+    {
+        Interlocked.Increment(ref _sourceNamespaceLookupDeclarationCompletionSuppression);
+        return new SourceNamespaceLookupDeclarationCompletionSuppression(this);
+    }
+
+    private sealed class SourceNamespaceLookupDeclarationCompletionSuppression : IDisposable
+    {
+        private Compilation? _compilation;
+
+        public SourceNamespaceLookupDeclarationCompletionSuppression(Compilation compilation)
+        {
+            _compilation = compilation;
+        }
+
+        public void Dispose()
+        {
+            var compilation = Interlocked.Exchange(ref _compilation, null);
+            if (compilation is not null)
+                Interlocked.Decrement(ref compilation._sourceNamespaceLookupDeclarationCompletionSuppression);
+        }
+    }
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, MacroReference[] macroReferences, CompilationOptions? options = null)
     {
@@ -874,9 +902,66 @@ public partial class Compilation
             .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var resolver = new PathAssemblyResolver(normalizedPaths);
+        var resolver = new StreamBackedPathAssemblyResolver(normalizedPaths);
         var resolvedCoreAssemblyName = string.IsNullOrWhiteSpace(coreAssemblyName) ? "System.Private.CoreLib" : coreAssemblyName;
         return new MetadataLoadContext(resolver, resolvedCoreAssemblyName);
+    }
+
+    private sealed class StreamBackedPathAssemblyResolver : MetadataAssemblyResolver
+    {
+        private readonly Dictionary<string, string> _pathsByIdentity;
+        private readonly Dictionary<string, string> _pathsBySimpleName;
+
+        public StreamBackedPathAssemblyResolver(IEnumerable<string> paths)
+        {
+            _pathsByIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _pathsBySimpleName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var path in paths)
+            {
+                System.Reflection.AssemblyName identity;
+                try
+                {
+                    identity = System.Reflection.AssemblyName.GetAssemblyName(path);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(identity.FullName))
+                    _pathsByIdentity.TryAdd(identity.FullName, path);
+
+                if (!string.IsNullOrWhiteSpace(identity.Name))
+                {
+                    _pathsBySimpleName.TryAdd(identity.Name, path);
+                    s_globalAssemblyPathMap[identity.Name] = path;
+                }
+            }
+        }
+
+        public override Assembly? Resolve(MetadataLoadContext context, System.Reflection.AssemblyName assemblyName)
+        {
+            if (!string.IsNullOrWhiteSpace(assemblyName.FullName) &&
+                _pathsByIdentity.TryGetValue(assemblyName.FullName, out var path))
+            {
+                return LoadFromPath(context, path);
+            }
+
+            if (!string.IsNullOrWhiteSpace(assemblyName.Name) &&
+                _pathsBySimpleName.TryGetValue(assemblyName.Name, out path))
+            {
+                return LoadFromPath(context, path);
+            }
+
+            return null;
+        }
+
+        private static Assembly LoadFromPath(MetadataLoadContext context, string path)
+        {
+            var bytes = File.ReadAllBytes(path);
+            return context.LoadFromStream(new MemoryStream(bytes));
+        }
     }
 
     private static bool IsReferenceAssemblyPath(string path)
@@ -1908,7 +1993,7 @@ public partial class Compilation
                     {
                         var assembly = LoadMetadataAssembly(per.FilePath);
                         RegisterRuntimeAssembly(assembly, per.FilePath);
-                        symbol = GetAssembly(assembly);
+                        symbol = GetAssembly(assembly, per.FilePath);
                         break;
                     }
                 case CompilationReference cr:
@@ -1938,6 +2023,11 @@ public partial class Compilation
         try
         {
             identity = System.Reflection.AssemblyName.GetAssemblyName(fullPath);
+            if (identity.Name is not null)
+            {
+                _assemblyPathMap[identity.Name] = fullPath;
+                s_globalAssemblyPathMap[identity.Name] = fullPath;
+            }
         }
         catch
         {
@@ -1947,7 +2037,7 @@ public partial class Compilation
         Assembly assembly;
         try
         {
-            assembly = _metadataLoadContext.LoadFromAssemblyPath(fullPath);
+            assembly = LoadMetadataAssemblyFromPath(fullPath);
         }
         catch when (identity is not null)
         {
@@ -1960,16 +2050,29 @@ public partial class Compilation
         return assembly;
     }
 
-    private IAssemblySymbol GetAssembly(Assembly assembly)
+    private Assembly LoadMetadataAssemblyFromPath(string fullPath)
+    {
+        var bytes = File.ReadAllBytes(fullPath);
+        return _metadataLoadContext.LoadFromStream(new MemoryStream(bytes));
+    }
+
+    private IAssemblySymbol GetAssembly(Assembly assembly, string? assemblyPathOverride = null)
     {
         RegisterRuntimeAssembly(assembly);
 
         if (_assemblySymbols.TryGetValue(assembly, out var asss))
         {
+            if (asss is PEAssemblySymbol peAssembly)
+                peAssembly.SetAssemblyPath(assemblyPathOverride);
+
             return asss;
         }
 
-        PEAssemblySymbol assemblySymbol = new PEAssemblySymbol(assembly, []);
+        string? assemblyPath = assemblyPathOverride;
+        var identity = assembly.GetName();
+        if (assemblyPath is null && identity.Name is not null)
+            _assemblyPathMap.TryGetValue(identity.Name, out assemblyPath);
+        PEAssemblySymbol assemblySymbol = new PEAssemblySymbol(assembly, [], assemblyPath);
 
         var refs = assembly.GetReferencedAssemblies();
 
@@ -2460,10 +2563,21 @@ public partial class Compilation
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
-        EnsureSourceTypesInitialized();
 
         if (_metadataTypeCache.TryGetValue(metadataName, out var cached))
             return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+
+        var metadataType = TryGetMetadataReferenceTypeByMetadataName(metadataName);
+        if (metadataType is not null)
+        {
+            _metadataTypeCache.TryAdd(metadataName, metadataType);
+            return metadataType;
+        }
+
+        if (_isDeclaringSourceTypes)
+            return null;
+
+        EnsureSourceTypesInitialized();
 
         var resolved = GetTypeByMetadataNameUncached(metadataName);
         _metadataTypeCache.TryAdd(metadataName, resolved ?? s_missingMetadataType);
@@ -2491,6 +2605,23 @@ public partial class Compilation
         if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
             return sourceType;
 
+        return GetMetadataReferenceTypeByMetadataNameUncached(metadataName);
+    }
+
+    internal INamedTypeSymbol? TryGetMetadataReferenceTypeByMetadataName(string metadataName)
+    {
+        EnsureSetup();
+
+        if (_metadataReferenceTypeCache.TryGetValue(metadataName, out var cached))
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+
+        var resolved = GetMetadataReferenceTypeByMetadataNameUncached(metadataName);
+        _metadataReferenceTypeCache.TryAdd(metadataName, resolved ?? s_missingMetadataType);
+        return resolved;
+    }
+
+    private INamedTypeSymbol? GetMetadataReferenceTypeByMetadataNameUncached(string metadataName)
+    {
         INamedTypeSymbol? bestMatch = null;
 
         foreach (var assembly in _metadataReferenceSymbols.Values)

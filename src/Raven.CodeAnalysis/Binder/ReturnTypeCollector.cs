@@ -117,7 +117,7 @@ internal static class ReturnTypeCollector
 
         public override void VisitReturnStatement(BoundReturnStatement node)
         {
-            if (node.Expression?.Type is ITypeSymbol type)
+            if (TryGetReturnExpressionType(node.Expression, out var type))
                 AddType(type);
 
             base.VisitReturnStatement(node);
@@ -130,6 +130,28 @@ internal static class ReturnTypeCollector
 
         public override void VisitExpressionStatement(BoundExpressionStatement node)
         {
+        }
+
+        private static bool TryGetReturnExpressionType(BoundExpression? expression, out ITypeSymbol type)
+        {
+            if (expression is BoundConversionExpression
+                {
+                    Type.SpecialType: SpecialType.System_Unit or SpecialType.System_Void,
+                    Expression.Type: { SpecialType: not (SpecialType.System_Unit or SpecialType.System_Void) } sourceType
+                })
+            {
+                type = sourceType;
+                return true;
+            }
+
+            if (expression?.Type is { } expressionType)
+            {
+                type = expressionType;
+                return true;
+            }
+
+            type = null!;
+            return false;
         }
 
         private void AddType(ITypeSymbol type)

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
@@ -112,5 +113,111 @@ static func Main() -> unit {
         Assert.Contains(items, item => item.DisplayText == "OnCompleted");
         Assert.DoesNotContain(items, item => item.DisplayText == "const");
         Assert.DoesNotContain(items, item => item.DisplayText == "Subscribe");
+    }
+
+    [Fact]
+    public void NuGetHarness_EfCoreDbSetPipeline_BindsQueryableChain()
+    {
+        using var harness = NuGetProjectTestHarness.Create(
+            """
+import System.*
+import System.Linq.*
+import System.Linq.Expressions.*
+import Microsoft.EntityFrameworkCore.*
+
+class User(var Id: int, var Name: string, var Age: int, var IsActive: bool)
+
+class AppDbContext : DbContext {
+    #pragma warning disable-next-line RAV9006
+    var Users: DbSet<User>
+
+    protected override func OnConfiguring(optionsBuilder: DbContextOptionsBuilder) {
+        optionsBuilder.UseInMemoryDatabase("Raven.ExpressionTrees.Stage1")
+    }
+}
+
+func Seed(db: AppDbContext) {
+    db.Users.Add(.(1, "Ana", 29, true))
+    db.Users.Add(.(2, "Bob", 17, true))
+}
+
+static func Main() -> unit {
+    val db = AppDbContext()
+    Seed(db)
+    val minAge = 21
+    val isActive: Expression<System.Func<User, bool>> = user => user.IsActive && user.Age >= minAge
+    val query = db.Users
+        |> Where(isActive)
+        |> OrderBy(user => user.Name)
+        |> Select(user => user.Name)
+}
+""",
+            [
+                ("Microsoft.EntityFrameworkCore", "10.0.0"),
+                ("Microsoft.EntityFrameworkCore.InMemory", "10.0.0")
+            ],
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var ravenCorePath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "src",
+            "Raven.Core",
+            "bin",
+            "Debug",
+            "net10.0",
+            "Raven.Core.dll"));
+        if (File.Exists(ravenCorePath))
+        {
+            harness.Workspace.TryApplyChanges(
+                harness.Workspace.CurrentSolution.AddMetadataReference(
+                    harness.ProjectId,
+                    MetadataReference.CreateFromFile(ravenCorePath)));
+        }
+
+        var compilation = harness.GetCompilation();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var tree = harness.GetSyntaxTree("src/main.rvn");
+        var model = compilation.GetSemanticModel(tree);
+        var pipelines = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InfixOperatorExpressionSyntax>()
+            .Where(node => node.OperatorToken.Kind == SyntaxKind.PipeToken)
+            .ToArray();
+
+        Assert.Equal(3, pipelines.Length);
+
+        var whereInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(node => node.Expression.ToString() == "Where");
+        var whereTargetInfo = model.GetSymbolInfo(whereInvocation.Expression);
+        var whereArgument = whereInvocation.ArgumentList.Arguments.Single().Expression;
+        var whereArgumentInfo = model.GetSymbolInfo(whereArgument);
+        var whereArgumentType = model.GetTypeInfo(whereArgument);
+
+        Assert.Equal("isActive", whereArgumentInfo.Symbol?.Name);
+        Assert.Equal("Expression", whereArgumentType.Type?.Name);
+
+        foreach (var pipeline in pipelines)
+        {
+            var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
+            Assert.True(boundPipeline.Method.IsExtensionMethod);
+            Assert.Equal("Queryable", boundPipeline.Method.ContainingType?.Name);
+        }
+
+        var whereSymbol = Assert.IsAssignableFrom<IMethodSymbol>(whereTargetInfo.Symbol);
+        Assert.Equal("Where", whereSymbol.Name);
+        Assert.Equal("Queryable", whereSymbol.ContainingType?.Name);
+
+        Assert.Equal(["Select", "OrderBy", "Where"], pipelines
+            .Select(pipeline => Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline)).Method.Name)
+            .ToArray());
     }
 }

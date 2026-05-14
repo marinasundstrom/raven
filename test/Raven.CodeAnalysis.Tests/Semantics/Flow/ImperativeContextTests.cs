@@ -256,7 +256,7 @@ union Option<T> {
 
 class C {
     func Test(input: Option<string>) {
-        if val Some(value) = input {
+        if val Option<string>.Some(value) = input {
             ()
         }
     }
@@ -442,6 +442,8 @@ class C {
     public void IfPatternStatement_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
     {
         var code = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None

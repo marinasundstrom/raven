@@ -1,14 +1,19 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
 class MethodBinder : TypeMemberBinder
 {
+    private readonly object _scopeStateGate = new();
     private readonly IMethodSymbol _methodSymbol;
+    private MethodScopeState? _scopeState;
+    private int _scopeStateBuildCount;
 
     public MethodBinder(IMethodSymbol methodSymbol, Binder parent)
         : base(parent, (INamedTypeSymbol)methodSymbol.ContainingType!)
@@ -26,7 +31,7 @@ class MethodBinder : TypeMemberBinder
 
     public override ITypeSymbol? LookupType(string name)
     {
-        var methodTypeParameter = _methodSymbol.TypeParameters.FirstOrDefault(tp => tp.Name == name);
+        var methodTypeParameter = GetScopeState().TypeParametersByName.GetValueOrDefault(name);
         if (methodTypeParameter is not null)
             return methodTypeParameter;
 
@@ -35,7 +40,7 @@ class MethodBinder : TypeMemberBinder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        var paramSymbol = _methodSymbol.Parameters.FirstOrDefault(p => p.Name == name);
+        var paramSymbol = GetScopeState().ParametersByName.GetValueOrDefault(name);
         if (paramSymbol is not null)
             return paramSymbol;
 
@@ -61,8 +66,7 @@ class MethodBinder : TypeMemberBinder
 
         if (node is ParameterSyntax parameter)
         {
-            return _methodSymbol.Parameters.FirstOrDefault(p =>
-                p.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == parameter));
+            return GetScopeState().ParametersBySyntax.GetValueOrDefault(CreateSyntaxReferenceKey(parameter));
         }
 
         if (node is ArrowTypeClauseSyntax)
@@ -73,13 +77,19 @@ class MethodBinder : TypeMemberBinder
 
     public IMethodSymbol GetMethodSymbol() => _methodSymbol;
 
+    internal ImmutableArray<IParameterSymbol> GetCachedParametersForTesting()
+        => GetScopeState().Parameters;
+
+    internal int ScopeStateBuildCountForTesting => _scopeStateBuildCount;
+
     protected override IReadOnlyDictionary<string, ITypeSymbol> GetInScopeTypeParameters()
     {
         var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
 
-        if (!_methodSymbol.TypeParameters.IsDefaultOrEmpty)
+        var scopeState = GetScopeState();
+        if (!scopeState.TypeParameters.IsDefaultOrEmpty)
         {
-            foreach (var tp in _methodSymbol.TypeParameters)
+            foreach (var tp in scopeState.TypeParameters)
                 map.TryAdd(tp.Name, tp);
         }
 
@@ -92,6 +102,72 @@ class MethodBinder : TypeMemberBinder
 
         return map;
     }
+
+    private MethodScopeState GetScopeState()
+    {
+        var signatureVersion = GetSignatureVersion();
+        var state = _scopeState;
+        if (state is not null && state.SignatureVersion == signatureVersion)
+            return state;
+
+        lock (_scopeStateGate)
+        {
+            state = _scopeState;
+            if (state is not null && state.SignatureVersion == signatureVersion)
+                return state;
+
+            state = CreateScopeState(signatureVersion);
+            _scopeState = state;
+            _scopeStateBuildCount++;
+            return state;
+        }
+    }
+
+    private int GetSignatureVersion()
+        => _methodSymbol is SourceMethodSymbol sourceMethod
+            ? sourceMethod.SignatureVersion
+            : 0;
+
+    private MethodScopeState CreateScopeState(int signatureVersion)
+    {
+        var parameters = _methodSymbol.Parameters;
+        var parametersByName = ImmutableDictionary.CreateBuilder<string, IParameterSymbol>(StringComparer.Ordinal);
+        var parametersBySyntax = ImmutableDictionary.CreateBuilder<SyntaxReferenceKey, IParameterSymbol>();
+
+        foreach (var parameter in parameters)
+        {
+            parametersByName.TryAdd(parameter.Name, parameter);
+
+            foreach (var reference in parameter.DeclaringSyntaxReferences)
+                parametersBySyntax.TryAdd(new SyntaxReferenceKey(reference.SyntaxTree, reference.Span), parameter);
+        }
+
+        var typeParameters = _methodSymbol.TypeParameters;
+        var typeParametersByName = ImmutableDictionary.CreateBuilder<string, ITypeSymbol>(StringComparer.Ordinal);
+        foreach (var typeParameter in typeParameters)
+            typeParametersByName.TryAdd(typeParameter.Name, typeParameter);
+
+        return new MethodScopeState(
+            signatureVersion,
+            parameters,
+            parametersByName.ToImmutable(),
+            parametersBySyntax.ToImmutable(),
+            typeParameters,
+            typeParametersByName.ToImmutable());
+    }
+
+    private static SyntaxReferenceKey CreateSyntaxReferenceKey(SyntaxNode node)
+        => new(node.SyntaxTree, node.Span);
+
+    private sealed record MethodScopeState(
+        int SignatureVersion,
+        ImmutableArray<IParameterSymbol> Parameters,
+        ImmutableDictionary<string, IParameterSymbol> ParametersByName,
+        ImmutableDictionary<SyntaxReferenceKey, IParameterSymbol> ParametersBySyntax,
+        ImmutableArray<ITypeParameterSymbol> TypeParameters,
+        ImmutableDictionary<string, ITypeSymbol> TypeParametersByName);
+
+    private readonly record struct SyntaxReferenceKey(SyntaxTree SyntaxTree, TextSpan Span);
 
     protected override bool IsInUnsafeContext
     {

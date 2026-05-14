@@ -76,6 +76,8 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         result.FirstHoverHadResult.ShouldBeTrue();
         result.FirstHoverMs.ShouldBeLessThan(1_000);
         result.DiagnosticsMs.ShouldBeLessThan(1_000);
+        result.HoverSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+        result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
     }
 
     [Fact]
@@ -94,6 +96,26 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         result.FirstHoverHadResult.ShouldBeTrue();
         result.FirstHoverMs.ShouldBeLessThan(1_000);
         result.DiagnosticsMs.ShouldBeLessThan(1_000);
+        result.HoverSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+        result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task LargeProjectBodyTriviaEdit_DiagnosticsReuseTransferredDiagnosticsAsync()
+    {
+        await using var simulation = HeadlessProjectSimulation.Create(
+            Path.Combine(_tempRoot, "large-body-trivia-diagnostics"),
+            stableFileCount: 75,
+            runAnalyzers: false,
+            _output);
+        var initial = await simulation.CaptureSnapshotAsync();
+        var updatedText = ReplaceFirst(initial.SourceText, "value + 1", "value  + 1");
+
+        var result = await simulation.ApplyEditAndMeasureAsync(updatedText, measureHover: false);
+
+        result.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+        result.DiagnosticsMs.ShouldBeLessThan(1_000);
+        result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
     }
 
     [Theory]
@@ -143,6 +165,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         var result = await simulation.ApplyEditAndMeasureAsync(updatedText, measureHover: false);
 
         result.DiagnosticsMs.ShouldBeLessThan(1_000);
+        result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
     }
 
     [Fact]
@@ -161,6 +184,52 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
 
         result.FirstHoverHadResult.ShouldBeTrue();
         result.FirstHoverMs.ShouldBeLessThan(1_000);
+        result.HoverSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task DocumentDiagnosticsAfterEdit_ResolveSourceMembersFromOtherFilesWithoutFullProjectCompletionAsync()
+    {
+        await using var simulation = HeadlessProjectSimulation.Create(
+            Path.Combine(_tempRoot, "cross-file-source-members"),
+            stableFileCount: 10,
+            runAnalyzers: false,
+            _output,
+            mainText: CrossFileMemberMainText,
+            additionalFiles:
+            [
+                new AdditionalSourceFile(
+                    "data.rvn",
+                    """
+                    class VehicleEntity {
+                    }
+
+                    class VehicleSet {
+                        func Add(vehicle: VehicleEntity) -> unit {
+                        }
+                    }
+
+                    class VehicleDbContext {
+                        var Vehicles: VehicleSet = VehicleSet()
+
+                        func SaveChanges() -> int {
+                            return 1
+                        }
+                    }
+                    """)
+            ]);
+        var initial = await simulation.CaptureSnapshotAsync();
+        var updatedText = ReplaceFirst(initial.SourceText, "SaveChanges() + 1", "SaveChanges() + 2");
+
+        var result = await simulation.ApplyEditAndMeasureAsync(updatedText, measureHover: false);
+
+        var errorDiagnostics = result.Diagnostics
+            .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(static diagnostic => $"{diagnostic.Code}: {diagnostic.Message}")
+            .ToArray();
+        errorDiagnostics.ShouldBeEmpty(string.Join(Environment.NewLine, errorDiagnostics));
+        result.DiagnosticsMs.ShouldBeLessThan(1_000);
+        result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
     }
 
     [Fact]
@@ -218,6 +287,17 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         answer
         """;
 
+    private const string CrossFileMemberMainText =
+        """
+        class Runner {
+            func Compute() -> int {
+                val context = VehicleDbContext()
+                context.Vehicles.Add(VehicleEntity())
+                return context.SaveChanges() + 1
+            }
+        }
+        """;
+
     private sealed class HeadlessProjectSimulation : IAsyncDisposable
     {
         private readonly string _mainPath;
@@ -228,7 +308,13 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
 
         private readonly string _mainText;
 
-        private HeadlessProjectSimulation(string root, int stableFileCount, bool runAnalyzers, ITestOutputHelper output, string mainText)
+        private HeadlessProjectSimulation(
+            string root,
+            int stableFileCount,
+            bool runAnalyzers,
+            ITestOutputHelper output,
+            string mainText,
+            IReadOnlyList<AdditionalSourceFile> additionalFiles)
         {
             _mainText = mainText;
             Directory.CreateDirectory(root);
@@ -259,6 +345,13 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                     CreateStableText(i));
             }
 
+            foreach (var additionalFile in additionalFiles)
+            {
+                File.WriteAllText(
+                    Path.Combine(sourceRoot, additionalFile.FileName),
+                    additionalFile.Text);
+            }
+
             var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
             _manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
             _manager.Initialize(new InitializeParams
@@ -277,7 +370,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         }
 
         public static HeadlessProjectSimulation Create(string root, int stableFileCount, bool runAnalyzers, ITestOutputHelper output)
-            => new(root, stableFileCount, runAnalyzers, output, MainText);
+            => new(root, stableFileCount, runAnalyzers, output, MainText, []);
 
         public static HeadlessProjectSimulation Create(
             string root,
@@ -285,7 +378,16 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             bool runAnalyzers,
             ITestOutputHelper output,
             string mainText)
-            => new(root, stableFileCount, runAnalyzers, output, mainText);
+            => new(root, stableFileCount, runAnalyzers, output, mainText, []);
+
+        public static HeadlessProjectSimulation Create(
+            string root,
+            int stableFileCount,
+            bool runAnalyzers,
+            ITestOutputHelper output,
+            string mainText,
+            IReadOnlyList<AdditionalSourceFile> additionalFiles)
+            => new(root, stableFileCount, runAnalyzers, output, mainText, additionalFiles);
 
         public async Task<ProjectSnapshot> CaptureSnapshotAsync()
         {
@@ -306,9 +408,13 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             var before = await CaptureSnapshotAsync();
 
             _store.UpsertDocument(_mainUri, updatedText, deferMacroConsumerRefresh: true);
+            var hoverSetupBefore = CaptureSetupSnapshot();
             var firstHover = measureHover
                 ? await RunHoverProbeAsync(updatedText)
                 : new HoverProbeMetrics(0, HasHover: true);
+            var hoverSetupDelta = CompilerSetupInstrumentation.Subtract(
+                CaptureSetupSnapshot(),
+                hoverSetupBefore);
 
             var contextStopwatch = Stopwatch.StartNew();
             var context = await _store.GetAnalysisContextAsync(_mainUri, CancellationToken.None);
@@ -356,6 +462,8 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                 contextStopwatch.Elapsed.TotalMilliseconds,
                 semanticStopwatch.Elapsed.TotalMilliseconds,
                 diagnostics.DiagnosticsMs,
+                hoverSetupDelta,
+                diagnostics.SetupDelta,
                 diagnostics.Diagnostics);
         }
 
@@ -387,6 +495,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         public async Task<ProjectDiagnosticsMetrics> ComputeDiagnosticsAsync(
             DocumentStore.DocumentDiagnosticsMode mode = DocumentStore.DocumentDiagnosticsMode.Full)
         {
+            var setupBefore = CaptureSetupSnapshot();
             var stopwatch = Stopwatch.StartNew();
             var result = await _store.TryGetDiagnosticsAsync(
                 _mainUri,
@@ -395,10 +504,21 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                 CancellationToken.None);
             stopwatch.Stop();
             result.WasSkipped.ShouldBeFalse();
+            var setupDelta = CompilerSetupInstrumentation.Subtract(
+                CaptureSetupSnapshot(),
+                setupBefore);
 
             return new ProjectDiagnosticsMetrics(
                 stopwatch.Elapsed.TotalMilliseconds,
+                setupDelta,
                 result.Diagnostics);
+        }
+
+        private CompilerSetupInstrumentation.Snapshot CaptureSetupSnapshot()
+        {
+            _manager.TryGetCompilation(_mainUri, out var compilation).ShouldBeTrue();
+            compilation.ShouldNotBeNull();
+            return compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
         }
 
         public async ValueTask DisposeAsync()
@@ -450,6 +570,10 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         SourceText SourceText,
         IReadOnlyDictionary<string, SyntaxTree> TreesByPath);
 
+    private sealed record AdditionalSourceFile(
+        string FileName,
+        string Text);
+
     private sealed record ProjectEditMetrics(
         bool SyntaxRootMatchesText,
         int ProjectTreeCount,
@@ -461,6 +585,8 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         double AnalysisContextMs,
         double SemanticModelMs,
         double DiagnosticsMs,
+        CompilerSetupInstrumentation.Snapshot HoverSetupDelta,
+        CompilerSetupInstrumentation.Snapshot DiagnosticsSetupDelta,
         IReadOnlyList<LspDiagnostic> Diagnostics);
 
     private sealed record HoverProbeMetrics(
@@ -469,6 +595,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
 
     private sealed record ProjectDiagnosticsMetrics(
         double DiagnosticsMs,
+        CompilerSetupInstrumentation.Snapshot SetupDelta,
         IReadOnlyList<LspDiagnostic> Diagnostics);
 
     private sealed class TestOutputLogger<T> : ILogger<T>

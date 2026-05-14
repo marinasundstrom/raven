@@ -612,6 +612,62 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_WhitespaceOnlyBodyEdit_DoesNotMarkMethodAsChanged()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            class Edited {
+                func Stable() -> int {
+                    return missing
+                }
+            }
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        initialCompilation.GetDiagnostics()
+            .ShouldContain(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("return missing", "return  missing", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedMethod = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Stable");
+        var changedDescriptors = updatedCompilation.GetChangedExecutableOwnerDescriptorsForTesting(updatedTree);
+
+        changedDescriptors.ShouldBeEmpty();
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedMethod).ShouldBeFalse();
+        updatedCompilation.GetDiagnostics()
+            .ShouldContain(diagnostic =>
+                diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext &&
+                diagnostic.Location.SourceSpan.IntersectsWith(updatedMethod.Span));
+    }
+
+    [Fact]
     public void WorkspaceCompilation_ReusesContextualBindingRootDescriptors_ForMatchedExecutableOwnersInChangedSyntaxTree()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -947,8 +1003,8 @@ public sealed class IncrementalCompilationReuseTests
         var updatedStableMethod = updatedStableIdentifier.Ancestors().OfType<MethodDeclarationSyntax>().Single();
         var updatedStableParameter = updatedStableMethod.ParameterList!.Parameters.Single();
 
-        updatedCompilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        updatedModel.MemberSignaturesDeclared.ShouldBeTrue();
+        updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        updatedModel.MemberSignaturesDeclared.ShouldBeFalse();
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedStableIdentifier).ShouldBeTrue();
         updatedModel.GetDeclaredSymbol(updatedStableMethod).ShouldBeAssignableTo<IMethodSymbol>();
         updatedModel.GetDeclaredSymbol(updatedStableParameter).ShouldBeAssignableTo<IParameterSymbol>();
@@ -1004,7 +1060,7 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
-    public void WorkspaceCompilation_MetadataTypeLookup_CompletesSourceDeclarationsWithoutRootBinder()
+    public void WorkspaceCompilation_MetadataTypeLookup_DeclaresSourceDeclarationsWithoutRootBinder()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -1037,9 +1093,9 @@ public sealed class IncrementalCompilationReuseTests
         var stringType = compilation.GetTypeByMetadataName("System.String");
 
         stringType.ShouldNotBeNull();
-        compilation.SourceDeclarationsDeclared.ShouldBeTrue();
-        compilation.SourceDeclarationsComplete.ShouldBeTrue();
-        model.MemberSignaturesDeclared.ShouldBeTrue();
+        compilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+        model.MemberSignaturesDeclared.ShouldBeFalse();
         model.RootBinderCreated.ShouldBeFalse();
     }
 
@@ -1115,12 +1171,10 @@ public sealed class IncrementalCompilationReuseTests
         var model = compilation.GetSemanticModel(tree);
         var eventDeclaration = tree.GetRoot().DescendantNodes().OfType<EventDeclarationSyntax>().Single();
 
-        model.MemberSignaturesDeclared.ShouldBeTrue();
-        model.TryGetEventSymbol(eventDeclaration, out _).ShouldBeTrue();
-
         var eventSymbol = model.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<IEventSymbol>();
 
         eventSymbol.Name.ShouldBe("Clicked");
+        model.MemberSignaturesDeclared.ShouldBeTrue();
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
     }
 
@@ -1157,13 +1211,13 @@ public sealed class IncrementalCompilationReuseTests
         var accessor = tree.GetRoot().DescendantNodes().OfType<AccessorDeclarationSyntax>().Single();
         var property = accessor.Ancestors().OfType<PropertyDeclarationSyntax>().Single();
 
-        model.MemberSignaturesDeclared.ShouldBeTrue();
-        model.TryGetPropertySymbol(property, out var propertySymbol).ShouldBeTrue();
+        var propertySymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
         propertySymbol.GetMethod.ShouldNotBeNull();
 
         var accessorSymbol = model.GetDeclaredSymbol(accessor).ShouldBeAssignableTo<IMethodSymbol>();
 
         accessorSymbol.Name.ShouldBe("get_Name");
+        model.MemberSignaturesDeclared.ShouldBeTrue();
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
     }
 
@@ -1651,10 +1705,66 @@ public sealed class IncrementalCompilationReuseTests
         updatedInfo.Symbol?.Name.ShouldBe("Name");
         updatedModel.RootBinderCreated.ShouldBeFalse();
         updatedModel.GetMatchedExecutableOwnerForTesting(updatedMemberName).ShouldNotBeNull();
-        updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedMemberName).ShouldBeTrue();
         instrumentation.BinderReentry.GetBindExecutionCount(updatedMemberName).ShouldBe(0);
         instrumentation.BinderReentry.GetBindExecutionCount(updatedMemberAccess).ShouldBe(0);
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_DocumentDiagnostics_ForBodyEdit_DoNotCompleteFullSourceDeclarations()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                class Edited {
+                    func Stable() -> int {
+                        return 1
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+        _ = workspace.GetCompilation(projectId);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(
+                """
+                class Edited {
+                    func Stable() -> int {
+                        return missing
+                    }
+                }
+                """));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedMethod = updatedTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+
+        var diagnostics = updatedCompilation.GetDocumentDiagnostics(updatedTree, analyzerOptions: null, CancellationToken.None);
+
+        diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext &&
+            diagnostic.Location.SourceSpan.IntersectsWith(updatedMethod.Span));
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedMethod).ShouldBeTrue();
+        updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]
@@ -2675,7 +2785,6 @@ public sealed class IncrementalCompilationReuseTests
         var updatedCompilation = workspace.GetCompilation(projectId);
         var updatedDiagnostics = updatedCompilation.GetDiagnostics();
         updatedDiagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        Console.WriteLine($"semantic model assembly: {typeof(SemanticModel).Assembly.Location}");
 
         var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/main.rav");
         var updatedRoot = updatedTree.GetRoot();
@@ -2692,47 +2801,7 @@ public sealed class IncrementalCompilationReuseTests
             .First(node => node.Identifier.ValueText == "Where");
         var whereSymbolInfo = updatedModel.GetSymbolInfo(whereIdentifier);
         var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
-        var whereInvocation = whereIdentifier.AncestorsAndSelf()
-            .OfType<InvocationExpressionSyntax>()
-            .First();
-        var wherePipe = whereInvocation.Parent as InfixOperatorExpressionSyntax;
-        var whereLambda = updatedRoot.DescendantNodes()
-            .OfType<FunctionExpressionSyntax>()
-            .First();
-        var whereLambdaParameter = whereLambda switch
-        {
-            SimpleFunctionExpressionSyntax simple => simple.Parameter,
-            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.First(),
-            _ => throw new InvalidOperationException()
-        };
 
-        Console.WriteLine($"where symbol: {whereSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
-        Console.WriteLine($"where candidates: {string.Join(", ", whereSymbolInfo.CandidateSymbols.Select(static s => s.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))}");
-        Console.WriteLine($"where parent kind: {whereIdentifier.Parent?.Kind}");
-        Console.WriteLine($"where invocation parent kind: {whereInvocation.Parent?.Kind}");
-        Console.WriteLine($"where pipe operator kind: {wherePipe?.OperatorToken.Kind}");
-        Console.WriteLine($"where invocation bound: {updatedModel.GetBoundNode(whereInvocation!).GetType().Name}");
-        var whereBoundLambda = Assert.IsType<BoundFunctionExpression>(updatedModel.GetBoundNode(whereLambda));
-        Console.WriteLine($"where lambda bound: {whereBoundLambda.GetType().Name}");
-        Console.WriteLine($"where bound lambda symbol type: {whereBoundLambda.Symbol.GetType().FullName}");
-        Console.WriteLine($"where bound lambda symbol: {whereBoundLambda.Symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
-        Console.WriteLine($"where bound lambda param types: {string.Join(", ", whereBoundLambda.Parameters.Select(static p => p.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))}");
-        Console.WriteLine($"where bound lambda return type: {whereBoundLambda.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
-        Console.WriteLine($"where bound lambda delegate type: {whereBoundLambda.DelegateType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
-        updatedModel.TryGetFunctionExpressionSymbol(whereLambda, out var directWhereLambdaSymbol).ShouldBeTrue();
-        Console.WriteLine($"where direct lambda symbol: {directWhereLambdaSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
-        var wherePipeLeftType = updatedModel.GetTypeInfo(wherePipe!.Left).Type;
-        Console.WriteLine($"where pipe left type: {wherePipeLeftType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
-        if (wherePipeLeftType is not null)
-        {
-            var whereExtensions = updatedModel.LookupApplicableExtensionMembers(wherePipeLeftType, whereIdentifier, "Where");
-            Console.WriteLine($"where extension candidates: {string.Join(", ", whereExtensions.InstanceMethods.Concat(whereExtensions.StaticMethods).Select(static m => m.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))}");
-        }
-        var whereInvocationInfo = updatedModel.GetSymbolInfo(whereInvocation!);
-        Console.WriteLine($"where invocation symbol: {(whereInvocationInfo.Symbol ?? whereInvocationInfo.CandidateSymbols.FirstOrDefault())?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
-        var whereLambdaInfo = updatedModel.GetSymbolInfo(whereLambda);
-        Console.WriteLine($"where lambda symbol: {(whereLambdaInfo.Symbol ?? whereLambdaInfo.CandidateSymbols.FirstOrDefault())?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
-        Console.WriteLine($"where lambda parameter symbol: {updatedModel.GetFunctionExpressionParameterSymbol(whereLambdaParameter)?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
         Assert.IsAssignableFrom<IMethodSymbol>(whereSymbol);
     }
 
@@ -2804,21 +2873,6 @@ public sealed class IncrementalCompilationReuseTests
             .First(node => node.Identifier.ValueText == "Where");
         var whereSymbolInfo = updatedModel.GetSymbolInfo(whereIdentifier);
         var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
-        var whereInvocation = whereIdentifier.AncestorsAndSelf()
-            .OfType<InvocationExpressionSyntax>()
-            .First();
-        var whereLambda = updatedRoot.DescendantNodes()
-            .OfType<FunctionExpressionSyntax>()
-            .First();
-        var whereBoundNode = updatedModel.GetBoundNode(whereInvocation);
-        var whereInvocationInfo = updatedModel.GetSymbolInfo(whereInvocation);
-        var whereLambdaInfo = updatedModel.GetSymbolInfo(whereLambda);
-
-        Console.WriteLine($"chained where symbol: {whereSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
-        Console.WriteLine($"chained where candidates: {string.Join(", ", whereSymbolInfo.CandidateSymbols.Select(static s => s.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))}");
-        Console.WriteLine($"chained where invocation bound: {whereBoundNode.GetType().Name}");
-        Console.WriteLine($"chained where invocation symbol: {(whereInvocationInfo.Symbol ?? whereInvocationInfo.CandidateSymbols.FirstOrDefault())?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
-        Console.WriteLine($"chained where lambda symbol: {(whereLambdaInfo.Symbol ?? whereLambdaInfo.CandidateSymbols.FirstOrDefault())?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<null>"}");
 
         Assert.IsAssignableFrom<IMethodSymbol>(whereSymbol);
     }
@@ -3358,6 +3412,68 @@ public sealed class IncrementalCompilationReuseTests
             .ShouldBeEmpty();
         updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedGlobals[1]).ShouldBeTrue();
         updatedCompilation.HasTransferredSemanticDiagnosticsForTesting(updatedGlobals[0]).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_TopLevelStatementEdit_SymbolQueryDoesNotCreateRootBinder()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication)
+                .WithPerformanceInstrumentation(instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            val first = 1
+            val second = first + 1
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialFirstReference = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "first");
+
+        initialModel.GetSymbolInfo(initialFirstReference).Symbol?.Name.ShouldBe("first");
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(doc => doc.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("first + 1", "first + 2", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedFirstReference = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "first");
+
+        instrumentation.BinderReentry.Reset();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+
+        var updatedInfo = updatedModel.GetSymbolInfo(updatedFirstReference);
+
+        updatedInfo.Symbol?.Name.ShouldBe("first");
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
     }
 
     [Fact]

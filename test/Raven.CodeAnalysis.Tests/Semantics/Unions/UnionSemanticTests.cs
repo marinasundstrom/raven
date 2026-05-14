@@ -601,8 +601,8 @@ union Result<T, E> {
     {
         const string source = """
 func build() {
-    val resultA: Result<int, string> = Ok(2)
-    val resultB: Result<int, string> = Ok<int>(2)
+    val resultA: Result<int, string> = .Ok(2)
+    val resultB: Result<int, string> = .Ok<int>(2)
     val resultC: Result<int, string> = Result<int, string>.Ok(2)
     val resultD: Result<int, string> = .Ok(2)
 }
@@ -718,8 +718,8 @@ func build() -> Result<int, Err> {
     val value: int? = null
 
     return value match {
-        null => Error(MissingName)
-        val v => Ok(v ?? 0)
+        null => .Error(.MissingName)
+        val v => .Ok(v ?? 0)
     }
 }
 
@@ -747,8 +747,8 @@ union Result<T, E> {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
     return flag match {
-        true => Ok(42)
-        false => Error("boom")
+        true => .Ok(42)
+        false => .Error("boom")
     }
 }
 
@@ -776,8 +776,8 @@ union Response<T, E> {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
     flag match {
-        true => Ok(42)
-        false => Error("boom")
+        true => .Ok(42)
+        false => .Error("boom")
     }
 }
 
@@ -804,7 +804,7 @@ union Response<T, E> {
     {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
-    return if flag Ok(42) else Error("boom")
+    return if flag { .Ok(42) } else { .Error("boom") }
 }
 
 union Response<T, E> {
@@ -831,9 +831,9 @@ union Response<T, E> {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
     if flag {
-        Ok(42)
+        Response.Ok(42)
     } else {
-        Error("boom")
+        Response.Error("boom")
     }
 }
 
@@ -859,12 +859,12 @@ union Response<T, E> {
     {
         const string source = """
 func build() {
-    val s1: Option<int> = Some(1)
+    val s1: Option<int> = .Some(1)
     val s2: Option<int> = .Some(2)
     val s3: Option<int> = Option.Some(3)
     val s4: Option<int> = Option<int>.Some(4)
 
-    val n1: Option<int> = None
+    val n1: Option<int> = .None
     val n2: Option<int> = .None
 }
 
@@ -885,7 +885,7 @@ union Option<T> {
     {
         const string source = """
 func build() {
-    val theme = Theme(None)
+    val theme = Theme(.None)
     val theme2 = Theme(.None)
 }
 
@@ -1302,8 +1302,8 @@ union struct Result {
         const string source = """
 func format(result: Result<int>) -> string {
     return result match {
-        Ok(val payload) => payload.ToString()
-        Error(val message) => message
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
     }
 }
 
@@ -1330,8 +1330,8 @@ union struct Result<T> {
 func format(result: Result<int>) -> string {
     return result match {
         null => "uninitialized"
-        Ok(val payload) => payload.ToString()
-        Error(val message) => message
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
     }
 }
 
@@ -1464,7 +1464,7 @@ union Result<T, E> {
     {
         const string source = """
 func create() -> Result<int, string> {
-    return Ok(42)
+    return .Ok(42)
 }
 
 union Result<T, E> {
@@ -1494,11 +1494,11 @@ async func fetch(url: string) -> Task<Result<string, string>> {
         use response = await client.GetAsync(url)
         response.EnsureSuccessStatusCode()
         val responseBody = await response.Content.ReadAsStringAsync()
-        return Ok(responseBody)
+        return .Ok(responseBody)
     } catch (HttpRequestException e) {
-        return Error(e.Message)
+        return .Error(e.Message)
     } catch (TaskCanceledException) {
-        return Error("Request timed out or was canceled.")
+        return .Error("Request timed out or was canceled.")
     }
 }
 
@@ -1518,6 +1518,9 @@ union Result<T, E> {
     public void UnqualifiedCaseInvocation_ReportsAmbiguousWhenMultipleCasesMatch()
     {
         const string source = """
+import Result.*
+import Option.*
+
 class C {
     func create() {
         var value = Ok(42)
@@ -1550,7 +1553,7 @@ union Option<T> {
     {
         const string source = """
 func create() -> Result<int, string> {
-    return Ok<int>(42)
+    return .Ok<int>(42)
 }
 
 union Result<T, E> {
@@ -1569,6 +1572,9 @@ union Result<T, E> {
     public void UnqualifiedGenericCaseInvocation_ReportsAmbiguousWhenMultipleCasesMatch()
     {
         const string source = """
+import Result.*
+import Option.*
+
 class C {
     func create() {
         var value = Ok<int>(42)
@@ -1765,10 +1771,10 @@ union Result<T, E> {
     }
 
     [Fact]
-    public void AliasToClosedGenericUnionCaseType_BindsAndConvertsToCarrier()
+    public void AliasToClosedGenericUnionCaseType_ReportsInvalidAliasTarget()
     {
         const string source = """
-alias ResultOk = Result.Ok<int>
+alias ResultOk = Result<int, string>.Ok
 
 func create() -> Result<int, string> {
     return ResultOk(42)
@@ -1783,7 +1789,7 @@ union Result<T, E> {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.InvalidAliasType);
     }
 
     [Fact]
@@ -2207,8 +2213,8 @@ union Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return result match {
-        Ok(val payload) => payload.ToString()
-        Error(val message) => message
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
     }
 }
 
@@ -2385,7 +2391,7 @@ union Result<T> {
         // Ok(42) used as a plain constructor call; type is inferred from arguments, not the return type.
         const string source = """
 func build() -> Result<int, string> {
-    return Ok(42)
+    return .Ok(42)
 }
 
 union Result<T, E> {
@@ -2407,7 +2413,7 @@ union Result<T, E> {
         // Ok(42) as the trailing implicit-return expression; type is inferred from arguments.
         const string source = """
 func build() -> Result<int, string> {
-    Ok(42)
+    .Ok(42)
 }
 
 union Result<T, E> {
@@ -2431,7 +2437,7 @@ union Result<T, E> {
         // expected rather than a "no overload" error.
         const string source = """
 func build() -> Result<(), string> {
-    return Ok(42)
+    return .Ok(42)
 }
 
 union Result<T, E> {

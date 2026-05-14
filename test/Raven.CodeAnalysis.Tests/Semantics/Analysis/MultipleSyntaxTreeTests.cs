@@ -58,11 +58,11 @@ union Option<T> {
 
 extension OptionExtensions<T> for Option<T> {
     func IsOkOr<E>(error: E) -> Result<T, E> {
-        if self is Some(val value) {
-            return Ok(value)
+        if self is .Some(val value) {
+            return .Ok(value)
         }
 
-        Error(error)
+        .Error(error)
     }
 }
 """);
@@ -130,8 +130,8 @@ union Result<T, E> {
 extension ResultExtensions<T, E> for Result<T, E> {
     func MapError<E2>(mapper: E -> E2) -> Result<T, E2> {
         self match {
-            Ok(val value) => Ok(value)
-            Error(val error) => Error(mapper(error))
+            .Ok(val value) => .Ok(value)
+            .Error(val error) => .Error(mapper(error))
         }
     }
 }

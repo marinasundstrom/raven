@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
@@ -343,8 +344,8 @@ public sealed class BinderReentryInstrumentation
     private long _totalRepeatedNodeInvocations;
     private long _totalCacheHits;
     private long _totalBindExecutions;
-    private readonly ConcurrentDictionary<SyntaxNode, int> _nodeInvocationCounts = new();
-    private readonly ConcurrentDictionary<SyntaxNode, int> _nodeBindExecutionCounts = new();
+    private readonly ConcurrentDictionary<SyntaxNodeInstrumentationKey, int> _nodeInvocationCounts = new();
+    private readonly ConcurrentDictionary<SyntaxNodeInstrumentationKey, int> _nodeBindExecutionCounts = new();
     private readonly ConcurrentDictionary<SyntaxKind, long> _invocationsByKind = new();
     private readonly ConcurrentDictionary<SyntaxKind, long> _cacheHitsByKind = new();
     private readonly ConcurrentDictionary<SyntaxKind, long> _bindExecutionsByKind = new();
@@ -383,7 +384,7 @@ public sealed class BinderReentryInstrumentation
            $"bindExecutions={delta.TotalBindExecutions}";
 
     public int GetBindExecutionCount(SyntaxNode node)
-        => _nodeBindExecutionCounts.TryGetValue(node, out var count) ? count : 0;
+        => _nodeBindExecutionCounts.TryGetValue(SyntaxNodeInstrumentationKey.Create(node), out var count) ? count : 0;
 
     [Conditional("RAVEN_INSTRUMENTATION")]
     public void Reset()
@@ -411,7 +412,8 @@ public sealed class BinderReentryInstrumentation
         Interlocked.Increment(ref _totalInvocations);
         _invocationsByKind.AddOrUpdate(node.Kind, 1, static (_, current) => current + 1);
 
-        var count = _nodeInvocationCounts.AddOrUpdate(node, 1, static (_, current) => current + 1);
+        var key = SyntaxNodeInstrumentationKey.Create(node);
+        var count = _nodeInvocationCounts.AddOrUpdate(key, 1, static (_, current) => current + 1);
         if (count > 1)
             Interlocked.Increment(ref _totalRepeatedNodeInvocations);
     }
@@ -433,7 +435,7 @@ public sealed class BinderReentryInstrumentation
             return;
 
         Interlocked.Increment(ref _totalBindExecutions);
-        _nodeBindExecutionCounts.AddOrUpdate(node, 1, static (_, current) => current + 1);
+        _nodeBindExecutionCounts.AddOrUpdate(SyntaxNodeInstrumentationKey.Create(node), 1, static (_, current) => current + 1);
         _bindExecutionsByKind.AddOrUpdate(node.Kind, 1, static (_, current) => current + 1);
     }
 
@@ -466,10 +468,9 @@ public sealed class BinderReentryInstrumentation
                      .ThenBy(static pair => pair.Key.Kind.ToString(), StringComparer.Ordinal)
                      .Take(topNodeCount))
         {
-            var node = entry.Key;
-            var span = node.GetLocation().GetLineSpan();
+            var key = entry.Key;
             builder.AppendLine(
-                $"  - {node.Kind}: count={entry.Value} @ {span.Path}({span.StartLinePosition.Line + 1},{span.StartLinePosition.Character + 1})");
+                $"  - {key.Kind}: count={entry.Value} @ {key.FilePath}[{key.Span.Start}..{key.Span.End})");
         }
 
         builder.AppendLine();
@@ -490,13 +491,26 @@ public sealed class BinderReentryInstrumentation
                      .ThenBy(static pair => pair.Key.Kind.ToString(), StringComparer.Ordinal)
                      .Take(topNodeCount))
         {
-            var node = entry.Key;
-            var span = node.GetLocation().GetLineSpan();
+            var key = entry.Key;
             builder.AppendLine(
-                $"  - {node.Kind}: bindExecutions={entry.Value} @ {span.Path}({span.StartLinePosition.Line + 1},{span.StartLinePosition.Character + 1})");
+                $"  - {key.Kind}: bindExecutions={entry.Value} @ {key.FilePath}[{key.Span.Start}..{key.Span.End})");
         }
 
         return builder.ToString();
+    }
+
+    private readonly record struct SyntaxNodeInstrumentationKey(
+        SyntaxKind Kind,
+        string FilePath,
+        TextSpan Span,
+        TextSpan FullSpan)
+    {
+        public static SyntaxNodeInstrumentationKey Create(SyntaxNode node)
+            => new(
+                node.Kind,
+                node.SyntaxTree?.FilePath ?? string.Empty,
+                node.Span,
+                node.FullSpan);
     }
 }
 

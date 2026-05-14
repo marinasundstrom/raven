@@ -24,7 +24,7 @@ public delegate UnitHandler()
         var unitHandler = assembly.GetType("UnitHandler", throwOnError: true)!;
 
         Assert.True(transformer.IsSealed);
-        Assert.True(transformer.IsAbstract);
+        Assert.False(transformer.IsAbstract);
         Assert.True(transformer.IsClass);
         Assert.Equal("System.MulticastDelegate", transformer.BaseType?.FullName);
 
@@ -47,6 +47,34 @@ public delegate UnitHandler()
         var unitInvoke = unitHandler.GetMethod("Invoke", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(unitInvoke);
         Assert.Equal("System.Void", unitInvoke!.ReturnType.FullName);
+    }
+
+    [Fact]
+    public void DelegateDeclaration_LambdaCanInstantiateAndInvokeEmittedDelegate()
+    {
+        const string code = """
+delegate Test(a: int, b: int) -> int
+
+public class Program {
+    public static func Run() -> int {
+        val d: Test = (a, b) => a + b
+        return d(2, 3)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(syntaxTree);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, compilation.References);
+        var program = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var run = program.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal(5, run.Invoke(null, []));
     }
 
     [Fact]
@@ -128,12 +156,12 @@ public delegate Callback(value: int) -> string
         return metadataContext;
     }
 
-    private static Compilation CreateCompilation(SyntaxTree syntaxTree)
+    private static Compilation CreateCompilation(SyntaxTree syntaxTree, CompilationOptions? options = null)
     {
         var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
         var runtimePath = TargetFrameworkResolver.GetRuntimeDll(version);
 
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+        var compilation = Compilation.Create("test", options ?? new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
             .AddReferences(MetadataReference.CreateFromFile(runtimePath));
 

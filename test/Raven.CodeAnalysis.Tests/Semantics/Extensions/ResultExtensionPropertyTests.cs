@@ -10,6 +10,7 @@ public class ResultExtensionPropertyTests : DiagnosticTestBase
         string testCode =
             """
             import System.*
+            import Result.*
 
             union Result<T, E> {
                 case Ok(value: T)

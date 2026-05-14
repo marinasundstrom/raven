@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -9,6 +10,9 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 {
+    private static readonly ConcurrentDictionary<MethodBase, ParameterInfo[]> s_parameterInfoCache = new();
+    private static readonly ConcurrentDictionary<MetadataMethodKey, int> s_parameterCountCache = new();
+
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly MethodBase _methodInfo;
     private ITypeSymbol? _returnType;
@@ -18,6 +22,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     private Accessibility? _accessibility;
     private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
     private ImmutableArray<AttributeData>? _attributes;
+    private int? _parameterCount;
 
     public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
         : base(containingType, containingType, containingType.ContainingNamespace, locations, addAsMember: addAsMember)
@@ -190,7 +195,12 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
 
             try
             {
-                _parameters = _methodInfo.GetParameters().Select(param =>
+                if (!TryGetParameterInfos(out var parameterInfos))
+                    throw new InvalidOperationException($"Unable to read parameters for '{_methodInfo}'.");
+
+                _parameterCount = parameterInfos.Length;
+                CacheParameterCount(_parameterCount.Value);
+                _parameters = parameterInfos.Select(param =>
                 {
                     return new PEParameterSymbol(
                           _reflectionTypeLoader,
@@ -221,6 +231,85 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             return _parameters.Value;
         }
     }
+
+    internal int ParameterCount
+    {
+        get
+        {
+            if (_parameterCount is { } count)
+                return count;
+
+            try
+            {
+                if (TryGetCachedParameterCount(out var cachedCount))
+                {
+                    _parameterCount = cachedCount;
+                }
+                else
+                {
+                    _parameterCount = TryGetParameterInfos(out var parameterInfos)
+                        ? parameterInfos.Length
+                        : 1;
+                    CacheParameterCount(_parameterCount.Value);
+                }
+            }
+            catch
+            {
+                _parameterCount = 1;
+            }
+
+            return _parameterCount.Value;
+        }
+    }
+
+    internal bool TryGetCachedParameterCount(out int count)
+    {
+        if (TryCreateMetadataMethodKey(out var key) &&
+            s_parameterCountCache.TryGetValue(key, out count))
+        {
+            return true;
+        }
+
+        count = 0;
+        return false;
+    }
+
+    private void CacheParameterCount(int count)
+    {
+        if (TryCreateMetadataMethodKey(out var key))
+            s_parameterCountCache.TryAdd(key, count);
+    }
+
+    private bool TryCreateMetadataMethodKey(out MetadataMethodKey key)
+    {
+        try
+        {
+            key = new MetadataMethodKey(_methodInfo.Module.ModuleVersionId, _methodInfo.MetadataToken);
+            return true;
+        }
+        catch
+        {
+            key = default;
+            return false;
+        }
+    }
+
+    private bool TryGetParameterInfos(out ParameterInfo[] parameterInfos)
+    {
+        try
+        {
+            parameterInfos = s_parameterInfoCache.GetOrAdd(_methodInfo, static method => method.GetParameters());
+            CacheParameterCount(parameterInfos.Length);
+            return true;
+        }
+        catch
+        {
+            parameterInfos = [];
+            return false;
+        }
+    }
+
+    private readonly record struct MetadataMethodKey(Guid ModuleVersionId, int MetadataToken);
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
 

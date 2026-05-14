@@ -115,7 +115,7 @@ val parsed = int.parse("42")
     [Fact]
     public void RavenInstanceExtensionMethod_FromMetadata_BindsToResultReceiver()
     {
-const string source = """
+        const string source = """
 import System.*
 
 val wrapped = int.parse("42").WithContext("wrapped")
@@ -205,15 +205,15 @@ val result: int? = value
 import System.*
 
 func GetUser() -> Result<User, Err> {
-    return Ok(User("Marina", Some(Item("Candy"))))
+    return .Ok(User("Marina", .Some(Item("Candy"))))
 }
 
 func GetItem() -> Result<string, Err> {
     val maybeItem = GetUser()?.Item?
 
     return maybeItem match {
-        Some(val item) => Ok(item.Name)
-        None => Error(Err.MissingName)
+        .Some(val item) => .Ok(item.Name)
+        .None => .Error(Err.MissingName)
     }
 }
 

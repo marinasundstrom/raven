@@ -8,10 +8,19 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
     private PEModuleSymbol[] _modules = [];
     private INamespaceSymbol? _globalNamespace;
 
-    public PEAssemblySymbol(Assembly assembly, Location[] locations)
+    public PEAssemblySymbol(Assembly assembly, Location[] locations, string? assemblyPath = null)
         : base(null!, null, null, locations)
     {
         _assembly = assembly;
+        AssemblyPath = assemblyPath;
+    }
+
+    internal string? AssemblyPath { get; private set; }
+
+    internal void SetAssemblyPath(string? assemblyPath)
+    {
+        if (!string.IsNullOrWhiteSpace(assemblyPath))
+            AssemblyPath = assemblyPath;
     }
 
     public void AddModules(params PEModuleSymbol[] modules)

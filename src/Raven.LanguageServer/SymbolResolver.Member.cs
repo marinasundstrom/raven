@@ -204,7 +204,9 @@ internal static partial class SymbolResolver
         TypeSyntax typeSyntax,
         out ITypeSymbol? resolvedType)
     {
-        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        var typeInfo = semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var availableTypeInfo)
+            ? availableTypeInfo
+            : semanticModel.GetTypeInfo(typeSyntax);
 
         resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolvedType is not null && resolvedType.TypeKind != TypeKind.Error)
@@ -233,7 +235,9 @@ internal static partial class SymbolResolver
     {
         resolvedType = null;
 
-        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        var typeInfo = semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var availableTypeInfo)
+            ? availableTypeInfo
+            : semanticModel.GetTypeInfo(typeSyntax);
         resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolvedType is not null && resolvedType.TypeKind != TypeKind.Error)
             return true;
@@ -507,14 +511,18 @@ internal static partial class SymbolResolver
                 if (!string.Equals(parameter.Identifier.ValueText, identifierName.Identifier.ValueText, StringComparison.Ordinal))
                     continue;
 
-                symbol = semanticModel.GetFunctionExpressionParameterSymbol(parameter);
+                symbol = semanticModel.TryResolveFunctionExpressionParameterSymbolFast(parameter, out var fastParameter)
+                    ? fastParameter
+                    : null;
                 return symbol is not null;
             }
         }
         else if (functionExpression is SimpleFunctionExpressionSyntax simple &&
                  string.Equals(simple.Parameter.Identifier.ValueText, identifierName.Identifier.ValueText, StringComparison.Ordinal))
         {
-            symbol = semanticModel.GetFunctionExpressionParameterSymbol(simple.Parameter);
+            symbol = semanticModel.TryResolveFunctionExpressionParameterSymbolFast(simple.Parameter, out var fastParameter)
+                ? fastParameter
+                : null;
             return symbol is not null;
         }
 

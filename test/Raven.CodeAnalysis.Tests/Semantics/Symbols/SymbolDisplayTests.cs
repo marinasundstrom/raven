@@ -239,6 +239,28 @@ union struct ValueOption<T> {
     }
 
     [Fact]
+    public void GetDeclaredSymbol_UnionCaseParameter_ReturnsConstructorParameter()
+    {
+        const string source = """
+union Result {
+    case Ok(value: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
+
+        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
+
+        Assert.Equal("value", symbol.Name);
+        Assert.Equal(SpecialType.System_String, symbol.Type.SpecialType);
+        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(symbol.ContainingSymbol);
+        var caseSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(constructor.ContainingType);
+        Assert.Equal("Ok", caseSymbol.Name);
+    }
+
+    [Fact]
     public void UnionCaseSymbol_ToDisplayString_UsesCaseMemberKeyword()
     {
         const string source = """

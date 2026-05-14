@@ -118,10 +118,10 @@ public union Option<T> {
 extension OptionExtensions1<T : class> for Option<T> {
     static func implicit(value: T?) -> Option<T> {
         if value is not null {
-            return Some(value)
+            return .Some(value)
         }
 
-        None
+        .None
     }
 }
 """;
@@ -186,10 +186,10 @@ public union Option<T> {
 public extension OptionExtensions1<T : class> for Option<T> {
     static func implicit(value: T?) -> Option<T> {
         if value is not null {
-            return Some(value)
+            return .Some(value)
         }
 
-        None
+        .None
     }
 }
 
@@ -208,8 +208,8 @@ import System.*
 
 func format<T>(result: Result<T, string>) -> Option<string> {
     return result match {
-        Ok(val value) => value.ToString()
-        Error(_) => None
+        .Ok(val value) => value.ToString()
+        .Error(_) => .None
     }
 }
 """;

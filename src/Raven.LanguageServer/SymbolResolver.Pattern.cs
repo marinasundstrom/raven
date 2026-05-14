@@ -14,9 +14,9 @@ internal static partial class SymbolResolver
     {
         symbol = node switch
         {
-            SingleVariableDesignationSyntax single when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
-            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
-            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
+            SingleVariableDesignationSyntax single when token == single.Identifier => TryGetPreferredDeclarationSymbol(semanticModel, single),
+            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => TryGetPreferredDeclarationSymbol(semanticModel, single),
+            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => TryGetPreferredDeclarationSymbol(semanticModel, single),
             _ => null
         };
 
@@ -25,9 +25,9 @@ internal static partial class SymbolResolver
 
         symbol = node.Parent switch
         {
-            SingleVariableDesignationSyntax single when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
-            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
-            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => semanticModel.GetDeclaredSymbol(single),
+            SingleVariableDesignationSyntax single when token == single.Identifier => TryGetPreferredDeclarationSymbol(semanticModel, single),
+            VariablePatternSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => TryGetPreferredDeclarationSymbol(semanticModel, single),
+            TypedVariableDesignationSyntax { Designation: SingleVariableDesignationSyntax single } when token == single.Identifier => TryGetPreferredDeclarationSymbol(semanticModel, single),
             _ => null
         };
 
@@ -41,6 +41,21 @@ internal static partial class SymbolResolver
         }
 
         return symbol is not null;
+    }
+
+    private static ISymbol? TryGetPreferredDeclarationSymbol(SemanticModel semanticModel, SyntaxNode declarationNode)
+    {
+        if (TryGetSymbolInfo(semanticModel, declarationNode, out var info))
+            return ChoosePreferredSymbol(info.Symbol, info.CandidateSymbols, declarationNode);
+
+        try
+        {
+            return semanticModel.GetDeclaredSymbol(declarationNode);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static bool TryResolveFromEnclosingBlockLocals(
@@ -88,9 +103,11 @@ internal static partial class SymbolResolver
             if (!string.Equals(candidate.Identifier.ValueText, token.ValueText, StringComparison.Ordinal))
                 continue;
 
-            var info = semanticModel.GetSymbolInfo(candidate);
-            if (info.Symbol is null && info.CandidateSymbols.IsDefaultOrEmpty)
+            if (!TryGetSymbolInfo(semanticModel, candidate, out var info) ||
+                info.Symbol is null && info.CandidateSymbols.IsDefaultOrEmpty)
+            {
                 continue;
+            }
 
             if (TryMatchDeclaringSpan(info.Symbol, token))
             {

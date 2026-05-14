@@ -1954,10 +1954,13 @@ partial class BlockBinder
                     AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, methodReturnType) is
                     { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
                 {
-                    var methodDisplay = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                    _diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
-                        methodDisplay,
-                        expressionSyntax!.GetLocation());
+                    if (!TryConvertTaskLikeAsyncReturnExpression(method, expr, expressionSyntax!, out expr))
+                    {
+                        var methodDisplay = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        _diagnostics.ReportAsyncTaskReturnCannotHaveExpression(
+                            methodDisplay,
+                            expressionSyntax!.GetLocation());
+                    }
                 }
                 else
                 {
@@ -2032,6 +2035,36 @@ partial class BlockBinder
         }
 
         return expr;
+    }
+
+    private bool TryConvertTaskLikeAsyncReturnExpression(
+        IMethodSymbol method,
+        BoundExpression expression,
+        SyntaxNode syntax,
+        out BoundExpression converted)
+    {
+        converted = expression;
+
+        if (!method.IsAsync ||
+            method.ReturnType is null ||
+            method.ReturnType.TypeKind == TypeKind.Error ||
+            expression.Type is null ||
+            expression.Type.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        if (AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, method.ReturnType) is not
+            { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
+        {
+            return false;
+        }
+
+        if (!IsAssignable(method.ReturnType, expression.Type, out var conversion))
+            return false;
+
+        converted = ApplyConversion(expression, method.ReturnType, conversion, syntax);
+        return true;
     }
 
     protected BoundExpression ValidateByRefReturnExpression(

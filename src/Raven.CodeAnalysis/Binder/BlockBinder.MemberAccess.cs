@@ -379,7 +379,33 @@ partial class BlockBinder
             // handles cases like [1,2,3].ToDictionary(x => x, y => y) where overloads agree
             // on input parameter types but differ on return-type type parameters,
             // and method-group calls like shipmentWeights.Select(Compute).
+            var syntaxRefKind = arg.RefKindKeyword.Kind switch
+            {
+                SyntaxKind.RefKeyword => RefKind.Ref,
+                SyntaxKind.OutKeyword => RefKind.Out,
+                SyntaxKind.InKeyword => RefKind.In,
+                _ => RefKind.None,
+            };
+
+            BoundExpression? preboundExpression = null;
             if (targetType is null &&
+                arg.Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax)
+            {
+                BoundExpression naturalBoundExpression;
+                using (_diagnostics.CreateNonReportingScope())
+                    naturalBoundExpression = BindExpression(arg.Expression);
+
+                RemoveCachedBoundNode(arg.Expression);
+
+                if (naturalBoundExpression is not BoundMethodGroupExpression &&
+                    !HasExpressionErrors(naturalBoundExpression))
+                {
+                    preboundExpression = BindInvocationArgumentExpression(arg, targetType: null, syntaxRefKind);
+                }
+            }
+
+            if (targetType is null &&
+                preboundExpression is null &&
                 arg.Expression is FunctionExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax)
             {
                 targetType = TryGetFirstDelegateParameterType(methods, i, receiver, pipeReceiverType);
@@ -419,15 +445,7 @@ partial class BlockBinder
             if (targetType is null)
                 RecordLambdaTargetsForArgument(i, arg.Expression);
 
-            var syntaxRefKind = arg.RefKindKeyword.Kind switch
-            {
-                SyntaxKind.RefKeyword => RefKind.Ref,
-                SyntaxKind.OutKeyword => RefKind.Out,
-                SyntaxKind.InKeyword => RefKind.In,
-                _ => RefKind.None,
-            };
-
-            var boundExpr = BindInvocationArgumentExpression(arg, targetType, syntaxRefKind);
+            var boundExpr = preboundExpression ?? BindInvocationArgumentExpression(arg, targetType, syntaxRefKind);
 
             if (targetType is not null && HasExpressionErrors(boundExpr))
             {
@@ -1438,6 +1456,8 @@ partial class BlockBinder
         SyntaxNode receiverSyntax,
         BoundExpression? receiver = null)
     {
+        EnsureImplicitDefaultConstructorAvailable(typeSymbol);
+
         // Bind constructor arguments while supplying best-effort target types based on ctor parameter types.
         var ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, invocation.ArgumentList.Arguments, trailingBlock: invocation.TrailingBlock);
         var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, invocation.ArgumentList.Arguments, out var hasErrors, trailingBlock: invocation.TrailingBlock);
@@ -1447,6 +1467,54 @@ partial class BlockBinder
 
         return BindConstructorInvocation(typeSymbol, boundArguments, invocation, receiverSyntax, receiver);
     }
+
+    private void EnsureImplicitDefaultConstructorAvailable(INamedTypeSymbol typeSymbol)
+    {
+        if (typeSymbol is not SourceNamedTypeSymbol sourceType ||
+            sourceType is IUnionSymbol ||
+            sourceType.IsStatic ||
+            sourceType.HasPrimaryConstructorSyntax)
+        {
+            return;
+        }
+
+        if (sourceType.GetDeclaredMembersWithoutEnsuring(".ctor").OfType<IMethodSymbol>().Any(static constructor => !constructor.IsStatic))
+            return;
+
+        foreach (var reference in sourceType.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not TypeDeclarationSyntax declaration)
+                continue;
+
+            if (declaration is ClassDeclarationSyntax { ParameterList: not null } ||
+                declaration is RecordDeclarationSyntax { ParameterList: not null } ||
+                declaration.Members.OfType<ConstructorDeclarationSyntax>().Any(static constructor => !HasStaticModifier(constructor.Modifiers)) ||
+                declaration.Members.OfType<ParameterlessConstructorDeclarationSyntax>().Any(static constructor => !HasStaticModifier(constructor.Modifiers)))
+            {
+                return;
+            }
+        }
+
+        var location = sourceType.Locations.FirstOrDefault() ?? Location.None;
+        var syntaxReference = sourceType.DeclaringSyntaxReferences.FirstOrDefault();
+        var references = syntaxReference is null ? Array.Empty<SyntaxReference>() : [syntaxReference];
+
+        _ = new SourceMethodSymbol(
+            ".ctor",
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            sourceType,
+            sourceType,
+            sourceType.ContainingNamespace?.AsSourceNamespace(),
+            [location],
+            references,
+            isStatic: false,
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: Accessibility.Public);
+    }
+
+    private static bool HasStaticModifier(SyntaxTokenList modifiers)
+        => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
 
     private BoundExpression BindConstructorInvocation(
         INamedTypeSymbol typeSymbol,

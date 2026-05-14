@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
-    private IEnumerable<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
+    private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
     private ITypeSymbol _returnType;
     private bool _isStatic;
     private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
@@ -43,6 +43,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _isPartialDefinition;
     private bool _isPartialImplementation;
     private bool _isSignatureSkeleton;
+    private int _signatureVersion;
 
     private bool IsAutoPropertyAccessor
         => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -110,7 +111,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public ITypeSymbol ReturnType => _returnType;
 
-    public ImmutableArray<IParameterSymbol> Parameters => _parameters.OfType<IParameterSymbol>().ToImmutableArray();
+    public ImmutableArray<IParameterSymbol> Parameters => _parameters.Cast<IParameterSymbol>().ToImmutableArray();
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes()
     {
@@ -191,12 +192,17 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     internal bool HasPartialDefinition => _isPartialDefinition;
     internal bool HasPartialImplementation => _isPartialImplementation;
     internal bool IsSignatureSkeleton => _isSignatureSkeleton;
+    internal int SignatureVersion => _signatureVersion;
 
     internal void MarkSignatureSkeleton() => _isSignatureSkeleton = true;
 
     internal void MarkSignatureBindingComplete() => _isSignatureSkeleton = false;
 
-    public void SetParameters(IEnumerable<SourceParameterSymbol> parameters) => _parameters = parameters;
+    public void SetParameters(IEnumerable<SourceParameterSymbol> parameters)
+    {
+        _parameters = parameters.ToImmutableArray();
+        _signatureVersion++;
+    }
 
     internal void SetOverriddenMethod(IMethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
 
@@ -217,6 +223,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _typeArguments = _typeParameters.IsDefaultOrEmpty
             ? ImmutableArray<ITypeSymbol>.Empty
             : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+        _signatureVersion++;
     }
 
     internal void SetIsStatic(bool isStatic)
@@ -234,7 +241,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _closureFrameType = closureFrameType;
     }
 
-    internal void SetReturnType(ITypeSymbol returnType) => _returnType = returnType;
+    internal void SetReturnType(ITypeSymbol returnType)
+    {
+        _returnType = returnType;
+        _signatureVersion++;
+    }
 
     internal void UpdateModifiers(bool isVirtual, bool isOverride, bool isSealed, bool isAbstract)
     {

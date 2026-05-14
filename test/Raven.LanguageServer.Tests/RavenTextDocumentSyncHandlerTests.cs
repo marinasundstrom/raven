@@ -85,11 +85,12 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
         policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
         policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.Full);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void GetOpenDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredFullDiagnosticsWithoutWarmup()
+    public void GetOpenDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredDocumentDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetOpenDiagnosticsPolicy();
 
@@ -97,7 +98,8 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
         policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
+        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThanOrEqualTo(5_000);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.Document);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
@@ -110,6 +112,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.Document);
         policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
+        policy.FollowUpMode.ShouldBeNull();
         policy.DiagnosticsDelayMilliseconds.ShouldBeGreaterThan(0);
     }
 

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 using Microsoft.Extensions.Logging;
 
@@ -75,6 +76,9 @@ internal sealed class HoverHandler : IHoverHandler
         double capturesMs = 0;
         double hoverTextMs = 0;
         double rangeMs = 0;
+        double directInvocationResolutionMs = 0;
+        double declaredSymbolResolutionMs = 0;
+        double genericSymbolResolutionMs = 0;
         var cacheHit = false;
         Compilation? semanticCompilation = null;
         SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
@@ -111,6 +115,7 @@ internal sealed class HoverHandler : IHoverHandler
             currentStage = "syntaxOnlyHover";
             var syntaxOnlyHover = TryBuildFunctionExpressionDeclarationHover(sourceText, root, offset)
                 ?? TryBuildDeclarationSyntaxHover(sourceText, root, offset)
+                ?? TryBuildLocalReferenceSyntaxHover(sourceText, root, offset)
                 ?? TryBuildKnownTypeIdentifierSyntaxHover(sourceText, root, offset);
             if (syntaxOnlyHover is not null)
                 return CacheHover(cacheKey, syntaxOnlyHover);
@@ -158,11 +163,26 @@ internal sealed class HoverHandler : IHoverHandler
             cancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "resolution";
+            var resolutionStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
-            var resolution = TryResolveInvocationTargetHoverDirect(semanticModel, root, offset)
-                ?? TryResolveDeclaredHoverSymbol(semanticModel, root, offset)
-                ?? SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
-            resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            var resolution = TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
+            declaredSymbolResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (resolution is null)
+            {
+                stageStopwatch.Restart();
+                resolution = TryResolveInvocationTargetHoverDirect(semanticModel, root, offset);
+                directInvocationResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            }
+
+            if (resolution is null)
+            {
+                stageStopwatch.Restart();
+                resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
+                genericSymbolResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            }
+
+            resolutionStopwatch.Stop();
+            resolutionMs = resolutionStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
                 return CacheHover(cacheKey, null);
 
@@ -291,6 +311,9 @@ internal sealed class HoverHandler : IHoverHandler
                     new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("resolution", resolutionMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("directInvocationResolution", directInvocationResolutionMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("declaredSymbolResolution", declaredSymbolResolutionMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("genericSymbolResolution", genericSymbolResolutionMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("invocationOverride", invocationOverrideMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("signature", signatureMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("containing", containingMs),
@@ -303,7 +326,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (totalStopwatch.Elapsed.TotalMilliseconds >= SlowHoverThresholdMs)
             {
                 _logger.LogInformation(
-                    "Slow hover for {Uri} at {Line}:{Character}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms resolution={ResolutionMs:F1}ms invocationOverride={InvocationOverrideMs:F1}ms signature={SignatureMs:F1}ms containing={ContainingMs:F1}ms documentation={DocumentationMs:F1}ms captures={CapturesMs:F1}ms hoverText={HoverTextMs:F1}ms range={RangeMs:F1}ms lastStage={LastStage}.",
+                    "Slow hover for {Uri} at {Line}:{Character}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms resolution={ResolutionMs:F1}ms directInvocation={DirectInvocationMs:F1}ms declaredSymbol={DeclaredSymbolMs:F1}ms genericSymbol={GenericSymbolMs:F1}ms invocationOverride={InvocationOverrideMs:F1}ms signature={SignatureMs:F1}ms containing={ContainingMs:F1}ms documentation={DocumentationMs:F1}ms captures={CapturesMs:F1}ms hoverText={HoverTextMs:F1}ms range={RangeMs:F1}ms lastStage={LastStage}.",
                     request.TextDocument.Uri,
                     request.Position.Line,
                     request.Position.Character,
@@ -312,6 +335,9 @@ internal sealed class HoverHandler : IHoverHandler
                     analysisContextMs,
                     semanticModelMs,
                     resolutionMs,
+                    directInvocationResolutionMs,
+                    declaredSymbolResolutionMs,
+                    genericSymbolResolutionMs,
                     invocationOverrideMs,
                     signatureMs,
                     containingMs,
@@ -702,22 +728,47 @@ internal sealed class HoverHandler : IHoverHandler
         SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
+        if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, identifier, identifier, out resolution))
+            return true;
+
         var invocationInfo = semanticModel.GetSymbolInfo(invocation);
-        var availableCandidates = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
-        if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
-            availableCandidates = availableCandidates.Insert(0, invocationMethod);
-        else if (invocationInfo.Symbol is INamedTypeSymbol invocationType &&
-                 TryChooseConstructorForInvocation(invocationType, invocation, out var invocationConstructor))
+        if (invocationInfo.Symbol is IMethodSymbol invocationMethod &&
+            IsInvocationMethodNameMatch(invocationMethod, identifier.Identifier.ValueText))
         {
-            availableCandidates = availableCandidates.Insert(0, invocationConstructor);
+            var projected = ProjectCachedInvocationHoverSymbol(invocationMethod);
+            if (!IsUnitTypeSymbol(projected))
+            {
+                resolution = new SymbolResolutionResult(
+                    SymbolResolutionKind.InvocationTarget,
+                    projected,
+                    identifier);
+                return true;
+            }
         }
 
+        if (invocationInfo.Symbol is INamedTypeSymbol invocationType &&
+            TryChooseConstructorForInvocation(invocationType, invocation, out var invocationConstructor))
+        {
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                invocationConstructor,
+                identifier);
+            return true;
+        }
+
+        var availableCandidates = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
         if (!availableCandidates.IsDefaultOrEmpty)
         {
             var targetName = identifier.Identifier.ValueText;
-            var candidate = availableCandidates.FirstOrDefault(method =>
-                string.Equals(method.Name, targetName, StringComparison.Ordinal) ||
-                method.MethodKind == MethodKind.Constructor && string.Equals(method.ContainingType?.Name, targetName, StringComparison.Ordinal));
+            var matchingCandidates = availableCandidates
+                .Where(method =>
+                    IsInvocationMethodNameMatch(method, targetName))
+                .ToImmutableArray();
+            var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
+                    matchingCandidates,
+                    invocation,
+                    SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
+                ?? matchingCandidates.FirstOrDefault();
             if (candidate is not null)
             {
                 var projected = ProjectCachedInvocationHoverSymbol(candidate);
@@ -773,6 +824,11 @@ internal sealed class HoverHandler : IHoverHandler
 
         return false;
     }
+
+    private static bool IsInvocationMethodNameMatch(IMethodSymbol method, string targetName)
+        => string.Equals(method.Name, targetName, StringComparison.Ordinal) ||
+           method.MethodKind == MethodKind.Constructor &&
+           string.Equals(method.ContainingType?.Name, targetName, StringComparison.Ordinal);
 
     private static bool TryResolveConstructorFromTargetType(
         InvocationExpressionSyntax invocation,
@@ -1000,8 +1056,13 @@ internal sealed class HoverHandler : IHoverHandler
             }
         }
 
+        var candidateMethods = cachedInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
         var method = cachedInfo.Symbol as IMethodSymbol
-            ?? cachedInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+            ?? SemanticModel.TryChooseInvocationMethodCandidate(
+                candidateMethods,
+                invocation,
+                SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
+            ?? candidateMethods.FirstOrDefault();
         if (method is null)
             return false;
 
@@ -1045,7 +1106,9 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.Kind == SyntaxKind.IdentifierToken &&
                 token.Parent?.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault() is { } designation)
             {
-                var declaredLocal = semanticModel.GetDeclaredSymbol(designation) as ILocalSymbol;
+                var declaredLocal = SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, designation, out var designationInfo)
+                    ? (designationInfo.Symbol ?? designationInfo.CandidateSymbols.FirstOrDefault()) as ILocalSymbol
+                    : null;
                 var binding = declaredLocal is { IsMutable: true }
                     ? "var"
                     : designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ? "var" : "val";
@@ -1159,18 +1222,24 @@ internal sealed class HoverHandler : IHoverHandler
             }
 
             if (token.Parent is SingleVariableDesignationSyntax single &&
-                token == single.Identifier &&
-                semanticModel.GetDeclaredSymbol(single) is { } singleSymbol)
+                token == single.Identifier)
             {
-                return new SymbolResolutionResult(SymbolResolutionKind.Declaration, singleSymbol, single);
+                if (SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, single, out var singleInfo) &&
+                    (singleInfo.Symbol ?? singleInfo.CandidateSymbols.FirstOrDefault()) is { } singleSymbol)
+                {
+                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, singleSymbol, single);
+                }
             }
 
             if (token.Parent is TypedVariableDesignationSyntax typed &&
                 typed.Designation is SingleVariableDesignationSyntax typedSingle &&
-                token == typedSingle.Identifier &&
-                semanticModel.GetDeclaredSymbol(typedSingle) is { } typedSymbol)
+                token == typedSingle.Identifier)
             {
-                return new SymbolResolutionResult(SymbolResolutionKind.Declaration, typedSymbol, typedSingle);
+                if (SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, typedSingle, out var typedInfo) &&
+                    (typedInfo.Symbol ?? typedInfo.CandidateSymbols.FirstOrDefault()) is { } typedSymbol)
+                {
+                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, typedSymbol, typedSingle);
+                }
             }
         }
 
@@ -1259,6 +1328,12 @@ internal sealed class HoverHandler : IHoverHandler
             if (TryBuildCallableDeclarationSyntaxHover(sourceText, token, out var callableHover))
                 return callableHover;
 
+            if (TryBuildUnionCaseDeclarationSyntaxHover(sourceText, token, out var unionCaseHover))
+                return unionCaseHover;
+
+            if (TryBuildUnionCaseParameterSyntaxHover(sourceText, token, out var unionCaseParameterHover))
+                return unionCaseParameterHover;
+
             if (TryBuildCallableParameterSyntaxHover(sourceText, token, out var callableParameterHover))
                 return callableParameterHover;
 
@@ -1267,6 +1342,85 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return null;
+    }
+
+    private static Hover? TryBuildLocalReferenceSyntaxHover(
+        SourceText sourceText,
+        SyntaxNode root,
+        int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.IsMissing ||
+                token.Kind != SyntaxKind.IdentifierToken ||
+                token.Parent is not IdentifierNameSyntax identifier)
+            {
+                continue;
+            }
+
+            var owner = identifier.Ancestors()
+                .FirstOrDefault(static ancestor => ancestor is MethodDeclarationSyntax or FunctionStatementSyntax or AccessorDeclarationSyntax);
+            if (owner is null)
+                continue;
+
+            var local = owner.DescendantNodes()
+                .OfType<VariableDeclaratorSyntax>()
+                .Where(declarator => declarator.Span.Start < identifier.Span.Start)
+                .Where(declarator => declarator.Identifier.ValueText == identifier.Identifier.ValueText)
+                .Where(static declarator => declarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().Any())
+                .Where(declarator => IsInSameExecutableOwner(declarator, owner))
+                .OrderByDescending(static declarator => declarator.Span.Start)
+                .FirstOrDefault();
+            if (local is null)
+                continue;
+
+            var binding = local.Parent is VariableDeclarationSyntax declaration
+                ? declaration.BindingKeyword.ValueText
+                : "val";
+            if (string.IsNullOrWhiteSpace(binding))
+                binding = "val";
+
+            if (local.TypeAnnotation is not { } typeAnnotation)
+                continue;
+
+            var signature = $"{binding} {local.Identifier.ValueText}: {typeAnnotation.Type}";
+            var hoverText = BuildHoverText(
+                signature,
+                kind: "Local",
+                containing: null,
+                documentation: null,
+                capturedVariables: ImmutableArray<ISymbol>.Empty,
+                isCapturedVariable: false);
+
+            return new Hover
+            {
+                Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                {
+                    Kind = MarkupKind.Markdown,
+                    Value = hoverText
+                }),
+                Range = PositionHelper.ToRange(sourceText, token.Span)
+            };
+        }
+
+        return null;
+    }
+
+    private static bool IsInSameExecutableOwner(SyntaxNode node, SyntaxNode owner)
+    {
+        var nearestOwner = node.Ancestors()
+            .FirstOrDefault(static ancestor => ancestor is MethodDeclarationSyntax or FunctionStatementSyntax or AccessorDeclarationSyntax);
+        return ReferenceEquals(nearestOwner, owner);
     }
 
     private static bool ShouldSuppressSemanticHover(SyntaxNode root, int offset)
@@ -1599,6 +1753,76 @@ internal sealed class HoverHandler : IHoverHandler
         return false;
     }
 
+    private static bool TryBuildUnionCaseDeclarationSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
+    {
+        hover = null!;
+
+        if (token.Parent is not CaseDeclarationSyntax caseDeclaration ||
+            token != caseDeclaration.Identifier ||
+            caseDeclaration.Identifier.IsMissing ||
+            !TryBuildUnionCaseSyntaxSignature(sourceText, caseDeclaration, out var caseSignature))
+        {
+            return false;
+        }
+
+        var containing = caseDeclaration.Ancestors()
+            .OfType<UnionDeclarationSyntax>()
+            .Select(static union => union.Identifier.ValueText)
+            .FirstOrDefault();
+
+        hover = new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = BuildHoverText(
+                    caseSignature,
+                    kind: "Union Case",
+                    containing: containing,
+                    documentation: null,
+                    capturedVariables: ImmutableArray<ISymbol>.Empty,
+                    isCapturedVariable: false)
+            }),
+            Range = PositionHelper.ToRange(sourceText, token.Span)
+        };
+        return true;
+    }
+
+    private static bool TryBuildUnionCaseParameterSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
+    {
+        hover = null!;
+
+        if (token.Parent is not ParameterSyntax parameter ||
+            token != parameter.Identifier ||
+            parameter.Identifier.IsMissing ||
+            parameter.Parent is not ParameterListSyntax { Parent: CaseDeclarationSyntax caseDeclaration } ||
+            !TryBuildUnionCaseSyntaxSignature(sourceText, caseDeclaration, out var caseSignature))
+        {
+            return false;
+        }
+
+        var signature = BuildCallableParameterSyntaxSignature(parameter);
+        if (string.IsNullOrWhiteSpace(signature))
+            return false;
+
+        hover = new Hover
+        {
+            Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+            {
+                Kind = MarkupKind.Markdown,
+                Value = BuildHoverText(
+                    signature,
+                    kind: "Parameter",
+                    containing: caseSignature,
+                    documentation: null,
+                    capturedVariables: ImmutableArray<ISymbol>.Empty,
+                    isCapturedVariable: false)
+            }),
+            Range = PositionHelper.ToRange(sourceText, token.Span)
+        };
+        return true;
+    }
+
     private static bool TryBuildCallableParameterSyntaxHover(SourceText sourceText, SyntaxToken token, out Hover hover)
     {
         hover = null!;
@@ -1702,6 +1926,28 @@ internal sealed class HoverHandler : IHoverHandler
         };
         var typeDisplay = parameter.TypeAnnotation?.Type.ToString() ?? "?";
         return $"{refPrefix}{bindingPrefix}{parameter.Identifier.ValueText}: {typeDisplay}";
+    }
+
+    private static bool TryBuildUnionCaseSyntaxSignature(
+        SourceText sourceText,
+        CaseDeclarationSyntax declaration,
+        out string signature)
+    {
+        signature = string.Empty;
+
+        var start = !declaration.CaseKeyword.IsMissing
+            ? declaration.CaseKeyword.Span.Start
+            : declaration.Identifier.Span.Start;
+        var end = declaration.Identifier.Span.End;
+        if (declaration.ParameterList is { } parameterList)
+            end = MaxSpanEnd(end, parameterList);
+
+        if (start < 0 || end <= start || start >= sourceText.Length)
+            return false;
+
+        end = Math.Min(end, sourceText.Length);
+        signature = NormalizeHoverSignatureText(sourceText.ToString(TextSpan.FromBounds(start, end)));
+        return !string.IsNullOrWhiteSpace(signature);
     }
 
     private static bool TryBuildMethodDeclarationSyntaxSignature(
@@ -2170,6 +2416,9 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is IMethodSymbol method)
         {
+            if (TryBuildFastMetadataMethodSignature(method, out var metadataMethodSignature))
+                return metadataMethodSignature;
+
             method = GetPreferredMethodForDisplay(method);
 
             if (MethodSignatureContainsError(method) &&
@@ -2301,10 +2550,17 @@ internal sealed class HoverHandler : IHoverHandler
         {
             if (contextNode is TypeSyntax contextTypeSyntax)
             {
-                var contextTypeInfo = semanticModel.GetTypeInfo(contextTypeSyntax);
+                var contextTypeInfo = semanticModel.TryGetAvailableTypeInfo(contextTypeSyntax, out var availableContextTypeInfo)
+                    ? availableContextTypeInfo
+                    : semanticModel.GetTypeInfo(contextTypeSyntax);
                 var contextType = contextTypeInfo.Type ?? contextTypeInfo.ConvertedType;
-                if (contextType is not null && contextType.TypeKind != TypeKind.Error)
+                if (contextType is not null && !contextType.ContainsErrorType())
                     typeSymbol = contextType;
+            }
+            else if (typeSymbol.ContainsErrorType() &&
+                     TryInferDeclaredTypeFromContext(contextNode, semanticModel, out var contextType))
+            {
+                typeSymbol = contextType;
             }
 
             var declarationTypeFormat = CreatePlainTypeFormat()
@@ -2542,7 +2798,9 @@ internal sealed class HoverHandler : IHoverHandler
         SemanticModel semanticModel,
         SymbolDisplayFormat argumentFormat)
     {
-        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        var typeInfo = semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var availableTypeInfo)
+            ? availableTypeInfo
+            : semanticModel.GetTypeInfo(typeSyntax);
         var type = typeInfo.Type ?? typeInfo.ConvertedType;
         return type is not null && type.TypeKind != TypeKind.Error
             ? FormatType(type, argumentFormat)
@@ -2567,6 +2825,124 @@ internal sealed class HoverHandler : IHoverHandler
     private static bool MethodSignatureContainsError(IMethodSymbol method)
         => method.ReturnType.ContainsErrorType() ||
            method.Parameters.Any(static parameter => parameter.Type.ContainsErrorType());
+
+    private static bool TryBuildFastMetadataMethodSignature(
+        IMethodSymbol method,
+        [NotNullWhen(true)] out string? signature)
+    {
+        signature = null;
+        var metadataMethod = method as PEMethodSymbol ?? method.OriginalDefinition as PEMethodSymbol;
+        if (metadataMethod is not { } peMethod ||
+            peMethod.MethodKind != MethodKind.Ordinary ||
+            peMethod.IsExtensionMethod ||
+            peMethod.ReflectionMethodBase is not MethodInfo methodInfo)
+        {
+            return false;
+        }
+
+        var parameters = methodInfo.GetParameters();
+        var parameterText = string.Join(", ", parameters.Select(static parameter =>
+        {
+            var paramsPrefix = HasMetadataAttribute(parameter, "System.ParamArrayAttribute") ? "params " : string.Empty;
+            var refPrefix = parameter.ParameterType.IsByRef
+                ? parameter.IsOut ? "out " : parameter.IsIn ? "in " : "ref "
+                : string.Empty;
+            var parameterType = parameter.ParameterType.IsByRef
+                ? parameter.ParameterType.GetElementType() ?? parameter.ParameterType
+                : parameter.ParameterType;
+            return $"{paramsPrefix}{refPrefix}{parameter.Name}: {FormatReflectionType(parameterType)}";
+        }));
+        var typeParameters = methodInfo.IsGenericMethodDefinition || methodInfo.ContainsGenericParameters
+            ? $"<{string.Join(", ", methodInfo.GetGenericArguments().Select(static argument => argument.Name))}>"
+            : string.Empty;
+        var staticPrefix = methodInfo.IsStatic ? "static " : string.Empty;
+        var accessibilityPrefix = GetReflectionAccessibilityPrefix(methodInfo);
+        signature = $"{accessibilityPrefix}{staticPrefix}func {method.Name}{typeParameters}({parameterText}) -> {FormatReflectionType(methodInfo.ReturnType)}";
+        return true;
+    }
+
+    private static bool HasMetadataAttribute(ParameterInfo parameter, string metadataName)
+    {
+        try
+        {
+            return parameter.GetCustomAttributesData()
+                .Any(attribute => string.Equals(attribute.AttributeType.FullName, metadataName, StringComparison.Ordinal));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string GetReflectionAccessibilityPrefix(MethodBase method)
+    {
+        if (method.IsPublic)
+            return string.Empty;
+        if (method.IsPrivate)
+            return "private ";
+        if (method.IsFamily)
+            return "protected ";
+        if (method.IsAssembly)
+            return "internal ";
+        if (method.IsFamilyOrAssembly)
+            return "protected internal ";
+        if (method.IsFamilyAndAssembly)
+            return "private protected ";
+
+        return string.Empty;
+    }
+
+    private static string FormatReflectionType(Type type)
+    {
+        if (type == typeof(void))
+            return "()";
+        if (type == typeof(string))
+            return "string";
+        if (type == typeof(bool))
+            return "bool";
+        if (type == typeof(byte))
+            return "byte";
+        if (type == typeof(sbyte))
+            return "sbyte";
+        if (type == typeof(short))
+            return "short";
+        if (type == typeof(ushort))
+            return "ushort";
+        if (type == typeof(int))
+            return "int";
+        if (type == typeof(uint))
+            return "uint";
+        if (type == typeof(long))
+            return "long";
+        if (type == typeof(ulong))
+            return "ulong";
+        if (type == typeof(float))
+            return "float";
+        if (type == typeof(double))
+            return "double";
+        if (type == typeof(decimal))
+            return "decimal";
+        if (type == typeof(object))
+            return "object";
+
+        if (type.IsArray)
+            return $"{FormatReflectionType(type.GetElementType() ?? typeof(object))}[]";
+
+        if (type.IsGenericParameter)
+            return type.Name;
+
+        if (type.IsGenericType)
+        {
+            var name = type.Name;
+            var tickIndex = name.IndexOf('`', StringComparison.Ordinal);
+            if (tickIndex >= 0)
+                name = name[..tickIndex];
+
+            return $"{name}<{string.Join(", ", type.GetGenericArguments().Select(FormatReflectionType))}>";
+        }
+
+        return type.Name;
+    }
 
     private static bool TryBuildMethodSyntaxSignature(IMethodSymbol method, out string signature)
     {
@@ -2725,11 +3101,79 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         var signature = BuildSignature(symbol, contextNode, semanticModel);
+        if (resolution.Kind == SymbolResolutionKind.TypePosition &&
+            string.Equals(signature, "<Error>", StringComparison.Ordinal) &&
+            TryInferDeclaredTypeAtOffset(root, offset, semanticModel, out var typeAtOffset))
+        {
+            signature = BuildSignature(typeAtOffset, contextNode, semanticModel);
+        }
+        else if (resolution.Kind == SymbolResolutionKind.TypePosition &&
+                 string.Equals(signature, "<Error>", StringComparison.Ordinal) &&
+                 TryBuildTypeSyntaxSignatureAtOffset(root, offset, semanticModel, out var typeSyntaxSignature))
+        {
+            signature = typeSyntaxSignature;
+        }
 
         if (!TryBuildReceiverErrorSignatureOverride(symbol, semanticModel, root, offset, out var overridden))
             return signature;
 
         return overridden;
+    }
+
+    private static bool TryBuildTypeSyntaxSignatureAtOffset(
+        SyntaxNode root,
+        int offset,
+        SemanticModel semanticModel,
+        out string signature)
+    {
+        signature = string.Empty;
+
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var genericName = token.Parent?
+                .AncestorsAndSelf()
+                .OfType<GenericNameSyntax>()
+                .FirstOrDefault(generic => generic.Span.Contains(token.Span));
+            if (genericName is null)
+                continue;
+
+            var arity = genericName.TypeArgumentList.Arguments.Count;
+            var metadataName = genericName.Identifier.ValueText + "`" + arity;
+            var definition = semanticModel.Compilation.GetTypeByMetadataName(metadataName)
+                ?? semanticModel.Compilation.GetTypeByMetadataName("System." + metadataName);
+            if (definition is null || definition.ContainsErrorType())
+                continue;
+
+            var kind = definition.TypeKind switch
+            {
+                TypeKind.Interface => "interface",
+                TypeKind.Struct when definition.IsUnion => "union struct",
+                TypeKind.Struct => "struct",
+                TypeKind.Enum => "enum",
+                TypeKind.Delegate => "delegate",
+                TypeKind.Class when definition.IsUnion => "union class",
+                TypeKind.TypeUnion => "union",
+                _ => "class"
+            };
+
+            var argumentFormat = CreatePlainTypeFormat();
+            var arguments = genericName.TypeArgumentList.Arguments
+                .Select(argument => FormatTypeSyntaxForSignature(argument.Type, semanticModel, argumentFormat));
+            signature = $"{kind} {genericName.Identifier.ValueText}<{string.Join(", ", arguments)}>";
+            return true;
+        }
+
+        return false;
     }
 
     private static string BuildInvocationTargetTypeSignature(INamedTypeSymbol type)
@@ -4075,7 +4519,9 @@ internal sealed class HoverHandler : IHoverHandler
     {
         inferredType = null!;
 
-        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
+        var typeInfo = semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var availableTypeInfo)
+            ? availableTypeInfo
+            : semanticModel.GetTypeInfo(typeSyntax);
 
         var resolvedType = typeInfo.Type ?? typeInfo.ConvertedType;
         if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
@@ -4103,11 +4549,48 @@ internal sealed class HoverHandler : IHoverHandler
             resolvedType = builtInType;
         }
 
-        if (resolvedType is null || resolvedType.TypeKind == TypeKind.Error)
+        if ((resolvedType is null || resolvedType.ContainsErrorType()) &&
+            typeSyntax is GenericNameSyntax genericName &&
+            TryResolveMetadataGenericTypeFromSyntax(semanticModel, genericName, out var metadataGenericType))
+        {
+            resolvedType = metadataGenericType;
+        }
+
+        if (resolvedType is null || resolvedType.ContainsErrorType())
             return false;
 
         inferredType = resolvedType;
         return true;
+    }
+
+    private static bool TryResolveMetadataGenericTypeFromSyntax(
+        SemanticModel semanticModel,
+        GenericNameSyntax genericName,
+        out ITypeSymbol resolvedType)
+    {
+        resolvedType = null!;
+
+        var arity = genericName.TypeArgumentList.Arguments.Count;
+        var metadataName = genericName.Identifier.ValueText + "`" + arity;
+        var definition = semanticModel.Compilation.GetTypeByMetadataName(metadataName)
+            ?? semanticModel.Compilation.GetTypeByMetadataName("System." + metadataName);
+        if (definition is null || definition.ContainsErrorType())
+            return false;
+
+        var arguments = new List<ITypeSymbol>(arity);
+        foreach (var argument in genericName.TypeArgumentList.Arguments)
+        {
+            if (!TryResolveTypeSymbolFromSyntax(semanticModel, argument.Type, out var argumentType) ||
+                argumentType.ContainsErrorType())
+            {
+                return false;
+            }
+
+            arguments.Add(argumentType);
+        }
+
+        resolvedType = definition.Construct(arguments.ToArray());
+        return !resolvedType.ContainsErrorType();
     }
 
     private static bool IsFunctionExpressionIdentifierToken(FunctionExpressionSyntax functionExpression, SyntaxToken token)

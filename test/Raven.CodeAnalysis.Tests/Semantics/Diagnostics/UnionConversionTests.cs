@@ -1,8 +1,8 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
-using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -138,6 +138,8 @@ func test(flag: bool) {
         // return Ok(1) where the return type is Result<(), string>: Ok is inferred as Ok<int>,
         // so the error should be at the Ok(1) expression, not at the function body.
         var code = """
+import Result.*
+
 func build() -> Result<(), string> {
     return Ok(1)
 }
@@ -147,10 +149,10 @@ union Result<T, E> {
     case Error(error: E)
 }
 """;
-        // line 2: "    return Ok(1)" — Ok(1) at col 12..16 (end exclusive)
+        // line 4: "    return Ok(1)" - Ok(1) at col 12..16 (end exclusive)
         var verifier = CreateVerifier(code, [
             new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
-                .WithSpan(2, 12, 2, 17)
+                .WithSpan(4, 12, 4, 17)
                 .WithArguments("Result<int, E>", "Result<(), string>")
         ]);
         verifier.Verify();
@@ -162,6 +164,8 @@ union Result<T, E> {
         // Trailing Ok(1) (implicit return) in Result<(), string> body: error must point at
         // the expression itself, not at the entire function body.
         var code = """
+import Result.*
+
 func build() -> Result<(), string> {
     Ok(1)
 }
@@ -171,10 +175,10 @@ union Result<T, E> {
     case Error(error: E)
 }
 """;
-        // line 2: "    Ok(1)" — Ok(1) at col 5..9 (end exclusive)
+        // line 4: "    Ok(1)" - Ok(1) at col 5..9 (end exclusive)
         var verifier = CreateVerifier(code, [
             new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
-                .WithSpan(2, 5, 2, 10)
+                .WithSpan(4, 5, 4, 10)
                 .WithArguments("Result<int, E>", "Result<(), string>")
         ]);
         verifier.Verify();
@@ -193,7 +197,7 @@ func build() -> Result<(), AppError> {
         WriteLine(no.)
     }
 
-    Ok
+    .Ok
 }
 
 union Result<T, E> {

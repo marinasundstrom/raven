@@ -73,6 +73,49 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_DocumentSemanticGateBusy_ReturnsWithoutWaitingAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> unit {
+    val answer = 1 + 2
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        using var heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        var hintsTask = handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var completedTask = await Task.WhenAny(hintsTask, Task.Delay(1000));
+        completedTask.ShouldBe(hintsTask);
+
+        var result = await hintsTask;
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Handle_RequestedRange_FiltersHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -434,7 +477,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_EfCoreVehicleSample_ProvidesHintsForUseDeclarationsAndRouteFunctionExpressionsAsync()
+    public async Task Handle_EfCoreVehicleSample_ProvidesRangeScopedHintsForLocalsAndRouteFunctionExpressionsAsync()
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs");
@@ -460,19 +503,18 @@ func Main() -> unit {
         store.UpsertDocument(uri, code);
         var sourceText = SourceText.From(code);
 
-        var result = await handler.Handle(new InlayHintParams
-        {
-            TextDocument = new TextDocumentIdentifier(uri),
-            Range = FullDocumentRange(sourceText)
-        }, CancellationToken.None);
+        var builderInsertion = code.IndexOf("builder", StringComparison.Ordinal) + "builder".Length;
+        var builderHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, builderInsertion);
+        AssertHasHintAtInsertion(sourceText, builderHints, builderInsertion, ": ");
 
-        var hints = result.ToArray();
-        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf("builder", StringComparison.Ordinal) + "builder".Length, ": ");
-        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf("scope", StringComparison.Ordinal) + "scope".Length, ": ");
-        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf("vehicle =>", StringComparison.Ordinal) + "vehicle".Length, " -> ");
+        var vehicleInsertion = code.IndexOf("vehicle =>", StringComparison.Ordinal) + "vehicle".Length;
+        var vehicleHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, vehicleInsertion);
+        AssertHasHintAtInsertion(sourceText, vehicleHints, vehicleInsertion, " -> ");
 
         const string routeHandler = "async func (context: VehicleDbContext, cancellationToken: CancellationToken)";
-        AssertHasHintAtInsertion(sourceText, hints, code.IndexOf(routeHandler, StringComparison.Ordinal) + routeHandler.Length, " -> ");
+        var routeHandlerInsertion = code.IndexOf(routeHandler, StringComparison.Ordinal) + routeHandler.Length;
+        var routeHandlerHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, routeHandlerInsertion);
+        AssertHasHintAtInsertion(sourceText, routeHandlerHints, routeHandlerInsertion, " -> ");
     }
 
     public void Dispose()
@@ -483,6 +525,21 @@ func Main() -> unit {
 
     private static LspRange FullDocumentRange(SourceText sourceText)
         => PositionHelper.ToRange(sourceText, new TextSpan(0, sourceText.Length));
+
+    private static async Task<InlayHint[]> GetHintsAtInsertionAsync(
+        InlayHintHandler handler,
+        DocumentUri uri,
+        SourceText sourceText,
+        int insertionPosition)
+    {
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0))
+        }, CancellationToken.None);
+
+        return result.ToArray();
+    }
 
     private static void AssertSourceApplicable(SourceText sourceText, InlayHint hint, int insertionPosition, string expectedText)
     {

@@ -19,6 +19,49 @@ build_codegen_exclusion_filter() {
   printf '%s' "$filter"
 }
 
+build_code_analysis_test_classes() {
+  find "$ROOT_DIR/test/Raven.CodeAnalysis.Tests" \
+    \( -path "$ROOT_DIR/test/Raven.CodeAnalysis.Tests/CodeGen" -o \
+       -path "$ROOT_DIR/test/Raven.CodeAnalysis.Tests/CodeGen/*" \) -prune -o \
+    -name '*.cs' -print0 |
+    xargs -0 sed -nE 's/^[[:space:]]*(public|internal)[[:space:]]+((sealed|abstract|static|partial)[[:space:]]+)*class[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\4/p' |
+    sort -u
+}
+
+run_code_analysis_tests_in_batches() {
+  local class_batch=()
+  local batch_size=1
+
+  run_batch() {
+    local class_filter=""
+
+    for class_name in "${class_batch[@]}"; do
+      [[ -z "$class_name" ]] && continue
+      if [[ -n "$class_filter" ]]; then
+        class_filter+="|"
+      fi
+      class_filter+="$code_analysis_filter&FullyQualifiedName~$class_name"
+    done
+
+    [[ -z "$class_filter" ]] && return
+
+    dotnet test "$CODE_ANALYSIS_TESTS" /property:WarningLevel=0 \
+      --filter "$class_filter"
+  }
+
+  while IFS= read -r class_name; do
+    [[ -z "$class_name" ]] && continue
+    class_batch+=("$class_name")
+
+    if (( ${#class_batch[@]} >= batch_size )); then
+      run_batch
+      class_batch=()
+    fi
+  done < <(build_code_analysis_test_classes)
+
+  run_batch
+}
+
 # Baseline excludes runtime/emission-heavy CodeGen + Samples tests.
 # Some CodeGen tests still use older Raven.CodeAnalysis.Tests namespaces,
 # so derive the CodeGen exclusion set from the folder rather than relying
@@ -26,8 +69,7 @@ build_codegen_exclusion_filter() {
 common_filter="FullyQualifiedName!~Sample"
 code_analysis_filter="$common_filter$(build_codegen_exclusion_filter)"
 
-dotnet test "$CODE_ANALYSIS_TESTS" /property:WarningLevel=0 \
-  --filter "$code_analysis_filter"
+run_code_analysis_tests_in_batches
 
 while IFS= read -r project; do
   [[ "$project" == "$CODE_ANALYSIS_TESTS" ]] && continue

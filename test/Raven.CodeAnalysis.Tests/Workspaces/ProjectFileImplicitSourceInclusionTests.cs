@@ -71,7 +71,7 @@ public sealed class ProjectFileImplicitSourceInclusionTests
             var projectPath = Path.Combine(root, "App.ravenproj");
             File.WriteAllText(
                 projectPath,
-                "<Project Name=\"App\" Output=\"App\" EnableDefaultRavItems=\"false\" />\n");
+                "<Project Name=\"App\" Output=\"App\" EnableDefaultRavItems=\"false\" GeneratePreludeImports=\"false\" />\n");
 
             var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
             var projectId = workspace.OpenProject(projectPath);
@@ -102,7 +102,7 @@ public sealed class ProjectFileImplicitSourceInclusionTests
             File.WriteAllText(
                 projectPath,
                 """
-<Project Name="App" Output="App" EnableDefaultRavItems="true">
+<Project Name="App" Output="App" EnableDefaultRavItems="true" GeneratePreludeImports="false">
   <Document Path="main.rvn" />
 </Project>
 """);

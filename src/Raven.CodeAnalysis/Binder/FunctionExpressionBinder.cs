@@ -25,6 +25,7 @@ class FunctionExpressionBinder : BlockBinder
 
     protected override void OnLocalDeclared(ILocalSymbol local)
     {
+        base.OnLocalDeclared(local);
         _declaredLocals.Add(local);
     }
 

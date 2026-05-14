@@ -452,7 +452,11 @@ public partial class SemanticModel
         TypeKind typeKind,
         int arity)
     {
-        return container.GetMembers(name)
+        var members = container is SourceNamedTypeSymbol sourceType
+            ? sourceType.GetDeclaredMembersWithoutEnsuring(name)
+            : container.GetMembers(name);
+
+        return members
             .OfType<SourceNamedTypeSymbol>()
             .FirstOrDefault(type => type.TypeKind == typeKind && type.Arity == arity);
     }
@@ -5943,6 +5947,9 @@ public partial class SemanticModel
             if (ImplementsAbstractMember(typeSymbol, abstractMember))
                 continue;
 
+            if (HasDeclaredOverrideCandidate(declaration, abstractMember))
+                continue;
+
             var memberDisplay = GetAbstractMemberDisplay(abstractMember);
             var baseTypeDisplay = baseType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
@@ -5954,22 +5961,125 @@ public partial class SemanticModel
         }
     }
 
-    private static bool ImplementsAbstractMember(INamedTypeSymbol typeSymbol, IMethodSymbol abstractMember)
+    private bool HasDeclaredOverrideCandidate(TypeDeclarationSyntax declaration, IMethodSymbol abstractMember)
     {
-        foreach (var candidate in typeSymbol.GetMembers(abstractMember.Name).OfType<IMethodSymbol>())
+        // The method binder owns final override validation. This guard prevents an
+        // early missing-abstract diagnostic while source member state is still being completed.
+        foreach (var member in GetEffectiveTypeMembers(declaration).Select(static member => member.EffectiveSyntax))
         {
-            if (!candidate.IsOverride)
-                continue;
+            if (member is MethodDeclarationSyntax method &&
+                method.Identifier.ValueText == abstractMember.Name &&
+                method.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.OverrideKeyword) &&
+                HasCompatibleParameterSurface(method, abstractMember))
+            {
+                return true;
+            }
 
-            if (candidate is SourceMethodSymbol sourceMethod &&
-                sourceMethod.OverriddenMethod is not null &&
-                SymbolEqualityComparer.Default.Equals(sourceMethod.OverriddenMethod, abstractMember))
+            if (abstractMember.AssociatedSymbol is IPropertySymbol property &&
+                member is PropertyDeclarationSyntax propertyDeclaration &&
+                propertyDeclaration.Identifier.ValueText == property.Name &&
+                propertyDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.OverrideKeyword))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private static bool HasCompatibleParameterSurface(MethodDeclarationSyntax method, IMethodSymbol abstractMember)
+    {
+        if (method.ParameterList.Parameters.Count != abstractMember.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < method.ParameterList.Parameters.Count; i++)
+        {
+            if (ParameterSyntaxUtilities.GetRefKind(method.ParameterList.Parameters[i]) != abstractMember.Parameters[i].RefKind)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool ImplementsAbstractMember(INamedTypeSymbol typeSymbol, IMethodSymbol abstractMember)
+    {
+        foreach (var candidate in typeSymbol.GetMembers(abstractMember.Name).OfType<IMethodSymbol>())
+        {
+            var sourceMethod = candidate as SourceMethodSymbol;
+            if (!candidate.IsOverride && !HasOverrideModifier(sourceMethod))
+                continue;
+
+            if (sourceMethod is not null &&
+                sourceMethod.OverriddenMethod is not null &&
+                SymbolEqualityComparer.Default.Equals(sourceMethod.OverriddenMethod, abstractMember))
+            {
+                return true;
+            }
+
+            if (candidate is SourceMethodSymbol { IsSignatureSkeleton: true })
+                return true;
+
+            if (MethodSignaturesMatch(candidate, abstractMember))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasOverrideModifier(SourceMethodSymbol? method)
+    {
+        if (method is null)
+            return false;
+
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is MethodDeclarationSyntax declaration &&
+                declaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.OverrideKeyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool MethodSignaturesMatch(IMethodSymbol candidate, IMethodSymbol abstractMember)
+    {
+        if (!SymbolEqualityComparer.Default.Equals(
+                StripNullableReference(candidate.ReturnType),
+                StripNullableReference(abstractMember.ReturnType)))
+        {
+            return false;
+        }
+
+        if (candidate.Parameters.Length != abstractMember.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < candidate.Parameters.Length; i++)
+        {
+            var candidateParameter = candidate.Parameters[i];
+            var abstractParameter = abstractMember.Parameters[i];
+
+            if (candidateParameter.RefKind != abstractParameter.RefKind)
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(
+                    StripNullableReference(candidateParameter.Type),
+                    StripNullableReference(abstractParameter.Type)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static ITypeSymbol StripNullableReference(ITypeSymbol type)
+    {
+        if (type is NullableTypeSymbol nullableType && !nullableType.UnderlyingType.IsValueType)
+            return StripNullableReference(nullableType.UnderlyingType);
+
+        return type;
     }
 
     private static string GetAbstractMemberDisplay(IMethodSymbol abstractMember)
@@ -6286,10 +6396,14 @@ public partial class SemanticModel
 
     internal void RemoveCachedBinder(SyntaxNode node)
     {
-        _binderCache.TryRemove(node, out _);
+        if (_binderCache.TryRemove(node, out var binder))
+            _binderLifecycleSnapshots.TryRemove(binder, out _);
 
         if (CanUseStructuralBinderCache(node))
-            _binderCacheByKey.TryRemove(GetSyntaxNodeMapKey(node), out _);
+        {
+            if (_binderCacheByKey.TryRemove(GetSyntaxNodeMapKey(node), out binder))
+                _binderLifecycleSnapshots.TryRemove(binder, out _);
+        }
     }
 
     internal SyntaxNode? GetSyntax(BoundNode? node)

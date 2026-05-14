@@ -154,6 +154,8 @@ match value {
     public void MatchStatement_WithNestedCaseNominalSequenceAndWholeDesignation_BindsWithoutDiagnostics()
     {
         const string code = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None

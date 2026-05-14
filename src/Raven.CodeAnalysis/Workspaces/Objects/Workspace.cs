@@ -302,8 +302,12 @@ public class Workspace
         {
             foreach (var reference in project.AnalyzerReferences)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 foreach (var analyzer in reference.GetAnalyzers())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
                     IEnumerable<Diagnostic> analyzerDiagnostics;
                     try
@@ -322,6 +326,7 @@ public class Workspace
 
                     foreach (var diagnostic in analyzerDiagnostics)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         AnalyzerDiagnosticIdValidator.Validate(analyzer, diagnostic, isInternalAnalyzer);
 
                         var mapped = compilation.ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);

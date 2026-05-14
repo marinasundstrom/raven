@@ -113,6 +113,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
     {
         return owner switch
         {
+            CompilationUnitSyntax => (owner.Kind, "root"),
             MethodDeclarationSyntax method => (owner.Kind, CreateMethodDeclarationMatchIdentity(method)),
             FunctionStatementSyntax function => (owner.Kind, CreateFunctionStatementMatchIdentity(function)),
             ConstructorDeclarationSyntax ctor => (owner.Kind, CreateConstructorDeclarationMatchIdentity(ctor)),
@@ -187,6 +188,12 @@ internal static class IncrementalExecutableOwnerAnalyzer
         SyntaxNode currentOwner,
         out Compilation.OwnerRelativeTextChange ownerChange)
     {
+        if (AreEquivalentIgnoringTrivia(previousOwner, currentOwner))
+        {
+            ownerChange = default;
+            return false;
+        }
+
         var previousText = previousOwner.ToString();
         var currentText = currentOwner.ToString();
 
@@ -222,6 +229,36 @@ internal static class IncrementalExecutableOwnerAnalyzer
             currentSpan,
             ClassifyOwnerRelativeChange(previousOwner, previousSpan, currentOwner, currentSpan));
         return true;
+    }
+
+    private static bool AreEquivalentIgnoringTrivia(SyntaxNode previousOwner, SyntaxNode currentOwner)
+    {
+        if (previousOwner.Kind != currentOwner.Kind)
+            return false;
+
+        using var previousTokens = previousOwner.DescendantTokens().GetEnumerator();
+        using var currentTokens = currentOwner.DescendantTokens().GetEnumerator();
+
+        while (true)
+        {
+            var hasPrevious = previousTokens.MoveNext();
+            var hasCurrent = currentTokens.MoveNext();
+            if (hasPrevious != hasCurrent)
+                return false;
+
+            if (!hasPrevious)
+                return true;
+
+            var previous = previousTokens.Current;
+            var current = currentTokens.Current;
+            if (previous.Kind != current.Kind ||
+                previous.IsMissing != current.IsMissing ||
+                !string.Equals(previous.Text, current.Text, StringComparison.Ordinal) ||
+                !string.Equals(previous.ValueText, current.ValueText, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
     }
 
     private static Compilation.OwnerRelativeChangeKind ClassifyOwnerRelativeChange(

@@ -1983,7 +1983,10 @@ internal partial class BlockBinder
     }
 
     private bool IsUnqualifiedUnionCaseImported(string caseName, int? typeArgumentCount)
-        => LookupUnionCaseTypeCandidates(caseName, typeArgumentCount).Length > 0;
+        => LookupUnionCaseTypeCandidates(
+            caseName,
+            typeArgumentCount,
+            includeNamespaceTypeLookups: false).Length > 0;
 
     private static int? GetCasePatternTypeArgumentCount(TypeSyntax typeSyntax)
     {

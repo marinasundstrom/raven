@@ -41,6 +41,12 @@ internal static class ExternalDocumentationProvider
             if (symbol.ContainingAssembly is not PEAssemblySymbol peAssembly)
                 return false;
 
+            if (!string.IsNullOrWhiteSpace(peAssembly.AssemblyPath))
+            {
+                assemblyLocation = peAssembly.AssemblyPath!;
+                return true;
+            }
+
             var assembly = peAssembly.GetAssemblyInfo();
             assemblyLocation = assembly.Location;
             return !string.IsNullOrWhiteSpace(assemblyLocation);

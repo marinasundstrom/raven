@@ -1035,13 +1035,13 @@ union Result<T, E> {
     case Error(message: E)
 }
 
-val value: Result<int, string> = Ok(2)
+val value: Result<int, string> = .Ok(2)
 
 val result = value match {
-    Ok(2) => "Lucky you!"
-    Ok(2) => "Still lucky!"
-    Ok(val payload) => payload.ToString()
-    Error(val err) => err
+    .Ok(2) => "Lucky you!"
+    .Ok(2) => "Still lucky!"
+    .Ok(val payload) => payload.ToString()
+    .Error(val err) => err
 }
 """;
 
@@ -1320,10 +1320,10 @@ val result = state match {
     public void MatchExpression_WithDiscriminatedUnionScrutinee_MissingArmOmitsCaseGenericTypeArgumentsInDiagnostic()
     {
         const string code = """
-val value: Result<int, string> = Ok(1)
+val value: Result<int, string> = .Ok(1)
 
 val result = value match {
-    Ok(val payload) => payload
+    .Ok(val payload) => payload
 }
 
 union Result<T, E> {
@@ -1825,6 +1825,8 @@ val result = input match {
     public void MatchExpression_WithOuterValNominalPattern_BindsImplicitCaptures()
     {
         const string code = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None
@@ -1915,6 +1917,8 @@ val result = value match {
     public void MatchExpression_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
     {
         const string code = """
+import Option.*
+
 union Option<T> {
     case Some(value: T)
     case None

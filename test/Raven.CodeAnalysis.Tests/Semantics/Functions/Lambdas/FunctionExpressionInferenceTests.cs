@@ -796,7 +796,7 @@ class Container {
 import System.*
 import System.Linq.*
 
-public union Result<T, E> {
+union Result<T, E> {
     case Ok(value: T)
     case Error(data: E)
 }
@@ -847,7 +847,7 @@ class Container {
 import System.*
 import System.Linq.*
 
-public union Response<T, E> {
+union Response<T, E> {
     case Success(value: T)
     case Failure(error: E)
 }

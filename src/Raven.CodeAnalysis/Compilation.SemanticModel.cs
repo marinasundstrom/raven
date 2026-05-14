@@ -52,8 +52,6 @@ public partial class Compilation
     {
         EnsureSetup();
 
-        EnsureSourceDeclarationsDeclared();
-
         return GetOrCreateSemanticModel(syntaxTree);
     }
 
@@ -61,7 +59,20 @@ public partial class Compilation
     {
         EnsureSetup();
 
-        EnsureSourceDeclarationsDeclared();
+        if (!_syntaxTrees.Contains(syntaxTree) &&
+            !_generatedSemanticModels.ContainsKey(syntaxTree))
+        {
+            semanticModel = null!;
+            return false;
+        }
+
+        semanticModel = GetOrCreateSemanticModel(syntaxTree);
+        return true;
+    }
+
+    internal bool TryGetSemanticModelForDeclarationBinding(SyntaxTree syntaxTree, out SemanticModel semanticModel)
+    {
+        EnsureSetup();
 
         if (!_syntaxTrees.Contains(syntaxTree) &&
             !_generatedSemanticModels.ContainsKey(syntaxTree))
@@ -121,14 +132,16 @@ public partial class Compilation
         if (_sourceDeclarationsComplete)
             return;
 
+        var currentThreadId = Environment.CurrentManagedThreadId;
+        if (_isDeclaringSourceTypes && _sourceDeclarationThreadId == currentThreadId)
+            return;
+
         PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsCompleteCall();
 
         EnsureSourceDeclarationsDeclared();
 
         if (_sourceDeclarationsComplete)
             return;
-
-        var currentThreadId = Environment.CurrentManagedThreadId;
 
         lock (_declarationGate)
         {
@@ -166,9 +179,11 @@ public partial class Compilation
         if (_sourceDeclarationsDeclared)
             return;
 
-        PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsDeclaredCall();
-
         var currentThreadId = Environment.CurrentManagedThreadId;
+        if (_isDeclaringSourceTypes && _sourceDeclarationThreadId == currentThreadId)
+            return;
+
+        PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsDeclaredCall();
 
         lock (_declarationGate)
         {

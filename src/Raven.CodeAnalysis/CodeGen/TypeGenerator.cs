@@ -69,7 +69,6 @@ internal class TypeGenerator
                 var delegateAttributes = accessibilityAttributes |
                     TypeAttributes.Class |
                     TypeAttributes.Sealed |
-                    TypeAttributes.Abstract |
                     TypeAttributes.AutoClass |
                     TypeAttributes.AnsiClass;
 
@@ -1066,6 +1065,16 @@ internal class TypeGenerator
             if (ctorSymbol is SourceSymbol ctorSource)
                 CodeGen.AddMemberBuilder(ctorSource, ctorBuilder);
         }
+        else
+        {
+            var objectType = ResolveClrType(CodeGen.Compilation.GetSpecialType(SpecialType.System_Object));
+            var intPtrType = ResolveClrType(CodeGen.Compilation.GetSpecialType(SpecialType.System_IntPtr));
+            var ctorBuilder = TypeBuilder.DefineConstructor(
+                MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName,
+                CallingConventions.Standard,
+                [objectType, intPtrType]);
+            ctorBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);
+        }
 
         var invokeSymbol = delegateType.GetDelegateInvokeMethod();
         if (invokeSymbol is not null)
@@ -1076,7 +1085,7 @@ internal class TypeGenerator
 
             var invokeBuilder = TypeBuilder.DefineMethod(
                 invokeSymbol.Name,
-                MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.Virtual,
+                MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual,
                 GetMethodReturnClrType(invokeSymbol.ReturnType),
                 invokeParameters);
             invokeBuilder.SetImplementationFlags(MethodImplAttributes.Runtime | MethodImplAttributes.Managed);

@@ -285,7 +285,7 @@ class BinderFactory
                 var left = qn.Left;
 
                 ITypeSymbol? containingType = HasTypeArguments(left)
-                    ? ResolveGenericType(current, left)
+                    ? ResolveGenericType(current, left) ?? TryResolveTypeSyntaxSilently(left)
                     : ResolveType(current, left.ToString());
 
                 if (containingType != null)

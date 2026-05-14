@@ -1084,8 +1084,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
-            if (!includePartialMatches &&
-                !string.IsNullOrEmpty(name) &&
+            if (!string.IsNullOrEmpty(name) &&
                 TryGetMetadataExtensionMethodContainers(ns, name, out var extensionContainers))
             {
                 foreach (var typeMember in extensionContainers)
@@ -1112,7 +1111,7 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var members = includePartialMatches || string.IsNullOrEmpty(name)
+        var members = string.IsNullOrEmpty(name)
             ? type.GetMembers().OfType<IMethodSymbol>()
             : type.GetMembers(name!).OfType<IMethodSymbol>();
 
@@ -1121,7 +1120,7 @@ internal abstract partial class Binder
             if (!member.IsInstanceExtensionMember)
                 continue;
 
-            if (!includePartialMatches && name is not null && member.Name != name)
+            if (name is not null && member.Name != name)
                 continue;
 
             yield return member;
@@ -1171,7 +1170,7 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var members = includePartialMatches || string.IsNullOrEmpty(name)
+        var members = string.IsNullOrEmpty(name)
             ? type.GetMembers().OfType<IMethodSymbol>()
             : type.GetMembers(name!).OfType<IMethodSymbol>();
 
@@ -1180,7 +1179,7 @@ internal abstract partial class Binder
             if (!member.IsStatic || !member.IsStaticExtensionMember)
                 continue;
 
-            if (!includePartialMatches && name is not null && member.Name != name)
+            if (name is not null && member.Name != name)
                 continue;
 
             yield return member;
@@ -1215,7 +1214,7 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var members = includePartialMatches || string.IsNullOrEmpty(name)
+        var members = string.IsNullOrEmpty(name)
             ? type.GetMembers().OfType<IPropertySymbol>()
             : type.GetMembers(name!).OfType<IPropertySymbol>();
 
@@ -1224,7 +1223,7 @@ internal abstract partial class Binder
             if (!property.IsExtensionProperty)
                 continue;
 
-            if (!includePartialMatches && name is not null && property.Name != name)
+            if (name is not null && property.Name != name)
                 continue;
 
             yield return property;
@@ -1259,7 +1258,7 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var members = includePartialMatches || string.IsNullOrEmpty(name)
+        var members = string.IsNullOrEmpty(name)
             ? type.GetMembers().OfType<IPropertySymbol>()
             : type.GetMembers(name!).OfType<IPropertySymbol>();
 
@@ -1271,7 +1270,7 @@ internal abstract partial class Binder
             if (property.GetExtensionReceiverType() is null)
                 continue;
 
-            if (!includePartialMatches && name is not null && property.Name != name)
+            if (name is not null && property.Name != name)
                 continue;
 
             yield return property;
