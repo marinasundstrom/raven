@@ -298,6 +298,13 @@ public partial class SemanticModel
 
         void Traverse(SyntaxNode node, Binder currentBinder)
         {
+            if (node is ExpressionSyntax or StatementSyntax)
+            {
+                currentBinder.GetOrBind(node);
+                BindStatementAttributeSyntaxes(node, currentBinder);
+                return;
+            }
+
             foreach (var child in node.ChildNodes())
             {
                 var childBinder = requireCompleteDeclarations
@@ -8265,11 +8272,21 @@ public partial class SemanticModel
         if (ensureSourceDeclarations && !Compilation.SourceDeclarationsDeclared)
             Compilation.EnsureSourceDeclarationsDeclared();
 
+        FunctionExpressionSyntax? enclosingFunctionExpression = null;
+        var isFunctionExpressionBodyNode = parentBinder is null &&
+            TryGetEnclosingFunctionExpression(node, out enclosingFunctionExpression);
         var nodeKey = GetSyntaxNodeMapKey(node);
         var useStructuralCache = CanUseStructuralBinderCache(node);
         if (_binderCache.TryGetValue(node, out var existingBinder) ||
             (useStructuralCache && _binderCacheByKey.TryGetValue(nodeKey, out existingBinder)))
         {
+            if (isFunctionExpressionBodyNode &&
+                !IsFunctionExpressionBodyBinder(existingBinder) &&
+                TryEnsureFunctionExpressionBodyBinder(node, enclosingFunctionExpression!, out var functionBodyBinder))
+            {
+                return functionBodyBinder;
+            }
+
             if (parentBinder is not null &&
                 !ReferenceEquals(existingBinder.ParentBinder, parentBinder) &&
                 (parentBinder is FunctionExpressionBinder || parentBinder.ContainingSymbol is ILambdaSymbol))
@@ -8288,6 +8305,12 @@ public partial class SemanticModel
             var binder = BindCompilationUnit(cu, parentBinder ?? Compilation.GlobalBinder);
             CacheBinder(cu, binder);
             return binder;
+        }
+
+        if (isFunctionExpressionBodyNode &&
+            TryEnsureFunctionExpressionBodyBinder(node, enclosingFunctionExpression!, out var contextualFunctionBodyBinder))
+        {
+            return contextualFunctionBodyBinder;
         }
 
         // Ensure parent binder is constructed and cached first
@@ -8349,6 +8372,41 @@ public partial class SemanticModel
         CacheBinder(node, newBinder);
         return newBinder;
     }
+
+    private bool TryEnsureFunctionExpressionBodyBinder(
+        SyntaxNode node,
+        FunctionExpressionSyntax enclosingFunctionExpression,
+        out Binder binder)
+    {
+        if (TryGetContextualBoundFunctionExpression(enclosingFunctionExpression, out _) &&
+            TryGetCachedBinder(node, out var cachedBinder) &&
+            IsFunctionExpressionBodyBinder(cachedBinder))
+        {
+            binder = cachedBinder;
+            return true;
+        }
+
+        binder = null!;
+        return false;
+    }
+
+    private bool TryGetCachedBinder(SyntaxNode node, out Binder binder)
+    {
+        if (_binderCache.TryGetValue(node, out binder))
+            return true;
+
+        if (CanUseStructuralBinderCache(node) &&
+            _binderCacheByKey.TryGetValue(GetSyntaxNodeMapKey(node), out binder))
+        {
+            return true;
+        }
+
+        binder = null!;
+        return false;
+    }
+
+    private static bool IsFunctionExpressionBodyBinder(Binder binder)
+        => binder is FunctionExpressionBinder || binder.ContainingSymbol is ILambdaSymbol;
 
     private Binder GetMethodBodyParentBinder(
         SyntaxNode methodDeclaration,

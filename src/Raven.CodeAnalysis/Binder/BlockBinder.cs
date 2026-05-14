@@ -145,12 +145,17 @@ partial class BlockBinder : Binder
         if (statement?.Parent is null)
             return;
 
+        var seededThrough = _scopeState.GetSeededThrough(statement.Parent);
         foreach (var sibling in statement.Parent.ChildNodes().OfType<StatementSyntax>())
         {
             if (sibling.Span.Start >= statement.Span.Start)
                 break;
 
+            if (sibling.Span.Start <= seededThrough)
+                continue;
+
             EnsureStatementDeclarations(sibling);
+            _scopeState.MarkSeededThrough(statement.Parent, sibling.Span.Start);
         }
     }
 
@@ -205,6 +210,8 @@ partial class BlockBinder : Binder
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
     {
         using var _ = EnterExecutionScope();
+        EnsurePrecedingStatementDeclarations(node);
+
         return node switch
         {
             IdentifierNameSyntax identifier => BindIdentifierReference(identifier),
@@ -884,6 +891,7 @@ partial class BlockBinder : Binder
         private readonly List<ILocalSymbol> _declaredLocals = new();
         private readonly Dictionary<SyntaxReferenceKey, ILocalSymbol> _declaredLocalsBySyntax = new();
         private readonly Dictionary<string, List<ILocalSymbol>> _declaredLocalsByName = new(StringComparer.Ordinal);
+        private readonly Dictionary<SyntaxReferenceKey, int> _seededThroughByStatementParent = new();
 
         public int Version { get; private set; }
 
@@ -926,6 +934,24 @@ partial class BlockBinder : Binder
 
             local = null!;
             return false;
+        }
+
+        public int GetSeededThrough(SyntaxNode statementParent)
+            => TryGetSyntaxReferenceKey(statementParent, out var key) &&
+               _seededThroughByStatementParent.TryGetValue(key, out var seededThrough)
+                ? seededThrough
+                : -1;
+
+        public void MarkSeededThrough(SyntaxNode statementParent, int statementStart)
+        {
+            if (!TryGetSyntaxReferenceKey(statementParent, out var key))
+                return;
+
+            if (!_seededThroughByStatementParent.TryGetValue(key, out var existing) ||
+                statementStart > existing)
+            {
+                _seededThroughByStatementParent[key] = statementStart;
+            }
         }
     }
 

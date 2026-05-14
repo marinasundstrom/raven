@@ -188,6 +188,9 @@ public sealed class IncrementalBinderLifecycleTests
         var root = tree.GetRoot();
         var block = root.DescendantNodes().OfType<BlockStatementSyntax>().Single();
         var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
+        var onlyActiveAdultsDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "onlyActiveAdults");
         var queryDeclarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "query");
@@ -197,14 +200,155 @@ public sealed class IncrementalBinderLifecycleTests
 
         blockBinder.LocalStateVersionForTesting.ShouldBe(0);
 
+        var onlyActiveAdultsLocal = model.GetDeclaredSymbol(onlyActiveAdultsDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        onlyActiveAdultsLocal.Name.ShouldBe("onlyActiveAdults");
+        blockBinder.GetLocalForTesting("minAge").ShouldNotBeNull();
+        blockBinder.GetLocalForTesting("onlyActiveAdults").ShouldBeSameAs(onlyActiveAdultsLocal);
+        blockBinder.GetLocalForTesting("query").ShouldBeNull();
+        var stateVersionBeforeQuery = blockBinder.LocalStateVersionForTesting;
+
         var queryLocal = model.GetDeclaredSymbol(queryDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
 
         queryLocal.Name.ShouldBe("query");
+        blockBinder.LocalStateVersionForTesting.ShouldBe(stateVersionBeforeQuery + 1);
         blockBinder.GetLocalForTesting("minAge").ShouldNotBeNull();
         blockBinder.GetLocalForTesting("onlyActiveAdults").ShouldNotBeNull();
         blockBinder.GetLocalForTesting("query").ShouldBeSameAs(queryLocal);
         blockBinder.BindReferencedSymbol(onlyActiveAdultsReference).Symbol?.Name.ShouldBe("onlyActiveAdults");
+        model.GetDeclaredSymbol(queryDeclarator).ShouldBeSameAs(queryLocal);
+        blockBinder.LocalStateVersionForTesting.ShouldBe(stateVersionBeforeQuery + 1);
         model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void BindReferencedSymbol_ForLaterStatement_RestoresPrecedingLocalsOnce()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                class QueryOwner {
+                    func Build() {
+                        val first = 1
+                        val second = first + 1
+                        val third = second + 1
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var block = root.DescendantNodes().OfType<BlockStatementSyntax>().Single();
+        var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
+        var secondReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "second");
+
+        blockBinder.LocalStateVersionForTesting.ShouldBe(0);
+
+        var secondSymbol = blockBinder.BindReferencedSymbol(secondReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+
+        secondSymbol.Name.ShouldBe("second");
+        blockBinder.LocalStateVersionForTesting.ShouldBe(2);
+        blockBinder.GetLocalForTesting("first").ShouldNotBeNull();
+        blockBinder.GetLocalForTesting("second").ShouldBeSameAs(secondSymbol);
+        blockBinder.GetLocalForTesting("third").ShouldBeNull();
+
+        blockBinder.BindReferencedSymbol(secondReference).Symbol.ShouldBeSameAs(secondSymbol);
+        blockBinder.LocalStateVersionForTesting.ShouldBe(2);
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_ForLocalInAsyncFunctionExpression_UsesFunctionExpressionBinderState()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                import System.*
+                import System.IO.*
+                import System.Text.*
+                import System.Threading.Tasks.*
+
+                class RequestContext {
+                    public val Body: Stream
+                }
+
+                class App {
+                    func Configure() -> unit {
+                        val app = 0
+
+                        MapPost(app, "/submit", async func (context: RequestContext) {
+                            use reader = StreamReader(context.Body, encoding: .UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false)
+                            val content = await reader.ReadToEndAsync()
+                            return "submitted: $content"
+                        })
+                    }
+
+                    func MapPost(app: int, path: string, handler: func (RequestContext) -> Task<string>) -> unit { }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var functionExpression = root.DescendantNodes().OfType<FunctionExpressionSyntax>().Single();
+        var functionBody = functionExpression.Body!;
+        functionBody.ShouldNotBeNull();
+        var readerDeclarator = functionBody.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "reader");
+        var contentDeclarator = functionBody.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "content");
+
+        var readerLocal = model.GetDeclaredSymbol(readerDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var contentLocal = model.GetDeclaredSymbol(contentDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        readerLocal.Type.Name.ShouldBe("StreamReader");
+        contentLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
+        var functionBinder = model.GetIncrementalSemanticQueryBinderForTesting(functionBody).ShouldBeAssignableTo<FunctionExpressionBinder>();
+        functionBinder.LookupSymbol("context").ShouldBeAssignableTo<IParameterSymbol>();
+        functionBinder.GetLocalForTesting("reader").ShouldBeSameAs(readerLocal);
+        functionBinder.GetLocalForTesting("content").ShouldBeSameAs(contentLocal);
+        model.GetDiagnostics()
+            .Where(diagnostic =>
+                diagnostic.Descriptor.Id is "RAV2700" or "RAV1900" ||
+                diagnostic.Descriptor.Id == "RAV0103" &&
+                diagnostic.GetMessage().Contains("'context' is not in scope", StringComparison.Ordinal))
+            .Select(diagnostic => $"{diagnostic.Descriptor.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
     }
 
     [Fact]

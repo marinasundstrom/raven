@@ -359,8 +359,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (budget.ShouldStop())
             return;
 
-        var body = functionExpression.Body ?? (SyntaxNode?)functionExpression.ExpressionBody;
-        if (!TryGetFunctionExpressionReturnType(semanticModel, functionExpression, body, out var returnType) ||
+        if (!TryGetFunctionExpressionReturnType(semanticModel, functionExpression, out var returnType) ||
             !TryFormatType(semanticModel, functionExpression, returnType, out var typeDisplay))
         {
             return;
@@ -779,7 +778,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static bool TryGetFunctionExpressionReturnType(
         SemanticModel semanticModel,
         FunctionExpressionSyntax functionExpression,
-        SyntaxNode? body,
         out ITypeSymbol? returnType)
     {
         returnType = null;
@@ -791,10 +789,21 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return true;
         }
 
-        if (body is null)
-            return false;
+        if (semanticModel.TryGetContextualBoundFunctionExpression(functionExpression, out var contextualFunction) &&
+            IsInlayHintReturnType(contextualFunction.ReturnType))
+        {
+            returnType = contextualFunction.ReturnType;
+            return true;
+        }
 
-        return TryGetInferredReturnType(semanticModel, body, out returnType);
+        if (semanticModel.GetBoundNode(functionExpression) is BoundFunctionExpression boundFunction &&
+            IsInlayHintReturnType(boundFunction.ReturnType))
+        {
+            returnType = boundFunction.ReturnType;
+            return true;
+        }
+
+        return false;
     }
 
     private static TextSpan GetRequestedSpan(SourceText text, LspRange requestRange)

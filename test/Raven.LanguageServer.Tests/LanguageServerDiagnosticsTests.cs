@@ -290,6 +290,86 @@ func Main(users: IQueryable<User>) {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentMode_AfterInlayHints_DoesNotPublishStaleAsyncLambdaBodyDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.*
+import System.IO.*
+import System.Text.*
+import System.Threading.Tasks.*
+
+class RequestContext {
+    public val Body: Stream
+}
+
+func Main() -> unit {
+    val app = 0
+
+    MapPost(app, "/submit", async func (context: RequestContext) {
+        use reader = StreamReader(context.Body, encoding: .UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false)
+        val content = await reader.ReadToEndAsync()
+        return "submitted: $content"
+    })
+}
+
+func MapPost(app: int, path: string, handler: func (RequestContext) -> Task<string>) -> unit { }
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DocumentDiagnosticsMode.Document,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Severity == LspDiagnosticSeverity.Error &&
+            diagnostic.Message.Contains("'context' is not in scope", StringComparison.Ordinal));
+        result.Diagnostics.Any(diagnostic =>
+            diagnostic.Severity == LspDiagnosticSeverity.Error &&
+            (string.Equals(diagnostic.Code?.String, "RAV2700", StringComparison.Ordinal) ||
+             string.Equals(diagnostic.Code?.String, "RAV1900", StringComparison.Ordinal) ||
+             string.Equals(diagnostic.Code?.String, "RAV2705", StringComparison.Ordinal))).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TopLevelGenericWhereClauseSelfConstraint_DoesNotReportTypeParameterOutOfScopeAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -422,8 +502,17 @@ union MyResult<T>(List<T> | int)
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
-        store.UpsertDocument(uri, await File.ReadAllTextAsync(documentPath));
+        var code = await File.ReadAllTextAsync(documentPath);
+        store.UpsertDocument(uri, code);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
 
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
 
@@ -446,6 +535,15 @@ union MyResult<T>(List<T> | int)
                     diagnostic.Message.Contains(name, StringComparison.Ordinal))
                 .ShouldBeFalse();
         }
+
+        diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("'context' is not in scope", StringComparison.Ordinal))
+            .ShouldBeFalse();
+        diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV2700", StringComparison.Ordinal) ||
+                string.Equals(diagnostic.Code?.String, "RAV1900", StringComparison.Ordinal))
+            .ShouldBeFalse();
     }
 
     [Fact]
