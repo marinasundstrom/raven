@@ -248,6 +248,37 @@ class C {
     }
 
     [Fact]
+    public void GetDeclaredSymbol_ComprehensionPatternDesignations_UseIterationElementTypes()
+    {
+        const string code = """
+class C {
+    func Run() {
+        val people = [(1, "Ada"), (2, "Bob")]
+        val names = [for val (2, name) in people => name]
+
+        val pairs = [("one", 1), ("two", 2)]
+        val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .ToLookup(designation => designation.Identifier.ValueText);
+
+        var name = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["name"].Single()));
+        var key = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["key"].Single()));
+        var value = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["value"].Single()));
+
+        Assert.Equal("string", name.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("string", key.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("int", value.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_MatchWholeDesignation_UsesMatchedCaseType()
     {
         const string code = """

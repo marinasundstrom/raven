@@ -19,7 +19,6 @@ namespace Raven.LanguageServer;
 
 internal sealed class InlayHintHandler : IInlayHintsHandler
 {
-    private const double MaxCollectionMilliseconds = 250;
     private const int MaxUnboundedDocumentLength = 2_000;
 
     private readonly DocumentStore _documents;
@@ -88,16 +87,17 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var sourceText = context.Value.SourceText;
             var root = context.Value.SyntaxTree.GetRoot(cancellationToken);
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
+            var isLargeDocumentRequest = IsLargeDocumentRequest(sourceText, requestSpan);
 
             stageStopwatch.Restart();
             var hints = new List<InlayHint>();
             var collectionBudget = new InlayHintCollectionBudget(
                 Stopwatch.StartNew(),
                 cancellationToken,
-                IsLargeDocumentRequest(sourceText, requestSpan)
-                    ? MaxCollectionMilliseconds
-                    : double.PositiveInfinity);
+                double.PositiveInfinity,
+                includeTooltips: !isLargeDocumentRequest);
             AddLocalTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+            AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             collectMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -235,6 +235,72 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 forStatement,
                 includeTooltip: budget.ShouldIncludeTooltip()));
         }
+    }
+
+    private static void AddPatternTypeHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        InlayHintCollectionBudget budget)
+    {
+        foreach (var designation in root.DescendantNodes().OfType<SingleVariableDesignationSyntax>())
+        {
+            if (budget.ShouldStop())
+                return;
+
+            if (!IsInferredPatternDesignation(designation))
+                continue;
+
+            var insertionPosition = GetTokenEndPosition(sourceText, designation.Identifier);
+            if (!ContainsPosition(requestSpan, insertionPosition))
+                continue;
+
+            if (budget.ShouldStop())
+                return;
+
+            if (semanticModel.GetDeclaredSymbol(designation) is not ILocalSymbol local ||
+                !TryFormatType(semanticModel, designation, local.Type, out var typeDisplay))
+            {
+                continue;
+            }
+
+            hints.Add(CreateTypeHint(
+                sourceText,
+                insertionPosition,
+                $": {typeDisplay}",
+                local.Type,
+                semanticModel,
+                root,
+                designation,
+                includeTooltip: budget.ShouldIncludeTooltip()));
+        }
+    }
+
+    private static bool IsInferredPatternDesignation(SingleVariableDesignationSyntax designation)
+    {
+        if (designation.Identifier.IsMissing ||
+            string.IsNullOrWhiteSpace(designation.Identifier.ValueText) ||
+            designation.Identifier.ValueText == "_")
+        {
+            return false;
+        }
+
+        if (!designation.Ancestors().Any(static ancestor => ancestor is PatternSyntax))
+            return false;
+
+        if (designation.Ancestors().Any(static ancestor => ancestor is TypedVariableDesignationSyntax))
+            return false;
+
+        if (designation.Ancestors().OfType<DeclarationPatternSyntax>().Any(pattern =>
+                pattern.Designation is not null &&
+                pattern.Designation.Span.Contains(designation.Span)))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static void AddReturnTypeHints(
@@ -834,12 +900,16 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         public InlayHintCollectionBudget(
             Stopwatch stopwatch,
             CancellationToken cancellationToken,
-            double maxMilliseconds)
+            double maxMilliseconds,
+            bool includeTooltips)
         {
             _stopwatch = stopwatch;
             _cancellationToken = cancellationToken;
             _maxMilliseconds = maxMilliseconds;
+            IncludeTooltips = includeTooltips;
         }
+
+        private bool IncludeTooltips { get; }
 
         public bool IsExpired => _stopwatch.Elapsed.TotalMilliseconds >= _maxMilliseconds;
 
@@ -852,7 +922,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         public bool ShouldIncludeTooltip()
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            return _stopwatch.Elapsed.TotalMilliseconds <= _maxMilliseconds - MinTooltipBudgetMilliseconds;
+            return IncludeTooltips &&
+                _stopwatch.Elapsed.TotalMilliseconds <= _maxMilliseconds - MinTooltipBudgetMilliseconds;
         }
     }
 }

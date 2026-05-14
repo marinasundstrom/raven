@@ -517,6 +517,101 @@ func Main() -> unit {
         AssertHasHintAtInsertion(sourceText, routeHandlerHints, routeHandlerInsertion, " -> ");
     }
 
+    [Fact]
+    public async Task Handle_LargeViewportRange_PrioritizesCompleteHintPlacementOverTooltipsAsync()
+    {
+        var sampleRoot = Path.Combine(
+            FindRepositoryRoot(),
+            "samples",
+            "projects",
+            "test-case");
+        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "test-case",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange
+            {
+                Start = new Position(133, 0),
+                End = new Position(250, 0)
+            }
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var doubledInsertion = code.IndexOf("doubled", StringComparison.Ordinal) + "doubled".Length;
+        var describeStringsTextInsertion =
+            code.LastIndexOf("text = \"[\"", StringComparison.Ordinal) + "text".Length;
+
+        AssertHasHintAtInsertion(sourceText, hints, doubledInsertion, ": ");
+        AssertHasHintAtInsertion(sourceText, hints, describeStringsTextInsertion, ": string");
+        hints.All(static hint => hint.Tooltip is null).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_TestCasePatternDesignations_ProvidesTypeHintsAsync()
+    {
+        var sampleRoot = Path.Combine(
+            FindRepositoryRoot(),
+            "samples",
+            "projects",
+            "test-case");
+        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "test-case",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var nameInsertion = code.IndexOf("(2, name)", StringComparison.Ordinal) + "(2, name".Length;
+        var keyInsertion = code.IndexOf("(key, value) in doubled", StringComparison.Ordinal) + "(key".Length;
+        var valueInsertion = code.IndexOf("(key, value) in doubled", StringComparison.Ordinal) + "(key, value".Length;
+
+        var nameHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, nameInsertion);
+        var keyHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, keyInsertion);
+        var valueHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, valueInsertion);
+
+        AssertHasHintAtInsertion(sourceText, nameHints, nameInsertion, ": string");
+        AssertHasHintAtInsertion(sourceText, keyHints, keyInsertion, ": string");
+        AssertHasHintAtInsertion(sourceText, valueHints, valueInsertion, ": int");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

@@ -5766,6 +5766,10 @@ public partial class SemanticModel
             return whilePatternStatement;
         if (designation.GetAncestor<ForStatementSyntax>() is { } forStatement)
             return forStatement;
+        if (designation.GetAncestor<CollectionComprehensionElementSyntax>() is { } collectionComprehension)
+            return collectionComprehension.GetAncestor<CollectionExpressionSyntax>() ?? (SyntaxNode)collectionComprehension;
+        if (designation.GetAncestor<DictionaryComprehensionElementSyntax>() is { } dictionaryComprehension)
+            return dictionaryComprehension.GetAncestor<CollectionExpressionSyntax>() ?? (SyntaxNode)dictionaryComprehension;
         if (designation.GetAncestor<PatternDeclarationAssignmentStatementSyntax>() is { } patternDeclarationAssignment)
             return patternDeclarationAssignment;
 
@@ -5857,6 +5861,24 @@ public partial class SemanticModel
             return true;
         }
 
+        if (pattern.Ancestors().OfType<CollectionComprehensionElementSyntax>().FirstOrDefault() is { Target: PatternSyntax collectionPattern } collectionComprehension &&
+            collectionPattern.DescendantNodesAndSelf().Contains(designation) &&
+            TryGetForIterationElementType(collectionComprehension.Source) is { } collectionIterationType &&
+            TryInferPatternDesignationType(collectionPattern, name, collectionIterationType) is { } inferredCollectionType)
+        {
+            type = inferredCollectionType;
+            return true;
+        }
+
+        if (pattern.Ancestors().OfType<DictionaryComprehensionElementSyntax>().FirstOrDefault() is { Target: PatternSyntax dictionaryPattern } dictionaryComprehension &&
+            dictionaryPattern.DescendantNodesAndSelf().Contains(designation) &&
+            TryGetForIterationElementType(dictionaryComprehension.Source) is { } dictionaryIterationType &&
+            TryInferPatternDesignationType(dictionaryPattern, name, dictionaryIterationType) is { } inferredDictionaryType)
+        {
+            type = inferredDictionaryType;
+            return true;
+        }
+
         if (pattern.Ancestors().OfType<PatternDeclarationAssignmentStatementSyntax>().FirstOrDefault() is { } assignment &&
             assignment.Left.DescendantNodesAndSelf().Contains(designation) &&
             TryGetAvailableTypeInfo(assignment.Right, out var assignmentTypeInfo) &&
@@ -5874,6 +5896,8 @@ public partial class SemanticModel
         => designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
            designation.Ancestors().OfType<PatternDeclarationAssignmentStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
            designation.Ancestors().OfType<ForStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
+           designation.Ancestors().OfType<CollectionComprehensionElementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
+           designation.Ancestors().OfType<DictionaryComprehensionElementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
            designation.Ancestors().OfType<IfPatternStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
            designation.Ancestors().OfType<WhilePatternStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
