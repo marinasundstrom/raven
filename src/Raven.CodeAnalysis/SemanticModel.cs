@@ -366,10 +366,20 @@ public partial class SemanticModel
                 .Select(static owner => new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind))
                 .ToHashSet();
 
+            var orderSensitiveChangedGlobalOwners = changedOwners
+                .OfType<GlobalStatementSyntax>()
+                .ToArray();
+
             var ownersToBind = changedOwners
                 .Where(owner => !owner.DescendantNodes()
                     .Any(descendant => IsExecutableOwnerForDiagnostics(descendant) &&
                                        changedOwnerSet.Contains(new Compilation.ExecutableOwnerDescriptor(descendant.Span, descendant.Kind))))
+                .Where(owner => owner is GlobalStatementSyntax ||
+                                !orderSensitiveChangedGlobalOwners.Any(globalOwner =>
+                                    globalOwner.Span.Start <= owner.Span.Start &&
+                                    globalOwner.Span.End >= owner.Span.End))
+                .Concat(orderSensitiveChangedGlobalOwners)
+                .Distinct()
                 .ToArray();
 
             if (ownersToBind.Length == 0)
@@ -398,6 +408,8 @@ public partial class SemanticModel
             foreach (var owner in ownersToBind)
             {
                 var beforeCount = diagnosticsBuilder.Count;
+                ClearCachedBinderDiagnostics(owner.Span);
+
                 if (owner is GlobalStatementSyntax globalOwner)
                     BindPrecedingGlobalStatementsForScope(root, globalOwner);
 
@@ -406,6 +418,7 @@ public partial class SemanticModel
                     : requireCompleteDeclarations
                         ? GetBinder(owner)
                         : GetBinderForIncrementalSemanticQuery(owner);
+
                 Traverse(owner, ownerBinder);
 
                 diagnosticsBuilder.AddRange(_binderCache.Values
@@ -428,6 +441,13 @@ public partial class SemanticModel
                     !ReferenceEquals(ownerToBind, owner) &&
                     ownerToBind.Span.Start <= owner.Span.Start &&
                     ownerToBind.Span.End >= owner.Span.End);
+
+            void ClearCachedBinderDiagnostics(Text.TextSpan span)
+            {
+                foreach (var binderState in _binderCache.Values)
+                    binderState.Diagnostics.ClearDiagnostics(span);
+            }
+
         }
 
         Binder GetRootBinderForCompleteDiagnostics(SyntaxNode root)
@@ -4068,7 +4088,7 @@ public partial class SemanticModel
             return false;
         }
 
-        _ = GetBinder(bindingRoot).GetOrBind(bindingRoot);
+        _ = GetBinder(bindingRoot).BindDeclaredSymbol(variableDeclarator);
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
             !reboundDeclarator.Local.Type.ContainsErrorType())

@@ -1768,6 +1768,91 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_DocumentDiagnostics_ForNestedLambdaBodyEdit_SeedsContainingBlockLocals()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource = """
+            import System.*
+            import System.Linq.*
+            import System.Collections.Generic.*
+            import System.Linq.Expressions.*
+
+            class User(var Name: string, var Age: int, var IsActive: bool)
+
+            func Main(users: IQueryable<User>) {
+                val minAge = 21
+                val onlyActiveAdults: Expression<System.Func<User, bool>> =
+                    user => user.IsActive && user.Age >= minAge
+
+                val query = users
+                    |> Where(onlyActiveAdults)
+                    |> OrderBy(user => user.Name)
+                    |> Select(user => user.Name)
+            }
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        initialCompilation.GetDocumentDiagnostics(initialTree, analyzerOptions: null, CancellationToken.None)
+            .ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("val minAge = 21", "val minAge = 22", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var root = updatedTree.GetRoot();
+        var minAgeReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "minAge");
+        var onlyActiveAdultsDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "onlyActiveAdults");
+        var queryDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "query");
+        var onlyActiveAdultsReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "onlyActiveAdults");
+
+        updatedModel.GetDeclaredSymbol(onlyActiveAdultsDeclarator)
+            .ShouldBeAssignableTo<ILocalSymbol>()
+            .Name
+            .ShouldBe("onlyActiveAdults");
+        updatedModel.GetDeclaredSymbol(queryDeclarator)
+            .ShouldBeAssignableTo<ILocalSymbol>()
+            .Name
+            .ShouldBe("query");
+
+        var diagnostics = updatedCompilation.GetDocumentDiagnostics(updatedTree, analyzerOptions: null, CancellationToken.None);
+
+        diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        updatedModel.GetSymbolInfo(minAgeReference).Symbol?.Name.ShouldBe("minAge");
+        updatedModel.GetSymbolInfo(onlyActiveAdultsReference).Symbol?.Name.ShouldBe("onlyActiveAdults");
+    }
+
+    [Fact]
     public void WorkspaceCompilation_ReusedSourceMethodAttributes_MapStaleDeclarationReferenceToCurrentTree()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

@@ -217,6 +217,79 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentMode_AfterInlayHints_DoesNotPublishStalePipeLocalDiagnosticAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var Age: int, var IsActive: bool)
+
+func Main(users: IQueryable<User>) {
+    val minAge = 21
+    val onlyActiveAdults: Expression<System.Func<User, bool>> =
+        user => user.IsActive && user.Age >= minAge
+
+    val query = users
+        |> Where(onlyActiveAdults)
+        |> OrderBy(user => user.Name)
+        |> Select(user => user.Name)
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DocumentDiagnosticsMode.Document,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Severity == LspDiagnosticSeverity.Error &&
+            diagnostic.Message.Contains("'onlyActiveAdults' is not in scope", StringComparison.Ordinal));
+        result.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TopLevelGenericWhereClauseSelfConstraint_DoesNotReportTypeParameterOutOfScopeAsync()
     {
         Directory.CreateDirectory(_tempRoot);

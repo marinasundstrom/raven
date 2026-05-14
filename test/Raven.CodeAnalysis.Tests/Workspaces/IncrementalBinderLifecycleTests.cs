@@ -143,6 +143,71 @@ public sealed class IncrementalBinderLifecycleTests
     }
 
     [Fact]
+    public void GetDeclaredSymbol_ForLaterLocal_RestoresPrecedingLocalsInOwningBlockBinder()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                import System.*
+                import System.Linq.*
+                import System.Linq.Expressions.*
+
+                class User(var Name: string, var Age: int, var IsActive: bool)
+
+                class QueryOwner {
+                    func Build(users: IQueryable<User>) {
+                        val minAge = 21
+                        val onlyActiveAdults: Expression<System.Func<User, bool>> =
+                            user => user.IsActive && user.Age >= minAge
+
+                        val query = users
+                            |> Where(onlyActiveAdults)
+                            |> OrderBy(user => user.Name)
+                            |> Select(user => user.Name)
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var block = root.DescendantNodes().OfType<BlockStatementSyntax>().Single();
+        var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
+        var queryDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "query");
+        var onlyActiveAdultsReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "onlyActiveAdults");
+
+        blockBinder.LocalStateVersionForTesting.ShouldBe(0);
+
+        var queryLocal = model.GetDeclaredSymbol(queryDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        queryLocal.Name.ShouldBe("query");
+        blockBinder.GetLocalForTesting("minAge").ShouldNotBeNull();
+        blockBinder.GetLocalForTesting("onlyActiveAdults").ShouldNotBeNull();
+        blockBinder.GetLocalForTesting("query").ShouldBeSameAs(queryLocal);
+        blockBinder.BindReferencedSymbol(onlyActiveAdultsReference).Symbol?.Name.ShouldBe("onlyActiveAdults");
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
     public void WorkspaceCompilation_BodyEdit_IncrementalSemanticQueryBinderCreatesFreshChildWithMethodParent()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -280,6 +345,123 @@ public sealed class IncrementalBinderLifecycleTests
         copyLocal.ShouldBeSameAs(copyLocalFromDeclarator);
         copyLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
         copyLocal.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_UnrelatedBodyEdit_KeepsStableBodyBinderLifecycleCheapAndLocal()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                class Edited {
+                    func Changed() -> int {
+                        return 1
+                    }
+
+                    func Stable(value: int) -> int {
+                        val copy = value
+                        return copy
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialStableMethod = initialTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Stable");
+        var initialBlock = initialStableMethod.DescendantNodes().OfType<BlockStatementSyntax>().Single();
+        var initialBinder = initialModel.GetIncrementalSemanticQueryBinderForTesting(initialBlock);
+        var initialLifecycle = initialModel.GetBinderLifecycleSnapshotForTesting(initialBinder);
+        var initialBlockBinder = initialBinder.ShouldBeAssignableTo<BlockBinder>();
+        var initialDeclarator = initialBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var initialLocal = initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        initialBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(initialLocal);
+        initialBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
+        initialModel.RootBinderCreated.ShouldBeFalse();
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(
+                """
+                class Edited {
+                    func Changed() -> int {
+                        return 2
+                    }
+
+                    func Stable(value: int) -> int {
+                        val copy = value
+                        return copy
+                    }
+                }
+                """));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedMethods = updatedTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
+        var updatedChangedMethod = updatedMethods.Single(method => method.Identifier.ValueText == "Changed");
+        var updatedStableMethod = updatedMethods.Single(method => method.Identifier.ValueText == "Stable");
+        var updatedBlock = updatedStableMethod.DescendantNodes().OfType<BlockStatementSyntax>().Single();
+
+        updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedChangedMethod).ShouldBeTrue();
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedStableMethod).ShouldBeFalse();
+        updatedModel.GetMatchedExecutableOwnerForTesting(updatedBlock).ShouldNotBeNull();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+
+        var updatedBinder = updatedModel.GetIncrementalSemanticQueryBinderForTesting(updatedBlock);
+        var updatedLifecycle = updatedModel.GetBinderLifecycleSnapshotForTesting(updatedBinder);
+        updatedBinder.ShouldNotBeSameAs(initialBinder);
+        updatedLifecycle.BinderType.ShouldBe("MethodBodyBinder");
+        updatedLifecycle.ContainingSymbolKey.ShouldBe(initialLifecycle.ContainingSymbolKey);
+        updatedLifecycle.ParentBinderType.ShouldBe("MethodBinder");
+        updatedLifecycle.ParentContainingSymbolKey.ShouldBe(initialLifecycle.ParentContainingSymbolKey);
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+
+        var updatedMethodBinder = updatedBinder.ParentBinder.ShouldBeAssignableTo<MethodBinder>();
+        updatedMethodBinder.ScopeStateBuildCountForTesting.ShouldBe(0);
+        var updatedParameter = updatedMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<IParameterSymbol>();
+        updatedMethodBinder.GetCachedParametersForTesting().Single().ShouldBeSameAs(updatedParameter);
+        updatedMethodBinder.ScopeStateBuildCountForTesting.ShouldBe(1);
+
+        var updatedBlockBinder = updatedBinder.ShouldBeAssignableTo<BlockBinder>();
+        updatedBlockBinder.LocalStateVersionForTesting.ShouldBe(0);
+        updatedBlockBinder.GetLocalForTesting("copy").ShouldBeNull();
+        var updatedDeclarator = updatedBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var updatedLocal = updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        updatedLocal.ShouldNotBeSameAs(initialLocal);
+        updatedBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(updatedLocal);
+        updatedBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
+        updatedBlockBinder
+            .BindReferencedSymbol(GetIdentifier(updatedBlock, "value"))
+            .Symbol
+            .ShouldBeSameAs(updatedParameter);
+        updatedBlockBinder
+            .BindReferencedSymbol(GetIdentifier(updatedBlock, "copy"))
+            .Symbol
+            .ShouldBeSameAs(updatedLocal);
+        updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]

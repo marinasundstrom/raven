@@ -49,10 +49,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
-    private readonly List<ILocalSymbol> _declaredLocalsForTesting = new();
-    private readonly Dictionary<SyntaxReferenceKey, ILocalSymbol> _declaredLocalsBySyntax = new();
-    private readonly Dictionary<string, List<ILocalSymbol>> _declaredLocalsByName = new(StringComparer.Ordinal);
-    private int _localStateVersion;
+    private readonly BlockScopeState _scopeState = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private bool _allowReturnsInBlockExpressionsOnly;
@@ -99,7 +96,7 @@ partial class BlockBinder : Binder
                 Identifier.IsMissing: false,
                 Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword or SyntaxKind.ValKeyword }
             } => null,
-            VariableDeclaratorSyntax v => BindLocalDeclaration(v).Symbol,
+            VariableDeclaratorSyntax v => BindDeclaredLocalSymbol(v),
             CompilationUnitSyntax unit => BindCompilationUnit(unit).Symbol,
             SingleVariableDesignationSyntax singleVariableDesignation => BindDeclaredPatternLocal(singleVariableDesignation),
             FunctionStatementSyntax functionStatement => BindFunction(functionStatement).Method,
@@ -134,6 +131,63 @@ partial class BlockBinder : Binder
             return reboundDesignator.Local;
 
         return BindSingleVariableDesignation(singleVariableDesignation)?.Local;
+    }
+
+    private ILocalSymbol BindDeclaredLocalSymbol(VariableDeclaratorSyntax variableDeclarator)
+    {
+        EnsurePrecedingStatementDeclarations(variableDeclarator);
+        return BindLocalDeclaration(variableDeclarator).Local;
+    }
+
+    private void EnsurePrecedingStatementDeclarations(SyntaxNode node)
+    {
+        var statement = node.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
+        if (statement?.Parent is null)
+            return;
+
+        foreach (var sibling in statement.Parent.ChildNodes().OfType<StatementSyntax>())
+        {
+            if (sibling.Span.Start >= statement.Span.Start)
+                break;
+
+            EnsureStatementDeclarations(sibling);
+        }
+    }
+
+    private void EnsureStatementDeclarations(StatementSyntax statement)
+    {
+        switch (statement)
+        {
+            case LocalDeclarationStatementSyntax localDeclaration:
+                EnsureVariableDeclarationDeclarations(localDeclaration.Declaration);
+                break;
+
+            case UseDeclarationStatementSyntax { InBlockClause: null } useDeclaration:
+                EnsureVariableDeclarationDeclarations(useDeclaration.Declaration);
+                break;
+
+            case FunctionStatementSyntax function:
+                _ = BindFunction(function);
+                break;
+
+            case TypeDeclarationStatementSyntax typeDeclaration:
+                _ = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclaration.Declaration, this);
+                break;
+        }
+    }
+
+    private void EnsureVariableDeclarationDeclarations(VariableDeclarationSyntax declaration)
+    {
+        if ((declaration.BindingKeyword.IsKind(SyntaxKind.LetKeyword) ||
+             declaration.BindingKeyword.IsKind(SyntaxKind.ValKeyword)) &&
+            declaration.Declarators.Count > 0 &&
+            IsDiscardDeclarator(declaration.Declarators[0]))
+        {
+            return;
+        }
+
+        foreach (var declarator in declaration.Declarators)
+            _ = BindLocalDeclaration(declarator);
     }
 
     private void BindPatternDeclarationOwner(SyntaxNode owner)
@@ -779,48 +833,18 @@ partial class BlockBinder : Binder
     }
 
     protected virtual void OnLocalDeclared(ILocalSymbol local)
-    {
-        if (TryGetSyntaxReferenceKey(local, out var key) &&
-            _declaredLocalsBySyntax.ContainsKey(key))
-        {
-            return;
-        }
-
-        _declaredLocalsForTesting.Add(local);
-        if (TryGetSyntaxReferenceKey(local, out key))
-            _declaredLocalsBySyntax[key] = local;
-
-        if (!_declaredLocalsByName.TryGetValue(local.Name, out var localsByName))
-        {
-            localsByName = new List<ILocalSymbol>();
-            _declaredLocalsByName[local.Name] = localsByName;
-        }
-
-        localsByName.Add(local);
-        _localStateVersion++;
-    }
+        => _scopeState.AddDeclaredLocal(local);
 
     internal ImmutableArray<ILocalSymbol> GetDeclaredLocalsForTesting()
-        => _declaredLocalsForTesting.ToImmutableArray();
+        => _scopeState.DeclaredLocals;
 
     internal ILocalSymbol? GetLocalForTesting(string name)
-        => _declaredLocalsByName.TryGetValue(name, out var locals) && locals.Count > 0
-            ? locals[^1]
-            : null;
+        => _scopeState.GetLocal(name);
 
-    internal int LocalStateVersionForTesting => _localStateVersion;
+    internal int LocalStateVersionForTesting => _scopeState.Version;
 
     private bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
-    {
-        if (TryGetSyntaxReferenceKey(declaringSyntax, out var key) &&
-            _declaredLocalsBySyntax.TryGetValue(key, out local!))
-        {
-            return true;
-        }
-
-        local = null!;
-        return false;
-    }
+        => _scopeState.TryGetDeclaredLocal(declaringSyntax, out local);
 
     private static bool TryGetSyntaxReferenceKey(ISymbol symbol, out SyntaxReferenceKey key)
     {
@@ -854,6 +878,56 @@ partial class BlockBinder : Binder
     }
 
     private readonly record struct SyntaxReferenceKey(SyntaxTree SyntaxTree, TextSpan Span);
+
+    private sealed class BlockScopeState
+    {
+        private readonly List<ILocalSymbol> _declaredLocals = new();
+        private readonly Dictionary<SyntaxReferenceKey, ILocalSymbol> _declaredLocalsBySyntax = new();
+        private readonly Dictionary<string, List<ILocalSymbol>> _declaredLocalsByName = new(StringComparer.Ordinal);
+
+        public int Version { get; private set; }
+
+        public ImmutableArray<ILocalSymbol> DeclaredLocals => _declaredLocals.ToImmutableArray();
+
+        public void AddDeclaredLocal(ILocalSymbol local)
+        {
+            if (TryGetSyntaxReferenceKey(local, out var key) &&
+                _declaredLocalsBySyntax.ContainsKey(key))
+            {
+                return;
+            }
+
+            _declaredLocals.Add(local);
+            if (TryGetSyntaxReferenceKey(local, out key))
+                _declaredLocalsBySyntax[key] = local;
+
+            if (!_declaredLocalsByName.TryGetValue(local.Name, out var localsByName))
+            {
+                localsByName = new List<ILocalSymbol>();
+                _declaredLocalsByName[local.Name] = localsByName;
+            }
+
+            localsByName.Add(local);
+            Version++;
+        }
+
+        public ILocalSymbol? GetLocal(string name)
+            => _declaredLocalsByName.TryGetValue(name, out var locals) && locals.Count > 0
+                ? locals[^1]
+                : null;
+
+        public bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
+        {
+            if (TryGetSyntaxReferenceKey(declaringSyntax, out var key) &&
+                _declaredLocalsBySyntax.TryGetValue(key, out local!))
+            {
+                return true;
+            }
+
+            local = null!;
+            return false;
+        }
+    }
 
     private SourceFunctionValueSymbol CreateFunctionValueSymbol(
         SyntaxNode declaringSyntax,
