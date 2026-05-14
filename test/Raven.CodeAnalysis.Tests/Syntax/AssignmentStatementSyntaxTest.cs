@@ -63,6 +63,55 @@ public class AssignmentStatementSyntaxTest
     }
 
     [Fact]
+    public void ParsesSequencePatternDeclarationShorthand_WithImplicitTypedElements()
+    {
+        var tree = SyntaxTree.ParseText("val [key: string, value: int] = entries");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
+
+        Assert.Collection(
+            pattern.Elements,
+            element =>
+            {
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var single = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                Assert.Equal("key", single.Identifier.ValueText);
+                Assert.Equal("string", typed.TypeAnnotation.Type.ToString());
+            },
+            element =>
+            {
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var single = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                Assert.Equal("value", single.Identifier.ValueText);
+                Assert.Equal("int", typed.TypeAnnotation.Type.ToString());
+            });
+    }
+
+    [Fact]
+    public void ParsesSequencePatternDeclarationShorthand_WithImplicitTypedRestElement()
+    {
+        var tree = SyntaxTree.ParseText("val [head: string, ..tail: int] = entries");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.ValKeyword, assignment.BindingKeyword.Kind);
+        var pattern = Assert.IsType<SequencePatternSyntax>(assignment.Left);
+
+        var head = Assert.IsType<VariablePatternSyntax>(pattern.Elements[0].Pattern);
+        var headType = Assert.IsType<TypedVariableDesignationSyntax>(head.Designation);
+        Assert.Equal("string", headType.TypeAnnotation.Type.ToString());
+
+        var restElement = pattern.Elements[1];
+        Assert.Equal(SyntaxKind.DotDotToken, restElement.Prefix.DotDotToken.Kind);
+        var tail = Assert.IsType<VariablePatternSyntax>(restElement.Pattern);
+        var tailType = Assert.IsType<TypedVariableDesignationSyntax>(tail.Designation);
+        Assert.Equal("int", tailType.TypeAnnotation.Type.ToString());
+    }
+
+    [Fact]
     public void ParsesSequencePatternDeclarationShorthand_WithMiddleRest()
     {
         var tree = SyntaxTree.ParseText("val [first, ..middle, last] = numbers");

@@ -370,6 +370,66 @@ func MapPost(app: int, path: string, handler: func (RequestContext) -> Task<stri
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentMode_ReportsTypedDeconstructionMismatchOnAnnotationSpanAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.Collections.Immutable.*
+
+val doubled: ImmutableDictionary<string, int> = ["two": 4]
+
+for val (key: string, value: string) in doubled {
+    _ = key
+    _ = value
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DocumentDiagnosticsMode.Document,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        var valueTypeStart = code.IndexOf("value: string", StringComparison.Ordinal) + "value: ".Length;
+        var expectedRange = PositionHelper.ToRange(sourceText, new CodeTextSpan(valueTypeStart, "string".Length));
+
+        result.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV1503", StringComparison.Ordinal) &&
+            diagnostic.Range.Start == expectedRange.Start &&
+            diagnostic.Range.End == expectedRange.End).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TopLevelGenericWhereClauseSelfConstraint_DoesNotReportTypeParameterOutOfScopeAsync()
     {
         Directory.CreateDirectory(_tempRoot);

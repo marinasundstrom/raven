@@ -4351,6 +4351,7 @@ Not currently supported as deconstruction heads:
 
 For element type matching and capture, Raven accepts both:
 
+* `name: Type` when an outer binding keyword supplies the capture mode
 * `val name: Type`
 * `Type name` (type-pattern style)
 
@@ -4363,6 +4364,7 @@ var (head, tail: double, _) = numbers()
 (val id: int, val name: string) = getTuple()
 (lhs, == expectedRhs) = evaluate()
 val (Items: items, Name: name, Age: age) = person
+val [key: string, value: int] = entries
 ```
 
 Existing locals can participate in positional assignments alongside new

@@ -358,6 +358,17 @@ internal class PatternSyntaxParser : SyntaxParser
         if (!PeekToken().IsKind(SyntaxKind.OpenBracketToken))
             return false;
 
+        if (_allowImplicitDeconstructionElementBindings)
+        {
+            var checkpoint = CreateCheckpoint("dictionary-pattern-start");
+            ReadToken();
+            var isImplicitTypedVariableElement = LooksLikeImplicitTypedVariablePattern();
+            checkpoint.Rewind();
+
+            if (isImplicitTypedVariableElement)
+                return false;
+        }
+
         var parenDepth = 0;
         var bracketDepth = 0;
         var braceDepth = 0;
@@ -645,6 +656,9 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         NameColonSyntax? nameColon = null;
 
+        if (TryParseImplicitTypedVariablePattern(out var typedVariablePattern))
+            return PositionalPatternElement(nameColon, typedVariablePattern);
+
         if (PeekToken(1).IsKind(SyntaxKind.ColonToken) && CanTokenBeIdentifier(PeekToken()))
         {
             var nameToken = ReadToken();
@@ -664,6 +678,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
     private PatternSyntax ParseDeconstructionElementPattern()
     {
+        if (TryParseImplicitTypedVariablePattern(out var typedVariablePattern))
+            return typedVariablePattern;
+
         if (_allowImplicitDeconstructionElementBindings &&
             CanTokenBeIdentifier(PeekToken()) &&
             PeekToken(1).Kind is not SyntaxKind.OpenParenToken &&
@@ -682,6 +699,51 @@ internal class PatternSyntaxParser : SyntaxParser
             _allowImplicitDeconstructionElementBindings,
             _allowWholePatternDesignation,
             allowPatternGuards: true).ParsePattern();
+    }
+
+    private bool TryParseImplicitTypedVariablePattern(out PatternSyntax pattern)
+    {
+        pattern = null!;
+
+        if (!LooksLikeImplicitTypedVariablePattern())
+            return false;
+
+        var designation = ParseDesignation(allowBindingKeyword: false);
+        pattern = ParseOptionalGuardedPattern(VariablePattern(Token(SyntaxKind.None), designation));
+        return true;
+    }
+
+    private bool LooksLikeImplicitTypedVariablePattern()
+    {
+        if (!_allowImplicitDeconstructionElementBindings ||
+            !CanTokenBeIdentifier(PeekToken()) ||
+            !PeekToken(1).IsKind(SyntaxKind.ColonToken))
+        {
+            return false;
+        }
+
+        var checkpoint = CreateCheckpoint("implicit-typed-variable-pattern");
+        var designation = ParseDesignation(allowBindingKeyword: false);
+        var isTypedDesignation =
+            designation is TypedVariableDesignationSyntax { TypeAnnotation.Type.IsMissing: false } &&
+            IsImplicitTypedVariablePatternTerminator(PeekToken().Kind);
+
+        checkpoint.Rewind();
+        return isTypedDesignation;
+    }
+
+    private static bool IsImplicitTypedVariablePatternTerminator(SyntaxKind kind)
+    {
+        return kind is
+            SyntaxKind.CommaToken or
+            SyntaxKind.CloseParenToken or
+            SyntaxKind.CloseBracketToken or
+            SyntaxKind.CloseBraceToken or
+            SyntaxKind.EqualsToken or
+            SyntaxKind.InKeyword or
+            SyntaxKind.FatArrowToken or
+            SyntaxKind.WhenKeyword or
+            SyntaxKind.EndOfFileToken;
     }
 
     private PatternSyntax ParseOptionalGuardedPattern(PatternSyntax pattern)

@@ -1494,6 +1494,16 @@ internal partial class BlockBinder
 
         var declaredType = ResolveType(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
+        expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
+        var normalizedExpectedType = TypeSymbolNormalization.NormalizeForInference(expectedType).GetPlainType();
+
+        if (!PatternCanMatch(normalizedExpectedType, declaredType.GetPlainType()))
+        {
+            ReportCannotConvertFromTypeToType(
+                normalizedExpectedType,
+                declaredType,
+                typedDesignation.TypeAnnotation.Type.GetLocation());
+        }
 
         return BindVariableDesignation(typedDesignation.Designation, isMutable, declaredType);
     }

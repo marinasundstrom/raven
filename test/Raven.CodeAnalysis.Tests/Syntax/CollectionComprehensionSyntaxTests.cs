@@ -135,6 +135,34 @@ public class CollectionComprehensionSyntaxTests
     }
 
     [Fact]
+    public void CollectionComprehension_WithImplicitTypedDeconstructionTarget_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [for val (key: string, value: int) in pairs => key]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var comprehension = Assert.IsType<CollectionComprehensionElementSyntax>(collection.Elements[0]);
+        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
+
+        Assert.Collection(
+            target.Elements,
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                typed.TypeAnnotation.Type.ToString().ShouldBe("string");
+            },
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                typed.TypeAnnotation.Type.ToString().ShouldBe("int");
+            });
+    }
+
+    [Fact]
     public void CollectionExpression_DictionaryComprehension_WithDeconstructionTarget_Parses()
     {
         var tree = SyntaxTree.ParseText("val xs = [for val (key, value) in pairs => key: value]");
@@ -144,6 +172,34 @@ public class CollectionComprehensionSyntaxTests
         Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
         var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
         Assert.Equal(2, target.Elements.Count);
+    }
+
+    [Fact]
+    public void DictionaryComprehension_WithImplicitTypedDeconstructionTarget_Parses()
+    {
+        var tree = SyntaxTree.ParseText("val xs = [for val (key: string, value: int) in pairs => key: value]");
+        var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        var comprehension = Assert.IsType<DictionaryComprehensionElementSyntax>(collection.Elements[0]);
+        Assert.Equal(SyntaxKind.ValKeyword, comprehension.BindingKeyword.Kind);
+        var target = Assert.IsType<PositionalPatternSyntax>(comprehension.Target);
+
+        Assert.Collection(
+            target.Elements,
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                typed.TypeAnnotation.Type.ToString().ShouldBe("string");
+            },
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                typed.TypeAnnotation.Type.ToString().ShouldBe("int");
+            });
     }
 
     [Fact]

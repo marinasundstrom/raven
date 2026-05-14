@@ -119,6 +119,34 @@ let result = option match {
     }
 
     [Fact]
+    public void MatchExpression_WithOuterValImplicitTypedPositionalArm_ParsesTypedCaptures()
+    {
+        var (arm, tree) = ParseFirstMatchArm("val (key: string, value: int)");
+
+        Assert.Equal(SyntaxKind.ValKeyword, arm.BindingKeyword.Kind);
+        var pattern = Assert.IsType<PositionalPatternSyntax>(arm.Pattern);
+
+        Assert.Collection(
+            pattern.Elements,
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                typed.TypeAnnotation.Type.ToString().ShouldBe("string");
+            },
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                typed.TypeAnnotation.Type.ToString().ShouldBe("int");
+            });
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void MatchExpression_WithTrailingWholePatternDesignation_Parses()
     {
         var (arm, tree) = ParseFirstMatchArm("val Some((x, y)) pair");

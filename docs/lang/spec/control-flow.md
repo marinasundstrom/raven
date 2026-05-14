@@ -225,6 +225,16 @@ if val x: int = input {
 }
 ```
 
+The same typed implicit-capture form applies inside positional, sequence, and
+nominal deconstruction patterns when the surrounding construct supplies the
+binding mode:
+
+```raven
+if val (key: string, value: int) = entry {
+    WriteLine(key)
+}
+```
+
 This also supports ordinary hierarchy narrowing:
 
 ```raven

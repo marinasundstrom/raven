@@ -413,6 +413,21 @@ public class PatternSyntaxParserTests
     }
 
     [Fact]
+    public void PositionalPattern_WithoutBindingContext_PreservesNamedSubpattern()
+    {
+        var (pattern, tree) = ParsePattern("(key: string)");
+
+        var positional = Assert.IsType<PositionalPatternSyntax>(pattern);
+        var element = Assert.Single(positional.Elements);
+
+        Assert.NotNull(element.NameColon);
+        Assert.Equal("key", element.NameColon!.Name.Identifier.ValueText);
+        Assert.IsType<DeclarationPatternSyntax>(element.Pattern);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void SequencePattern_WithExplicitBindingAndEqualityPattern_Parses()
     {
         var (pattern, tree) = ParsePattern("[val head, == sentinel, ..val tail]");
@@ -425,6 +440,21 @@ public class PatternSyntaxParserTests
         var second = Assert.IsType<ComparisonPatternSyntax>(sequence.Elements[1].Pattern);
         Assert.Equal(SyntaxKind.EqualsPattern, second.Kind);
         Assert.IsType<VariablePatternSyntax>(sequence.Elements[2].Pattern);
+
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void BracketPattern_WithoutBindingContext_PreservesDictionaryPattern()
+    {
+        var (pattern, tree) = ParsePattern("[key: string]");
+
+        var dictionary = Assert.IsType<DictionaryPatternSyntax>(pattern);
+        var entry = Assert.Single(dictionary.Entries);
+
+        var key = Assert.IsType<IdentifierNameSyntax>(entry.Key);
+        Assert.Equal("key", key.Identifier.ValueText);
+        Assert.IsType<DeclarationPatternSyntax>(entry.Pattern);
 
         AssertNoErrors(tree);
     }

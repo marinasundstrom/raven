@@ -98,6 +98,14 @@ if val (id, name) = person {
 This is statement-form sugar for `if person is (val id, val name) { ... }`.
 The leading binding keyword is required; Raven does not allow `if Pattern = expr`
 without `let` / `val` / `var`.
+Implicit captures may carry inline type annotations, including inside
+deconstruction elements:
+
+```raven
+if val (key: string, value: int) = entry {
+    WriteLine(key)
+}
+```
 
 The same rule applies to nominal deconstruction patterns:
 

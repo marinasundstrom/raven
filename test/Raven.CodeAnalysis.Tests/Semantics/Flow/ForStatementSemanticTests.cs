@@ -724,4 +724,53 @@ for (val x, 0) in points {
             .Local.ShouldBe(boundFor.Local);
         isPattern.Pattern.ShouldBeOfType<BoundPositionalPattern>();
     }
+
+    [Fact]
+    public void For_WithImplicitTypedPatternTargetMismatch_ReportsDiagnosticOnTypeAnnotation()
+    {
+        const string source = """
+val pairs = [("one", 1), ("two", 2), ("three", 3)]
+val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+
+for val (key: string, value: string) in doubled {
+    _ = key
+    _ = value
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostic = compilation.GetDiagnostics()
+            .Single(d => d.Id == CompilerDiagnostics.CannotConvertFromTypeToType.Id);
+        var expectedStart = source.IndexOf("value: string", StringComparison.Ordinal) + "value: ".Length;
+
+        diagnostic.Location.SourceSpan.Start.ShouldBe(expectedStart);
+        tree.GetText()!.ToString(diagnostic.Location.SourceSpan).ShouldBe("string");
+    }
+
+    [Fact]
+    public void For_WithImplicitTypedPatternTargetMismatchOnImmutableDictionary_ReportsDiagnosticOnValueTypeAnnotation()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+val doubled: ImmutableDictionary<string, int> = ["two": 4]
+
+for val (key: string, value: string) in doubled {
+    _ = key
+    _ = value
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostic = compilation.GetDiagnostics()
+            .Single(d => d.Id == CompilerDiagnostics.CannotConvertFromTypeToType.Id);
+        var expectedStart = source.IndexOf("value: string", StringComparison.Ordinal) + "value: ".Length;
+
+        diagnostic.Location.SourceSpan.Start.ShouldBe(expectedStart);
+        tree.GetText()!.ToString(diagnostic.Location.SourceSpan).ShouldBe("string");
+    }
 }

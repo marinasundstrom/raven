@@ -180,6 +180,105 @@ if val x: int = input {
     }
 
     [Fact]
+    public void IfPatternStatement_WithImplicitTypedPositionalElements_ParsesVariablePatterns()
+    {
+        const string testCode = """
+if val (key: string, value: int) = input {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
+        var pattern = Assert.IsType<PositionalPatternSyntax>(ifBinding.Pattern);
+
+        Assert.Collection(
+            pattern.Elements,
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var single = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                single.Identifier.ValueText.ShouldBe("key");
+                typed.TypeAnnotation.Type.ToString().ShouldBe("string");
+            },
+            element =>
+            {
+                element.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var single = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                single.Identifier.ValueText.ShouldBe("value");
+                typed.TypeAnnotation.Type.ToString().ShouldBe("int");
+            });
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithImplicitTypedNominalDeconstructionArguments_ParsesVariablePatterns()
+    {
+        const string testCode = """
+if val Entry(key: string, value: int) = input {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
+        var pattern = Assert.IsType<NominalDeconstructionPatternSyntax>(ifBinding.Pattern);
+
+        Assert.Collection(
+            pattern.ArgumentList.Arguments,
+            argument =>
+            {
+                argument.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(argument.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var single = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                single.Identifier.ValueText.ShouldBe("key");
+                typed.TypeAnnotation.Type.ToString().ShouldBe("string");
+            },
+            argument =>
+            {
+                argument.NameColon.ShouldBeNull();
+                var variable = Assert.IsType<VariablePatternSyntax>(argument.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var single = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                single.Identifier.ValueText.ShouldBe("value");
+                typed.TypeAnnotation.Type.ToString().ShouldBe("int");
+            });
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithNamedNominalSubpatterns_PreservesNameColonWhenSubpatternIsNotTypeAnnotation()
+    {
+        const string testCode = """
+if val Person(Name: val name, Age: > 18) = person {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifBinding = Assert.IsType<IfPatternStatementSyntax>(statement);
+        var pattern = Assert.IsType<NominalDeconstructionPatternSyntax>(ifBinding.Pattern);
+
+        Assert.Collection(
+            pattern.ArgumentList.Arguments,
+            argument =>
+            {
+                argument.NameColon.ShouldNotBeNull();
+                argument.NameColon!.Name.Identifier.ValueText.ShouldBe("Name");
+                argument.Pattern.ShouldBeOfType<VariablePatternSyntax>();
+            },
+            argument =>
+            {
+                argument.NameColon.ShouldNotBeNull();
+                argument.NameColon!.Name.Identifier.ValueText.ShouldBe("Age");
+                argument.Pattern.ShouldBeOfType<ComparisonPatternSyntax>();
+            });
+    }
+
+    [Fact]
     public void IfPatternStatement_WithTrailingWholePatternDesignation_Parses()
     {
         const string testCode = """

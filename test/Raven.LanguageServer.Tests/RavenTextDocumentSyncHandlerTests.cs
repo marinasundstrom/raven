@@ -98,7 +98,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.WarmupDelayMilliseconds.ShouldBe(0);
         policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
         policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThanOrEqualTo(5_000);
+        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeLessThanOrEqualTo(750);
         policy.FollowUpMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.Document);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }

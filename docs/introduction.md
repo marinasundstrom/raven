@@ -176,7 +176,8 @@ patterns, a capture uses a binding keyword. When Raven offers an outer shorthand
 form such as `val (...) = expr`, `if val pattern = expr`,
 `while val pattern = expr`, `for val pattern in values`, or
 `match { val pattern => ... }`, that outer keyword supplies the binding mode for
-otherwise bare captures inside the pattern.
+otherwise bare captures inside the pattern. Those implicit captures may still
+carry inline type annotations, as in `val (key: string, value: int) = entry`.
 
 There is also an important surface distinction:
 
