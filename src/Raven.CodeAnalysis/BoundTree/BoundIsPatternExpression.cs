@@ -1004,6 +1004,8 @@ internal partial class BlockBinder
         var elementTypes = inputType is null
             ? ImmutableArray<ITypeSymbol>.Empty
             : GetTupleElementTypes(inputType);
+        if (elementTypes.IsDefaultOrEmpty && inputType is not null)
+            elementTypes = GetPrimaryConstructorDeconstructionElementTypes(inputType);
 
         for (var i = 0; i < syntax.Elements.Count; i++)
         {
@@ -1384,7 +1386,9 @@ internal partial class BlockBinder
                                     // Typed designations require an explicit binding keyword on each single variable.
                                     // Example that should diagnose: (a: bool, b: string)
                                     // Example that should NOT diagnose: (val a: bool, var b: string)
-                                    if (!HasExplicitBindingKeyword(single, hasAmbientBindingKeyword))
+                                    var allowAmbientBindingKeyword = hasAmbientBindingKeyword &&
+                                        !IsDirectPatternOfNamedSubpattern(typed);
+                                    if (!HasExplicitBindingKeyword(single, allowAmbientBindingKeyword))
                                     {
                                         _diagnostics.ReportPatternTypedBindingRequiresKeyword(
                                             single.Identifier.ValueText,
@@ -1436,6 +1440,23 @@ internal partial class BlockBinder
         }
 
         return false;
+    }
+
+    private static bool IsDirectPatternOfNamedSubpattern(VariableDesignationSyntax designation)
+    {
+        if (designation.Parent is not VariablePatternSyntax variablePattern ||
+            !ReferenceEquals(variablePattern.Designation, designation))
+        {
+            return false;
+        }
+
+        return variablePattern.Parent switch
+        {
+            PositionalPatternElementSyntax { NameColon: not null } => true,
+            PropertySubpatternSyntax => true,
+            DictionaryPatternEntrySyntax => true,
+            _ => false
+        };
     }
 
     private BoundPattern BindVariablePattern(VariablePatternSyntax syntax, ITypeSymbol? expectedType)
@@ -1547,11 +1568,22 @@ internal partial class BlockBinder
         ITypeSymbol expectedType)
     {
         var variables = parenthesized.Variables;
+        var elementCount = variables.Count;
+
+        if (expectedType.TypeKind != TypeKind.Error)
+        {
+            var deconstructMethod = FindDeconstructMethod(expectedType, elementCount);
+            if (deconstructMethod is not null)
+                return BindDeconstructPatternForAssignment(variables, deconstructMethod, expectedType, isMutable);
+        }
+
         var elementTypes = GetTupleElementTypes(expectedType);
+        if (elementTypes.IsDefaultOrEmpty)
+            elementTypes = GetPrimaryConstructorDeconstructionElementTypes(expectedType);
 
-        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(variables.Count);
+        var boundElements = ImmutableArray.CreateBuilder<BoundPattern>(elementCount);
 
-        for (var i = 0; i < variables.Count; i++)
+        for (var i = 0; i < elementCount; i++)
         {
             var variable = variables[i];
             var elementType = elementTypes.Length > i
@@ -1573,6 +1605,55 @@ internal partial class BlockBinder
         var tupleType = Compilation.CreateTupleTypeSymbol(tupleElements);
 
         return new BoundPositionalPattern(tupleType, boundElements.ToImmutable());
+    }
+
+    private readonly record struct PrimaryConstructorDeconstructionElement(string Name, ITypeSymbol Type);
+
+    private ImmutableArray<ITypeSymbol> GetPrimaryConstructorDeconstructionElementTypes(ITypeSymbol inputType)
+        => GetPrimaryConstructorDeconstructionElements(inputType)
+            .Select(static element => element.Type)
+            .ToImmutableArray();
+
+    private ImmutableArray<PrimaryConstructorDeconstructionElement> GetPrimaryConstructorDeconstructionElements(ITypeSymbol inputType)
+    {
+        var plainType = inputType.GetPlainType();
+        foreach (var reference in plainType.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not TypeDeclarationSyntax { ParameterList: { } parameterList } typeDeclaration)
+                continue;
+
+            var isRecord = typeDeclaration is RecordDeclarationSyntax ||
+                           typeDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.RecordKeyword);
+            var builder = ImmutableArray.CreateBuilder<PrimaryConstructorDeconstructionElement>();
+
+            foreach (var parameter in parameterList.Parameters)
+            {
+                if (ParameterSyntaxUtilities.GetRefKind(parameter) != RefKind.None)
+                    continue;
+
+                var bindingKeywordKind = parameter.BindingKeyword.Kind;
+                if (!isRecord &&
+                    bindingKeywordKind is not SyntaxKind.ValKeyword and not SyntaxKind.VarKeyword)
+                {
+                    continue;
+                }
+
+                if (!isRecord &&
+                    parameter.AccessibilityKeyword.Kind == SyntaxKind.PrivateKeyword)
+                {
+                    continue;
+                }
+
+                var parameterType = parameter.TypeAnnotation?.Type is { } typeSyntax
+                    ? ResolveTypeSyntaxOrError(typeSyntax)
+                    : Compilation.ErrorTypeSymbol;
+                builder.Add(new PrimaryConstructorDeconstructionElement(parameter.Identifier.ValueText, parameterType));
+            }
+
+            return builder.ToImmutable();
+        }
+
+        return ImmutableArray<PrimaryConstructorDeconstructionElement>.Empty;
     }
 
     private BoundPattern BindPositionalPatternElementDesignation(PositionalPatternElementSyntax elementSyntax, BoundPattern pattern)

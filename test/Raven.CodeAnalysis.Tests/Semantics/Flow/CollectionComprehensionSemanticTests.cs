@@ -1,5 +1,6 @@
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -159,6 +160,30 @@ val names = [for val (id, name when name.Length > id) in people => name]
     }
 
     [Fact]
+    public void CollectionComprehension_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+val people = [Person("Ada", 42)]
+val names = [for val (Name: name: string, Age: age: int) in people => name]
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("name", "string"),
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("age", "int")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void DictionaryComprehension_WithDeconstructionTarget_InfersDictionaryShape()
     {
         const string source = """
@@ -184,5 +209,29 @@ val lengths = [for val (key, value) in pairs => key: value]
         Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
         Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
         Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
+    }
+
+    [Fact]
+    public void DictionaryComprehension_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+val people = [Person("Ada", 42)]
+val map = [for val (Name: name: string, Age: age: int) in people => name: age]
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("name", "string"),
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("age", "int")
+            ]);
+
+        verifier.Verify();
     }
 }

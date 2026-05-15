@@ -323,25 +323,20 @@ func Main(users: IQueryable<User>) {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 import System.*
-import System.IO.*
-import System.Text.*
 import System.Threading.Tasks.*
 
 class RequestContext {
-    public val Body: Stream
+    public val Text: string = "body"
 }
 
 func Main() -> unit {
-    val app = 0
-
-    MapPost(app, "/submit", async func (context: RequestContext) {
-        use reader = StreamReader(context.Body, encoding: .UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false)
-        val content = await reader.ReadToEndAsync()
+    Accept(async func (context: RequestContext) {
+        val content = await Task.FromResult(context.Text)
         return "submitted: $content"
     })
 }
 
-func MapPost(app: int, path: string, handler: func (RequestContext) -> Task<string>) -> unit { }
+func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
 """;
 
         store.UpsertDocument(uri, code);

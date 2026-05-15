@@ -4265,6 +4265,12 @@ if !TryParse(arg, out total) {
 
 ## Local declarations
 
+Raven uses type inference wherever a declaration or target-typed context supplies
+enough information. Local bindings usually do not need explicit type
+annotations; write one when inference is ambiguous, when an empty or otherwise
+targetless expression needs a type, or when the binding must have a specific
+supertype or converted type.
+
 ### Value binding (`val`)
 
 A `val` binding is **immutable** (not reassignable). Types are inferred
@@ -4320,13 +4326,24 @@ import it without running an initializer.
 Positional deconstruction lets you bind or assign multiple values at once. The outer
 `val`/`var` controls the default mutability for shorthand forms, while each element
 uses a designation (possibly nested) to capture or discard the corresponding value.
-Elements may include inline type annotations. Positional deconstruction works with
-tuples and with any type that exposes a compatible `Deconstruct` method (including
-as an extension method).
+Elements may include inline type annotations when the inferred element type is
+not the desired target type. Positional deconstruction works with tuples and
+with any type that exposes a compatible `Deconstruct` method (including as an
+extension method).
 Elements may also be named as `Name: pattern`. For `Deconstruct`-based
 deconstruction, named elements bind by parameter name and may be written in any
 order; unnamed elements continue to consume the remaining unmatched parameters
 in declaration order. Unknown names are diagnosed.
+
+A named element's right side is always a nested pattern. Because `Name: target:
+Type` is ambiguous between a named subpattern and a typed target, an outer
+binding keyword may bind `Name: target` but does not make `Name: target: Type`
+valid. Use the explicit nested-binding form, for example `Name: val target:
+Type`, on a surface that does not also supply an outer binding keyword, or use an
+unnamed typed element such as `target: Type` when the element is selected
+positionally. The same rule applies recursively in match arms,
+`if val`/`while val` pattern statements, `for val` pattern targets, and
+comprehension targets.
 
 This is a **deconstruction** surface, not a full general pattern-matching
 surface. The left-hand side must start with positional syntax (`(...)`) or
@@ -4367,6 +4384,14 @@ val (Items: items, Name: name, Age: age) = person
 val [key: string, value: int] = entries
 ```
 
+The label-plus-typed-target form is invalid:
+
+```raven
+// invalid; write (Name: val name: string) without an outer binding keyword,
+// or use an unnamed typed element such as name: string
+val (Name: name: string) = person
+```
+
 Existing locals can participate in positional assignments alongside new
 bindings. Mixed `val`/`var` designations and inline type annotations are
 supported in both declarations and assignments:
@@ -4379,6 +4404,13 @@ var second = 0
 val (third, fourth: double, _) = toTuple()
 var (val fifth, var sixth: double, _) = project()
 ```
+
+When a deconstruction target has an explicit type annotation, or when it assigns
+into an existing local/field/property, Raven uses that target type for the
+captured value and applies the normal implicit-conversion rules. If the
+deconstructed element cannot be converted to the target type, the compiler
+reports the conversion diagnostic at the target type annotation or assignment
+target.
 
 Collection deconstruction uses the same element-pattern rules but with bracket
 syntax. In assignments and declarations, collection deconstruction supports
@@ -4566,8 +4598,10 @@ implements `IAsyncDisposable`; otherwise it uses `Dispose()`.
 
 ### Type annotations
 
-Use type annotations where inference is insufficient (e.g., for
-parameters, some bindings, or return types):
+Use type annotations where inference is insufficient or where a particular
+target type is required. Locals commonly infer their type from the initializer;
+function-expression parameters can infer from a delegate target; ordinary
+function and method parameters still declare their parameter types explicitly:
 
 ```raven
 val a = 2

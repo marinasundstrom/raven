@@ -178,4 +178,100 @@ public class AssignmentStatementSyntaxTest
         Assert.Equal(SyntaxKind.OpenParenToken, pattern.OpenParenToken.Kind);
         Assert.Equal(3, pattern.Elements.Count);
     }
+
+    [Fact]
+    public void PositionalPatternDeclarationShorthand_WithNamedImplicitBindings_PreservesElementNames()
+    {
+        var tree = SyntaxTree.ParseText("val (Items: items, Name: name, Age: age) = person");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
+
+        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
+
+        Assert.Collection(
+            pattern.Elements,
+            element =>
+            {
+                Assert.Equal("Items", element.NameColon?.Name.Identifier.ValueText);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
+                Assert.Equal("items", designation.Identifier.ValueText);
+            },
+            element =>
+            {
+                Assert.Equal("Name", element.NameColon?.Name.Identifier.ValueText);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
+                Assert.Equal("name", designation.Identifier.ValueText);
+            },
+            element =>
+            {
+                Assert.Equal("Age", element.NameColon?.Name.Identifier.ValueText);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
+                Assert.Equal("age", designation.Identifier.ValueText);
+            });
+    }
+
+    [Fact]
+    public void PositionalPatternDeclarationShorthand_WithImplicitTypedElements_ParsesTypeAnnotations()
+    {
+        var tree = SyntaxTree.ParseText("val (key: string, value: int) = pair");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<PatternDeclarationAssignmentStatementSyntax>().Single();
+
+        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
+
+        Assert.Collection(
+            pattern.Elements,
+            element =>
+            {
+                Assert.Null(element.NameColon);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                Assert.Equal("key", designation.Identifier.ValueText);
+                Assert.Equal("string", typed.TypeAnnotation.Type.ToString());
+            },
+            element =>
+            {
+                Assert.Null(element.NameColon);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var typed = Assert.IsType<TypedVariableDesignationSyntax>(variable.Designation);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(typed.Designation);
+                Assert.Equal("value", designation.Identifier.ValueText);
+                Assert.Equal("int", typed.TypeAnnotation.Type.ToString());
+            });
+    }
+
+    [Fact]
+    public void PositionalPatternAssignment_WithNamedExistingBindings_PreservesElementNames()
+    {
+        var tree = SyntaxTree.ParseText("(Items: items, Name: name, Age: age) = person");
+        var assignment = tree.GetRoot().DescendantNodes().OfType<AssignmentStatementSyntax>().Single();
+
+        var pattern = Assert.IsType<PositionalPatternSyntax>(assignment.Left);
+
+        Assert.Collection(
+            pattern.Elements,
+            element =>
+            {
+                Assert.Equal("Items", element.NameColon?.Name.Identifier.ValueText);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
+                Assert.Equal("items", designation.Identifier.ValueText);
+            },
+            element =>
+            {
+                Assert.Equal("Name", element.NameColon?.Name.Identifier.ValueText);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
+                Assert.Equal("name", designation.Identifier.ValueText);
+            },
+            element =>
+            {
+                Assert.Equal("Age", element.NameColon?.Name.Identifier.ValueText);
+                var variable = Assert.IsType<VariablePatternSyntax>(element.Pattern);
+                var designation = Assert.IsType<SingleVariableDesignationSyntax>(variable.Designation);
+                Assert.Equal("age", designation.Identifier.ValueText);
+            });
+    }
 }

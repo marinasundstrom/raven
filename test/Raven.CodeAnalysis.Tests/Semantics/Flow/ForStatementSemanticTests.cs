@@ -323,6 +323,34 @@ class C {
     }
 
     [Fact]
+    public void For_WithNamedTypedPatternTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+val people = [Person("Ada", 42)]
+
+for val (Name: name: string, Age: age: int) in people {
+    _ = name
+    _ = age
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var allDiagnostics = compilation.GetDiagnostics();
+        var diagnostics = allDiagnostics
+            .Where(d => d.Id == CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+            .ToArray();
+
+        allDiagnostics.Where(d => d.Id != CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id).ShouldBeEmpty();
+        diagnostics.Length.ShouldBe(2);
+        diagnostics.ShouldContain(d => d.GetMessage().Contains("name: string", StringComparison.Ordinal));
+        diagnostics.ShouldContain(d => d.GetMessage().Contains("age: int", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void For_WithExplicitVarIdentifierTarget_ReportsDiagnostic()
     {
         const string source = """

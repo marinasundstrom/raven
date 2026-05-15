@@ -109,6 +109,8 @@ partial class BlockBinder : Binder
 
     private ILocalSymbol? BindDeclaredPatternLocal(SingleVariableDesignationSyntax singleVariableDesignation)
     {
+        EnsurePrecedingStatementDeclarations(singleVariableDesignation);
+
         if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator cachedDesignator)
             return cachedDesignator.Local;
 
@@ -124,6 +126,14 @@ partial class BlockBinder : Binder
             BindPatternDeclarationOwner(whilePatternStatement);
         else if (singleVariableDesignation.GetAncestor<ForStatementSyntax>() is { } forStatement)
             BindPatternDeclarationOwner(forStatement);
+        else if (singleVariableDesignation.GetAncestor<CollectionComprehensionElementSyntax>() is { } collectionComprehension)
+            BindPatternDeclarationOwner(collectionComprehension.GetAncestor<CollectionExpressionSyntax>() is { } collectionExpression
+                ? collectionExpression
+                : collectionComprehension);
+        else if (singleVariableDesignation.GetAncestor<DictionaryComprehensionElementSyntax>() is { } dictionaryComprehension)
+            BindPatternDeclarationOwner(dictionaryComprehension.GetAncestor<CollectionExpressionSyntax>() is { } collectionExpression
+                ? collectionExpression
+                : dictionaryComprehension);
         else if (singleVariableDesignation.GetAncestor<PatternDeclarationAssignmentStatementSyntax>() is { } patternDeclarationAssignment)
             BindPatternDeclarationOwner(patternDeclarationAssignment);
 
@@ -197,13 +207,6 @@ partial class BlockBinder : Binder
 
     private void BindPatternDeclarationOwner(SyntaxNode owner)
     {
-        var semanticModel = SemanticModel;
-        if (semanticModel is not null)
-        {
-            _ = semanticModel.GetBoundNode(owner);
-            return;
-        }
-
         _ = GetOrBind(owner);
     }
 
@@ -10422,6 +10425,8 @@ partial class BlockBinder : Binder
         var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
         if (valueType.TypeKind != TypeKind.Error)
             elementTypes = GetTupleElementTypes(valueType);
+        if (elementTypes.IsDefaultOrEmpty && valueType.TypeKind != TypeKind.Error)
+            elementTypes = GetPrimaryConstructorDeconstructionElementTypes(valueType);
 
         if (elementTypes.IsDefaultOrEmpty)
         {
@@ -10954,6 +10959,8 @@ partial class BlockBinder : Binder
                 return BindIdentifierPatternForExistingLocalAssignment(single.Identifier, valueType);
             case TypedVariableDesignationSyntax typed:
                 {
+                    ReportTypedPatternBindingsMissingKeyword(typed, hasAmbientBindingKeyword: false);
+
                     var declaredType = ResolveTypeSyntaxOrError(typed.TypeAnnotation.Type);
                     declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
                     declaredType = EnsureTypeValidForStorageLocation(declaredType, typed.TypeAnnotation.Type.GetLocation());
@@ -10981,6 +10988,8 @@ partial class BlockBinder : Binder
         ITypeSymbol incomingType,
         bool isMutable)
     {
+        ReportTypedPatternBindingsMissingKeyword(typedDesignation, hasAmbientBindingKeyword: true);
+
         var declaredType = ResolveTypeSyntaxOrError(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
         declaredType = EnsureTypeValidForStorageLocation(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
@@ -11045,6 +11054,8 @@ partial class BlockBinder : Binder
         var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
         if (valueType.TypeKind != TypeKind.Error)
             elementTypes = GetTupleElementTypes(valueType);
+        if (elementTypes.IsDefaultOrEmpty && valueType.TypeKind != TypeKind.Error)
+            elementTypes = GetPrimaryConstructorDeconstructionElementTypes(valueType);
 
         if (elementTypes.IsDefaultOrEmpty)
         {

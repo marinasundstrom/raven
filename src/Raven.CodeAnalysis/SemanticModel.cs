@@ -418,7 +418,7 @@ public partial class SemanticModel
                 ClearCachedBinderDiagnostics(owner.Span);
 
                 if (owner is GlobalStatementSyntax globalOwner)
-                    BindPrecedingGlobalStatementsForScope(root, globalOwner);
+                    BindPrecedingGlobalStatementsForScope(root, globalOwner, requireCompleteDeclarations);
 
                 var ownerBinder = ReferenceEquals(owner, root)
                     ? rootBinder
@@ -1598,7 +1598,7 @@ public partial class SemanticModel
                 }
 
                 if (TryGetStableLocalDeclarationSymbol(declarator, out localSymbol) ||
-                    TryResolveAvailableLocalSymbol(declarator, out localSymbol))
+                    TryGetAvailableLocalDeclarationSymbol(declarator, out localSymbol))
                     return true;
             }
         }
@@ -3300,8 +3300,7 @@ public partial class SemanticModel
             ParameterSyntax parameter when TryResolveFunctionExpressionParameterSymbolFast(parameter, out var fastFunctionParameter) => fastFunctionParameter,
             ParameterSyntax parameter when parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any() => null,
             ParameterSyntax parameter => TryResolveParameterSymbolFast(parameter, out var parameterSymbol) ? parameterSymbol : GetDeclaredSymbol(parameter),
-            VariableDeclaratorSyntax variableDeclarator when TryGetStableLocalDeclarationSymbol(variableDeclarator, out var stableLocalSymbol) => stableLocalSymbol,
-            VariableDeclaratorSyntax variableDeclarator when TryResolveAvailableLocalSymbol(variableDeclarator, out var localSymbol) => localSymbol,
+            VariableDeclaratorSyntax variableDeclarator when TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var localSymbol, allowErrorType: true) => localSymbol,
             SingleVariableDesignationSyntax designation when TryResolveAvailablePatternDesignationSymbol(designation, out var designationSymbol, allowErrorType: true) => designationSymbol,
             _ => GetDeclaredSymbol(declarationNode)
         };
@@ -3690,7 +3689,7 @@ public partial class SemanticModel
                     => parameterSymbol!,
                 VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any() == true
                     => null!,
-                VariableDeclaratorSyntax variableDeclarator when TryResolveAvailableLocalSymbol(variableDeclarator, out var localSymbol, allowErrorType: true)
+                VariableDeclaratorSyntax variableDeclarator when TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var localSymbol, allowErrorType: true)
                     => localSymbol!,
                 SingleVariableDesignationSyntax designation when TryResolveAvailablePatternDesignationSymbol(designation, out var designationSymbol, allowErrorType: true)
                     => designationSymbol!,
@@ -3891,13 +3890,7 @@ public partial class SemanticModel
                 return availableParameterSymbol;
 
             case VariableDeclaratorSyntax variableDeclarator
-                when TryGetStableLocalDeclarationSymbol(variableDeclarator, out var stableLocalSymbol):
-                StoreSymbolInfo(node, stableLocalSymbol);
-                return stableLocalSymbol;
-
-            case VariableDeclaratorSyntax variableDeclarator
-                when IsLocalVariableDeclarator(variableDeclarator) &&
-                     TryResolveAvailableLocalSymbol(variableDeclarator, out var localSymbol, allowErrorType: true):
+                when TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var localSymbol, allowErrorType: true):
                 StoreSymbolInfo(node, localSymbol);
                 return localSymbol;
 
@@ -4050,7 +4043,8 @@ public partial class SemanticModel
 
     internal bool TryGetAvailableLocalDeclarationSymbol(
         VariableDeclaratorSyntax variableDeclarator,
-        out ILocalSymbol? localSymbol)
+        out ILocalSymbol? localSymbol,
+        bool allowErrorType = false)
     {
         if (!IsLocalVariableDeclarator(variableDeclarator))
         {
@@ -4059,20 +4053,13 @@ public partial class SemanticModel
         }
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
-            !cachedDeclarator.Local.Type.ContainsErrorType())
+            (allowErrorType || !cachedDeclarator.Local.Type.ContainsErrorType()))
         {
             localSymbol = cachedDeclarator.Local;
             return true;
         }
 
-        if (TryResolveAvailableLocalSymbol(variableDeclarator, out localSymbol))
-            return true;
-
-        if (variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().Any(static node => node.Kind == SyntaxKind.AwaitExpression) == true)
-            return TryResolveAvailableLocalSymbol(variableDeclarator, out localSymbol, allowErrorType: true);
-
-        localSymbol = null;
-        return false;
+        return TryBindLocalDeclarationForStableLocalSymbol(variableDeclarator, out localSymbol, allowErrorType);
     }
 
     private static bool IsLocalVariableDeclarator(VariableDeclaratorSyntax variableDeclarator)
@@ -4080,10 +4067,14 @@ public partial class SemanticModel
 
     private bool TryBindLocalDeclarationForStableLocalSymbol(
         VariableDeclaratorSyntax variableDeclarator,
-        out ILocalSymbol? localSymbol)
+        out ILocalSymbol? localSymbol,
+        bool allowErrorType = false)
     {
+        EnsureDeclarations();
+        EnsureMemberSignaturesDeclared();
+
         if (variableDeclarator.Ancestors().OfType<GlobalStatementSyntax>().FirstOrDefault() is { } globalStatement)
-            BindPrecedingGlobalStatementsForScope(SyntaxTree.GetRoot(), globalStatement);
+            BindPrecedingGlobalStatementsForScope(SyntaxTree.GetRoot(), globalStatement, requireCompleteDeclarations: false);
 
         var bindingRoot =
             variableDeclarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().FirstOrDefault()
@@ -4095,10 +4086,16 @@ public partial class SemanticModel
             return false;
         }
 
-        _ = GetBinder(bindingRoot).BindDeclaredSymbol(variableDeclarator);
+        var declaredSymbol = GetBinderForIncrementalSemanticQuery(bindingRoot).BindDeclaredSymbol(variableDeclarator);
+        if (declaredSymbol is ILocalSymbol declaredLocal &&
+            (allowErrorType || !declaredLocal.Type.ContainsErrorType()))
+        {
+            localSymbol = declaredLocal;
+            return true;
+        }
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
-            !reboundDeclarator.Local.Type.ContainsErrorType())
+            (allowErrorType || !reboundDeclarator.Local.Type.ContainsErrorType()))
         {
             localSymbol = reboundDeclarator.Local;
             return true;
@@ -4108,7 +4105,10 @@ public partial class SemanticModel
         return false;
     }
 
-    private void BindPrecedingGlobalStatementsForScope(SyntaxNode root, GlobalStatementSyntax owner)
+    private void BindPrecedingGlobalStatementsForScope(
+        SyntaxNode root,
+        GlobalStatementSyntax owner,
+        bool requireCompleteDeclarations)
     {
         foreach (var global in root.DescendantNodesAndSelf().OfType<GlobalStatementSyntax>())
         {
@@ -4118,7 +4118,10 @@ public partial class SemanticModel
             if (global.Span.Start >= owner.Span.Start)
                 break;
 
-            GetBinder(global.Statement).GetOrBind(global.Statement);
+            var binder = requireCompleteDeclarations
+                ? GetBinder(global.Statement)
+                : GetBinderForIncrementalSemanticQuery(global.Statement);
+            binder.GetOrBind(global.Statement);
         }
     }
 
@@ -5681,74 +5684,41 @@ public partial class SemanticModel
         out ILocalSymbol? localSymbol,
         bool allowErrorType = false)
     {
-        localSymbol = null;
-
         if (TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator cachedDesignator &&
-            cachedDesignator.Local.Type.TypeKind != TypeKind.Error)
+            (allowErrorType || !cachedDesignator.Local.Type.ContainsErrorType()))
         {
             localSymbol = cachedDesignator.Local;
             return true;
         }
 
-        if (RequiresPatternOwnerBindingForDesignation(designation) &&
-            TryGetStablePatternDesignationSymbol(designation, out localSymbol))
-        {
-            return true;
-        }
-
-        if (!TryInferAvailablePatternDesignationType(designation, out var type) ||
-            type is null ||
-            type.TypeKind == TypeKind.Error)
-        {
-            if (!allowErrorType)
-                return false;
-
-            type = Compilation.ErrorTypeSymbol;
-        }
-
-        if (!TryGetContainingExecutableOwnerSymbol(designation, out var containingSymbol) ||
-            containingSymbol is null)
-        {
-            containingSymbol = TryGetAvailableContainingSymbol(designation) ?? Compilation.GlobalNamespace;
-        }
-
-        localSymbol = new SourceLocalSymbol(
-            designation.Identifier.ValueText,
-            type,
-            IsMutablePatternDesignation(designation),
-            containingSymbol,
-            containingSymbol.ContainingType,
-            containingSymbol as INamespaceSymbol ?? containingSymbol.ContainingNamespace,
-            [designation.Identifier.GetLocation()],
-            [designation.GetReference()]);
-        return true;
+        return TryBindPatternDesignationForAvailableSymbol(designation, out localSymbol, allowErrorType);
     }
 
-    private bool TryGetStablePatternDesignationSymbol(
+    private bool TryBindPatternDesignationForAvailableSymbol(
         SingleVariableDesignationSyntax designation,
-        out ILocalSymbol? localSymbol)
+        out ILocalSymbol? localSymbol,
+        bool allowErrorType = false)
     {
-        localSymbol = null;
+        EnsureDeclarations();
+        EnsureMemberSignaturesDeclared();
 
-        if (TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator cachedDesignator &&
-            !cachedDesignator.Local.Type.ContainsErrorType())
+        var bindingRoot = TryGetPatternDeclarationOwner(designation) ?? (SyntaxNode)designation;
+        var declaredSymbol = GetBinderForIncrementalSemanticQuery(bindingRoot).BindDeclaredSymbol(designation);
+        if (declaredSymbol is ILocalSymbol declaredLocal &&
+            (allowErrorType || !declaredLocal.Type.ContainsErrorType()))
         {
-            localSymbol = cachedDesignator.Local;
+            localSymbol = declaredLocal;
             return true;
         }
 
-        if (TryGetPatternDeclarationOwner(designation) is not { } owner)
-            return false;
-
-        _ = GetBoundNode(owner, BoundTreeView.Original);
-
         if (TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator reboundDesignator &&
-            !reboundDesignator.Local.Type.ContainsErrorType())
+            (allowErrorType || !reboundDesignator.Local.Type.ContainsErrorType()))
         {
             localSymbol = reboundDesignator.Local;
             return true;
         }
 
+        localSymbol = null;
         return false;
     }
 
@@ -5775,131 +5745,6 @@ public partial class SemanticModel
 
         return null;
     }
-
-    private static bool RequiresPatternOwnerBindingForDesignation(SingleVariableDesignationSyntax designation)
-        => designation.Ancestors().OfType<PatternSyntax>().Any(static pattern =>
-            pattern is PositionalPatternSyntax or NominalDeconstructionPatternSyntax or PropertyPatternSyntax);
-
-    private bool TryInferAvailablePatternDesignationType(
-        SingleVariableDesignationSyntax designation,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
-    {
-        type = null;
-        var name = designation.Identifier.ValueText;
-
-        if (string.IsNullOrWhiteSpace(name))
-            return false;
-
-        if (designation.Ancestors().OfType<DeclarationPatternSyntax>().FirstOrDefault() is { } declarationPattern &&
-            declarationPattern.Designation.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetAvailableTypeInfo(declarationPattern.Type, out var declarationTypeInfo))
-        {
-            type = declarationTypeInfo.Type ?? declarationTypeInfo.ConvertedType;
-            return type is not null;
-        }
-
-        var pattern = designation.AncestorsAndSelf().OfType<PatternSyntax>().FirstOrDefault();
-        if (pattern is null)
-            return false;
-
-        if (pattern.Ancestors().OfType<ParameterSyntax>().FirstOrDefault() is { Pattern: { } parameterPattern } parameter &&
-            parameterPattern.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetAvailableParameterType(parameter, out var parameterType) &&
-            TryInferPatternDesignationType(parameterPattern, name, parameterType) is { } inferredParameterPatternType)
-        {
-            type = inferredParameterPatternType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<MatchArmSyntax>().FirstOrDefault() is { } matchArm &&
-            matchArm.Pattern.DescendantNodesAndSelf().Contains(designation) &&
-            matchArm.Parent is MatchExpressionSyntax matchExpression &&
-            TryGetAvailableTypeInfo(matchExpression.Expression, out var matchInputTypeInfo) &&
-            (matchInputTypeInfo.Type ?? matchInputTypeInfo.ConvertedType) is { } matchInputType &&
-            TryInferPatternDesignationType(matchArm.Pattern, name, matchInputType) is { } inferredMatchType)
-        {
-            type = inferredMatchType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<IsPatternExpressionSyntax>().FirstOrDefault() is { } isPatternExpression &&
-            isPatternExpression.Pattern.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetAvailableTypeInfo(isPatternExpression.Expression, out var isInputTypeInfo) &&
-            (isInputTypeInfo.Type ?? isInputTypeInfo.ConvertedType) is { } isInputType &&
-            TryInferPatternDesignationType(isPatternExpression.Pattern, name, isInputType) is { } inferredIsType)
-        {
-            type = inferredIsType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<IfPatternStatementSyntax>().FirstOrDefault() is { } ifPatternStatement &&
-            ifPatternStatement.Pattern.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetAvailableTypeInfo(ifPatternStatement.Expression, out var ifInputTypeInfo) &&
-            (ifInputTypeInfo.Type ?? ifInputTypeInfo.ConvertedType) is { } ifInputType &&
-            TryInferPatternDesignationType(ifPatternStatement.Pattern, name, ifInputType) is { } inferredIfType)
-        {
-            type = inferredIfType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<WhilePatternStatementSyntax>().FirstOrDefault() is { } whilePatternStatement &&
-            whilePatternStatement.Pattern.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetAvailableTypeInfo(whilePatternStatement.Expression, out var whileInputTypeInfo) &&
-            (whileInputTypeInfo.Type ?? whileInputTypeInfo.ConvertedType) is { } whileInputType &&
-            TryInferPatternDesignationType(whilePatternStatement.Pattern, name, whileInputType) is { } inferredWhileType)
-        {
-            type = inferredWhileType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<ForStatementSyntax>().FirstOrDefault() is { Target: PatternSyntax forPattern } forStatement &&
-            forPattern.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetForIterationElementType(forStatement.Expression) is { } iterationType &&
-            TryInferPatternDesignationType(forPattern, name, iterationType) is { } inferredForType)
-        {
-            type = inferredForType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<CollectionComprehensionElementSyntax>().FirstOrDefault() is { Target: PatternSyntax collectionPattern } collectionComprehension &&
-            collectionPattern.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetForIterationElementType(collectionComprehension.Source) is { } collectionIterationType &&
-            TryInferPatternDesignationType(collectionPattern, name, collectionIterationType) is { } inferredCollectionType)
-        {
-            type = inferredCollectionType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<DictionaryComprehensionElementSyntax>().FirstOrDefault() is { Target: PatternSyntax dictionaryPattern } dictionaryComprehension &&
-            dictionaryPattern.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetForIterationElementType(dictionaryComprehension.Source) is { } dictionaryIterationType &&
-            TryInferPatternDesignationType(dictionaryPattern, name, dictionaryIterationType) is { } inferredDictionaryType)
-        {
-            type = inferredDictionaryType;
-            return true;
-        }
-
-        if (pattern.Ancestors().OfType<PatternDeclarationAssignmentStatementSyntax>().FirstOrDefault() is { } assignment &&
-            assignment.Left.DescendantNodesAndSelf().Contains(designation) &&
-            TryGetAvailableTypeInfo(assignment.Right, out var assignmentTypeInfo) &&
-            (assignmentTypeInfo.Type ?? assignmentTypeInfo.ConvertedType) is { } assignmentType &&
-            TryInferPatternDesignationType(assignment.Left, name, assignmentType) is { } inferredAssignmentType)
-        {
-            type = inferredAssignmentType;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsMutablePatternDesignation(SingleVariableDesignationSyntax designation)
-        => designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
-           designation.Ancestors().OfType<PatternDeclarationAssignmentStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
-           designation.Ancestors().OfType<ForStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
-           designation.Ancestors().OfType<CollectionComprehensionElementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
-           designation.Ancestors().OfType<DictionaryComprehensionElementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
-           designation.Ancestors().OfType<IfPatternStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword ||
-           designation.Ancestors().OfType<WhilePatternStatementSyntax>().FirstOrDefault()?.BindingKeyword.Kind == SyntaxKind.VarKeyword;
 
     private ITypeSymbol? TryInferPatternDesignationType(PatternSyntax pattern, string name, ITypeSymbol expectedType)
     {
@@ -6220,7 +6065,7 @@ public partial class SemanticModel
                 ? availableParameterSymbol
                 : null,
             VariableDeclaratorSyntax variableDeclarator => IsLocalVariableDeclarator(variableDeclarator) &&
-                  TryResolveAvailableLocalSymbol(variableDeclarator, out var localSymbol)
+                  TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var localSymbol)
                 ? localSymbol
                 : TryGetStableLocalDeclarationSymbol(variableDeclarator, out var stableLocalSymbol)
                 ? stableLocalSymbol
@@ -6228,59 +6073,6 @@ public partial class SemanticModel
             SingleVariableDesignationSyntax => null,
             _ => null
         };
-
-    private bool TryResolveAvailableLocalSymbol(
-        VariableDeclaratorSyntax variableDeclarator,
-        out ILocalSymbol? localSymbol,
-        bool allowErrorType = false)
-    {
-        localSymbol = null;
-
-        if (variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any() == true)
-            return false;
-
-        ITypeSymbol? type = null;
-        if (variableDeclarator.TypeAnnotation?.Type is { } typeSyntax &&
-            TryGetAvailableTypeInfo(typeSyntax, out var explicitTypeInfo))
-        {
-            type = explicitTypeInfo.Type ?? explicitTypeInfo.ConvertedType;
-        }
-
-        if ((type is null || type.TypeKind == TypeKind.Error) &&
-            variableDeclarator.Initializer?.Value is { } initializer &&
-            TryGetAvailableTypeInfo(initializer, out var initializerTypeInfo))
-        {
-            type = initializerTypeInfo.Type ?? initializerTypeInfo.ConvertedType;
-        }
-
-        if (type is null || type.TypeKind == TypeKind.Error)
-        {
-            if (!allowErrorType)
-                return false;
-
-            type = Compilation.ErrorTypeSymbol;
-        }
-
-        if (type is null)
-            return false;
-
-        var containingSymbol = TryGetAvailableContainingSymbol(variableDeclarator) ?? Compilation.GlobalNamespace;
-        var containingType = containingSymbol as INamedTypeSymbol;
-        var containingNamespace = containingSymbol as INamespaceSymbol;
-        var isMutable = variableDeclarator.Parent is VariableDeclarationSyntax variableDeclaration &&
-                        variableDeclaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
-
-        localSymbol = new SourceLocalSymbol(
-            variableDeclarator.Identifier.ValueText,
-            type,
-            isMutable,
-            containingSymbol,
-            containingType,
-            containingNamespace,
-            [variableDeclarator.Identifier.GetLocation()],
-            [new SyntaxReference(variableDeclarator.SyntaxTree, variableDeclarator.Identifier.Span)]);
-        return true;
-    }
 
     private ISymbol? TryGetAvailableContainingSymbol(SyntaxNode node)
     {

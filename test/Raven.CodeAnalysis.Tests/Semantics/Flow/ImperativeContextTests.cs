@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -508,6 +509,34 @@ class C {
         designator.Local.Name.ShouldBe("age");
         designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
         designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WhilePatternStatement_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        var code = """
+record class Person(Name: string, Age: int)
+
+class C {
+    func Test(person: Person) {
+        while val (Name: name: string, Age: age: int) = person {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var allDiagnostics = compilation.GetDiagnostics();
+        var diagnostics = allDiagnostics
+            .Where(d => d.Id == CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+            .ToArray();
+
+        allDiagnostics.Where(d => d.Id != CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id).ShouldBeEmpty();
+        diagnostics.Length.ShouldBe(2);
+        diagnostics.ShouldContain(d => d.GetMessage().Contains("name: string", StringComparison.Ordinal));
+        diagnostics.ShouldContain(d => d.GetMessage().Contains("age: int", StringComparison.Ordinal));
     }
 
     [Fact]

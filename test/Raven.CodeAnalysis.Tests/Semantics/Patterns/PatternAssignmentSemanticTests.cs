@@ -110,6 +110,104 @@ name.Length + age + items.Length
     }
 
     [Fact]
+    public void PositionalPatternAssignment_WithInlineDeclaredNamedElements_BindsDeconstructArgumentsByName()
+    {
+        const string source = """
+record class Person(Name: string, Age: int, Items: string[])
+
+val person = Person("Ada", 42, ["tea"])
+(Items: val items, Name: val name, Age: val age) = person
+name.Length + age + items.Length
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Last();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var deconstructPattern = Assert.IsType<BoundDeconstructPattern>(patternAssignment.Pattern);
+
+        var namePattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[0]);
+        var nameDesignator = Assert.IsType<BoundSingleVariableDesignator>(namePattern.Designator);
+        Assert.Equal("name", nameDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_String, nameDesignator.Local.Type.SpecialType);
+
+        var agePattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[1]);
+        var ageDesignator = Assert.IsType<BoundSingleVariableDesignator>(agePattern.Designator);
+        Assert.Equal("age", ageDesignator.Local.Name);
+        Assert.Equal(SpecialType.System_Int32, ageDesignator.Local.Type.SpecialType);
+
+        var itemsPattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[2]);
+        var itemsDesignator = Assert.IsType<BoundSingleVariableDesignator>(itemsPattern.Designator);
+        Assert.Equal("items", itemsDesignator.Local.Name);
+        Assert.True(itemsDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_String });
+    }
+
+    [Fact]
+    public void PositionalPatternAssignment_WithNamedExistingLocals_BindsDeconstructArgumentsByName()
+    {
+        const string source = """
+record class Person(Name: string, Age: int, Items: string[])
+
+val person = Person("Ada", 42, ["tea"])
+var items: string[] = []
+var name = ""
+var age = 0
+(Items: items, Name: name, Age: age) = person
+name.Length + age + items.Length
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declaredLocals = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(static declarator => declarator.Identifier.ValueText is "items" or "name" or "age")
+            .ToDictionary(
+                declarator => declarator.Identifier.ValueText,
+                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)),
+                StringComparer.Ordinal);
+
+        var assignment = root
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Last();
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var deconstructPattern = Assert.IsType<BoundDeconstructPattern>(patternAssignment.Pattern);
+
+        var nameDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[0]).Designator);
+        var ageDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[1]).Designator);
+        var itemsDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[2]).Designator);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(nameDesignator.Local, declaredLocals["name"]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(ageDesignator.Local, declaredLocals["age"]));
+        Assert.True(SymbolEqualityComparer.Default.Equals(itemsDesignator.Local, declaredLocals["items"]));
+    }
+
+    [Fact]
     public void LetPositionalPatternAssignment_WithUnknownNamedElement_ReportsDiagnostic()
     {
         const string source = """
@@ -126,6 +224,56 @@ val (Height: height, Name: name) = person
         Assert.Contains(
             diagnostics,
             diagnostic => diagnostic.Descriptor == CompilerDiagnostics.PropertyPatternMemberNotFound);
+    }
+
+    [Fact]
+    public void LetPositionalPatternAssignment_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+val person = Person("Ada", 42)
+val (Name: name: string, Age: age: int) = person
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithSpan(4, 12, 4, 16)
+                    .WithArguments("name", "string"),
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithSpan(4, 31, 4, 34)
+                    .WithArguments("age", "int")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void IfPatternStatement_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        const string source = """
+record class Person(Name: string, Age: int)
+
+func Test(person: Person) -> unit {
+    if val (Name: name: string, Age: age: int) = person {
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithSpan(4, 19, 4, 23)
+                    .WithArguments("name", "string"),
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithSpan(4, 38, 4, 41)
+                    .WithArguments("age", "int")
+            ]);
+
+        verifier.Verify();
     }
 
     [Fact]

@@ -25,6 +25,22 @@ internal sealed class DeclaredSymbolLookup
             node = containingTypeReplacement;
         }
 
+        if (TryLookupKnownDeclaredSymbolFast(node, out var fastSymbol))
+            return CompleteKnownDeclaredSymbol(node, fastSymbol);
+
+        if (node is ParameterSyntax fastParameterSyntax &&
+            _semanticModel.TryResolveFunctionExpressionParameterSymbolFast(fastParameterSyntax, out var fastFunctionParameterSymbol) &&
+            fastFunctionParameterSymbol is not null)
+        {
+            return fastFunctionParameterSymbol;
+        }
+
+        if (node is ParameterSyntax fastParameterSyntax2 &&
+            TryLookupParameterSymbolFast(fastParameterSyntax2, out var fastParameterSymbol))
+        {
+            return fastParameterSymbol;
+        }
+
         if (RequiresDeclarationBinding(node) && !_semanticModel.RootBinderCreated)
         {
             _semanticModel.EnsureRootBinderCreated();
@@ -46,27 +62,14 @@ internal sealed class DeclaredSymbolLookup
             _ = _semanticModel.GetTypeInfo(methodReturnTypeSyntax);
         }
 
-        if (TryLookupKnownDeclaredSymbolFast(node, out var fastSymbol))
-            return fastSymbol;
-
-        if (node is ParameterSyntax fastParameterSyntax &&
-            _semanticModel.TryResolveFunctionExpressionParameterSymbolFast(fastParameterSyntax, out var fastFunctionParameterSymbol) &&
-            fastFunctionParameterSymbol is not null)
-        {
-            return fastFunctionParameterSymbol;
-        }
-
-        if (node is ParameterSyntax fastParameterSyntax2 &&
-            TryLookupParameterSymbolFast(fastParameterSyntax2, out var fastParameterSymbol))
-        {
-            return fastParameterSymbol;
-        }
+        if (TryLookupKnownDeclaredSymbolFast(node, out fastSymbol))
+            return CompleteKnownDeclaredSymbol(node, fastSymbol);
 
         if (!_semanticModel.DeclarationsComplete)
             _semanticModel.EnsureDeclarations();
 
         if (TryLookupKnownDeclaredSymbolFast(node, out fastSymbol))
-            return fastSymbol;
+            return CompleteKnownDeclaredSymbol(node, fastSymbol);
 
         if (node is ParameterSyntax declaredParameterSyntax &&
             _semanticModel.TryResolveFunctionExpressionParameterSymbolFast(declaredParameterSyntax, out var declaredFunctionParameterSymbol) &&
@@ -224,16 +227,9 @@ internal sealed class DeclaredSymbolLookup
         }
 
         if (node is VariableDeclaratorSyntax variableDeclarator &&
-            variableDeclarator.Initializer?.Value.DescendantNodesAndSelf().Any(static node => node.Kind == SyntaxKind.AwaitExpression) == true &&
-            _semanticModel.TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var availableLocalSymbol))
+            _semanticModel.TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var availableLocalSymbol, allowErrorType: true))
         {
             return availableLocalSymbol;
-        }
-
-        if (node is VariableDeclaratorSyntax variableDeclaratorForStableLookup &&
-            _semanticModel.TryGetStableLocalDeclarationSymbol(variableDeclaratorForStableLookup, out var stableLocalSymbol))
-        {
-            return stableLocalSymbol;
         }
 
         if (node is FunctionExpressionSyntax functionExpressionSyntax &&
@@ -264,6 +260,18 @@ internal sealed class DeclaredSymbolLookup
         }
 
         return binder.BindDeclaredSymbol(node);
+    }
+
+    private ISymbol? CompleteKnownDeclaredSymbol(SyntaxNode node, ISymbol? symbol)
+    {
+        if (node is MethodDeclarationSyntax methodDeclaration &&
+            symbol is IMethodSymbol methodSymbol &&
+            methodDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword))
+        {
+            _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclaration, methodSymbol);
+        }
+
+        return symbol;
     }
 
     private bool TryLookupParameterSymbolFast(ParameterSyntax parameterSyntax, out ISymbol? symbol)

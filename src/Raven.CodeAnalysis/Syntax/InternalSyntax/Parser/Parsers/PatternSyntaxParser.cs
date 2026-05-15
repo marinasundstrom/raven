@@ -656,6 +656,12 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         NameColonSyntax? nameColon = null;
 
+        if (TryParseImplicitNamedBindingElementNameColon(out nameColon))
+        {
+            var namedBindingPattern = ParseDeconstructionElementPattern();
+            return PositionalPatternElement(nameColon, namedBindingPattern);
+        }
+
         if (TryParseImplicitTypedVariablePattern(out var typedVariablePattern))
             return PositionalPatternElement(nameColon, typedVariablePattern);
 
@@ -674,6 +680,45 @@ internal class PatternSyntaxParser : SyntaxParser
 
         var pattern = ParseDeconstructionElementPattern();
         return PositionalPatternElement(nameColon, pattern);
+    }
+
+    private bool TryParseImplicitNamedBindingElementNameColon(out NameColonSyntax? nameColon)
+    {
+        nameColon = null;
+
+        // In declaration/assignment deconstruction, `Name: value` is a named element
+        // binding when the right side is local-shaped; `value: string` remains a typed
+        // variable designation through TryParseImplicitTypedVariablePattern below.
+        if (!_allowImplicitDeconstructionElementBindings ||
+            !CanTokenBeIdentifier(PeekToken()) ||
+            !PeekToken(1).IsKind(SyntaxKind.ColonToken) ||
+            !IsLocalLookingImplicitBindingIdentifier(PeekToken(2)) ||
+            !IsImplicitTypedVariablePatternTerminator(PeekToken(3).Kind))
+        {
+            return false;
+        }
+
+        var nameToken = ReadToken();
+        if (nameToken.Kind != SyntaxKind.IdentifierToken)
+        {
+            nameToken = ToIdentifierToken(nameToken);
+            UpdateLastToken(nameToken);
+        }
+
+        var colonToken = ReadToken();
+        nameColon = NameColon(IdentifierName(nameToken), colonToken);
+        return true;
+    }
+
+    private static bool IsLocalLookingImplicitBindingIdentifier(SyntaxToken token)
+    {
+        if (token.Kind != SyntaxKind.IdentifierToken ||
+            string.IsNullOrEmpty(token.Text))
+        {
+            return false;
+        }
+
+        return token.Text[0] == '_' || !char.IsUpper(token.Text[0]);
     }
 
     private PatternSyntax ParseDeconstructionElementPattern()

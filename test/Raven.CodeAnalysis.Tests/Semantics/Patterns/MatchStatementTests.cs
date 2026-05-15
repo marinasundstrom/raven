@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
@@ -65,6 +66,34 @@ match value {
 """;
 
         var verifier = CreateVerifier(code);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithOuterValNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        const string code = """
+record class Person(Name: string, Age: int)
+
+val person = Person("Ada", 42)
+
+match person {
+    val (Name: name: string, Age: age: int) => 1
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("name", "string"),
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("age", "int")
+            ]);
+
         verifier.Verify();
     }
 

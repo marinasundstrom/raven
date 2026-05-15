@@ -1576,8 +1576,8 @@ union Response<T> {
 
 func Describe(result: Response<int>) -> string {
     return result match {
-        Success(val value) => value.ToString()
-        Failure(val message) => message
+        .Success(val value) => value.ToString()
+        .Failure(val message) => message
     }
 }
 """;
@@ -1845,6 +1845,55 @@ val result = value match {
 
         Assert.Empty(result.UnexpectedDiagnostics);
         Assert.Empty(result.MissingDiagnostics);
+    }
+
+    [Fact]
+    public void MatchExpression_WithOuterValNamedElements_BindsImplicitCaptures()
+    {
+        const string code = """
+record class Person(Name: string, Age: int)
+
+val person = Person("Ada", 42)
+
+val result = person match {
+    val (Name: name, Age: age) => name.Length + age
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+    }
+
+    [Fact]
+    public void MatchExpression_WithOuterValNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
+    {
+        const string code = """
+record class Person(Name: string, Age: int)
+
+val person = Person("Ada", 42)
+
+val result = person match {
+    val (Name: name: string, Age: age: int) => name.Length + age
+    _ => 0
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("name", "string"),
+                new DiagnosticResult(CompilerDiagnostics.PatternTypedBindingRequiresKeyword.Id)
+                    .WithAnySpan()
+                    .WithArguments("age", "int")
+            ]);
+
+        verifier.Verify();
     }
 
     [Fact]

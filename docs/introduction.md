@@ -411,6 +411,9 @@ any order, for example `Person(Items: val items, Name: val name, Age: 42)` or
 `val (Items: items, Name: name, Age: age) = person`. Named elements bind by the
 selected `Deconstruct` parameter name; unknown names report the same
 member-not-found diagnostic Raven uses for property patterns.
+Typed captures inside named elements use the explicit nested-binding spelling
+`Name: val name: string`; the ambiguous shorthand `Name: name: string` is
+diagnosed.
 
 ---
 
