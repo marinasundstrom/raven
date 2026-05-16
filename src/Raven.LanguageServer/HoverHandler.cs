@@ -95,21 +95,19 @@ internal sealed class HoverHandler : IHoverHandler
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
+            currentStage = "syntaxRoot";
+            var root = syntaxTree.GetRoot(cancellationToken);
+            var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
             var cacheKey = new HoverCacheKey(
                 request.TextDocument.Uri.ToString(),
                 context.Value.Document.Version,
-                request.Position.Line,
-                request.Position.Character);
+                GetHoverCacheSpan(root, offset));
 
             if (_hoverCache.TryGetValue(cacheKey, out var cachedEntry))
             {
                 cacheHit = true;
                 return cachedEntry.Hover;
             }
-
-            currentStage = "syntaxRoot";
-            var root = syntaxTree.GetRoot(cancellationToken);
-            var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
             currentStage = "syntaxOnlyHover";
             var syntaxOnlyHover = TryBuildFunctionExpressionDeclarationHover(sourceText, root, offset)
@@ -368,6 +366,24 @@ internal sealed class HoverHandler : IHoverHandler
 
         _hoverCache[cacheKey] = new HoverCacheEntry(hover);
         return hover;
+    }
+
+    private static TextSpan GetHoverCacheSpan(SyntaxNode root, int offset)
+    {
+        var clamped = Math.Clamp(offset, 0, root.FullSpan.End);
+        var token = root.FindToken(clamped);
+
+        if (token.Parent is SimpleNameSyntax simpleName &&
+            (simpleName.Identifier.Span.Contains(clamped) ||
+             simpleName.Identifier.Span.End == clamped))
+        {
+            return simpleName.Identifier.Span;
+        }
+
+        if (token.Span.Length > 0)
+            return token.Span;
+
+        return new TextSpan(clamped, 0);
     }
 
     private IDisposable StartHoverWatchdog(
@@ -733,11 +749,16 @@ internal sealed class HoverHandler : IHoverHandler
         var requiresBinderResolution = IsPipeRightInvocation(invocation) || InvocationContainsFunctionArguments(invocation);
         if (!requiresBinderResolution)
         {
-            if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, identifier, identifier, out resolution))
+            if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
                 return true;
 
             if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var fastInvocationCandidates) &&
-                TryResolveInvocationMethodFromCandidates(fastInvocationCandidates, invocation, identifier, out resolution))
+                TryResolveInvocationMethodFromCandidates(
+                    fastInvocationCandidates,
+                    invocation,
+                    identifier,
+                    requireUnambiguousCandidate: true,
+                    out resolution))
             {
                 return true;
             }
@@ -773,6 +794,7 @@ internal sealed class HoverHandler : IHoverHandler
                 invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray(),
                 invocation,
                 identifier,
+                requireUnambiguousCandidate: true,
                 out resolution))
         {
             return true;
@@ -782,7 +804,12 @@ internal sealed class HoverHandler : IHoverHandler
             return true;
 
         if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableInvocationCandidates) &&
-            TryResolveInvocationMethodFromCandidates(availableInvocationCandidates, invocation, identifier, out resolution))
+            TryResolveInvocationMethodFromCandidates(
+                availableInvocationCandidates,
+                invocation,
+                identifier,
+                requireUnambiguousCandidate: true,
+                out resolution))
         {
             return true;
         }
@@ -844,6 +871,7 @@ internal sealed class HoverHandler : IHoverHandler
         ImmutableArray<IMethodSymbol> candidates,
         InvocationExpressionSyntax invocation,
         SimpleNameSyntax identifier,
+        bool requireUnambiguousCandidate,
         out SymbolResolutionResult resolution)
     {
         resolution = default;
@@ -855,11 +883,14 @@ internal sealed class HoverHandler : IHoverHandler
         var matchingCandidates = candidates
             .Where(method => IsInvocationMethodNameMatch(method, targetName))
             .ToImmutableArray();
-        var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
+        var candidate = matchingCandidates.Length == 1
+            ? matchingCandidates[0]
+            : SemanticModel.TryChooseInvocationMethodCandidate(
                 matchingCandidates,
                 invocation,
-                SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-            ?? matchingCandidates.FirstOrDefault();
+                requireUnambiguousCandidate
+                    ? SemanticModel.InvocationCandidateFallback.None
+                    : SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent);
         if (candidate is null)
             return false;
 
@@ -1109,11 +1140,12 @@ internal sealed class HoverHandler : IHoverHandler
 
         var candidateMethods = cachedInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
         var method = cachedInfo.Symbol as IMethodSymbol
-            ?? SemanticModel.TryChooseInvocationMethodCandidate(
+            ?? (candidateMethods.Length == 1
+                ? candidateMethods[0]
+                : SemanticModel.TryChooseInvocationMethodCandidate(
                 candidateMethods,
                 invocation,
-                SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-            ?? candidateMethods.FirstOrDefault();
+                SemanticModel.InvocationCandidateFallback.None));
         if (method is null)
             return false;
 
@@ -5013,5 +5045,5 @@ internal sealed class HoverHandler : IHoverHandler
     }
 }
 
-internal readonly record struct HoverCacheKey(string Uri, VersionStamp Version, int Line, int Character);
+internal readonly record struct HoverCacheKey(string Uri, VersionStamp Version, TextSpan Span);
 internal readonly record struct HoverCacheEntry(Hover? Hover);

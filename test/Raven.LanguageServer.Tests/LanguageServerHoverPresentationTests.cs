@@ -1118,6 +1118,53 @@ System.Console.WriteLine(true)
     }
 
     [Fact]
+    public void InvocationTargetHoverDirect_UsesBoundOverloadForMetadataMethods()
+    {
+        const string code = """
+import System.*
+
+func Main() -> unit {
+    Console.WriteLine("hello")
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var writeLine = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.Name.Identifier.ValueText == "WriteLine")
+            .Name;
+        var hoverOffset = writeLine.Identifier.SpanStart + 1;
+
+        var tryResolveInvocationTargetHoverDirect = typeof(HoverHandler)
+            .GetMethod("TryResolveInvocationTargetHoverDirect", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var resolution = (SymbolResolutionResult?)tryResolveInvocationTargetHoverDirect.Invoke(
+            null,
+            [semanticModel, root, hoverOffset]);
+
+        resolution.ShouldNotBeNull();
+        var method = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("WriteLine");
+
+        var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, hoverOffset])!;
+
+        signature.ShouldContain("value: string");
+        signature.ShouldNotContain("value: bool");
+        signature.ShouldContain("-> ()");
+    }
+
+    [Fact]
     public void GenericInvocationTypeArgumentHover_ResolvesTypeArgument()
     {
         const string code = """

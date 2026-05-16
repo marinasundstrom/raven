@@ -93,13 +93,16 @@ internal static partial class SymbolResolver
                     }
                 }
 
-                var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
-                        symbolInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+                var methodCandidates = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var candidate = methodCandidates.Length == 1
+                    ? methodCandidates[0]
+                    : SemanticModel.TryChooseInvocationMethodCandidate(
+                        methodCandidates,
                         invocation,
-                        SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-                    ?? symbolInfo.CandidateSymbols[0];
-                var projectedCandidate = ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation);
-                if (projectedCandidate is not ILocalSymbol &&
+                        SemanticModel.InvocationCandidateFallback.None);
+                if (candidate is not null &&
+                    ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
+                    projectedCandidate is not ILocalSymbol &&
                     !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
@@ -204,13 +207,16 @@ internal static partial class SymbolResolver
 
             if (!pipeInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
-                        pipeInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+                var methodCandidates = pipeInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var candidate = methodCandidates.Length == 1
+                    ? methodCandidates[0]
+                    : SemanticModel.TryChooseInvocationMethodCandidate(
+                        methodCandidates,
                         invocation,
-                        SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-                    ?? pipeInfo.CandidateSymbols[0];
-                var projectedCandidate = ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation);
-                if (projectedCandidate is not ILocalSymbol &&
+                        SemanticModel.InvocationCandidateFallback.None);
+                if (candidate is not null &&
+                    ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
+                    projectedCandidate is not ILocalSymbol &&
                     !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
@@ -302,13 +308,16 @@ internal static partial class SymbolResolver
 
                         if (!identifierInfo.CandidateSymbols.IsDefaultOrEmpty)
                         {
-                            var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
-                                    identifierInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+                            var methodCandidates = identifierInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                            var candidate = methodCandidates.Length == 1
+                                ? methodCandidates[0]
+                                : SemanticModel.TryChooseInvocationMethodCandidate(
+                                    methodCandidates,
                                     invocation,
-                                    SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-                                ?? identifierInfo.CandidateSymbols[0];
-                            var projectedCandidate = ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation);
-                            if (projectedCandidate is not ILocalSymbol &&
+                                    SemanticModel.InvocationCandidateFallback.None);
+                            if (candidate is not null &&
+                                ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
+                                projectedCandidate is not ILocalSymbol &&
                                 !IsUnitTypeSymbol(projectedCandidate))
                             {
                                 symbol = projectedCandidate;
@@ -353,13 +362,16 @@ internal static partial class SymbolResolver
 
                         if (!memberInfo.CandidateSymbols.IsDefaultOrEmpty)
                         {
-                            var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
-                                    memberInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+                            var methodCandidates = memberInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                            var candidate = methodCandidates.Length == 1
+                                ? methodCandidates[0]
+                                : SemanticModel.TryChooseInvocationMethodCandidate(
+                                    methodCandidates,
                                     invocation,
-                                    SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-                                ?? memberInfo.CandidateSymbols[0];
-                            var projectedCandidate = ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation);
-                            if (projectedCandidate is not ILocalSymbol &&
+                                    SemanticModel.InvocationCandidateFallback.None);
+                            if (candidate is not null &&
+                                ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
+                                projectedCandidate is not ILocalSymbol &&
                                 !IsUnitTypeSymbol(projectedCandidate))
                             {
                                 symbol = projectedCandidate;
@@ -387,13 +399,16 @@ internal static partial class SymbolResolver
 
             if (!expressionInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
-                        expressionInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+                var methodCandidates = expressionInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var candidate = methodCandidates.Length == 1
+                    ? methodCandidates[0]
+                    : SemanticModel.TryChooseInvocationMethodCandidate(
+                        methodCandidates,
                         invocation,
-                        SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-                    ?? expressionInfo.CandidateSymbols[0];
-                var projectedCandidate = ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation);
-                if (projectedCandidate is not ILocalSymbol &&
+                        SemanticModel.InvocationCandidateFallback.None);
+                if (candidate is not null &&
+                    ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
+                    projectedCandidate is not ILocalSymbol &&
                     !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
