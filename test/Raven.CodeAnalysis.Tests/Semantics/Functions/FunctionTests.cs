@@ -246,6 +246,81 @@ func Main() {
     }
 
     [Fact]
+    public void TopLevelFunctionStatement_WithoutTopLevelExecutableStatements_CaptureQuery_DoesNotBindBodyOrCompleteSourceDeclarations()
+    {
+        const string source = """
+func Main() {
+    val point = (5, 1)
+    val text = DescribePoint(point)
+}
+
+func DescribePoint(point: (int, int)) -> string {
+    return "$point"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options);
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "DescribePoint");
+
+        Assert.False(compilation.SourceDeclarationsComplete);
+        var before = instrumentation.Setup.CaptureSnapshot();
+
+        var capturesBySyntax = model.GetCapturedVariables(function);
+
+        var delta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            before);
+        Assert.Empty(capturesBySyntax);
+        Assert.Equal(0, delta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsComplete);
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        Assert.False(compilation.SourceDeclarationsComplete);
+        before = instrumentation.Setup.CaptureSnapshot();
+
+        var capturesBySymbol = model.GetCapturedVariables(symbol);
+
+        delta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            before);
+        Assert.Empty(capturesBySymbol);
+        Assert.Equal(0, delta.EnsureSourceDeclarationsCompleteCalls);
+    }
+
+    [Fact]
+    public void TopLevelFunctionStatement_WithTopLevelExecutableStatements_CanCaptureTopLevelLocal()
+    {
+        const string source = """
+val prefix = "point"
+
+func DescribePoint(point: (int, int)) -> string {
+    return "$prefix $point"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "DescribePoint");
+
+        var captures = model.GetCapturedVariables(function);
+
+        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "prefix" });
+    }
+
+    [Fact]
     public void StaticFunctionStatement_DoesNotCaptureOuterLocal()
     {
         const string source = """

@@ -19,6 +19,42 @@ namespace Raven.Editor.Tests;
 public class LanguageServerHoverPresentationTests
 {
     [Fact]
+    public void CaptureInfoSyntaxFallback_IsLimitedToFunctionSyntax()
+    {
+        const string code = """
+func Main() {
+    val local = DescribePoint((5, 1))
+    val lambda = func(value: int) -> int {
+        return value + 1
+    }
+}
+
+func DescribePoint(point: (int, int)) -> string {
+    return "$point"
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var root = syntaxTree.GetRoot();
+        var invocationIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "DescribePoint");
+        var functionStatement = root.DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "DescribePoint");
+        var functionExpression = root.DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Single();
+
+        var shouldComputeCaptureInfoFromSyntax = typeof(HoverHandler)
+            .GetMethod("ShouldComputeCaptureInfoFromSyntax", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        ((bool)shouldComputeCaptureInfoFromSyntax.Invoke(null, [invocationIdentifier])!).ShouldBeFalse();
+        ((bool)shouldComputeCaptureInfoFromSyntax.Invoke(null, [functionStatement])!).ShouldBeTrue();
+        ((bool)shouldComputeCaptureInfoFromSyntax.Invoke(null, [functionExpression])!).ShouldBeTrue();
+    }
+
+    [Fact]
     public void PromotedPrimaryConstructorParameter_ShowsPropertyKindAndContainingType()
     {
         const string code = """

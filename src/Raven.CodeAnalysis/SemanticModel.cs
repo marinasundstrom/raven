@@ -3992,6 +3992,13 @@ public partial class SemanticModel
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
+        if (node is FunctionStatementSyntax functionStatement &&
+            TryResolveAvailableFunctionStatementSymbol(functionStatement, out var functionStatementSymbol))
+        {
+            StoreSymbolInfo(node, functionStatementSymbol);
+            return functionStatementSymbol;
+        }
+
         if (RequiresCompleteSourceDeclarationSymbol(node))
             Compilation.EnsureSourceDeclarationsComplete();
 
@@ -4085,6 +4092,26 @@ public partial class SemanticModel
                 symbol = null;
                 return false;
         }
+    }
+
+    private bool TryResolveAvailableFunctionStatementSymbol(
+        FunctionStatementSyntax functionStatement,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? methodSymbol)
+    {
+        if (_declaredSymbolLookup.Lookup(functionStatement) is IMethodSymbol declaredMethod)
+        {
+            methodSymbol = declaredMethod;
+            return true;
+        }
+
+        if (GetBinder(functionStatement) is FunctionBinder functionBinder)
+        {
+            methodSymbol = functionBinder.GetMethodSymbol();
+            return true;
+        }
+
+        methodSymbol = null;
+        return false;
     }
 
     private bool TryResolveAvailableAccessorSymbol(AccessorDeclarationSyntax accessorDeclaration, out IMethodSymbol? accessorSymbol)

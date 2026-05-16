@@ -67,6 +67,12 @@ public partial class SemanticModel
         if (node is null)
             return ImmutableArray<ISymbol>.Empty;
 
+        if (node is FunctionStatementSyntax functionStatement &&
+            !MayFunctionStatementCapture(functionStatement))
+        {
+            return ImmutableArray<ISymbol>.Empty;
+        }
+
         EnsureDiagnosticBindingCompleted();
 
         if (node is FunctionStatementSyntax function &&
@@ -148,8 +154,11 @@ public partial class SemanticModel
         if (!method.CapturedVariables.IsDefaultOrEmpty)
             return method.CapturedVariables;
 
-        if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax function)
+        if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax function ||
+            !MayFunctionStatementCapture(function))
+        {
             return ImmutableArray<ISymbol>.Empty;
+        }
 
         BoundBlockStatement? functionBody = function.Body is not null
             ? GetBoundNode(function.Body, BoundTreeView.Original) as BoundBlockStatement
@@ -165,6 +174,27 @@ public partial class SemanticModel
             method.SetCapturedVariables(captures);
 
         return captures;
+    }
+
+    private static bool MayFunctionStatementCapture(FunctionStatementSyntax function)
+    {
+        for (SyntaxNode? current = function.Parent; current is not null; current = current.Parent)
+        {
+            if (current is BlockStatementSyntax)
+                return true;
+
+            if (current is GlobalStatementSyntax { Parent: CompilationUnitSyntax compilationUnit })
+            {
+                return compilationUnit.Members
+                    .OfType<GlobalStatementSyntax>()
+                    .Any(static global => global.Statement is not FunctionStatementSyntax);
+            }
+
+            if (current is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
+                return false;
+        }
+
+        return false;
     }
 
     private static ImmutableArray<ISymbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, IMethodSymbol functionSymbol)

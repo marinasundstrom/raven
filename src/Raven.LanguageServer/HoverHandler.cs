@@ -232,8 +232,11 @@ internal sealed class HoverHandler : IHoverHandler
             if (ShouldComputeCaptureInfo(symbol, resolvedValue.Node))
             {
                 functionCaptures = semanticModel.GetCapturedVariables(symbol);
-                if (functionCaptures.IsDefaultOrEmpty)
+                if (functionCaptures.IsDefaultOrEmpty &&
+                    ShouldComputeCaptureInfoFromSyntax(resolvedValue.Node))
+                {
                     functionCaptures = semanticModel.GetCapturedVariables(resolvedValue.Node);
+                }
             }
             capturesMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
@@ -728,6 +731,12 @@ internal sealed class HoverHandler : IHoverHandler
         SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
+        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableInvocationCandidates) &&
+            TryResolveInvocationMethodFromCandidates(availableInvocationCandidates, invocation, identifier, out resolution))
+        {
+            return true;
+        }
+
         if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, identifier, identifier, out resolution))
             return true;
 
@@ -756,31 +765,14 @@ internal sealed class HoverHandler : IHoverHandler
             return true;
         }
 
-        var availableCandidates = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
-        if (!availableCandidates.IsDefaultOrEmpty)
+        if (!invocationInfo.CandidateSymbols.IsDefaultOrEmpty &&
+            TryResolveInvocationMethodFromCandidates(
+                invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray(),
+                invocation,
+                identifier,
+                out resolution))
         {
-            var targetName = identifier.Identifier.ValueText;
-            var matchingCandidates = availableCandidates
-                .Where(method =>
-                    IsInvocationMethodNameMatch(method, targetName))
-                .ToImmutableArray();
-            var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
-                    matchingCandidates,
-                    invocation,
-                    SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
-                ?? matchingCandidates.FirstOrDefault();
-            if (candidate is not null)
-            {
-                var projected = ProjectCachedInvocationHoverSymbol(candidate);
-                if (!IsUnitTypeSymbol(projected))
-                {
-                    resolution = new SymbolResolutionResult(
-                        SymbolResolutionKind.InvocationTarget,
-                        projected,
-                        identifier);
-                    return true;
-                }
-            }
+            return true;
         }
 
         if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
@@ -823,6 +815,40 @@ internal sealed class HoverHandler : IHoverHandler
         }
 
         return false;
+    }
+
+    private static bool TryResolveInvocationMethodFromCandidates(
+        ImmutableArray<IMethodSymbol> candidates,
+        InvocationExpressionSyntax invocation,
+        SimpleNameSyntax identifier,
+        out SymbolResolutionResult resolution)
+    {
+        resolution = default;
+
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        var targetName = identifier.Identifier.ValueText;
+        var matchingCandidates = candidates
+            .Where(method => IsInvocationMethodNameMatch(method, targetName))
+            .ToImmutableArray();
+        var candidate = SemanticModel.TryChooseInvocationMethodCandidate(
+                matchingCandidates,
+                invocation,
+                SemanticModel.InvocationCandidateFallback.FirstCompatibleOrSecondCandidateWhenArgumentsPresent)
+            ?? matchingCandidates.FirstOrDefault();
+        if (candidate is null)
+            return false;
+
+        var projected = ProjectCachedInvocationHoverSymbol(candidate);
+        if (IsUnitTypeSymbol(projected))
+            return false;
+
+        resolution = new SymbolResolutionResult(
+            SymbolResolutionKind.InvocationTarget,
+            projected,
+            identifier);
+        return true;
     }
 
     private static bool IsInvocationMethodNameMatch(IMethodSymbol method, string targetName)
@@ -1030,7 +1056,9 @@ internal sealed class HoverHandler : IHoverHandler
     {
         resolution = default;
 
-        var cachedInfo = semanticModel.GetSymbolInfo(queryNode);
+        if (!semanticModel.TryGetAvailableSymbolInfo(queryNode, out var cachedInfo))
+            return false;
+
         if (cachedInfo.Symbol is null && cachedInfo.CandidateSymbols.IsDefaultOrEmpty)
             return false;
 
@@ -4073,6 +4101,9 @@ internal sealed class HoverHandler : IHoverHandler
         return symbol is IMethodSymbol ||
                node is FunctionExpressionSyntax or FunctionStatementSyntax;
     }
+
+    private static bool ShouldComputeCaptureInfoFromSyntax(SyntaxNode node)
+        => node is FunctionExpressionSyntax or FunctionStatementSyntax;
 
     private static string FormatNamespaceDisplay(INamespaceSymbol namespaceSymbol)
     {

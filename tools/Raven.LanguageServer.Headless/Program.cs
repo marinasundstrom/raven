@@ -219,7 +219,7 @@ async Task RunEditProbeAsync()
     var warmupDocumentDiagnosticsStopwatch = Stopwatch.StartNew();
     var warmupDocumentDiagnostics = await store.TryGetDiagnosticsAsync(
         uri,
-        DocumentStore.DocumentDiagnosticsMode.Document,
+        DocumentStore.DiagnosticLane.DocumentCompiler,
         shouldSkipWork: null,
         CancellationToken.None);
     warmupDocumentDiagnosticsStopwatch.Stop();
@@ -309,7 +309,7 @@ async Task RunEditProbeAsync()
     var syntaxDiagnosticsStopwatch = Stopwatch.StartNew();
     var syntaxDiagnostics = await store.TryGetDiagnosticsAsync(
         uri,
-        DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+        DocumentStore.DiagnosticLane.Syntax,
         shouldSkipWork: null,
         CancellationToken.None);
     syntaxDiagnosticsStopwatch.Stop();
@@ -321,7 +321,7 @@ async Task RunEditProbeAsync()
     var documentDiagnosticsStopwatch = Stopwatch.StartNew();
     var documentDiagnostics = await store.TryGetDiagnosticsAsync(
         uri,
-        DocumentStore.DocumentDiagnosticsMode.Document,
+        DocumentStore.DiagnosticLane.DocumentCompiler,
         shouldSkipWork: null,
         CancellationToken.None);
     documentDiagnosticsStopwatch.Stop();
