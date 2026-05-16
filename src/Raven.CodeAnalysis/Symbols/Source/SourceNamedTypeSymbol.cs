@@ -219,6 +219,15 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         }
     }
 
+    internal void MarkPrimaryConstructorMembersDeclared()
+    {
+        if (!HasPrimaryConstructorSyntax)
+            return;
+
+        lock (_membersGate)
+            _primaryConstructorMembersEnsured = true;
+    }
+
     internal void AddMember(ISymbol member)
     {
         lock (_membersGate)

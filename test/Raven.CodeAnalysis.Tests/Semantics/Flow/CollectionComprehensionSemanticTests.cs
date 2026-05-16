@@ -212,6 +212,61 @@ val lengths = [for val (key, value) in pairs => key: value]
     }
 
     [Fact]
+    public void DictionaryComprehension_WithExplicitDictionaryTarget_DoesNotContextuallyTypeSourceAsEntry()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+val lengths: ImmutableDictionary<string, int> = [for text in [|"a", "bb", "ccc"|] => text: text.Length]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single(c => c.Elements.Any(e => e is DictionaryComprehensionElementSyntax));
+
+        var bound = model.GetBoundNode(collection).ShouldBeOfType<BoundDictionaryExpression>();
+        var comprehension = bound.Elements.Single().ShouldBeOfType<DictionaryComprehensionBinding>();
+        comprehension.IterationLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+    }
+
+    [Fact]
+    public void CollectionComprehension_WithExplicitCollectionTarget_DoesNotContextuallyTypeSourceAsElement()
+    {
+        const string source = """
+import System.Collections.Immutable.*
+
+val lengths: ImmutableList<int> = [for text in [|"a", "bb", "ccc"|] => text.Length]
+""";
+
+        var verifier = CreateVerifier(source);
+        var run = verifier.GetResult();
+
+        Assert.Empty(run.UnexpectedDiagnostics);
+        Assert.Empty(run.MissingDiagnostics);
+
+        var tree = run.Compilation.SyntaxTrees.Single();
+        var model = run.Compilation.GetSemanticModel(tree);
+        var collection = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<CollectionExpressionSyntax>()
+            .Single(c => c.Elements.Any(e => e is CollectionComprehensionElementSyntax));
+
+        var bound = model.GetBoundNode(collection).ShouldBeOfType<BoundCollectionExpression>();
+        var spread = bound.Elements.Single().ShouldBeOfType<BoundSpreadElement>();
+        var comprehension = spread.Expression.ShouldBeOfType<BoundCollectionComprehensionExpression>();
+        comprehension.IterationLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+    }
+
+    [Fact]
     public void DictionaryComprehension_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
     {
         const string source = """

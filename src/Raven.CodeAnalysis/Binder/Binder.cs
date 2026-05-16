@@ -216,6 +216,9 @@ internal abstract partial class Binder
 
     public virtual ISymbol? BindDeclaredSymbol(SyntaxNode node) => ParentBinder?.BindDeclaredSymbol(node);
 
+    internal virtual void EnsureStatementDeclarations(StatementSyntax statement)
+        => ParentBinder?.EnsureStatementDeclarations(statement);
+
     public virtual SymbolInfo BindReferencedSymbol(SyntaxNode node)
     {
         // Handle type syntax first so qualified names and generics are resolved correctly.

@@ -31,7 +31,7 @@ class MethodBinder : TypeMemberBinder
 
     public override ITypeSymbol? LookupType(string name)
     {
-        var methodTypeParameter = GetScopeState().TypeParametersByName.GetValueOrDefault(name);
+        var methodTypeParameter = _methodSymbol.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
         if (methodTypeParameter is not null)
             return methodTypeParameter;
 
@@ -86,10 +86,9 @@ class MethodBinder : TypeMemberBinder
     {
         var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
 
-        var scopeState = GetScopeState();
-        if (!scopeState.TypeParameters.IsDefaultOrEmpty)
+        if (!_methodSymbol.TypeParameters.IsDefaultOrEmpty)
         {
-            foreach (var tp in scopeState.TypeParameters)
+            foreach (var tp in _methodSymbol.TypeParameters)
                 map.TryAdd(tp.Name, tp);
         }
 

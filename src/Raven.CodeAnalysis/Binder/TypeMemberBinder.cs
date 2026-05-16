@@ -1192,6 +1192,7 @@ internal partial class TypeMemberBinder : Binder
         SourceMethodSymbol skeleton,
         bool isExtensionMember)
     {
+        using var _ = _diagnostics.CreateNonReportingScope();
         var parameterOffset = isExtensionMember ? 1 : 0;
         if (skeleton.Parameters.Length != methodDecl.ParameterList.Parameters.Count + parameterOffset)
             return false;

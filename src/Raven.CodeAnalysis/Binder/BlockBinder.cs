@@ -49,7 +49,8 @@ partial class BlockBinder : Binder
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
-    private readonly BlockScopeState _scopeState = new();
+    private readonly BlockDeclarationState _declarationState = new();
+    private readonly StatementDeclarationProgress _statementDeclarationProgress = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private bool _allowReturnsInBlockExpressionsOnly;
@@ -87,7 +88,7 @@ partial class BlockBinder : Binder
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
     {
-        using var _ = EnterExecutionScope();
+        using var _ = EnterSemanticQueryScope();
         return node switch
         {
             VariableDeclaratorSyntax
@@ -109,44 +110,142 @@ partial class BlockBinder : Binder
 
     private ILocalSymbol? BindDeclaredPatternLocal(SingleVariableDesignationSyntax singleVariableDesignation)
     {
+        if (IsExistingAssignmentTargetDesignation(singleVariableDesignation))
+            return null;
+
         EnsurePrecedingStatementDeclarations(singleVariableDesignation);
 
         if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator cachedDesignator)
             return cachedDesignator.Local;
 
-        if (singleVariableDesignation.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
-            BindPatternDeclarationOwner(matchExpression);
-        else if (singleVariableDesignation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
-            BindPatternDeclarationOwner(matchStatement);
-        else if (singleVariableDesignation.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
-            BindPatternDeclarationOwner(isPatternExpression);
-        else if (singleVariableDesignation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
-            BindPatternDeclarationOwner(ifPatternStatement);
-        else if (singleVariableDesignation.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
-            BindPatternDeclarationOwner(whilePatternStatement);
-        else if (singleVariableDesignation.GetAncestor<ForStatementSyntax>() is { } forStatement)
-            BindPatternDeclarationOwner(forStatement);
-        else if (singleVariableDesignation.GetAncestor<CollectionComprehensionElementSyntax>() is { } collectionComprehension)
-            BindPatternDeclarationOwner(collectionComprehension.GetAncestor<CollectionExpressionSyntax>() is { } collectionExpression
-                ? collectionExpression
-                : collectionComprehension);
-        else if (singleVariableDesignation.GetAncestor<DictionaryComprehensionElementSyntax>() is { } dictionaryComprehension)
-            BindPatternDeclarationOwner(dictionaryComprehension.GetAncestor<CollectionExpressionSyntax>() is { } collectionExpression
-                ? collectionExpression
-                : dictionaryComprehension);
-        else if (singleVariableDesignation.GetAncestor<PatternDeclarationAssignmentStatementSyntax>() is { } patternDeclarationAssignment)
-            BindPatternDeclarationOwner(patternDeclarationAssignment);
+        if (TryGetPatternDeclarationOwner(
+            singleVariableDesignation,
+            PatternDeclarationOwnerPurpose.Binding,
+            out var owner))
+        {
+            BindPatternDeclarationOwner(owner);
 
-        if (TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator)
-            return reboundDesignator.Local;
+            return TryGetCachedBoundNode(singleVariableDesignation) is BoundSingleVariableDesignator reboundDesignator
+                ? reboundDesignator.Local
+                : null;
+        }
 
         return BindSingleVariableDesignation(singleVariableDesignation)?.Local;
+    }
+
+    private static bool IsExistingAssignmentTargetDesignation(SingleVariableDesignationSyntax designation)
+    {
+        for (SyntaxNode? current = designation; current is not null; current = current.Parent)
+        {
+            if (current.Parent is PatternDeclarationAssignmentStatementSyntax patternDeclaration &&
+                ContainsNode(patternDeclaration.Left, designation))
+            {
+                return false;
+            }
+
+            if (current.Parent is AssignmentStatementSyntax assignmentStatement &&
+                ContainsNode(assignmentStatement.Left, designation))
+            {
+                return true;
+            }
+
+            if (current.Parent is AssignmentExpressionSyntax assignmentExpression &&
+                ContainsNode(assignmentExpression.Left, designation))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsNode(SyntaxNode root, SyntaxNode node)
+        => ReferenceEquals(root.SyntaxTree, node.SyntaxTree) &&
+           node.Span.Start >= root.Span.Start &&
+           node.Span.End <= root.Span.End;
+
+    private enum PatternDeclarationOwnerPurpose
+    {
+        Binding,
+        LexicalScope
+    }
+
+    private static bool TryGetPatternDeclarationOwner(
+        SingleVariableDesignationSyntax designation,
+        PatternDeclarationOwnerPurpose purpose,
+        out SyntaxNode owner)
+    {
+        if (designation.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+        {
+            owner = matchExpression;
+            return true;
+        }
+
+        if (designation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+        {
+            owner = matchStatement;
+            return true;
+        }
+
+        if (designation.GetAncestor<IfStatementSyntax>() is { } ifStatement &&
+            ContainsNode(ifStatement.Condition, designation))
+        {
+            owner = ifStatement;
+            return true;
+        }
+
+        if (designation.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
+        {
+            owner = isPatternExpression;
+            return true;
+        }
+
+        if (designation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
+        {
+            owner = ifPatternStatement;
+            return true;
+        }
+
+        if (designation.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
+        {
+            owner = whilePatternStatement;
+            return true;
+        }
+
+        if (designation.GetAncestor<ForStatementSyntax>() is { } forStatement)
+        {
+            owner = forStatement;
+            return true;
+        }
+
+        if (designation.GetAncestor<CollectionComprehensionElementSyntax>() is { } collectionComprehension)
+        {
+            owner = collectionComprehension.GetAncestor<CollectionExpressionSyntax>() ?? (SyntaxNode)collectionComprehension;
+            return true;
+        }
+
+        if (designation.GetAncestor<DictionaryComprehensionElementSyntax>() is { } dictionaryComprehension)
+        {
+            owner = dictionaryComprehension.GetAncestor<CollectionExpressionSyntax>() ?? (SyntaxNode)dictionaryComprehension;
+            return true;
+        }
+
+        if (designation.GetAncestor<PatternDeclarationAssignmentStatementSyntax>() is { } patternDeclarationAssignment)
+        {
+            owner = purpose == PatternDeclarationOwnerPurpose.LexicalScope
+                ? patternDeclarationAssignment.Parent ?? patternDeclarationAssignment
+                : patternDeclarationAssignment;
+            return true;
+        }
+
+        owner = null!;
+        return false;
     }
 
     private ILocalSymbol BindDeclaredLocalSymbol(VariableDeclaratorSyntax variableDeclarator)
     {
         EnsurePrecedingStatementDeclarations(variableDeclarator);
-        return BindLocalDeclaration(variableDeclarator).Local;
+        return BindLocalDeclaration(variableDeclarator, declarationOnly: true).Local;
     }
 
     private void EnsurePrecedingStatementDeclarations(SyntaxNode node)
@@ -155,7 +254,13 @@ partial class BlockBinder : Binder
         if (statement?.Parent is null)
             return;
 
-        var seededThrough = _scopeState.GetSeededThrough(statement.Parent);
+        if (statement.Parent is GlobalStatementSyntax globalStatement)
+        {
+            EnsurePrecedingGlobalStatementDeclarations(globalStatement);
+            return;
+        }
+
+        var seededThrough = _statementDeclarationProgress.GetSeededThrough(statement.Parent);
         foreach (var sibling in statement.Parent.ChildNodes().OfType<StatementSyntax>())
         {
             if (sibling.Span.Start >= statement.Span.Start)
@@ -165,12 +270,33 @@ partial class BlockBinder : Binder
                 continue;
 
             EnsureStatementDeclarations(sibling);
-            _scopeState.MarkSeededThrough(statement.Parent, sibling.Span.Start);
+            _statementDeclarationProgress.MarkSeededThrough(statement.Parent, sibling.Span.Start);
         }
     }
 
-    private void EnsureStatementDeclarations(StatementSyntax statement)
+    private void EnsurePrecedingGlobalStatementDeclarations(GlobalStatementSyntax globalStatement)
     {
+        if (globalStatement.Parent is null)
+            return;
+
+        var seededThrough = _statementDeclarationProgress.GetSeededThrough(globalStatement.Parent);
+        foreach (var sibling in globalStatement.Parent.ChildNodes().OfType<GlobalStatementSyntax>())
+        {
+            if (sibling.Span.Start >= globalStatement.Span.Start)
+                break;
+
+            if (sibling.Span.Start <= seededThrough)
+                continue;
+
+            EnsureStatementDeclarations(sibling.Statement);
+            _statementDeclarationProgress.MarkSeededThrough(globalStatement.Parent, sibling.Span.Start);
+        }
+    }
+
+    internal override void EnsureStatementDeclarations(StatementSyntax statement)
+    {
+        using var scope = EnterExecutionScope();
+
         switch (statement)
         {
             case LocalDeclarationStatementSyntax localDeclaration:
@@ -179,6 +305,10 @@ partial class BlockBinder : Binder
 
             case UseDeclarationStatementSyntax { InBlockClause: null } useDeclaration:
                 EnsureVariableDeclarationDeclarations(useDeclaration.Declaration);
+                break;
+
+            case PatternDeclarationAssignmentStatementSyntax patternDeclarationAssignment:
+                _ = BindPatternDeclarationAssignmentStatement(patternDeclarationAssignment);
                 break;
 
             case FunctionStatementSyntax function:
@@ -202,7 +332,7 @@ partial class BlockBinder : Binder
         }
 
         foreach (var declarator in declaration.Declarators)
-            _ = BindLocalDeclaration(declarator);
+            _ = BindLocalDeclaration(declarator, declarationOnly: true);
     }
 
     private void BindPatternDeclarationOwner(SyntaxNode owner)
@@ -212,7 +342,7 @@ partial class BlockBinder : Binder
 
     public override SymbolInfo BindReferencedSymbol(SyntaxNode node)
     {
-        using var _ = EnterExecutionScope();
+        using var _ = EnterSemanticQueryScope();
         EnsurePrecedingStatementDeclarations(node);
 
         return node switch
@@ -329,7 +459,9 @@ partial class BlockBinder : Binder
         return new SymbolInfo(Compilation.SourceGlobalNamespace);
     }
 
-    private BoundVariableDeclarator BindLocalDeclaration(VariableDeclaratorSyntax variableDeclarator)
+    private BoundVariableDeclarator BindLocalDeclaration(
+        VariableDeclaratorSyntax variableDeclarator,
+        bool declarationOnly = false)
     {
         var name = variableDeclarator.Identifier.ValueText;
         var decl = (VariableDeclarationSyntax)variableDeclarator.Parent!;
@@ -337,30 +469,45 @@ partial class BlockBinder : Binder
         var isUseDeclaration = decl.Parent is UseDeclarationStatementSyntax;
         var isFixedInitializer = variableDeclarator.Initializer?.Value is PrefixOperatorExpressionSyntax { Kind: SyntaxKind.FixedExpression };
         var initializer = variableDeclarator.Initializer;
+        var existingDeclaredLocal = TryGetDeclaredLocal(variableDeclarator, out var declaredLocal)
+            ? declaredLocal
+            : null;
 
-        if (TryGetDeclaredLocal(variableDeclarator, out var declaredLocal))
+        if (TryBindExistingLocalDeclaration(
+            variableDeclarator,
+            name,
+            allowDeclaredOnly: declarationOnly && existingDeclaredLocal is not null && !SemanticModel.IsCollectingDiagnostics,
+            allowCurrentLookupOnly: declarationOnly,
+            out var existingDeclarator))
         {
-            _locals[name] = (declaredLocal, _scopeDepth);
-            return new BoundVariableDeclarator(declaredLocal, null);
+            return existingDeclarator;
         }
 
         var isShadowingExistingInScope = false;
 
         if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
         {
-            var isSameDeclarator = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
-                reference.SyntaxTree == variableDeclarator.SyntaxTree &&
-                reference.Span == variableDeclarator.Span);
+            var isSameDeclarator = IsSameDeclaringSyntax(existing.Symbol, variableDeclarator);
 
-            if (isSameDeclarator)
+            if (isSameDeclarator && declarationOnly)
                 return new BoundVariableDeclarator(existing.Symbol, null);
 
             if (!isSameDeclarator)
                 isShadowingExistingInScope = true;
         }
 
-        if (!isShadowingExistingInScope && LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+        if (!isShadowingExistingInScope &&
+            _declarationState.TryGetDeclaredLocalInSameScope(name, variableDeclarator, out var sameScopeLocal) &&
+            !IsSameDeclaringSyntax(sameScopeLocal, variableDeclarator))
+        {
             isShadowingExistingInScope = true;
+        }
+
+        if (!isShadowingExistingInScope &&
+            TryLookupDeclarationForShadowing(name, out var lookupSymbol))
+        {
+            isShadowingExistingInScope = !IsSameDeclaringSyntax(lookupSymbol, variableDeclarator);
+        }
 
         if (isShadowingExistingInScope)
             _diagnostics.ReportVariableShadowsPreviousDeclaration(name, variableDeclarator.Identifier.GetLocation());
@@ -566,9 +713,18 @@ partial class BlockBinder : Binder
             }
         }
 
-        ILocalSymbol localSymbol = isFunctionValueAlias && functionValueTargetMethod is not null
-            ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod)
-            : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue);
+        ILocalSymbol localSymbol;
+        if (existingDeclaredLocal is not null)
+        {
+            localSymbol = existingDeclaredLocal;
+            RegisterLocalForCurrentLookup(name, localSymbol);
+        }
+        else
+        {
+            localSymbol = isFunctionValueAlias && functionValueTargetMethod is not null
+                ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod)
+                : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue);
+        }
 
         var declarator = new BoundVariableDeclarator(localSymbol, boundInitializer, fixedAddressInitializer, fixedPinnedLocal);
 
@@ -579,6 +735,162 @@ partial class BlockBinder : Binder
 
         return declarator;
     }
+
+    private bool TryBindExistingLocalDeclaration(
+        VariableDeclaratorSyntax variableDeclarator,
+        string name,
+        bool allowDeclaredOnly,
+        bool allowCurrentLookupOnly,
+        out BoundVariableDeclarator declarator)
+    {
+        if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
+            TryGetDeclaredLocal(variableDeclarator, out var cachedDeclaredLocal) &&
+            SymbolEqualityComparer.Default.Equals(cachedDeclarator.Local, cachedDeclaredLocal))
+        {
+            RegisterLocalForCurrentLookup(name, cachedDeclarator.Local);
+            declarator = cachedDeclarator;
+            return true;
+        }
+
+        if (allowDeclaredOnly && TryGetDeclaredLocal(variableDeclarator, out var declaredLocal))
+        {
+            RegisterLocalForCurrentLookup(name, declaredLocal);
+            declarator = new BoundVariableDeclarator(declaredLocal, null);
+            return true;
+        }
+
+        if (allowCurrentLookupOnly &&
+            TryGetSameLocalFromCurrentLookup(name, variableDeclarator, out var sameLocal))
+        {
+            RegisterLocalForCurrentLookup(name, sameLocal);
+            declarator = new BoundVariableDeclarator(sameLocal, null);
+            return true;
+        }
+
+        declarator = null!;
+        return false;
+    }
+
+    private bool TryGetSameLocalFromCurrentLookup(
+        string name,
+        VariableDeclaratorSyntax variableDeclarator,
+        out ILocalSymbol local)
+    {
+        foreach (var symbol in LookupLocalDeclarationSymbols(name, includeTypeFields: false).OfType<ILocalSymbol>())
+        {
+            if (!IsSameDeclaringSyntax(symbol, variableDeclarator))
+                continue;
+
+            local = symbol;
+            return true;
+        }
+
+        local = null!;
+        return false;
+    }
+
+    private bool TryLookupDeclarationForShadowing(string name, out ISymbol symbol)
+    {
+        foreach (var candidate in LookupLocalDeclarationSymbols(name, includeTypeFields: true))
+        {
+            if (candidate is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            {
+                symbol = candidate;
+                return true;
+            }
+        }
+
+        symbol = null!;
+        return false;
+    }
+
+    private IEnumerable<ISymbol> LookupLocalDeclarationSymbols(string name, bool includeTypeFields)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        Binder? current = this;
+
+        static string GetLookupKey(ISymbol symbol) => symbol.GetLookupIdentityKey();
+
+        // Local declaration binding restores binder-owned state. It must not walk
+        // imports or the global namespace, because semantic queries for method bodies
+        // should not force source declaration completion.
+        var restrict = IsStaticFunctionBody;
+        var boundarySymbol = restrict ? _containingSymbol : null;
+        var pastBoundary = false;
+
+        while (current is not null)
+        {
+            if (restrict && !pastBoundary)
+            {
+                if (current is BlockBinder bb &&
+                    !SymbolEqualityComparer.Default.Equals(bb.ContainingSymbol, boundarySymbol))
+                {
+                    pastBoundary = true;
+                }
+                else if (current is MethodBinder mb &&
+                         !SymbolEqualityComparer.Default.Equals(mb.GetMethodSymbol(), boundarySymbol))
+                {
+                    pastBoundary = true;
+                }
+                else if (current is TopLevelBinder or FunctionExpressionBinder)
+                {
+                    pastBoundary = true;
+                }
+            }
+
+            var allowLocalsAndParams = !pastBoundary;
+
+            if (allowLocalsAndParams && current is BlockBinder block)
+            {
+                if (block._locals.TryGetValue(name, out var local) && seen.Add(GetLookupKey(local.Symbol)))
+                    yield return local.Symbol;
+            }
+
+            if (allowLocalsAndParams && current is TopLevelBinder topLevelBinder)
+            {
+                foreach (var param in topLevelBinder.GetParameters())
+                {
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
+                        yield return param;
+                }
+            }
+
+            if (allowLocalsAndParams && current is MethodBinder methodBinder)
+            {
+                foreach (var param in methodBinder.GetMethodSymbol().Parameters)
+                {
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
+                        yield return param;
+                }
+            }
+
+            if (allowLocalsAndParams && current is FunctionExpressionBinder lambdaBinder)
+            {
+                foreach (var param in lambdaBinder.GetParameters())
+                {
+                    if (param.Name == name && seen.Add(GetLookupKey(param)))
+                        yield return param;
+                }
+            }
+
+            if (includeTypeFields && current is TypeMemberBinder typeMemberBinder)
+            {
+                foreach (var field in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingTypeSymbol, name).OfType<IFieldSymbol>())
+                {
+                    if (seen.Add(GetLookupKey(field)))
+                        yield return field;
+                }
+            }
+
+            current = current.ParentBinder;
+        }
+    }
+
+    private static bool IsSameDeclaringSyntax(ISymbol symbol, VariableDeclaratorSyntax variableDeclarator)
+        => symbol.DeclaringSyntaxReferences.Any(reference =>
+            reference.SyntaxTree == variableDeclarator.SyntaxTree &&
+            (reference.Span == variableDeclarator.Span ||
+             reference.Span == variableDeclarator.Identifier.Span));
 
     private static BoundAddressOfExpression? TryGetFixedAddressInitializer(BoundExpression? expression)
     {
@@ -837,24 +1149,36 @@ partial class BlockBinder : Binder
             isConst,
             constantValue);
 
-        _locals[name] = (symbol, _scopeDepth);
-        OnLocalDeclared(symbol);
+        RegisterLocalForCurrentLookup(name, symbol);
+        OnLocalDeclared(symbol, declaringSyntax);
         return symbol;
     }
 
-    protected virtual void OnLocalDeclared(ILocalSymbol local)
-        => _scopeState.AddDeclaredLocal(local);
+    private void RegisterLocalForCurrentLookup(string name, ILocalSymbol local)
+        => _locals[name] = (local, _scopeDepth);
+
+    protected virtual void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
+        => _declarationState.AddDeclaredLocal(local, declaringSyntax);
 
     internal ImmutableArray<ILocalSymbol> GetDeclaredLocalsForTesting()
-        => _scopeState.DeclaredLocals;
+        => _declarationState.DeclaredLocals;
 
     internal ILocalSymbol? GetLocalForTesting(string name)
-        => _scopeState.GetLocal(name);
+        => _declarationState.GetLocal(name);
 
-    internal int LocalStateVersionForTesting => _scopeState.Version;
+    internal string? GetLocalScopeKeyForTesting(ILocalSymbol local)
+        => _declarationState.TryGetScope(local, out var scope)
+            ? scope.ToDisplayString()
+            : null;
+
+    internal int LocalStateVersionForTesting => _declarationState.Version;
+
+    internal int StatementDeclarationProgressCountForTesting => _statementDeclarationProgress.Count;
+
+    internal int ActiveLocalLookupCountForTesting => _locals.Count;
 
     private bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
-        => _scopeState.TryGetDeclaredLocal(declaringSyntax, out local);
+        => _declarationState.TryGetDeclaredLocal(declaringSyntax, out local);
 
     private static bool TryGetSyntaxReferenceKey(ISymbol symbol, out SyntaxReferenceKey key)
     {
@@ -889,18 +1213,26 @@ partial class BlockBinder : Binder
 
     private readonly record struct SyntaxReferenceKey(SyntaxTree SyntaxTree, TextSpan Span);
 
-    private sealed class BlockScopeState
+    private readonly record struct LexicalScopeKey(SyntaxKind Kind, SyntaxReferenceKey Reference)
     {
+        public string ToDisplayString()
+            => $"{Kind}@{Reference.Span.Start}:{Reference.Span.Length}";
+    }
+
+    private sealed class BlockDeclarationState
+    {
+        private readonly record struct DeclaredLocalEntry(ILocalSymbol Local, LexicalScopeKey Scope);
+
         private readonly List<ILocalSymbol> _declaredLocals = new();
+        private readonly Dictionary<ILocalSymbol, LexicalScopeKey> _scopesByLocal = new(SymbolEqualityComparer.Default);
         private readonly Dictionary<SyntaxReferenceKey, ILocalSymbol> _declaredLocalsBySyntax = new();
-        private readonly Dictionary<string, List<ILocalSymbol>> _declaredLocalsByName = new(StringComparer.Ordinal);
-        private readonly Dictionary<SyntaxReferenceKey, int> _seededThroughByStatementParent = new();
+        private readonly Dictionary<string, List<DeclaredLocalEntry>> _declaredLocalsByName = new(StringComparer.Ordinal);
 
         public int Version { get; private set; }
 
         public ImmutableArray<ILocalSymbol> DeclaredLocals => _declaredLocals.ToImmutableArray();
 
-        public void AddDeclaredLocal(ILocalSymbol local)
+        public void AddDeclaredLocal(ILocalSymbol local, SyntaxNode declaringSyntax)
         {
             if (TryGetSyntaxReferenceKey(local, out var key) &&
                 _declaredLocalsBySyntax.ContainsKey(key))
@@ -908,24 +1240,48 @@ partial class BlockBinder : Binder
                 return;
             }
 
+            var scope = GetLexicalScopeKey(declaringSyntax);
             _declaredLocals.Add(local);
+            _scopesByLocal[local] = scope;
             if (TryGetSyntaxReferenceKey(local, out key))
                 _declaredLocalsBySyntax[key] = local;
 
             if (!_declaredLocalsByName.TryGetValue(local.Name, out var localsByName))
             {
-                localsByName = new List<ILocalSymbol>();
+                localsByName = new List<DeclaredLocalEntry>();
                 _declaredLocalsByName[local.Name] = localsByName;
             }
 
-            localsByName.Add(local);
+            localsByName.Add(new DeclaredLocalEntry(local, scope));
             Version++;
         }
 
         public ILocalSymbol? GetLocal(string name)
             => _declaredLocalsByName.TryGetValue(name, out var locals) && locals.Count > 0
-                ? locals[^1]
+                ? locals[^1].Local
                 : null;
+
+        public bool TryGetScope(ILocalSymbol local, out LexicalScopeKey scope)
+            => _scopesByLocal.TryGetValue(local, out scope);
+
+        public bool TryGetDeclaredLocalInSameScope(string name, SyntaxNode declaringSyntax, out ILocalSymbol local)
+        {
+            if (_declaredLocalsByName.TryGetValue(name, out var locals))
+            {
+                var scope = GetLexicalScopeKey(declaringSyntax);
+                for (var i = locals.Count - 1; i >= 0; i--)
+                {
+                    if (!locals[i].Scope.Equals(scope))
+                        continue;
+
+                    local = locals[i].Local;
+                    return true;
+                }
+            }
+
+            local = null!;
+            return false;
+        }
 
         public bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
         {
@@ -938,6 +1294,41 @@ partial class BlockBinder : Binder
             local = null!;
             return false;
         }
+
+        private static LexicalScopeKey GetLexicalScopeKey(SyntaxNode declaringSyntax)
+        {
+            var scopeNode = GetLexicalScopeNode(declaringSyntax);
+            return TryGetSyntaxReferenceKey(scopeNode, out var key)
+                ? new LexicalScopeKey(scopeNode.Kind, key)
+                : default;
+        }
+
+        private static SyntaxNode GetLexicalScopeNode(SyntaxNode declaringSyntax)
+        {
+            if (declaringSyntax is SingleVariableDesignationSyntax designation &&
+                TryGetPatternDeclarationOwner(
+                    designation,
+                    PatternDeclarationOwnerPurpose.LexicalScope,
+                    out var patternOwner))
+            {
+                return patternOwner;
+            }
+
+            if (declaringSyntax.AncestorsAndSelf().OfType<BlockSyntax>().FirstOrDefault() is { } block)
+                return block;
+
+            if (declaringSyntax.AncestorsAndSelf().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit)
+                return compilationUnit;
+
+            return declaringSyntax.Parent ?? declaringSyntax;
+        }
+    }
+
+    private sealed class StatementDeclarationProgress
+    {
+        private readonly Dictionary<SyntaxReferenceKey, int> _seededThroughByStatementParent = new();
+
+        public int Count => _seededThroughByStatementParent.Count;
 
         public int GetSeededThrough(SyntaxNode statementParent)
             => TryGetSyntaxReferenceKey(statementParent, out var key) &&
@@ -956,6 +1347,16 @@ partial class BlockBinder : Binder
                 _seededThroughByStatementParent[key] = statementStart;
             }
         }
+
+        public Dictionary<SyntaxReferenceKey, int> CreateSnapshot()
+            => new(_seededThroughByStatementParent);
+
+        public void Restore(Dictionary<SyntaxReferenceKey, int> snapshot)
+        {
+            _seededThroughByStatementParent.Clear();
+            foreach (var entry in snapshot)
+                _seededThroughByStatementParent[entry.Key] = entry.Value;
+        }
     }
 
     private SourceFunctionValueSymbol CreateFunctionValueSymbol(
@@ -965,6 +1366,13 @@ partial class BlockBinder : Binder
         ITypeSymbol type,
         IMethodSymbol targetMethod)
     {
+        var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
+            ? variableDeclarator.Identifier.GetLocation()
+            : declaringSyntax.GetLocation();
+        var syntaxReference = declaringSyntax is VariableDeclaratorSyntax variableDeclaratorReference
+            ? new SyntaxReference(variableDeclaratorReference.SyntaxTree, variableDeclaratorReference.Identifier.Span)
+            : declaringSyntax.GetReference();
+
         var symbol = new SourceFunctionValueSymbol(
             name,
             type,
@@ -972,11 +1380,12 @@ partial class BlockBinder : Binder
             _containingSymbol,
             _containingSymbol?.ContainingType as INamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
-            [declaringSyntax.GetLocation()],
-            [declaringSyntax.GetReference()],
+            [location],
+            syntaxReference is null ? [] : [syntaxReference],
             targetMethod);
 
-        _locals[name] = (symbol, _scopeDepth);
+        RegisterLocalForCurrentLookup(name, symbol);
+        OnLocalDeclared(symbol, declaringSyntax);
         return symbol;
     }
 
@@ -1004,7 +1413,10 @@ partial class BlockBinder : Binder
         using var _ = EnterExecutionScope();
 
         if (TryGetCachedBoundNode(statement) is BoundStatement cached)
+        {
+            RegisterCachedStatementDeclarations(cached);
             return cached;
+        }
 
         BoundStatement boundNode = statement switch
         {
@@ -1041,6 +1453,44 @@ partial class BlockBinder : Binder
         CacheBoundNode(statement, boundNode);
 
         return boundNode;
+    }
+
+    private void RegisterCachedStatementDeclarations(BoundStatement statement)
+    {
+        switch (statement)
+        {
+            case BoundLocalDeclarationStatement localDeclaration:
+                foreach (var declarator in localDeclaration.Declarators)
+                {
+                    RegisterLocalForCurrentLookup(declarator.Local.Name, declarator.Local);
+
+                    if (localDeclaration.IsUsing)
+                        RegisterLocalToDisposeForCurrentScope(declarator.Local);
+                }
+                break;
+
+            case BoundAssignmentStatement { Expression: BoundPatternAssignmentExpression patternAssignment }:
+                RegisterPatternLocalsForCurrentLookup(patternAssignment.Pattern);
+                break;
+        }
+    }
+
+    private void RegisterPatternLocalsForCurrentLookup(BoundPattern pattern)
+    {
+        foreach (var local in CollectPatternDesignatorLocals(pattern))
+            RegisterLocalForCurrentLookup(local.Name, local);
+    }
+
+    private void RegisterLocalToDisposeForCurrentScope(ILocalSymbol local)
+    {
+        if (_localsToDispose.Any(entry =>
+                entry.Depth == _scopeDepth &&
+                SymbolEqualityComparer.Default.Equals(entry.Local, local)))
+        {
+            return;
+        }
+
+        _localsToDispose.Add((local, _scopeDepth));
     }
 
     private BoundStatement BindTypeDeclarationStatement(TypeDeclarationStatementSyntax typeDeclarationStatement)
@@ -1274,6 +1724,15 @@ partial class BlockBinder : Binder
         return BindExpression(syntax, allowReturn, allowReturnInBlockExpressionsOnly);
     }
 
+    private BoundExpression BindExpressionWithoutTargetType(
+        ExpressionSyntax syntax,
+        bool allowReturn = true,
+        bool allowReturnInBlockExpressionsOnly = false)
+    {
+        using var _ = PushTargetType(null);
+        return BindExpression(syntax, allowReturn, allowReturnInBlockExpressionsOnly);
+    }
+
     public override BoundExpression BindExpression(ExpressionSyntax syntax)
     {
         using var _ = EnterExecutionScope();
@@ -1384,6 +1843,90 @@ partial class BlockBinder : Binder
     {
         Monitor.Enter(_executionGate);
         return new ExecutionScope(_executionGate);
+    }
+
+    private SemanticQueryScope EnterSemanticQueryScope()
+    {
+        Monitor.Enter(_executionGate);
+        return new SemanticQueryScope(this);
+    }
+
+    private sealed class SemanticQueryScope : IDisposable
+    {
+        private readonly BlockBinder _binder;
+        private readonly BlockTransientStateSnapshot _snapshot;
+        private readonly IDisposable _diagnosticsScope;
+        private bool _disposed;
+
+        public SemanticQueryScope(BlockBinder binder)
+        {
+            _binder = binder;
+            _snapshot = BlockTransientStateSnapshot.Capture(binder);
+            _diagnosticsScope = binder.Diagnostics.CreateNonReportingScope();
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _diagnosticsScope.Dispose();
+            _snapshot.Restore(_binder);
+            _disposed = true;
+            Monitor.Exit(_binder._executionGate);
+        }
+    }
+
+    private readonly struct BlockTransientStateSnapshot
+    {
+        private readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals;
+        private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose;
+        private readonly HashSet<ISymbol> _nonNullSymbols;
+        private readonly Dictionary<SyntaxReferenceKey, int> _statementDeclarationProgress;
+        private readonly int _scopeDepth;
+        private readonly SyntaxKind _ambientPatternDeclarationBindingKeyword;
+
+        private BlockTransientStateSnapshot(
+            Dictionary<string, (ILocalSymbol Symbol, int Depth)> locals,
+            List<(ILocalSymbol Local, int Depth)> localsToDispose,
+            HashSet<ISymbol> nonNullSymbols,
+            Dictionary<SyntaxReferenceKey, int> statementDeclarationProgress,
+            int scopeDepth,
+            SyntaxKind ambientPatternDeclarationBindingKeyword)
+        {
+            _locals = locals;
+            _localsToDispose = localsToDispose;
+            _nonNullSymbols = nonNullSymbols;
+            _statementDeclarationProgress = statementDeclarationProgress;
+            _scopeDepth = scopeDepth;
+            _ambientPatternDeclarationBindingKeyword = ambientPatternDeclarationBindingKeyword;
+        }
+
+        public static BlockTransientStateSnapshot Capture(BlockBinder binder)
+            => new(
+                new Dictionary<string, (ILocalSymbol Symbol, int Depth)>(binder._locals, StringComparer.Ordinal),
+                new List<(ILocalSymbol Local, int Depth)>(binder._localsToDispose),
+                new HashSet<ISymbol>(binder._nonNullSymbols, SymbolEqualityComparer.Default),
+                binder._statementDeclarationProgress.CreateSnapshot(),
+                binder._scopeDepth,
+                binder._ambientPatternDeclarationBindingKeyword);
+
+        public void Restore(BlockBinder binder)
+        {
+            binder._locals.Clear();
+            foreach (var entry in _locals)
+                binder._locals[entry.Key] = entry.Value;
+
+            binder._localsToDispose.Clear();
+            binder._localsToDispose.AddRange(_localsToDispose);
+
+            binder._nonNullSymbols.Clear();
+            binder._nonNullSymbols.UnionWith(_nonNullSymbols);
+
+            binder._statementDeclarationProgress.Restore(_statementDeclarationProgress);
+            binder._scopeDepth = _scopeDepth;
+            binder._ambientPatternDeclarationBindingKeyword = _ambientPatternDeclarationBindingKeyword;
+        }
     }
 
     private BoundExpression BindReceiverBindingExpression(ReceiverBindingExpressionSyntax syntax)
@@ -2370,8 +2913,6 @@ partial class BlockBinder : Binder
             _diagnostics.ReportVariableShadowsPreviousDeclaration(name, identifier.Identifier.GetLocation());
 
         var local = CreateLocalSymbol(identifier, name, isMutable, localType);
-        _locals[name] = (local, _scopeDepth);
-
         var access = new BoundLocalAccess(local);
         CacheBoundNode(identifier, access);
         return BindByRefInvocationArgument(access, refKind, syntax.Expression);
@@ -10912,7 +11453,7 @@ partial class BlockBinder : Binder
         var type = normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType;
         type = EnsureTypeAccessible(type, identifier.GetLocation());
 
-        var local = DeclarePatternLocal(identifier.Parent ?? throw new InvalidOperationException("Identifier token must have a parent syntax node."), identifier.ValueText, isMutable, type);
+        var local = GetOrCreatePatternLocal(identifier.Parent ?? throw new InvalidOperationException("Identifier token must have a parent syntax node."), identifier.ValueText, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
         if (identifier.Parent is SingleVariableDesignationSyntax single)
             CacheBoundNode(single, designator);
@@ -11029,7 +11570,7 @@ partial class BlockBinder : Binder
         var type = normalizedType.TypeKind == TypeKind.Error ? Compilation.ErrorTypeSymbol : normalizedType;
         type = EnsureTypeAccessible(type, identifier.GetLocation());
 
-        var local = DeclarePatternLocal(single, identifier.ValueText, isMutable, type);
+        var local = GetOrCreatePatternLocal(single, identifier.ValueText, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
         CacheBoundNode(single, designator);
 
@@ -11250,12 +11791,18 @@ partial class BlockBinder : Binder
             arguments: boundElements.ToImmutable());
     }
 
-    private ILocalSymbol DeclarePatternLocal(
+    private ILocalSymbol GetOrCreatePatternLocal(
         SyntaxNode designationSyntax,
         string name,
         bool isMutable,
         ITypeSymbol type)
     {
+        if (TryGetDeclaredLocal(designationSyntax, out var declaredLocal))
+        {
+            RegisterLocalForCurrentLookup(name, declaredLocal);
+            return declaredLocal;
+        }
+
         var isShadowingExistingInScope = false;
 
         if (_locals.TryGetValue(name, out var existing) && existing.Depth == _scopeDepth)
@@ -12343,7 +12890,7 @@ partial class BlockBinder : Binder
                     elementNode = spreadElem.Expression;
                     break;
                 case CollectionComprehensionElementSyntax comprehensionElem:
-                    boundElement = BindCollectionComprehensionElement(comprehensionElem);
+                    boundElement = BindCollectionComprehensionElement(comprehensionElem, collectionElementTargetType);
                     elementNode = comprehensionElem.Source;
                     break;
                 default:
@@ -13630,7 +14177,9 @@ partial class BlockBinder : Binder
         return runtimeType.FullName ?? runtimeType.Name;
     }
 
-    private BoundExpression BindCollectionComprehensionElement(CollectionComprehensionElementSyntax syntax)
+    private BoundExpression BindCollectionComprehensionElement(
+        CollectionComprehensionElementSyntax syntax,
+        ITypeSymbol? targetElementType)
     {
         BoundExpression source;
         ITypeSymbol iterationType;
@@ -13644,7 +14193,7 @@ partial class BlockBinder : Binder
         }
         else
         {
-            source = BindExpression(syntax.Source);
+            source = BindExpressionWithoutTargetType(syntax.Source);
             if (HasExpressionErrors(source))
                 return AsErrorExpression(source);
 
@@ -13668,7 +14217,7 @@ partial class BlockBinder : Binder
             iterationType,
             keySelectorSyntax: null,
             valueSelectorSyntax: null,
-            targetKeyType: null,
+            targetKeyType: targetElementType,
             targetValueType: null,
             out _,
             out _);
@@ -13706,7 +14255,7 @@ partial class BlockBinder : Binder
         }
         else
         {
-            source = BindExpression(syntax.Source);
+            source = BindExpressionWithoutTargetType(syntax.Source);
             if (HasExpressionErrors(source))
                 return new DictionaryComprehensionBinding(
                     AsErrorExpression(source),
@@ -13881,11 +14430,16 @@ partial class BlockBinder : Binder
             }
 
             if (conditionSyntax is not null)
+            {
+                using var _ = PushTargetType(null);
                 condition = BindBooleanComprehensionCondition(conditionSyntax);
+            }
 
             if (selectorSyntax is not null)
             {
-                selector = BindExpression(selectorSyntax);
+                selector = targetKeyType is not null && targetKeyType.TypeKind != TypeKind.Error
+                    ? BindExpressionWithTargetType(selectorSyntax, targetKeyType)
+                    : BindExpressionWithoutTargetType(selectorSyntax);
                 selectorType = selector.Type ?? Compilation.ErrorTypeSymbol;
             }
 
@@ -13893,7 +14447,7 @@ partial class BlockBinder : Binder
             {
                 keySelector = targetKeyType is not null && targetKeyType.TypeKind != TypeKind.Error
                     ? BindExpressionWithTargetType(keySelectorSyntax, targetKeyType)
-                    : BindExpression(keySelectorSyntax);
+                    : BindExpressionWithoutTargetType(keySelectorSyntax);
 
                 if (targetKeyType is not null &&
                     targetKeyType.TypeKind != TypeKind.Error &&
@@ -13910,7 +14464,7 @@ partial class BlockBinder : Binder
             {
                 valueSelector = targetValueType is not null && targetValueType.TypeKind != TypeKind.Error
                     ? BindExpressionWithTargetType(valueSelectorSyntax, targetValueType)
-                    : BindExpression(valueSelectorSyntax);
+                    : BindExpressionWithoutTargetType(valueSelectorSyntax);
 
                 if (targetValueType is not null &&
                     targetValueType.TypeKind != TypeKind.Error &&

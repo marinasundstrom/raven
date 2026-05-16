@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using Raven.CodeAnalysis.Syntax;
+
 namespace Raven.CodeAnalysis;
 
 class FunctionExpressionBinder : BlockBinder
@@ -23,9 +25,9 @@ class FunctionExpressionBinder : BlockBinder
         _functions[name] = method;
     }
 
-    protected override void OnLocalDeclared(ILocalSymbol local)
+    protected override void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
     {
-        base.OnLocalDeclared(local);
+        base.OnLocalDeclared(local, declaringSyntax);
         _declaredLocals.Add(local);
     }
 

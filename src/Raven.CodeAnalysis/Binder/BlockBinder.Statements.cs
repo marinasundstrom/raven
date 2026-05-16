@@ -682,6 +682,7 @@ partial class BlockBinder
         var loopBinder = semanticModel is null || forStmt.SyntaxTree is null
             ? this
             : semanticModel.GetBinder(forStmt, this) as BlockBinder ?? this;
+        using var loopExecutionScope = loopBinder.EnterExecutionScope();
         BoundExpression collection;
         ForIterationInfo iteration;
         var isAwaitFor = forStmt.AwaitKeyword.Kind == SyntaxKind.AwaitKeyword;
@@ -2351,6 +2352,8 @@ partial class BlockBinder
 
     public BoundStatement BindStatementInLoop(StatementSyntax syntax)
     {
+        using var _ = EnterExecutionScope();
+
         var previous = EnterLoop();
         try
         {

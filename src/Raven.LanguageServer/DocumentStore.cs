@@ -38,11 +38,12 @@ internal sealed class DocumentStore
         IReadOnlyList<LspDiagnostic> Diagnostics,
         bool WasSkipped);
 
-    internal enum DocumentDiagnosticsMode
+    internal enum DiagnosticLane
     {
-        Full,
-        SyntaxOnly,
-        Document
+        ProjectWithAnalyzers,
+        Syntax,
+        DocumentCompiler,
+        ProjectCompiler
     }
 
     private static readonly HashSet<string> UnnecessaryDiagnosticIds = new(StringComparer.OrdinalIgnoreCase)
@@ -309,25 +310,49 @@ internal sealed class DocumentStore
         Func<bool>? shouldSkipWork,
         CancellationToken cancellationToken)
     {
-        var result = await GetDiagnosticsCoreAsync(uri, shouldSkipWork, allowBusySkip: false, DocumentDiagnosticsMode.Full, cancellationToken).ConfigureAwait(false);
+        var result = await GetDiagnosticsCoreAsync(uri, shouldSkipWork, allowBusySkip: false, DiagnosticLane.ProjectWithAnalyzers, cancellationToken).ConfigureAwait(false);
         return result.Diagnostics;
     }
 
-    internal Task<DiagnosticsComputationResult> TryGetDiagnosticsAsync(
+    internal Task<DiagnosticsComputationResult> TryGetSyntaxDiagnosticsAsync(
         DocumentUri uri,
-        DocumentDiagnosticsMode mode,
         Func<bool>? shouldSkipWork,
         CancellationToken cancellationToken)
-        => GetDiagnosticsCoreAsync(uri, shouldSkipWork, allowBusySkip: true, mode, cancellationToken);
+        => TryGetDiagnosticsAsync(uri, DiagnosticLane.Syntax, shouldSkipWork, cancellationToken);
+
+    internal Task<DiagnosticsComputationResult> TryGetDocumentCompilerDiagnosticsAsync(
+        DocumentUri uri,
+        Func<bool>? shouldSkipWork,
+        CancellationToken cancellationToken)
+        => TryGetDiagnosticsAsync(uri, DiagnosticLane.DocumentCompiler, shouldSkipWork, cancellationToken);
+
+    internal Task<DiagnosticsComputationResult> TryGetProjectCompilerDiagnosticsAsync(
+        DocumentUri uri,
+        Func<bool>? shouldSkipWork,
+        CancellationToken cancellationToken)
+        => TryGetDiagnosticsAsync(uri, DiagnosticLane.ProjectCompiler, shouldSkipWork, cancellationToken);
+
+    internal Task<DiagnosticsComputationResult> TryGetProjectWithAnalyzersDiagnosticsAsync(
+        DocumentUri uri,
+        Func<bool>? shouldSkipWork,
+        CancellationToken cancellationToken)
+        => TryGetDiagnosticsAsync(uri, DiagnosticLane.ProjectWithAnalyzers, shouldSkipWork, cancellationToken);
+
+    internal Task<DiagnosticsComputationResult> TryGetDiagnosticsAsync(
+        DocumentUri uri,
+        DiagnosticLane lane,
+        Func<bool>? shouldSkipWork,
+        CancellationToken cancellationToken)
+        => GetDiagnosticsCoreAsync(uri, shouldSkipWork, allowBusySkip: true, lane, cancellationToken);
 
     private async Task<DiagnosticsComputationResult> GetDiagnosticsCoreAsync(
         DocumentUri uri,
         Func<bool>? shouldSkipWork,
         bool allowBusySkip,
-        DocumentDiagnosticsMode mode,
+        DiagnosticLane lane,
         CancellationToken cancellationToken)
     {
-        if (mode == DocumentDiagnosticsMode.SyntaxOnly)
+        if (lane == DiagnosticLane.Syntax)
             return await GetSyntaxDiagnosticsCoreAsync(uri, shouldSkipWork, cancellationToken).ConfigureAwait(false);
 
         var stopwatch = Stopwatch.StartNew();
@@ -338,7 +363,6 @@ internal sealed class DocumentStore
         string? diagnosticsBinderDelta = null;
         string? diagnosticsSemanticDelta = null;
         var busySkipped = false;
-        var documentOnlyDiagnostics = false;
 
         try
         {
@@ -378,35 +402,25 @@ internal sealed class DocumentStore
             var setupBefore = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
             var semanticBefore = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
             IReadOnlyCollection<CodeDiagnostic> diagnosticsForProject;
-            if (allowBusySkip)
+            if (lane == DiagnosticLane.DocumentCompiler)
             {
-                if (mode == DocumentDiagnosticsMode.SyntaxOnly)
-                {
-                    diagnosticsForProject = analysis.GetSyntaxDiagnostics();
-                    documentOnlyDiagnostics = true;
-                }
-                else if (mode == DocumentDiagnosticsMode.Document)
-                {
-                    diagnosticsForProject = context.Compilation.GetDocumentDiagnostics(
-                        syntaxTree,
-                        analyzerOptions: null,
-                        cancellationToken: cancellationToken);
-                    documentOnlyDiagnostics = true;
-                }
-                else
-                {
-                    if (!_workspaceManager.TryGetDiagnostics(uri, out var fullProjectDiagnostics, cancellationToken: cancellationToken))
-                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
-
-                    diagnosticsForProject = fullProjectDiagnostics;
-                }
+                diagnosticsForProject = context.Compilation.GetDocumentDiagnostics(
+                    syntaxTree,
+                    analyzerOptions: null,
+                    cancellationToken: cancellationToken);
+            }
+            else if (lane == DiagnosticLane.ProjectCompiler)
+            {
+                diagnosticsForProject = context.Compilation.GetDiagnostics(
+                    analyzerOptions: null,
+                    cancellationToken: cancellationToken);
             }
             else
             {
-                if (!_workspaceManager.TryGetDiagnostics(uri, out var fullProjectDiagnostics, cancellationToken: cancellationToken))
+                if (!_workspaceManager.TryGetDiagnostics(uri, out var projectDiagnosticsWithAnalyzers, cancellationToken: cancellationToken))
                     return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
 
-                diagnosticsForProject = fullProjectDiagnostics;
+                diagnosticsForProject = projectDiagnosticsWithAnalyzers;
             }
 
             diagnosticsFetchMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs - syntaxTreeMs;
@@ -471,17 +485,11 @@ internal sealed class DocumentStore
         {
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
-                busySkipped
-                    ? "computeDiagnosticsSkipped"
-                    : documentOnlyDiagnostics
-                        ? mode == DocumentDiagnosticsMode.SyntaxOnly
-                            ? "computeSyntaxDiagnostics"
-                            : "computeDocumentDiagnostics"
-                        : "computeDiagnostics",
+                GetComputeDiagnosticsOperationName(lane, busySkipped),
                 uri,
                 null,
                 stopwatch.Elapsed.TotalMilliseconds,
-                detail: CreateDiagnosticsPerformanceDetail(uri, mode, diagnosticsSetupDelta, diagnosticsBinderDelta, diagnosticsSemanticDelta),
+                detail: CreateDiagnosticsPerformanceDetail(uri, lane, diagnosticsSetupDelta, diagnosticsBinderDelta, diagnosticsSemanticDelta),
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -493,12 +501,12 @@ internal sealed class DocumentStore
 
     private static string CreateDiagnosticsPerformanceDetail(
         DocumentUri uri,
-        DocumentDiagnosticsMode mode,
+        DiagnosticLane lane,
         string? setupDelta,
         string? binderDelta,
         string? semanticDelta)
     {
-        var detail = $"{uri} mode={mode}";
+        var detail = $"{uri} lane={lane}";
 
         if (!string.IsNullOrWhiteSpace(setupDelta))
             detail += $" setup=[{setupDelta}]";
@@ -511,6 +519,19 @@ internal sealed class DocumentStore
 
         return detail;
     }
+
+    private static string GetComputeDiagnosticsOperationName(DiagnosticLane lane, bool skipped)
+        => (lane, skipped) switch
+        {
+            (DiagnosticLane.Syntax, false) => "computeSyntaxDiagnostics",
+            (DiagnosticLane.Syntax, true) => "computeSyntaxDiagnosticsSkipped",
+            (DiagnosticLane.DocumentCompiler, false) => "computeDocumentCompilerDiagnostics",
+            (DiagnosticLane.DocumentCompiler, true) => "computeDocumentCompilerDiagnosticsSkipped",
+            (DiagnosticLane.ProjectCompiler, false) => "computeProjectCompilerDiagnostics",
+            (DiagnosticLane.ProjectCompiler, true) => "computeProjectCompilerDiagnosticsSkipped",
+            (DiagnosticLane.ProjectWithAnalyzers, false) => "computeProjectWithAnalyzersDiagnostics",
+            _ => "computeProjectWithAnalyzersDiagnosticsSkipped"
+        };
 
     private async Task<DiagnosticsComputationResult> GetSyntaxDiagnosticsCoreAsync(
         DocumentUri uri,

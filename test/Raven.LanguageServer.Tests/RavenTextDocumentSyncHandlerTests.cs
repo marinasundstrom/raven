@@ -76,16 +76,16 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetSaveDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredFullDiagnosticsWithoutWarmup()
+    public void GetSaveDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredDocumentDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetSaveDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
-        policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
-        policy.FollowUpMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.Full);
+        policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
+        policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
@@ -96,28 +96,48 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
-        policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.SyntaxOnly);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldNotBeNull();
-        policy.FullDiagnosticsDelayMilliseconds.Value.ShouldBeLessThanOrEqualTo(750);
-        policy.FollowUpMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.Document);
+        policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
+        policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeLessThanOrEqualTo(750);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesDocumentDiagnosticsWhileTyping()
+    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredDocumentDiagnosticsWhileTyping()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
         policy.IncludeWarmup.ShouldBeFalse();
         policy.WarmupDelayMilliseconds.ShouldBe(0);
-        policy.InitialMode.ShouldBe(DocumentStore.DocumentDiagnosticsMode.Document);
-        policy.FullDiagnosticsDelayMilliseconds.ShouldBeNull();
-        policy.FollowUpMode.ShouldBeNull();
-        policy.DiagnosticsDelayMilliseconds.ShouldBeGreaterThan(0);
+        policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
+        policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(0);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
+        policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void ShouldScheduleFullDiagnosticsAfterEdit_ReturnsTrueForDeletedImportLine()
+    public void ActiveEditorDiagnosticsPolicies_DoNotScheduleProjectOrAnalyzerLanes()
+    {
+        var policies = new[]
+        {
+            RavenTextDocumentSyncHandler.GetOpenDiagnosticsPolicy(),
+            RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy(),
+            RavenTextDocumentSyncHandler.GetSaveDiagnosticsPolicy()
+        };
+
+        foreach (var policy in policies)
+        {
+            policy.InitialMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectCompiler);
+            policy.InitialMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
+            policy.FollowUpMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectCompiler);
+            policy.FollowUpMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
+        }
+    }
+
+    [Fact]
+    public void ShouldScheduleStructuralDiagnosticsAfterEdit_ReturnsTrueForDeletedImportLine()
     {
         var previousText = SourceText.From("""
 import System.*
@@ -136,12 +156,12 @@ func Main() -> unit {}
             }
         };
 
-        RavenTextDocumentSyncHandler.ShouldScheduleFullDiagnosticsAfterEdit(previousText, changes)
+        RavenTextDocumentSyncHandler.ShouldScheduleStructuralDiagnosticsAfterEdit(previousText, changes)
             .ShouldBeTrue();
     }
 
     [Fact]
-    public void ShouldScheduleFullDiagnosticsAfterEdit_ReturnsTrueForInsertedImportLine()
+    public void ShouldScheduleStructuralDiagnosticsAfterEdit_ReturnsTrueForInsertedImportLine()
     {
         var previousText = SourceText.From("""
 func Main() -> unit {}
@@ -158,12 +178,12 @@ func Main() -> unit {}
             }
         };
 
-        RavenTextDocumentSyncHandler.ShouldScheduleFullDiagnosticsAfterEdit(previousText, changes)
+        RavenTextDocumentSyncHandler.ShouldScheduleStructuralDiagnosticsAfterEdit(previousText, changes)
             .ShouldBeTrue();
     }
 
     [Fact]
-    public void ShouldScheduleFullDiagnosticsAfterEdit_ReturnsFalseForOrdinaryBodyEdit()
+    public void ShouldScheduleStructuralDiagnosticsAfterEdit_ReturnsFalseForOrdinaryBodyEdit()
     {
         var previousText = SourceText.From("""
 func Main() -> unit {
@@ -182,7 +202,7 @@ func Main() -> unit {
             }
         };
 
-        RavenTextDocumentSyncHandler.ShouldScheduleFullDiagnosticsAfterEdit(previousText, changes)
+        RavenTextDocumentSyncHandler.ShouldScheduleStructuralDiagnosticsAfterEdit(previousText, changes)
             .ShouldBeFalse();
     }
 
@@ -224,6 +244,51 @@ func Main() -> unit {
             .ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData(true, 2, 2, false)]
+    [InlineData(true, 1, 2, true)]
+    [InlineData(true, null, 2, true)]
+    [InlineData(true, 1, null, false)]
+    [InlineData(false, 1, 1, true)]
+    public void ShouldPublishDiagnostics_ReissuesUnchangedDiagnosticsForNewDocumentVersion(
+        bool hasLastPublishedDiagnostics,
+        int? lastPublishedVersion,
+        int? currentVersion,
+        bool expected)
+    {
+        var diagnostics = RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues(
+        [
+            CreateDiagnostic("RAV0103", "Name not found", 1, 4, 1, 6, DiagnosticSeverity.Error)
+        ]);
+
+        RavenTextDocumentSyncHandler.ShouldPublishDiagnostics(
+            hasLastPublishedDiagnostics,
+            diagnostics,
+            lastPublishedVersion,
+            diagnostics,
+            currentVersion).ShouldBe(expected);
+    }
+
+    [Fact]
+    public void ShouldPublishDiagnostics_PublishesWhenDiagnosticValuesChange()
+    {
+        var previous = RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues(
+        [
+            CreateDiagnostic("RAV0103", "Name not found", 1, 4, 1, 6, DiagnosticSeverity.Error)
+        ]);
+        var current = RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues(
+        [
+            CreateDiagnostic("RAV0168", "Shadowing", 1, 4, 1, 6, DiagnosticSeverity.Warning)
+        ]);
+
+        RavenTextDocumentSyncHandler.ShouldPublishDiagnostics(
+            hasLastPublishedDiagnostics: true,
+            previous,
+            lastPublishedVersion: 2,
+            current,
+            currentVersion: 2).ShouldBeTrue();
+    }
+
     [Fact]
     public void SummarizeDiagnosticsForLog_ReturnsNoneForEmpty()
     {
@@ -247,27 +312,32 @@ func Main() -> unit {
     }
 
     [Theory]
-    [InlineData(0, 0, "publishDiagnostics")]
-    [InlineData(0, 1, "publishDiagnosticsSkipped")]
-    [InlineData(0, 2, "publishDiagnosticsUnchanged")]
-    [InlineData(0, 3, "publishDiagnosticsVersionMismatch")]
-    [InlineData(0, 4, "publishDiagnosticsAlreadyCompleted")]
+    [InlineData(0, 0, "publishProjectWithAnalyzersDiagnostics")]
+    [InlineData(0, 1, "publishProjectWithAnalyzersDiagnosticsSkipped")]
+    [InlineData(0, 2, "publishProjectWithAnalyzersDiagnosticsUnchanged")]
+    [InlineData(0, 3, "publishProjectWithAnalyzersDiagnosticsVersionMismatch")]
+    [InlineData(0, 4, "publishProjectWithAnalyzersDiagnosticsAlreadyCompleted")]
     [InlineData(1, 0, "publishSyntaxDiagnostics")]
     [InlineData(1, 1, "publishSyntaxDiagnosticsSkipped")]
     [InlineData(1, 2, "publishSyntaxDiagnosticsUnchanged")]
     [InlineData(1, 3, "publishSyntaxDiagnosticsVersionMismatch")]
     [InlineData(1, 4, "publishSyntaxDiagnosticsAlreadyCompleted")]
-    [InlineData(2, 0, "publishDocumentDiagnostics")]
-    [InlineData(2, 1, "publishDocumentDiagnosticsSkipped")]
-    [InlineData(2, 2, "publishDocumentDiagnosticsUnchanged")]
-    [InlineData(2, 3, "publishDocumentDiagnosticsVersionMismatch")]
-    [InlineData(2, 4, "publishDocumentDiagnosticsAlreadyCompleted")]
+    [InlineData(2, 0, "publishDocumentCompilerDiagnostics")]
+    [InlineData(2, 1, "publishDocumentCompilerDiagnosticsSkipped")]
+    [InlineData(2, 2, "publishDocumentCompilerDiagnosticsUnchanged")]
+    [InlineData(2, 3, "publishDocumentCompilerDiagnosticsVersionMismatch")]
+    [InlineData(2, 4, "publishDocumentCompilerDiagnosticsAlreadyCompleted")]
+    [InlineData(3, 0, "publishProjectCompilerDiagnostics")]
+    [InlineData(3, 1, "publishProjectCompilerDiagnosticsSkipped")]
+    [InlineData(3, 2, "publishProjectCompilerDiagnosticsUnchanged")]
+    [InlineData(3, 3, "publishProjectCompilerDiagnosticsVersionMismatch")]
+    [InlineData(3, 4, "publishProjectCompilerDiagnosticsAlreadyCompleted")]
     public void GetPublishDiagnosticsOperationName_UsesOutcomeSpecificNames(
         int modeValue,
         int outcomeValue,
         string expected)
     {
-        var mode = (DocumentStore.DocumentDiagnosticsMode)modeValue;
+        var mode = (DocumentStore.DiagnosticLane)modeValue;
         var outcome = (RavenTextDocumentSyncHandler.PublishDiagnosticsOutcome)outcomeValue;
 
         RavenTextDocumentSyncHandler.GetPublishDiagnosticsOperationName(mode, outcome)

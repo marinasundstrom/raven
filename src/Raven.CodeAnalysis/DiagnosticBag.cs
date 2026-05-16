@@ -12,6 +12,8 @@ public class DiagnosticBag
 
     public bool IsEmpty => _diagnostics.IsEmpty;
 
+    internal bool IsReportingDisabled => Volatile.Read(ref _reportingDisabledCount) > 0;
+
     public DiagnosticBag()
     {
         _diagnostics = new();
@@ -25,7 +27,7 @@ public class DiagnosticBag
 
     public void Report(Diagnostic diagnostic)
     {
-        if (Volatile.Read(ref _reportingDisabledCount) > 0)
+        if (IsReportingDisabled)
             return;
 
         _diagnostics.TryAdd(diagnostic, 0);
@@ -59,7 +61,7 @@ public class DiagnosticBag
 
 internal class NonReportingScopeDisposable : IDisposable
 {
-    private DiagnosticBag _diagnosticBag;
+    private readonly DiagnosticBag _diagnosticBag;
 
     public NonReportingScopeDisposable(DiagnosticBag diagnosticBag)
     {

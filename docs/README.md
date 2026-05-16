@@ -10,3 +10,4 @@
 ## Compiler
 
 * [Compiler](compiler)
+* [Binder architecture](compiler/design/binders.md)

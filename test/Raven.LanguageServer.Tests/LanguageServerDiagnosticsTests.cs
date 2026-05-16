@@ -177,7 +177,7 @@ class C {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_FullMode_IncludesBuiltInAnalyzerDiagnosticsAsync()
+    public async Task TryGetDiagnosticsAsync_ProjectWithAnalyzersLane_IncludesBuiltInAnalyzerDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -205,7 +205,7 @@ func Main() -> unit {
         store.UpsertDocument(uri, code);
         var result = await store.TryGetDiagnosticsAsync(
             uri,
-            DocumentStore.DocumentDiagnosticsMode.Full,
+            DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
@@ -217,7 +217,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_DocumentMode_AfterInlayHints_DoesNotPublishStalePipeLocalDiagnosticAsync()
+    public async Task TryGetDiagnosticsAsync_DocumentCompilerLane_AfterInlayHints_DoesNotPublishStalePipeLocalDiagnosticAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -269,6 +269,17 @@ func Main(users: IQueryable<User>) {
 """;
 
         store.UpsertDocument(uri, code);
+        var beforeInlayResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+        var beforeInlayErrors = beforeInlayResult.Diagnostics
+            .Where(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ToArray();
+        beforeInlayErrors.ShouldBeEmpty(string.Join(Environment.NewLine, beforeInlayErrors));
+
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
         _ = await inlayHandler.Handle(new InlayHintParams
         {
@@ -278,7 +289,7 @@ func Main(users: IQueryable<User>) {
 
         var result = await store.TryGetDiagnosticsAsync(
             uri,
-            DocumentStore.DocumentDiagnosticsMode.Document,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
@@ -286,11 +297,15 @@ func Main(users: IQueryable<User>) {
         result.Diagnostics.ShouldNotContain(diagnostic =>
             diagnostic.Severity == LspDiagnosticSeverity.Error &&
             diagnostic.Message.Contains("'onlyActiveAdults' is not in scope", StringComparison.Ordinal));
-        result.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+        var errorDiagnostics = result.Diagnostics
+            .Where(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ToArray();
+        errorDiagnostics.ShouldBeEmpty(string.Join(Environment.NewLine, errorDiagnostics));
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_DocumentMode_AfterInlayHints_DoesNotPublishStaleAsyncLambdaBodyDiagnosticsAsync()
+    public async Task TryGetDiagnosticsAsync_DocumentCompilerLane_AfterInlayHints_DoesNotPublishStaleAsyncLambdaBodyDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -349,7 +364,7 @@ func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
 
         var result = await store.TryGetDiagnosticsAsync(
             uri,
-            DocumentStore.DocumentDiagnosticsMode.Document,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
@@ -365,7 +380,7 @@ func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_DocumentMode_ReportsTypedDeconstructionMismatchOnAnnotationSpanAsync()
+    public async Task TryGetDiagnosticsAsync_DocumentCompilerLane_ReportsTypedDeconstructionMismatchOnAnnotationSpanAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -409,7 +424,7 @@ for val (key: string, value: string) in doubled {
         store.UpsertDocument(uri, code);
         var result = await store.TryGetDiagnosticsAsync(
             uri,
-            DocumentStore.DocumentDiagnosticsMode.Document,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
@@ -602,6 +617,67 @@ union MyResult<T>(List<T> | int)
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_TestCaseSample_AfterInlayHints_DoesNotReportSelfShadowingDiagnosticsAsync()
+    {
+        var sampleRoot = Path.Combine(
+            GetRepositoryRoot(),
+            "samples",
+            "projects",
+            "test-case");
+        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "test-case",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        store.UpsertDocument(uri, code);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        var shadowDiagnostics = result.Diagnostics
+            .Where(diagnostic => string.Equals(diagnostic.Code?.String, "RAV0168", StringComparison.Ordinal))
+            .Select(diagnostic => $"{diagnostic.Message} {diagnostic.Range.Start.Line + 1}:{diagnostic.Range.Start.Character + 1}")
+            .ToArray();
+        shadowDiagnostics.ShouldBeEmpty();
+
+        var missingPatternLocalDiagnostics = result.Diagnostics
+            .Where(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+                (diagnostic.Message.Contains("'entry' is not in scope", StringComparison.Ordinal) ||
+                 diagnostic.Message.Contains("'id' is not in scope", StringComparison.Ordinal) ||
+                 diagnostic.Message.Contains("'name' is not in scope", StringComparison.Ordinal)))
+            .Select(diagnostic => $"{diagnostic.Message} {diagnostic.Range.Start.Line + 1}:{diagnostic.Range.Start.Character + 1}")
+            .ToArray();
+        missingPatternLocalDiagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_ProjectBackedDocument_VarValToggle_RecomputesReadOnlyAssignmentDiagnosticAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -731,7 +807,7 @@ record Person(
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_FullMode_DoesNotRequireDocumentSemanticGateAsync()
+    public async Task TryGetDiagnosticsAsync_ProjectWithAnalyzersLane_DoesNotRequireDocumentSemanticGateAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -760,7 +836,7 @@ func Main() -> () {
         using var heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
         var diagnosticsTask = store.TryGetDiagnosticsAsync(
             uri,
-            DocumentStore.DocumentDiagnosticsMode.Full,
+            DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
@@ -773,7 +849,7 @@ func Main() -> () {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_FullMode_SkipsWhenCompilerGateIsBusyAsync()
+    public async Task TryGetDiagnosticsAsync_ProjectWithAnalyzersLane_SkipsWhenCompilerGateIsBusyAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -802,7 +878,7 @@ func Main() -> () {
         using var heldLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
         var result = await store.TryGetDiagnosticsAsync(
             uri,
-            DocumentStore.DocumentDiagnosticsMode.Full,
+            DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
@@ -811,7 +887,7 @@ func Main() -> () {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_SyntaxOnlyMode_DoesNotRequireCompilerGateAsync()
+    public async Task TryGetDiagnosticsAsync_SyntaxLane_DoesNotRequireCompilerGateAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -839,7 +915,7 @@ func Main( -> () {
         using var heldLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
         var diagnosticsTask = store.TryGetDiagnosticsAsync(
             uri,
-            DocumentStore.DocumentDiagnosticsMode.SyntaxOnly,
+            DocumentStore.DiagnosticLane.Syntax,
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 

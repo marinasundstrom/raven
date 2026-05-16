@@ -18,6 +18,32 @@ The server code lives in `src/Raven.LanguageServer` and boots from `Program.cs`,
 - `CompletionHandler`: Uses the compiler `CompletionService` to answer LSP completion requests.
 - `PositionHelper`: Converts between LSP positions/ranges and Raven text spans.
 
+## Diagnostics publication
+
+Diagnostics are versioned by editor document version. Every
+`publishDiagnostics` notification should carry the version it was computed for
+so the client can reject stale results after a later edit.
+
+After ordinary edits, `RavenTextDocumentSyncHandler` publishes diagnostics from
+explicit lanes:
+
+- `Syntax`: syntax diagnostics from the current open document snapshot.
+- `DocumentCompiler`: compiler diagnostics for the current document only.
+- `ProjectCompiler`: compiler diagnostics for the project, filtered back to the current document.
+- `ProjectWithAnalyzers`: project diagnostics including analyzer diagnostics, filtered back to the current document.
+
+Open, edit, and save use only the active editor lanes: `Syntax` immediately,
+then `DocumentCompiler` as a follow-up. This gives the editor a fast replacement
+diagnostic set for the new buffer while binder work completes in the background.
+If the diagnostic values are unchanged but the document version changed, the
+server still republishes them for the new version.
+
+Project-wide and analyzer-heavy lanes should not run as part of the active
+editor feedback loop unless they are explicitly surfaced through a separate
+background path. Slow semantic diagnostics should be fixed in the compiler and
+binder pipeline, but they must not leave stale diagnostics visible for an edited
+document.
+
 ## Prerequisites
 - .NET 9 SDK on your `PATH`.
 - Reference assemblies available from a .NET targeting pack (the server attempts to resolve the latest installed version automatically).

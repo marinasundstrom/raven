@@ -891,7 +891,7 @@ internal partial class BlockBinder
         {
             var isMutable = !single.BindingKeyword.IsMissing && single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
             var localType = EnsureTypeAccessible(declaredType, single.Identifier.GetLocation());
-            var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable, localType);
+            var local = GetOrCreatePatternLocal(single, single.Identifier.ValueText, isMutable, localType);
             var singleDesignator = new BoundSingleVariableDesignator(local);
             CacheBoundNode(single, singleDesignator);
             designator = singleDesignator;
@@ -1482,7 +1482,7 @@ internal partial class BlockBinder
 
         var declaredType = EnsureTypeAccessible(inputType, identifier.GetLocation());
         var isMutable = declarationBindingKeywordKind == SyntaxKind.VarKeyword;
-        var local = DeclarePatternLocal(identifier, name, isMutable, declaredType);
+        var local = GetOrCreatePatternLocal(identifier, name, isMutable, declaredType);
         var designator = new BoundSingleVariableDesignator(local);
         return new BoundDeclarationPattern(declaredType, designator);
     }
@@ -1555,7 +1555,7 @@ internal partial class BlockBinder
 
         type = EnsureTypeAccessible(type, single.Identifier.GetLocation());
 
-        var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable, type);
+        var local = GetOrCreatePatternLocal(single, single.Identifier.ValueText, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
         CacheBoundNode(single, designator);
 
@@ -1672,7 +1672,7 @@ internal partial class BlockBinder
             identifier.ValueText,
             declaration.DeclaredType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             identifier.GetLocation());
-        var local = DeclarePatternLocal(elementSyntax.NameColon.Name, identifier.ValueText, isMutable: false, declaration.DeclaredType);
+        var local = GetOrCreatePatternLocal(elementSyntax.NameColon.Name, identifier.ValueText, isMutable: false, declaration.DeclaredType);
         var designator = new BoundSingleVariableDesignator(local);
 
         return new BoundDeclarationPattern(declaration.DeclaredType, designator, declaration.Reason);
@@ -2760,7 +2760,7 @@ internal partial class BlockBinder
 
                     var isMutable = single.BindingKeyword.IsKind(SyntaxKind.VarKeyword) ||
                                     (single.BindingKeyword.Kind == SyntaxKind.None && _ambientPatternDeclarationBindingKeyword == SyntaxKind.VarKeyword);
-                    var local = DeclarePatternLocal(single, single.Identifier.ValueText, isMutable, expectedType);
+                    var local = GetOrCreatePatternLocal(single, single.Identifier.ValueText, isMutable, expectedType);
                     var bound = new BoundSingleVariableDesignator(local);
                     CacheBoundNode(designation, bound);
                     return bound;
@@ -3026,7 +3026,7 @@ internal partial class BlockBinder
         // If a binding keyword is present on this single variable, it overrides the mutability.
         var isMutable = !single.BindingKeyword.IsMissing && single.BindingKeyword.IsKind(SyntaxKind.VarKeyword);
 
-        var local = DeclarePatternLocal(single, name, isMutable, type);
+        var local = GetOrCreatePatternLocal(single, name, isMutable, type);
         var designator = new BoundSingleVariableDesignator(local);
 
         CacheBoundNode(single, designator);

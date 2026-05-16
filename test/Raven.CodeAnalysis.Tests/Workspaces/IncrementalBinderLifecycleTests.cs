@@ -1,4 +1,6 @@
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -7,6 +9,270 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public sealed class IncrementalBinderLifecycleTests
 {
+    [Fact]
+    public void LocalSymbolQueriesBeforeDiagnostics_DoNotLeaveActiveExecutionLocals()
+    {
+        const string source = """
+            func Main() {
+                var a = 1, b = 2
+                (b, a) = (a, b)
+
+                var e1 = 0, e2 = 0, e3 = 0
+                [e1, e2, e3] = [3, 9, 10]
+            }
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "binder-query-order",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var declarators = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+
+        foreach (var declarator in declarators)
+            model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        var assignmentDesignations = root.DescendantNodes().OfType<SingleVariableDesignationSyntax>().ToArray();
+        assignmentDesignations.ShouldNotBeEmpty();
+        foreach (var designation in assignmentDesignations)
+            model.GetDeclaredSymbol(designation).ShouldBeNull();
+
+        var diagnostics = model.GetDiagnostics();
+
+        diagnostics
+            .Where(diagnostic => diagnostic.Id == CompilerDiagnostics.VariableShadowsPreviousDeclaration.Id)
+            .Select(diagnostic => diagnostic.GetMessage())
+            .ShouldBeEmpty();
+
+        foreach (var assignment in root.DescendantNodes().OfType<AssignmentStatementSyntax>())
+        {
+            foreach (var identifier in assignment.Left.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            {
+                model.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+            }
+        }
+
+        model.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Id == CompilerDiagnostics.VariableShadowsPreviousDeclaration.Id)
+            .Select(diagnostic => diagnostic.GetMessage())
+            .ShouldBeEmpty();
+
+        foreach (var declarator in declarators)
+        {
+            var boundDeclarator = model.GetBoundNode(declarator).ShouldBeAssignableTo<BoundVariableDeclarator>();
+            boundDeclarator.Local.ShouldBeSameAs(model.GetDeclaredSymbol(declarator));
+            boundDeclarator.Initializer.ShouldNotBeNull();
+        }
+    }
+
+    [Fact]
+    public void SemanticQueriesBeforeDiagnostics_DoNotHideRealCompilerDiagnostics()
+    {
+        const string source = """
+            func Main() -> unit {
+                val value = missing
+            }
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var baselineCompilation = Compilation.Create(
+            "binder-query-diagnostics-baseline",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var baselineDiagnostics = baselineCompilation.GetSemanticModel(syntaxTree).GetDocumentDiagnostics();
+        baselineDiagnostics.ShouldContain(diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+            diagnostic.GetMessage().Contains("'missing' is not in scope", StringComparison.Ordinal));
+
+        var compilation = Compilation.Create(
+            "binder-query-diagnostics",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var missingIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "missing");
+
+        model.GetSymbolInfo(missingIdentifier).Symbol.ShouldBeNull();
+
+        var diagnostics = model.GetDocumentDiagnostics();
+        diagnostics
+            .ShouldContain(diagnostic =>
+                diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+                diagnostic.GetMessage().Contains("'missing' is not in scope", StringComparison.Ordinal),
+                string.Join(Environment.NewLine, diagnostics.Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")));
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_ForExpressionTreeLambda_UsesSameFileTypeMembersWithoutCompletingSourceDeclarations()
+    {
+        const string source = """
+            import System.*
+            import System.Linq.Expressions.*
+
+            class User(var Name: string, var Age: int, var IsActive: bool)
+
+            func Main() -> unit {
+                val minAge = 21
+                val predicate: Expression<System.Func<User, bool>> =
+                    user => user.IsActive && user.Age >= minAge
+            }
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "binder-document-diagnostics",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDocumentDiagnostics(
+            syntaxTree,
+            analyzerOptions: null,
+            CancellationToken.None);
+
+        diagnostics
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_ForTargetTypedMemberInitializers_UseOwningTypeMemberBinder()
+    {
+        const string source = """
+            enum Orientation { Vertical, Horizontal }
+
+            class Product {}
+
+            class Catalog {
+                private var cachedProducts: Product[] = []
+                var Products: Product[] { get; set; } = []
+                var Orientation: Orientation = .Vertical
+            }
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "target-typed-member-initializers",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDocumentDiagnostics(
+            syntaxTree,
+            analyzerOptions: null,
+            CancellationToken.None);
+
+        diagnostics
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void TopLevelExecutionBinding_AfterDeclaredSymbolQuery_PreservesLocalInitializers()
+    {
+        const string source = """
+            import System.Linq.*
+
+            val values = [1, 2, 3]
+            val selected = values.Where(value => value > 1)
+            val callback = AddOne
+
+            func AddOne(value: int) -> int => value + 1
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "top-level-execution-binding",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var declarators = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(declarator => declarator.Identifier.ValueText is "values" or "selected" or "callback")
+            .ToArray();
+
+        foreach (var declarator in declarators)
+            model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        var block = model.GetBoundNode(root).ShouldBeAssignableTo<BoundBlockStatement>();
+        var boundDeclarators = block.Statements
+            .OfType<BoundLocalDeclarationStatement>()
+            .SelectMany(statement => statement.Declarators)
+            .Where(declarator => declarator.Local.Name is "values" or "selected" or "callback")
+            .ToArray();
+
+        boundDeclarators.Length.ShouldBe(3);
+        boundDeclarators
+            .Where(declarator => declarator.Initializer is null)
+            .Select(declarator => declarator.Local.Name)
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task DocumentDiagnosticsAndSymbolQueries_ForPatternLoop_DoNotCorruptBinderLocalState()
+    {
+        const string source = """
+            import System.Console.*
+
+            func Main() {
+                val pairs = [("one", 1), ("two", 2), ("three", 3)]
+                val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+
+                for val (key, value) in doubled {
+                    WriteLine("$key: $value")
+                }
+            }
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "binder-concurrency",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var identifiers = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(identifier => identifier.Identifier.ValueText is "key" or "value" or "doubled")
+            .ToArray();
+        var start = new ManualResetEventSlim(false);
+        var tasks = Enumerable.Range(0, 12)
+            .Select(index => Task.Run(() =>
+            {
+                start.Wait();
+                if (index % 3 == 0)
+                {
+                    _ = model.GetDocumentDiagnostics();
+                    return;
+                }
+
+                foreach (var identifier in identifiers)
+                {
+                    _ = model.GetSymbolInfo(identifier);
+                    _ = model.GetTypeInfo(identifier);
+                }
+            }))
+            .ToArray();
+
+        start.Set();
+        await Task.WhenAll(tasks);
+
+        var diagnostics = model.GetDocumentDiagnostics();
+
+        diagnostics.ShouldNotContain(diagnostic => diagnostic.Id == CompilerDiagnostics.VariableShadowsPreviousDeclaration.Id);
+    }
+
     [Fact]
     public void WorkspaceCompilation_TopLevelStatementEdit_IncrementalBinderBindsReferencesWithoutRootBinder()
     {
@@ -159,6 +425,65 @@ public sealed class IncrementalBinderLifecycleTests
             .ShouldBeSameAs(updatedTopLevelBinder.GetLocalForTesting("second"));
         updatedTopLevelBinder.LocalStateVersionForTesting.ShouldBe(3);
         updatedModel.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void GetSymbolInfo_ForTopLevelReference_AfterEdit_UsesBinderOwnedStatementDeclarations()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication)
+                .WithPerformanceInstrumentation(instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            val first = 1
+            val second = first + 1
+            val third = second + 1
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("second + 1", "second + 2", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedRoot = updatedTree.GetRoot();
+        var updatedGlobals = updatedRoot.DescendantNodes().OfType<GlobalStatementSyntax>().ToArray();
+        var secondReference = GetIdentifier(updatedGlobals[2], "second");
+
+        updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+        instrumentation.BinderReentry.Reset();
+
+        var symbol = updatedModel.GetSymbolInfo(secondReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+
+        symbol.Name.ShouldBe("second");
+        symbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        updatedModel.MemberSignaturesDeclared.ShouldBeFalse();
+        var topLevelBinder = updatedModel.GetIncrementalSemanticQueryBinderForTesting(updatedGlobals[2].Statement).ShouldBeAssignableTo<TopLevelBinder>();
+        topLevelBinder.GetLocalForTesting("first").ShouldNotBeNull();
+        topLevelBinder.GetLocalForTesting("second").ShouldBeSameAs(symbol);
+        updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
     }
 
     [Fact]
@@ -327,6 +652,58 @@ public sealed class IncrementalBinderLifecycleTests
     }
 
     [Fact]
+    public void GetDeclaredSymbol_ForGenericFunctionValueLocal_StoresAliasInOwningBlockBinder()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                class Edited {
+                    func Stable() -> unit {
+                        val identity = func<T>(value: T) -> T {
+                            value
+                        }
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var block = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>().Single();
+        var declarator = block.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "identity");
+
+        model.RootBinderCreated.ShouldBeFalse();
+
+        var identityLocal = model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        identityLocal.Name.ShouldBe("identity");
+        identityLocal.GetType().Name.ShouldBe("SourceFunctionValueSymbol");
+        var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
+        blockBinder.GetLocalForTesting("identity").ShouldBeSameAs(identityLocal);
+        blockBinder.GetDeclaredLocalsForTesting().Single().ShouldBeSameAs(identityLocal);
+        blockBinder.LocalStateVersionForTesting.ShouldBe(1);
+        model.GetDeclaredSymbol(declarator).ShouldBeSameAs(identityLocal);
+        blockBinder.LocalStateVersionForTesting.ShouldBe(1);
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ForPatternDesignation_StoresPatternLocalInOwningBlockBinder()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -362,6 +739,9 @@ public sealed class IncrementalBinderLifecycleTests
         var valueDesignation = block.DescendantNodes()
             .OfType<SingleVariableDesignationSyntax>()
             .Single(designation => designation.Identifier.ValueText == "value");
+        var keyDesignation = block.DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(designation => designation.Identifier.ValueText == "key");
 
         model.RootBinderCreated.ShouldBeFalse();
 
@@ -369,10 +749,87 @@ public sealed class IncrementalBinderLifecycleTests
 
         valueLocal.Name.ShouldBe("value");
         valueLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        model.MemberSignaturesDeclared.ShouldBeFalse();
         var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
         blockBinder.GetLocalForTesting("value").ShouldBeSameAs(valueLocal);
-        blockBinder.GetLocalForTesting("key").ShouldNotBeNull();
+        var keyLocal = blockBinder.GetLocalForTesting("key");
+        keyLocal.ShouldNotBeNull();
+        var patternScopeKey = blockBinder.GetLocalScopeKeyForTesting(valueLocal);
+        patternScopeKey.ShouldNotBeNull();
+        patternScopeKey.ShouldStartWith("IfPatternStatement@");
+        blockBinder.GetLocalScopeKeyForTesting(keyLocal!).ShouldBe(patternScopeKey);
+        blockBinder.GetDeclaredLocalsForTesting().Count(local => local.Name == "value").ShouldBe(1);
+        blockBinder.GetDeclaredLocalsForTesting().Count(local => local.Name == "key").ShouldBe(1);
+        var localStateVersion = blockBinder.LocalStateVersionForTesting;
+
+        model.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Id == CompilerDiagnostics.VariableShadowsPreviousDeclaration.Id)
+            .Select(diagnostic => diagnostic.GetMessage())
+            .ShouldBeEmpty();
+
+        model.GetDeclaredSymbol(valueDesignation).ShouldBeSameAs(valueLocal);
+        model.GetDeclaredSymbol(keyDesignation).ShouldBeSameAs(blockBinder.GetLocalForTesting("key"));
+        blockBinder.LocalStateVersionForTesting.ShouldBe(localStateVersion);
+        blockBinder.GetDeclaredLocalsForTesting().Count(local => local.Name == "value").ShouldBe(1);
+        blockBinder.GetDeclaredLocalsForTesting().Count(local => local.Name == "key").ShouldBe(1);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_ForPatternDeclarationAssignment_UsesStatementForBindingAndBlockForScope()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                class Edited {
+                    func Stable(input: (string, int)) -> unit {
+                        val (key, value) = input
+                        val copy = value
+                    }
+                }
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var block = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>().Single();
+        var valueDesignation = block.DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(designation => designation.Identifier.ValueText == "value");
+        var copyReference = block.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "value");
+
+        var valueLocal = model.GetDeclaredSymbol(valueDesignation).ShouldBeAssignableTo<ILocalSymbol>();
+
+        valueLocal.Name.ShouldBe("value");
+        valueLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
+        blockBinder.GetLocalForTesting("value").ShouldBeSameAs(valueLocal);
+        blockBinder.GetLocalScopeKeyForTesting(valueLocal).ShouldStartWith("BlockStatement@");
+        blockBinder.BindReferencedSymbol(copyReference).Symbol.ShouldBeSameAs(valueLocal);
+        blockBinder.GetDeclaredLocalsForTesting().Count(local => local.Name == "value").ShouldBe(1);
         model.RootBinderCreated.ShouldBeFalse();
+
+        model.GetDiagnostics()
+            .Where(diagnostic =>
+                diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+                diagnostic.GetMessage().Contains("'value' is not in scope", StringComparison.Ordinal))
+            .Select(diagnostic => diagnostic.GetMessage())
+            .ShouldBeEmpty();
     }
 
     [Fact]
@@ -494,18 +951,90 @@ public sealed class IncrementalBinderLifecycleTests
             .Single(identifier => identifier.Identifier.ValueText == "second");
 
         blockBinder.LocalStateVersionForTesting.ShouldBe(0);
+        blockBinder.StatementDeclarationProgressCountForTesting.ShouldBe(0);
+        blockBinder.ActiveLocalLookupCountForTesting.ShouldBe(0);
 
         var secondSymbol = blockBinder.BindReferencedSymbol(secondReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
 
         secondSymbol.Name.ShouldBe("second");
         blockBinder.LocalStateVersionForTesting.ShouldBe(2);
+        blockBinder.StatementDeclarationProgressCountForTesting.ShouldBe(0);
+        blockBinder.ActiveLocalLookupCountForTesting.ShouldBe(0);
         blockBinder.GetLocalForTesting("first").ShouldNotBeNull();
         blockBinder.GetLocalForTesting("second").ShouldBeSameAs(secondSymbol);
         blockBinder.GetLocalForTesting("third").ShouldBeNull();
 
         blockBinder.BindReferencedSymbol(secondReference).Symbol.ShouldBeSameAs(secondSymbol);
         blockBinder.LocalStateVersionForTesting.ShouldBe(2);
+        blockBinder.StatementDeclarationProgressCountForTesting.ShouldBe(0);
+        blockBinder.ActiveLocalLookupCountForTesting.ShouldBe(0);
         model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void GetSymbolInfo_ForLocalReference_AfterBodyEdit_UsesAvailableBinderStateWithoutCompletingDeclarations()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithPerformanceInstrumentation(instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            class Edited {
+                func Stable(value: int) -> int {
+                    val copy = value
+                    return copy
+                }
+            }
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("val copy = value", "val copy = value + 1", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var root = updatedTree.GetRoot();
+        var updatedBlock = root.DescendantNodes().OfType<BlockStatementSyntax>().Single();
+        var copyReference = updatedBlock.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "copy");
+
+        updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+
+        var symbol = updatedModel.GetSymbolInfo(copyReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+
+        symbol.Name.ShouldBe("copy");
+        symbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        setupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+        updatedModel.MemberSignaturesDeclared.ShouldBeFalse();
+        var blockBinder = updatedModel.GetIncrementalSemanticQueryBinderForTesting(updatedBlock).ShouldBeAssignableTo<BlockBinder>();
+        blockBinder.GetLocalForTesting("copy").ShouldBeSameAs(symbol);
+        updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]

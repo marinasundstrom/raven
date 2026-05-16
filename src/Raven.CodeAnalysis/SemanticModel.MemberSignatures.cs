@@ -13,21 +13,16 @@ public partial class SemanticModel
         if (_memberSignaturesDeclared)
             return;
 
-        foreach (var methodDeclaration in SyntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
-        {
-            MemberSignatureDeclarationPass.DeclareMethodSignature(this, methodDeclaration);
-        }
-
-        foreach (var propertyDeclaration in SyntaxTree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>())
-        {
-            MemberSignatureDeclarationPass.DeclarePropertySignature(this, propertyDeclaration);
-        }
-
-        foreach (var eventDeclaration in SyntaxTree.GetRoot().DescendantNodes().OfType<EventDeclarationSyntax>())
-        {
-            MemberSignatureDeclarationPass.DeclareEventSignature(this, eventDeclaration);
-        }
-
         _memberSignaturesDeclared = true;
+
+        var root = SyntaxTree.GetRoot();
+        EnsureDeclarations();
+        var compilationUnitBinder = GetBinderForIncrementalSemanticQuery(root);
+        BindNamespaceMembers(
+            root,
+            compilationUnitBinder,
+            Compilation.GlobalNamespace,
+            bindMemberSignatures: true);
+
     }
 }

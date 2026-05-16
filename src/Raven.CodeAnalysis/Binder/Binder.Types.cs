@@ -505,43 +505,39 @@ internal abstract partial class Binder
         PredefinedTypeSyntax p,
         IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
     {
-        string[]? parts = p.Keyword.Kind switch
+        var specialType = p.Keyword.Kind switch
         {
-            SyntaxKind.IntKeyword => new[] { "System", "Int32" },
-            SyntaxKind.UIntKeyword => new[] { "System", "UInt32" },
-            SyntaxKind.LongKeyword => new[] { "System", "Int64" },
-            SyntaxKind.ULongKeyword => new[] { "System", "UInt64" },
-            SyntaxKind.ShortKeyword => new[] { "System", "Int16" },
-            SyntaxKind.UShortKeyword => new[] { "System", "UInt16" },
-            SyntaxKind.SByteKeyword => new[] { "System", "SByte" },
-            SyntaxKind.BoolKeyword => new[] { "System", "Boolean" },
-            SyntaxKind.StringKeyword => new[] { "System", "String" },
-            SyntaxKind.CharKeyword => new[] { "System", "Char" },
-            SyntaxKind.FloatKeyword => new[] { "System", "Single" },
-            SyntaxKind.DoubleKeyword => new[] { "System", "Double" },
-            SyntaxKind.DecimalKeyword => new[] { "System", "Decimal" },
-            SyntaxKind.ByteKeyword => new[] { "System", "Byte" },
-            SyntaxKind.ObjectKeyword => new[] { "System", "Object" },
-            SyntaxKind.NIntKeyword => new[] { "System", "IntPtr" },
-            SyntaxKind.NUIntKeyword => new[] { "System", "UIntPtr" },
-            SyntaxKind.UnitKeyword => new[] { "System", "Unit" },
-            _ => null
+            SyntaxKind.IntKeyword => SpecialType.System_Int32,
+            SyntaxKind.UIntKeyword => SpecialType.System_UInt32,
+            SyntaxKind.LongKeyword => SpecialType.System_Int64,
+            SyntaxKind.ULongKeyword => SpecialType.System_UInt64,
+            SyntaxKind.ShortKeyword => SpecialType.System_Int16,
+            SyntaxKind.UShortKeyword => SpecialType.System_UInt16,
+            SyntaxKind.SByteKeyword => SpecialType.System_SByte,
+            SyntaxKind.BoolKeyword => SpecialType.System_Boolean,
+            SyntaxKind.StringKeyword => SpecialType.System_String,
+            SyntaxKind.CharKeyword => SpecialType.System_Char,
+            SyntaxKind.FloatKeyword => SpecialType.System_Single,
+            SyntaxKind.DoubleKeyword => SpecialType.System_Double,
+            SyntaxKind.DecimalKeyword => SpecialType.System_Decimal,
+            SyntaxKind.ByteKeyword => SpecialType.System_Byte,
+            SyntaxKind.ObjectKeyword => SpecialType.System_Object,
+            SyntaxKind.NIntKeyword => SpecialType.System_IntPtr,
+            SyntaxKind.NUIntKeyword => SpecialType.System_UIntPtr,
+            SyntaxKind.UnitKeyword => SpecialType.System_Unit,
+            _ => SpecialType.None
         };
 
-        if (parts is null)
+        if (specialType is SpecialType.None)
             return Fail(p, TypeResolutionFailureKind.UnknownPredefinedKeyword);
 
-        var lookup = LookupNamedTypeByParts(parts, importedScopes);
-        if (lookup.IsAmbiguous)
-            return Ambiguous(p, lookup.Candidates);
-
-        if (lookup.Definition is null)
+        if (Compilation.GetSpecialType(specialType) is not INamedTypeSymbol predefinedType)
             return Fail(p, TypeResolutionFailureKind.FrameworkTypeNotFound);
 
         return new ResolveTypeResult
         {
-            ResolvedType = lookup.Definition,
-            ResolvedNamedDefinition = lookup.Definition
+            ResolvedType = predefinedType,
+            ResolvedNamedDefinition = predefinedType
         };
     }
 

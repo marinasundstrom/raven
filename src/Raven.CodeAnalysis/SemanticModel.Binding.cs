@@ -1140,7 +1140,10 @@ public partial class SemanticModel
         RegisterDeclaredTypeSymbol(unionDecl, unionSymbol);
     }
 
-    private Binder BindCompilationUnit(CompilationUnitSyntax cu, Binder parentBinder)
+    private Binder BindCompilationUnit(
+        CompilationUnitSyntax cu,
+        Binder parentBinder,
+        bool allowSourceDeclarationCompletion = true)
     {
         // Step 1: Resolve namespace
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
@@ -1229,7 +1232,10 @@ public partial class SemanticModel
         parentBinder = importBinder;
 
         var compilationUnitBinder = new CompilationUnitBinder(parentBinder, this);
-        BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace);
+        if (!allowSourceDeclarationCompletion)
+            EnsureDeclarations();
+
+        BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: allowSourceDeclarationCompletion);
 
         foreach (var baseName in deferredWildcardImports)
         {
@@ -1275,7 +1281,7 @@ public partial class SemanticModel
         foreach (var diagnostic in compilationUnitBinder.Diagnostics.AsEnumerable())
             importBinder.Diagnostics.Report(diagnostic);
 
-        var topLevelBinder = CreateTopLevelBinder(cu, targetNamespace, importBinder);
+        var topLevelBinder = CreateTopLevelBinder(cu, targetNamespace, compilationUnitBinder);
 
         foreach (var diagnostic in importBinder.Diagnostics.AsEnumerable())
             topLevelBinder.Diagnostics.Report(diagnostic);
@@ -1342,11 +1348,11 @@ public partial class SemanticModel
             var namespaceName = name[..lastDot];
             var typeName = name[(lastDot + 1)..];
             var ns = ResolveNamespace(current, namespaceName);
-            return ns?.LookupType(typeName)
-                ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
+            return ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault()
+                ?? (allowSourceDeclarationCompletion ? ns?.LookupType(typeName) : null);
         }
 
-        static ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
+        ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
         {
             if (string.IsNullOrEmpty(name))
                 return null;
@@ -1354,19 +1360,31 @@ public partial class SemanticModel
             var parts = name.Split('.');
             INamespaceOrTypeSymbol current = scope;
 
-            foreach (var part in parts)
+            for (var i = 0; i < parts.Length; i++)
             {
+                var part = parts[i];
                 if (current is INamespaceSymbol ns)
                 {
-                    var typeMember = ns.LookupType(part)
-                        ?? ns.GetMembers(part).OfType<ITypeSymbol>().FirstOrDefault();
+                    var isLastPart = i == parts.Length - 1;
+                    var namespaceMember = !isLastPart
+                        ? ns.LookupNamespace(part)
+                            ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault()
+                        : null;
+                    if (namespaceMember is not null)
+                    {
+                        current = namespaceMember;
+                        continue;
+                    }
+
+                    var typeMember = ns.GetMembers(part).OfType<ITypeSymbol>().FirstOrDefault()
+                        ?? (allowSourceDeclarationCompletion ? ns.LookupType(part) : null);
                     if (typeMember is not null)
                     {
                         current = typeMember;
                         continue;
                     }
 
-                    var namespaceMember = ns.LookupNamespace(part)
+                    namespaceMember = ns.LookupNamespace(part)
                         ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
                     if (namespaceMember is null)
                         return null;
@@ -1518,11 +1536,14 @@ public partial class SemanticModel
             var targetName = GetRightmostIdentifier(name);
             var nameText = name.ToString();
 
+            if (ResolveNamespace(current, nameText) is { } resolvedNamespace)
+                return resolvedNamespace;
+
             if (ResolveType(current, nameText) is { } resolvedType &&
                 string.Equals(resolvedType.Name, targetName, StringComparison.Ordinal))
                 return resolvedType;
 
-            return ResolveNamespace(current, nameText);
+            return null;
         }
 
         IFieldSymbol? TryResolveImportedConstant(INamespaceSymbol current, NameSyntax name)
@@ -2067,7 +2088,11 @@ public partial class SemanticModel
         }
     }
 
-    private void BindNamespaceMembers(SyntaxNode containerNode, Binder parentBinder, INamespaceSymbol parentNamespace)
+    private void BindNamespaceMembers(
+        SyntaxNode containerNode,
+        Binder parentBinder,
+        INamespaceSymbol parentNamespace,
+        bool bindMemberSignatures = true)
     {
         var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var interfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
@@ -2091,7 +2116,7 @@ public partial class SemanticModel
                         var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
                         CacheBinder(nsDecl, nsBinder);
 
-                        BindNamespaceMembers(nsDecl, nsBinder, nsSymbol);
+                        BindNamespaceMembers(nsDecl, nsBinder, nsSymbol, bindMemberSignatures);
                         break;
                     }
 
@@ -2188,6 +2213,9 @@ public partial class SemanticModel
 
         DiscoverSameFileSealedHierarchySubtypes(classBinders, interfaceBinders);
         ValidatePermitsListEntries(classBinders, interfaceBinders);
+
+        if (!bindMemberSignatures)
+            return;
 
         foreach (var (unionDecl, unionBinder, unionSymbol) in unionBinders)
             RegisterUnionCases(unionDecl, unionBinder, unionSymbol, synthesizeUnionSurface: false);
@@ -5086,6 +5114,7 @@ public partial class SemanticModel
                 classSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 "init",
                 classDecl.ParameterList!.GetLocation());
+            classSymbol.MarkPrimaryConstructorMembersDeclared();
             return;
         }
 
@@ -5287,6 +5316,8 @@ public partial class SemanticModel
                     constructorSymbol.SetConstructorInitializer(boundInitializer);
             }
         }
+
+        classSymbol.MarkPrimaryConstructorMembersDeclared();
     }
 
     private string ToCamelCase(string valueText)
@@ -5331,7 +5362,8 @@ public partial class SemanticModel
                 return null;
             }
         }
-        if (classSymbol.IsMemberDefined(propertyName, out var existingMember))
+        var existingMember = classSymbol.GetDeclaredMembersWithoutEnsuring(propertyName).FirstOrDefault();
+        if (existingMember is not null)
         {
             if (existingMember is SourcePropertySymbol existingProperty &&
                 SymbolDeclarationUtilities.HasDeclaringSyntax(existingProperty, parameterSyntax))
@@ -5799,7 +5831,7 @@ public partial class SemanticModel
     {
         var properties = deconstructProperties ?? GetPublicDeconstructProperties(typeSymbol);
 
-        foreach (var method in typeSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>())
+        foreach (var method in typeSymbol.GetDeclaredMembersWithoutEnsuring("Deconstruct").OfType<IMethodSymbol>())
         {
             if (method.MethodKind != MethodKind.Ordinary || method.IsStatic)
                 continue;
@@ -6095,14 +6127,23 @@ public partial class SemanticModel
     }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)
-        => _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
+    {
+        if (_isCollectingDiagnostics && _nonReportingBoundNodeCache.ContainsKey(node))
+            return null;
+
+        return _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
+    }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node, ITypeSymbol? targetType)
     {
         if (targetType is null)
             return TryGetCachedBoundNode(node);
 
-        return _contextualBoundNodeCache.TryGetValue(new ContextualBoundNodeCacheKey(node, targetType), out var bound)
+        var key = new ContextualBoundNodeCacheKey(node, targetType);
+        if (_isCollectingDiagnostics && _nonReportingContextualBoundNodeCache.ContainsKey(key))
+            return null;
+
+        return _contextualBoundNodeCache.TryGetValue(key, out var bound)
             ? bound
             : null;
     }
@@ -6126,6 +6167,7 @@ public partial class SemanticModel
             });
 
         _syntaxCache[selectedBound] = node;
+        UpdateNonReportingBoundNodeCache(node, selectedBound, bound, binder);
         CacheSymbolInfo(node, selectedBound);
         if (IsDebuggingEnabled && binder is not null)
         {
@@ -6172,6 +6214,7 @@ public partial class SemanticModel
             });
 
         _syntaxCache[selectedBound] = node;
+        UpdateNonReportingBoundNodeCache(key, selectedBound, bound, binder);
         CacheSymbolInfo(node, selectedBound);
         if (IsDebuggingEnabled && binder is not null)
         {
@@ -6193,6 +6236,28 @@ public partial class SemanticModel
             RemoveCachedSymbolMapping(functionExpression);
             _ = TryUpgradeFunctionExpressionSymbolFromBoundFunction(functionExpression, boundFunction, out _);
         }
+    }
+
+    private void UpdateNonReportingBoundNodeCache(SyntaxNode node, BoundNode selectedBound, BoundNode incomingBound, Binder? binder)
+    {
+        if (!ReferenceEquals(selectedBound, incomingBound))
+            return;
+
+        if (binder?.Diagnostics.IsReportingDisabled == true)
+            _nonReportingBoundNodeCache[node] = 0;
+        else
+            _nonReportingBoundNodeCache.TryRemove(node, out _);
+    }
+
+    private void UpdateNonReportingBoundNodeCache(ContextualBoundNodeCacheKey key, BoundNode selectedBound, BoundNode incomingBound, Binder? binder)
+    {
+        if (!ReferenceEquals(selectedBound, incomingBound))
+            return;
+
+        if (binder?.Diagnostics.IsReportingDisabled == true)
+            _nonReportingContextualBoundNodeCache[key] = 0;
+        else
+            _nonReportingContextualBoundNodeCache.TryRemove(key, out _);
     }
 
     private void CacheSymbolInfo(SyntaxNode node, BoundNode bound)
@@ -6371,10 +6436,13 @@ public partial class SemanticModel
             _syntaxCache.TryRemove(bound, out _);
 
         _boundNodeCache.TryRemove(node, out _);
+        _nonReportingBoundNodeCache.TryRemove(node, out _);
         foreach (var key in _contextualBoundNodeCache.Keys.Where(key => ReferenceEquals(key.Node, node)))
         {
             if (_contextualBoundNodeCache.TryRemove(key, out var contextualBound))
                 _syntaxCache.TryRemove(contextualBound, out _);
+
+            _nonReportingContextualBoundNodeCache.TryRemove(key, out _);
 
             if (IsDebuggingEnabled)
                 _contextualBoundNodeCache2.TryRemove(key, out _);
@@ -6382,6 +6450,12 @@ public partial class SemanticModel
 
         _symbolMappings.TryRemove(node, out _);
         _operationCache.TryRemove(node, out _);
+        if (node is FunctionExpressionSyntax functionExpression)
+        {
+            _functionExpressionSymbolCache.TryRemove(functionExpression, out _);
+            _functionExpressionSymbolCreationInProgress.TryRemove(functionExpression, out _);
+        }
+
         if (_loweredBoundNodeCache.TryGetValue(node, out var loweredBound))
             _loweredSyntaxCache.TryRemove(loweredBound, out _);
 

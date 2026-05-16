@@ -50,6 +50,8 @@ public partial class SemanticModel
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 => _bindingState.BoundNodeCacheWithBinder;
     private ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> _contextualBoundNodeCache => _bindingState.ContextualBoundNodeCache;
     private ConcurrentDictionary<ContextualBoundNodeCacheKey, (Binder, BoundNode)> _contextualBoundNodeCache2 => _bindingState.ContextualBoundNodeCacheWithBinder;
+    private ConcurrentDictionary<SyntaxNode, byte> _nonReportingBoundNodeCache => _bindingState.NonReportingBoundNodeCache;
+    private ConcurrentDictionary<ContextualBoundNodeCacheKey, byte> _nonReportingContextualBoundNodeCache => _bindingState.NonReportingContextualBoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache => _bindingState.LoweredBoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 => _bindingState.LoweredBoundNodeCacheWithBinder;
     private ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> _functionExpressionSymbolCache => _bindingState.FunctionExpressionSymbolCache;
@@ -86,6 +88,8 @@ public partial class SemanticModel
 
     public SyntaxTree SyntaxTree { get; }
 
+    internal bool IsCollectingDiagnostics => _isCollectingDiagnostics;
+
     private sealed class SemanticBindingState
     {
         public ConcurrentDictionary<SyntaxNode, Binder> BinderCache { get; } = new();
@@ -97,6 +101,8 @@ public partial class SemanticModel
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> BoundNodeCacheWithBinder { get; } = new();
         public ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> ContextualBoundNodeCache { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
         public ConcurrentDictionary<ContextualBoundNodeCacheKey, (Binder, BoundNode)> ContextualBoundNodeCacheWithBinder { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
+        public ConcurrentDictionary<SyntaxNode, byte> NonReportingBoundNodeCache { get; } = new();
+        public ConcurrentDictionary<ContextualBoundNodeCacheKey, byte> NonReportingContextualBoundNodeCache { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
         public ConcurrentDictionary<SyntaxNode, BoundNode> LoweredBoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> LoweredBoundNodeCacheWithBinder { get; } = new();
         public ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> FunctionExpressionSymbolCache { get; } = new();
@@ -234,6 +240,18 @@ public partial class SemanticModel
                 var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
                 if (!TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder))
                 {
+                    foreach (var binderState in _binderCache.Values)
+                    {
+                        // Type member binders own diagnostics for member declarations and
+                        // initializers. Clearing them here forces descendant expressions to
+                        // be rebound without the member target type.
+                        if (binderState is TypeMemberBinder)
+                            continue;
+
+                        binderState.Diagnostics.ClearDiagnostics(root.Span);
+                    }
+
+                    ClearCachedBoundNodes(root.Span);
                     Traverse(root, binder);
 
                     DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
@@ -298,6 +316,25 @@ public partial class SemanticModel
 
         void Traverse(SyntaxNode node, Binder currentBinder)
         {
+            if (node is TypeSyntax)
+                return;
+
+            if (TryTraverseTypeMemberDeclaration(node, currentBinder))
+                return;
+
+            if (node is AccessorListSyntax)
+            {
+                foreach (var child in node.ChildNodes())
+                {
+                    var childBinder = requireCompleteDeclarations
+                        ? GetBinder(child, currentBinder)
+                        : GetBinderForIncrementalSemanticQuery(child, currentBinder);
+                    Traverse(child, childBinder);
+                }
+
+                return;
+            }
+
             if (node is ExpressionSyntax or StatementSyntax)
             {
                 currentBinder.GetOrBind(node);
@@ -336,11 +373,17 @@ public partial class SemanticModel
                     continue;
                 }
 
+                if (TryTraverseTypeMemberDeclaration(child, childBinder))
+                    continue;
+
                 if (child is AccessorListSyntax)
                 {
                     Traverse(child, childBinder);
                     continue;
                 }
+
+                if (child is TypeSyntax)
+                    continue;
 
                 if (child is ExpressionSyntax || child is StatementSyntax)
                 {
@@ -352,6 +395,69 @@ public partial class SemanticModel
                 Traverse(child, childBinder);
             }
         }
+
+        bool TryTraverseTypeMemberDeclaration(SyntaxNode node, Binder currentBinder)
+        {
+            if (currentBinder is not TypeMemberBinder)
+                return false;
+
+            switch (node)
+            {
+                case FieldDeclarationSyntax or ConstDeclarationSyntax:
+                    BindMemberAttributes((MemberDeclarationSyntax)node, currentBinder);
+                    return true;
+
+                case PropertyDeclarationSyntax property:
+                    BindMemberAttributes(property, currentBinder);
+                    TraversePropertyBody(property, currentBinder);
+                    return true;
+
+                case IndexerDeclarationSyntax indexer:
+                    BindMemberAttributes(indexer, currentBinder);
+                    TraversePropertyBody(indexer, currentBinder);
+                    return true;
+
+                case EventDeclarationSyntax eventDeclaration:
+                    BindMemberAttributes(eventDeclaration, currentBinder);
+                    if (eventDeclaration.AccessorList is { } eventAccessors)
+                        Traverse(eventAccessors, GetBinderForDiagnostics(eventAccessors, currentBinder));
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        void TraversePropertyBody(BasePropertyDeclarationSyntax property, Binder currentBinder)
+        {
+            if (property.AccessorList is { } accessorList)
+                Traverse(accessorList, GetBinderForDiagnostics(accessorList, currentBinder));
+
+            var expressionBody = property switch
+            {
+                PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.ExpressionBody,
+                IndexerDeclarationSyntax indexerDeclaration => indexerDeclaration.ExpressionBody,
+                _ => null
+            };
+
+            if (expressionBody is not null)
+                Traverse(expressionBody, GetBinderForDiagnostics(expressionBody, currentBinder));
+        }
+
+        void BindMemberAttributes(MemberDeclarationSyntax member, Binder currentBinder)
+        {
+            foreach (var attributeList in member.AttributeLists)
+            {
+                var attributeListBinder = GetBinderForDiagnostics(attributeList, currentBinder);
+                foreach (var attribute in attributeList.Attributes)
+                    Traverse(attribute, GetBinderForDiagnostics(attribute, attributeListBinder));
+            }
+        }
+
+        Binder GetBinderForDiagnostics(SyntaxNode node, Binder parentBinder)
+            => requireCompleteDeclarations
+                ? GetBinder(node, parentBinder)
+                : GetBinderForIncrementalSemanticQuery(node, parentBinder);
 
         bool TryCollectIncrementalDiagnostics(
             SyntaxNode root,
@@ -416,6 +522,7 @@ public partial class SemanticModel
             {
                 var beforeCount = diagnosticsBuilder.Count;
                 ClearCachedBinderDiagnostics(owner.Span);
+                ClearCachedBoundNodes(owner.Span);
 
                 if (owner is GlobalStatementSyntax globalOwner)
                     BindPrecedingGlobalStatementsForScope(root, globalOwner, requireCompleteDeclarations);
@@ -454,7 +561,21 @@ public partial class SemanticModel
                 foreach (var binderState in _binderCache.Values)
                     binderState.Diagnostics.ClearDiagnostics(span);
             }
+        }
 
+        void ClearCachedBoundNodes(Text.TextSpan span)
+        {
+            var seen = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
+            var nodes = _boundNodeCache.Keys
+                .Concat(_contextualBoundNodeCache.Keys.Select(static key => key.Node))
+                .Where(node =>
+                    seen.Add(node) &&
+                    ReferenceEquals(node.SyntaxTree, SyntaxTree) &&
+                    node.Span.IntersectsWith(span))
+                .ToArray();
+
+            foreach (var node in nodes)
+                RemoveCachedBoundNode(node);
         }
 
         Binder GetRootBinderForCompleteDiagnostics(SyntaxNode root)
@@ -651,8 +772,6 @@ public partial class SemanticModel
             return attributeInfo;
         }
 
-        Compilation.EnsureSourceDeclarationsComplete();
-
         if (node is IdentifierNameSyntax invokedMemberName &&
             invokedMemberName.Parent is MemberAccessExpressionSyntax invokedMemberAccess &&
             IsSameSyntaxNode(invokedMemberAccess.Name, invokedMemberName) &&
@@ -676,8 +795,11 @@ public partial class SemanticModel
             if (TryGetAvailableInvocationSymbolInfo(invokedMemberInvocation, out var availableInvocationInfo))
             {
                 availableInvocationInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, availableInvocationInfo);
-                _symbolMappings[node] = availableInvocationInfo;
-                return availableInvocationInfo;
+                if (HasSymbolInfo(availableInvocationInfo))
+                {
+                    _symbolMappings[node] = availableInvocationInfo;
+                    return availableInvocationInfo;
+                }
             }
 
             var invocationInfo = GetSymbolInfo(invokedMemberInvocation, cancellationToken);
@@ -759,8 +881,11 @@ public partial class SemanticModel
         if (TryGetAvailableInvocationSymbolInfo(node, out var availableInvocationSymbolInfo))
         {
             availableInvocationSymbolInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, availableInvocationSymbolInfo);
-            _symbolMappings[node] = availableInvocationSymbolInfo;
-            return availableInvocationSymbolInfo;
+            if (HasSymbolInfo(availableInvocationSymbolInfo))
+            {
+                _symbolMappings[node] = availableInvocationSymbolInfo;
+                return availableInvocationSymbolInfo;
+            }
         }
 
         if (TryGetAvailableSymbolInfo(node, out var availableSymbolInfo) &&
@@ -792,6 +917,8 @@ public partial class SemanticModel
             _symbolMappings[node] = nodeInterestInfo;
             return nodeInterestInfo;
         }
+
+        Compilation.EnsureSourceDeclarationsComplete();
 
         SymbolInfo info;
 
@@ -4071,22 +4198,9 @@ public partial class SemanticModel
         bool allowErrorType = false)
     {
         EnsureDeclarations();
-        EnsureMemberSignaturesDeclared();
 
-        if (variableDeclarator.Ancestors().OfType<GlobalStatementSyntax>().FirstOrDefault() is { } globalStatement)
-            BindPrecedingGlobalStatementsForScope(SyntaxTree.GetRoot(), globalStatement, requireCompleteDeclarations: false);
-
-        var bindingRoot =
-            variableDeclarator.Ancestors().OfType<LocalDeclarationStatementSyntax>().FirstOrDefault()
-            ?? (SyntaxNode?)variableDeclarator;
-
-        if (bindingRoot is null)
-        {
-            localSymbol = null;
-            return false;
-        }
-
-        var declaredSymbol = GetBinderForIncrementalSemanticQuery(bindingRoot).BindDeclaredSymbol(variableDeclarator);
+        var binder = GetBinderForIncrementalSemanticQuery(variableDeclarator);
+        var declaredSymbol = binder.BindDeclaredSymbol(variableDeclarator);
         if (declaredSymbol is ILocalSymbol declaredLocal &&
             (allowErrorType || !declaredLocal.Type.ContainsErrorType()))
         {
@@ -4121,7 +4235,10 @@ public partial class SemanticModel
             var binder = requireCompleteDeclarations
                 ? GetBinder(global.Statement)
                 : GetBinderForIncrementalSemanticQuery(global.Statement);
-            binder.GetOrBind(global.Statement);
+            if (requireCompleteDeclarations)
+                binder.GetOrBind(global.Statement);
+            else
+                binder.EnsureStatementDeclarations(global.Statement);
         }
     }
 
@@ -5684,6 +5801,12 @@ public partial class SemanticModel
         out ILocalSymbol? localSymbol,
         bool allowErrorType = false)
     {
+        if (IsExistingAssignmentTargetDesignation(designation))
+        {
+            localSymbol = null;
+            return false;
+        }
+
         if (TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator cachedDesignator &&
             (allowErrorType || !cachedDesignator.Local.Type.ContainsErrorType()))
         {
@@ -5694,16 +5817,45 @@ public partial class SemanticModel
         return TryBindPatternDesignationForAvailableSymbol(designation, out localSymbol, allowErrorType);
     }
 
+    private static bool IsExistingAssignmentTargetDesignation(SingleVariableDesignationSyntax designation)
+    {
+        for (SyntaxNode? current = designation; current is not null; current = current.Parent)
+        {
+            if (current.Parent is PatternDeclarationAssignmentStatementSyntax patternDeclaration &&
+                ContainsNode(patternDeclaration.Left, designation))
+            {
+                return false;
+            }
+
+            if (current.Parent is AssignmentStatementSyntax assignmentStatement &&
+                ContainsNode(assignmentStatement.Left, designation))
+            {
+                return true;
+            }
+
+            if (current.Parent is AssignmentExpressionSyntax assignmentExpression &&
+                ContainsNode(assignmentExpression.Left, designation))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsNode(SyntaxNode root, SyntaxNode node)
+        => ReferenceEquals(root.SyntaxTree, node.SyntaxTree) &&
+           node.Span.Start >= root.Span.Start &&
+           node.Span.End <= root.Span.End;
+
     private bool TryBindPatternDesignationForAvailableSymbol(
         SingleVariableDesignationSyntax designation,
         out ILocalSymbol? localSymbol,
         bool allowErrorType = false)
     {
         EnsureDeclarations();
-        EnsureMemberSignaturesDeclared();
 
-        var bindingRoot = TryGetPatternDeclarationOwner(designation) ?? (SyntaxNode)designation;
-        var declaredSymbol = GetBinderForIncrementalSemanticQuery(bindingRoot).BindDeclaredSymbol(designation);
+        var declaredSymbol = GetBinderForIncrementalSemanticQuery(designation).BindDeclaredSymbol(designation);
         if (declaredSymbol is ILocalSymbol declaredLocal &&
             (allowErrorType || !declaredLocal.Type.ContainsErrorType()))
         {
@@ -5720,30 +5872,6 @@ public partial class SemanticModel
 
         localSymbol = null;
         return false;
-    }
-
-    private static SyntaxNode? TryGetPatternDeclarationOwner(SingleVariableDesignationSyntax designation)
-    {
-        if (designation.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
-            return matchExpression;
-        if (designation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
-            return matchStatement;
-        if (designation.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
-            return isPatternExpression;
-        if (designation.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
-            return ifPatternStatement;
-        if (designation.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
-            return whilePatternStatement;
-        if (designation.GetAncestor<ForStatementSyntax>() is { } forStatement)
-            return forStatement;
-        if (designation.GetAncestor<CollectionComprehensionElementSyntax>() is { } collectionComprehension)
-            return collectionComprehension.GetAncestor<CollectionExpressionSyntax>() ?? (SyntaxNode)collectionComprehension;
-        if (designation.GetAncestor<DictionaryComprehensionElementSyntax>() is { } dictionaryComprehension)
-            return dictionaryComprehension.GetAncestor<CollectionExpressionSyntax>() ?? (SyntaxNode)dictionaryComprehension;
-        if (designation.GetAncestor<PatternDeclarationAssignmentStatementSyntax>() is { } patternDeclarationAssignment)
-            return patternDeclarationAssignment;
-
-        return null;
     }
 
     private ITypeSymbol? TryInferPatternDesignationType(PatternSyntax pattern, string name, ITypeSymbol expectedType)
@@ -8093,8 +8221,7 @@ public partial class SemanticModel
             TryGetEnclosingFunctionExpression(node, out enclosingFunctionExpression);
         var nodeKey = GetSyntaxNodeMapKey(node);
         var useStructuralCache = CanUseStructuralBinderCache(node);
-        if (_binderCache.TryGetValue(node, out var existingBinder) ||
-            (useStructuralCache && _binderCacheByKey.TryGetValue(nodeKey, out existingBinder)))
+        if (TryGetCompatibleCachedBinder(node, useStructuralCache, nodeKey, out var existingBinder))
         {
             if (isFunctionExpressionBodyNode &&
                 !IsFunctionExpressionBodyBinder(existingBinder) &&
@@ -8118,7 +8245,7 @@ public partial class SemanticModel
         // special case for CompilationUnitSyntax
         if (node is CompilationUnitSyntax cu)
         {
-            var binder = BindCompilationUnit(cu, parentBinder ?? Compilation.GlobalBinder);
+            var binder = BindCompilationUnit(cu, parentBinder ?? Compilation.GlobalBinder, allowSourceDeclarationCompletion: ensureSourceDeclarations);
             CacheBinder(cu, binder);
             return binder;
         }
@@ -8138,9 +8265,11 @@ public partial class SemanticModel
             {
                 actualParentBinder = GetBinderCore(parentAnchor, null, ensureSourceDeclarations);
             }
-            else if (!_binderCache.TryGetValue(node.Parent, out actualParentBinder) &&
-                     !(CanUseStructuralBinderCache(node.Parent) &&
-                       _binderCacheByKey.TryGetValue(GetSyntaxNodeMapKey(node.Parent), out actualParentBinder)))
+            else if (!TryGetCompatibleCachedBinder(
+                         node.Parent,
+                         CanUseStructuralBinderCache(node.Parent),
+                         GetSyntaxNodeMapKey(node.Parent),
+                         out actualParentBinder))
             {
                 // Recursively create and cache the parent binder first
                 actualParentBinder = GetBinderCore(node.Parent, null, ensureSourceDeclarations);
@@ -8160,6 +8289,11 @@ public partial class SemanticModel
                 InterfaceDeclarationSyntax interfaceDeclaration => new InterfaceDeclarationBinder(typeParentBinder, typeSymbol, interfaceDeclaration),
                 _ => new ClassDeclarationBinder(typeParentBinder, typeSymbol, typeDeclaration)
             };
+        }
+        else if (node is MethodDeclarationSyntax methodDeclaration &&
+            TryCreateMethodDeclarationBinder(methodDeclaration, actualParentBinder, out var methodDeclarationBinder))
+        {
+            newBinder = methodDeclarationBinder;
         }
         else if (node is BaseMethodDeclarationSyntax &&
             actualParentBinder is not MethodBinder &&
@@ -8187,6 +8321,70 @@ public partial class SemanticModel
 
         CacheBinder(node, newBinder);
         return newBinder;
+    }
+
+    private bool TryGetCompatibleCachedBinder(
+        SyntaxNode node,
+        bool useStructuralCache,
+        SyntaxNodeMapKey nodeKey,
+        out Binder binder)
+    {
+        if (_binderCache.TryGetValue(node, out binder!) &&
+            IsCachedBinderCompatible(node, binder))
+        {
+            return true;
+        }
+
+        if (useStructuralCache &&
+            _binderCacheByKey.TryGetValue(nodeKey, out binder!) &&
+            IsCachedBinderCompatible(node, binder))
+        {
+            return true;
+        }
+
+        binder = null!;
+        return false;
+    }
+
+    private static bool IsCachedBinderCompatible(SyntaxNode node, Binder binder)
+    {
+        return node switch
+        {
+            MethodDeclarationSyntax => binder is MethodBinder,
+            BlockStatementSyntax { Parent: BaseMethodDeclarationSyntax or FunctionStatementSyntax } => binder is MethodBodyBinder,
+            _ => true
+        };
+    }
+
+    private bool TryCreateMethodDeclarationBinder(
+        MethodDeclarationSyntax methodDeclaration,
+        Binder? parentBinder,
+        out MethodBinder methodBinder)
+    {
+        if (parentBinder is TypeMemberBinder typeMemberBinder)
+        {
+            methodBinder = typeMemberBinder.BindMethodDeclaration(methodDeclaration);
+            if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
+                RegisterMethodSymbol(methodDeclaration, methodSymbol);
+            return true;
+        }
+
+        if (parentBinder is TypeDeclarationBinder { ContainingSymbol: INamedTypeSymbol containingType })
+        {
+            var extensionReceiverTypeSyntax = parentBinder is ExtensionDeclarationBinder &&
+                methodDeclaration.Parent is ExtensionDeclarationSyntax extensionDeclaration
+                    ? extensionDeclaration.ReceiverType
+                    : null;
+
+            var memberBinder = new TypeMemberBinder(parentBinder, containingType, extensionReceiverTypeSyntax);
+            methodBinder = memberBinder.BindMethodDeclaration(methodDeclaration);
+            if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
+                RegisterMethodSymbol(methodDeclaration, methodSymbol);
+            return true;
+        }
+
+        methodBinder = null!;
+        return false;
     }
 
     private bool TryEnsureFunctionExpressionBodyBinder(

@@ -431,7 +431,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             semanticStopwatch.Stop();
             semanticModel.ShouldNotBeNull();
 
-            var diagnostics = await ComputeDiagnosticsAsync(DocumentStore.DocumentDiagnosticsMode.Document);
+            var diagnostics = await ComputeDiagnosticsAsync(DocumentStore.DiagnosticLane.DocumentCompiler);
             var afterTrees = GetTreesByPath(context.Value.Compilation);
             var mainPath = Path.GetFullPath(_mainPath);
 
@@ -493,13 +493,13 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         }
 
         public async Task<ProjectDiagnosticsMetrics> ComputeDiagnosticsAsync(
-            DocumentStore.DocumentDiagnosticsMode mode = DocumentStore.DocumentDiagnosticsMode.Full)
+            DocumentStore.DiagnosticLane lane = DocumentStore.DiagnosticLane.ProjectWithAnalyzers)
         {
             var setupBefore = CaptureSetupSnapshot();
             var stopwatch = Stopwatch.StartNew();
             var result = await _store.TryGetDiagnosticsAsync(
                 _mainUri,
-                mode,
+                lane,
                 shouldSkipWork: null,
                 CancellationToken.None);
             stopwatch.Stop();
