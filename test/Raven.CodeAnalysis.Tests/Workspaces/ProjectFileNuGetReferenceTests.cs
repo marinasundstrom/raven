@@ -470,6 +470,87 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_EfCoreExpressionTrees_PipeSelectLambdaParameterResolvesFromBinder()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var selectInvocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is IdentifierNameSyntax { Identifier.ValueText: "Select" });
+        var lambda = Assert.IsType<SimpleFunctionExpressionSyntax>(selectInvocation.ArgumentList.Arguments.Single().Expression);
+
+        if (model.TryResolveFunctionExpressionParameterSymbolFast(lambda.Parameter, out var fastParameter))
+        {
+            Assert.NotNull(fastParameter);
+            Assert.Equal("User", fastParameter.Type.Name);
+        }
+
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetFunctionExpressionParameterSymbol(lambda.Parameter));
+        Assert.Equal("User", parameter.Type.Name);
+    }
+
+    [Fact]
+    public void OpenProject_EfCoreExpressionTrees_PipeLinqOverloadsResolveFromBinder()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var invocations = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Where(static node => node.Expression is IdentifierNameSyntax)
+            .ToArray();
+
+        var where = AssertPipeMethod(model, invocations, "Where", "Queryable");
+        Assert.Contains("Expression", where.Parameters[1].Type.ToDisplayString());
+        Assert.DoesNotContain("Int32", where.Parameters[1].Type.ToDisplayString());
+
+        var orderBy = AssertPipeMethod(model, invocations, "OrderBy", "Queryable");
+        Assert.Contains("IOrderedQueryable", orderBy.ReturnType.ToDisplayString());
+
+        var select = AssertPipeMethod(model, invocations, "Select", "Queryable");
+        Assert.Contains("IQueryable", select.ReturnType.ToDisplayString());
+
+        static IMethodSymbol AssertPipeMethod(
+            SemanticModel model,
+            InvocationExpressionSyntax[] invocations,
+            string methodName,
+            string containingTypeName)
+        {
+            var invocation = invocations.Single(node =>
+                node.Expression is IdentifierNameSyntax { Identifier.ValueText: var name } &&
+                string.Equals(name, methodName, StringComparison.Ordinal));
+            var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+            Assert.Equal(methodName, method.Name);
+            Assert.Equal(containingTypeName, method.ContainingType?.Name);
+
+            var identifier = (IdentifierNameSyntax)invocation.Expression;
+            var identifierMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(identifier).Symbol);
+            Assert.True(SymbolEqualityComparer.Default.Equals(method, identifierMethod));
+
+            return method;
+        }
+    }
+
+    [Fact]
     public void OpenProject_EfCoreSample_AwaitSymbolInfo_DoesNotBindBodies()
     {
         var repoRoot = FindRepositoryRoot();

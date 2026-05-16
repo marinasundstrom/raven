@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 
 using Microsoft.Extensions.Logging;
 
@@ -731,14 +730,18 @@ internal sealed class HoverHandler : IHoverHandler
         SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
-        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableInvocationCandidates) &&
-            TryResolveInvocationMethodFromCandidates(availableInvocationCandidates, invocation, identifier, out resolution))
+        var requiresBinderResolution = IsPipeRightInvocation(invocation) || InvocationContainsFunctionArguments(invocation);
+        if (!requiresBinderResolution)
         {
-            return true;
-        }
+            if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, identifier, identifier, out resolution))
+                return true;
 
-        if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, identifier, identifier, out resolution))
-            return true;
+            if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var fastInvocationCandidates) &&
+                TryResolveInvocationMethodFromCandidates(fastInvocationCandidates, invocation, identifier, out resolution))
+            {
+                return true;
+            }
+        }
 
         var invocationInfo = semanticModel.GetSymbolInfo(invocation);
         if (invocationInfo.Symbol is IMethodSymbol invocationMethod &&
@@ -771,6 +774,15 @@ internal sealed class HoverHandler : IHoverHandler
                 invocation,
                 identifier,
                 out resolution))
+        {
+            return true;
+        }
+
+        if (TryResolveInvocationMethodFromCachedSymbolInfoCore(semanticModel, invocation, identifier, identifier, out resolution))
+            return true;
+
+        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableInvocationCandidates) &&
+            TryResolveInvocationMethodFromCandidates(availableInvocationCandidates, invocation, identifier, out resolution))
         {
             return true;
         }
@@ -816,6 +828,17 @@ internal sealed class HoverHandler : IHoverHandler
 
         return false;
     }
+
+    private static bool IsPipeRightInvocation(InvocationExpressionSyntax invocation)
+        => invocation.Parent is InfixOperatorExpressionSyntax
+        {
+            OperatorToken.Kind: SyntaxKind.PipeToken
+        } pipeExpression &&
+        IsPipeRightExpressionForInvocation(pipeExpression.Right, invocation);
+
+    private static bool InvocationContainsFunctionArguments(InvocationExpressionSyntax invocation)
+        => invocation.ArgumentList.Arguments.Any(static argument =>
+            argument.Expression.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any());
 
     private static bool TryResolveInvocationMethodFromCandidates(
         ImmutableArray<IMethodSymbol> candidates,
@@ -2444,9 +2467,6 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is IMethodSymbol method)
         {
-            if (TryBuildFastMetadataMethodSignature(method, out var metadataMethodSignature))
-                return metadataMethodSignature;
-
             method = GetPreferredMethodForDisplay(method);
 
             if (MethodSignatureContainsError(method) &&
@@ -2853,124 +2873,6 @@ internal sealed class HoverHandler : IHoverHandler
     private static bool MethodSignatureContainsError(IMethodSymbol method)
         => method.ReturnType.ContainsErrorType() ||
            method.Parameters.Any(static parameter => parameter.Type.ContainsErrorType());
-
-    private static bool TryBuildFastMetadataMethodSignature(
-        IMethodSymbol method,
-        [NotNullWhen(true)] out string? signature)
-    {
-        signature = null;
-        var metadataMethod = method as PEMethodSymbol ?? method.OriginalDefinition as PEMethodSymbol;
-        if (metadataMethod is not { } peMethod ||
-            peMethod.MethodKind != MethodKind.Ordinary ||
-            peMethod.IsExtensionMethod ||
-            peMethod.ReflectionMethodBase is not MethodInfo methodInfo)
-        {
-            return false;
-        }
-
-        var parameters = methodInfo.GetParameters();
-        var parameterText = string.Join(", ", parameters.Select(static parameter =>
-        {
-            var paramsPrefix = HasMetadataAttribute(parameter, "System.ParamArrayAttribute") ? "params " : string.Empty;
-            var refPrefix = parameter.ParameterType.IsByRef
-                ? parameter.IsOut ? "out " : parameter.IsIn ? "in " : "ref "
-                : string.Empty;
-            var parameterType = parameter.ParameterType.IsByRef
-                ? parameter.ParameterType.GetElementType() ?? parameter.ParameterType
-                : parameter.ParameterType;
-            return $"{paramsPrefix}{refPrefix}{parameter.Name}: {FormatReflectionType(parameterType)}";
-        }));
-        var typeParameters = methodInfo.IsGenericMethodDefinition || methodInfo.ContainsGenericParameters
-            ? $"<{string.Join(", ", methodInfo.GetGenericArguments().Select(static argument => argument.Name))}>"
-            : string.Empty;
-        var staticPrefix = methodInfo.IsStatic ? "static " : string.Empty;
-        var accessibilityPrefix = GetReflectionAccessibilityPrefix(methodInfo);
-        signature = $"{accessibilityPrefix}{staticPrefix}func {method.Name}{typeParameters}({parameterText}) -> {FormatReflectionType(methodInfo.ReturnType)}";
-        return true;
-    }
-
-    private static bool HasMetadataAttribute(ParameterInfo parameter, string metadataName)
-    {
-        try
-        {
-            return parameter.GetCustomAttributesData()
-                .Any(attribute => string.Equals(attribute.AttributeType.FullName, metadataName, StringComparison.Ordinal));
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string GetReflectionAccessibilityPrefix(MethodBase method)
-    {
-        if (method.IsPublic)
-            return string.Empty;
-        if (method.IsPrivate)
-            return "private ";
-        if (method.IsFamily)
-            return "protected ";
-        if (method.IsAssembly)
-            return "internal ";
-        if (method.IsFamilyOrAssembly)
-            return "protected internal ";
-        if (method.IsFamilyAndAssembly)
-            return "private protected ";
-
-        return string.Empty;
-    }
-
-    private static string FormatReflectionType(Type type)
-    {
-        if (type == typeof(void))
-            return "()";
-        if (type == typeof(string))
-            return "string";
-        if (type == typeof(bool))
-            return "bool";
-        if (type == typeof(byte))
-            return "byte";
-        if (type == typeof(sbyte))
-            return "sbyte";
-        if (type == typeof(short))
-            return "short";
-        if (type == typeof(ushort))
-            return "ushort";
-        if (type == typeof(int))
-            return "int";
-        if (type == typeof(uint))
-            return "uint";
-        if (type == typeof(long))
-            return "long";
-        if (type == typeof(ulong))
-            return "ulong";
-        if (type == typeof(float))
-            return "float";
-        if (type == typeof(double))
-            return "double";
-        if (type == typeof(decimal))
-            return "decimal";
-        if (type == typeof(object))
-            return "object";
-
-        if (type.IsArray)
-            return $"{FormatReflectionType(type.GetElementType() ?? typeof(object))}[]";
-
-        if (type.IsGenericParameter)
-            return type.Name;
-
-        if (type.IsGenericType)
-        {
-            var name = type.Name;
-            var tickIndex = name.IndexOf('`', StringComparison.Ordinal);
-            if (tickIndex >= 0)
-                name = name[..tickIndex];
-
-            return $"{name}<{string.Join(", ", type.GetGenericArguments().Select(FormatReflectionType))}>";
-        }
-
-        return type.Name;
-    }
 
     private static bool TryBuildMethodSyntaxSignature(IMethodSymbol method, out string signature)
     {

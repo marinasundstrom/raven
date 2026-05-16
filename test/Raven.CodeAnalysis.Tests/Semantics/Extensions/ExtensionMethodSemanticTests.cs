@@ -1677,6 +1677,52 @@ class C {
     }
 
     [Fact]
+    public void PipeOperator_WithExpressionTreeLinqSelect_FastLambdaParameterUsesPipeReceiverType()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var IsActive: bool)
+
+class C {
+    func Run(users: IQueryable<User>) -> unit {
+        val query = users
+            |> Where(user => user.IsActive)
+            |> Select(user => user.Name)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var selectInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is IdentifierNameSyntax { Identifier.ValueText: "Select" });
+        var lambdaSyntax = Assert.IsType<SimpleFunctionExpressionSyntax>(selectInvocation.ArgumentList.Arguments.Single().Expression);
+        var parameterSyntax = lambdaSyntax.Parameter;
+
+        Assert.True(model.TryResolveFunctionExpressionParameterSymbolFast(parameterSyntax, out var fastParameter));
+        Assert.NotNull(fastParameter);
+        Assert.Equal("User", fastParameter.Type.Name);
+
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetFunctionExpressionParameterSymbol(parameterSyntax));
+        Assert.Equal("User", parameter.Type.Name);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Equal("User", Assert.Single(boundLambda.Parameters).Type.Name);
+        Assert.Equal(SpecialType.System_String, boundLambda.ReturnType.SpecialType);
+    }
+
+    [Fact]
     public void PipeOperator_WithSystemLinqWhere_LambdaParameterDoesNotTriggerUseBeforeDeclarationFromLaterLocal()
     {
         const string source = """

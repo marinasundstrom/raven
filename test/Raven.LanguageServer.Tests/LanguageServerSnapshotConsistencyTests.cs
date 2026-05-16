@@ -1568,12 +1568,6 @@ record CustomError(val Message: string)
         queryOffset.ShouldBeGreaterThanOrEqualTo(0);
         queryOffset += "val ".Length + 2;
 
-        var whereLineText = "        |> Where(onlyActiveAdults)";
-        var whereLineOffset = text.IndexOf(whereLineText, StringComparison.Ordinal);
-        whereLineOffset.ShouldBeGreaterThanOrEqualTo(0);
-        var whereColumn = whereLineText.IndexOf("Where", StringComparison.Ordinal);
-        whereColumn.ShouldBeGreaterThanOrEqualTo(0);
-
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         var queryHover = await handler.Handle(new HoverParams
@@ -1586,21 +1580,49 @@ record CustomError(val Message: string)
         queryHover!.Range.ShouldNotBeNull();
         queryHover.Range.Start.Line.ShouldBe(queryHover.Range.End.Line);
 
-        foreach (var delta in new[] { 0, 2, 4 })
+        await AssertPipeTargetHoverAsync("        |> Where(onlyActiveAdults)", "Where", hover =>
         {
-            var whereOffset = whereLineOffset + whereColumn + delta;
-            var whereHover = await handler.Handle(new HoverParams
-            {
-                TextDocument = new TextDocumentIdentifier(uri),
-                Position = PositionHelper.ToRange(sourceText, new TextSpan(whereOffset, 0)).Start
-            }, CancellationToken.None);
+            hover.ShouldContain("System.Linq.Queryable");
+            hover.ShouldContain("Expression<");
+            hover.ShouldNotContain("(User, int) -> bool");
+        });
+        await AssertPipeTargetHoverAsync("        |> OrderBy(user => user.Name)", "OrderBy", hover =>
+        {
+            hover.ShouldContain("System.Linq.Queryable");
+            hover.ShouldNotContain("System.Linq.Enumerable");
+            hover.ShouldNotContain("IEnumerable<TSource>");
+        });
+        await AssertPipeTargetHoverAsync("        |> Select(user => user.Name)", "Select", hover =>
+        {
+            hover.ShouldContain("System.Linq.Queryable");
+            hover.ShouldNotContain("System.Linq.Enumerable");
+        });
 
-            whereHover.ShouldNotBeNull();
-            whereHover.Contents.MarkupContent.ShouldNotBeNull();
-            whereHover.Contents.MarkupContent!.Value.ShouldContain("Where");
-            whereHover.Contents.MarkupContent!.Value.ShouldNotContain("val query");
-            whereHover.Range.ShouldNotBeNull();
-            whereHover.Range.Start.Line.ShouldBe(whereHover.Range.End.Line);
+        async Task AssertPipeTargetHoverAsync(string lineText, string targetName, Action<string> assertHover)
+        {
+            var lineOffset = text.IndexOf(lineText, StringComparison.Ordinal);
+            lineOffset.ShouldBeGreaterThanOrEqualTo(0);
+            var column = lineText.IndexOf(targetName, StringComparison.Ordinal);
+            column.ShouldBeGreaterThanOrEqualTo(0);
+
+            foreach (var delta in new[] { 0, Math.Min(2, targetName.Length - 1), targetName.Length - 1 })
+            {
+                var offset = lineOffset + column + delta;
+                var hover = await handler.Handle(new HoverParams
+                {
+                    TextDocument = new TextDocumentIdentifier(uri),
+                    Position = PositionHelper.ToRange(sourceText, new TextSpan(offset, 0)).Start
+                }, CancellationToken.None);
+
+                hover.ShouldNotBeNull();
+                hover.Contents.MarkupContent.ShouldNotBeNull();
+                var hoverText = hover.Contents.MarkupContent!.Value;
+                hoverText.ShouldContain(targetName);
+                hoverText.ShouldNotContain("val query");
+                assertHover(hoverText);
+                hover.Range.ShouldNotBeNull();
+                hover.Range.Start.Line.ShouldBe(hover.Range.End.Line);
+            }
         }
     }
 

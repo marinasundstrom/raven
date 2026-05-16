@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics;
 
 using Microsoft.Extensions.Logging;
@@ -99,6 +100,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             AddLocalTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+            AddFunctionExpressionParameterTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             collectMs = stageStopwatch.Elapsed.TotalMilliseconds;
             resultCount = hints.Count;
@@ -301,6 +303,107 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
 
         return true;
+    }
+
+    private static void AddFunctionExpressionParameterTypeHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        InlayHintCollectionBudget budget)
+    {
+        foreach (var functionExpression in root.DescendantNodes().OfType<FunctionExpressionSyntax>())
+        {
+            if (budget.ShouldStop())
+                return;
+
+            var parameters = GetFunctionExpressionParameters(functionExpression).ToArray();
+            var contextualParameters = semanticModel.TryGetContextualBoundFunctionExpression(functionExpression, out var contextualFunction)
+                ? contextualFunction.Parameters.ToArray()
+                : [];
+
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (budget.ShouldStop())
+                    return;
+
+                AddFunctionExpressionParameterTypeHint(
+                    hints,
+                    semanticModel,
+                    root,
+                    sourceText,
+                    requestSpan,
+                    parameters[i],
+                    i < contextualParameters.Length ? contextualParameters[i].Type : null,
+                    budget);
+            }
+        }
+    }
+
+    private static void AddFunctionExpressionParameterTypeHint(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        ParameterSyntax parameter,
+        ITypeSymbol? contextualParameterType,
+        InlayHintCollectionBudget budget)
+    {
+        if (parameter.TypeAnnotation is not null ||
+            parameter.Pattern is not null ||
+            parameter.Identifier.IsMissing ||
+            string.IsNullOrWhiteSpace(parameter.Identifier.ValueText) ||
+            parameter.Identifier.ValueText == "_")
+        {
+            return;
+        }
+
+        var insertionPosition = GetTokenEndPosition(sourceText, parameter.Identifier);
+        if (!ContainsPosition(requestSpan, insertionPosition))
+            return;
+
+        if (budget.ShouldStop())
+            return;
+
+        var parameterType = contextualParameterType;
+        if (parameterType is null &&
+            semanticModel.GetFunctionExpressionParameterSymbol(parameter) is { Type: { } resolvedParameterType })
+        {
+            parameterType = resolvedParameterType;
+        }
+
+        if (parameterType is null ||
+            !TryFormatType(semanticModel, parameter, parameterType, out var typeDisplay))
+        {
+            return;
+        }
+
+        hints.Add(CreateTypeHint(
+            sourceText,
+            insertionPosition,
+            $": {typeDisplay}",
+            parameterType,
+            semanticModel,
+            root,
+            parameter,
+            includeTooltip: budget.ShouldIncludeTooltip()));
+    }
+
+    private static IEnumerable<ParameterSyntax> GetFunctionExpressionParameters(FunctionExpressionSyntax functionExpression)
+    {
+        switch (functionExpression)
+        {
+            case SimpleFunctionExpressionSyntax simple:
+                yield return simple.Parameter;
+                break;
+
+            case ParenthesizedFunctionExpressionSyntax parenthesized:
+                foreach (var parameter in parenthesized.ParameterList.Parameters)
+                    yield return parameter;
+                break;
+        }
     }
 
     private static void AddReturnTypeHints(
@@ -848,13 +951,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     {
         returnType = null;
 
-        if (semanticModel.GetDeclaredSymbol(functionExpression) is IMethodSymbol method &&
-            method.ReturnType.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void))
-        {
-            returnType = method.ReturnType;
-            return true;
-        }
-
         if (semanticModel.TryGetContextualBoundFunctionExpression(functionExpression, out var contextualFunction) &&
             IsInlayHintReturnType(contextualFunction.ReturnType))
         {
@@ -866,6 +962,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             IsInlayHintReturnType(boundFunction.ReturnType))
         {
             returnType = boundFunction.ReturnType;
+            return true;
+        }
+
+        if (semanticModel.GetDeclaredSymbol(functionExpression) is IMethodSymbol method &&
+            method.ReturnType.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void))
+        {
+            returnType = method.ReturnType;
             return true;
         }
 

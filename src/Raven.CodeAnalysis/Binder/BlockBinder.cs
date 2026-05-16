@@ -10613,7 +10613,7 @@ partial class BlockBinder : Binder
 
     private void ClearNonNullSymbolsAtDepth(int depth)
     {
-        foreach (var local in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Value.Symbol))
+        foreach (var local in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Value.Symbol).ToArray())
             _nonNullSymbols.Remove(local);
     }
 

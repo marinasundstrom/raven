@@ -14,6 +14,7 @@ internal readonly struct BinderExtensionLookupKey : IEquatable<BinderExtensionLo
     {
         Name = name;
         ReceiverType = receiverType;
+        ReceiverIdentity = receiverType.GetLookupIdentityKey();
         IncludePartialMatches = includePartialMatches;
     }
 
@@ -21,13 +22,15 @@ internal readonly struct BinderExtensionLookupKey : IEquatable<BinderExtensionLo
 
     public ITypeSymbol ReceiverType { get; }
 
+    private string ReceiverIdentity { get; }
+
     public bool IncludePartialMatches { get; }
 
     public bool Equals(BinderExtensionLookupKey other)
     {
         return string.Equals(Name, other.Name, StringComparison.Ordinal) &&
                IncludePartialMatches == other.IncludePartialMatches &&
-               SymbolEqualityComparer.Default.Equals(ReceiverType, other.ReceiverType);
+               string.Equals(ReceiverIdentity, other.ReceiverIdentity, StringComparison.Ordinal);
     }
 
     public override bool Equals(object? obj)
@@ -38,7 +41,7 @@ internal readonly struct BinderExtensionLookupKey : IEquatable<BinderExtensionLo
         var hash = new HashCode();
         hash.Add(Name, StringComparer.Ordinal);
         hash.Add(IncludePartialMatches);
-        hash.Add(SymbolEqualityComparer.Default.GetHashCode(ReceiverType));
+        hash.Add(ReceiverIdentity, StringComparer.Ordinal);
         return hash.ToHashCode();
     }
 }

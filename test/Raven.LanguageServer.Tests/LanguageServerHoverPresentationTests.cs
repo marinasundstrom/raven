@@ -1074,6 +1074,50 @@ val builder = Services.UseNpgsql(VehicleAppServices.GetConnectionString())
     }
 
     [Fact]
+    public void MetadataVoidMethodHover_ProjectsReturnTypeAsUnit()
+    {
+        const string code = """
+System.Console.WriteLine(true)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var writeLine = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.Name.Identifier.ValueText == "WriteLine")
+            .Name;
+        var hoverOffset = writeLine.Identifier.SpanStart + 1;
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.InvocationTarget);
+        var method = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("WriteLine");
+
+        var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, hoverOffset])!;
+
+        signature.ShouldContain("func WriteLine");
+        signature.ShouldContain("-> ()");
+        signature.ShouldNotContain("Void");
+    }
+
+    [Fact]
     public void GenericInvocationTypeArgumentHover_ResolvesTypeArgument()
     {
         const string code = """

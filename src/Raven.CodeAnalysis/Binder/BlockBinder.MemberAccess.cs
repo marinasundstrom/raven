@@ -1052,7 +1052,7 @@ partial class BlockBinder
         }
 
         if (type is ITypeParameterSymbol unmatchedParameter &&
-            TryGetEquivalentTypeParameterSubstitution(unmatchedParameter, substitutions, out var equivalentReplacement))
+            TypeSubstitution.TryGetEquivalentTypeParameterSubstitution(unmatchedParameter, substitutions, out var equivalentReplacement))
         {
             return equivalentReplacement;
         }
@@ -1113,70 +1113,6 @@ partial class BlockBinder
 
         return type;
     }
-
-    private static bool TryGetEquivalentTypeParameterSubstitution(
-        ITypeParameterSymbol parameter,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-        out ITypeSymbol replacement)
-    {
-        foreach (var entry in substitutions)
-        {
-            if (!AreEquivalentTypeParameters(parameter, entry.Key))
-                continue;
-
-            replacement = entry.Value;
-            return true;
-        }
-
-        replacement = null!;
-        return false;
-    }
-
-    private static bool AreEquivalentTypeParameters(
-        ITypeParameterSymbol left,
-        ITypeParameterSymbol right)
-    {
-        if (SymbolEqualityComparer.Default.Equals(left, right))
-            return true;
-
-        if (left.OwnerKind != right.OwnerKind ||
-            left.Ordinal != right.Ordinal)
-        {
-            return false;
-        }
-
-        return HaveEquivalentTypeParameterOwners(left.ContainingSymbol, right.ContainingSymbol);
-    }
-
-    private static bool HaveEquivalentTypeParameterOwners(
-        ISymbol? leftOwner,
-        ISymbol? rightOwner)
-    {
-        if (leftOwner is null || rightOwner is null)
-            return false;
-
-        if (SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner))
-            return true;
-
-        if (leftOwner is INamedTypeSymbol leftType &&
-            rightOwner is INamedTypeSymbol rightType)
-        {
-            return SymbolEqualityComparer.Default.Equals(
-                TypeSubstitution.GetDefinitionForSubstitution(leftType),
-                TypeSubstitution.GetDefinitionForSubstitution(rightType));
-        }
-
-        if (leftOwner is IMethodSymbol leftMethod &&
-            rightOwner is IMethodSymbol rightMethod)
-        {
-            return SymbolEqualityComparer.Default.Equals(
-                leftMethod.OriginalDefinition ?? leftMethod,
-                rightMethod.OriginalDefinition ?? rightMethod);
-        }
-
-        return false;
-    }
-
     /// <summary>
     /// Phase-1 generic type inference: bind every non-lambda argument naturally (no target type)
     /// and unify its type against the corresponding parameter type to build a

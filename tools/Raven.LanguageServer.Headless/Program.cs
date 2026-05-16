@@ -44,6 +44,7 @@ var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
     ?? throw new InvalidOperationException($"No analysis context for '{filePath}'.");
 var sourceText = context.SourceText;
 var handler = new HoverHandler(store, new HeadlessConsoleLogger<HoverHandler>());
+var inlayHandler = new InlayHintHandler(store, new HeadlessConsoleLogger<InlayHintHandler>());
 var model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
     ?? throw new InvalidOperationException($"No semantic model for '{filePath}'.");
 var root = context.SyntaxTree.GetRoot();
@@ -72,6 +73,17 @@ if (options.HoverPositions.Count > 0)
     {
         var hoverResult = await RunHoverAsync(targetPosition.Label, new Position(targetPosition.Line, targetPosition.Character));
         Console.WriteLine(FormatHoverResult(hoverResult));
+    }
+
+    return;
+}
+
+if (options.InlayRange is { } inlayRange)
+{
+    for (var i = 0; i < options.InlayRepeatCount; i++)
+    {
+        var result = await RunInlayAsync(inlayRange);
+        Console.WriteLine(result);
     }
 
     return;
@@ -457,6 +469,32 @@ async Task<HoverResult> RunHoverAsync(string label, Position position)
     return new HoverResult(label, position.Line, position.Character, sw.Elapsed.TotalMilliseconds, hover is not null, exception, firstLine, delta);
 }
 
+async Task<string> RunInlayAsync(RangeTarget range)
+{
+    var before = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var sw = Stopwatch.StartNew();
+    var result = await inlayHandler.Handle(new InlayHintParams
+    {
+        TextDocument = new TextDocumentIdentifier(uri),
+        Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range
+        {
+            Start = new Position(range.StartLine, range.StartCharacter),
+            End = new Position(range.EndLine, range.EndCharacter)
+        }
+    }, CancellationToken.None);
+    sw.Stop();
+    var after = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var delta = SemanticQueryInstrumentation.Subtract(after, before);
+    var hints = result.ToArray();
+    var tooltipCount = hints.Count(static hint => hint.Tooltip is not null);
+    var preview = string.Join(
+        "; ",
+        hints.Take(20).Select(static hint =>
+            $"{hint.Position.Line}:{hint.Position.Character} {hint.Label}"));
+
+    return $"inlay {range.Label}: {sw.Elapsed.TotalMilliseconds:F1}ms hints={hints.Length} tooltips={tooltipCount} [{SemanticQueryInstrumentation.FormatDelta(delta)}] {preview}";
+}
+
 CompilerSetupInstrumentation.Snapshot CaptureSetupSnapshot()
 {
     if (!manager.TryGetCompilation(uri, out var compilation) || compilation is null)
@@ -556,6 +594,8 @@ static HeadlessOptions ParseOptions(string[] args)
     var replayCount = 50;
     var editReplacements = new List<EditReplacement>();
     var editHoverTargets = new List<string>();
+    RangeTarget? inlayRange = null;
+    var inlayRepeatCount = 1;
 
     for (var i = 0; i < args.Length; i++)
     {
@@ -592,6 +632,14 @@ static HeadlessOptions ParseOptions(string[] args)
                 hoverPositions.Add(targetPosition);
                 i++;
                 break;
+            case "--inlay-range" when i + 1 < args.Length && TryParseRange(args[i + 1], out var targetRange):
+                inlayRange = targetRange;
+                i++;
+                break;
+            case "--inlay-repeat" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedInlayRepeatCount):
+                inlayRepeatCount = Math.Max(1, parsedInlayRepeatCount);
+                i++;
+                break;
             case "--edit-replace" when i + 2 < args.Length:
                 editReplacements.Add(new EditReplacement(args[i + 1], args[i + 2]));
                 i += 2;
@@ -617,7 +665,9 @@ static HeadlessOptions ParseOptions(string[] args)
         performanceReportPath,
         replayCount,
         editReplacements,
-        editHoverTargets);
+        editHoverTargets,
+        inlayRange,
+        inlayRepeatCount);
 }
 
 static bool TryParsePosition(string text, out PositionTarget position)
@@ -632,6 +682,21 @@ static bool TryParsePosition(string text, out PositionTarget position)
     }
 
     position = new PositionTarget(line, character, text);
+    return true;
+}
+
+static bool TryParseRange(string text, out RangeTarget range)
+{
+    range = default;
+    var parts = text.Split('-', 2);
+    if (parts.Length != 2 ||
+        !TryParsePosition(parts[0], out var start) ||
+        !TryParsePosition(parts[1], out var end))
+    {
+        return false;
+    }
+
+    range = new RangeTarget(start.Line, start.Character, end.Line, end.Character, text);
     return true;
 }
 
@@ -682,7 +747,9 @@ internal sealed record HeadlessOptions(
     string? PerformanceReportPath,
     int ReplayCount,
     IReadOnlyList<EditReplacement> EditReplacements,
-    IReadOnlyList<string> EditHoverTargets);
+    IReadOnlyList<string> EditHoverTargets,
+    RangeTarget? InlayRange,
+    int InlayRepeatCount);
 
 internal readonly record struct EditReplacement(
     string OldText,
@@ -701,6 +768,13 @@ internal readonly record struct EditReplacement(
 internal readonly record struct PositionTarget(
     int Line,
     int Character,
+    string Label);
+
+internal readonly record struct RangeTarget(
+    int StartLine,
+    int StartCharacter,
+    int EndLine,
+    int EndCharacter,
     string Label);
 
 internal sealed record HoverResult(

@@ -183,12 +183,6 @@ internal static partial class SymbolResolver
     {
         symbol = null;
 
-        if (TryResolveInvocationExpressionSymbol(semanticModel, invocation, out var invocationSymbol))
-        {
-            symbol = invocationSymbol;
-            return true;
-        }
-
         var pipeExpr = invocation.Ancestors()
             .OfType<InfixOperatorExpressionSyntax>()
             .FirstOrDefault(pipe => pipe.Kind == SyntaxKind.PipeExpression && IsPipeRightExpressionForInvocation(pipe.Right, invocation));

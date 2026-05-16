@@ -24,6 +24,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
     {
         var methodContext = parameterInfo.Member as MethodBase;
         var parameterType = parameterInfo.ParameterType;
+        if (IsRuntimeVoid(parameterType))
+            return compilation.GetSpecialType(SpecialType.System_Unit);
+
         var attributes = parameterInfo.GetCustomAttributesData();
 
         if (parameterType.IsByRef)
@@ -131,6 +134,14 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
     public ITypeSymbol? ResolveType(Type type, MethodBase? methodContext)
     {
+        if (IsRuntimeVoid(type))
+        {
+            var unit = compilation.GetSpecialType(SpecialType.System_Unit);
+            var hasVoidMetadataCacheKey = TryGetMetadataCacheKey(type, out var voidMetadataCacheKey);
+            CacheResolvedType(type, hasVoidMetadataCacheKey ? voidMetadataCacheKey : null, unit);
+            return unit;
+        }
+
         if (_cache.TryGetValue(type, out var cached))
             return cached;
 
@@ -139,13 +150,6 @@ internal class ReflectionTypeLoader(Compilation compilation)
         {
             _cache[type] = metadataCached;
             return metadataCached;
-        }
-
-        if (type.Name == "Void")
-        {
-            var unit = compilation.GetSpecialType(SpecialType.System_Unit);
-            CacheResolvedType(type, metadataCacheKey, unit);
-            return unit;
         }
 
         if (type.IsNullableValueType())
@@ -529,6 +533,12 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (!string.IsNullOrEmpty(metadataCacheKey))
             _metadataCache[metadataCacheKey] = symbol;
     }
+
+    private static bool IsRuntimeVoid(Type type)
+        => type == typeof(void) ||
+           string.Equals(type.FullName, "System.Void", StringComparison.Ordinal) ||
+           (string.Equals(type.Name, "Void", StringComparison.Ordinal) &&
+            string.Equals(type.Namespace, "System", StringComparison.Ordinal));
 
     private static string? GetMetadataName(Type type)
     {

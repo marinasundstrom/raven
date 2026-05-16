@@ -36,6 +36,69 @@ internal static class TypeSubstitution
         return type.TypeArguments;
     }
 
+    internal static bool TryGetEquivalentTypeParameterSubstitution(
+        ITypeParameterSymbol parameter,
+        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        out ITypeSymbol replacement)
+    {
+        foreach (var entry in substitutions)
+        {
+            if (!AreEquivalentTypeParameters(parameter, entry.Key))
+                continue;
+
+            replacement = entry.Value;
+            return true;
+        }
+
+        replacement = null!;
+        return false;
+    }
+
+    internal static bool AreEquivalentTypeParameters(
+        ITypeParameterSymbol left,
+        ITypeParameterSymbol right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        if (left.OwnerKind != right.OwnerKind ||
+            left.Ordinal != right.Ordinal)
+        {
+            return false;
+        }
+
+        return HaveEquivalentTypeParameterOwners(left.ContainingSymbol, right.ContainingSymbol);
+    }
+
+    private static bool HaveEquivalentTypeParameterOwners(
+        ISymbol? leftOwner,
+        ISymbol? rightOwner)
+    {
+        if (leftOwner is null || rightOwner is null)
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner))
+            return true;
+
+        if (leftOwner is INamedTypeSymbol leftType &&
+            rightOwner is INamedTypeSymbol rightType)
+        {
+            return SymbolEqualityComparer.Default.Equals(
+                GetDefinitionForSubstitution(leftType),
+                GetDefinitionForSubstitution(rightType));
+        }
+
+        if (leftOwner is IMethodSymbol leftMethod &&
+            rightOwner is IMethodSymbol rightMethod)
+        {
+            return SymbolEqualityComparer.Default.Equals(
+                leftMethod.OriginalDefinition ?? leftMethod,
+                rightMethod.OriginalDefinition ?? rightMethod);
+        }
+
+        return false;
+    }
+
     internal static INamedTypeSymbol ReanchorNested(
         INamedTypeSymbol nestedDefinition,
         INamedTypeSymbol containingOverride,

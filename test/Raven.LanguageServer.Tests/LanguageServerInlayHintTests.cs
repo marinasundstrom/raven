@@ -518,6 +518,43 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_EfCoreExpressionTreesSample_ProvidesParameterHintForPipeExtensionLambdaAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-expression-trees",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        const string selectPipe = "|> Select(user => user.Name)";
+        var selectPipeStart = code.IndexOf(selectPipe, StringComparison.Ordinal);
+        selectPipeStart.ShouldBeGreaterThanOrEqualTo(0);
+        var parameterInsertion = selectPipeStart + selectPipe.IndexOf("user", StringComparison.Ordinal) + "user".Length;
+
+        var hints = await GetHintsAtInsertionAsync(handler, uri, sourceText, parameterInsertion);
+
+        AssertHasHintAtInsertion(sourceText, hints, parameterInsertion, ": User");
+    }
+
+    [Fact]
     public async Task Handle_LargeViewportRange_PrioritizesCompleteHintPlacementOverTooltipsAsync()
     {
         var sampleRoot = Path.Combine(

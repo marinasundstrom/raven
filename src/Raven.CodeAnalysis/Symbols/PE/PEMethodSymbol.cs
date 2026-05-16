@@ -172,6 +172,8 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
                 if (_methodInfo is MethodInfo methodInfo)
                 {
                     _returnType = _reflectionTypeLoader.ResolveType(methodInfo.ReturnParameter)!;
+                    if (_returnType.SpecialType == SpecialType.System_Void)
+                        _returnType = _reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Unit);
                 }
                 else if (MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
                 {
