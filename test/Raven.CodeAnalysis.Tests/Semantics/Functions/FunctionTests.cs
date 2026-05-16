@@ -321,6 +321,32 @@ func DescribePoint(point: (int, int)) -> string {
     }
 
     [Fact]
+    public void TopLevelFunctionStatement_InFileScopedNamespaceWithExecutableStatements_CanCaptureTopLevelLocal()
+    {
+        const string source = """
+namespace App
+
+val prefix = "point"
+
+func DescribePoint(point: (int, int)) -> string {
+    return "$prefix $point"
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "DescribePoint");
+
+        var captures = model.GetCapturedVariables(function);
+
+        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "prefix" });
+    }
+
+    [Fact]
     public void StaticFunctionStatement_DoesNotCaptureOuterLocal()
     {
         const string source = """

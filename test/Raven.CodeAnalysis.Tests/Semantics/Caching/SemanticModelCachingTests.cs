@@ -365,6 +365,39 @@ func Main() -> () {
     }
 
     [Fact]
+    public void TryGetAvailableInvocationCandidates_DoesNotResolveLocalFunctionFromUnrelatedBody()
+    {
+        var code = """
+func Outer() -> () {
+    func Hidden() -> () {
+    }
+}
+
+func Main() -> () {
+    Hidden()
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        instrumentation.BinderReentry.Reset();
+
+        Assert.False(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+        Assert.True(methods.IsDefaultOrEmpty);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
     public void TryGetAvailableExtensionInvocationCandidates_DoesNotNameScanColdImports()
     {
         var code = """

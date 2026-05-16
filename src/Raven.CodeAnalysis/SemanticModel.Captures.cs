@@ -176,19 +176,17 @@ public partial class SemanticModel
         return captures;
     }
 
-    private static bool MayFunctionStatementCapture(FunctionStatementSyntax function)
+    private bool MayFunctionStatementCapture(FunctionStatementSyntax function)
     {
         for (SyntaxNode? current = function.Parent; current is not null; current = current.Parent)
         {
             if (current is BlockStatementSyntax)
                 return true;
 
-            if (current is GlobalStatementSyntax { Parent: CompilationUnitSyntax compilationUnit })
-            {
-                return compilationUnit.Members
-                    .OfType<GlobalStatementSyntax>()
-                    .Any(static global => global.Statement is not FunctionStatementSyntax);
-            }
+            if (current is GlobalStatementSyntax globalStatement &&
+                Compilation.IsBindableGlobalStatement(globalStatement) &&
+                globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit)
+                return Compilation.HasRunnableFileScopeCode(compilationUnit);
 
             if (current is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
                 return false;

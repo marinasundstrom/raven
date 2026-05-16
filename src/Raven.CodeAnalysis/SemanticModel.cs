@@ -2423,15 +2423,49 @@ public partial class SemanticModel
         if (string.IsNullOrWhiteSpace(name))
             return false;
 
-        var root = contextNode.SyntaxTree.GetRoot();
-        methods = root
-            .DescendantNodes()
-            .OfType<FunctionStatementSyntax>()
-            .Where(function => string.Equals(function.Identifier.ValueText, name, StringComparison.Ordinal))
-            .Select(function => GetDeclaredSymbol(function) as IMethodSymbol)
-            .Where(static symbol => symbol is not null)
-            .Cast<IMethodSymbol>()
-            .ToImmutableArray();
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var seenFunctions = new HashSet<SyntaxNode>();
+
+        void AddFunction(FunctionStatementSyntax function)
+        {
+            if (!string.Equals(function.Identifier.ValueText, name, StringComparison.Ordinal) ||
+                !seenFunctions.Add(function))
+            {
+                return;
+            }
+
+            if (GetDeclaredSymbol(function) is IMethodSymbol method)
+                builder.Add(method);
+        }
+
+        for (SyntaxNode? current = contextNode; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case BlockStatementSyntax block:
+                    foreach (var function in block.Statements.OfType<FunctionStatementSyntax>())
+                        AddFunction(function);
+                    break;
+
+                case FileScopedNamespaceDeclarationSyntax fileScopedNamespace:
+                    foreach (var global in fileScopedNamespace.Members.OfType<GlobalStatementSyntax>())
+                    {
+                        if (global.Statement is FunctionStatementSyntax function)
+                            AddFunction(function);
+                    }
+                    break;
+
+                case CompilationUnitSyntax compilationUnit:
+                    foreach (var global in Compilation.GetBindableGlobalStatements(compilationUnit))
+                    {
+                        if (global.Statement is FunctionStatementSyntax function)
+                            AddFunction(function);
+                    }
+                    break;
+            }
+        }
+
+        methods = builder.ToImmutable();
 
         return methods.Length > 0;
     }

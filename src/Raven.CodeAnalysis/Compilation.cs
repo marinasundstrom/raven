@@ -1072,9 +1072,7 @@ public partial class Compilation
 
         var returnsInt = bindableGlobals.Any(static g => ContainsNonUnitReturnOutsideNestedFunctions(g.Statement));
         var requiresAsync = bindableGlobals.Any(static g => ContainsAwaitExpressionOutsideNestedFunctions(g.Statement));
-        var hasTopLevelMainFunction = bindableGlobals.Any(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" });
-        var containsExecutableCode = !hasTopLevelMainFunction
-            && bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
+        var containsExecutableCode = HasRunnableFileScopeCode(bindableGlobals);
 
         var programClass = new SynthesizedProgramClassSymbol(this, targetNamespace, [compilationUnit.GetLocation()], [compilationUnit.GetReference()]);
 
@@ -1116,13 +1114,35 @@ public partial class Compilation
             compilationUnit);
     }
 
+    internal bool HasRunnableFileScopeCode(CompilationUnitSyntax compilationUnit)
+        => HasRunnableFileScopeCode(GetBindableGlobalStatements(compilationUnit));
+
+    internal static bool IsBindableGlobalStatement(GlobalStatementSyntax globalStatement)
+        => globalStatement.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax;
+
+    private static bool HasRunnableFileScopeCode(IReadOnlyList<GlobalStatementSyntax> bindableGlobals)
+    {
+        var hasTopLevelMainFunction = false;
+        var hasExecutableStatement = false;
+
+        foreach (var global in bindableGlobals)
+        {
+            if (global.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
+                hasTopLevelMainFunction = true;
+            else if (global.Statement is not FunctionStatementSyntax)
+                hasExecutableStatement = true;
+        }
+
+        return !hasTopLevelMainFunction && hasExecutableStatement;
+    }
+
     private static ImmutableArray<GlobalStatementSyntax> CollectBindableGlobalStatementsCore(CompilationUnitSyntax compilationUnit)
     {
         var builder = ImmutableArray.CreateBuilder<GlobalStatementSyntax>();
 
         foreach (var global in compilationUnit.DescendantNodes().OfType<GlobalStatementSyntax>())
         {
-            if (global.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax)
+            if (IsBindableGlobalStatement(global))
                 builder.Add(global);
         }
 
