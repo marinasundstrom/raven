@@ -2006,6 +2006,17 @@ public partial class SemanticModel
         if (methods.Length > 0)
             return true;
 
+        if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
+            TryLookupVisibleValueSymbol(invocationIdentifier) is null &&
+            TryLookupAvailableFunctionDeclarations(invocationIdentifier, invocationIdentifier.Identifier.ValueText, out var availableFunctions))
+        {
+            foreach (var function in availableFunctions)
+                AddIfNotPresent(function);
+
+            methods = builder.ToImmutable();
+            return methods.Length > 0;
+        }
+
         if (TryGetAvailableExtensionInvocationCandidates(invocation, out var extensionCandidates))
         {
             foreach (var extensionCandidate in extensionCandidates)
@@ -2052,13 +2063,6 @@ public partial class SemanticModel
                 foreach (var method in containingType.GetMembers(invocationName).OfType<IMethodSymbol>())
                     AddIfNotPresent(method);
             }
-        }
-
-        if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
-            TryLookupAvailableFunctionDeclarations(invocationIdentifier, invocationIdentifier.Identifier.ValueText, out var availableFunctions))
-        {
-            foreach (var function in availableFunctions)
-                AddIfNotPresent(function);
         }
 
         if (TryResolveAvailableCallableExpression(invocation.Expression, out var callableSymbol))
@@ -2420,9 +2424,6 @@ public partial class SemanticModel
             return false;
 
         var root = contextNode.SyntaxTree.GetRoot();
-        if (root is CompilationUnitSyntax compilationUnit)
-            EnsureTopLevelFunctionDeclarations(compilationUnit);
-
         methods = root
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
@@ -4140,6 +4141,9 @@ public partial class SemanticModel
 
         return false;
     }
+
+    internal void ReportTopLevelFunctionAlreadyDefined(string name, Location location)
+        => _declarationDiagnostics.ReportFunctionAlreadyDefined(name, location);
 
     private void StoreSymbolInfo(SyntaxNode node, ISymbol symbol)
     {
@@ -7583,7 +7587,10 @@ public partial class SemanticModel
         EnsureDeclarations();
 
         if (SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
+        {
             _ = GetBinder(compilationUnit);
+            EnsureTopLevelFunctionDeclarations(compilationUnit);
+        }
     }
 
     internal Binder GetIncrementalSemanticQueryBinderForTesting(SyntaxNode node)

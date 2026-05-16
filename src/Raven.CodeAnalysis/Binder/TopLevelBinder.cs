@@ -54,7 +54,7 @@ class TopLevelBinder : BlockBinder
             {
                 var symbol = lfBinder.GetMethodSymbol();
                 if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
-                    _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
+                    SemanticModel.ReportTopLevelFunctionAlreadyDefined(symbol.Name, localFunc.Identifier.GetLocation());
                 else
                     DeclareFunction(symbol);
             }

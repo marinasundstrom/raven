@@ -351,10 +351,16 @@ func Main() -> () {
             .Single();
 
         instrumentation.BinderReentry.Reset();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
 
         Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
         Assert.Equal(2, methods.Length);
         Assert.All(methods, method => Assert.Equal("Foo", method.Name));
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsComplete);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
     }
 
