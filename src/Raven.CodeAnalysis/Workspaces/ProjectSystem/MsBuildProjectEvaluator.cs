@@ -107,6 +107,16 @@ internal static class MsBuildProjectEvaluator
         var allowGlobalStatements = GetBooleanProperty(project, "AllowGlobalStatements")
             ?? GetBooleanProperty(project, "RavenAllowGlobalStatements")
             ?? true;
+        var allowNamespaceMembers = GetBooleanProperty(project, "AllowNamespaceMembers")
+            ?? GetBooleanProperty(project, "RavenAllowNamespaceMembers")
+            ?? GetBooleanProperty(project, "AllowTopLevelMembers")
+            ?? GetBooleanProperty(project, "RavenAllowTopLevelMembers")
+            ?? true;
+        var allowNamespaceMemberImports = GetBooleanProperty(project, "AllowNamespaceMemberImports")
+            ?? GetBooleanProperty(project, "RavenAllowNamespaceMemberImports")
+            ?? GetBooleanProperty(project, "AllowTopLevelMemberImports")
+            ?? GetBooleanProperty(project, "RavenAllowTopLevelMemberImports")
+            ?? true;
         var runAnalyzers = GetBooleanProperty(project, "RunAnalyzers")
             ?? GetBooleanProperty(project, "RavenRunAnalyzers")
             ?? true;
@@ -119,6 +129,8 @@ internal static class MsBuildProjectEvaluator
         var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
             .WithAllowUnsafe(allowUnsafe)
             .WithAllowGlobalStatements(allowGlobalStatements)
+            .WithAllowNamespaceMembers(allowNamespaceMembers)
+            .WithAllowNamespaceMemberImports(allowNamespaceMemberImports)
             .WithRunAnalyzers(runAnalyzers);
 
         if (membersPublicByDefault is bool configuredMembersPublicByDefault)

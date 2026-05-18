@@ -454,7 +454,7 @@ internal sealed class HoverHandler : IHoverHandler
         var docsText = FormatDocumentation(documentation);
         var captureText = FormatCaptureText(capturedVariables, isCapturedVariable);
         var contextText = !string.IsNullOrWhiteSpace(containing)
-            ? $"{kind} in `{containing}`"
+            ? FormatKindAndContainingDisplay(kind, containing)
             : kind;
 
         var parts = new List<string>
@@ -470,6 +470,15 @@ internal sealed class HoverHandler : IHoverHandler
             parts.Add($"---\n\n{docsText}");
 
         return string.Join("\n\n", parts);
+    }
+
+    private static string FormatKindAndContainingDisplay(string kind, string containing)
+    {
+        const string namespacePrefix = "namespace ";
+        if (containing.StartsWith(namespacePrefix, StringComparison.Ordinal))
+            return $"{kind} in namespace `{containing[namespacePrefix.Length..]}`";
+
+        return $"{kind} in `{containing}`";
     }
 
     internal static string BuildInlayTypeHoverText(
@@ -4020,6 +4029,13 @@ internal sealed class HoverHandler : IHoverHandler
             TryGetEnclosingCallableDisplayForLocalFunction(method, semanticModel, out var localContaining))
         {
             return localContaining;
+        }
+
+        if (symbol.ContainingType is { } topLevelContainingType &&
+            semanticModel.Compilation.IsNamespaceMemberContainer(topLevelContainingType) &&
+            topLevelContainingType.ContainingNamespace is { } containingNamespace)
+        {
+            return "namespace " + FormatNamespaceDisplay(containingNamespace);
         }
 
         var containing = GetUserFacingContainingSymbol(symbol);

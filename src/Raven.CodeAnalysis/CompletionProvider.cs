@@ -834,6 +834,11 @@ public static class CompletionProvider
             return members;
         }
 
+        IEnumerable<ISymbol> GetNamespaceCompletionMembers(INamespaceSymbol namespaceSymbol)
+            => namespaceSymbol.GetMembers()
+                .Concat(model.Compilation.GetNamespaceMembers(namespaceSymbol, model.Compilation.Options.AllowNamespaceMemberImports))
+                .Where(IsAccessible);
+
         void AddCompletionItem(ISymbol symbol, TextSpan replacementSpan)
         {
             if (symbol is IMethodSymbol method && IsSuppressedCompletionMethod(method))
@@ -1437,8 +1442,10 @@ public static class CompletionProvider
                     {
                         var prefix = nameToken.ValueText;
                         var nameSpan = nameToken.Span;
-                        foreach (var member in nsOrType.GetMembers()
-                            .OfType<INamespaceOrTypeSymbol>()
+                        var importMembers = nsOrType is INamespaceSymbol importNamespace
+                            ? GetNamespaceCompletionMembers(importNamespace)
+                            : nsOrType.GetMembers().Where(IsAccessible);
+                        foreach (var member in importMembers
                             .Where(m => NameMatchesPrefix(m.Name, prefix)))
                         {
                             var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
@@ -1502,7 +1509,10 @@ public static class CompletionProvider
                     {
                         var prefix = nameToken.ValueText;
                         var nameSpan = nameToken.Span;
-                        foreach (var member in nsOrType.GetMembers()
+                        var aliasMembers = nsOrType is INamespaceSymbol aliasNamespace
+                            ? GetNamespaceCompletionMembers(aliasNamespace)
+                            : nsOrType.GetMembers().Where(IsAccessible);
+                        foreach (var member in aliasMembers
                             .Where(m => NameMatchesPrefix(m.Name, prefix)))
                         {
                             var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
@@ -1740,7 +1750,7 @@ public static class CompletionProvider
 
                 if (symbol is INamespaceSymbol ns)
                 {
-                    members = ns.GetMembers().Where(IsAccessible);
+                    members = GetNamespaceCompletionMembers(ns);
                 }
                 else if (TryGetTypeAccessSymbol(symbol, type) is { } typeAccessSymbol)
                 {
@@ -1842,7 +1852,7 @@ public static class CompletionProvider
                 if (symbol is INamespaceSymbol ns)
                 {
                     // Namespace or namespace alias: list its public members
-                    members = ns.GetMembers().Where(IsAccessible);
+                    members = GetNamespaceCompletionMembers(ns);
                 }
                 else if (TryGetTypeAccessSymbol(symbol, type) is { } typeAccessSymbol)
                 {
@@ -1906,10 +1916,12 @@ public static class CompletionProvider
 
             if (symbol is INamespaceOrTypeSymbol nsOrType)
             {
-                foreach (var member in nsOrType.GetMembers()
+                var qualifiedMembers = nsOrType is INamespaceSymbol qualifiedNamespace
+                    ? GetNamespaceCompletionMembers(qualifiedNamespace)
+                    : nsOrType.GetMembers().Where(IsAccessible);
+                foreach (var member in qualifiedMembers
                     .Where(m => string.IsNullOrEmpty(prefix)
-                    || NameMatchesPrefix(m.Name, prefix))
-                    .Where(IsAccessible))
+                    || NameMatchesPrefix(m.Name, prefix)))
                 {
                     var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
                     var cursorOffset = member is ITypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);

@@ -29,6 +29,8 @@ var stopwatch = Stopwatch.StartNew();
 // --output-type <console|classlib> - output kind
 // --unsafe           - enable unsafe mode (required for pointer declarations/usages)
 // --no-global-statements - disable top-level/global statements
+// --no-namespace-members - disable namespace-scope function and const declarations
+// --no-namespace-member-imports - disable namespace imports from [TopLevel] containers
 // --members-public-by-default - members default to public in classes/structs (default behavior)
 // --no-members-public-by-default - disable public-by-default and require explicit public
 // --runtime-async    - enable runtime-async metadata emission
@@ -70,6 +72,10 @@ var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
 var allowUnsafe = false;
 var allowGlobalStatements = true;
+var allowNamespaceMembers = true;
+var allowNamespaceMembersSpecified = false;
+var allowNamespaceMemberImports = true;
+var allowNamespaceMemberImportsSpecified = false;
 bool? membersPublicByDefaultOverride = true;
 bool? runtimeAsyncOverride = null;
 
@@ -334,6 +340,26 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--no-global-statements":
             allowGlobalStatements = false;
+            break;
+        case "--namespace-members":
+        case "--top-level-members":
+            allowNamespaceMembers = true;
+            allowNamespaceMembersSpecified = true;
+            break;
+        case "--no-namespace-members":
+        case "--no-top-level-members":
+            allowNamespaceMembers = false;
+            allowNamespaceMembersSpecified = true;
+            break;
+        case "--namespace-member-imports":
+        case "--top-level-member-imports":
+            allowNamespaceMemberImports = true;
+            allowNamespaceMemberImportsSpecified = true;
+            break;
+        case "--no-namespace-member-imports":
+        case "--no-top-level-member-imports":
+            allowNamespaceMemberImports = false;
+            allowNamespaceMemberImportsSpecified = true;
             break;
         case "--members-public-by-default":
             membersPublicByDefaultOverride = true;
@@ -821,6 +847,10 @@ var executionOptions = new CompilerExecutionOptions(
     outputKind,
     allowUnsafe,
     allowGlobalStatements,
+    allowNamespaceMembers,
+    allowNamespaceMembersSpecified,
+    allowNamespaceMemberImports,
+    allowNamespaceMemberImportsSpecified,
     membersPublicByDefaultOverride,
     useRuntimeAsync,
     showSuggestions,
@@ -933,6 +963,12 @@ if (projectFileInput is not null)
             .WithAllowGlobalStatements(options.AllowGlobalStatements)
             .WithEnableSuggestions(options.EnableSuggestions)
             .WithRuntimeAsync(options.UseRuntimeAsync);
+
+        if (executionOptions.AllowNamespaceMembersSpecified)
+            options = options.WithAllowNamespaceMembers(executionOptions.AllowNamespaceMembers);
+
+        if (executionOptions.AllowNamespaceMemberImportsSpecified)
+            options = options.WithAllowNamespaceMemberImports(executionOptions.AllowNamespaceMemberImports);
 
         if (cliMembersPublicByDefaultOverride is bool membersPublicByDefault)
             options = options.WithMembersPublicByDefault(membersPublicByDefault);
@@ -1564,6 +1600,8 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
     var options = new CompilationOptions(executionOptions.OutputKind)
         .WithAllowUnsafe(executionOptions.AllowUnsafe)
         .WithAllowGlobalStatements(executionOptions.AllowGlobalStatements)
+        .WithAllowNamespaceMembers(executionOptions.AllowNamespaceMembers)
+        .WithAllowNamespaceMemberImports(executionOptions.AllowNamespaceMemberImports)
         .WithRuntimeAsync(executionOptions.UseRuntimeAsync)
         .WithEmbedCoreTypes(executionOptions.EmbedCoreTypes)
         .WithEnableSuggestions(executionOptions.EnableSuggestions)
@@ -1919,6 +1957,14 @@ static void PrintHelp()
     Console.WriteLine("                     Enable top-level/global statements (default)");
     Console.WriteLine("  --no-global-statements");
     Console.WriteLine("                     Disable top-level/global statements");
+    Console.WriteLine("  --namespace-members");
+    Console.WriteLine("                     Enable namespace-scope function and const declarations (default)");
+    Console.WriteLine("  --no-namespace-members");
+    Console.WriteLine("                     Disable namespace-scope function and const declarations");
+    Console.WriteLine("  --namespace-member-imports");
+    Console.WriteLine("                     Enable namespace imports from [TopLevel] containers (default)");
+    Console.WriteLine("  --no-namespace-member-imports");
+    Console.WriteLine("                     Disable namespace imports from [TopLevel] containers");
     Console.WriteLine("  --members-public-by-default");
     Console.WriteLine("                     Members default to public in classes/structs (default)");
     Console.WriteLine("  --no-members-public-by-default");
@@ -2586,6 +2632,10 @@ readonly record struct CompilerExecutionOptions(
     OutputKind OutputKind,
     bool AllowUnsafe,
     bool AllowGlobalStatements,
+    bool AllowNamespaceMembers,
+    bool AllowNamespaceMembersSpecified,
+    bool AllowNamespaceMemberImports,
+    bool AllowNamespaceMemberImportsSpecified,
     bool? MembersPublicByDefault,
     bool UseRuntimeAsync,
     bool EnableSuggestions,

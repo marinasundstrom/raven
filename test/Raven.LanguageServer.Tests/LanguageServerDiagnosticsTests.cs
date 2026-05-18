@@ -491,6 +491,231 @@ func Parse<T>(str: string) -> T
     }
 
     [Fact]
+    public async Task GetDiagnosticsAsync_ProjectBackedNamespaceMembers_AfterHover_DoesNotReportMissingImportedMemberAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        File.WriteAllText(Path.Combine(sourceDirectory, "members.rvn"), """
+namespace Utilities
+
+public const Answer: int = 41
+
+public func AddOne(value: int) -> int => value + 1
+""");
+
+        var documentPath = Path.Combine(sourceDirectory, "main.rvn");
+        const string code = """
+import Utilities.*
+
+func Run() -> int {
+    return AddOne(Answer)
+}
+""";
+        File.WriteAllText(documentPath, code);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        store.UpsertDocument(uri, code);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        var addOneOffset = code.IndexOf("AddOne", StringComparison.Ordinal);
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new CodeTextSpan(addOneOffset + 1, 0)).Start
+        }, CancellationToken.None);
+        hover.ShouldNotBeNull();
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        diagnostics
+            .Where(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ToArray()
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_ProjectBackedNamespaceMemberEdit_InvalidatesDependentDocumentAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        var membersPath = Path.Combine(sourceDirectory, "members.rvn");
+        const string initialMembers = """
+namespace Utilities
+
+public const Prefix: string = "ready"
+""";
+        File.WriteAllText(membersPath, initialMembers);
+
+        var documentPath = Path.Combine(sourceDirectory, "main.rvn");
+        const string code = """
+import Utilities.*
+
+func Run() -> string {
+    return Format()
+}
+""";
+        File.WriteAllText(documentPath, code);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var membersUri = DocumentUri.FromFileSystemPath(membersPath);
+        store.UpsertDocument(uri, code);
+
+        var initialResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+        initialResult.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Format", StringComparison.Ordinal)).ShouldBeTrue();
+
+        store.UpsertDocument(membersUri, """
+namespace Utilities
+
+public const Prefix: string = "ready"
+
+public func Format() -> string => Prefix
+""");
+
+        var updatedResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+        updatedResult.WasSkipped.ShouldBeFalse();
+        updatedResult.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Format", StringComparison.Ordinal)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentCompilerLane_TopLevelFileprivateConstAfterHover_ReportsInaccessibleAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        File.WriteAllText(Path.Combine(sourceDirectory, "members.rvn"), """
+namespace Hidden
+
+fileprivate const Secret: int = 1
+
+public func SameFile() -> int {
+    return Secret
+}
+""");
+
+        var documentPath = Path.Combine(sourceDirectory, "main.rvn");
+        const string code = """
+namespace Hidden
+
+public func OtherFile() -> int {
+    return Secret
+}
+""";
+        File.WriteAllText(documentPath, code);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        store.UpsertDocument(uri, code);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        var secretOffset = code.IndexOf("Secret", StringComparison.Ordinal);
+        _ = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new CodeTextSpan(secretOffset + 1, 0)).Start
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0500", StringComparison.Ordinal)).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_ProjectBackedDocument_DoesNotReportNamespaceSegmentOutOfScopeForImportedFrameworkNamespacesAsync()
     {
         Directory.CreateDirectory(_tempRoot);

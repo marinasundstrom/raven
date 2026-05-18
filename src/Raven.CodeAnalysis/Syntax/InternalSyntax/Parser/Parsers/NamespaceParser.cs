@@ -153,6 +153,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 SyntaxKind.ImportKeyword or
                 SyntaxKind.AliasKeyword or
                 SyntaxKind.NamespaceKeyword or
+                SyntaxKind.ConstKeyword or
                 SyntaxKind.EnumKeyword or
                 SyntaxKind.UnionKeyword or
                 SyntaxKind.DelegateKeyword or
@@ -282,7 +283,8 @@ internal class NamespaceDeclarationParser : SyntaxParser
             AddMemberDeclarationWithSeparatorValidation(namespaceDeclaration);
             order = MemberOrder.Members;
         }
-        else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
+        else if (nextToken.IsKind(SyntaxKind.ConstKeyword) ||
+                 nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
                  nextToken.IsKind(SyntaxKind.DelegateKeyword) ||
                  nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) || nextToken.IsKind(SyntaxKind.TraitKeyword) ||
@@ -362,6 +364,15 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 var delegateDeclaration = new TypeDeclarationParser(this).ParseDelegateDeclaration(attributeLists, modifiers);
 
                 AddMemberDeclarationWithSeparatorValidation(delegateDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            if (typeKeywordKind == SyntaxKind.ConstKeyword)
+            {
+                var constDeclaration = new TypeDeclarationParser(this).ParseConstDeclaration(attributeLists, modifiers);
+
+                AddMemberDeclarationWithSeparatorValidation(constDeclaration);
                 order = MemberOrder.Members;
                 return;
             }

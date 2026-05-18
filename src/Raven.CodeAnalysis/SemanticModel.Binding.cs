@@ -35,6 +35,15 @@ public partial class SemanticModel
         "compiler",
         DiagnosticSeverity.Error,
         true);
+    private static readonly DiagnosticDescriptor s_namespaceMembersDisabled = DiagnosticDescriptor.Create(
+        "RAV7003",
+        "Top-level members are disabled",
+        "",
+        "",
+        "Top-level members are disabled by compilation options",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
     private static readonly DiagnosticDescriptor s_invalidLocalTypeDeclaration = DiagnosticDescriptor.Create(
         "RAV7002",
         "Invalid local type declaration",
@@ -200,6 +209,21 @@ public partial class SemanticModel
                         break;
                     }
 
+                case GlobalStatementSyntax globalStatement
+                    when Compilation.IsTopLevelFunctionMember(globalStatement) &&
+                         globalStatement.Statement is FunctionStatementSyntax functionStatement:
+                    {
+                        DeclareTopLevelFunctionSymbol(functionStatement, parentNamespace);
+                        break;
+                    }
+
+                case ConstDeclarationSyntax constDecl:
+                    {
+                        if (!Compilation.Options.AllowNamespaceMembers)
+                            _declarationDiagnostics.Report(Diagnostic.Create(s_namespaceMembersDisabled, constDecl.GetLocation()));
+                        break;
+                    }
+
                 case EnumDeclarationSyntax enumDecl:
                     {
                         DeclareEnumSymbol(enumDecl, parentNamespace);
@@ -212,6 +236,112 @@ public partial class SemanticModel
                         break;
                     }
             }
+        }
+    }
+
+    private SourceNamedTypeSymbol GetOrCreateNamespaceMembersContainer(SyntaxNode declaration, INamespaceSymbol parentNamespace)
+    {
+        var sourceNamespace = parentNamespace.AsSourceNamespace()
+            ?? throw new InvalidOperationException("Top-level members require a source namespace.");
+
+        return Compilation.GetOrCreateNamespaceMembersContainer(sourceNamespace, declaration);
+    }
+
+    private void DeclareTopLevelFunctionSymbol(FunctionStatementSyntax functionStatement, INamespaceSymbol parentNamespace)
+    {
+        if (!Compilation.Options.AllowNamespaceMembers)
+        {
+            _declarationDiagnostics.Report(Diagnostic.Create(s_namespaceMembersDisabled, functionStatement.Identifier.GetLocation()));
+            return;
+        }
+
+        ReportInvalidTopLevelFunctionModifiers(functionStatement);
+
+        var container = GetOrCreateNamespaceMembersContainer(functionStatement, parentNamespace);
+
+        if (container.GetMembers(functionStatement.Identifier.ValueText)
+            .OfType<IMethodSymbol>()
+            .Any(method => method.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() == functionStatement)))
+        {
+            return;
+        }
+
+        var isAsync = functionStatement.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword);
+        var isExtern = functionStatement.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.ExternKeyword);
+        var returnType = isAsync
+            ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
+            : Compilation.GetSpecialType(SpecialType.System_Unit);
+        var accessibility = DetermineNamespaceMemberAccessibility(functionStatement.Modifiers);
+
+        var methodSymbol = new SourceMethodSymbol(
+            functionStatement.Identifier.ValueText,
+            returnType,
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            container,
+            container,
+            container.ContainingNamespace,
+            [functionStatement.GetLocation()],
+            [functionStatement.GetReference()],
+            isStatic: true,
+            isAsync: isAsync,
+            isExtern: isExtern,
+            declaredAccessibility: accessibility);
+
+        TypeParameterInitializer.InitializeMethodTypeParameters(
+            methodSymbol,
+            container,
+            functionStatement.TypeParameterList,
+            functionStatement.ConstraintClauses,
+            functionStatement.SyntaxTree,
+            _declarationDiagnostics);
+
+        if (functionStatement.ReturnType is { } returnTypeSyntax)
+        {
+            methodSymbol.SetReturnType(MemberSignatureDeclarationPass.ResolveSkeletonType(
+                this,
+                returnTypeSyntax.Type,
+                returnType,
+                container,
+                methodSymbol.TypeParameters));
+        }
+
+        var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
+        if (functionStatement.ParameterList is not null)
+        {
+            foreach (var parameter in functionStatement.ParameterList.Parameters)
+                parameters.Add(MemberSignatureDeclarationPass.CreateSkeletonParameterSymbol(this, parameter, methodSymbol, container));
+        }
+
+        methodSymbol.SetParameters(parameters.ToImmutable());
+        methodSymbol.MarkSignatureSkeleton();
+
+        if (HasFileScopeModifier(functionStatement.Modifiers))
+            methodSymbol.MarkFileScoped(functionStatement.SyntaxTree?.FilePath);
+
+    }
+
+    private static Accessibility DetermineNamespaceMemberAccessibility(SyntaxTokenList modifiers)
+        => AccessibilityUtilities.DetermineAccessibility(modifiers, Accessibility.Internal);
+
+    private void ReportInvalidTopLevelFunctionModifiers(FunctionStatementSyntax functionStatement)
+    {
+        foreach (var modifier in functionStatement.Modifiers)
+        {
+            if (modifier.Kind is SyntaxKind.PublicKeyword
+                or SyntaxKind.InternalKeyword
+                or SyntaxKind.FileprivateKeyword
+                or SyntaxKind.AsyncKeyword
+                or SyntaxKind.ExternKeyword
+                or SyntaxKind.UnsafeKeyword)
+            {
+                continue;
+            }
+
+            _declarationDiagnostics.ReportModifierNotValidOnMember(
+                modifier.Text,
+                "top-level function",
+                functionStatement.Identifier.ValueText,
+                modifier.GetLocation());
         }
     }
 
@@ -1221,6 +1351,10 @@ public partial class SemanticModel
             {
                 AddAliasImport(constant.Name, constant);
             }
+            else if (TryResolveImportedNamespaceMember(targetNamespace, import.Name) is { } namespaceMember)
+            {
+                AddAliasImport(namespaceMember.Name, namespaceMember);
+            }
             else
             {
                 deferredConstantImports.Add(import.Name);
@@ -1260,6 +1394,10 @@ public partial class SemanticModel
             if (TryResolveImportedConstant(targetNamespace, constantImport) is { } constant)
             {
                 AddAliasImport(constant.Name, constant);
+            }
+            else if (TryResolveImportedNamespaceMember(targetNamespace, constantImport) is { } namespaceMember)
+            {
+                AddAliasImport(namespaceMember.Name, namespaceMember);
             }
             else
             {
@@ -1455,6 +1593,9 @@ public partial class SemanticModel
                     if (members.Length > 0)
                         return members;
                 }
+
+                if (TryResolveImportedNamespaceMember(current, name) is { } namespaceMember)
+                    return [namespaceMember];
             }
 
             return Array.Empty<ISymbol>();
@@ -1559,6 +1700,19 @@ public partial class SemanticModel
             return ownerType.GetMembers(right.Identifier.ValueText)
                 .OfType<IFieldSymbol>()
                 .FirstOrDefault(IsImportableConstant);
+        }
+
+        ISymbol? TryResolveImportedNamespaceMember(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
+                return null;
+
+            var ns = ResolveNamespace(current, left.ToString());
+            if (ns is null)
+                return null;
+
+            return Compilation.GetNamespaceMembers(ns, right.Identifier.ValueText, Compilation.Options.AllowNamespaceMemberImports)
+                .FirstOrDefault(static member => member is IMethodSymbol or IFieldSymbol);
         }
 
         void AddAliasImport(string name, ISymbol symbol)
@@ -1718,27 +1872,20 @@ public partial class SemanticModel
             hadDisabledGlobalStatements = true;
         }
 
-        var topLevelMainFunctions = bindableGlobals
-            .Where(static g => g.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
+        var topLevelFunctionMembers = GetTopLevelFunctionMembers(cu).ToArray();
+        var topLevelMainFunctions = topLevelFunctionMembers
+            .Where(static function => function.Identifier.ValueText == "Main")
             .ToArray();
-        var hasTopLevelFunctionDeclarations = bindableGlobals.Any(static g => g.Statement is FunctionStatementSyntax);
 
         if (topLevelMainFunctions.Length > 0)
         {
             foreach (var statement in bindableGlobals)
             {
-                if (statement.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" })
-                    continue;
-
-                if (statement.Statement is FunctionStatementSyntax)
-                    continue;
-
                 parentBinder.Diagnostics.ReportTopLevelStatementsDisallowedWithMainFunction(statement.GetLocation());
             }
         }
 
-        var supportsTopLevelProgram = Compilation.Options.OutputKind == OutputKind.ConsoleApplication
-            || hasTopLevelFunctionDeclarations;
+        var supportsTopLevelProgram = Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
 
         var shouldCreateTopLevelProgram = supportsTopLevelProgram
             && (bindableGlobals.Count > 0
@@ -1818,6 +1965,18 @@ public partial class SemanticModel
                 ?.SyntaxTree;
 
             return firstEligibleSyntaxTree == current.SyntaxTree;
+        }
+    }
+
+    private static IEnumerable<FunctionStatementSyntax> GetTopLevelFunctionMembers(CompilationUnitSyntax compilationUnit)
+    {
+        foreach (var global in compilationUnit.DescendantNodes().OfType<GlobalStatementSyntax>())
+        {
+            if (Compilation.IsTopLevelFunctionMember(global) &&
+                global.Statement is FunctionStatementSyntax function)
+            {
+                yield return function;
+            }
         }
     }
 
@@ -2191,6 +2350,34 @@ public partial class SemanticModel
 
                         EnsureDelegateMembers(delegateSymbol, delegateDecl, delegateBinder);
 
+                        break;
+                    }
+
+                case GlobalStatementSyntax globalStatement
+                    when Compilation.IsTopLevelFunctionMember(globalStatement) &&
+                         globalStatement.Statement is FunctionStatementSyntax functionStatement:
+                    {
+                        if (!Compilation.Options.AllowNamespaceMembers)
+                            break;
+
+                        var functionBinder = new FunctionBinder(parentBinder, functionStatement);
+                        _ = functionBinder.GetMethodSymbol();
+                        CacheBinder(globalStatement, functionBinder);
+                        CacheBinder(functionStatement, functionBinder);
+                        break;
+                    }
+
+                case ConstDeclarationSyntax constDecl:
+                    {
+                        if (!Compilation.Options.AllowNamespaceMembers)
+                            break;
+
+                        var container = GetOrCreateNamespaceMembersContainer(constDecl, parentNamespace);
+                        var constBinder = new TypeMemberBinder(parentBinder, container);
+                        constBinder.BindConstDeclaration(constDecl);
+                        CacheBinder(constDecl, constBinder);
+                        foreach (var declarator in constDecl.Declaration.Declarators)
+                            CacheBinder(declarator, constBinder);
                         break;
                     }
 

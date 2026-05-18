@@ -26,6 +26,10 @@ rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type 
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
 - `--global-statements` &ndash; enable top-level/global statements (default)
 - `--no-global-statements` &ndash; disable top-level/global statements
+- `--namespace-members` &ndash; enable namespace-level `func` and `const` declarations (default)
+- `--no-namespace-members` &ndash; disable namespace-level `func` and `const` declarations
+- `--namespace-member-imports` &ndash; enable namespace lookup/completion promotion from `[TopLevel]` containers (default)
+- `--no-namespace-member-imports` &ndash; disable namespace lookup/completion promotion from `[TopLevel]` containers
 - `--members-public-by-default` &ndash; class/struct members default to `public`
 - `--no-members-public-by-default` &ndash; class/struct members use normal defaults (`private` for class/struct members)
 - `-s` &ndash; display the syntax tree (single file only)

@@ -514,7 +514,7 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.ConstKeyword))
         {
-            return ParseConstDeclarationSyntax(attributeLists, modifiers);
+            return ParseConstDeclaration(attributeLists, modifiers);
         }
 
         if (keywordOrIdentifier.IsKind(SyntaxKind.FieldKeyword))
@@ -1254,7 +1254,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return FieldDeclaration(attributeLists, modifiers, fieldKeyword, declaration, terminatorToken);
     }
 
-    private ConstDeclarationSyntax ParseConstDeclarationSyntax(SyntaxList attributeLists, SyntaxList modifiers)
+    public ConstDeclarationSyntax ParseConstDeclaration(SyntaxList attributeLists, SyntaxList modifiers)
     {
         var constKeyword = ReadToken();
         var declaration = ParseFieldLikeVariableDeclaration(MissingToken(constKeyword.Kind));

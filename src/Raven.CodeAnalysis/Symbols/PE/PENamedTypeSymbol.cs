@@ -247,6 +247,18 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         }
     }
 
+    internal bool HasCustomAttribute(Func<string, bool> predicate)
+    {
+        foreach (var attribute in GetCustomAttributesSafe(_typeInfo))
+        {
+            var attributeName = GetAttributeTypeName(attribute);
+            if (attributeName is not null && predicate(attributeName))
+                return true;
+        }
+
+        return false;
+    }
+
     private static bool TryGetAttributeConstructorTypeArgument(CustomAttributeData attribute, out Type unionType)
     {
         unionType = null!;

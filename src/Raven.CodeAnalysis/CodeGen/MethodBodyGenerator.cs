@@ -3056,11 +3056,12 @@ internal class MethodBodyGenerator
         {
             switch (member)
             {
-                case GlobalStatementSyntax global:
+                case GlobalStatementSyntax global when global.Statement is not FunctionStatementSyntax:
                     yield return global.Statement;
                     break;
                 case FileScopedNamespaceDeclarationSyntax fileScoped:
-                    foreach (var nestedGlobal in fileScoped.Members.OfType<GlobalStatementSyntax>())
+                    foreach (var nestedGlobal in fileScoped.Members.OfType<GlobalStatementSyntax>()
+                                 .Where(static global => global.Statement is not FunctionStatementSyntax))
                         yield return nestedGlobal.Statement;
                     break;
             }

@@ -43,7 +43,7 @@ class FunctionBinder : Binder
             .OfType<IMethodSymbol>()
             .FirstOrDefault(m => m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == _syntax));
 
-        if (existingMethod is SourceMethodSymbol existingSource)
+        if (existingMethod is SourceMethodSymbol existingSource && !existingSource.IsSignatureSkeleton)
         {
             _methodSymbol = existingSource;
             return _methodSymbol;
@@ -56,25 +56,32 @@ class FunctionBinder : Binder
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
 
-        _methodSymbol = new SourceMethodSymbol(
-            _syntax.Identifier.ValueText,
-            inferredReturnType,
-            [],
-            container,
-            container,
-            container.ContainingNamespace,
-            [_syntax.GetLocation()],
-            [_syntax.GetReference()],
-            isStatic: true,
-            isAsync: isAsync,
-            isExtern: isExtern,
-            declaredAccessibility: Accessibility.Internal);
+        var isNamespaceMember = IsTopLevelFunctionMember(_syntax);
+        var accessibility = isNamespaceMember
+            ? AccessibilityUtilities.DetermineAccessibility(_syntax.Modifiers, Accessibility.Internal)
+            : Accessibility.Internal;
+
+        _methodSymbol = existingMethod is SourceMethodSymbol existingSkeleton
+            ? existingSkeleton
+            : new SourceMethodSymbol(
+                _syntax.Identifier.ValueText,
+                inferredReturnType,
+                [],
+                container,
+                container,
+                container.ContainingNamespace,
+                [_syntax.GetLocation()],
+                [_syntax.GetReference()],
+                isStatic: true,
+                isAsync: isAsync,
+                isExtern: isExtern,
+                declaredAccessibility: accessibility);
 
         TypeParameterInitializer.InitializeMethodTypeParameters(
             _methodSymbol,
-            (INamedTypeSymbol)container, // or container.ContainingType if that’s what you mean by “declaring type context”
+            (INamedTypeSymbol)container,
             _syntax.TypeParameterList,
-            _syntax.ConstraintClauses,   // <-- whatever you named it on FunctionStatementSyntax
+            _syntax.ConstraintClauses,
             _syntax.SyntaxTree,
             _diagnostics);
 
@@ -183,11 +190,19 @@ class FunctionBinder : Binder
         }
 
         _methodSymbol.SetParameters(parameters);
+        _methodSymbol.MarkSignatureBindingComplete();
+
+        if (isNamespaceMember && _methodSymbol is Symbol sourceSymbol && _syntax.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword))
+            sourceSymbol.MarkFileScoped(_syntax.SyntaxTree?.FilePath);
+
         return _methodSymbol;
     }
 
     private INamedTypeSymbol? ResolveContainingType()
     {
+        if (TryResolveNamespaceMembersContainer() is { } namespaceMembersContainer)
+            return namespaceMembersContainer;
+
         // Local functions should bind within the enclosing type context, not
         // require a synthesized Program type.
         for (var current = ParentBinder; current is not null; current = current.ParentBinder)
@@ -205,6 +220,17 @@ class FunctionBinder : Binder
             return topLevelContainer;
 
         return Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
+    }
+
+    private INamedTypeSymbol? TryResolveNamespaceMembersContainer()
+    {
+        if (!IsTopLevelFunctionMember(_syntax))
+            return null;
+
+        var targetNamespace = ResolveNamespaceMemberNamespace(_syntax);
+        return targetNamespace is null
+            ? null
+            : Compilation.GetOrCreateNamespaceMembersContainer(targetNamespace, _syntax);
     }
 
     private INamedTypeSymbol? TryResolveTopLevelProgramContainer()
@@ -232,6 +258,27 @@ class FunctionBinder : Binder
 
         return programClass;
     }
+
+    private SourceNamespaceSymbol? ResolveNamespaceMemberNamespace(SyntaxNode syntax)
+    {
+        if (syntax.Parent is not GlobalStatementSyntax)
+            return null;
+
+        var namespaceName = string.Join(
+            ".",
+            syntax.Ancestors()
+                .OfType<BaseNamespaceDeclarationSyntax>()
+                .Reverse()
+                .Select(static declaration => declaration.Name.ToString()));
+
+        return string.IsNullOrWhiteSpace(namespaceName)
+            ? Compilation.SourceGlobalNamespace
+            : Compilation.GetOrCreateNamespaceSymbol(namespaceName)?.AsSourceNamespace();
+    }
+
+    private static bool IsTopLevelFunctionMember(FunctionStatementSyntax syntax)
+        => syntax.Parent is GlobalStatementSyntax globalStatement &&
+            Compilation.IsTopLevelFunctionMember(globalStatement);
 
     public MethodBinder GetMethodBodyBinder()
     {

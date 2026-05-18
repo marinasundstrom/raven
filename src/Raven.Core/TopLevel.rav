@@ -1,0 +1,6 @@
+namespace System
+
+/// Marks a static type as a container whose static members are promoted as namespace members.
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+class TopLevelAttribute : Attribute {
+}

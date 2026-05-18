@@ -14,9 +14,11 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
+        var blockReusedSemanticDiagnostics = plan.ChangedSyntaxTrees.Any(static tree => tree.BlocksSemanticDiagnosticTransfer);
         InitializeIncrementalState(previousCompilation.CreateIncrementalState(
             plan.ReusedSyntaxTrees,
-            plan.MatchedSyntaxTrees));
+            plan.MatchedSyntaxTrees,
+            blockReusedSemanticDiagnostics));
         AdoptIncrementalReuseFrom(previousCompilation);
 
         foreach (var changedTree in plan.ChangedSyntaxTrees)
@@ -31,10 +33,11 @@ public partial class Compilation
 
     internal IncrementalCompilationState? CreateIncrementalState(
         ImmutableArray<SyntaxTree> reusedSyntaxTrees,
-        ImmutableArray<IncrementalMatchedSyntaxTree> matchedSyntaxTrees)
+        ImmutableArray<IncrementalMatchedSyntaxTree> matchedSyntaxTrees,
+        bool blockReusedSemanticDiagnostics)
     {
         var state = new IncrementalCompilationState();
-        var exactTransferTables = CreateExactTransferTables(state);
+        var exactTransferTables = CreateExactTransferTables(state, includeSemanticDiagnostics: !blockReusedSemanticDiagnostics);
         var ownerRelativeTransferTables = CreateOwnerRelativeTransferTables(state);
 
         foreach (var syntaxTree in reusedSyntaxTrees)
@@ -55,9 +58,12 @@ public partial class Compilation
         return HasTransferredState(exactTransferTables, ownerRelativeTransferTables) ? state : null;
     }
 
-    private IExactIncrementalStateTransferTable[] CreateExactTransferTables(IncrementalCompilationState state)
-        =>
-        [
+    private IExactIncrementalStateTransferTable[] CreateExactTransferTables(
+        IncrementalCompilationState state,
+        bool includeSemanticDiagnostics)
+    {
+        var tables = new List<IExactIncrementalStateTransferTable>
+        {
             new ExactIncrementalStateTransferTable<VisibleValueScopeKey, ImmutableArray<VisibleValueDeclarationDescriptor>>(
                 _descriptorState.VisibleValueScopeDeclarations,
                 state.VisibleValueScopeDeclarations),
@@ -78,11 +84,18 @@ public partial class Compilation
                 state.FunctionExpressionRebindRootDescriptors),
             new ExactIncrementalStateTransferTable<BinderParentAnchorKey, BinderParentAnchorDescriptor>(
                 _descriptorState.BinderParentAnchorDescriptors,
-                state.BinderParentAnchorDescriptors),
-            new ExactIncrementalStateTransferTable<ExecutableOwnerDescriptor, ImmutableArray<SemanticDiagnosticDescriptor>>(
+                state.BinderParentAnchorDescriptors)
+        };
+
+        if (includeSemanticDiagnostics)
+        {
+            tables.Add(new ExactIncrementalStateTransferTable<ExecutableOwnerDescriptor, ImmutableArray<SemanticDiagnosticDescriptor>>(
                 _descriptorState.SemanticDiagnosticsByOwner,
-                state.SemanticDiagnosticsByOwner)
-        ];
+                state.SemanticDiagnosticsByOwner));
+        }
+
+        return tables.ToArray();
+    }
 
     private IOwnerRelativeIncrementalStateTransferTable[] CreateOwnerRelativeTransferTables(IncrementalCompilationState state)
         =>

@@ -5,6 +5,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## Unreleased
 
 ### Changed
+- Namespace-level `func` and `const` declarations now bind as namespace-level members emitted into a synthesized `[TopLevel]` `NamespaceMembers` container, and static types marked with `[TopLevel]` promote their static members through namespace lookup/completion. `AllowNamespaceMembers` controls declarations independently from top-level statements, while `AllowNamespaceMemberImports` controls namespace promotion from namespace-member containers.
 - Project and single-file compilations now generate a prelude of global imports by default, including common `System` namespaces plus `System.Result.*` and `System.Option.*`; ordinary union cases are no longer introduced unqualified unless imported or referenced with target-typed `.Case` syntax.
 - Attached declaration macros targeting types are now valid on union case declarations, matching the compiler's representation of cases as generated case types.
 - Records now use the full primary-constructor parameter list as their canonical value shape, including non-public promoted parameters, and record bodies now reject extra instance storage and secondary instance constructors.

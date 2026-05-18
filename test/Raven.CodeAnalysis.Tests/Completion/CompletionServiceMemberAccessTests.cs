@@ -55,6 +55,98 @@ class C {
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnNamespace_ReturnsNamespaceMembers()
+    {
+        var code = """
+namespace Utilities {
+    public const Answer: int = 42
+
+    public func AddOne(value: int) -> int => value + 1
+}
+
+func Run() {
+    Utilities.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "AddOne");
+        Assert.Contains(items, i => i.DisplayText == "Answer");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnNamespace_ReturnsTopLevelMarkedStaticTypeMembers()
+    {
+        var code = """
+import System.*
+
+namespace Utilities {
+    public class TopLevelAttribute : Attribute {
+    }
+
+    [TopLevel]
+    public static class Helpers {
+        public static const DefaultCount: int = 3
+
+        public static func Twice(value: int) -> int => value * 2
+    }
+}
+
+func Run() {
+    Utilities.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, i => i.DisplayText == "Twice");
+        Assert.Contains(items, i => i.DisplayText == "DefaultCount");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnNamespace_OmitsNamespaceMembersWhenImportsDisabled()
+    {
+        var code = """
+namespace Utilities {
+    public func AddOne(value: int) -> int => value + 1
+}
+
+func Run() {
+    Utilities.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                    .WithAllowNamespaceMemberImports(false))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('.') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.DoesNotContain(items, i => i.DisplayText == "AddOne");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnType_ReturnsStaticMembers()
     {
         var code = """

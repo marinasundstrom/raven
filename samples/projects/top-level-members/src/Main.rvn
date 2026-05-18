@@ -1,0 +1,7 @@
+namespace Samples.NamespaceMembers.App
+
+import Samples.NamespaceMembers.Members.*
+
+func Main() {
+    PrintSummary(DecorateTopic(DefaultTopic), DefaultCount)
+}

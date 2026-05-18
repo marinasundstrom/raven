@@ -150,6 +150,10 @@ class BinderFactory
             {
                 AddAliasImport(constant.Name, constant);
             }
+            else if (TryResolveImportedNamespaceMember(nsSymbol!, importDirective.Name) is { } namespaceMember)
+            {
+                AddAliasImport(namespaceMember.Name, namespaceMember);
+            }
             else
             {
                 nsBinder.Diagnostics.ReportInvalidImportTarget(importDirective.Name.GetLocation());
@@ -311,6 +315,9 @@ class BinderFactory
                     if (members.Length > 0)
                         return members;
                 }
+
+                if (TryResolveImportedNamespaceMember(current, name) is { } namespaceMember)
+                    return [namespaceMember];
             }
 
             return Array.Empty<ISymbol>();
@@ -412,6 +419,19 @@ class BinderFactory
             return ownerType.GetMembers(right.Identifier.ValueText)
                 .OfType<IFieldSymbol>()
                 .FirstOrDefault(IsImportableConstant);
+        }
+
+        ISymbol? TryResolveImportedNamespaceMember(INamespaceSymbol current, NameSyntax name)
+        {
+            if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
+                return null;
+
+            var ns = ResolveNamespace(current, left.ToString());
+            if (ns is null)
+                return null;
+
+            return _compilation.GetNamespaceMembers(ns, right.Identifier.ValueText, _compilation.Options.AllowNamespaceMemberImports)
+                .FirstOrDefault(static member => member is IMethodSymbol or IFieldSymbol);
         }
 
         void AddAliasImport(string name, ISymbol symbol)

@@ -143,10 +143,16 @@ class ImportBinder : Binder
         return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
     }
 
-    private static IEnumerable<ISymbol> GetMembersByName(INamespaceOrTypeSymbol symbol, string name)
+    private IEnumerable<ISymbol> GetMembersByName(INamespaceOrTypeSymbol symbol, string name)
     {
         foreach (var member in symbol.GetMembers(name))
             yield return member;
+
+        if (symbol is INamespaceSymbol namespaceSymbol)
+        {
+            foreach (var member in Compilation.GetNamespaceMembers(namespaceSymbol, name, Compilation.Options.AllowNamespaceMemberImports))
+                yield return member;
+        }
 
         if (symbol is not ITypeSymbol type)
             yield break;

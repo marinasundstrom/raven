@@ -13,7 +13,7 @@ class VehicleCostsApiApp {
         builder.Services.AddEndpointsApiExplorer()
         builder.Services.AddOpenApi()
         builder.Services.AddDbContext<VehicleDbContext>(func (options: DbContextOptionsBuilder) {
-            options.UseNpgsql(VehicleAppServices.GetConnectionString())
+            options.UseNpgsql(GetConnectionString())
         })
 
         val app = builder.Build()
@@ -31,7 +31,7 @@ class VehicleCostsApiApp {
                 .OrderBy(vehicle => vehicle.RegistrationNumber)
                 .ToListAsync(cancellationToken)
 
-            return Results.Ok(vehicles.Select(VehicleAppServices.MapVehicle).ToArray())
+            return Results.Ok(vehicles.Select(MapVehicle).ToArray())
         })
 
         app.MapGet("/vehicles/{id:guid}", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
@@ -43,7 +43,7 @@ class VehicleCostsApiApp {
                 return Results.NotFound()
             }
 
-            return Results.Ok(VehicleAppServices.MapVehicle(vehicle))
+            return Results.Ok(MapVehicle(vehicle))
         })
 
         app.MapGet("/vehicles/by-status/{kind}", async func (kind: string, context: VehicleDbContext, cancellationToken: CancellationToken) {
@@ -53,8 +53,8 @@ class VehicleCostsApiApp {
 
             return Results.Ok(
                 vehicles
-                    .Where(vehicle => VehicleAppServices.StatusMatches(vehicle.GetStatus(), kind))
-                    .Select(VehicleAppServices.MapVehicle)
+                    .Where(vehicle => StatusMatches(vehicle.GetStatus(), kind))
+                    .Select(MapVehicle)
                     .ToArray())
         })
 
@@ -67,7 +67,7 @@ class VehicleCostsApiApp {
                 return Results.NotFound()
             }
 
-            return Results.Ok(VehicleAppServices.PredictCosts(vehicle))
+            return Results.Ok(PredictCosts(vehicle))
         })
 
         app.MapPost("/vehicles", async func (request: CreateVehicleRequest, context: VehicleDbContext, cancellationToken: CancellationToken) {
@@ -81,7 +81,7 @@ class VehicleCostsApiApp {
             context.Vehicles.Add(vehicle)
             _ = await context.SaveChangesAsync(cancellationToken)
 
-            return Results.Created("/vehicles/${vehicle.Id.ToString()}", VehicleAppServices.MapVehicle(vehicle))
+            return Results.Created("/vehicles/${vehicle.Id.ToString()}", MapVehicle(vehicle))
         })
 
         app.MapPost("/vehicles/{id:guid}/fuel-consumptions", async func (
@@ -107,7 +107,7 @@ class VehicleCostsApiApp {
             vehicle.FuelConsumptions.Add(entry)
             _ = await context.SaveChangesAsync(cancellationToken)
 
-            return Results.Accepted("/vehicles/${vehicle.Id.ToString()}", VehicleAppServices.MapVehicle(vehicle))
+            return Results.Accepted("/vehicles/${vehicle.Id.ToString()}", MapVehicle(vehicle))
         })
 
         app.Run()

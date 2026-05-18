@@ -62,6 +62,7 @@ public partial class Compilation
     private bool _isDeclaringSourceTypes;
     private int _sourceDeclarationThreadId;
     private readonly Dictionary<SyntaxTree, TopLevelProgramMembers> _topLevelProgramMembers = new();
+    private readonly Dictionary<string, SynthesizedNamespaceMembersClassSymbol> _namespaceMembersContainers = new(StringComparer.Ordinal);
     private BoundNodeFactory? _boundNodeFactory;
     private DeclarationTable? _declarationTable;
     private Compilation? _previousCompilationForReuse;
@@ -1102,6 +1103,177 @@ public partial class Compilation
         return (programClass, mainMethod, asyncImplementation);
     }
 
+    internal SynthesizedNamespaceMembersClassSymbol GetOrCreateNamespaceMembersContainer(
+        SourceNamespaceSymbol targetNamespace,
+        SyntaxNode declaration)
+    {
+        var key = targetNamespace.IsGlobalNamespace ? string.Empty : targetNamespace.ToMetadataName();
+
+        if (_namespaceMembersContainers.TryGetValue(key, out var existing))
+            return existing;
+
+        var container = new SynthesizedNamespaceMembersClassSymbol(
+            this,
+            targetNamespace,
+            [declaration.GetLocation()],
+            [declaration.GetReference()]);
+
+        _namespaceMembersContainers[key] = container;
+        return container;
+    }
+
+    internal INamedTypeSymbol? GetNamespaceMembersContainer(INamespaceSymbol namespaceSymbol)
+    {
+        var sourceNamespace = namespaceSymbol.AsSourceNamespace();
+        if (sourceNamespace is null)
+            return null;
+
+        var key = sourceNamespace.IsGlobalNamespace ? string.Empty : sourceNamespace.ToMetadataName();
+        return _namespaceMembersContainers.TryGetValue(key, out var existing)
+            ? existing
+            : null;
+    }
+
+    internal ImmutableArray<ISymbol> GetNamespaceMembers(
+        INamespaceSymbol namespaceSymbol,
+        string name,
+        bool includeNamespaceMemberImports = true)
+    {
+        if (!includeNamespaceMemberImports)
+            return ImmutableArray<ISymbol>.Empty;
+
+        var members = ImmutableArray.CreateBuilder<ISymbol>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
+        {
+            foreach (var member in container.GetMembers(name))
+            {
+                if (!IsPromotableTopLevelContainerMember(container, member))
+                    continue;
+
+                if (seen.Add(member))
+                    members.Add(member);
+            }
+        }
+
+        return members.ToImmutable();
+    }
+
+    internal ImmutableArray<ISymbol> GetNamespaceMembers(
+        INamespaceSymbol namespaceSymbol,
+        bool includeNamespaceMemberImports = true)
+    {
+        if (!includeNamespaceMemberImports)
+            return ImmutableArray<ISymbol>.Empty;
+
+        var members = ImmutableArray.CreateBuilder<ISymbol>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
+        {
+            foreach (var member in container.GetMembers())
+            {
+                if (!IsPromotableTopLevelContainerMember(container, member))
+                    continue;
+
+                if (seen.Add(member))
+                    members.Add(member);
+            }
+        }
+
+        return members.ToImmutable();
+    }
+
+    internal bool IsNamespaceMemberContainer(INamedTypeSymbol type)
+    {
+        if (type is SynthesizedNamespaceMembersClassSymbol)
+            return true;
+
+        if (HasTopLevelAttributeSyntax(type))
+            return true;
+
+        if (type is PENamedTypeSymbol peType &&
+            peType.HasCustomAttribute(IsTopLevelAttributeMetadataName))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private IEnumerable<INamedTypeSymbol> GetNamespaceMemberContainers(INamespaceSymbol namespaceSymbol)
+    {
+        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (GetNamespaceMembersContainer(namespaceSymbol) is { } synthesizedContainer &&
+            seen.Add(synthesizedContainer))
+        {
+            yield return synthesizedContainer;
+        }
+
+        foreach (var type in namespaceSymbol.GetMembers().OfType<INamedTypeSymbol>())
+        {
+            if (seen.Add(type) && IsNamespaceMemberContainer(type))
+                yield return type;
+        }
+    }
+
+    private static bool IsPromotableTopLevelContainerMember(INamedTypeSymbol container, ISymbol member)
+        => container is SynthesizedNamespaceMembersClassSymbol || member.IsStatic;
+
+    private static bool HasTopLevelAttributeSyntax(INamedTypeSymbol type)
+    {
+        foreach (var reference in type.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not BaseTypeDeclarationSyntax typeDeclaration)
+                continue;
+
+            foreach (var attribute in typeDeclaration.AttributeLists.SelectMany(static list => list.Attributes))
+            {
+                if (IsTopLevelAttributeName(GetSimpleAttributeName(attribute.Name)))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string GetSimpleAttributeName(NameSyntax name)
+        => name switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            GenericNameSyntax generic => generic.Identifier.ValueText,
+            QualifiedNameSyntax qualified => GetSimpleAttributeName(qualified.Right),
+            _ => name.ToString()
+        };
+
+    private static bool IsTopLevelAttribute(INamedTypeSymbol? attributeType)
+    {
+        if (attributeType is null)
+            return false;
+
+        if (IsTopLevelAttributeName(attributeType.Name) ||
+            IsTopLevelAttributeName(attributeType.MetadataName))
+        {
+            return true;
+        }
+
+        var metadataName = attributeType.ToFullyQualifiedMetadataName();
+        return metadataName.EndsWith(".TopLevelAttribute", StringComparison.Ordinal) ||
+               metadataName.EndsWith(".TopLevel", StringComparison.Ordinal);
+    }
+
+    private static bool IsTopLevelAttributeName(string? name)
+        => string.Equals(name, "TopLevel", StringComparison.Ordinal) ||
+           string.Equals(name, "TopLevelAttribute", StringComparison.Ordinal);
+
+    private static bool IsTopLevelAttributeMetadataName(string metadataName)
+        => string.Equals(metadataName, "TopLevel", StringComparison.Ordinal) ||
+           string.Equals(metadataName, "TopLevelAttribute", StringComparison.Ordinal) ||
+           metadataName.EndsWith(".TopLevel", StringComparison.Ordinal) ||
+           metadataName.EndsWith(".TopLevelAttribute", StringComparison.Ordinal);
+
     internal IReadOnlyList<GlobalStatementSyntax> GetBindableGlobalStatements(CompilationUnitSyntax compilationUnit)
     {
         var syntaxTree = compilationUnit.SyntaxTree;
@@ -1118,7 +1290,12 @@ public partial class Compilation
         => HasRunnableFileScopeCode(GetBindableGlobalStatements(compilationUnit));
 
     internal static bool IsBindableGlobalStatement(GlobalStatementSyntax globalStatement)
-        => globalStatement.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax;
+        => globalStatement.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax
+            && globalStatement.Statement is not FunctionStatementSyntax;
+
+    internal static bool IsTopLevelFunctionMember(GlobalStatementSyntax globalStatement)
+        => globalStatement.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax or NamespaceDeclarationSyntax
+            && globalStatement.Statement is FunctionStatementSyntax;
 
     private static bool HasRunnableFileScopeCode(IReadOnlyList<GlobalStatementSyntax> bindableGlobals)
     {
@@ -1167,6 +1344,8 @@ public partial class Compilation
         {
             switch (member)
             {
+                case GlobalStatementSyntax { Statement: FunctionStatementSyntax }:
+                    return true;
                 case GlobalStatementSyntax:
                     continue;
                 case FileScopedNamespaceDeclarationSyntax fileScoped when ContainsOnlyGlobalStatements(fileScoped):
@@ -1182,6 +1361,9 @@ public partial class Compilation
         {
             foreach (var nested in fileScoped.Members)
             {
+                if (nested is GlobalStatementSyntax { Statement: FunctionStatementSyntax })
+                    return false;
+
                 if (nested is not GlobalStatementSyntax)
                     return false;
             }

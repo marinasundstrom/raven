@@ -516,7 +516,7 @@ internal static class MemberSignatureDeclarationPass
         };
     }
 
-    private static SourceParameterSymbol CreateSkeletonParameterSymbol(
+    internal static SourceParameterSymbol CreateSkeletonParameterSymbol(
         SemanticModel semanticModel,
         ParameterSyntax parameter,
         SourceMethodSymbol methodSymbol,
@@ -546,7 +546,7 @@ internal static class MemberSignatureDeclarationPass
             isVarParams: TypeMemberBinder.IsVarParamsSyntax(parameter));
     }
 
-    private static ITypeSymbol ResolveSkeletonType(
+    internal static ITypeSymbol ResolveSkeletonType(
         SemanticModel semanticModel,
         TypeSyntax typeSyntax,
         ITypeSymbol fallbackType,

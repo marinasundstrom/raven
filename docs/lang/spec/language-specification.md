@@ -1573,7 +1573,7 @@ Extensions provide helper members for an existing receiver type without
 modifying the original declaration. The `extension` and `trait` keywords declare
 the same construct.
 
-An extension declaration is a namespace-scoped container that targets a
+An extension declaration is a namespace-level container that targets a
 specific type via a `for` clause. Importing the container brings its members
 into scope for lookup.
 
@@ -2871,7 +2871,7 @@ patterns, and other pure match-only forms are not assignment/declaration heads.
   operator.
 
   The operand must be a side-effect-free expression (for example, literals,
-  consts, or other stable values), ensuring comparison patterns remain predictable
+  constants, or other stable values), ensuring comparison patterns remain predictable
   and optimizable.
 
   The operand type must match the scrutinee type after nullable/plain-type
@@ -3483,6 +3483,81 @@ instance field named `value__` whose type is the enum’s underlying type. Each
 enum member is emitted as a public static literal field whose constant value is
 stored using the underlying type.
 
+## Namespace-level functions and constants
+
+A compilation unit or namespace may declare `func` and `const` declarations at
+namespace scope. These declarations are namespace members in source, not
+members of a user-authored type:
+
+```raven
+namespace Utilities {
+    public const Answer: int = 41
+
+    public func AddOne(value: int) -> int => value + 1
+}
+```
+
+Namespace-level functions and constants are implicitly static. They are emitted into a
+synthesized static container named `NamespaceMembers` in the containing
+namespace, but that container is a metadata detail. Source lookup treats the
+declarations as namespace-level functions and constants. A wildcard namespace
+import brings accessible namespace-level functions and constants into unqualified
+lookup, and namespace-qualified member access can reference them:
+
+```raven
+import Utilities.*
+
+val a = AddOne(Answer)
+val b = Utilities.AddOne(Utilities.Answer)
+```
+
+The synthesized container is emitted with the metadata marker attribute
+`System.TopLevelAttribute`. A user-authored static class or struct marked with
+`[TopLevel]` is also a namespace-member container: its accessible static
+members are promoted through the containing namespace for wildcard imports,
+specific imports, namespace-qualified access, and namespace-member completion.
+This allows existing static utility types to opt into namespace-shaped access
+without changing their metadata member ownership.
+
+The effect at a call site is intentionally similar to importing static members
+from a utility type, such as `import Foo.UtilityClass.*`. The semantic model is
+distinct: namespace-level functions and constants are declared in and imported from
+the namespace itself, so authors can place `func` and `const` declarations in
+any file and import them by namespace without inventing a containing utility
+class.
+
+Namespace-level functions and constants default to `internal`. `public`, `internal`,
+and `fileprivate` are valid accessibility modifiers. `fileprivate` restricts
+access to the declaring source file. `static` is invalid on a namespace-level function
+or constant because the declaration is already implicitly static; the compiler
+diagnoses the modifier rather than treating it as meaningful. `private`,
+`protected`, `protected internal`, and `private protected` are invalid because a
+namespace-level function or constant has no source-level containing type or
+inheritance surface.
+
+Namespace-level `func` declarations support the same parameter, return type, generic
+type parameter, and `where` constraint syntax as methods and local functions.
+Namespace-level `const` declarations follow constant binding rules and are emitted as
+metadata literal fields on the synthesized container. Class, struct, interface,
+enum, union, delegate, and extension declarations remain normal declarations;
+they are not moved into the synthesized `NamespaceMembers` container, and type
+declarations such as classes and structs may still use their normal explicit
+`static` modifier where that modifier is valid.
+
+Namespace-level functions and constants are controlled by the `AllowNamespaceMembers`
+compilation option. This option is independent of `AllowGlobalStatements`:
+disabling top-level statements prevents synthesized entry-point code from
+file-scope statements, but namespace-level `func` and `const` declarations remain
+valid when namespace members are enabled. Namespace promotion from
+namespace-member containers is controlled separately by
+`AllowNamespaceMemberImports`; disabling that option leaves the declarations and
+metadata containers intact but prevents container members from being imported or
+offered as namespace members.
+
+Namespace-level functions do not capture locals declared by file-scope statements. A
+namespace-level function body is a static function body, so it can only reference
+parameters, imported symbols, and accessible namespace/type members.
+
 ## Entry points
 
 ### Supported entry-point forms
@@ -3491,11 +3566,11 @@ Console applications may start in any of the following shapes, all of which obey
 the same signature rules:
 
 * **File-scope code (global statements):** executable statements at the top of a
-  file. These coexist with other declarations (namespaces, types, functions) in
-  the same compilation unit.
+  file. These coexist with other declarations (namespaces, types, top-level
+  namespace-level functions and constants) in the same compilation unit.
 * **Top-level function:** a global `func Main` declaration that can appear next
-  to other top-level members. When present, no other file-scope statements may
-  appear alongside it.
+  to other namespace-level functions and constants. When present, no other file-scope
+  statements may appear alongside it.
 * **Classic static method:** a `Main` method declared on a type such as
   `Program.Main`.
 
@@ -3511,12 +3586,11 @@ statements execute in source order. Top-level type declarations are hoisted for
 binding, so helper types may appear anywhere in the file or its file-scoped
 namespace without changing the execution order of file-scope code.
 
-Function declarations (local function statements) within file-scope code are
-hoisted and may be referenced from anywhere in that file-scoped region,
-regardless of their order. When file-scope code contains *only* function
-declarations, the compiler skips synthesizing the implicit `Program.Main`
-bridge; entry-point discovery falls back to user-defined candidates such as a
-top-level `func Main` alongside other global declarations.
+Namespace-level functions are hoisted and may be referenced from anywhere in their
+namespace scope, regardless of source order. When a file contains *only*
+namespace-level functions and constants, the compiler skips synthesizing the implicit
+`Program.Main` bridge; entry-point discovery falls back to user-defined
+candidates such as a namespace-scope `func Main` alongside other declarations.
 
 Function and block bodies may also declare local helper `class`, `struct`,
 `record`, and `enum` types. These declarations are scoped to the containing
@@ -3631,7 +3705,7 @@ func find(name: string) -> string { /* ... */ }
 Attribute target prefixes are validated by declaration context:
 
 * `[assembly: ...]` is only valid as a compilation-unit attribute list (before
-  top-level members).
+  namespace-level functions and constants).
 * `[return: ...]` is only valid on callable return positions (function/method
   return metadata).
 * Other explicit targets must match the declaration kind they annotate.
@@ -4319,9 +4393,10 @@ character literals (including the appropriate suffixes), `true`/`false`, strings
 `null` for reference types. Type inference works the same way as `val`; the initializer
 must still be a compile-time constant.
 
-Const applies to both local bindings and fields. Member declarations treat `const`
-fields as implicitly `static`; the value is emitted as metadata so other assemblies can
-import it without running an initializer.
+Const applies to local bindings, type fields, and top-level constant members.
+Member declarations treat `const` fields as implicitly `static`; the value is
+emitted as metadata so other assemblies can import it without running an
+initializer.
 
 Positional deconstruction lets you bind or assign multiple values at once. The outer
 `val`/`var` controls the default mutability for shorthand forms, while each element

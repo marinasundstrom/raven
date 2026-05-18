@@ -1,0 +1,21 @@
+namespace Samples.NamespaceMembers.Members
+
+import System.*
+import System.Console.*
+
+public const DefaultTopic: string = "binding"
+public const DefaultCount: int = 3
+fileprivate const SampleLabel: string = "namespace-members"
+
+public func ComposeTitle(topic: string) -> string => "$SampleLabel: $topic"
+
+[TopLevel]
+static class SampleFormatting {
+    static func DecorateTopic(topic: string) -> string => "topic=$topic"
+}
+
+public func PrintSummary(topic: string, count: int) {
+    WriteLine(ComposeTitle(topic))
+    WriteLine("default count: $DefaultCount")
+    WriteLine("requested count: $count")
+}

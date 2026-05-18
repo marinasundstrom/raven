@@ -3626,6 +3626,31 @@ partial class BlockBinder
             if (member is ITypeSymbol type)
                 return new BoundTypeExpression(type);
 
+            var namespaceMembers = Compilation.GetNamespaceMembers(nsExpr.Namespace, name, Compilation.Options.AllowNamespaceMemberImports);
+            var topLevelMethods = namespaceMembers.OfType<IMethodSymbol>().ToImmutableArray();
+            if (!topLevelMethods.IsDefaultOrEmpty)
+            {
+                if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
+                {
+                    var instantiated = InstantiateMethodCandidates(topLevelMethods, typeArgs, genericTypeSyntax, nameLocation);
+                    if (!instantiated.IsDefaultOrEmpty)
+                        return BindMethodGroup(new BoundTypeExpression(topLevelMethods[0].ContainingType!), instantiated, nameLocation);
+                }
+                else
+                {
+                    return BindMethodGroup(new BoundTypeExpression(topLevelMethods[0].ContainingType!), topLevelMethods, nameLocation);
+                }
+            }
+
+            var topLevelField = namespaceMembers.OfType<IFieldSymbol>().FirstOrDefault();
+            if (topLevelField is not null)
+            {
+                if (!EnsureMemberAccessible(topLevelField, nameLocation, GetSymbolKindForDiagnostic(topLevelField)))
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+                return new BoundMemberAccessExpression(new BoundTypeExpression(topLevelField.ContainingType!), topLevelField);
+            }
+
             _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(name, nsExpr.Namespace.Name, nameLocation);
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }

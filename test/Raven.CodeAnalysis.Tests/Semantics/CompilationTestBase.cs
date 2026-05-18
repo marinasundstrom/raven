@@ -39,7 +39,8 @@ public abstract class CompilationTestBase
         if (options is not null)
             return options;
 
-        foreach (var tree in trees) {
+        foreach (var tree in trees)
+        {
             if (HasGlobalStatements(tree))
                 return new CompilationOptions(OutputKind.ConsoleApplication);
         }
@@ -48,5 +49,6 @@ public abstract class CompilationTestBase
     }
 
     private static bool HasGlobalStatements(SyntaxTree tree)
-        => tree.GetRoot().Members.OfType<GlobalStatementSyntax>().Any();
+        => tree.GetRoot().Members.OfType<GlobalStatementSyntax>()
+            .Any(static global => global.Statement is not FunctionStatementSyntax);
 }

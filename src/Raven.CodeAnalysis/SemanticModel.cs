@@ -287,6 +287,9 @@ public partial class SemanticModel
             if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
                 return false;
 
+            if (ContainsTopLevelFunctionMember(root))
+                return false;
+
             var allOwners = GetExecutableOwnersForDiagnostics(root).ToArray();
             if (allOwners.Length == 0 ||
                 allOwners.Any(Compilation.IsChangedExecutableOwner))
@@ -318,6 +321,17 @@ public partial class SemanticModel
         {
             if (node is TypeSyntax)
                 return;
+
+            if (node is GlobalStatementSyntax { Statement: FunctionStatementSyntax globalFunction })
+            {
+                var globalFunctionBinder = currentBinder as FunctionBinder
+                    ?? GetBinderForDiagnostics(globalFunction, currentBinder) as FunctionBinder;
+                if (globalFunctionBinder is not null)
+                {
+                    BindFunctionBody(globalFunction, globalFunctionBinder);
+                    return;
+                }
+            }
 
             if (TryTraverseTypeMemberDeclaration(node, currentBinder))
                 return;
@@ -367,6 +381,17 @@ public partial class SemanticModel
 
                 if (child is GlobalStatementSyntax global)
                 {
+                    if (global.Statement is FunctionStatementSyntax function)
+                    {
+                        var functionBinder = childBinder as FunctionBinder
+                            ?? GetBinderForDiagnostics(function, childBinder) as FunctionBinder;
+                        if (functionBinder is not null)
+                        {
+                            BindFunctionBody(function, functionBinder);
+                            continue;
+                        }
+                    }
+
                     // Bind the contained statement so locals are registered
                     childBinder.GetOrBind(global.Statement);
                     BindStatementAttributeSyntaxes(global, childBinder);
@@ -393,6 +418,31 @@ public partial class SemanticModel
                 }
 
                 Traverse(child, childBinder);
+            }
+        }
+
+        void BindFunctionBody(FunctionStatementSyntax function, FunctionBinder functionBinder)
+        {
+            _ = functionBinder.GetMethodSymbol();
+            var methodBodyBinder = functionBinder.GetMethodBodyBinder();
+            var useCompleteBodyBinder = function.Parent is GlobalStatementSyntax globalStatement &&
+                Compilation.IsTopLevelFunctionMember(globalStatement);
+
+            if (function.Body is { } body)
+            {
+                var bodyBinder = useCompleteBodyBinder
+                    ? GetBinder(body, methodBodyBinder)
+                    : GetBinderForDiagnostics(body, methodBodyBinder);
+                Traverse(body, bodyBinder);
+                return;
+            }
+
+            if (function.ExpressionBody is { } expressionBody)
+            {
+                var expressionBinder = useCompleteBodyBinder
+                    ? GetBinder(expressionBody, methodBodyBinder)
+                    : GetBinderForDiagnostics(expressionBody, methodBodyBinder);
+                Traverse(expressionBody, expressionBinder);
             }
         }
 
@@ -465,6 +515,9 @@ public partial class SemanticModel
             ImmutableArray<Diagnostic>.Builder diagnosticsBuilder)
         {
             if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
+                return false;
+
+            if (ContainsTopLevelFunctionMember(root))
                 return false;
 
             var changedOwners = GetExecutableOwnersForDiagnostics(root)
@@ -707,6 +760,11 @@ public partial class SemanticModel
 
         static IEnumerable<SyntaxNode> GetExecutableOwnersForDiagnostics(SyntaxNode root)
             => root.DescendantNodesAndSelf().Where(IsExecutableOwnerForDiagnostics);
+
+        static bool ContainsTopLevelFunctionMember(SyntaxNode root)
+            => root.DescendantNodesAndSelf()
+                .OfType<GlobalStatementSyntax>()
+                .Any(Compilation.IsTopLevelFunctionMember);
 
         static bool IsExecutableOwnerForDiagnostics(SyntaxNode node)
             => node is FunctionExpressionSyntax
@@ -6189,8 +6247,11 @@ public partial class SemanticModel
 
     private ImmutableArray<Compilation.VisibleValueDeclaration> GetOrCollectVisibleValueDeclarations(SyntaxNode scopeNode)
     {
-        if (Compilation.TryGetVisibleValueScopeDeclarations(scopeNode, out var descriptors))
+        if (!IsCollectingDiagnostics &&
+            Compilation.TryGetVisibleValueScopeDeclarations(scopeNode, out var descriptors))
+        {
             return ResolveVisibleValueDeclarations(scopeNode, descriptors);
+        }
 
         descriptors = CollectVisibleValueDeclarationDescriptors(scopeNode);
         Compilation.StoreVisibleValueScopeDeclarations(scopeNode, descriptors);
@@ -6253,6 +6314,25 @@ public partial class SemanticModel
             foreach (var designation in DescendantNodesExcludingNestedScopes(scopeNode).OfType<SingleVariableDesignationSyntax>())
             {
                 AddSymbol(designation.Identifier.ValueText, designation.Span.Start, designation);
+            }
+        }
+
+        if (scopeNode is BlockStatementSyntax block)
+        {
+            SyntaxNode? patternOwner = block.Parent switch
+            {
+                ForStatementSyntax forStatement => forStatement,
+                IfPatternStatementSyntax ifPatternStatement => ifPatternStatement,
+                WhilePatternStatementSyntax whilePatternStatement => whilePatternStatement,
+                _ => null
+            };
+
+            if (patternOwner is not null)
+            {
+                foreach (var designation in DescendantNodesExcludingNestedScopes(patternOwner).OfType<SingleVariableDesignationSyntax>())
+                {
+                    AddSymbol(designation.Identifier.ValueText, designation.Span.Start, designation);
+                }
             }
         }
 
@@ -8399,11 +8479,12 @@ public partial class SemanticModel
         {
             switch (member)
             {
-                case GlobalStatementSyntax global:
+                case GlobalStatementSyntax global when global.Statement is not FunctionStatementSyntax:
                     yield return global;
                     break;
                 case FileScopedNamespaceDeclarationSyntax fileScoped:
-                    foreach (var nested in fileScoped.Members.OfType<GlobalStatementSyntax>())
+                    foreach (var nested in fileScoped.Members.OfType<GlobalStatementSyntax>()
+                                 .Where(static global => global.Statement is not FunctionStatementSyntax))
                         yield return nested;
                     break;
             }

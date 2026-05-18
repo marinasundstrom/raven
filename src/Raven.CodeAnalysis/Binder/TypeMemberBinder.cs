@@ -57,8 +57,12 @@ internal partial class TypeMemberBinder : Binder
 
     private bool IsExtensionContainer => _extensionReceiverTypeSyntax is not null && _containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
 
+    private bool IsNamespaceMembersContainer => _containingType is SynthesizedNamespaceMembersClassSymbol;
+
     private Accessibility GetDefaultMemberAccessibility()
-        => Compilation.Options.MembersPublicByDefault
+        => IsNamespaceMembersContainer
+            ? Accessibility.Internal
+            : Compilation.Options.MembersPublicByDefault
             ? Accessibility.Public
             : AccessibilityUtilities.GetDefaultMemberAccessibility(_containingType);
 
@@ -486,7 +490,10 @@ internal partial class TypeMemberBinder : Binder
             ? declaration.Declarators[0].Identifier.ValueText
             : "<field>";
         ReportPartialModifierNotSupported(modifiers, "field", firstDeclaratorName);
-        ReportRedundantPublicModifierIfNeeded(modifiers);
+        if (IsNamespaceMembersContainer)
+            ReportInvalidNamespaceMemberModifiers(modifiers, "const", firstDeclaratorName);
+        else
+            ReportRedundantPublicModifierIfNeeded(modifiers);
 
         var fieldKeyword = declarationKeyword;
         var isConstDeclaration = declarationKeyword.IsKind(SyntaxKind.ConstKeyword);
@@ -615,6 +622,9 @@ internal partial class TypeMemberBinder : Binder
                 initializerForSymbol,
                 declaredAccessibility: fieldAccessibility
             );
+
+            if (IsNamespaceMembersContainer && HasFileScopeModifier(modifiers))
+                f.MarkFileScoped(decl.SyntaxTree?.FilePath);
 
             if (isRequired)
                 f.MarkAsRequired();
@@ -4287,6 +4297,23 @@ internal partial class TypeMemberBinder : Binder
             _diagnostics.ReportModifierNotValidOnMember("partial", memberKind, memberName, modifier.GetLocation());
         }
     }
+
+    private void ReportInvalidNamespaceMemberModifiers(
+        SyntaxTokenList modifiers,
+        string memberKind,
+        string memberName)
+    {
+        foreach (var modifier in modifiers)
+        {
+            if (modifier.Kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.FileprivateKeyword)
+                continue;
+
+            _diagnostics.ReportModifierNotValidOnMember(modifier.Text, $"top-level {memberKind}", memberName, modifier.GetLocation());
+        }
+    }
+
+    private static bool HasFileScopeModifier(SyntaxTokenList modifiers)
+        => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword);
 
     private void ValidateInheritanceModifiers(
         ref bool isAbstract,

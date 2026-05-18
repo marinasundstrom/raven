@@ -348,6 +348,7 @@ internal class TypeGenerator
         }
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+        ApplyTopLevelAttributeIfNamespaceMembersContainer();
         ApplyCompilerGeneratedAttributeIfClosureFrame();
 
         if (TypeSymbol is SourceUnionSymbol discriminatedUnionSymbol)
@@ -2571,6 +2572,16 @@ internal class TypeGenerator
             RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter => ParameterAttributes.In,
             _ => ParameterAttributes.None
         };
+    }
+
+    private void ApplyTopLevelAttributeIfNamespaceMembersContainer()
+    {
+        if (TypeSymbol is not SynthesizedNamespaceMembersClassSymbol)
+            return;
+
+        var topLevelAttribute = CodeGen.CreateTopLevelAttributeBuilder();
+        if (topLevelAttribute is not null)
+            TypeBuilder!.SetCustomAttribute(topLevelAttribute);
     }
 
     private void ApplyCompilerGeneratedAttributeIfClosureFrame()

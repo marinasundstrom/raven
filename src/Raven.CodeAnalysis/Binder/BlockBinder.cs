@@ -822,13 +822,13 @@ partial class BlockBinder : Binder
         {
             if (restrict && !pastBoundary)
             {
-                if (current is BlockBinder bb &&
-                    !SymbolEqualityComparer.Default.Equals(bb.ContainingSymbol, boundarySymbol))
+                if (current is MethodBinder mb &&
+                         !SymbolEqualityComparer.Default.Equals(mb.GetMethodSymbol(), boundarySymbol))
                 {
                     pastBoundary = true;
                 }
-                else if (current is MethodBinder mb &&
-                         !SymbolEqualityComparer.Default.Equals(mb.GetMethodSymbol(), boundarySymbol))
+                else if (current is FunctionBinder fb &&
+                         !SymbolEqualityComparer.Default.Equals(fb.GetMethodSymbol(), boundarySymbol))
                 {
                     pastBoundary = true;
                 }
@@ -10124,6 +10124,51 @@ partial class BlockBinder : Binder
         // Namespace receiver: Namespace.TypeName(...)
         if (receiver is BoundNamespaceExpression nsReceiver)
         {
+            var topLevelMethods = Compilation.GetNamespaceMembers(nsReceiver.Namespace, methodName, Compilation.Options.AllowNamespaceMemberImports)
+                .OfType<IMethodSymbol>()
+                .ToImmutableArray();
+            if (!topLevelMethods.IsDefaultOrEmpty)
+            {
+                var methodGroupReceiver = new BoundTypeExpression(topLevelMethods[0].ContainingType!);
+                var accessibleMethods = GetAccessibleMethods(DistinctMethodCandidates(topLevelMethods), callSyntax.GetLocation());
+                var candidatesForArgumentBinding = !accessibleMethods.IsDefaultOrEmpty ? accessibleMethods : topLevelMethods;
+                candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgumentBinding, argumentList.Arguments, trailingBlock: trailingBlock);
+
+                var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgumentBinding, argumentList.Arguments, out var hasErrors, trailingBlock: trailingBlock);
+                if (hasErrors)
+                    return InvocationError(methodGroupReceiver, methodName, BoundExpressionReason.ArgumentBindingFailed);
+
+                if (accessibleMethods.IsDefaultOrEmpty)
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
+                var resolution = OverloadResolver.ResolveOverload(accessibleMethods, boundArguments, Compilation, binder: this, canBindLambda: EnsureLambdaCompatible, callSyntax: callSyntax);
+                if (resolution.Success)
+                {
+                    var method = resolution.Method!;
+                    ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                    return new BoundInvocationExpression(method, convertedArgs, methodGroupReceiver);
+                }
+
+                if (resolution.IsAmbiguous)
+                {
+                    _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, callSyntax.GetLocation());
+                    return ErrorExpression(
+                        reason: BoundExpressionReason.Ambiguous,
+                        candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+                }
+
+                ReportSuppressedLambdaDiagnostics(boundArguments);
+                if (!HasArgumentBindingErrors(boundArguments) &&
+                    !HasExistingArgumentErrors(argumentList.Arguments))
+                {
+                    if (!ReportTypeArgumentConstraintFailureIfPresent(resolution, callSyntax.GetLocation()))
+                        _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, callSyntax.GetLocation());
+                }
+
+                return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+            }
+
             var typeInNs = nsReceiver.Namespace
                 .GetMembers(methodName)
                 .OfType<INamedTypeSymbol>()
@@ -15491,9 +15536,13 @@ partial class BlockBinder : Binder
             return method.DeclaringSyntaxReferences
                 .Select(r => r.GetSyntax())
                 .OfType<FunctionStatementSyntax>()
-                .Any(static f => f.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword));
+                .Any(static f => f.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || IsTopLevelFunctionMember(f));
         }
     }
+
+    private static bool IsTopLevelFunctionMember(FunctionStatementSyntax function)
+        => function.Parent is GlobalStatementSyntax globalStatement &&
+            Compilation.IsTopLevelFunctionMember(globalStatement);
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)
     {
@@ -15588,7 +15637,18 @@ partial class BlockBinder : Binder
             current = current.ParentBinder;
         }
 
+        if (CurrentNamespace is { } currentNamespace)
+        {
+            foreach (var member in Compilation.GetNamespaceMembers(currentNamespace, name))
+                if (seen.Add(GetLookupKey(member)))
+                    yield return member;
+        }
+
         foreach (var member in Compilation.GlobalNamespace.GetMembers(name))
+            if (seen.Add(GetLookupKey(member)))
+                yield return member;
+
+        foreach (var member in Compilation.GetNamespaceMembers(Compilation.SourceGlobalNamespace, name))
             if (seen.Add(GetLookupKey(member)))
                 yield return member;
     }

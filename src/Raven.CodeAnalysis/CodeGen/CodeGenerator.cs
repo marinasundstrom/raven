@@ -277,6 +277,7 @@ internal class CodeGenerator
     public Type? ExtensionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     public Type? ClosedHierarchyAttributeType { get; private set; }
+    public Type? TopLevelAttributeType { get; private set; }
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _tupleElementNamesCtor;
     ConstructorInfo? _discriminatedUnionCtor;
@@ -286,6 +287,7 @@ internal class CodeGenerator
     ConstructorInfo? _extensionAttributeCtor;
     ConstructorInfo? _closedHierarchyCtor;
     ConstructorInfo? _compilerGeneratedCtor;
+    ConstructorInfo? _topLevelAttributeCtor;
 
     bool _emitExtensionMarkerNameAttribute = true;
 
@@ -1094,6 +1096,8 @@ internal class CodeGenerator
         ExtensionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
         _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
         UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
+        TopLevelAttributeType ??= Compilation.ResolveRuntimeType("System.TopLevelAttribute");
+        _topLevelAttributeCtor ??= TopLevelAttributeType?.GetConstructor(Type.EmptyTypes);
 
         if (DiscriminatedUnionAttributeType is null)
         {
@@ -1293,6 +1297,20 @@ internal class CodeGenerator
             return null;
 
         return new CustomAttributeBuilder(_compilerGeneratedCtor, Array.Empty<object>());
+    }
+
+    internal CustomAttributeBuilder? CreateTopLevelAttributeBuilder()
+    {
+        if (_topLevelAttributeCtor is null)
+        {
+            var type = Compilation.ResolveRuntimeType("System.TopLevelAttribute");
+            _topLevelAttributeCtor = type?.GetConstructor(Type.EmptyTypes);
+        }
+
+        if (_topLevelAttributeCtor is null)
+            return null;
+
+        return new CustomAttributeBuilder(_topLevelAttributeCtor, Array.Empty<object>());
     }
 
     private void CreateUnitStruct()

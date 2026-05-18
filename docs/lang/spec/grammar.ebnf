@@ -3,7 +3,8 @@
    Contextual rules and parsing details are described in the language specification.
    NOTE: Non-normative. Context-sensitive parsing and validation live outside this EBNF. *)
 
-CompilationUnit          ::= {ImportDirective} {AliasDirective} {Declaration | Statement} EOF ;
+CompilationUnit          ::= {ImportDirective} {AliasDirective} {TopLevelItem} EOF ;
+TopLevelItem             ::= Declaration | Statement ;
 (* `#pragma` remains a directive form. `#[` starts an attached macro, and
    `#` Identifier `(` starts a freestanding macro expression. *)
 
@@ -25,13 +26,22 @@ AccessorModifier         ::= AccessModifier | 'async' | 'ref' | 'out' | 'in' ;
 TypeModifiers            ::= { TypeModifier } ;
 TypeModifier             ::= AccessModifier | 'fileprivate' | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
 
-FunctionModifiers        ::= { FunctionModifier } ;
-FunctionModifier         ::= AccessModifier | 'async' | 'extern' | 'static' ;
+TopLevelFunctionModifiers ::= { TopLevelFunctionModifier } ;
+TopLevelFunctionModifier  ::= AccessModifier | 'fileprivate' | 'async' | 'extern' | 'unsafe' | 'static' ;
+TopLevelConstModifiers    ::= { TopLevelConstModifier } ;
+TopLevelConstModifier     ::= AccessModifier | 'fileprivate' | 'static' ;
+(* Contextual restriction: top-level members accept public/internal/fileprivate
+   accessibility. `static` is parsed for recovery but is semantically invalid
+   because top-level members are already implicitly static. *)
+(* Semantic note: a type declaration marked with [TopLevel] remains a normal
+   type declaration syntactically; the marker promotes accessible static
+   members through namespace lookup when top-level member imports are enabled. *)
 
 (* ---------- Declarations ---------- *)
 
 Declaration              ::= NamespaceDeclaration
-                           | FunctionDeclaration
+                           | TopLevelFunctionDeclaration
+                           | TopLevelConstDeclaration
                            | ExtensionDeclaration
                            | EnumDeclaration
                            | UnionDeclaration
@@ -40,15 +50,20 @@ Declaration              ::= NamespaceDeclaration
                            | InterfaceDeclaration
                            | DelegateDeclaration ;
 
-NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {Declaration | Statement} '}' ;
+NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {TopLevelItem} '}' ;
 
-FunctionDeclaration      ::= {AttributeList | MacroAttributeList}
-                             FunctionModifiers?
+TopLevelFunctionDeclaration
+                          ::= {AttributeList | MacroAttributeList}
+                             TopLevelFunctionModifiers?
                              'func' Identifier TypeParameterList?
                              '(' ParameterList? ')'
                              ReturnTypeClause?
                              WhereClauseList?
                              ( Block | '=>' Expression ) ;
+
+TopLevelConstDeclaration ::= {AttributeList | MacroAttributeList}
+                             TopLevelConstModifiers?
+                             'const' VariableDeclarators TypeTerminator? ;
 
 ExtensionKeyword         ::= 'extension' | 'trait'
 

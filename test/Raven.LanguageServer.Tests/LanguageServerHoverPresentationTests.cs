@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -691,6 +692,52 @@ extension WidgetExtensions for Widget {
 
         kind.ShouldBe("Extension method");
         containing.ShouldBe("Demo.Tools.WidgetExtensions");
+    }
+
+    [Fact]
+    public void TopLevelFunctionHover_ShowsNamespaceContainingDisplay()
+    {
+        const string code = """
+namespace Utilities {
+    public func AddOne(value: int) -> int => value + 1
+}
+
+func Run() -> int {
+    return Utilities.AddOne(1)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var identifier = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(access => access.Name.Identifier.ValueText == "AddOne")
+            .Name;
+        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+
+        var buildKindDisplay = typeof(HoverHandler)
+            .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildContainingDisplay = typeof(HoverHandler)
+            .GetMethod("BuildContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildHoverText = typeof(HoverHandler)
+            .GetMethod("BuildHoverText", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var kind = (string)buildKindDisplay.Invoke(null, [symbol])!;
+        var containing = (string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel]);
+        var hoverText = (string)buildHoverText.Invoke(null, ["func AddOne(value: int) -> int", kind, containing, null, ImmutableArray<ISymbol>.Empty, false])!;
+
+        kind.ShouldBe("Function");
+        containing.ShouldBe("namespace Utilities");
+        hoverText.ShouldContain("Function in namespace `Utilities`");
     }
 
     [Fact]

@@ -116,7 +116,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)
     {
         return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
-            SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
+            SyntaxKind.ConstKeyword or SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.FileprivateKeyword or
             SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
@@ -187,7 +187,8 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             AddMemberDeclaration(memberDeclarations, namespaceDeclaration);
             order = MemberOrder.Members;
         }
-        else if (nextToken.IsKind(SyntaxKind.EnumKeyword) ||
+        else if (nextToken.IsKind(SyntaxKind.ConstKeyword) ||
+                 nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
                  nextToken.IsKind(SyntaxKind.DelegateKeyword) ||
                  nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) || nextToken.IsKind(SyntaxKind.TraitKeyword) ||
@@ -267,6 +268,15 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 var delegateDeclaration = new TypeDeclarationParser(this).ParseDelegateDeclaration(attributeLists, modifiers);
 
                 AddMemberDeclaration(memberDeclarations, delegateDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            if (typeKeywordKind == SyntaxKind.ConstKeyword)
+            {
+                var constDeclaration = new TypeDeclarationParser(this).ParseConstDeclaration(attributeLists, modifiers);
+
+                AddMemberDeclaration(memberDeclarations, constDeclaration);
                 order = MemberOrder.Members;
                 return;
             }

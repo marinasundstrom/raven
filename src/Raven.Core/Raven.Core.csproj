@@ -16,6 +16,7 @@
     <RavenSource Include="Parse.rav" />
     <RavenSource Include="Result.rav" />
     <RavenSource Include="LinqExtensions.rav" />
+    <RavenSource Include="TopLevel.rav" />
     <RavenSource Include="UnionJsonConverter.rav" />
     <RavenSource Include="Union.rav" />
   </ItemGroup>
