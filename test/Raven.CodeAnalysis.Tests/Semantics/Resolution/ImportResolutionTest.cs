@@ -112,6 +112,23 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void FileScopedNamespaceImportFullyQualifiedOpenGenericType_ShouldNot_ProduceDiagnostic()
+    {
+        string testCode =
+            """
+            namespace Samples
+
+            import System.Collections.Generic.List<>
+
+            List<int>
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ImportNamespaceProvidesFuncWithMultipleTypeArguments_ShouldNot_ProduceDiagnostic()
     {
         string testCode =

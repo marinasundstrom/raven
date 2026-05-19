@@ -374,7 +374,8 @@ class BinderFactory
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = leftName + "." + gen.Identifier.ValueText + "`" + gen.TypeArgumentList.Arguments.Count;
-                var unconstructed = _compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = _compilation.GetTypeByMetadataName(baseName)
+                    ?? _compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -391,7 +392,7 @@ class BinderFactory
         {
             if (name is GenericNameSyntax g)
             {
-                var baseName = g.Identifier.ValueText + "`" + g.TypeArgumentList.Arguments.SeparatorCount + 1;
+                var baseName = g.Identifier.ValueText + "`" + (g.TypeArgumentList.Arguments.SeparatorCount + 1);
                 var unconstructed = _compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is null)
                     return null;
@@ -405,8 +406,9 @@ class BinderFactory
             if (name is QualifiedNameSyntax { Right: GenericNameSyntax gen })
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
-                var baseName = leftName + "." + gen.Identifier.ValueText + "`" + gen.TypeArgumentList.Arguments.SeparatorCount + 1;
-                var unconstructed = _compilation.GetTypeByMetadataName(current, baseName);
+                var baseName = leftName + "." + gen.Identifier.ValueText + "`" + (gen.TypeArgumentList.Arguments.SeparatorCount + 1);
+                var unconstructed = _compilation.GetTypeByMetadataName(baseName)
+                    ?? _compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is not null)
                     return unconstructed;
             }

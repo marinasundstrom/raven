@@ -672,10 +672,9 @@ internal abstract partial class Binder
 
         var methodDefinition = method.OriginalDefinition ?? method;
 
-        if (methodDefinition.Parameters.IsDefaultOrEmpty || methodDefinition.Parameters.Length == 0)
+        if (!TryGetMethodParameterType(methodDefinition, 0, out var receiverParameterType))
             return false;
 
-        var receiverParameterType = methodDefinition.Parameters[0].Type;
         if (receiverParameterType is null || receiverParameterType.TypeKind == TypeKind.Error)
             return false;
 
@@ -1303,10 +1302,9 @@ internal abstract partial class Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return true;
 
-        if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
+        if (!TryGetMethodParameterType(method, 0, out var parameterType))
             return false;
 
-        var parameterType = method.Parameters[0].Type;
         if (parameterType is null || parameterType.TypeKind == TypeKind.Error)
             return true;
 
@@ -1322,6 +1320,24 @@ internal abstract partial class Binder
 
         var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private static bool TryGetMethodParameterType(
+        IMethodSymbol method,
+        int index,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+    {
+        if (method is PEMethodSymbol peMethod)
+            return peMethod.TryGetParameterType(index, out type);
+
+        if (index < 0 || index >= method.Parameters.Length)
+        {
+            type = null;
+            return false;
+        }
+
+        type = method.Parameters[index].Type;
+        return type is not null;
     }
 
     private bool SatisfiesInferredTypeParameterConstraints(

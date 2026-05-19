@@ -433,6 +433,13 @@ partial class BlockBinder
             // PARAMETER TYPES still contain unresolved type parameters.  The return-type
             // position can be left open — the lambda binder already handles that correctly by
             // inferring the return type from the body (see BlockBinder.Lambda.cs line ~541).
+            if (targetType is not null &&
+                arg.Expression is FunctionExpressionSyntax &&
+                ContainsAnyTypeParameterInDelegateInputParams(targetType, allMethodTypeParams))
+            {
+                targetType = null;
+            }
+
             if (targetType is not null && methods.Length == 1)
             {
                 var hasUnresolved = CanUseOpenDelegateReturnTypeHint(arg.Expression)

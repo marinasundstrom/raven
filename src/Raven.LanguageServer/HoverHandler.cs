@@ -705,6 +705,18 @@ internal sealed class HoverHandler : IHoverHandler
         if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
             return true;
 
+        if (semanticModel.TryGetInvocationTargetSymbolInfo(invocation, out var targetInfo) &&
+            TryResolveInvocationMethodFromSymbolInfo(
+                semanticModel,
+                invocation,
+                identifier,
+                targetInfo,
+                requireUnambiguousCandidate: true,
+                out resolution))
+        {
+            return true;
+        }
+
         if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var fastInvocationCandidates) &&
             TryResolveInvocationMethodFromCandidates(
                 fastInvocationCandidates,
@@ -803,6 +815,66 @@ internal sealed class HoverHandler : IHoverHandler
                 targetType,
                 identifier);
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveInvocationMethodFromSymbolInfo(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        SimpleNameSyntax identifier,
+        SymbolInfo symbolInfo,
+        bool requireUnambiguousCandidate,
+        out SymbolResolutionResult resolution)
+    {
+        resolution = default;
+
+        if (symbolInfo.Symbol is IMethodSymbol invocationMethod &&
+            IsInvocationMethodNameMatch(invocationMethod, identifier.Identifier.ValueText))
+        {
+            var projected = ProjectCachedInvocationHoverSymbol(invocationMethod);
+            if (!IsUnitTypeSymbol(projected))
+            {
+                resolution = new SymbolResolutionResult(
+                    SymbolResolutionKind.InvocationTarget,
+                    projected,
+                    identifier);
+                return true;
+            }
+        }
+
+        if (symbolInfo.Symbol is INamedTypeSymbol invocationType &&
+            TryChooseConstructorForInvocation(invocationType, invocation, out var invocationConstructor))
+        {
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.InvocationTarget,
+                invocationConstructor,
+                identifier);
+            return true;
+        }
+
+        if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty &&
+            TryResolveInvocationMethodFromCandidates(
+                symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray(),
+                invocation,
+                identifier,
+                requireUnambiguousCandidate,
+                out resolution))
+        {
+            return true;
+        }
+
+        foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+        {
+            if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
+            {
+                resolution = new SymbolResolutionResult(
+                    SymbolResolutionKind.InvocationTarget,
+                    candidateConstructor,
+                    identifier);
+                return true;
+            }
         }
 
         return false;

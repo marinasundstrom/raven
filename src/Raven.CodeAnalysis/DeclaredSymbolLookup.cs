@@ -436,7 +436,7 @@ internal sealed class DeclaredSymbolLookup
         => accessor.Kind == SyntaxKind.GetAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.GetKeyword;
 
     private static bool RequiresDeclarationBinding(SyntaxNode node)
-        => node is MemberDeclarationSyntax or AccessorDeclarationSyntax ||
+        => node is AccessorDeclarationSyntax ||
            node is ParameterSyntax { Parent.Parent: CaseDeclarationSyntax };
 
     private static bool IsSetAccessor(AccessorDeclarationSyntax accessor)

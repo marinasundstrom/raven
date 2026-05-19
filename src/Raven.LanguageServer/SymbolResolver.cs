@@ -104,6 +104,18 @@ internal static partial class SymbolResolver
         if (!TryGetIdentifierTokenAtOffset(root, offset, out _, out var identifier))
             return false;
 
+        if (identifier.Parent is MemberAccessExpressionSyntax targetMemberAccess &&
+            HaveEquivalentSpan(targetMemberAccess.Name, identifier))
+        {
+            return false;
+        }
+
+        if (identifier.Parent is MemberBindingExpressionSyntax targetMemberBinding &&
+            HaveEquivalentSpan(targetMemberBinding.Name, identifier))
+        {
+            return false;
+        }
+
         if (!TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
             return false;
 

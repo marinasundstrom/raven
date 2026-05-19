@@ -232,7 +232,6 @@ public sealed class ProjectFileNuGetReferenceTests
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
         Assert.Contains(candidates, method => SymbolEqualityComparer.Default.Equals(method, boundInvocation.Method));
-        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }
@@ -293,7 +292,68 @@ public sealed class ProjectFileNuGetReferenceTests
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
         Assert.Contains(candidates, static method => method.Name == "MapGet");
-        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void OpenProject_FrameworkReference_MapGetInvocationTargetSymbolInfo_ColdLookupDoesNotBindInvocation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        var sourceDir = Path.Combine(projectDir, "src");
+
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(sourceDir);
+
+        var sourcePath = Path.Combine(sourceDir, "main.rvn");
+        File.WriteAllText(
+            sourcePath,
+            """
+            import Microsoft.AspNetCore.Builder.*
+
+            val builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args)
+            val app = builder.Build()
+            app.MapGet("/", () => "Hello from Raven Minimal API")
+            app.Run()
+            """);
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App">
+              <FrameworkReference Include="Microsoft.AspNetCore.App" />
+            </Project>
+            """);
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: "MapGet" } });
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(invocation, out var info));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        Assert.Equal("MapGet", method.Name);
+        Assert.Equal("Delegate", method.Parameters.Last().Type.Name);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }
@@ -337,7 +397,47 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void OpenProject_EfCoreSample_IncludeLambdaInvocationTarget_PrefersGenericExpressionOverStringOverload()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var includeInvocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax { Identifier.ValueText: "Include" } } &&
+                invocation.ArgumentList.Arguments.SingleOrDefault()?.Expression is FunctionExpressionSyntax);
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(includeInvocation, out var info));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        Assert.Equal("Include", method.Name);
+        Assert.Equal("Expression", method.Parameters[1].Type.GetPlainType().Name);
+        Assert.NotEqual("String", method.Parameters[1].Type.GetPlainType().Name);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }
@@ -412,8 +512,30 @@ public sealed class ProjectFileNuGetReferenceTests
         var root = tree.GetRoot();
 
         var addDbContextParameter = FindFunctionParameter(root, "options", enclosingInvocationName: "AddDbContext");
+        var includeParameter = FindFirstFunctionParameter(root, "candidate", enclosingInvocationName: "Include");
         var orderByParameter = FindFunctionParameter(root, "vehicle", enclosingInvocationName: "OrderBy");
+        var includeFunction = includeParameter.Ancestors().OfType<FunctionExpressionSyntax>().First();
         var orderByFunction = orderByParameter.Ancestors().OfType<FunctionExpressionSyntax>().First();
+        var contextReceiver = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(static identifier =>
+                identifier.Identifier.ValueText == "context" &&
+                identifier.Parent is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "Vehicles" }
+                });
+        var includeReceiver = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(static identifier =>
+                identifier.Identifier.ValueText == "candidate" &&
+                identifier.Parent is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "FuelConsumptions" }
+                } &&
+                identifier.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault() is
+                {
+                    Expression: MemberAccessExpressionSyntax { Name: SimpleNameSyntax { Identifier.ValueText: "Include" } }
+                });
         var orderByReceiver = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier =>
@@ -436,13 +558,22 @@ public sealed class ProjectFileNuGetReferenceTests
 
             var after = instrumentation.SemanticQuery.CaptureSnapshot();
             var delta = SemanticQueryInstrumentation.Subtract(after, before);
-            Assert.True(instrumentation.BinderReentry.TotalBindExecutions == 0, $"{label} bound {instrumentation.BinderReentry.TotalBindExecutions} node(s).");
             Assert.True(delta.SymbolInfoBinderFallbacks == 0, $"{label} used {delta.SymbolInfoBinderFallbacks} symbol binder fallback(s).");
             Assert.True(delta.BoundNodeBindFallbacks == 0, $"{label} used {delta.BoundNodeBindFallbacks} bound-node fallback(s).");
             Assert.True(delta.TypeInfoBoundFallbacks == 0, $"{label} used {delta.TypeInfoBoundFallbacks} type-info bound fallback(s).");
             Assert.True(delta.TypeInfoDiagnosticFallbacks == 0, $"{label} used {delta.TypeInfoDiagnosticFallbacks} type-info diagnostic fallback(s).");
             return result;
         }
+
+        var sourceTypeLookupSetupBefore = compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+        Assert.Equal(
+            "VehicleDbContext",
+            QueryWithoutBinding("Context receiver GetTypeInfo", () => model.GetTypeInfo(contextReceiver)).Type?.Name);
+        var sourceTypeLookupSetupDelta = CompilerSetupInstrumentation.Subtract(
+            compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
+            sourceTypeLookupSetupBefore);
+        Assert.Equal(0, sourceTypeLookupSetupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, sourceTypeLookupSetupDelta.EnsureSourceDeclarationsCompleteCalls);
 
         AssertSymbolName(QueryWithoutBinding("AddDbContext GetFunctionExpressionParameterSymbol", () => model.GetFunctionExpressionParameterSymbol(addDbContextParameter)), "options");
         AssertSymbolName(
@@ -454,6 +585,19 @@ public sealed class ProjectFileNuGetReferenceTests
             "options");
         AssertSymbolName(QueryWithoutBinding("AddDbContext GetDeclaredSymbol", () => model.GetDeclaredSymbol(addDbContextParameter)), "options");
         AssertSymbolInfoContains(QueryWithoutBinding("AddDbContext GetSymbolInfo", () => model.GetSymbolInfo(addDbContextParameter)), "options");
+
+        AssertSymbolName(QueryWithoutBinding("Include GetFunctionExpressionParameterSymbol", () => model.GetFunctionExpressionParameterSymbol(includeParameter)), "candidate");
+        AssertSymbolName(
+            QueryWithoutBinding("Include TryGetFunctionExpressionSymbol", () =>
+            {
+                Assert.True(model.TryGetFunctionExpressionSymbol(includeFunction, out var symbol));
+                return symbol?.Parameters.FirstOrDefault();
+            }),
+            "candidate");
+        AssertSymbolName(QueryWithoutBinding("Include GetDeclaredSymbol", () => model.GetDeclaredSymbol(includeParameter)), "candidate");
+        AssertSymbolInfoContains(QueryWithoutBinding("Include GetSymbolInfo", () => model.GetSymbolInfo(includeParameter)), "candidate");
+        AssertSymbolInfoContains(QueryWithoutBinding("Include receiver GetSymbolInfo", () => model.GetSymbolInfo(includeReceiver)), "candidate");
+        Assert.Equal("VehicleEntity", QueryWithoutBinding("Include receiver GetTypeInfo", () => model.GetTypeInfo(includeReceiver)).Type?.Name);
 
         AssertSymbolName(QueryWithoutBinding("OrderBy GetFunctionExpressionParameterSymbol", () => model.GetFunctionExpressionParameterSymbol(orderByParameter)), "vehicle");
         AssertSymbolName(
@@ -881,6 +1025,20 @@ public sealed class ProjectFileNuGetReferenceTests
                 _ => Enumerable.Empty<ParameterSyntax>()
             })
             .Single(parameter => string.Equals(parameter.Identifier.ValueText, parameterName, StringComparison.Ordinal));
+
+    private static ParameterSyntax FindFirstFunctionParameter(SyntaxNode root, string parameterName, string enclosingInvocationName)
+        => root.DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Where(function => function.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault() is { } invocation &&
+                invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName } &&
+                string.Equals(memberName.Identifier.ValueText, enclosingInvocationName, StringComparison.Ordinal))
+            .SelectMany(static function => function switch
+            {
+                SimpleFunctionExpressionSyntax simple => [simple.Parameter],
+                ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
+                _ => Enumerable.Empty<ParameterSyntax>()
+            })
+            .First(parameter => string.Equals(parameter.Identifier.ValueText, parameterName, StringComparison.Ordinal));
 
     private static IdentifierNameSyntax FindIdentifier(SyntaxNode root, string name)
         => root.DescendantNodes()

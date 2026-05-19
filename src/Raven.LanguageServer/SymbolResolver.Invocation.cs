@@ -50,6 +50,12 @@ internal static partial class SymbolResolver
         if (!IsInvocationTargetMatch(invocation.Expression, node, token))
             return false;
 
+        if (semanticModel.TryGetInvocationTargetSymbolInfo(invocation, out var invocationTargetInfo) &&
+            TryResolveInvocationTargetSymbolFromSymbolInfo(semanticModel, invocation, invocationTargetInfo, out symbol))
+        {
+            return true;
+        }
+
         if (TryResolvePipeBoundInvocationTargetSymbol(semanticModel, invocation, out var pipeBoundSymbol))
         {
             symbol = pipeBoundSymbol;
@@ -188,6 +194,63 @@ internal static partial class SymbolResolver
         // resolves overloads using the piped value as an implicit first argument and
         // stores the constructed symbol on the BinaryExpression node, not on the
         // InvocationExpression itself.
+        return false;
+    }
+
+    private static bool TryResolveInvocationTargetSymbolFromSymbolInfo(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        SymbolInfo symbolInfo,
+        [NotNullWhen(true)] out ISymbol? symbol)
+    {
+        symbol = null;
+
+        if (symbolInfo.Symbol is INamedTypeSymbol invocationType &&
+            TryChooseConstructorForInvocation(invocationType, invocation, out var invocationConstructor))
+        {
+            symbol = invocationConstructor;
+            return true;
+        }
+
+        if (symbolInfo.Symbol is not null)
+        {
+            var projectedSymbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol, semanticModel, invocation);
+            if (projectedSymbol is not ILocalSymbol &&
+                !IsUnitTypeSymbol(projectedSymbol))
+            {
+                symbol = projectedSymbol;
+                return true;
+            }
+        }
+
+        foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+        {
+            if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
+            {
+                symbol = candidateConstructor;
+                return true;
+            }
+        }
+
+        if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+        {
+            var methodCandidates = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+            var candidate = methodCandidates.Length == 1
+                ? methodCandidates[0]
+                : SemanticModel.TryChooseInvocationMethodCandidate(
+                    methodCandidates,
+                    invocation,
+                    SemanticModel.InvocationCandidateFallback.None);
+            if (candidate is not null &&
+                ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
+                projectedCandidate is not ILocalSymbol &&
+                !IsUnitTypeSymbol(projectedCandidate))
+            {
+                symbol = projectedCandidate;
+                return true;
+            }
+        }
+
         return false;
     }
 

@@ -487,6 +487,60 @@ public sealed class IncrementalBinderLifecycleTests
     }
 
     [Fact]
+    public void GetSymbolInfo_ForTopLevelInvocation_AfterPriorEdit_BindsContextualStatementRoot()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource = """
+            val text: string? = null
+            System.Console.WriteLine(text)
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("null", "\"updated\"", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedRoot = updatedTree.GetRoot();
+        var updatedGlobals = updatedRoot.DescendantNodes().OfType<GlobalStatementSyntax>().ToArray();
+        var invocation = updatedGlobals[1]
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        var textReference = GetIdentifier(updatedGlobals[1], "text");
+
+        updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+
+        var symbolInfo = updatedModel.GetSymbolInfo(invocation);
+
+        var method = symbolInfo.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("WriteLine");
+        updatedModel.GetSymbolInfo(textReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("text");
+        updatedModel.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ForMemberDeclarations_AfterBodyEdit_UsesSourceDeclarationFastPath()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

@@ -320,4 +320,126 @@ class C {
         Assert.Equal("IQueryable", queryType.Name);
         Assert.Equal("String", Assert.Single(queryType.TypeArguments).Name);
     }
+
+    [Fact]
+    public void TryGetInvocationTargetSymbolInfo_ForPipeExtensionLambda_UsesCompilerOwnedInvocationResult()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var IsActive: bool)
+
+class C {
+    func Run(users: IQueryable<User>) -> unit {
+        val onlyActiveAdults: Expression<System.Func<User, bool>> = user => user.IsActive
+        val query = users
+            |> Where(onlyActiveAdults)
+            |> OrderBy(user => user.Name)
+            |> Select(user => user.Name)
+    }
+}
+""";
+
+        var instrumentation = new PerformanceInstrumentation();
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "node-interest-binding-tests",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(
+                    OutputKind.ConsoleApplication,
+                    performanceInstrumentation: instrumentation));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var whereInvocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "Where");
+
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+        var queryBefore = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var resolved = model.TryGetInvocationTargetSymbolInfo(whereInvocation, out var info);
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        var queryDelta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            queryBefore);
+        resolved.ShouldBeTrue();
+        var method = info.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("Where");
+        method.ContainingType?.Name.ShouldBe("Queryable");
+        model.RootBinderCreated.ShouldBeFalse();
+        setupDelta.EnsureRootBinderCreatedCalls.ShouldBe(0);
+        setupDelta.RootBinderCreations.ShouldBe(0);
+        queryDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+    }
+
+    [Fact]
+    public void TryGetInvocationTargetSymbolInfo_WithMixedGenericOverloads_UsesClosedAvailableCandidate()
+    {
+        const string source = """
+import System.*
+import System.Runtime.CompilerServices.*
+
+class App()
+
+static class EndpointExtensions {
+    [ExtensionAttribute]
+    static func MapGet(app: App, pattern: string, handler: Delegate) -> int {
+        return 0
+    }
+
+    [ExtensionAttribute]
+    static func MapGet<T>(app: App, pattern: string, handler: Func<T>) -> int {
+        return 1
+    }
+}
+
+class C {
+    func Run(app: App) -> unit {
+        app.MapGet("/", func () => 1)
+    }
+}
+""";
+
+        var instrumentation = new PerformanceInstrumentation();
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "node-interest-binding-tests",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(
+                    OutputKind.ConsoleApplication,
+                    performanceInstrumentation: instrumentation));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "app.MapGet");
+
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+        var queryBefore = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var resolved = model.TryGetInvocationTargetSymbolInfo(invocation, out var info);
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        var queryDelta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            queryBefore);
+        resolved.ShouldBeTrue();
+        var method = info.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("MapGet");
+        method.TypeParameters.Length.ShouldBe(0);
+        model.RootBinderCreated.ShouldBeFalse();
+        setupDelta.EnsureRootBinderCreatedCalls.ShouldBe(0);
+        setupDelta.RootBinderCreations.ShouldBe(0);
+        queryDelta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
+
 }

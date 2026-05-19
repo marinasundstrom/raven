@@ -1835,19 +1835,28 @@ public sealed class IncrementalCompilationReuseTests
         var onlyActiveAdultsReference = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "onlyActiveAdults");
+        var whereIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Where");
 
-        updatedModel.GetDeclaredSymbol(onlyActiveAdultsDeclarator)
-            .ShouldBeAssignableTo<ILocalSymbol>()
-            .Name
-            .ShouldBe("onlyActiveAdults");
-        updatedModel.GetDeclaredSymbol(queryDeclarator)
-            .ShouldBeAssignableTo<ILocalSymbol>()
-            .Name
-            .ShouldBe("query");
+        var onlyActiveAdultsLocal = updatedModel.GetDeclaredSymbol(onlyActiveAdultsDeclarator)
+            .ShouldBeAssignableTo<ILocalSymbol>();
+        onlyActiveAdultsLocal.Name.ShouldBe("onlyActiveAdults");
+        onlyActiveAdultsLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
+
+        var queryLocal = updatedModel.GetDeclaredSymbol(queryDeclarator)
+            .ShouldBeAssignableTo<ILocalSymbol>();
+        queryLocal.Name.ShouldBe("query");
+        var whereSymbolInfoAfterQueryDeclaration = updatedModel.GetSymbolInfo(whereIdentifier);
+        (whereSymbolInfoAfterQueryDeclaration.Symbol ?? whereSymbolInfoAfterQueryDeclaration.CandidateSymbols.FirstOrDefault())
+            .ShouldBeAssignableTo<IMethodSymbol>();
+        queryLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
 
         var diagnostics = updatedCompilation.GetDocumentDiagnostics(updatedTree, analyzerOptions: null, CancellationToken.None);
 
-        diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        diagnostics.ShouldNotContain(
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error,
+            string.Join(Environment.NewLine, diagnostics.Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")));
         updatedModel.GetSymbolInfo(minAgeReference).Symbol?.Name.ShouldBe("minAge");
         updatedModel.GetSymbolInfo(onlyActiveAdultsReference).Symbol?.Name.ShouldBe("onlyActiveAdults");
     }

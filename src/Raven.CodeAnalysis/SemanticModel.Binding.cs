@@ -1634,7 +1634,8 @@ public partial class SemanticModel
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.Count}";
-                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = Compilation.GetTypeByMetadataName(baseName)
+                    ?? Compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -1666,7 +1667,8 @@ public partial class SemanticModel
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.SeparatorCount + 1}";
-                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = Compilation.GetTypeByMetadataName(baseName)
+                    ?? Compilation.GetTypeByMetadataName(current, baseName);
                 if (unconstructed is not null)
                     return unconstructed;
             }

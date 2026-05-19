@@ -21,6 +21,7 @@ namespace Raven.LanguageServer;
 internal sealed class InlayHintHandler : IInlayHintsHandler
 {
     private const int MaxUnboundedDocumentLength = 2_000;
+    private const double LargeDocumentRequestBudgetMs = 950;
     private const double SlowInlayHintThresholdMs = 150;
 
     private readonly DocumentStore _documents;
@@ -41,6 +42,30 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     public void SetCapability(InlayHintClientCapabilities capability)
     {
+    }
+
+    private static IEnumerable<TNode> DescendantNodesInSpan<TNode>(SyntaxNode root, TextSpan span)
+        where TNode : SyntaxNode
+    {
+        foreach (var child in root.ChildNodes())
+        {
+            if (!ShouldVisitForRequestedSpan(child, span))
+                continue;
+
+            if (child is TNode match)
+                yield return match;
+
+            foreach (var descendant in DescendantNodesInSpan<TNode>(child, span))
+                yield return descendant;
+        }
+    }
+
+    private static bool ShouldVisitForRequestedSpan(SyntaxNode node, TextSpan span)
+    {
+        if (span.Length == 0)
+            return node.FullSpan.Start <= span.Start && span.Start <= node.FullSpan.End;
+
+        return node.FullSpan.IntersectsWith(span);
     }
 
     public async Task<InlayHintContainer> Handle(InlayHintParams request, CancellationToken cancellationToken)
@@ -94,15 +119,20 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var sourceText = context.Value.SourceText;
             var root = context.Value.SyntaxTree.GetRoot(cancellationToken);
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
+            var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
+            var isPreciseRequest = requestSpan.Length == 0;
             var isLargeDocumentRequest = IsLargeDocumentRequest(sourceText, requestSpan);
-            var allowExpensiveBinding = !IsLargeFullDocumentRequest(sourceText, request.Range, requestSpan);
+            var allowExpensiveBinding = !isLargeDocument || isPreciseRequest;
+            var collectionBudgetMs = isLargeDocumentRequest
+                ? LargeDocumentRequestBudgetMs
+                : double.PositiveInfinity;
 
             stageStopwatch.Restart();
             var hints = new List<InlayHint>();
             var collectionBudget = new InlayHintCollectionBudget(
                 Stopwatch.StartNew(),
                 cancellationToken,
-                double.PositiveInfinity,
+                collectionBudgetMs,
                 includeTooltips: sourceText.Length <= MaxUnboundedDocumentLength && !isLargeDocumentRequest);
             var collectStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
@@ -116,16 +146,20 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 collectionBudget);
             localTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
-            AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+            if (collectionBudget.HasBudgetForAdditionalCategory())
+                AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             patternTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
-            AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+            if (collectionBudget.HasBudgetForAdditionalCategory())
+                AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             forTargetTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
-            AddFunctionExpressionParameterTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+            if (collectionBudget.HasBudgetForAdditionalCategory())
+                AddFunctionExpressionParameterTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
             functionParameterTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
-            AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+            if (collectionBudget.HasBudgetForAdditionalCategory())
+                AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
             returnTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             collectMs = collectStopwatch.Elapsed.TotalMilliseconds;
             resultCount = hints.Count;
@@ -204,7 +238,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         bool allowInitializerBinding,
         InlayHintCollectionBudget budget)
     {
-        foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+        foreach (var declarator in DescendantNodesInSpan<VariableDeclaratorSyntax>(root, requestSpan))
         {
             if (budget.ShouldStop())
                 return;
@@ -224,13 +258,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (budget.ShouldStop())
                 return;
 
-            if (!allowInitializerBinding && !CanResolveLocalHintWithoutInitializerBinding(declarator))
+            var avoidInitializerBinding = !allowInitializerBinding &&
+                ShouldAvoidInitializerBindingForInlay(declarator);
+            if (avoidInitializerBinding && !CanResolveLocalHintWithoutInitializerBinding(declarator))
                 continue;
 
             if (!semanticModel.TryGetAvailableLocalDeclarationSymbol(
                     declarator,
                     out var local,
-                    allowInitializerBinding: allowInitializerBinding) ||
+                    allowInitializerBinding: !avoidInitializerBinding) ||
                 local is null ||
                 !TryFormatType(semanticModel, declarator, local.Type, out var typeDisplay))
             {
@@ -261,6 +297,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             !initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any();
     }
 
+    private static bool ShouldAvoidInitializerBindingForInlay(VariableDeclaratorSyntax declarator)
+    {
+        if (declarator.Initializer?.Value is not { } initializer)
+            return false;
+
+        return initializer.DescendantNodesAndSelf().Any(static node =>
+            node is InvocationExpressionSyntax or FunctionExpressionSyntax);
+    }
+
     private static void AddForTargetTypeHints(
         List<InlayHint> hints,
         SemanticModel semanticModel,
@@ -269,7 +314,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         TextSpan requestSpan,
         InlayHintCollectionBudget budget)
     {
-        foreach (var forStatement in root.DescendantNodes().OfType<ForStatementSyntax>())
+        foreach (var forStatement in DescendantNodesInSpan<ForStatementSyntax>(root, requestSpan))
         {
             if (budget.ShouldStop())
                 return;
@@ -315,7 +360,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         TextSpan requestSpan,
         InlayHintCollectionBudget budget)
     {
-        foreach (var designation in root.DescendantNodes().OfType<SingleVariableDesignationSyntax>())
+        foreach (var designation in DescendantNodesInSpan<SingleVariableDesignationSyntax>(root, requestSpan))
         {
             if (budget.ShouldStop())
                 return;
@@ -382,7 +427,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         bool allowBinding,
         InlayHintCollectionBudget budget)
     {
-        foreach (var functionExpression in root.DescendantNodes().OfType<FunctionExpressionSyntax>())
+        foreach (var functionExpression in DescendantNodesInSpan<FunctionExpressionSyntax>(root, requestSpan))
         {
             if (budget.ShouldStop())
                 return;
@@ -434,11 +479,18 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (budget.ShouldStop())
             return;
 
-        if (!allowBinding)
-            return;
-
         var parameterType = contextualParameterType;
-        if (parameterType is null && allowBinding &&
+        if (parameterType is null &&
+            semanticModel.TryResolveFunctionExpressionParameterSymbolFast(
+                parameter,
+                out var fastParameter,
+                allowCandidateLookup: allowBinding) &&
+            fastParameter?.Type is { } fastParameterType)
+        {
+            parameterType = fastParameterType;
+        }
+        else if (parameterType is null &&
+            allowBinding &&
             semanticModel.GetFunctionExpressionParameterSymbol(parameter) is { Type: { } resolvedParameterType })
         {
             parameterType = resolvedParameterType;
@@ -485,7 +537,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         bool allowBinding,
         InlayHintCollectionBudget budget)
     {
-        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+        foreach (var method in DescendantNodesInSpan<MethodDeclarationSyntax>(root, requestSpan))
         {
             if (budget.ShouldStop())
                 return;
@@ -504,7 +556,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 budget);
         }
 
-        foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+        foreach (var function in DescendantNodesInSpan<FunctionStatementSyntax>(root, requestSpan))
         {
             if (budget.ShouldStop())
                 return;
@@ -523,7 +575,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 budget);
         }
 
-        foreach (var functionExpression in root.DescendantNodes().OfType<FunctionExpressionSyntax>())
+        foreach (var functionExpression in DescendantNodesInSpan<FunctionExpressionSyntax>(root, requestSpan))
         {
             if (budget.ShouldStop())
                 return;
@@ -1069,25 +1121,10 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         => sourceText.Length > MaxUnboundedDocumentLength &&
            requestSpan.Length > MaxUnboundedDocumentLength;
 
-    private static bool IsLargeFullDocumentRequest(SourceText sourceText, LspRange requestRange, TextSpan requestSpan)
-    {
-        if (sourceText.Length <= MaxUnboundedDocumentLength ||
-            requestRange.Start.Line > 0 ||
-            requestRange.Start.Character > 0)
-        {
-            return false;
-        }
-
-        var text = sourceText.ToString();
-        var lastLine = text.Count(static ch => ch == '\n');
-        return requestRange.End.Line >= lastLine ||
-            requestSpan.End >= sourceText.Length ||
-            requestSpan.Length >= sourceText.Length * 0.9;
-    }
-
     private readonly struct InlayHintCollectionBudget
     {
         private const double MinTooltipBudgetMilliseconds = 50;
+        private const double MinAdditionalCategoryBudgetMilliseconds = 350;
 
         private readonly Stopwatch _stopwatch;
         private readonly CancellationToken _cancellationToken;
@@ -1108,6 +1145,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         private bool IncludeTooltips { get; }
 
         public bool IsExpired => _stopwatch.Elapsed.TotalMilliseconds >= _maxMilliseconds;
+
+        public bool HasBudgetForAdditionalCategory()
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+            return double.IsPositiveInfinity(_maxMilliseconds) ||
+                _stopwatch.Elapsed.TotalMilliseconds <= _maxMilliseconds - MinAdditionalCategoryBudgetMilliseconds;
+        }
 
         public bool ShouldStop()
         {

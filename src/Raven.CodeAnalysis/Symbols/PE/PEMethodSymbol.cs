@@ -485,9 +485,6 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         if (_hasUnreadableSignature)
             return false;
 
-        if (Parameters.IsDefaultOrEmpty || Parameters.Length == 0)
-            return false;
-
         try
         {
             var hasExtensionAttribute = HasExtensionAttribute(_methodInfo.GetCustomAttributesData());

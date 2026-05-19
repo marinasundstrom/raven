@@ -259,17 +259,25 @@ partial class BlockBinder : Binder
         if (name == "_" || variableDeclarator.Identifier.IsMissing)
             return null;
 
+        EnsurePrecedingStatementDeclarations(variableDeclarator);
+
         if (TryGetDeclaredLocal(variableDeclarator, out var existingDeclaredLocal))
         {
-            RegisterLocalForCurrentLookup(name, existingDeclaredLocal);
-            return existingDeclaredLocal;
+            if (!existingDeclaredLocal.Type.ContainsErrorType() || !allowInitializerBinding)
+            {
+                RegisterLocalForCurrentLookup(name, existingDeclaredLocal);
+                return existingDeclaredLocal;
+            }
         }
 
         if (TryGetSameLocalFromCurrentLookup(name, variableDeclarator, out var sameLocal))
         {
-            RegisterLocalForCurrentLookup(name, sameLocal);
-            OnLocalDeclared(sameLocal, variableDeclarator);
-            return sameLocal;
+            if (!sameLocal.Type.ContainsErrorType() || !allowInitializerBinding)
+            {
+                RegisterLocalForCurrentLookup(name, sameLocal);
+                OnLocalDeclared(sameLocal, variableDeclarator);
+                return sameLocal;
+            }
         }
 
         if (declaration.BindingKeyword.Kind is not (SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword))
@@ -583,7 +591,10 @@ partial class BlockBinder : Binder
         if (TryBindExistingLocalDeclaration(
             variableDeclarator,
             name,
-            allowDeclaredOnly: declarationOnly && existingDeclaredLocal is not null && !SemanticModel.IsCollectingDiagnostics,
+            allowDeclaredOnly: declarationOnly &&
+                existingDeclaredLocal is not null &&
+                !existingDeclaredLocal.Type.ContainsErrorType() &&
+                !SemanticModel.IsCollectingDiagnostics,
             allowCurrentLookupOnly: declarationOnly,
             out var existingDeclarator))
         {
@@ -821,7 +832,17 @@ partial class BlockBinder : Binder
         }
 
         ILocalSymbol localSymbol;
-        if (existingDeclaredLocal is not null)
+        if (existingDeclaredLocal is not null &&
+            existingDeclaredLocal.Type.TypeKind == TypeKind.Error &&
+            type.TypeKind != TypeKind.Error)
+        {
+            localSymbol = isFunctionValueAlias && functionValueTargetMethod is not null
+                ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod, recordDeclaration: false)
+                : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue, recordDeclaration: false);
+
+            _declarationState.ReplaceDeclaredLocal(existingDeclaredLocal, localSymbol, variableDeclarator);
+        }
+        else if (existingDeclaredLocal is not null)
         {
             localSymbol = existingDeclaredLocal;
             RegisterLocalForCurrentLookup(name, localSymbol);
@@ -852,7 +873,8 @@ partial class BlockBinder : Binder
     {
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
             TryGetDeclaredLocal(variableDeclarator, out var cachedDeclaredLocal) &&
-            SymbolEqualityComparer.Default.Equals(cachedDeclarator.Local, cachedDeclaredLocal))
+            SymbolEqualityComparer.Default.Equals(cachedDeclarator.Local, cachedDeclaredLocal) &&
+            !cachedDeclarator.Local.Type.ContainsErrorType())
         {
             RegisterLocalForCurrentLookup(name, cachedDeclarator.Local);
             declarator = cachedDeclarator;
@@ -867,7 +889,8 @@ partial class BlockBinder : Binder
         }
 
         if (allowCurrentLookupOnly &&
-            TryGetSameLocalFromCurrentLookup(name, variableDeclarator, out var sameLocal))
+            TryGetSameLocalFromCurrentLookup(name, variableDeclarator, out var sameLocal) &&
+            !sameLocal.Type.ContainsErrorType())
         {
             RegisterLocalForCurrentLookup(name, sameLocal);
             declarator = new BoundVariableDeclarator(sameLocal, null);
@@ -1235,7 +1258,14 @@ partial class BlockBinder : Binder
         };
     }
 
-    private SourceLocalSymbol CreateLocalSymbol(SyntaxNode declaringSyntax, string name, bool isMutable, ITypeSymbol type, bool isConst = false, object? constantValue = null)
+    private SourceLocalSymbol CreateLocalSymbol(
+        SyntaxNode declaringSyntax,
+        string name,
+        bool isMutable,
+        ITypeSymbol type,
+        bool isConst = false,
+        object? constantValue = null,
+        bool recordDeclaration = true)
     {
         var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
             ? variableDeclarator.Identifier.GetLocation()
@@ -1257,7 +1287,8 @@ partial class BlockBinder : Binder
             constantValue);
 
         RegisterLocalForCurrentLookup(name, symbol);
-        OnLocalDeclared(symbol, declaringSyntax);
+        if (recordDeclaration)
+            OnLocalDeclared(symbol, declaringSyntax);
         return symbol;
     }
 
@@ -1360,6 +1391,46 @@ partial class BlockBinder : Binder
             }
 
             localsByName.Add(new DeclaredLocalEntry(local, scope));
+            Version++;
+        }
+
+        public void ReplaceDeclaredLocal(ILocalSymbol oldLocal, ILocalSymbol newLocal, SyntaxNode declaringSyntax)
+        {
+            var scope = GetLexicalScopeKey(declaringSyntax);
+            for (var i = 0; i < _declaredLocals.Count; i++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(_declaredLocals[i], oldLocal))
+                {
+                    _declaredLocals[i] = newLocal;
+                    break;
+                }
+            }
+
+            _scopesByLocal.Remove(oldLocal);
+            _scopesByLocal[newLocal] = scope;
+
+            if (TryGetSyntaxReferenceKey(declaringSyntax, out var key))
+                _declaredLocalsBySyntax[key] = newLocal;
+
+            if (_declaredLocalsByName.TryGetValue(oldLocal.Name, out var oldNameEntries))
+            {
+                for (var i = oldNameEntries.Count - 1; i >= 0; i--)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(oldNameEntries[i].Local, oldLocal))
+                    {
+                        oldNameEntries.RemoveAt(i);
+                        break;
+                    }
+                }
+            }
+
+            if (!_declaredLocalsByName.TryGetValue(newLocal.Name, out var newNameEntries))
+            {
+                newNameEntries = new List<DeclaredLocalEntry>();
+                _declaredLocalsByName[newLocal.Name] = newNameEntries;
+            }
+
+            newNameEntries.Add(new DeclaredLocalEntry(newLocal, scope));
             Version++;
         }
 
@@ -1471,7 +1542,8 @@ partial class BlockBinder : Binder
         string name,
         bool isMutable,
         ITypeSymbol type,
-        IMethodSymbol targetMethod)
+        IMethodSymbol targetMethod,
+        bool recordDeclaration = true)
     {
         var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
             ? variableDeclarator.Identifier.GetLocation()
@@ -1492,7 +1564,8 @@ partial class BlockBinder : Binder
             targetMethod);
 
         RegisterLocalForCurrentLookup(name, symbol);
-        OnLocalDeclared(symbol, declaringSyntax);
+        if (recordDeclaration)
+            OnLocalDeclared(symbol, declaringSyntax);
         return symbol;
     }
 
