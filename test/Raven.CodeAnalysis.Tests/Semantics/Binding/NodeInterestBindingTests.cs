@@ -270,6 +270,56 @@ class C {
     }
 
     [Fact]
+    public void GetSymbolInfo_FunctionExpressionParameterReference_PrefersContextualParameterOverOuterLocal()
+    {
+        const string source = """
+class Payload()
+
+class ContinuationContext(var Result: Payload)
+
+class Computation(var Value: ContinuationContext) {
+    func ContinueWith(continuationFunction: (ContinuationContext) -> Payload) -> Payload {
+        continuationFunction(Value)
+    }
+}
+
+class C {
+    func Run(value: ContinuationContext) -> Payload {
+        val f = func (x: ContinuationContext) {
+            Computation(x)
+        }
+
+        val x = f(value).ContinueWith(x => {
+            return x.Result
+        })
+
+        x
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "node-interest-binding-tests",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var receiver = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(member => member.Name.Identifier.ValueText == "Result")
+            .Select(member => member.Expression)
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "x");
+
+        var symbol = model.GetSymbolInfo(receiver).Symbol;
+
+        var parameter = symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        parameter.Type.Name.ShouldBe("ContinuationContext");
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_OnLambdaDependentLocal_ReturnsContextualResultType()
     {
         const string source = """
