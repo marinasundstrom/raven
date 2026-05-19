@@ -4527,6 +4527,13 @@ public partial class SemanticModel
 
         switch (node)
         {
+            case MemberPatternPathSyntax memberPatternPath when TryGetCasePatternPathSymbol(memberPatternPath, out var memberPatternCaseSymbol):
+                {
+                    info = new SymbolInfo(memberPatternCaseSymbol);
+                    StoreNodeInterestSymbolDescriptor(node, memberPatternCaseSymbol);
+                    return true;
+                }
+
             case IdentifierNameSyntax identifier when TryGetCasePatternHeadSymbol(identifier, out var casePatternSymbol):
                 {
                     info = new SymbolInfo(casePatternSymbol);
@@ -4657,6 +4664,22 @@ public partial class SemanticModel
         return true;
     }
 
+    private bool TryGetCasePatternPathSymbol(MemberPatternPathSyntax pathSyntax, out ISymbol symbol)
+    {
+        symbol = null!;
+
+        if (pathSyntax.Parent is not MemberPatternSyntax memberPattern ||
+            !IsSameSyntaxNode(memberPattern.Path, pathSyntax))
+        {
+            return false;
+        }
+
+        if (TryResolveCasePatternSymbolFromContext(memberPattern, pathSyntax.Identifier.ValueText, out symbol))
+            return true;
+
+        return TryGetCasePatternSymbol(memberPattern, out symbol);
+    }
+
     private bool TryGetCasePatternHeadSymbol(SimpleNameSyntax nameSyntax, out ISymbol symbol)
     {
         symbol = null!;
@@ -4676,10 +4699,104 @@ public partial class SemanticModel
         if (patternNode is null)
             return false;
 
-        if (GetOperation(patternNode) is not ICasePatternOperation casePattern)
+        if (TryResolveCasePatternSymbolFromContext(patternNode, nameSyntax.Identifier.ValueText, out symbol))
+            return true;
+
+        return TryGetCasePatternSymbol(patternNode, out symbol);
+    }
+
+    private bool TryGetCasePatternSymbol(SyntaxNode patternNode, out ISymbol symbol)
+    {
+        if (TryGetCachedBoundNode(patternNode) is not BoundCasePattern casePattern)
+            BindPatternContextForSemanticQuery(patternNode);
+
+        if (TryGetCachedBoundNode(patternNode) is not BoundCasePattern reboundCasePattern)
+        {
+            symbol = null!;
+            return false;
+        }
+
+        symbol = reboundCasePattern.CaseSymbol;
+        return true;
+    }
+
+    private void BindPatternContextForSemanticQuery(SyntaxNode patternNode)
+    {
+        if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+        {
+            _ = GetBoundNode(matchExpression);
+            return;
+        }
+
+        if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+        {
+            _ = GetBoundNode(matchStatement);
+            return;
+        }
+
+        if (patternNode.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
+        {
+            _ = GetBoundNode(isPatternExpression);
+            return;
+        }
+
+        if (patternNode.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
+        {
+            _ = GetBoundNode(ifPatternStatement);
+            return;
+        }
+
+        if (patternNode.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
+        {
+            _ = GetBoundNode(whilePatternStatement);
+        }
+    }
+
+    private bool TryResolveCasePatternSymbolFromContext(SyntaxNode patternNode, string caseName, out ISymbol symbol)
+    {
+        symbol = null!;
+
+        if (string.IsNullOrWhiteSpace(caseName))
             return false;
 
-        symbol = casePattern.CaseSymbol;
+        ITypeSymbol? inputType = null;
+        if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+        {
+            var typeInfo = GetTypeInfo(matchExpression.Expression);
+            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+        }
+        else if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+        {
+            var typeInfo = GetTypeInfo(matchStatement.Expression);
+            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+        }
+        else if (patternNode.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
+        {
+            var typeInfo = GetTypeInfo(isPatternExpression.Expression);
+            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+        }
+        else if (patternNode.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
+        {
+            var typeInfo = GetTypeInfo(ifPatternStatement.Expression);
+            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+        }
+        else if (patternNode.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
+        {
+            var typeInfo = GetTypeInfo(whilePatternStatement.Expression);
+            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+        }
+
+        var union = inputType.TryGetUnion()
+            ?? inputType.TryGetUnionCase()?.Union;
+
+        if (union is null)
+            return false;
+
+        var caseSymbol = union.CaseTypes.FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
+        if (caseSymbol is null)
+            return false;
+
+        symbol = caseSymbol;
         return true;
     }
 

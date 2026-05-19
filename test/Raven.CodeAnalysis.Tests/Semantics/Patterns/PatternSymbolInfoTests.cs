@@ -11,6 +11,39 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class PatternSymbolInfoTests : CompilationTestBase
 {
     [Fact]
+    public void GetSymbolInfo_MemberPatternPathInMatchExpression_ResolvesUnionCase()
+    {
+        const string source = """
+union VehicleStatus {
+    case Operational(driverName: string)
+    case Maintenance(reason: string)
+}
+
+func StatusMatches(status: VehicleStatus) -> bool {
+    return status match {
+        .Operational(_) => true
+        _ => false
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberPatternPath = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberPatternPathSyntax>()
+            .Single(path => path.Identifier.ValueText == "Operational");
+
+        var caseSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(model.GetSymbolInfo(memberPatternPath).Symbol);
+        Assert.Equal("Operational", caseSymbol.Name);
+        Assert.Equal("VehicleStatus", caseSymbol.Union.Name);
+    }
+
+    [Fact]
     public void GetSymbolInfo_QualifiedEnumConstantInIsPattern_ResolvesEnumMember()
     {
         const string source = """

@@ -741,6 +741,46 @@ func Run() -> int {
     }
 
     [Fact]
+    public void LocalHover_InTopLevelFunction_ShowsContainingFunction()
+    {
+        const string code = """
+func GetConnectionString() -> string {
+    val trimmed = "value"
+    return trimmed
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var declarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.ValueText == "trimmed");
+        var symbol = semanticModel.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        var buildKindDisplay = typeof(HoverHandler)
+            .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildContainingDisplay = typeof(HoverHandler)
+            .GetMethod("BuildContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildHoverText = typeof(HoverHandler)
+            .GetMethod("BuildHoverText", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var kind = (string)buildKindDisplay.Invoke(null, [symbol])!;
+        var containing = (string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel]);
+        var hoverText = (string)buildHoverText.Invoke(null, ["val trimmed: string", kind, containing, null, ImmutableArray<ISymbol>.Empty, false])!;
+
+        kind.ShouldBe("Local");
+        containing.ShouldBe("function GetConnectionString");
+        hoverText.ShouldContain("Local in `function GetConnectionString`");
+    }
+
+    [Fact]
     public void ExtensionMethodHover_Signature_IsPrefixedWithExtensionTag()
     {
         const string code = """
@@ -2575,7 +2615,7 @@ class C {
         }
     }
 
-    [Fact(Skip = "Stale pattern hover coverage: union-case pattern resolution needs redesign around compiler API results.")]
+    [Fact]
     public async Task PatternCaseHover_ResolvesUnionCaseSymbolsInsteadOfCarrierUnionAsync()
     {
         const string code = """

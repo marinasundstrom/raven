@@ -1,3 +1,5 @@
+namespace Samples.VehicleCosts
+
 import System.*
 import Microsoft.EntityFrameworkCore.*
 class VehicleDbContext : DbContext {

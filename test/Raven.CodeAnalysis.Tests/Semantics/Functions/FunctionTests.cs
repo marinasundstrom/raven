@@ -510,6 +510,30 @@ class Program {
     }
 
     [Fact]
+    public void TopLevelFunctionLocalDeclaration_HasFunctionContainingSymbol()
+    {
+        const string source = """
+func GetConnectionString() -> string {
+    val trimmed = "value"
+    return trimmed
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var localDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(d => d.Identifier.ValueText == "trimmed");
+
+        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
+        var containingMethod = Assert.IsAssignableFrom<IMethodSymbol>(localSymbol.ContainingSymbol);
+
+        Assert.Equal("GetConnectionString", containingMethod.Name);
+    }
+
+    [Fact]
     public void SemanticModel_ReportsCapturedVariable_ForIdentifier()
     {
         const string source = """

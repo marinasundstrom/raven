@@ -1,3 +1,5 @@
+namespace Samples.VehicleCosts
+
 import System.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*

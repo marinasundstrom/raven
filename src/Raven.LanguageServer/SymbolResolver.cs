@@ -24,6 +24,9 @@ internal static partial class SymbolResolver
         if (IsDiscardIdentifierPosition(root, offset))
             return null;
 
+        if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
+            return patternCaseResolution;
+
         if (TryResolveExactLocalOrParameterIdentifierAtOffset(semanticModel, root, offset, out var exactLocalOrParameterResolution))
             return exactLocalOrParameterResolution;
 
@@ -41,9 +44,6 @@ internal static partial class SymbolResolver
 
         if (TryResolvePipeInvocationTargetAtOffset(semanticModel, root, offset, out var pipeInvocationResolution))
             return pipeInvocationResolution;
-
-        if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
-            return patternCaseResolution;
 
         if (TryResolveWithAssignmentNameAtOffset(semanticModel, root, offset, out var withAssignmentResolution))
             return withAssignmentResolution;
@@ -885,8 +885,13 @@ internal static partial class SymbolResolver
             return false;
         }
 
-        if (pattern is not NominalDeconstructionPatternSyntax nominalPattern ||
-            !TryGetCasePatternName(pattern, token, out var caseName))
+        if (TryGetPatternCaseSymbolFromSemanticModel(semanticModel, node, pattern, out var semanticSymbol))
+        {
+            symbol = semanticSymbol;
+            return true;
+        }
+
+        if (!TryGetCasePatternName(pattern, token, out var caseName))
         {
             return false;
         }
@@ -896,15 +901,20 @@ internal static partial class SymbolResolver
 
         ITypeSymbol? scrutineeType = null;
 
-        if (nominalPattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+        if (pattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
         {
             var matchExpressionTypeInfo = semanticModel.GetTypeInfo(matchExpression.Expression);
             scrutineeType = matchExpressionTypeInfo.Type ?? matchExpressionTypeInfo.ConvertedType;
         }
-        else if (nominalPattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+        else if (pattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
             var matchStatementTypeInfo = semanticModel.GetTypeInfo(matchStatement.Expression);
             scrutineeType = matchStatementTypeInfo.Type ?? matchStatementTypeInfo.ConvertedType;
+        }
+        else if (pattern.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
+        {
+            var isPatternTypeInfo = semanticModel.GetTypeInfo(isPatternExpression.Expression);
+            scrutineeType = isPatternTypeInfo.Type ?? isPatternTypeInfo.ConvertedType;
         }
 
         if (scrutineeType is null)
@@ -925,6 +935,42 @@ internal static partial class SymbolResolver
 
         symbol = caseSymbol;
         return true;
+    }
+
+    private static bool TryGetPatternCaseSymbolFromSemanticModel(
+        SemanticModel semanticModel,
+        SyntaxNode node,
+        PatternSyntax pattern,
+        out ISymbol? symbol)
+    {
+        symbol = null;
+
+        foreach (var candidate in EnumeratePatternCaseSymbolNodes(node, pattern))
+        {
+            if (!TryGetSymbolInfo(semanticModel, candidate, out var info))
+                continue;
+
+            var chosen = ChoosePreferredSymbol(info.Symbol, info.CandidateSymbols, candidate);
+            chosen = ProjectSymbolForDisplay(chosen);
+            if (chosen is null)
+                continue;
+
+            symbol = chosen;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<SyntaxNode> EnumeratePatternCaseSymbolNodes(SyntaxNode node, PatternSyntax pattern)
+    {
+        yield return node;
+
+        if (!ReferenceEquals(node, pattern))
+            yield return pattern;
+
+        if (pattern is MemberPatternSyntax memberPattern)
+            yield return memberPattern.Path;
     }
 
     private static PatternSyntax? GetCasePatternHead(SyntaxNode node, SyntaxToken token)

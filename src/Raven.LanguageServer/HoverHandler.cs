@@ -4031,6 +4031,12 @@ internal sealed class HoverHandler : IHoverHandler
         if (TryGetLambdaContainingDisplay(symbol, semanticModel, out var lambdaContaining))
             return lambdaContaining;
 
+        if (symbol is ILocalSymbol &&
+            GetUserFacingContainingSymbol(symbol) is IMethodSymbol localContainingMethod)
+        {
+            return FormatLocalContainingCallableDisplay(localContainingMethod);
+        }
+
         if (symbol is IParameterSymbol parameterSymbol &&
             IsPromotedPrimaryConstructorParameter(parameterSymbol) &&
             parameterSymbol.ContainingSymbol is IMethodSymbol constructor &&
@@ -4119,6 +4125,11 @@ internal sealed class HoverHandler : IHoverHandler
             containing = lambdaContainer.ContainingSymbol;
         return containing;
     }
+
+    private static string FormatLocalContainingCallableDisplay(IMethodSymbol method)
+        => IsFunctionStatementSymbol(method)
+            ? $"function {method.Name}"
+            : $"method {method.Name}";
 
     private static string BuildKindDisplayForResolution(SymbolResolutionKind resolutionKind, ISymbol symbol)
     {
