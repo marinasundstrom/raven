@@ -51,6 +51,7 @@ partial class BlockBinder : Binder
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
     private readonly BlockDeclarationState _declarationState = new();
     private readonly StatementDeclarationProgress _statementDeclarationProgress = new();
+    private readonly HashSet<SyntaxReferenceKey> _localDeclarationUpgradesInProgress = new();
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private bool _allowReturnsInBlockExpressionsOnly;
@@ -286,12 +287,26 @@ partial class BlockBinder : Binder
         var isMutable = declaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
         var isConst = declaration.BindingKeyword.Kind == SyntaxKind.ConstKeyword;
         var type = TryResolveLocalDeclaredTypeShallow(variableDeclarator)
-            ?? TryInferLocalTypeFromAvailableInitializer(variableDeclarator)
+            ?? (allowInitializerBinding || CanInferLocalTypeFromAvailableInitializerDuringDeclarationSeeding(variableDeclarator)
+                ? TryInferLocalTypeFromAvailableInitializer(variableDeclarator)
+                : null)
             ?? (allowInitializerBinding ? TryInferLocalTypeFromBoundInitializer(variableDeclarator) : null);
+        if (type is null && !allowInitializerBinding)
+            type = Compilation.ErrorTypeSymbol;
+
         if (type is null)
             return null;
 
         return CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst);
+    }
+
+    private static bool CanInferLocalTypeFromAvailableInitializerDuringDeclarationSeeding(VariableDeclaratorSyntax variableDeclarator)
+    {
+        if (variableDeclarator.Initializer?.Value is not { } initializer)
+            return false;
+
+        return !initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any() &&
+            !initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any();
     }
 
     private ITypeSymbol? TryResolveLocalDeclaredTypeShallow(VariableDeclaratorSyntax variableDeclarator)
@@ -444,7 +459,10 @@ partial class BlockBinder : Binder
         }
 
         foreach (var declarator in declaration.Declarators)
-            _ = BindLocalDeclaration(declarator, declarationOnly: true);
+        {
+            if (TryDeclareLocalSymbolShallow(declarator, allowInitializerBinding: false) is null)
+                _ = BindLocalDeclaration(declarator, declarationOnly: true);
+        }
     }
 
     private void BindPatternDeclarationOwner(SyntaxNode owner)
@@ -7946,6 +7964,53 @@ partial class BlockBinder : Binder
         return false;
     }
 
+    private bool TryUpgradeErrorLocalFromDeclaration(ILocalSymbol local, out ILocalSymbol upgradedLocal)
+    {
+        foreach (var syntaxReference in local.DeclaringSyntaxReferences)
+        {
+            var root = syntaxReference.SyntaxTree.GetRoot();
+            var declarator = root.FindNode(syntaxReference.Span, getInnermostNodeForTie: true)
+                .AncestorsAndSelf()
+                .OfType<VariableDeclaratorSyntax>()
+                .FirstOrDefault();
+
+            if (declarator is null)
+            {
+                var token = root.FindToken(syntaxReference.Span.Start);
+                declarator = token.Parent?
+                    .AncestorsAndSelf()
+                    .OfType<VariableDeclaratorSyntax>()
+                    .FirstOrDefault();
+            }
+
+            if (declarator is null)
+                continue;
+
+            if (!TryGetSyntaxReferenceKey(declarator, out var key) ||
+                !_localDeclarationUpgradesInProgress.Add(key))
+            {
+                continue;
+            }
+
+            try
+            {
+                var boundDeclarator = BindLocalDeclaration(declarator);
+                if (!boundDeclarator.Local.Type.ContainsErrorType())
+                {
+                    upgradedLocal = boundDeclarator.Local;
+                    return true;
+                }
+            }
+            finally
+            {
+                _localDeclarationUpgradesInProgress.Remove(key);
+            }
+        }
+
+        upgradedLocal = null!;
+        return false;
+    }
+
     private bool TryGetTargetTypedEnumField(string name, SyntaxNode syntax, out IFieldSymbol field)
     {
         field = null!;
@@ -7994,6 +8059,12 @@ partial class BlockBinder : Binder
         }
 
         var symbol = LookupSymbol(name);
+        if (symbol is ILocalSymbol unresolvedLocal &&
+            unresolvedLocal.Type.ContainsErrorType() &&
+            TryUpgradeErrorLocalFromDeclaration(unresolvedLocal, out var upgradedLocal))
+        {
+            symbol = upgradedLocal;
+        }
 
         if (TryGetTargetTypedEnumField(name, syntax, out var targetTypedEnumField))
             symbol = targetTypedEnumField;

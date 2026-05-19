@@ -635,6 +635,61 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_LargeDocumentCurrentNamespaceSourceType_UsesSimpleAnnotationAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 220).Select(static i => $"// padding {i}"));
+        var code = $$"""
+namespace Samples.VehicleCosts
+
+import System.*
+
+class FuelConsumptionRecord {
+}
+
+func Main() -> unit {
+    val entry = FuelConsumptionRecord()
+}
+
+{{padding}}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var hint = hints.Single(static hint => hint.Label.String == ": FuelConsumptionRecord");
+        hints.ShouldNotContain(static hint => hint.Label.String == ": Samples.VehicleCosts.FuelConsumptionRecord");
+        AssertSourceApplicable(
+            sourceText,
+            hint,
+            code.IndexOf("entry", StringComparison.Ordinal) + "entry".Length,
+            ": FuelConsumptionRecord");
+    }
+
+    [Fact]
     public async Task Handle_AmbiguousVisibleTypeName_UsesQualifiedAnnotationAsync()
     {
         Directory.CreateDirectory(_tempRoot);

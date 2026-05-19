@@ -320,6 +320,53 @@ class C {
     }
 
     [Fact]
+    public void TryGetAvailableLocalDeclarationSymbol_InFunctionExpressionBody_DoesNotBindContextualInvocation()
+    {
+        const string source = """
+class Request {
+}
+
+class Entry {
+}
+
+class App {
+    func MapPost(path: string, handler: func (Request) -> unit) -> unit {
+    }
+}
+
+class C {
+    func Run(app: App) -> unit {
+        app.MapPost("/", func (request: Request) {
+            val entry = Entry()
+        })
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "node-interest-binding-tests",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var entryDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.ValueText == "entry");
+        var mapPostStatement = root.DescendantNodes()
+            .OfType<ExpressionStatementSyntax>()
+            .Single(node => node.Expression.ToString().Contains("MapPost", StringComparison.Ordinal));
+
+        var resolved = model.TryGetAvailableLocalDeclarationSymbol(entryDeclarator, out var local);
+
+        resolved.ShouldBeTrue();
+        local.ShouldNotBeNull();
+        local!.Type.Name.ShouldBe("Entry");
+        model.HasCachedBoundNodeForTesting(mapPostStatement).ShouldBeFalse();
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_OnLambdaDependentLocal_ReturnsContextualResultType()
     {
         const string source = """

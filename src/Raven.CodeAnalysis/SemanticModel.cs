@@ -56,6 +56,7 @@ public partial class SemanticModel
     private ConcurrentDictionary<SyntaxNode, BoundNode> _loweredBoundNodeCache => _bindingState.LoweredBoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _loweredBoundNodeCache2 => _bindingState.LoweredBoundNodeCacheWithBinder;
     private ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> _functionExpressionSymbolCache => _bindingState.FunctionExpressionSymbolCache;
+    private ConcurrentDictionary<FunctionExpressionSyntax, ITypeSymbol> _functionExpressionDelegateTypeCache => _bindingState.FunctionExpressionDelegateTypeCache;
     private ConcurrentDictionary<FunctionExpressionSyntax, byte> _functionExpressionSymbolCreationInProgress => _bindingState.FunctionExpressionSymbolCreationInProgress;
     private ConcurrentDictionary<SyntaxNode, byte> _functionExpressionParameterLookupInProgress => _bindingState.FunctionExpressionParameterLookupInProgress;
     private ConcurrentDictionary<SyntaxNode, byte> _functionExpressionRebindInProgress => _bindingState.FunctionExpressionRebindInProgress;
@@ -120,6 +121,7 @@ public partial class SemanticModel
         public ConcurrentDictionary<SyntaxNode, BoundNode> LoweredBoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> LoweredBoundNodeCacheWithBinder { get; } = new();
         public ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> FunctionExpressionSymbolCache { get; } = new();
+        public ConcurrentDictionary<FunctionExpressionSyntax, ITypeSymbol> FunctionExpressionDelegateTypeCache { get; } = new();
         public ConcurrentDictionary<FunctionExpressionSyntax, byte> FunctionExpressionSymbolCreationInProgress { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> FunctionExpressionParameterLookupInProgress { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> FunctionExpressionRebindInProgress { get; } = new();
@@ -6032,11 +6034,20 @@ public partial class SemanticModel
         FunctionExpressionSyntax functionExpression,
         out ITypeSymbol? delegateType)
     {
+        if (_functionExpressionDelegateTypeCache.TryGetValue(functionExpression, out var cachedDelegateType) &&
+            cachedDelegateType.TypeKind != TypeKind.Error &&
+            !ContainsTypeParameter(cachedDelegateType))
+        {
+            delegateType = cachedDelegateType;
+            return true;
+        }
+
         if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedFunction &&
             !IsLikelyStaleFunctionBodyNode(cachedFunction) &&
             cachedFunction.DelegateType is not null)
         {
             delegateType = cachedFunction.DelegateType;
+            CacheFunctionExpressionDelegateType(functionExpression, delegateType);
             return true;
         }
 
@@ -6045,14 +6056,31 @@ public partial class SemanticModel
             contextualFunction.DelegateType.TypeKind != TypeKind.Error)
         {
             delegateType = contextualFunction.DelegateType;
+            CacheFunctionExpressionDelegateType(functionExpression, delegateType);
             return true;
         }
 
         if (TryGetAvailableFunctionExpressionDelegateType(functionExpression, out delegateType))
+        {
+            CacheFunctionExpressionDelegateType(functionExpression, delegateType);
             return true;
+        }
 
         delegateType = null;
         return false;
+    }
+
+    private void CacheFunctionExpressionDelegateType(
+        FunctionExpressionSyntax functionExpression,
+        ITypeSymbol? delegateType)
+    {
+        if (delegateType is not null &&
+            delegateType.TypeKind != TypeKind.Error &&
+            !ContainsTypeParameter(delegateType) &&
+            !delegateType.ContainsErrorType())
+        {
+            _functionExpressionDelegateTypeCache[functionExpression] = delegateType;
+        }
     }
 
     private bool TryGetAvailableFunctionExpressionDelegateType(
@@ -6075,6 +6103,14 @@ public partial class SemanticModel
                 break;
 
             argumentIndex++;
+        }
+
+        if (TryGetCachedFunctionExpressionDelegateTypeFromInvocation(
+                invocation,
+                argumentIndex,
+                out delegateType))
+        {
+            return true;
         }
 
         if (invocation.Parent is InfixOperatorExpressionSyntax
@@ -6108,6 +6144,137 @@ public partial class SemanticModel
 
         return TryGetAvailableInvocationCandidates(invocation, out var methods) &&
                TryGetDelegateTypeFromCandidateParameter(methods, argumentIndex, receiverType: null, out delegateType);
+    }
+
+    private bool TryGetCachedFunctionExpressionDelegateTypeFromInvocation(
+        InvocationExpressionSyntax invocation,
+        int argumentIndex,
+        out ITypeSymbol? delegateType)
+    {
+        delegateType = null;
+
+        if (TryGetCachedInvocationDelegateTypeFromBoundNode(invocation, argumentIndex, out delegateType))
+            return true;
+
+        if (TryGetCachedInvocationMethods(invocation, out var methods) &&
+            !methods.IsDefaultOrEmpty)
+        {
+            var parameterIndex = GetFunctionArgumentParameterIndex(invocation, methods, argumentIndex, out var receiverType);
+            if (TryGetDelegateTypeFromCandidateParameter(methods, parameterIndex, receiverType, out delegateType))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetCachedInvocationDelegateTypeFromBoundNode(
+        InvocationExpressionSyntax invocation,
+        int argumentIndex,
+        out ITypeSymbol? delegateType)
+    {
+        delegateType = null;
+
+        BoundInvocationExpression? boundInvocation = null;
+        if (TryGetCachedBoundNode(invocation) is BoundInvocationExpression cachedInvocation)
+        {
+            boundInvocation = cachedInvocation;
+        }
+        else if (invocation.Parent is InfixOperatorExpressionSyntax
+        {
+            OperatorToken.Kind: SyntaxKind.PipeToken
+        } pipeExpression &&
+                 IsSameSyntaxNode(pipeExpression.Right, invocation) &&
+                 TryGetCachedBoundNode(pipeExpression) is BoundInvocationExpression cachedPipe)
+        {
+            boundInvocation = cachedPipe;
+        }
+
+        if (boundInvocation is null)
+            return false;
+
+        var receiverType = boundInvocation.ExtensionReceiver?.Type;
+        var parameterIndex = boundInvocation.Method.IsExtensionMethod && boundInvocation.ExtensionReceiver is not null
+            ? argumentIndex + 1
+            : argumentIndex;
+
+        return TryGetDelegateTypeFromCandidateParameter(
+            ImmutableArray.Create(boundInvocation.Method),
+            parameterIndex,
+            receiverType,
+            out delegateType);
+    }
+
+    private bool TryGetCachedInvocationMethods(
+        InvocationExpressionSyntax invocation,
+        out ImmutableArray<IMethodSymbol> methods)
+    {
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        void Add(IMethodSymbol? method)
+        {
+            if (method is null)
+                return;
+
+            foreach (var existing in builder)
+            {
+                if (SymbolEqualityComparer.Default.Equals(existing, method))
+                    return;
+            }
+
+            builder.Add(method);
+        }
+
+        void AddFromSymbolInfo(SymbolInfo info)
+        {
+            if (info.Symbol is IMethodSymbol method)
+                Add(method);
+
+            if (!info.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                foreach (var candidate in info.CandidateSymbols.OfType<IMethodSymbol>())
+                    Add(candidate);
+            }
+        }
+
+        if (TryGetCachedSymbolInfo(invocation, out var invocationInfo))
+            AddFromSymbolInfo(invocationInfo);
+
+        if (TryGetCachedSymbolInfo(invocation.Expression, out var expressionInfo))
+            AddFromSymbolInfo(expressionInfo);
+
+        methods = builder.ToImmutable();
+        return methods.Length > 0;
+    }
+
+    private int GetFunctionArgumentParameterIndex(
+        InvocationExpressionSyntax invocation,
+        ImmutableArray<IMethodSymbol> methods,
+        int argumentIndex,
+        out ITypeSymbol? receiverType)
+    {
+        receiverType = null;
+
+        if (invocation.Parent is InfixOperatorExpressionSyntax
+            {
+                OperatorToken.Kind: SyntaxKind.PipeToken
+            } pipeExpression &&
+            IsSameSyntaxNode(pipeExpression.Right, invocation))
+        {
+            receiverType = TryGetCachedReceiverType(pipeExpression.Left) ??
+                           TryGetAvailableReceiverType(pipeExpression.Left);
+            return argumentIndex + 1;
+        }
+
+        if (methods.Any(static method => method.IsExtensionMethod) &&
+            invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            receiverType = TryGetCachedReceiverType(memberAccess.Expression) ??
+                           TryGetAvailableReceiverType(memberAccess.Expression);
+            if (receiverType is not null && receiverType.TypeKind != TypeKind.Error)
+                return argumentIndex + 1;
+        }
+
+        return argumentIndex;
     }
 
     private static bool TryGetDelegateTypeFromCandidateParameter(
@@ -7880,12 +8047,22 @@ public partial class SemanticModel
         out ITypeSymbol? delegateType,
         bool allowCandidateLookup = true)
     {
+        if (_functionExpressionDelegateTypeCache.TryGetValue(functionExpression, out var cachedDelegateType) &&
+            cachedDelegateType.TypeKind != TypeKind.Error &&
+            !ContainsTypeParameter(cachedDelegateType) &&
+            !cachedDelegateType.ContainsErrorType())
+        {
+            delegateType = cachedDelegateType;
+            return true;
+        }
+
         if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedFunction &&
             !IsLikelyStaleFunctionBodyNode(cachedFunction) &&
             cachedFunction.DelegateType is not null &&
             cachedFunction.DelegateType.TypeKind != TypeKind.Error)
         {
             delegateType = cachedFunction.DelegateType;
+            CacheFunctionExpressionDelegateType(functionExpression, delegateType);
             return true;
         }
 
@@ -7895,9 +8072,15 @@ public partial class SemanticModel
             return false;
         }
 
-        return TryGetAvailableFunctionExpressionDelegateType(functionExpression, out delegateType) &&
-               delegateType is not null &&
-               delegateType.TypeKind != TypeKind.Error;
+        if (TryGetAvailableFunctionExpressionDelegateType(functionExpression, out delegateType) &&
+            delegateType is not null &&
+            delegateType.TypeKind != TypeKind.Error)
+        {
+            CacheFunctionExpressionDelegateType(functionExpression, delegateType);
+            return true;
+        }
+
+        return false;
     }
 
     private static ITypeSymbol? GetTypeFromSymbol(ISymbol? symbol)
@@ -8755,6 +8938,7 @@ public partial class SemanticModel
         if (node is FunctionExpressionSyntax functionExpression)
         {
             _functionExpressionSymbolCache.TryRemove(functionExpression, out _);
+            _functionExpressionDelegateTypeCache.TryRemove(functionExpression, out _);
             _functionExpressionSymbolCreationInProgress.TryRemove(functionExpression, out _);
         }
 
@@ -8766,6 +8950,7 @@ public partial class SemanticModel
             if (child is FunctionExpressionSyntax childFunctionExpression)
             {
                 _functionExpressionSymbolCache.TryRemove(childFunctionExpression, out _);
+                _functionExpressionDelegateTypeCache.TryRemove(childFunctionExpression, out _);
                 _functionExpressionSymbolCreationInProgress.TryRemove(childFunctionExpression, out _);
             }
         }
@@ -9930,7 +10115,7 @@ public partial class SemanticModel
         FunctionExpressionSyntax enclosingFunctionExpression,
         out Binder binder)
     {
-        if (TryGetContextualBoundFunctionExpression(enclosingFunctionExpression, out _) &&
+        if (TryGetCachedContextualBoundFunctionExpression(enclosingFunctionExpression, out _) &&
             TryGetCachedBinder(node, out var cachedBinder) &&
             IsFunctionExpressionBodyBinder(cachedBinder))
         {
@@ -9939,6 +10124,32 @@ public partial class SemanticModel
         }
 
         binder = null!;
+        return false;
+    }
+
+    private bool TryGetCachedContextualBoundFunctionExpression(
+        FunctionExpressionSyntax functionExpression,
+        out BoundFunctionExpression boundFunction)
+    {
+        if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedFunction &&
+            !IsLikelyStaleFunctionBodyNode(cachedFunction))
+        {
+            boundFunction = cachedFunction;
+            return true;
+        }
+
+        var contextualRoot = GetFunctionExpressionRebindRoot(functionExpression);
+        if (!ReferenceEquals(contextualRoot, functionExpression) &&
+            TryGetCachedBoundNode(contextualRoot) is { } contextualBoundRoot &&
+            TryFindBoundNodeBySyntax(contextualBoundRoot, functionExpression, out var cachedContextualNode) &&
+            cachedContextualNode is BoundFunctionExpression cachedContextualFunction &&
+            !IsLikelyStaleFunctionBodyNode(cachedContextualFunction))
+        {
+            boundFunction = cachedContextualFunction;
+            return true;
+        }
+
+        boundFunction = null!;
         return false;
     }
 

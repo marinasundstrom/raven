@@ -344,12 +344,20 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (avoidInitializerBinding && !CanResolveLocalHintWithoutInitializerBinding(declarator))
                 continue;
 
-            if (!semanticModel.TryGetAvailableLocalDeclarationSymbol(
-                    declarator,
-                    out var local,
-                    allowInitializerBinding: !avoidInitializerBinding) ||
-                local is null ||
-                !TryFormatType(semanticModel, declarator, local.Type, out var typeDisplay))
+            var local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
+                declarator,
+                out var availableLocal,
+                allowInitializerBinding: !avoidInitializerBinding)
+                    ? availableLocal
+                    : allowInitializerBinding
+                        ? semanticModel.GetDeclaredSymbol(declarator) as ILocalSymbol
+                        : null;
+
+            if (local is null)
+            {
+                continue;
+            }
+            if (!TryFormatType(semanticModel, declarator, local.Type, out var typeDisplay))
             {
                 continue;
             }
@@ -990,8 +998,24 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static bool CanUseSimpleName(Binder binder, INamedTypeSymbol type)
     {
         var matchingDefinitionSeen = false;
+        var lookupType = binder.LookupType(type.Name);
 
-        foreach (var candidate in GetVisibleTypeCandidates(binder, type.Name))
+        if (lookupType is INamedTypeSymbol lookupNamedType &&
+            SameNamedTypeDefinition(lookupNamedType, type))
+        {
+            if (IsSourceTypeDeclaredInCurrentNamespace(binder, type))
+                return true;
+
+            matchingDefinitionSeen = true;
+        }
+        else if (lookupType is not null &&
+            lookupType.Name == type.Name &&
+            (lookupType is not INamedTypeSymbol lookupNamedOther || lookupNamedOther.Arity == type.Arity))
+        {
+            return false;
+        }
+
+        foreach (var candidate in GetVisibleTypeCandidates(binder, type.Name, lookupType))
         {
             if (candidate is INamedTypeSymbol namedCandidate &&
                 SameNamedTypeDefinition(namedCandidate, type))
@@ -1010,14 +1034,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return matchingDefinitionSeen;
     }
 
-    private static IEnumerable<ITypeSymbol> GetVisibleTypeCandidates(Binder binder, string name)
+    private static IEnumerable<ITypeSymbol> GetVisibleTypeCandidates(Binder binder, string name, ITypeSymbol? knownLookupType)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        if (binder.LookupType(name) is { } lookupType &&
-            seen.Add(GetTypeIdentity(lookupType)))
+        if (knownLookupType is not null &&
+            seen.Add(GetTypeIdentity(knownLookupType)))
         {
-            yield return lookupType;
+            yield return knownLookupType;
         }
 
         foreach (var symbol in binder.LookupSymbols(name).OfType<ITypeSymbol>())
@@ -1025,6 +1049,29 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (seen.Add(GetTypeIdentity(symbol)))
                 yield return symbol;
         }
+    }
+
+    private static bool IsSourceTypeDeclaredInCurrentNamespace(Binder binder, INamedTypeSymbol type)
+    {
+        var definition = GetNamedTypeDefinition(type);
+        if (definition.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return false;
+
+        return SameNamespace(definition.ContainingNamespace, binder.CurrentNamespace);
+    }
+
+    private static bool SameNamespace(INamespaceSymbol? left, INamespaceSymbol? right)
+    {
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        if (left is null || right is null)
+            return false;
+
+        if (left.IsGlobalNamespace || right.IsGlobalNamespace)
+            return left.IsGlobalNamespace && right.IsGlobalNamespace;
+
+        return string.Equals(left.ToDisplayString(), right.ToDisplayString(), StringComparison.Ordinal);
     }
 
     private static bool SameNamedTypeDefinition(INamedTypeSymbol candidate, INamedTypeSymbol target)
