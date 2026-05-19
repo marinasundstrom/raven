@@ -495,7 +495,7 @@ Accept(async func (context: RequestContext) {
     }
 
     [Fact]
-    public async Task Handle_UnimportedMetadataType_UsesQualifiedAnnotationAsync()
+    public async Task Handle_UnimportedMetadataType_UsesSimpleAnnotationAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -529,13 +529,13 @@ func Main() -> unit {
             Range = FullDocumentRange(sourceText)
         }, CancellationToken.None);
 
-        var hint = result.Single(static hint => hint.Label.String == ": System.Text.Json.Nodes.JsonObject");
+        var hint = result.Single(static hint => hint.Label.String == ": JsonObject");
         AssertSourceApplicable(
             sourceText,
             hint,
             code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
-            ": System.Text.Json.Nodes.JsonObject");
-        AssertTooltipMentionsInsertion(hint, ": System.Text.Json.Nodes.JsonObject");
+            ": JsonObject");
+        AssertTooltipMentionsInsertion(hint, ": JsonObject");
     }
 
     [Fact]
@@ -690,7 +690,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_AmbiguousVisibleTypeName_UsesQualifiedAnnotationAsync()
+    public async Task Handle_AmbiguousVisibleTypeName_UsesSimpleAnnotationAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -737,12 +737,12 @@ func Main() -> unit {
             Range = FullDocumentRange(sourceText)
         }, CancellationToken.None);
 
-        var hint = result.Single(static hint => hint.Label.String == ": First.JsonObject");
+        var hint = result.Single(static hint => hint.Label.String == ": JsonObject");
         AssertSourceApplicable(
             sourceText,
             hint,
             code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
-            ": First.JsonObject");
+            ": JsonObject");
     }
 
     [Fact]

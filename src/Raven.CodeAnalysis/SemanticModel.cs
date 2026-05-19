@@ -2214,8 +2214,12 @@ public partial class SemanticModel
                     continue;
                 }
 
-                if (TryGetAvailableLocalDeclarationSymbol(declarator, out localSymbol, allowErrorType: true) ||
-                    TryGetStableLocalDeclarationSymbol(declarator, out localSymbol))
+                if (TryGetAvailableLocalDeclarationSymbol(
+                        declarator,
+                        out localSymbol,
+                        allowErrorType: true,
+                        allowInitializerBinding: true,
+                        allowBindingFallback: false))
                     return true;
             }
         }
@@ -3053,7 +3057,7 @@ public partial class SemanticModel
                 .Where(method => string.Equals(method.Name, extensionName, StringComparison.Ordinal))
                 .Where(method => TryGetFastParameterCount(method, out var parameterCount) &&
                                  parameterCount >= invocation.ArgumentList.Arguments.Count + 1)
-                .Select(method => ConstructAvailableExtensionCandidate(method, receiverType!))
+                .Select(method => ConstructAvailableExtensionCandidate(method, receiverType!, invocation))
                 .Where(method => IsAvailableExtensionReceiverCandidate(method, receiverType!))
                 .ToImmutableArray();
     }
@@ -3074,7 +3078,10 @@ public partial class SemanticModel
                Compilation.ClassifyConversion(receiverType, parameterType, includeUserDefined: true).Exists;
     }
 
-    private static IMethodSymbol ConstructAvailableExtensionCandidate(IMethodSymbol method, ITypeSymbol receiverType)
+    private IMethodSymbol ConstructAvailableExtensionCandidate(
+        IMethodSymbol method,
+        ITypeSymbol receiverType,
+        InvocationExpressionSyntax? invocation = null)
     {
         if (receiverType.TypeKind == TypeKind.Error ||
             !TryGetFastParameterCount(method, out var parameterCount) ||
@@ -3089,11 +3096,16 @@ public partial class SemanticModel
 
         if (receiverParameterType is null ||
             receiverParameterType.TypeKind == TypeKind.Error ||
-            !TryInferExtensionReceiverSubstitutions(receiverParameterType, receiverType, out var substitutions) ||
-            substitutions.Count == 0)
+            !TryInferExtensionReceiverSubstitutions(receiverParameterType, receiverType, out var substitutions))
         {
             return method;
         }
+
+        if (invocation is not null)
+            TryInferFunctionArgumentSubstitutions(method, invocation, parameterOffset: 1, substitutions);
+
+        if (substitutions.Count == 0)
+            return method;
 
         var typeArguments = new ITypeSymbol[method.TypeParameters.Length];
         var changed = false;
@@ -3118,6 +3130,203 @@ public partial class SemanticModel
         }
 
         return changed ? method.Construct(typeArguments) : method;
+    }
+
+    private void TryInferFunctionArgumentSubstitutions(
+        IMethodSymbol method,
+        InvocationExpressionSyntax invocation,
+        int parameterOffset,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        for (var argumentIndex = 0; argumentIndex < invocation.ArgumentList.Arguments.Count; argumentIndex++)
+        {
+            var parameterIndex = argumentIndex + parameterOffset;
+            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                continue;
+
+            var argument = invocation.ArgumentList.Arguments[argumentIndex];
+            if (argument.Expression is not FunctionExpressionSyntax functionExpression)
+                continue;
+
+            var parameterType = SubstituteTypeParameters(method.Parameters[parameterIndex].Type, substitutions);
+            if (!TryUnwrapCallableDelegateType(parameterType, out var delegateType) ||
+                delegateType.GetDelegateInvokeMethod() is not { } invokeMethod)
+            {
+                continue;
+            }
+
+            if (!TryGetAvailableFunctionExpressionReturnType(
+                    functionExpression,
+                    invokeMethod,
+                    out var returnType) ||
+                returnType is null ||
+                returnType.TypeKind == TypeKind.Error)
+            {
+                continue;
+            }
+
+            _ = TryUnifyExtensionReceiver(invokeMethod.ReturnType, returnType, substitutions);
+        }
+    }
+
+    private bool TryGetAvailableFunctionExpressionReturnType(
+        FunctionExpressionSyntax functionExpression,
+        IMethodSymbol delegateInvokeMethod,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? returnType)
+    {
+        returnType = null;
+
+        var parameters = GetFunctionExpressionParameters(functionExpression).ToImmutableArray();
+        if (parameters.Length != delegateInvokeMethod.Parameters.Length)
+            return false;
+
+        var parameterTypes = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var name = parameters[i].Identifier.ValueText;
+            if (string.IsNullOrWhiteSpace(name) || name == "_")
+                continue;
+
+            var parameterType = delegateInvokeMethod.Parameters[i].Type;
+            if (parameterType is null || parameterType.TypeKind == TypeKind.Error)
+                return false;
+
+            parameterTypes[name] = parameterType;
+        }
+
+        if (functionExpression.ExpressionBody?.Expression is not { } bodyExpression)
+            return false;
+
+        return TryGetAvailableExpressionType(bodyExpression, parameterTypes, out returnType);
+    }
+
+    private bool TryGetAvailableExpressionType(
+        ExpressionSyntax expression,
+        IReadOnlyDictionary<string, ITypeSymbol> parameterTypes,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+    {
+        type = null;
+
+        if (expression is IdentifierNameSyntax identifier &&
+            parameterTypes.TryGetValue(identifier.Identifier.ValueText, out var parameterType))
+        {
+            type = parameterType;
+            return true;
+        }
+
+        if (expression is MemberAccessExpressionSyntax memberAccess &&
+            TryGetAvailableExpressionType(memberAccess.Expression, parameterTypes, out var receiverType))
+        {
+            var memberName = memberAccess.Name.Identifier.ValueText;
+            if (TryGetAvailableMemberValueType(receiverType, memberName, out type))
+                return true;
+        }
+
+        if (expression is InvocationExpressionSyntax invocation &&
+            TryGetAvailableInvocationExpressionType(invocation, parameterTypes, out type))
+        {
+            return true;
+        }
+
+        if (expression is InfixOperatorExpressionSyntax infixExpression &&
+            TryGetAvailableExpressionType(infixExpression.Left, parameterTypes, out var leftType) &&
+            TryGetAvailableExpressionType(infixExpression.Right, parameterTypes, out var rightType) &&
+            BoundBinaryOperator.TryLookup(Compilation, infixExpression.OperatorToken.Kind, leftType, rightType, out var op) &&
+            op.ResultType.TypeKind != TypeKind.Error)
+        {
+            type = op.ResultType;
+            return true;
+        }
+
+        if (TryGetAvailableLiteralType(expression, out var literalType) &&
+            literalType is not null &&
+            literalType.TypeKind != TypeKind.Error)
+        {
+            type = literalType;
+            return true;
+        }
+
+        if (expression is IdentifierNameSyntax enclosingParameterIdentifier &&
+            TryGetEnclosingParameterTypeFromSyntax(enclosingParameterIdentifier, out var enclosingParameterType, allowCandidateLookup: false))
+        {
+            type = enclosingParameterType;
+            return true;
+        }
+
+        if (expression is IdentifierNameSyntax localIdentifier &&
+            TryResolveAvailableLocalReferenceFromSyntax(localIdentifier, out var localSymbol) &&
+            localSymbol.Type is { TypeKind: not TypeKind.Error } localType)
+        {
+            type = localType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetAvailableMemberValueType(
+        ITypeSymbol receiverType,
+        string memberName,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+    {
+        type = null;
+        var member = LookupAvailableMember(receiverType, memberName);
+        type = GetTypeFromSymbol(member);
+        return type is not null && type.TypeKind != TypeKind.Error;
+    }
+
+    private bool TryGetAvailableInvocationExpressionType(
+        InvocationExpressionSyntax invocation,
+        IReadOnlyDictionary<string, ITypeSymbol> parameterTypes,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+    {
+        type = null;
+
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess ||
+            !TryGetAvailableExpressionType(memberAccess.Expression, parameterTypes, out var receiverType))
+        {
+            return false;
+        }
+
+        var methodName = memberAccess.Name.Identifier.ValueText;
+        var candidates = receiverType.GetPlainType()
+            .GetMembers(methodName)
+            .OfType<IMethodSymbol>()
+            .Where(method => method.Parameters.Length == invocation.ArgumentList.Arguments.Count)
+            .ToImmutableArray();
+        if (candidates.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var candidate in candidates)
+        {
+            var compatible = true;
+            for (var i = 0; i < invocation.ArgumentList.Arguments.Count; i++)
+            {
+                if (!TryGetAvailableExpressionType(invocation.ArgumentList.Arguments[i].Expression, parameterTypes, out var argumentType))
+                {
+                    compatible = false;
+                    break;
+                }
+
+                var parameterType = candidate.Parameters[i].Type;
+                if (parameterType is null ||
+                    parameterType.TypeKind == TypeKind.Error ||
+                    (!SymbolEqualityComparer.Default.Equals(argumentType, parameterType) &&
+                     !Compilation.ClassifyConversion(argumentType, parameterType, includeUserDefined: true).Exists))
+                {
+                    compatible = false;
+                    break;
+                }
+            }
+
+            if (!compatible)
+                continue;
+
+            type = candidate.ReturnType;
+            return type is not null && type.TypeKind != TypeKind.Error;
+        }
+
+        return false;
     }
 
     private SyntaxNode GetExtensionMemberLookupContext(SyntaxNode contextNode)
@@ -3268,7 +3477,7 @@ public partial class SemanticModel
             .Concat(extensions.StaticMethods)
             .Where(method => string.Equals(method.Name, methodName, StringComparison.Ordinal))
             .Where(method => method.Parameters.Length == invocation.ArgumentList.Arguments.Count + 1)
-            .Select(method => ConstructAvailableExtensionCandidate(method, receiverType))
+            .Select(method => ConstructAvailableExtensionCandidate(method, receiverType, invocation))
             .Select(method => (Method: method, Compatibility: GetPipeInvocationArgumentCompatibility(method, invocation)))
             .Where(candidate => candidate.Compatibility >= 0)
             .ToImmutableArray();
@@ -4007,6 +4216,20 @@ public partial class SemanticModel
                 _typeMappings[expression] = typeInfo;
                 return true;
             }
+
+            if (TryGetAvailableInvocationSymbolInfo(invocation, out var invocationInfo) &&
+                invocationInfo.Symbol is IMethodSymbol selectedMethod &&
+                GetInvocationReturnType(selectedMethod) is { } selectedReturnType &&
+                IsUsefulAvailableExpressionType(selectedReturnType))
+            {
+                var convertedType = selectedReturnType;
+                if (TryGetContextualArgumentConvertedType(expression, selectedReturnType, out var contextualConvertedType))
+                    convertedType = contextualConvertedType;
+
+                typeInfo = new TypeInfo(selectedReturnType, convertedType, ComputeConversion(selectedReturnType, convertedType));
+                _typeMappings[expression] = typeInfo;
+                return true;
+            }
         }
 
         if (expression is InfixOperatorExpressionSyntax
@@ -4053,7 +4276,13 @@ public partial class SemanticModel
     private static bool IsUsefulAvailableExpressionType(ITypeSymbol? type)
         => type is not null &&
            type.TypeKind != TypeKind.Error &&
+           !ContainsTypeParameter(type) &&
            type is not ITypeParameterSymbol;
+
+    private static ITypeSymbol? GetInvocationReturnType(IMethodSymbol method)
+        => method.MethodKind == MethodKind.Constructor
+            ? method.ContainingType
+            : method.ReturnType;
 
     private static ITypeSymbol? GetAvailablePipeInvocationReturnType(IMethodSymbol method, ITypeSymbol receiverType)
     {
@@ -4153,7 +4382,8 @@ public partial class SemanticModel
 
     private bool TryGetEnclosingParameterTypeFromSyntax(
         IdentifierNameSyntax identifier,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type,
+        bool allowCandidateLookup = true)
     {
         type = null;
         var name = identifier.Identifier.ValueText;
@@ -4178,7 +4408,7 @@ public partial class SemanticModel
                     continue;
                 }
 
-                if (TryGetAvailableParameterType(parameter, out type) && type is not null)
+                if (TryGetAvailableParameterType(parameter, out type, allowCandidateLookup) && type is not null)
                     return true;
             }
         }
@@ -4188,7 +4418,8 @@ public partial class SemanticModel
 
     private bool TryGetAvailableParameterType(
         ParameterSyntax parameter,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type,
+        bool allowCandidateLookup = true)
     {
         type = null;
 
@@ -4200,7 +4431,7 @@ public partial class SemanticModel
             return true;
         }
 
-        if (TryResolveFunctionExpressionParameterSymbolFast(parameter, out var functionParameterSymbol) &&
+        if (TryResolveFunctionExpressionParameterSymbolFast(parameter, out var functionParameterSymbol, allowCandidateLookup) &&
             functionParameterSymbol?.Type is { TypeKind: not TypeKind.Error } functionParameterType)
         {
             type = functionParameterType;
@@ -4275,7 +4506,7 @@ public partial class SemanticModel
                 continue;
             }
 
-            if (!SymbolEqualityComparer.Default.Equals(returnType, candidateReturnType))
+            if (!HaveEquivalentAvailableTypeShape(returnType, candidateReturnType))
             {
                 returnType = null;
                 return false;
@@ -4283,6 +4514,38 @@ public partial class SemanticModel
         }
 
         return returnType is not null;
+    }
+
+    private static bool HaveEquivalentAvailableTypeShape(ITypeSymbol? left, ITypeSymbol? right)
+    {
+        if (left is null || right is null)
+            return left is null && right is null;
+
+        if (SymbolEqualityComparer.Default.Equals(left, right))
+            return true;
+
+        if (left.SpecialType != SpecialType.None || right.SpecialType != SpecialType.None)
+            return left.SpecialType == right.SpecialType;
+
+        if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed)
+        {
+            if (!string.Equals(leftNamed.MetadataName, rightNamed.MetadataName, StringComparison.Ordinal) ||
+                leftNamed.Arity != rightNamed.Arity ||
+                leftNamed.TypeArguments.Length != rightNamed.TypeArguments.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < leftNamed.TypeArguments.Length; i++)
+            {
+                if (!HaveEquivalentAvailableTypeShape(leftNamed.TypeArguments[i], rightNamed.TypeArguments[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        return string.Equals(left.ToDisplayString(), right.ToDisplayString(), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -5424,7 +5687,8 @@ public partial class SemanticModel
         VariableDeclaratorSyntax variableDeclarator,
         out ILocalSymbol? localSymbol,
         bool allowErrorType = false,
-        bool allowInitializerBinding = true)
+        bool allowInitializerBinding = true,
+        bool allowBindingFallback = true)
     {
         if (!IsLocalVariableDeclarator(variableDeclarator))
         {
@@ -5446,7 +5710,8 @@ public partial class SemanticModel
             variableDeclarator,
             out localSymbol,
             allowErrorType,
-            allowInitializerBinding);
+            allowInitializerBinding,
+            allowBindingFallback);
     }
 
     private static bool IsLocalVariableDeclarator(VariableDeclaratorSyntax variableDeclarator)
@@ -5457,14 +5722,18 @@ public partial class SemanticModel
         VariableDeclaratorSyntax variableDeclarator,
         out ILocalSymbol? localSymbol,
         bool allowErrorType = false,
-        bool allowInitializerBinding = true)
+        bool allowInitializerBinding = true,
+        bool allowBindingFallback = true)
     {
         EnsureDeclarations();
 
         var binder = GetBinderForIncrementalSemanticQuery(variableDeclarator);
-        if (binder is BlockBinder blockBinder)
+        if (TryGetNearestBlockBinder(binder, out var blockBinder))
         {
-            var shallowLocal = blockBinder.TryDeclareLocalSymbolShallow(variableDeclarator, allowInitializerBinding);
+            var shallowLocal = blockBinder.TryDeclareLocalSymbolShallow(
+                variableDeclarator,
+                allowInitializerBinding,
+                allowBoundInitializerBinding: allowBindingFallback);
             if (shallowLocal is not null &&
                 (allowErrorType || !shallowLocal.Type.ContainsErrorType()))
             {
@@ -5473,7 +5742,7 @@ public partial class SemanticModel
             }
         }
 
-        if (!allowInitializerBinding)
+        if (!allowInitializerBinding || !allowBindingFallback)
         {
             localSymbol = null;
             return false;
@@ -5521,6 +5790,23 @@ public partial class SemanticModel
         }
 
         localSymbol = null;
+        return false;
+    }
+
+    private static bool TryGetNearestBlockBinder(
+        Binder? binder,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out BlockBinder? blockBinder)
+    {
+        for (var current = binder; current is not null; current = current.ParentBinder)
+        {
+            if (current is BlockBinder currentBlockBinder)
+            {
+                blockBinder = currentBlockBinder;
+                return true;
+            }
+        }
+
+        blockBinder = null;
         return false;
     }
 
@@ -7731,10 +8017,13 @@ public partial class SemanticModel
                 ? availableParameterSymbol
                 : null,
             VariableDeclaratorSyntax variableDeclarator => IsLocalVariableDeclarator(variableDeclarator) &&
-                  TryGetAvailableLocalDeclarationSymbol(variableDeclarator, out var localSymbol, allowErrorType: true)
+                  TryGetAvailableLocalDeclarationSymbol(
+                      variableDeclarator,
+                      out var localSymbol,
+                      allowErrorType: true,
+                      allowInitializerBinding: true,
+                      allowBindingFallback: false)
                 ? localSymbol
-                : TryGetStableLocalDeclarationSymbol(variableDeclarator, out var stableLocalSymbol)
-                ? stableLocalSymbol
                 : null,
             SingleVariableDesignationSyntax => null,
             _ => null

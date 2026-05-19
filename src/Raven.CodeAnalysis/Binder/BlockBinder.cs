@@ -251,7 +251,8 @@ partial class BlockBinder : Binder
 
     internal ILocalSymbol? TryDeclareLocalSymbolShallow(
         VariableDeclaratorSyntax variableDeclarator,
-        bool allowInitializerBinding = true)
+        bool allowInitializerBinding = true,
+        bool allowBoundInitializerBinding = true)
     {
         if (variableDeclarator.Parent is not VariableDeclarationSyntax declaration)
             return null;
@@ -290,7 +291,7 @@ partial class BlockBinder : Binder
             ?? (allowInitializerBinding || CanInferLocalTypeFromAvailableInitializerDuringDeclarationSeeding(variableDeclarator)
                 ? TryInferLocalTypeFromAvailableInitializer(variableDeclarator)
                 : null)
-            ?? (allowInitializerBinding ? TryInferLocalTypeFromBoundInitializer(variableDeclarator) : null);
+            ?? (allowInitializerBinding && allowBoundInitializerBinding ? TryInferLocalTypeFromBoundInitializer(variableDeclarator) : null);
         if (type is null && !allowInitializerBinding)
             type = Compilation.ErrorTypeSymbol;
 
@@ -334,8 +335,12 @@ partial class BlockBinder : Binder
             return null;
         }
 
-        if (initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any())
+        if (initializer.DescendantNodesAndSelf()
+            .OfType<FunctionExpressionSyntax>()
+            .Any(static functionExpression => functionExpression.Body is not null))
+        {
             return null;
+        }
 
         if (!SemanticModel.TryGetAvailableTypeInfo(initializer, out var typeInfo))
             return null;

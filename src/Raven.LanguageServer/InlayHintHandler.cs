@@ -969,9 +969,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (type.ContainingType is not null)
             return type.ToDisplayStringKeywordAware(QualifiedSourceTypeDisplayFormat);
 
-        var name = CanUseSimpleName(binder, type)
-            ? type.Name
-            : type.ToDisplayStringKeywordAware(QualifiedSourceTypeDisplayFormat.WithGenericsOptions(SymbolDisplayGenericsOptions.None));
+        var name = type.Name;
 
         if (type.Arity <= 0)
             return name;

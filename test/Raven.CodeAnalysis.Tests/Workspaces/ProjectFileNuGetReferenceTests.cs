@@ -483,7 +483,9 @@ public sealed class ProjectFileNuGetReferenceTests
         AssertSymbolInfoContains(memberInfo, "AddDbContext");
         AssertSymbolInfoContains(invocationInfo, "AddDbContext");
         Assert.NotNull(typeInfo.Type);
-        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.True(
+            instrumentation.BinderReentry.TotalBindExecutions == 0,
+            instrumentation.BinderReentry.GetSummary());
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
         Assert.Equal(0, delta.TypeInfoBoundFallbacks);
@@ -775,12 +777,34 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.True(
+            instrumentation.BinderReentry.TotalBindExecutions == 0,
+            instrumentation.BinderReentry.GetSummary());
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
 
         instrumentation.BinderReentry.Reset();
         before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(
+            model.TryGetAvailableTypeInfo(toListAsync, out var cheapToListType),
+            instrumentation.BinderReentry.GetSummary());
+        Assert.Contains("VehicleEntity", cheapToListType.Type?.ToDisplayString() ?? string.Empty);
+
+        Assert.True(
+            model.TryGetAvailableTypeInfo(vehiclesDeclarator.Initializer!.Value, out var cheapInitializerType),
+            instrumentation.BinderReentry.GetSummary());
+        Assert.Equal("List", cheapInitializerType.Type?.Name);
+
+        Assert.True(
+            model.TryGetAvailableLocalDeclarationSymbol(
+                vehiclesDeclarator,
+                out var cheapVehiclesLocal,
+                allowErrorType: true,
+                allowInitializerBinding: true,
+                allowBindingFallback: false),
+            instrumentation.BinderReentry.GetSummary());
+        Assert.Equal("List", cheapVehiclesLocal!.Type.Name);
 
         var coldVehiclesInfo = model.GetSymbolInfo(vehiclesReference);
 
@@ -790,7 +814,9 @@ public sealed class ProjectFileNuGetReferenceTests
         var coldVehiclesLocal = Assert.IsAssignableFrom<ILocalSymbol>(coldVehiclesInfo.Symbol ?? coldVehiclesInfo.CandidateSymbols.FirstOrDefault());
         Assert.Equal("List", coldVehiclesLocal.Type.Name);
         Assert.Contains("VehicleEntity", coldVehiclesLocal.Type.ToDisplayString());
-        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.True(
+            instrumentation.BinderReentry.TotalBindExecutions == 0,
+            instrumentation.BinderReentry.GetSummary());
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
 

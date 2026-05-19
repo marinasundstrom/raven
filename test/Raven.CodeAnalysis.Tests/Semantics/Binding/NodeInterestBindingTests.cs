@@ -419,6 +419,52 @@ class C {
     }
 
     [Fact]
+    public void TryGetAvailableLocalDeclarationSymbol_OnGenericExtensionExpressionLambdas_ReturnsClosedTypeWithoutBindingStatement()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var IsActive: bool)
+
+class C {
+    func Run(users: IQueryable<User>) -> unit {
+        val query = users
+            |> OrderBy(user => user.Name)
+            |> Select(user => user.Name)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "node-interest-binding-tests",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var queryDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.ValueText == "query");
+        var queryStatement = queryDeclarator.GetAncestor<LocalDeclarationStatementSyntax>();
+
+        var resolved = model.TryGetAvailableLocalDeclarationSymbol(
+            queryDeclarator,
+            out var local,
+            allowInitializerBinding: true);
+
+        resolved.ShouldBeTrue();
+        local.ShouldNotBeNull();
+        var queryType = local!.Type.ShouldBeAssignableTo<INamedTypeSymbol>();
+        queryType.Name.ShouldBe("IQueryable");
+        queryType.TypeArguments.Single().Name.ShouldBe("String");
+        model.HasCachedBoundNodeForTesting(queryStatement!).ShouldBeFalse();
+    }
+
+    [Fact]
     public void TryGetInvocationTargetSymbolInfo_ForPipeExtensionLambda_UsesCompilerOwnedInvocationResult()
     {
         const string source = """
