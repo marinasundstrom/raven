@@ -331,6 +331,58 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_TopLevelAsyncFunctionExpression_ProvidesBodyLocalTypeHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.Threading.Tasks.*
+
+class RequestContext {
+    public val Text: string = "body"
+}
+
+func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
+
+Accept(async func (context: RequestContext) {
+    val content = await Task.FromResult(context.Text)
+    return "submitted: $content"
+})
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var contentHint = result.Single(static hint => hint.Label.String == ": string");
+        AssertSourceApplicable(
+            sourceText,
+            contentHint,
+            code.IndexOf("content", StringComparison.Ordinal) + "content".Length,
+            ": string");
+    }
+
+    [Fact]
     public async Task Handle_UnimportedMetadataType_UsesQualifiedAnnotationAsync()
     {
         Directory.CreateDirectory(_tempRoot);

@@ -702,22 +702,18 @@ internal sealed class HoverHandler : IHoverHandler
         SimpleNameSyntax identifier,
         out SymbolResolutionResult resolution)
     {
-        var requiresBinderResolution = IsPipeRightInvocation(invocation) || InvocationContainsFunctionArguments(invocation);
-        if (!requiresBinderResolution)
-        {
-            if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
-                return true;
+        if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
+            return true;
 
-            if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var fastInvocationCandidates) &&
-                TryResolveInvocationMethodFromCandidates(
-                    fastInvocationCandidates,
-                    invocation,
-                    identifier,
-                    requireUnambiguousCandidate: true,
-                    out resolution))
-            {
-                return true;
-            }
+        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var fastInvocationCandidates) &&
+            TryResolveInvocationMethodFromCandidates(
+                fastInvocationCandidates,
+                invocation,
+                identifier,
+                requireUnambiguousCandidate: true,
+                out resolution))
+        {
+            return true;
         }
 
         var invocationInfo = semanticModel.GetSymbolInfo(invocation);

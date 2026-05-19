@@ -2077,9 +2077,6 @@ public partial class SemanticModel
         if (invocation is null)
             return false;
 
-        if (InvocationContainsFunctionArguments(invocation))
-            return false;
-
         if (!TryGetAvailableInvocationCandidates(invocation, out var methods) ||
             methods.IsDefaultOrEmpty)
         {
@@ -2285,6 +2282,15 @@ public partial class SemanticModel
 
             for (var i = 0; i < argumentTypes.Count; i++)
             {
+                var argumentExpression = invocation.ArgumentList.Arguments[i].Expression;
+                if (argumentExpression is FunctionExpressionSyntax functionExpression &&
+                    peMethod.TryGetParameterType(i + receiverOffset, out var functionParameterType) &&
+                    functionParameterType is not null &&
+                    TryScoreAvailableFunctionExpressionArgument(functionExpression, functionParameterType, ref score))
+                {
+                    continue;
+                }
+
                 if (TryScoreFastMetadataArgumentConversion(argumentTypes[i], peMethod, i + receiverOffset, ref score, out var handled))
                     continue;
 
@@ -2317,7 +2323,15 @@ public partial class SemanticModel
 
         for (var i = 0; i < argumentTypes.Count; i++)
         {
+            var argumentExpression = invocation.ArgumentList.Arguments[i].Expression;
             var parameterType = visibleParameters[i].Type;
+            if (parameterType is not null &&
+                argumentExpression is FunctionExpressionSyntax functionExpression &&
+                TryScoreAvailableFunctionExpressionArgument(functionExpression, parameterType, ref score))
+            {
+                continue;
+            }
+
             if (parameterType is null ||
                 !TryScoreAvailableArgumentConversion(argumentTypes[i], parameterType, ref score))
             {
@@ -2325,6 +2339,31 @@ public partial class SemanticModel
             }
         }
 
+        return true;
+    }
+
+    private static bool TryScoreAvailableFunctionExpressionArgument(
+        FunctionExpressionSyntax functionExpression,
+        ITypeSymbol parameterType,
+        ref int score)
+    {
+        if (!TryUnwrapCallableDelegateType(parameterType, out var delegateType) ||
+            delegateType.GetDelegateInvokeMethod() is not { } invokeMethod)
+        {
+            return false;
+        }
+
+        var explicitParameterCount = functionExpression switch
+        {
+            SimpleFunctionExpressionSyntax simple when !simple.Parameter.Identifier.IsMissing => 1,
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.Count,
+            _ => 0
+        };
+
+        if (invokeMethod.Parameters.Length != explicitParameterCount)
+            return false;
+
+        score += IsExpressionTreeDelegateParameter(parameterType) ? 7 : 6;
         return true;
     }
 
@@ -7911,20 +7950,7 @@ public partial class SemanticModel
                     contextualBoundRoot = null;
                 }
 
-                if (contextualBoundRoot is not { })
-                {
-                    if (contextualRoot is CompilationUnitSyntax contextualCompilationUnit)
-                    {
-                        EnsureTopLevelCompilationUnitBound(contextualCompilationUnit);
-                        contextualBoundRoot = TryGetCachedBoundNode(contextualCompilationUnit)
-                            ?? CreateSyntheticTopLevelBlock(contextualCompilationUnit);
-                    }
-                    else
-                    {
-                        var contextualBinder = GetBinder(contextualRoot);
-                        contextualBoundRoot = BindNodeWithCurrentDiagnosticMode(contextualBinder, contextualRoot);
-                    }
-                }
+                contextualBoundRoot ??= BindContextualRootForSemanticQuery(contextualRoot);
 
                 if (TryGetCachedBoundNode(node) is { } contextCachedNode &&
                     !IsLikelyStaleFunctionBodyNode(contextCachedNode))
@@ -8074,6 +8100,7 @@ public partial class SemanticModel
         // Prefer binding the enclosing executable scope first.
         root = node.AncestorsAndSelf().OfType<BlockStatementSyntax>().FirstOrDefault()
                ?? node.AncestorsAndSelf().OfType<ArrowExpressionClauseSyntax>().FirstOrDefault()
+               ?? node.AncestorsAndSelf().OfType<GlobalStatementSyntax>().FirstOrDefault()
                ?? node.AncestorsAndSelf().OfType<CompilationUnitSyntax>().FirstOrDefault()
                ?? node;
 
@@ -8081,6 +8108,28 @@ public partial class SemanticModel
             node,
             new Compilation.ContextualBindingRootDescriptor(root.Span, root.Kind));
         return !ReferenceEquals(root, node);
+    }
+
+    private BoundNode BindContextualRootForSemanticQuery(SyntaxNode contextualRoot)
+    {
+        if (contextualRoot is GlobalStatementSyntax globalStatement)
+        {
+            if (globalStatement.SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
+                EnsureTopLevelCompilationUnitBound(compilationUnit);
+
+            return TryGetCachedBoundNode(globalStatement.Statement)
+                ?? BindNodeWithCurrentDiagnosticMode(GetBinder(globalStatement.Statement), globalStatement.Statement);
+        }
+
+        if (contextualRoot is CompilationUnitSyntax contextualCompilationUnit)
+        {
+            EnsureTopLevelCompilationUnitBound(contextualCompilationUnit);
+            return TryGetCachedBoundNode(contextualCompilationUnit)
+                ?? CreateSyntheticTopLevelBlock(contextualCompilationUnit);
+        }
+
+        var contextualBinder = GetBinder(contextualRoot);
+        return BindNodeWithCurrentDiagnosticMode(contextualBinder, contextualRoot);
     }
 
     private static bool TryResolveContextualBindingRootDescriptor(
@@ -8589,8 +8638,7 @@ public partial class SemanticModel
 
         try
         {
-            var contextualBinder = GetBinderForIncrementalSemanticQuery(contextualRoot);
-            var reboundRoot = BindNodeWithCurrentDiagnosticMode(contextualBinder, contextualRoot);
+            var reboundRoot = BindContextualRootForSemanticQuery(contextualRoot);
             if (TryFindBoundNodeBySyntax(reboundRoot, functionSyntax, out var reboundFunctionNode) &&
                 reboundFunctionNode is BoundFunctionExpression reboundLambda)
             {

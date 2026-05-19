@@ -1,5 +1,8 @@
 using System.Reflection;
 
+using Microsoft.Extensions.Logging.Abstractions;
+
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis.Syntax;
@@ -10,6 +13,51 @@ namespace Raven.Editor.Tests;
 
 public sealed class LanguageServerDocumentSymbolTests
 {
+    [Fact]
+    public async Task Handle_OpenDocument_UsesSyntaxOnlyContextAsync()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-document-symbols-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var workspace = Raven.CodeAnalysis.RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var handler = new DocumentSymbolHandler(store, NullLogger<DocumentSymbolHandler>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(Path.Combine(tempRoot, "main.rvn"));
+            store.UpsertDocument(uri, """
+val builder = WebApplication.CreateBuilder(args)
+val app = builder.Build()
+
+app.MapGet("/", func () => "Hello")
+
+record PingResult(val Message: string)
+""");
+
+            var result = await handler.Handle(
+                new DocumentSymbolParams { TextDocument = new TextDocumentIdentifier(uri) },
+                CancellationToken.None);
+
+            var symbols = result!.ToArray();
+            symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldContain("<top-level code>");
+            symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldContain("PingResult");
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     [Fact]
     public void Outline_IncludesSyntheticTopLevelCodeSymbol_ForExecutableGlobalStatements()
     {

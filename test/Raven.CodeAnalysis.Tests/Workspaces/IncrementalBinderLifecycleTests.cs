@@ -1103,6 +1103,74 @@ public sealed class IncrementalBinderLifecycleTests
     }
 
     [Fact]
+    public void GetDeclaredSymbol_ForLocalInTopLevelAsyncFunctionExpression_UsesExecutableContext()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(
+                """
+                import System.*
+                import System.Threading.Tasks.*
+
+                class RequestContext {
+                    public val Text: string = "body"
+                }
+
+                func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
+
+                Accept(async func (context: RequestContext) {
+                    val content = await Task.FromResult(context.Text)
+                    return "submitted: $content"
+                })
+                """),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var functionExpression = root.DescendantNodes().OfType<FunctionExpressionSyntax>().Single();
+        var acceptInvocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "Accept" });
+        functionExpression.Body.ShouldNotBeNull();
+        var functionBody = functionExpression.Body!;
+        var contentDeclarator = functionBody.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "content");
+
+        var functionRebindDescriptor = model.GetFunctionExpressionRebindRootDescriptorForTesting(functionExpression);
+        functionRebindDescriptor.Kind.ShouldBe(SyntaxKind.ExpressionStatement);
+        var contextualDescriptor = model.GetContextualBindingRootDescriptorForTesting(acceptInvocation);
+        contextualDescriptor.Kind.ShouldNotBe(SyntaxKind.CompilationUnit);
+        var contentLocal = model.GetDeclaredSymbol(contentDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        contentLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
+        var functionBinder = model.GetIncrementalSemanticQueryBinderForTesting(functionBody).ShouldBeAssignableTo<FunctionExpressionBinder>();
+        functionBinder.LookupSymbol("context").ShouldBeAssignableTo<IParameterSymbol>();
+        functionBinder.GetLocalForTesting("content").ShouldBeSameAs(contentLocal);
+        model.GetDiagnostics()
+            .Where(diagnostic =>
+                diagnostic.Descriptor.Id is "RAV2700" or "RAV1900" ||
+                diagnostic.Descriptor.Id == "RAV0103" &&
+                diagnostic.GetMessage().Contains("'context' is not in scope", StringComparison.Ordinal))
+            .Select(diagnostic => $"{diagnostic.Descriptor.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
     public void WorkspaceCompilation_BodyEdit_IncrementalSemanticQueryBinderCreatesFreshChildWithMethodParent()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -34,6 +33,11 @@ internal sealed class DocumentStore
         SyntaxTree SyntaxTree,
         Raven.CodeAnalysis.Text.SourceText SourceText);
 
+    internal readonly record struct DocumentSyntaxContext(
+        Document Document,
+        SyntaxTree SyntaxTree,
+        Raven.CodeAnalysis.Text.SourceText SourceText);
+
     internal readonly record struct DiagnosticsComputationResult(
         IReadOnlyList<LspDiagnostic> Diagnostics,
         bool WasSkipped);
@@ -56,8 +60,6 @@ internal sealed class DocumentStore
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<DocumentStore> _logger;
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
-    private readonly ConcurrentDictionary<DocumentUri, Document> _openDocumentSnapshots = new();
-    private readonly ConcurrentDictionary<SyntaxTree, SourceDiagnosticSuppressionMap> _syntaxSuppressionMaps = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
     {
@@ -71,7 +73,6 @@ internal sealed class DocumentStore
     internal Document UpsertDocument(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
     {
         var document = _workspaceManager.UpsertDocument(uri, text, deferMacroConsumerRefresh);
-        _openDocumentSnapshots[uri] = document;
 
         if (deferMacroConsumerRefresh)
             PrimeCompilationAfterEdit(uri);
@@ -103,6 +104,19 @@ internal sealed class DocumentStore
     public async Task<DocumentAnalysisContext?> GetAnalysisContextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
         return await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<DocumentSyntaxContext?> GetDocumentSyntaxContextAsync(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        if (!TryGetDocument(uri, out var document) || document is null)
+            return null;
+
+        var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+        if (syntaxTree is null)
+            return null;
+
+        var sourceText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return new DocumentSyntaxContext(document, syntaxTree, sourceText);
     }
 
     internal async Task<SemanticModel?> GetSemanticModelAsync(DocumentUri uri, CancellationToken cancellationToken)
@@ -181,7 +195,6 @@ internal sealed class DocumentStore
 
     public bool RemoveDocument(DocumentUri uri)
     {
-        _openDocumentSnapshots.TryRemove(uri, out _);
         return _workspaceManager.RemoveDocument(uri);
     }
 
@@ -343,7 +356,7 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken)
     {
         if (lane == DiagnosticLane.Syntax)
-            return await GetSyntaxDiagnosticsCoreAsync(uri, shouldSkipWork, cancellationToken).ConfigureAwait(false);
+            return GetSyntaxDiagnosticsCore(uri, shouldSkipWork, cancellationToken);
 
         var stopwatch = Stopwatch.StartNew();
         double gateWaitMs = 0;
@@ -522,14 +535,12 @@ internal sealed class DocumentStore
             _ => "computeProjectWithAnalyzersDiagnosticsSkipped"
         };
 
-    private async Task<DiagnosticsComputationResult> GetSyntaxDiagnosticsCoreAsync(
+    private DiagnosticsComputationResult GetSyntaxDiagnosticsCore(
         DocumentUri uri,
         Func<bool>? shouldSkipWork,
         CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        double documentLookupMs = 0;
-        double syntaxTreeMs = 0;
         double diagnosticsFetchMs = 0;
 
         try
@@ -538,32 +549,12 @@ internal sealed class DocumentStore
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
             var stageStopwatch = Stopwatch.StartNew();
-            if (!_openDocumentSnapshots.TryGetValue(uri, out var document) &&
-                (!TryGetDocument(uri, out document) || document is null))
-            {
-                return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
-            }
-
-            documentLookupMs = stageStopwatch.Elapsed.TotalMilliseconds;
-
-            stageStopwatch.Restart();
-            var syntaxTree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            syntaxTreeMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            if (syntaxTree is null)
+            if (!_workspaceManager.TryGetDocumentSyntaxDiagnostics(uri, out var syntaxDiagnostics, cancellationToken: cancellationToken))
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
 
-            if (shouldSkipWork?.Invoke() == true)
-                return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
-
-            stageStopwatch.Restart();
-            var diagnostics = syntaxTree
-                .GetDiagnostics(cancellationToken)
-                .Select(diagnostic => ApplySyntaxDiagnosticOptions(document.Project, syntaxTree, diagnostic))
-                .Where(static diagnostic => diagnostic is not null)
-                .Cast<CodeDiagnostic>()
-                .Where(diagnostic => ShouldReport(diagnostic, syntaxTree))
-                .Select(MapDiagnostic)
-                .ToArray();
+            var diagnostics = syntaxDiagnostics
+                    .Select(MapDiagnostic)
+                    .ToArray();
             diagnosticsFetchMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             return new DiagnosticsComputationResult(diagnostics, WasSkipped: false);
@@ -589,61 +580,10 @@ internal sealed class DocumentStore
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", 0),
-                    new LanguageServerPerformanceInstrumentation.StageTiming("documentLookup", documentLookupMs),
-                    new LanguageServerPerformanceInstrumentation.StageTiming("syntaxTree", syntaxTreeMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("documentLookup", 0),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("syntaxTree", 0),
                     new LanguageServerPerformanceInstrumentation.StageTiming("diagnosticsFetch", diagnosticsFetchMs)
                 ]);
-        }
-    }
-
-    private CodeDiagnostic? ApplySyntaxDiagnosticOptions(Project project, SyntaxTree syntaxTree, CodeDiagnostic diagnostic)
-    {
-        var options = project.CompilationOptions ?? new CompilationOptions();
-        if (!options.EnableSuggestions &&
-            diagnostic.Properties.ContainsKey(Raven.CodeAnalysis.Diagnostics.SuggestionsDiagnosticProperties.OriginalCodeKey) &&
-            diagnostic.Properties.ContainsKey(Raven.CodeAnalysis.Diagnostics.SuggestionsDiagnosticProperties.RewrittenCodeKey))
-        {
-            return null;
-        }
-
-        var mappedDiagnostic = diagnostic;
-        var isSuppressed = false;
-
-        if (TryGetReportDiagnostic(options, diagnostic.Descriptor.Id, out var report))
-        {
-            if (report == ReportDiagnostic.Suppress)
-                isSuppressed = true;
-
-            if (!isSuppressed && report != ReportDiagnostic.Default)
-            {
-                var severity = report switch
-                {
-                    ReportDiagnostic.Error => CodeDiagnosticSeverity.Error,
-                    ReportDiagnostic.Warn => CodeDiagnosticSeverity.Warning,
-                    ReportDiagnostic.Info => CodeDiagnosticSeverity.Info,
-                    ReportDiagnostic.Hidden => CodeDiagnosticSeverity.Hidden,
-                    _ => mappedDiagnostic.Severity
-                };
-
-                if (severity != mappedDiagnostic.Severity)
-                    mappedDiagnostic = mappedDiagnostic.WithSeverity(severity);
-            }
-        }
-
-        var suppressionMap = _syntaxSuppressionMaps.GetOrAdd(
-            syntaxTree,
-            static tree => SourceDiagnosticSuppressionMap.Create(tree));
-        if (suppressionMap.IsSuppressed(mappedDiagnostic))
-            isSuppressed = true;
-
-        return isSuppressed ? null : mappedDiagnostic;
-
-        static bool TryGetReportDiagnostic(CompilationOptions options, string diagnosticId, out ReportDiagnostic mappedReport)
-        {
-            if (options.SpecificDiagnosticOptions.TryGetValue(diagnosticId, out mappedReport))
-                return true;
-
-            return options.SpecificDiagnosticOptions.TryGetValue("*", out mappedReport);
         }
     }
 

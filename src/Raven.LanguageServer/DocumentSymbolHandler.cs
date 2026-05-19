@@ -52,7 +52,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
         try
         {
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetDocumentSyntaxContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return new SymbolInformationOrDocumentSymbolContainer();

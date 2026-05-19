@@ -842,17 +842,34 @@ union MyResult<T>(List<T> | int)
     }
 
     [Fact]
-    public async Task GetDiagnosticsAsync_TopLevelMembersSample_ReportsRedundantPreludeImportAsync()
+    public async Task GetDiagnosticsAsync_FileScopedNamespaceImportCoveredByPrelude_ReportsRedundantImportAsync()
     {
-        var sampleRoot = Path.Combine(
-            GetRepositoryRoot(),
-            "samples",
-            "projects",
-            "top-level-members");
-        var documentPath = Path.Combine(sampleRoot, "src", "Members.rvn");
+        _ = WriteProject(
+            _tempRoot,
+            "App",
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <RavenCompile Include="src/**/*.rvn" />
+              </ItemGroup>
+            </Project>
+            """);
 
-        Directory.Exists(sampleRoot).ShouldBeTrue();
-        File.Exists(documentPath).ShouldBeTrue();
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        var documentPath = Path.Combine(sourceDirectory, "Members.rvn");
+        await File.WriteAllTextAsync(
+            documentPath,
+            """
+            namespace Samples.Members
+
+            import System.*
+
+            public func Format(value: int) -> string => value.ToString()
+            """);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
@@ -860,8 +877,8 @@ union MyResult<T>(List<T> | int)
         {
             WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
             {
-                Name = "top-level-members",
-                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
             })
         });
 
