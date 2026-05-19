@@ -100,6 +100,7 @@ val x = 1
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         _ = store.UpsertDocument(uri, code);
+        manager.TryGetDiagnostics(uri, out _).ShouldBeTrue();
 
         var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
 

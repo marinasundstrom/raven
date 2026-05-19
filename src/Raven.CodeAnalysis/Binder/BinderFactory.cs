@@ -116,10 +116,20 @@ class BinderFactory
         var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
 
         var provisionalImportBinder = new ImportBinder(nsBinder, namespaceImports, typeImports, aliases);
+        var globalImportKeys = nsSyntax.Parent is CompilationUnitSyntax
+            ? null
+            : CollectGlobalImportKeys();
 
         foreach (var importDirective in nsSyntax.Imports)
         {
             var importName = importDirective.Name.ToString();
+            if (globalImportKeys?.Contains(importName) == true)
+            {
+                nsBinder.Diagnostics.ReportImportDirectiveRedundantWithGlobalImport(
+                    importName,
+                    importDirective.GetLocation());
+                continue;
+            }
 
             if (IsWildcard(importDirective.Name, out var nsName))
             {
@@ -195,6 +205,25 @@ class BinderFactory
             importBinder.Diagnostics.Report(diagnostic);
 
         return importBinder;
+
+        HashSet<string> CollectGlobalImportKeys()
+        {
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var tree in _compilation.SyntaxTrees)
+            {
+                if (tree.GetRoot() is not CompilationUnitSyntax root)
+                    continue;
+
+                foreach (var globalImport in root.Members.OfType<GlobalImportBlockSyntax>())
+                {
+                    foreach (var import in globalImport.Imports)
+                        keys.Add(import.Name.ToString());
+                }
+            }
+
+            return keys;
+        }
 
         INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
         {

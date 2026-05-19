@@ -58,7 +58,6 @@ internal sealed class WorkspaceManager
     private readonly ImmutableArray<CodeRefactoringProvider> _builtInCodeRefactoringProviders;
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
-    private readonly ConcurrentDictionary<ProjectId, CachedDiagnostics> _diagnosticsCache = new();
     private readonly ConcurrentDictionary<ProjectId, CancellationTokenSource> _pendingMacroConsumerRefreshes = new();
     private readonly Dictionary<string, FailedProjectOpen> _failedProjectOpens = new(StringComparer.OrdinalIgnoreCase);
     private readonly PerformanceInstrumentation _compilerPerformanceInstrumentation = new();
@@ -102,7 +101,6 @@ internal sealed class WorkspaceManager
             _projectsByRoot.Clear();
             _fallbackProjectId = null;
             _documents.Clear();
-            _diagnosticsCache.Clear();
             var loadedProjects = new Dictionary<string, ProjectId>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var root in roots)
@@ -529,7 +527,6 @@ internal sealed class WorkspaceManager
                     _workspace.TryApplyChanges(solution);
                     var updatedDocument = _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
                     _documents[uri] = new OwnedDocument(updatedDocument.Id, ownerProject, updatedDocument.Version, IsProjectDocument: existing.IsProjectDocument);
-                    _diagnosticsCache.TryRemove(ownerProject, out _);
                     RefreshMacroConsumersForProject(ownerProject, deferMacroConsumerRefresh);
                     return updatedDocument;
                 }
@@ -551,9 +548,6 @@ internal sealed class WorkspaceManager
                 _workspace.TryApplyChanges(solution);
                 var updatedDocument = _workspace.CurrentSolution.GetDocument(existingDocument.Id)!;
                 _documents[uri] = new OwnedDocument(updatedDocument.Id, existingOwnerProject, updatedDocument.Version, IsProjectDocument: true);
-                _diagnosticsCache.TryRemove(existingOwnerProject, out _);
-                if (staleOwnedDocument is { } staleOwner && staleOwner.ProjectId != existingOwnerProject)
-                    _diagnosticsCache.TryRemove(staleOwner.ProjectId, out _);
                 RefreshMacroConsumersForProject(existingOwnerProject, deferMacroConsumerRefresh);
                 return updatedDocument;
             }
@@ -569,7 +563,6 @@ internal sealed class WorkspaceManager
             _workspace.TryApplyChanges(solution);
             var addedDocument = _workspace.CurrentSolution.GetDocument(documentId)!;
             _documents[uri] = new OwnedDocument(documentId, ownerProject, addedDocument.Version, IsProjectDocument: false);
-            _diagnosticsCache.TryRemove(ownerProject, out _);
 
             return addedDocument;
         }
@@ -675,20 +668,7 @@ internal sealed class WorkspaceManager
     {
         if (_documents.TryGetValue(uri, out var ownedDocument))
         {
-            var project = _workspace.CurrentSolution.GetProject(ownedDocument.ProjectId);
-            if (project is not null && analyzerOptions is null &&
-                _diagnosticsCache.TryGetValue(ownedDocument.ProjectId, out var cached) &&
-                cached.Version == project.Version)
-            {
-                diagnostics = cached.Diagnostics;
-                return true;
-            }
-
             diagnostics = _workspace.GetDiagnostics(ownedDocument.ProjectId, analyzerOptions, cancellationToken);
-            if (project is not null && analyzerOptions is null)
-            {
-                _diagnosticsCache[ownedDocument.ProjectId] = new CachedDiagnostics(project.Version, diagnostics);
-            }
             return true;
         }
 
@@ -747,30 +727,6 @@ internal sealed class WorkspaceManager
         return false;
     }
 
-    public bool TryGetCachedCodeFixes(
-        DocumentUri uri,
-        out ImmutableArray<CodeFix> codeFixes,
-        CancellationToken cancellationToken = default)
-    {
-        if (TryResolveOwnedDocument(uri, out var ownedDocument))
-        {
-            var project = _workspace.CurrentSolution.GetProject(ownedDocument.ProjectId);
-            if (project is not null &&
-                _diagnosticsCache.TryGetValue(ownedDocument.ProjectId, out var cached) &&
-                cached.Version == project.Version)
-            {
-                codeFixes = _workspace
-                    .GetCodeFixes(ownedDocument.ProjectId, _builtInCodeFixProviders, cached.Diagnostics, cancellationToken)
-                    .Where(fix => fix.DocumentId == ownedDocument.DocumentId)
-                    .ToImmutableArray();
-                return true;
-            }
-        }
-
-        codeFixes = ImmutableArray<CodeFix>.Empty;
-        return false;
-    }
-
     public bool TryGetCodeFixesForDiagnostics(
         DocumentUri uri,
         IEnumerable<CodeDiagnostic> diagnostics,
@@ -822,7 +778,6 @@ internal sealed class WorkspaceManager
                     var sourceText = SourceText.From(File.ReadAllText(filePath));
                     var solution = _workspace.CurrentSolution.WithDocumentText(ownedDocument.DocumentId, sourceText);
                     _workspace.TryApplyChanges(solution);
-                    _diagnosticsCache.TryRemove(ownedDocument.ProjectId, out _);
                     RefreshMacroConsumersForProject(ownedDocument.ProjectId, defer: false);
                 }
             }
@@ -830,7 +785,6 @@ internal sealed class WorkspaceManager
             {
                 var solution = _workspace.CurrentSolution.RemoveDocument(ownedDocument.DocumentId);
                 _workspace.TryApplyChanges(solution);
-                _diagnosticsCache.TryRemove(ownedDocument.ProjectId, out _);
             }
         }
 
@@ -978,7 +932,6 @@ internal sealed class WorkspaceManager
                 if (!MacroReferencesMatch(consumer.MacroReferences, updatedReferences))
                 {
                     solution = solution.WithMacroReferences(consumer.Id, updatedReferences);
-                    _diagnosticsCache.TryRemove(consumer.Id, out _);
                     updatedConsumers++;
                 }
             }
@@ -1372,5 +1325,4 @@ internal sealed class WorkspaceManager
     private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId, VersionStamp Version, bool IsProjectDocument);
     private readonly record struct ReloadDocumentState(DocumentUri Uri, string Text, bool IsProjectDocument);
     private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType);
-    private readonly record struct CachedDiagnostics(VersionStamp Version, ImmutableArray<CodeDiagnostic> Diagnostics);
 }

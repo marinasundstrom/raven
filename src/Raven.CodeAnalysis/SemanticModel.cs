@@ -272,10 +272,10 @@ public partial class SemanticModel
                 {
                     foreach (var binderState in _binderCache.Values)
                     {
-                        // Type member binders own diagnostics for member declarations and
-                        // initializers. Clearing them here forces descendant expressions to
-                        // be rebound without the member target type.
-                        if (binderState is TypeMemberBinder)
+                        // Declaration and import-scope binders own diagnostics produced
+                        // while deriving the scope itself. Keep those immutable syntax facts
+                        // intact; the rebind below is for executable/body binders.
+                        if (binderState is TypeMemberBinder or ImportBinder or CompilationUnitBinder or NamespaceBinder or TopLevelBinder)
                             continue;
 
                         binderState.Diagnostics.ClearDiagnostics(root.Span);

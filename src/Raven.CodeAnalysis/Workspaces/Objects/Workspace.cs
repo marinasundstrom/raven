@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -18,6 +19,7 @@ public class Workspace
     private readonly object _compilationGate = new();
     private readonly Dictionary<ProjectId, ProjectCompilationState> _projectCompilations = new();
     private readonly Dictionary<ProjectId, ProjectCompilationState> _analysisProjectCompilations = new();
+    private readonly ConcurrentDictionary<ProjectDiagnosticsCacheKey, ImmutableArray<Diagnostic>> _projectDiagnosticsCache = new();
 
     protected Workspace(string kind)
         : this(kind, HostServices.Default)
@@ -78,8 +80,20 @@ public class Workspace
         foreach (var id in removed)
             _analysisProjectCompilations.Remove(id);
 
+        RemoveStaleProjectDiagnostics(newSolution);
+
         OnWorkspaceChanged(new WorkspaceChangeEventArgs(kind, oldSolution, newSolution, projectId, documentId));
         return true;
+    }
+
+    private void RemoveStaleProjectDiagnostics(Solution solution)
+    {
+        foreach (var key in _projectDiagnosticsCache.Keys)
+        {
+            var project = solution.GetProject(key.ProjectId);
+            if (project is null || project.Version != key.Version)
+                _projectDiagnosticsCache.TryRemove(key, out _);
+        }
     }
 
     private static (WorkspaceChangeKind kind, ProjectId? projectId, DocumentId? documentId)
@@ -284,6 +298,8 @@ public class Workspace
 
     private sealed record DocumentState(VersionStamp Version, SyntaxTree SyntaxTree);
 
+    private readonly record struct ProjectDiagnosticsCacheKey(ProjectId ProjectId, VersionStamp Version);
+
     /// <summary>
     /// Gets diagnostics for the specified project, including analyzer diagnostics.
     /// </summary>
@@ -294,6 +310,13 @@ public class Workspace
     {
         var project = CurrentSolution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var cacheKey = new ProjectDiagnosticsCacheKey(projectId, project.Version);
+        if (analyzerOptions is null &&
+            _projectDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
+        {
+            return cachedDiagnostics;
+        }
 
         var compilation = CreateAnalysisCompilation(projectId);
         var diagnostics = compilation.GetDiagnostics(analyzerOptions, cancellationToken).ToHashSet();
@@ -337,7 +360,11 @@ public class Workspace
             }
         }
 
-        return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+        var result = diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+        if (analyzerOptions is null)
+            _projectDiagnosticsCache[cacheKey] = result;
+
+        return result;
     }
 
     public ImmutableArray<Diagnostic> GetDocumentDiagnostics(

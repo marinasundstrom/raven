@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.RegularExpressions;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -796,7 +795,7 @@ func Helper() -> () {
     }
 
     [Fact]
-    public async Task WarmAnalysisAsync_CanPopulateSemanticModelWhileDocumentSemanticGateIsHeldAsync()
+    public async Task WarmAnalysisAsync_UsesCompilerOwnedSemanticModelWhileDocumentSemanticGateIsHeldAsync()
     {
         var (store, _, uri) = CreateWorkspace("""
 func Main() -> () {
@@ -804,36 +803,13 @@ func Main() -> () {
 }
 """);
 
-        _ = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
 
         using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
         await store.WarmAnalysisAsync(uri, shouldSkipWork: null, CancellationToken.None);
 
-        var cacheField = typeof(DocumentStore).GetField("_documentAnalysisCache", BindingFlags.Instance | BindingFlags.NonPublic);
-        cacheField.ShouldNotBeNull();
-
-        var cache = cacheField!.GetValue(store);
-        cache.ShouldNotBeNull();
-
-        var entriesProperty = cache!.GetType().GetProperty("Values");
-        entriesProperty.ShouldNotBeNull();
-
-        var entries = ((System.Collections.IEnumerable)entriesProperty!.GetValue(cache)!).Cast<object>().ToArray();
-        entries.Length.ShouldBe(1);
-
-        var semanticModelField = entries[0].GetType().GetField("_semanticModel", BindingFlags.Instance | BindingFlags.NonPublic);
-        semanticModelField.ShouldNotBeNull();
-
-        var lazySemanticModel = semanticModelField!.GetValue(entries[0]);
-        lazySemanticModel.ShouldNotBeNull();
-
-        var isValueCreatedProperty = lazySemanticModel!.GetType().GetProperty("IsValueCreated");
-        isValueCreatedProperty.ShouldNotBeNull();
-        isValueCreatedProperty!.GetValue(lazySemanticModel).ShouldBe(true);
-
-        var valueProperty = lazySemanticModel.GetType().GetProperty("Value");
-        valueProperty.ShouldNotBeNull();
-        var warmedModel = valueProperty!.GetValue(lazySemanticModel);
+        var warmedModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
         var returnedModel = await store.GetSemanticModelAsync(uri, CancellationToken.None);
 
         ReferenceEquals(warmedModel, returnedModel).ShouldBeTrue();

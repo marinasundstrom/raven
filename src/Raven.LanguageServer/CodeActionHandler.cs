@@ -172,14 +172,15 @@ internal sealed class CodeActionHandler : ICodeActionHandler
         SyntaxTree syntaxTree,
         CancellationToken cancellationToken)
     {
-        if (_workspaceManager.TryGetCachedCodeFixes(request.TextDocument.Uri, out var cachedFixes, cancellationToken))
-            return cachedFixes.ToArray();
-
         var diagnostics = CreateDiagnosticsFromRequest(request.Context?.Diagnostics, documentText, syntaxTree);
-        if (diagnostics.Length == 0)
-            return [];
+        if (diagnostics.Length > 0)
+        {
+            return _workspaceManager.TryGetCodeFixesForDiagnostics(request.TextDocument.Uri, diagnostics, out var requestFixes, cancellationToken)
+                ? requestFixes.ToArray()
+                : [];
+        }
 
-        return _workspaceManager.TryGetCodeFixesForDiagnostics(request.TextDocument.Uri, diagnostics, out var fixes, cancellationToken)
+        return _workspaceManager.TryGetCodeFixes(request.TextDocument.Uri, out var fixes, cancellationToken: cancellationToken)
             ? fixes.ToArray()
             : [];
     }

@@ -1,3 +1,5 @@
+using System.Threading;
+
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -44,6 +46,29 @@ public class AnalyzerInfrastructureTests
                 var text = ctx.SyntaxTree.GetText()?.ToString();
                 if (text is not null && text.Contains("TODO"))
                     ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, Location.None));
+            });
+        }
+    }
+
+    private sealed class CountingAnalyzer : DiagnosticAnalyzer
+    {
+        public static int AnalyzeCount;
+
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0003",
+            title: "Counted",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Counted",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterSyntaxTreeAction(ctx =>
+            {
+                Interlocked.Increment(ref AnalyzeCount);
+                ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, Location.None));
             });
         }
     }
@@ -96,6 +121,38 @@ public class AnalyzerInfrastructureTests
         var diagnostics2 = workspace.GetDiagnostics(projectId);
         Assert.Contains(diagnostics2, d => d.Descriptor.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id);
         Assert.Contains(diagnostics2, d => d.Descriptor.Id == TodoAnalyzer.Descriptor.Id);
+    }
+
+    [Fact]
+    public void GetDiagnostics_ReusesAnalyzerDiagnosticsUntilProjectVersionChanges()
+    {
+        CountingAnalyzer.AnalyzeCount = 0;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new CountingAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        _ = workspace.GetDiagnostics(projectId);
+        _ = workspace.GetDiagnostics(projectId);
+
+        Assert.Equal(1, CountingAnalyzer.AnalyzeCount);
+
+        var updated = workspace.CurrentSolution.WithDocumentText(docId, SourceText.From("val x = 2"));
+        workspace.TryApplyChanges(updated);
+        _ = workspace.GetDiagnostics(projectId);
+
+        Assert.Equal(2, CountingAnalyzer.AnalyzeCount);
     }
 
     [Fact]

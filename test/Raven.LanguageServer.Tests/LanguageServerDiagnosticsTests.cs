@@ -842,6 +842,50 @@ union MyResult<T>(List<T> | int)
     }
 
     [Fact]
+    public async Task GetDiagnosticsAsync_TopLevelMembersSample_ReportsRedundantPreludeImportAsync()
+    {
+        var sampleRoot = Path.Combine(
+            GetRepositoryRoot(),
+            "samples",
+            "projects",
+            "top-level-members");
+        var documentPath = Path.Combine(sampleRoot, "src", "Members.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "top-level-members",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        store.UpsertDocument(uri, code);
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var redundantImports = diagnostics
+            .Where(diagnostic => string.Equals(
+                diagnostic.Code?.String,
+                "RAV1052",
+                StringComparison.Ordinal))
+            .ToArray();
+
+        var redundantImport = redundantImports.ShouldHaveSingleItem();
+        redundantImport.Severity.ShouldBe(LspDiagnosticSeverity.Hint);
+        redundantImport.Tags.ShouldNotBeNull();
+        redundantImport.Tags!.ShouldContain(DiagnosticTag.Unnecessary);
+        redundantImport.Message.ShouldContain("System.*");
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_TopLevelGenericInvocationAfterOpenFeatures_DoesNotPublishStaleOverloadDiagnosticAsync()
     {
         Directory.CreateDirectory(_tempRoot);

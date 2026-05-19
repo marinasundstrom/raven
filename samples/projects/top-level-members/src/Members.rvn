@@ -1,6 +1,5 @@
 namespace Samples.NamespaceMembers.Members
 
-import System.*
 import System.Console.*
 
 public const DefaultTopic: string = "binding"
