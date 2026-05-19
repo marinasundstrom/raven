@@ -322,9 +322,6 @@ partial class BlockBinder : Binder
         if (initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any())
             return null;
 
-        if (initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any())
-            return null;
-
         if (!SemanticModel.TryGetAvailableTypeInfo(initializer, out var typeInfo))
             return null;
 

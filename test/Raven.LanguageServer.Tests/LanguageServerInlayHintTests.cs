@@ -73,7 +73,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_DocumentSemanticGateBusy_ReturnsWithoutWaitingAsync()
+    public async Task Handle_DocumentSemanticGateBusyWithoutCachedResult_ReturnsWithoutWaitingAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -113,6 +113,62 @@ func Main() -> unit {
 
         var result = await hintsTask;
         result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_DocumentSemanticGateBusyWithCachedResult_ReturnsCachedHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> unit {
+    val answer = 1 + 2
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+        var request = new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        };
+
+        var firstResult = await handler.Handle(request, CancellationToken.None);
+        var firstHints = firstResult.ToArray();
+        firstHints.ShouldContain(static hint => hint.Label.String == ": int");
+
+        using var heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        var hintsTask = handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange
+            {
+                Start = new Position(0, 0),
+                End = new Position(3, 0)
+            }
+        }, CancellationToken.None);
+
+        var completedTask = await Task.WhenAny(hintsTask, Task.Delay(1000));
+        completedTask.ShouldBe(hintsTask);
+
+        var cachedHints = (await hintsTask).ToArray();
+        cachedHints.Select(static hint => hint.Label.String).ShouldContain(": int");
     }
 
     [Fact]
@@ -159,7 +215,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_LargeRange_DoesNotBindInvocationInitializersAsync()
+    public async Task Handle_LargeRange_BindsInvocationInitializersAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -203,9 +259,7 @@ func Main() -> unit {
 
         var largeHints = largeResult.ToArray();
         var answerPosition = PositionHelper.ToRange(sourceText, new TextSpan(answerInsertion, 0)).Start;
-        largeHints.ShouldNotContain(hint =>
-            hint.Position.Line == answerPosition.Line &&
-            hint.Position.Character == answerPosition.Character);
+        AssertHasHintAtInsertion(sourceText, largeHints, answerInsertion, ": int");
 
         var smallResult = await handler.Handle(new InlayHintParams
         {

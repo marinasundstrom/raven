@@ -1134,7 +1134,7 @@ internal sealed class HoverHandler : IHoverHandler
     {
         resolution = default;
 
-        if (!semanticModel.TryGetAvailableSymbolInfo(queryNode, out var cachedInfo))
+        if (!semanticModel.TryGetCachedSymbolInfo(queryNode, out var cachedInfo))
             return false;
 
         if (cachedInfo.Symbol is null && cachedInfo.CandidateSymbols.IsDefaultOrEmpty)

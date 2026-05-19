@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 
@@ -21,11 +22,12 @@ namespace Raven.LanguageServer;
 internal sealed class InlayHintHandler : IInlayHintsHandler
 {
     private const int MaxUnboundedDocumentLength = 2_000;
-    private const double LargeDocumentRequestBudgetMs = 950;
+    private const int MaxCachedInlayHintEntries = 256;
     private const double SlowInlayHintThresholdMs = 150;
 
     private readonly DocumentStore _documents;
     private readonly ILogger<InlayHintHandler> _logger;
+    private readonly ConcurrentDictionary<InlayHintDocumentCacheKey, ImmutableArray<InlayHint>> _cache = new();
 
     public InlayHintHandler(DocumentStore documents, ILogger<InlayHintHandler> logger)
     {
@@ -83,6 +85,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var returnTypeHintsMs = 0d;
         var resultCount = 0;
         var outcome = "Completed";
+        var cacheHit = false;
 
         try
         {
@@ -94,6 +97,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             gateWaitMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticLease is null)
             {
+                if (TryGetCachedHints(request, out var cachedHints))
+                {
+                    cacheHit = true;
+                    outcome = "SkippedBusyCached";
+                    resultCount = cachedHints.Length;
+                    return new InlayHintContainer(cachedHints);
+                }
+
                 outcome = "SkippedBusy";
                 return new InlayHintContainer();
             }
@@ -121,11 +132,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
             var isPreciseRequest = requestSpan.Length == 0;
-            var isLargeDocumentRequest = IsLargeDocumentRequest(sourceText, requestSpan);
-            var allowExpensiveBinding = !isLargeDocument || isPreciseRequest;
-            var collectionBudgetMs = isLargeDocumentRequest
-                ? LargeDocumentRequestBudgetMs
-                : double.PositiveInfinity;
+            var allowExpensiveBinding = true;
+            var collectionBudgetMs = double.PositiveInfinity;
 
             stageStopwatch.Restart();
             var hints = new List<InlayHint>();
@@ -133,7 +141,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 Stopwatch.StartNew(),
                 cancellationToken,
                 collectionBudgetMs,
-                includeTooltips: sourceText.Length <= MaxUnboundedDocumentLength && !isLargeDocumentRequest);
+                includeTooltips: sourceText.Length <= MaxUnboundedDocumentLength);
             var collectStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
             AddLocalTypeHints(
@@ -162,11 +170,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
             returnTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             collectMs = collectStopwatch.Elapsed.TotalMilliseconds;
-            resultCount = hints.Count;
+            var hintArray = hints.ToArray();
+            resultCount = hintArray.Length;
             if (collectionBudget.IsExpired)
                 outcome = "BudgetExpired";
 
-            return new InlayHintContainer(hints);
+            CacheHints(request, context.Value.Document.Version, hintArray);
+            return new InlayHintContainer(hintArray);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -194,6 +204,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 request.TextDocument.Uri,
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
+                cacheHit: cacheHit,
                 resultCount: resultCount,
                 detail: $"{request.TextDocument.Uri} {request.Range.Start.Line}:{request.Range.Start.Character}-{request.Range.End.Line}:{request.Range.End.Character} outcome={outcome}",
                 stages:
@@ -227,6 +238,76 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     outcome);
             }
         }
+    }
+
+    private bool TryGetCachedHints(InlayHintParams request, out InlayHint[] hints)
+    {
+        hints = [];
+
+        if (!_documents.TryGetDocument(request.TextDocument.Uri, out var document) ||
+            document is null)
+        {
+            return false;
+        }
+
+        if (!_cache.TryGetValue(CreateCacheKey(request.TextDocument.Uri, document.Version), out var cachedHints))
+            return false;
+
+        hints = cachedHints
+            .Where(hint => IsInRange(hint.Position, request.Range))
+            .ToArray();
+        return hints.Length > 0;
+    }
+
+    private void CacheHints(InlayHintParams request, VersionStamp version, InlayHint[] hints)
+    {
+        if (_cache.Count >= MaxCachedInlayHintEntries)
+            _cache.Clear();
+
+        var key = CreateCacheKey(request.TextDocument.Uri, version);
+        _cache.AddOrUpdate(
+            key,
+            hints.ToImmutableArray(),
+            (_, existing) => MergeCachedHints(existing, hints));
+    }
+
+    private static InlayHintDocumentCacheKey CreateCacheKey(DocumentUri uri, VersionStamp version)
+        => new(uri.ToString(), version);
+
+    private static ImmutableArray<InlayHint> MergeCachedHints(ImmutableArray<InlayHint> existing, InlayHint[] incoming)
+    {
+        if (existing.IsDefaultOrEmpty)
+            return incoming.ToImmutableArray();
+
+        if (incoming.Length == 0)
+            return existing;
+
+        var merged = existing.ToBuilder();
+        var seen = existing
+            .Select(static hint => (hint.Position.Line, hint.Position.Character, hint.Label.String))
+            .ToHashSet();
+
+        foreach (var hint in incoming)
+        {
+            if (seen.Add((hint.Position.Line, hint.Position.Character, hint.Label.String)))
+                merged.Add(hint);
+        }
+
+        return merged.ToImmutable();
+    }
+
+    private static bool IsInRange(Position position, LspRange range)
+    {
+        if (position.Line < range.Start.Line || position.Line > range.End.Line)
+            return false;
+
+        if (position.Line == range.Start.Line && position.Character < range.Start.Character)
+            return false;
+
+        if (position.Line == range.End.Line && position.Character > range.End.Character)
+            return false;
+
+        return true;
     }
 
     private static void AddLocalTypeHints(
@@ -656,6 +737,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (budget.ShouldStop())
             return;
 
+        if (IsBlockFunctionExpressionWithoutValueReturn(functionExpression))
+            return;
+
         if (!allowBinding ||
             !TryGetFunctionExpressionReturnType(semanticModel, functionExpression, out var returnType) ||
             !TryFormatType(semanticModel, functionExpression, returnType, out var typeDisplay))
@@ -672,6 +756,21 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             root,
             functionExpression,
             includeTooltip: budget.ShouldIncludeTooltip()));
+    }
+
+    private static bool IsBlockFunctionExpressionWithoutValueReturn(FunctionExpressionSyntax functionExpression)
+    {
+        var body = functionExpression switch
+        {
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.Body,
+            SimpleFunctionExpressionSyntax simple => simple.Body,
+            _ => null
+        };
+
+        return body is not null &&
+            !DescendantNodesExcludingNestedExecutableScopes(body)
+                .OfType<ReturnStatementSyntax>()
+                .Any(static returnStatement => returnStatement.Expression is not null);
     }
 
     private static InlayHint CreateTypeHint(
@@ -1117,9 +1216,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static bool ContainsPosition(TextSpan span, int position)
         => position >= span.Start && position <= span.End;
 
-    private static bool IsLargeDocumentRequest(SourceText sourceText, TextSpan requestSpan)
-        => sourceText.Length > MaxUnboundedDocumentLength &&
-           requestSpan.Length > MaxUnboundedDocumentLength;
+    private readonly record struct InlayHintDocumentCacheKey(
+        string Uri,
+        VersionStamp Version);
 
     private readonly struct InlayHintCollectionBudget
     {

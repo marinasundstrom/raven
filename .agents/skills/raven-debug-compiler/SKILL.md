@@ -46,6 +46,10 @@ If you change flags, rebuild before running again.
 
 - Treat binders as the execution units for binding. First identify the binder that should own the answer: method binder for parameters, block binder for immediate locals/statements/expressions, type/member binders for declarations, etc.
 - Prefer fixing the responsible binder or public semantic API over adding a caller-side workaround. Public APIs should decide whether to answer from binder-owned state, cached bound nodes, available incremental state, or a narrow rebind.
+- Lazy binding is the expected behavior. A semantic query is allowed to trigger the bind that produces missing information; that information should then live in compiler-owned binder/semantic-model state and be reused by later queries.
+- Available-state query helpers are opportunistic fast paths, not the source of truth. If the available path lacks enough context, the authoritative semantic query should bind and cache the correct answer rather than return a guessed symbol or type.
+- Do not treat "not already cached" as "not knowable." If a symbol, type, diagnostic, or operation can be resolved by normal binding, every semantic query path that needs it should be able to reach that binding path.
+- Cheap available-state paths are useful for performance only when they are sound. If available-state inference is ambiguous or incomplete, fall back to full binding rather than returning a partial answer.
 - When debugging incremental behavior, compare one-shot compilation against the semantic query path. The first query after an edit must be correct even if no warm cache exists.
 - Binder-owned diagnostics should disappear with invalidated binders. Analyzer diagnostics should stay owned by their analyzer pipeline.
 - If a language-server bug reproduces as wrong `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, or operations output, fix `Raven.CodeAnalysis` first.

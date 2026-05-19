@@ -1,6 +1,6 @@
 ---
 name: raven-lsp-debug
-description: Troubleshooting workflow for Raven language service and editor failures. Use when investigating hover, completion, definition, diagnostics, inlays, semantic tokens, document symbols, request stalls, or other LSP/editor integration problems. Covers required log capture, headless repros, compiler API cross-checks, request scheduling, and the compiler-owned semantic model direction.
+description: Troubleshooting workflow for Raven language service and editor failures. Use when investigating hover, completion, definition, diagnostics, inlays, semantic tokens, document symbols, request stalls, or other LSP/editor integration problems. Covers required log capture, headless repros, compiler API cross-checks, lazy binding, request scheduling, and the compiler-owned semantic model direction.
 ---
 
 # Raven LSP Debugging
@@ -58,6 +58,11 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 - First verify the Roslyn-shaped compiler APIs: `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, operations, and available public semantic entry points.
 - If those APIs are wrong, slow, or cache-dependent, fix `Raven.CodeAnalysis`. Keep LSP-side semantic inference temporary and remove it once the compiler can answer.
 - Binders are the compiler execution units. Method binders own parameters; block binders own immediate locals, statement/expression binding state, and binder-produced diagnostics.
+- Lazy binding is expected. A hover, inlay, completion, or diagnostics request may be the first path to trigger binding; once it does, later paths should observe the same compiler-owned cached symbols, types, and diagnostics.
+- Prefer correctness and deterministic compiler-owned answers over cold-start speed. Cold first queries may bind; optimize later without changing semantic meaning.
+- Treat available-state APIs as opportunistic fast paths. If available state is incomplete or context-sensitive, use the authoritative semantic API that can bind instead of presenting a guessed answer.
+- Do not make editor features intentionally incomplete just to avoid binding. If a result is semantically required, ask the compiler for it; optimize the compiler path or request scheduling if the cold path is too slow.
+- Inlays should use the same semantic model answers as hover and diagnostics. They may skip tooltips or stale background work for UX reasons, but type/parameter annotations should not disappear because a separate LSP policy refused to bind. Type annotation text should stay source-friendly; do not show fully qualified names merely as a performance shortcut.
 - The LSP may coordinate request cancellation, prioritize interactive requests, skip stale background work, and avoid monopolizing semantic access, but it should not change semantic meaning.
 
 ## Request Pile-Ups
@@ -66,6 +71,8 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 - Compare client request start/complete events with `logs/raven-lsp.log` and `logs/raven-lsp-performance.txt`.
 - Use the headless harness for hover and inlay ranges to separate compiler cold-path cost from VS Code scheduling.
 - If a request is slow because public semantic APIs force broad binding, fix the compiler path. If a request blocks newer interactive work, fix LSP scheduling/cancellation without duplicating compiler semantics.
+- For inlay flicker or disappearing hints, check whether the server returned an empty result while semantic access was busy. Prefer returning cached results for the same document version and range-filtering them over clearing the editor UI.
+- For slow inlays, separate three costs: semantic model materialization, binding needed for missing symbols/types, and presentation formatting such as type-name qualification. Fix broad metadata lookup or formatting costs before suppressing annotations.
 
 ## Notes
 

@@ -442,4 +442,75 @@ class C {
         queryDelta.BoundNodeBindFallbacks.ShouldBe(0);
     }
 
+    [Fact]
+    public void TryGetInvocationTargetSymbolInfo_WithSourceInvocationArgument_BindsAuthoritativeResultAndCachesIt()
+    {
+        const string source = """
+import System.*
+import System.Runtime.CompilerServices.*
+
+class DbContextOptionsBuilder()
+
+static class NpgsqlExtensions {
+    [ExtensionAttribute]
+    static func UseNpgsql(options: DbContextOptionsBuilder, connectionString: string) -> DbContextOptionsBuilder {
+        return options
+    }
+
+    [ExtensionAttribute]
+    static func UseNpgsql(options: DbContextOptionsBuilder, port: int) -> DbContextOptionsBuilder {
+        return options
+    }
+}
+
+class C {
+    func GetConnectionString() -> string {
+        return ""
+    }
+
+    func Run(options: DbContextOptionsBuilder) -> unit {
+        options.UseNpgsql(GetConnectionString())
+    }
+}
+""";
+
+        var instrumentation = new PerformanceInstrumentation();
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+                "node-interest-binding-tests",
+                [syntaxTree],
+                TestMetadataReferences.Default,
+                new CompilationOptions(
+                    OutputKind.ConsoleApplication,
+                    performanceInstrumentation: instrumentation));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "options.UseNpgsql");
+
+        var resolved = model.TryGetInvocationTargetSymbolInfo(invocation, out var info);
+
+        resolved.ShouldBeTrue();
+        var method = info.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("UseNpgsql");
+        method.Parameters.Single(parameter => parameter.Name == "connectionString")
+            .Type.SpecialType.ShouldBe(SpecialType.System_String);
+
+        instrumentation.BinderReentry.Reset();
+        var queryBefore = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var cachedResolved = model.TryGetInvocationTargetSymbolInfo(invocation, out var cachedInfo);
+
+        var queryDelta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            queryBefore);
+        cachedResolved.ShouldBeTrue();
+        cachedInfo.Symbol.ShouldBeSameAs(method);
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
+        queryDelta.SymbolInfoCacheHits.ShouldBeGreaterThan(0);
+        queryDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        queryDelta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
+
 }

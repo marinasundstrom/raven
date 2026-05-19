@@ -871,6 +871,12 @@ public partial class SemanticModel
             return functionParameterInfo;
         }
 
+        if (node is IdentifierNameSyntax contextualFunctionParameterReference &&
+            TryGetFunctionExpressionParameterReferenceSymbolInfo(contextualFunctionParameterReference, out var contextualFunctionParameterInfo))
+        {
+            return contextualFunctionParameterInfo;
+        }
+
         if (TryGetInvocationTargetSymbolInfo(node, out var invocationTargetInfo, cancellationToken))
         {
             invocationTargetInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, invocationTargetInfo);
@@ -1886,6 +1892,18 @@ public partial class SemanticModel
 
     public bool TryGetSymbolInfo(SyntaxNode node, out SymbolInfo info, CancellationToken cancellationToken = default)
     {
+        if (node is IdentifierNameSyntax functionParameterReference &&
+            TryGetAvailableFunctionExpressionParameterReferenceSymbolInfo(functionParameterReference, out info))
+        {
+            return true;
+        }
+
+        if (node is IdentifierNameSyntax contextualFunctionParameterReference &&
+            TryGetFunctionExpressionParameterReferenceSymbolInfo(contextualFunctionParameterReference, out info))
+        {
+            return true;
+        }
+
         if (TryGetAvailableSymbolInfo(node, out info))
             return true;
 
@@ -2053,6 +2071,33 @@ public partial class SemanticModel
             {
                 return false;
             }
+
+            info = new SymbolInfo(parameterSymbol);
+            _symbolMappings[identifier] = info;
+            StoreNodeInterestSymbolDescriptor(identifier, parameterSymbol);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryGetFunctionExpressionParameterReferenceSymbolInfo(
+        IdentifierNameSyntax identifier,
+        out SymbolInfo info)
+    {
+        info = default;
+
+        if (!TryGetEnclosingFunctionExpression(identifier, out var functionExpression))
+            return false;
+
+        foreach (var parameter in GetFunctionExpressionParameters(functionExpression))
+        {
+            if (!string.Equals(parameter.Identifier.ValueText, identifier.Identifier.ValueText, StringComparison.Ordinal))
+                continue;
+
+            var parameterSymbol = GetFunctionExpressionParameterSymbol(parameter);
+            if (parameterSymbol is null)
+                return false;
 
             info = new SymbolInfo(parameterSymbol);
             _symbolMappings[identifier] = info;
@@ -2572,6 +2617,13 @@ public partial class SemanticModel
 
     private static bool TryGetSpecialTypeMetadataName(ITypeSymbol type, out string metadataName)
     {
+        if (type is IArrayTypeSymbol { Rank: 1, ElementType: { } elementType } &&
+            TryGetSpecialTypeMetadataName(elementType.GetPlainType(), out var elementMetadataName))
+        {
+            metadataName = elementMetadataName + "[]";
+            return true;
+        }
+
         metadataName = type.SpecialType switch
         {
             SpecialType.System_Boolean => "System.Boolean",
@@ -2803,7 +2855,9 @@ public partial class SemanticModel
             AddSymbolInfoCandidates(cachedInvocationInfo);
             methods = builder.ToImmutable();
             if (methods.Length > 0)
+            {
                 return true;
+            }
         }
 
         if (invocation.Expression is MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName } memberAccess &&
@@ -2836,7 +2890,9 @@ public partial class SemanticModel
 
         methods = builder.ToImmutable();
         if (methods.Length > 0)
+        {
             return true;
+        }
 
         if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
             TryLookupVisibleValueSymbol(invocationIdentifier) is null &&
@@ -3303,6 +3359,15 @@ public partial class SemanticModel
             literalType.TypeKind != TypeKind.Error)
         {
             return literalType;
+        }
+
+        if (expression is InvocationExpressionSyntax invocation &&
+            TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates) &&
+            TryGetCommonAvailableInvocationReturnType(invocationCandidates, out var invocationReturnType) &&
+            invocationReturnType is not null &&
+            invocationReturnType.TypeKind != TypeKind.Error)
+        {
+            return invocationReturnType;
         }
 
         return null;
@@ -3929,10 +3994,8 @@ public partial class SemanticModel
         if (expression is InvocationExpressionSyntax invocation &&
             TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates))
         {
-            var inferredType = invocationCandidates
-                .Select(static method => method.MethodKind == MethodKind.Constructor ? method.ContainingType : method.ReturnType)
-                .FirstOrDefault(IsUsefulAvailableExpressionType);
-            if (inferredType is not null)
+            if (TryGetCommonAvailableInvocationReturnType(invocationCandidates, out var inferredType) &&
+                inferredType is not null)
             {
                 var convertedType = inferredType;
                 if (TryGetContextualArgumentConvertedType(expression, inferredType, out var contextualConvertedType))
@@ -4187,6 +4250,37 @@ public partial class SemanticModel
         };
 
         return type is not null;
+    }
+
+    private static bool TryGetCommonAvailableInvocationReturnType(
+        ImmutableArray<IMethodSymbol> invocationCandidates,
+        out ITypeSymbol? returnType)
+    {
+        returnType = null;
+
+        foreach (var candidate in invocationCandidates)
+        {
+            var candidateReturnType = candidate.MethodKind == MethodKind.Constructor
+                ? candidate.ContainingType
+                : candidate.ReturnType;
+
+            if (!IsUsefulAvailableExpressionType(candidateReturnType))
+                continue;
+
+            if (returnType is null)
+            {
+                returnType = candidateReturnType;
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(returnType, candidateReturnType))
+            {
+                returnType = null;
+                return false;
+            }
+        }
+
+        return returnType is not null;
     }
 
     /// <summary>

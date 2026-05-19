@@ -70,6 +70,8 @@ Choose the narrowest layer that proves the bug is fixed:
 - language-service issue: compiler API test first, then LSP presentation/scheduling test if editor behavior is also involved
 - operation modeling issue: operations test
 - runtime behavior issue: runtime or codegen behavior test
+- lazy-binding issue: test both a cold semantic query and, when relevant, a second query that proves the first query populated compiler-owned state for reuse
+- available-state optimization: include a negative or ambiguous case proving the code falls back to normal full binding instead of returning a partial or guessed answer
 
 `ITestOutputHelper` may be used for targeted diagnostics during investigation.
 

@@ -66,6 +66,88 @@ class C {
     }
 
     [Fact]
+    public void GetDeclaredSymbol_ForInvocationLocalWithCommonReturnType_UsesAvailableSemanticState()
+    {
+        var code = """
+class Widget {
+}
+
+class Factory {
+    static func Make(value: int) -> Widget {
+        return Widget()
+    }
+
+    static func Make(text: string) -> Widget {
+        return Widget()
+    }
+}
+
+class C {
+    func Test() {
+        val item = Factory.Make(1)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static node => node.Identifier.ValueText == "item");
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "Factory.Make");
+
+        Assert.True(model.TryGetAvailableTypeInfo(invocation, out var availableTypeInfo));
+        Assert.Equal("Widget", availableTypeInfo.Type?.Name);
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("Widget", local.Type.Name);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_ForInvocationLocalWithAmbiguousAvailableReturnTypes_FallsBackToBinding()
+    {
+        var code = """
+class Widget {
+}
+
+class Factory {
+    static func Make(value: int) -> Widget {
+        return Widget()
+    }
+
+    static func Make(text: string) -> string {
+        return text
+    }
+}
+
+class C {
+    func Test() {
+        val item = Factory.Make(1)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static node => node.Identifier.ValueText == "item");
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "Factory.Make");
+
+        Assert.False(model.TryGetAvailableTypeInfo(invocation, out _));
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("Widget", local.Type.Name);
+        Assert.NotNull(model.TryGetCachedBoundNode(invocation));
+    }
+
+    [Fact]
     public void BinderReentryInstrumentation_TracksRepeatedRootBinding()
     {
         var code = """

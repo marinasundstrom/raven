@@ -2826,7 +2826,7 @@ public partial class Compilation
     {
         INamedTypeSymbol? bestMatch = null;
 
-        foreach (var assembly in _metadataReferenceSymbols.Values)
+        foreach (var assembly in GetMetadataReferenceSymbolsForLookup(metadataName))
         {
             var type = assembly.GetTypeByMetadataName(metadataName);
             if (type is null)
@@ -2835,6 +2835,12 @@ public partial class Compilation
             if (bestMatch is null)
             {
                 bestMatch = type;
+                if (IsStrongMetadataAssemblyMatch(metadataName, assembly.Name) &&
+                    !metadataName.StartsWith("System.", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
                 continue;
             }
 
@@ -2848,6 +2854,39 @@ public partial class Compilation
 
         return bestMatch;
     }
+
+    private IEnumerable<IAssemblySymbol> GetMetadataReferenceSymbolsForLookup(string metadataName)
+        => _metadataReferenceSymbols.Values
+            .OrderByDescending(assembly => GetMetadataAssemblyAffinity(metadataName, assembly.Name))
+            .ThenBy(assembly => assembly.Name, StringComparer.Ordinal);
+
+    private static int GetMetadataAssemblyAffinity(string metadataName, string? assemblyName)
+    {
+        if (string.IsNullOrWhiteSpace(assemblyName))
+            return 0;
+
+        if (IsStrongMetadataAssemblyMatch(metadataName, assemblyName))
+            return 1_000 + assemblyName.Length;
+
+        var metadataParts = metadataName.Split('.');
+        var assemblyParts = assemblyName.Split('.');
+        var score = 0;
+        for (var i = 0; i < metadataParts.Length && i < assemblyParts.Length; i++)
+        {
+            if (!string.Equals(metadataParts[i], assemblyParts[i], StringComparison.Ordinal))
+                break;
+
+            score += 10;
+        }
+
+        return score;
+    }
+
+    private static bool IsStrongMetadataAssemblyMatch(string metadataName, string? assemblyName)
+        => !string.IsNullOrWhiteSpace(assemblyName) &&
+           metadataName.Length > assemblyName.Length &&
+           metadataName.StartsWith(assemblyName, StringComparison.Ordinal) &&
+           metadataName[assemblyName.Length] == '.';
 
     private void EnsureSourceTypesInitialized()
     {
