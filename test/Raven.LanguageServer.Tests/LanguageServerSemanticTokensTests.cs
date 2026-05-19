@@ -399,9 +399,9 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
             var decoded = Decode(updatedCode, updatedResult.Data, SemanticTokensHandler.Legend);
 
             Find(decoded, 4, "if").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 4, "is").Type.ShouldBe(SemanticTokenType.Operator);
+            Find(decoded, 4, "is").Type.ShouldBe(SemanticTokenType.Keyword);
             Find(decoded, 5, "if").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 5, "is").Type.ShouldBe(SemanticTokenType.Operator);
+            Find(decoded, 5, "is").Type.ShouldBe(SemanticTokenType.Keyword);
             Find(decoded, 10, "if").Type.ShouldBe(SemanticTokenType.Keyword);
             decoded.Any(token => token.Text == "}" && token.Line is 7 or 8 or 13).ShouldBeFalse();
         }

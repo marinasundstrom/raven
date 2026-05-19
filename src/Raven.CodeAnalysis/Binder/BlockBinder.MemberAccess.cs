@@ -4386,38 +4386,16 @@ partial class BlockBinder
         if (targetType is not INamedTypeSymbol namedType)
             return null;
 
-        // Keep two views:
-        // 1) union definition for case-name lookup
-        // 2) carrier type (possibly constructed) for projecting case type arguments
-        var unionSymbol = namedType.TryGetUnion()
-            ?? namedType.TryGetUnionCase()?.Union;
-
-        var unionCarrier = unionSymbol is not null
-            ? namedType
-            : namedType.TryGetUnionCase()?.Union as INamedTypeSymbol;
-
-        if (unionCarrier is null && unionSymbol is not null && namedType.TryGetUnion() is not null)
-            unionCarrier = namedType;
-
-        if (unionSymbol is null || unionCarrier is null)
+        if (!namedType.TryFindUnionCaseType(memberName, out var caseType))
             return null;
 
-        var caseSymbol = unionSymbol.CaseTypes.FirstOrDefault(@case => @case.Name == memberName);
-        if (caseSymbol is not ITypeSymbol typeMember)
-            return null;
-
-        if (caseSymbol is INamedTypeSymbol caseTypeSymbol)
-        {
-            typeMember = ProjectCaseTypeToUnionArguments(caseTypeSymbol, unionCarrier);
-        }
-
-        var accessibleType = EnsureTypeAccessible(typeMember, location);
+        var accessibleType = EnsureTypeAccessible(caseType, location);
         if (accessibleType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
         // Pass the union carrier so the returned expression's Type is the union root, enabling
         // correct generic type inference when the case value is used as a generic argument.
-        return BindDiscriminatedUnionCaseType(accessibleType, unionCarrier);
+        return BindDiscriminatedUnionCaseType(accessibleType, namedType);
     }
 
     private BoundExpression? TryBindSealedHierarchyCase(

@@ -179,18 +179,31 @@ internal static partial class SymbolResolver
         [NotNullWhen(true)] out SyntaxToken token,
         [NotNullWhen(true)] out IdentifierNameSyntax? identifier)
     {
-        try
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
-            token = root.FindToken(offset);
-        }
-        catch
-        {
-            token = default;
-            identifier = null;
-            return false;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            identifier = token.Parent as IdentifierNameSyntax;
+            if (identifier is not null && identifier.Identifier.Span.Contains(token.Span))
+                return true;
+
+            if (!token.IsMissing &&
+                token.Span.Contains(offset) &&
+                IsStickyPrimaryTokenKind(token.Kind))
+            {
+                break;
+            }
         }
 
-        identifier = token.Parent as IdentifierNameSyntax;
-        return identifier is not null && identifier.Identifier.Span.Contains(token.Span);
+        token = default;
+        identifier = null;
+        return false;
     }
 }

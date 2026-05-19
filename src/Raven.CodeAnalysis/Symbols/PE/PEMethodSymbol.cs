@@ -276,6 +276,76 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         return false;
     }
 
+    internal bool TryGetParameterType(int index, out ITypeSymbol? type)
+    {
+        type = null;
+
+        if (index < 0)
+            return false;
+
+        try
+        {
+            if (_parameters is { } parameters)
+            {
+                if (index >= parameters.Length)
+                    return false;
+
+                type = parameters[index].Type;
+                return type is not null;
+            }
+
+            if (!TryGetParameterInfos(out var parameterInfos) ||
+                index >= parameterInfos.Length)
+            {
+                return false;
+            }
+
+            var parameterInfo = parameterInfos[index];
+            var resolved = _reflectionTypeLoader.ResolveType(parameterInfo);
+            if (parameterInfo.ParameterType.IsByRef && resolved is RefTypeSymbol refType)
+                resolved = refType.ElementType;
+
+            type = resolved;
+            return type is not null;
+        }
+        catch
+        {
+            _hasUnreadableSignature = true;
+            type = _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
+            return false;
+        }
+    }
+
+    internal bool TryGetParameterRuntimeTypeMetadataName(int index, out string? metadataName)
+    {
+        metadataName = null;
+
+        if (index < 0)
+            return false;
+
+        try
+        {
+            if (!TryGetParameterInfos(out var parameterInfos) ||
+                index >= parameterInfos.Length)
+            {
+                return false;
+            }
+
+            var parameterType = parameterInfos[index].ParameterType;
+            if (parameterType.IsByRef)
+                parameterType = parameterType.GetElementType() ?? parameterType;
+
+            metadataName = parameterType.FullName;
+            return !string.IsNullOrWhiteSpace(metadataName);
+        }
+        catch
+        {
+            _hasUnreadableSignature = true;
+            metadataName = null;
+            return false;
+        }
+    }
+
     private void CacheParameterCount(int count)
     {
         if (TryCreateMetadataMethodKey(out var key))

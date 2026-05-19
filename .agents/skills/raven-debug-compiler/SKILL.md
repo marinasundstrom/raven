@@ -1,6 +1,6 @@
 ---
 name: raven-debug-compiler
-description: Debug workflow for Raven compiler analysis and emission issues using the Raven.Compiler CLI. Use when investigating parser, binder, lowering, emit, or runtime failures from Raven source samples. Covers repro reduction, CLI flags, analysis-first debugging, and optional IL inspection.
+description: Debug workflow for Raven compiler analysis and emission issues using the Raven.Compiler CLI. Use when investigating parser, binder, semantic model, incremental binding, lowering, emit, or runtime failures from Raven source samples. Covers repro reduction, CLI flags, binder-owned state, analysis-first debugging, and optional IL inspection.
 ---
 
 # Raven Compiler Debugging
@@ -41,6 +41,14 @@ If you change flags, rebuild before running again.
 4. Only enable emit after analysis looks correct.
 5. If emit or runtime still fails, inspect the produced assembly or IL.
 6. Lock the repro with a focused test in `test/Raven.CodeAnalysis.Tests`.
+
+## Binder And Semantic Model Checks
+
+- Treat binders as the execution units for binding. First identify the binder that should own the answer: method binder for parameters, block binder for immediate locals/statements/expressions, type/member binders for declarations, etc.
+- Prefer fixing the responsible binder or public semantic API over adding a caller-side workaround. Public APIs should decide whether to answer from binder-owned state, cached bound nodes, available incremental state, or a narrow rebind.
+- When debugging incremental behavior, compare one-shot compilation against the semantic query path. The first query after an edit must be correct even if no warm cache exists.
+- Binder-owned diagnostics should disappear with invalidated binders. Analyzer diagnostics should stay owned by their analyzer pipeline.
+- If a language-server bug reproduces as wrong `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, or operations output, fix `Raven.CodeAnalysis` first.
 
 ## IL Inspection
 

@@ -1,6 +1,6 @@
 ---
 name: raven-test-triage
-description: Testing and stabilization workflow for the Raven compiler test suite. Use when establishing baselines, fixing failing tests, isolating runtime and emission-heavy failures, or converting unstable codegen assertions into behavior-focused coverage.
+description: Testing and stabilization workflow for the Raven compiler test suite. Use when establishing baselines, fixing failing tests, isolating runtime and emission-heavy failures, validating binder/semantic-model regressions, testing incremental compilation behavior, or converting unstable codegen assertions into behavior-focused coverage.
 ---
 
 # Raven Test Triage
@@ -41,6 +41,8 @@ Prefer stable assertions:
 - metadata shape
 - operation shape
 - observable runtime behavior
+- binder-owned state when testing binder lifecycle, local/parameter ownership, scope contents, or binder-produced diagnostics
+- public semantic API behavior when testing language-service-facing answers such as symbol lookup, type info, declared symbols, and diagnostics before/after edits
 
 Avoid asserting:
 - emitted opcodes
@@ -63,6 +65,9 @@ Compiler bug fixes must be locked with focused tests.
 Choose the narrowest layer that proves the bug is fixed:
 - parser issue: syntax test
 - semantic issue: binding or diagnostic test
+- binder ownership issue: binder or semantic-model test for the responsible scope
+- incremental issue: before/after semantic-model or diagnostics test that proves stale binder state is not reused
+- language-service issue: compiler API test first, then LSP presentation/scheduling test if editor behavior is also involved
 - operation modeling issue: operations test
 - runtime behavior issue: runtime or codegen behavior test
 

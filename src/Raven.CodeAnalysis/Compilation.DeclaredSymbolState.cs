@@ -54,6 +54,12 @@ public partial class Compilation
     internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out IMethodSymbol symbol)
         => _methodSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
+    internal void RegisterMethodSymbol(FunctionStatementSyntax node, IMethodSymbol symbol)
+        => _methodSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
+
+    internal bool TryGetMethodSymbol(FunctionStatementSyntax node, out IMethodSymbol symbol)
+        => _methodSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
+
     internal void RegisterPropertySymbol(PropertyDeclarationSyntax node, IPropertySymbol symbol)
         => _propertySymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 

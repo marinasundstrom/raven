@@ -2,6 +2,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -205,6 +206,118 @@ class C {
     }
 
     [Fact]
+    public void TryGetAvailableSymbolInfo_ResolvesFunctionExpressionParameterReferenceFromCompilerState()
+    {
+        var code = """
+func Apply(value: int, transform: int -> int) -> int {
+    transform(value)
+}
+
+func Main() -> int {
+    Apply(1, value => value + 1)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var valueReference = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(static identifier => identifier.Identifier.ValueText == "value");
+
+        compilation.EnsureSourceDeclarationsComplete();
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableSymbolInfo(valueReference, out var info));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(info.Symbol);
+        Assert.Equal("value", parameter.Name);
+        Assert.Equal("int", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void TryGetAvailableSymbolInfo_DoesNotReturnUnsubstitutedGenericFunctionExpressionParameterReference()
+    {
+        var code = """
+import System.Linq.*
+
+func Main() {
+    val values = [1, 2, 3]
+    val projected = values.Select(value => value + 1)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var valueReference = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(static identifier => identifier.Identifier.ValueText == "value");
+
+        if (model.TryGetAvailableSymbolInfo(valueReference, out var info) &&
+            info.Symbol is IParameterSymbol parameter)
+        {
+            Assert.DoesNotContain("TSource", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        }
+    }
+
+    [Fact]
+    public void GetSymbolInfo_UsesAvailableFunctionExpressionParameterReferenceAfterDeclarationWarmup()
+    {
+        var code = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+class FuelConsumptionRecord(var DistanceDrivenKm: double)
+
+class C {
+    func Run(samples: IEnumerable<FuelConsumptionRecord>) -> double {
+        samples.Sum(entry => entry.DistanceDrivenKm)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var valueReference = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(static identifier => identifier.Identifier.ValueText == "entry");
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var info = model.GetSymbolInfo(valueReference);
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(info.Symbol);
+        Assert.Equal("entry", parameter.Name);
+        Assert.Equal("FuelConsumptionRecord", parameter.Type.Name);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
     public void TryGetAvailableSymbolInfo_CachesLocalDeclarationSymbolInfo()
     {
         var code = """
@@ -321,6 +434,294 @@ class C {
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(0, delta.TypeInfoBoundFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_InfersExplicitGenericMetadataInvocationFromAvailableInitializer()
+    {
+        var code = """
+import System.Text.Json.*
+
+func Main() -> () {
+    val str = "{}"
+    val options = JsonSerializerOptions()
+    val obj = JsonSerializer.Deserialize<Foo>(str, options)
+}
+
+record Foo(Name: string)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "obj");
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("Foo", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetDeclaredSymbol_InfersChainedJsonSerializerGenericInvocationInitializers(bool topLevel)
+    {
+        var body = """
+import System.Text.Json.*
+
+val foo = Foo("Marina")
+val options = JsonSerializerOptions()
+val str = JsonSerializer.Serialize(foo, options)
+val obj = JsonSerializer.Deserialize<Foo>(str, options)
+
+record Foo(Name: string)
+""";
+        var code = topLevel
+            ? body
+            : body.Replace(
+                """
+val foo = Foo("Marina")
+val options = JsonSerializerOptions()
+val str = JsonSerializer.Serialize(foo, options)
+val obj = JsonSerializer.Deserialize<Foo>(str, options)
+""",
+                """
+func Main() -> () {
+    val foo = Foo("Marina")
+    val options = JsonSerializerOptions()
+    val str = JsonSerializer.Serialize(foo, options)
+    val obj = JsonSerializer.Deserialize<Foo>(str, options)
+}
+""");
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToArray();
+
+        var str = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(
+            declarators.Single(static declarator => declarator.Identifier.ValueText == "str")));
+        var obj = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(
+            declarators.Single(static declarator => declarator.Identifier.ValueText == "obj")));
+
+        Assert.Equal("string", str.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Foo", obj.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void GetSymbolInfo_TopLevelGenericInvocation_SeesPrecedingInvocationLocalBeforeDiagnostics()
+    {
+        var code = """
+import System.Text.Json.*
+
+val foo = Foo("Marina")
+val options = JsonSerializerOptions()
+val str = JsonSerializer.Serialize(foo, options)
+val obj = JsonSerializer.Deserialize<Foo>(str, options)
+
+record Foo(Name: string)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var deserializeInvocation = root
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "JsonSerializer.Deserialize<Foo>");
+        var strArgument = deserializeInvocation.ArgumentList.Arguments[0].Expression
+            .DescendantNodesAndSelf()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "str");
+
+        var invocationMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(deserializeInvocation).Symbol);
+        var strLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(strArgument).Symbol);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Equal("Deserialize", invocationMethod.Name);
+        Assert.Equal("string", strLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == CompilerDiagnostics.NoOverloadForMethod.Id);
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void GetSymbolInfo_TopLevelInvocationArgument_ResolvesPrecedingInvocationInitializedLocalCold()
+    {
+        var code = """
+class Options {
+}
+
+record Foo(val Name: string)
+
+func Test(foo: Foo, options: Options) -> string {
+    "ok"
+}
+
+val foo = Foo("Foo")
+val options = Options()
+val str = Test(foo, options)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var invocation = root
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static candidate => candidate.Expression.ToString() == "Test");
+        var fooArgument = invocation.ArgumentList.Arguments[0].Expression
+            .DescendantNodesAndSelf()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "foo");
+        var fooDeclarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .First(static declarator => declarator.Identifier.ValueText == "foo");
+
+        Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(fooDeclarator));
+        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(fooArgument).Symbol);
+
+        Assert.Equal("foo", symbol.Name);
+        Assert.Equal("Foo", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_TopLevelLocal_InLibraryOutputStillBindsForSemanticQueries()
+    {
+        var code = """
+val foo = 1
+val bar = foo
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(
+            tree,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var fooDeclarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .First(static declarator => declarator.Identifier.ValueText == "foo");
+        var fooReference = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "foo");
+
+        var declared = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(fooDeclarator));
+        var referenced = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(fooReference).Symbol);
+
+        Assert.Same(declared, referenced);
+    }
+
+    [Fact]
+    public void GetDiagnostics_InvalidInvocationAfterSemanticQuery_StillReportsNoOverload()
+    {
+        var code = """
+func Main() -> () {
+    Print()
+}
+
+func Print(value: string) -> () {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "Print");
+
+        _ = model.GetSymbolInfo(invocation);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(static diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.NoOverloadForMethod.Id));
+
+        Assert.Contains("Print", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDiagnostics_InvalidTopLevelGenericInvocationAfterSemanticQuery_StillReportsNoOverload()
+    {
+        var code = """
+import System.Text.Json.*
+
+val foo = Foo("Marina")
+val options = JsonSerializerOptions()
+val str = JsonSerializer.Serialize(foo, options)
+val obj = JsonSerializer.Deserialize<Foo>(options, str)
+
+record Foo(Name: string)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "JsonSerializer.Deserialize<Foo>");
+
+        _ = model.GetSymbolInfo(invocation);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(static diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.NoOverloadForMethod.Id));
+
+        Assert.Contains("Deserialize", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_InfersInvocationChainInitializerWithoutBindingWholeBody()
+    {
+        var code = """
+func Normalize(kind: string) -> string {
+    val normalized = kind.Trim().ToLowerInvariant()
+    return normalized
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "normalized");
+        var returnStatement = root.DescendantNodes().OfType<ReturnStatementSyntax>().Single();
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("string", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Null(model.TryGetCachedBoundNode(returnStatement));
     }
 
     [Fact]
@@ -539,6 +940,46 @@ class Counter {
         Assert.True(model.TryGetCachedSymbolInfo(memberName, out var cached));
         Assert.IsAssignableFrom<IPropertySymbol>(cached.Symbol);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void GetSymbolInfo_MetadataInvocationWithInterpolatedString_ChoosesStringOverloadWithoutBindingBody()
+    {
+        var code = """
+import System.*
+
+func Main() -> unit {
+    val value = 42
+    Console.WriteLine("value: ${value.ToString()}")
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "Console.WriteLine");
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.Equal("WriteLine", method.Name);
+        var parameter = Assert.Single(method.Parameters);
+        Assert.Equal(SpecialType.System_String, parameter.Type.GetPlainType().SpecialType);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
     }
 
     [Fact]

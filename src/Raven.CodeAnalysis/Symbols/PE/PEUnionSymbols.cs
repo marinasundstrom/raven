@@ -56,6 +56,50 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
         }
     }
 
+    internal bool TryGetDeclaredCaseType(string logicalCaseName, out IUnionCaseTypeSymbol caseType)
+    {
+        if (_cases is { } loadedCases)
+        {
+            caseType = loadedCases.FirstOrDefault(@case =>
+                string.Equals(@case.Name, logicalCaseName, StringComparison.Ordinal))!;
+            return caseType is not null;
+        }
+
+        foreach (var metadataName in GetCandidateCaseMetadataNames(logicalCaseName))
+        {
+            if (TryResolveCaseMetadataType(metadataName, out var candidate))
+            {
+                caseType = candidate;
+                return true;
+            }
+        }
+
+        caseType = null!;
+        return false;
+    }
+
+    private bool TryResolveCaseMetadataType(string metadataName, out IUnionCaseTypeSymbol caseType)
+    {
+        var namespaceName = ContainingNamespace?.ToMetadataName() ?? string.Empty;
+        var fullName = string.IsNullOrEmpty(namespaceName)
+            ? metadataName
+            : namespaceName + "." + metadataName;
+
+        caseType = ContainingAssembly?.GetTypeByMetadataName(fullName) as IUnionCaseTypeSymbol;
+        return caseType is not null;
+    }
+
+    private IEnumerable<string> GetCandidateCaseMetadataNames(string logicalCaseName)
+    {
+        var aritySuffixStart = MetadataName.IndexOf('`', StringComparison.Ordinal);
+        var aritySuffix = aritySuffixStart >= 0 ? MetadataName[aritySuffixStart..] : string.Empty;
+
+        yield return UnionFacts.GetCaseMetadataBaseName(Name, logicalCaseName) + aritySuffix;
+        yield return UnionFacts.GetCaseMetadataBaseName(Name, logicalCaseName);
+        yield return Name + logicalCaseName + aritySuffix;
+        yield return Name + logicalCaseName;
+    }
+
     public IFieldSymbol DiscriminatorField =>
         _discriminatorField ??= FindUnionField(UnionFieldUtilities.IsTagFieldName)
             ?? throw new InvalidOperationException($"Missing discriminator field on discriminated union '{Name}'.");

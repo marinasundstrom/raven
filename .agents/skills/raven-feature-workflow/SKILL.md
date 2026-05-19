@@ -1,6 +1,6 @@
 ---
 name: raven-feature-workflow
-description: End-to-end workflow for Raven language and compiler feature work. Use when adding or modifying syntax, parsing, binding, lowering, code generation, operations, language service support, or feature documentation. Covers generator rebuild decisions, required compiler layers, docs/spec sync, changelog updates, and focused test coverage.
+description: End-to-end workflow for Raven language and compiler feature work. Use when adding or modifying syntax, parsing, binding, lowering, code generation, operations, language service support, or feature documentation. Covers binder-owned semantic state, Roslyn-like compiler APIs, incremental compilation, generator rebuild decisions, docs/spec sync, changelog updates, and focused test coverage.
 ---
 
 # Raven Feature Workflow
@@ -31,6 +31,15 @@ Walk the feature through every affected layer:
 - Grammar, spec, and docs: update `docs/` for the final supported behavior.
 - Changelog: update `CHANGELOG.md` for user-visible behavior changes.
 
+## Compiler Architecture Direction
+
+- Keep public semantic APIs Roslyn-like unless Raven intentionally diverges: callers should ask `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, operations, etc.
+- Treat binders as execution units. A binder owns the derived semantic state for the syntax/scope it binds, such as method parameters, local declarations, labels, pattern variables, and binder-produced diagnostics.
+- Keep semantic caching and incremental reuse inside `Raven.CodeAnalysis`. The language server, analyzers, completion, and refactorings should not depend on cache-specific helper APIs or choose invalidation policy.
+- Favor binder-owned state over broad syntax-node caches when the state is logically scoped to that binder. External caches may decide whether a binder is still valid for a syntax tree/compilation increment, but stale binders should not self-heal.
+- Design changes so one-shot compilation remains authoritative, while incremental compilation can reuse valid binders and cheaply recreate invalidated binders.
+- For language-service performance, fix the compiler API path first. The VS Code extension and LSP layer should mainly schedule, cancel, and present deterministic compiler answers.
+
 ## Testing
 
 Add focused coverage at the right layer:
@@ -38,6 +47,8 @@ Add focused coverage at the right layer:
 - semantic tests for diagnostics and symbol or model behavior
 - operations tests when operation shape changes
 - codegen or runtime tests for observable behavior
+- binder or semantic-model tests for binder-owned state, invalidation behavior, and cheap public semantic queries
+- language-server tests for request presentation, cancellation/scheduling, and editor-facing regressions after compiler behavior is covered
 
 Do not add stable tests that assert emitted opcodes or exact lowered instruction sequences.
 Prefer observable behavior, metadata shape, symbol shape, operation shape, and diagnostics.

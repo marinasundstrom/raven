@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -27,13 +26,11 @@ namespace Raven.LanguageServer;
 
 internal sealed class HoverHandler : IHoverHandler
 {
-    private const int MaxCachedHoverEntries = 512;
     private const double SlowHoverThresholdMs = 250;
     private const double HoverLifecycleLogThresholdMs = 100;
 
     private readonly DocumentStore _documents;
     private readonly ILogger<HoverHandler> _logger;
-    private readonly ConcurrentDictionary<HoverCacheKey, HoverCacheEntry> _hoverCache = new();
 
     public HoverHandler(DocumentStore documents, ILogger<HoverHandler> logger)
     {
@@ -49,16 +46,6 @@ internal sealed class HoverHandler : IHoverHandler
 
     public void SetCapability(HoverCapability capability)
     {
-    }
-
-    internal void InvalidateDocument(DocumentUri uri)
-    {
-        var uriText = uri.ToString();
-        foreach (var key in _hoverCache.Keys)
-        {
-            if (string.Equals(key.Uri, uriText, StringComparison.Ordinal))
-                _hoverCache.TryRemove(key, out _);
-        }
     }
 
     public async Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
@@ -78,7 +65,6 @@ internal sealed class HoverHandler : IHoverHandler
         double directInvocationResolutionMs = 0;
         double declaredSymbolResolutionMs = 0;
         double genericSymbolResolutionMs = 0;
-        var cacheHit = false;
         Compilation? semanticCompilation = null;
         SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
         var currentStage = "starting";
@@ -98,16 +84,6 @@ internal sealed class HoverHandler : IHoverHandler
             currentStage = "syntaxRoot";
             var root = syntaxTree.GetRoot(cancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
-            var cacheKey = new HoverCacheKey(
-                request.TextDocument.Uri.ToString(),
-                context.Value.Document.Version,
-                GetHoverCacheSpan(root, offset));
-
-            if (_hoverCache.TryGetValue(cacheKey, out var cachedEntry))
-            {
-                cacheHit = true;
-                return cachedEntry.Hover;
-            }
 
             currentStage = "syntaxOnlyHover";
             var syntaxOnlyHover = TryBuildFunctionExpressionDeclarationHover(sourceText, root, offset)
@@ -115,10 +91,10 @@ internal sealed class HoverHandler : IHoverHandler
                 ?? TryBuildLocalReferenceSyntaxHover(sourceText, root, offset)
                 ?? TryBuildKnownTypeIdentifierSyntaxHover(sourceText, root, offset);
             if (syntaxOnlyHover is not null)
-                return CacheHover(cacheKey, syntaxOnlyHover);
+                return syntaxOnlyHover;
 
             if (ShouldSuppressSemanticHover(root, offset))
-                return CacheHover(cacheKey, null);
+                return null;
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -132,7 +108,7 @@ internal sealed class HoverHandler : IHoverHandler
             var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
-                return CacheHover(cacheKey, null);
+                return null;
             semanticCompilation = semanticModel.Compilation;
             semanticBefore = semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
 
@@ -141,21 +117,21 @@ internal sealed class HoverHandler : IHoverHandler
             currentStage = "macroHover";
             var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
             if (macroHover is not null)
-                return CacheHover(cacheKey, macroHover);
+                return macroHover;
 
             cancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "literalHover";
             var literalHover = TryBuildLiteralHover(sourceText, semanticModel, root, offset);
             if (literalHover is not null)
-                return CacheHover(cacheKey, literalHover);
+                return literalHover;
 
             cancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "patternHover";
             var patternHover = TryBuildPatternDeclarationHover(sourceText, semanticModel, root, offset);
             if (patternHover is not null)
-                return CacheHover(cacheKey, patternHover);
+                return patternHover;
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -181,7 +157,7 @@ internal sealed class HoverHandler : IHoverHandler
             resolutionStopwatch.Stop();
             resolutionMs = resolutionStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
-                return CacheHover(cacheKey, null);
+                return null;
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -252,8 +228,7 @@ internal sealed class HoverHandler : IHoverHandler
             stageStopwatch.Restart();
             var hoverRange = PositionHelper.ToRange(sourceText, GetHoverSpanForResolution(resolvedValue));
             rangeMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            currentStage = "cache";
-            return CacheHover(cacheKey, new Hover
+            return new Hover
             {
                 Contents = new MarkedStringsOrMarkupContent(new MarkupContent
                 {
@@ -261,7 +236,7 @@ internal sealed class HoverHandler : IHoverHandler
                     Value = hoverText
                 }),
                 Range = hoverRange
-            });
+            };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -301,7 +276,6 @@ internal sealed class HoverHandler : IHoverHandler
                 request.TextDocument.Uri,
                 null,
                 totalStopwatch.Elapsed.TotalMilliseconds,
-                cacheHit: cacheHit,
                 detail: semanticDelta is null
                     ? $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}"
                     : $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character} semantic=[{semanticDelta}]",
@@ -357,33 +331,6 @@ internal sealed class HoverHandler : IHoverHandler
                     totalStopwatch.Elapsed.TotalMilliseconds);
             }
         }
-    }
-
-    private Hover? CacheHover(HoverCacheKey cacheKey, Hover? hover)
-    {
-        if (_hoverCache.Count >= MaxCachedHoverEntries)
-            _hoverCache.Clear();
-
-        _hoverCache[cacheKey] = new HoverCacheEntry(hover);
-        return hover;
-    }
-
-    private static TextSpan GetHoverCacheSpan(SyntaxNode root, int offset)
-    {
-        var clamped = Math.Clamp(offset, 0, root.FullSpan.End);
-        var token = root.FindToken(clamped);
-
-        if (token.Parent is SimpleNameSyntax simpleName &&
-            (simpleName.Identifier.Span.Contains(clamped) ||
-             simpleName.Identifier.Span.End == clamped))
-        {
-            return simpleName.Identifier.Span;
-        }
-
-        if (token.Span.Length > 0)
-            return token.Span;
-
-        return new TextSpan(clamped, 0);
     }
 
     private IDisposable StartHoverWatchdog(
@@ -1304,13 +1251,13 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.Parent is VariableDeclaratorSyntax declarator &&
                 token == declarator.Identifier)
             {
+                if (semanticModel.GetDeclaredSymbol(declarator) is { } declaredSymbol)
+                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaredSymbol, declarator);
+
                 var declaratorInfo = semanticModel.GetSymbolInfo(declarator);
                 var declaratorSymbol = declaratorInfo.Symbol ?? declaratorInfo.CandidateSymbols.FirstOrDefault();
                 if (declaratorSymbol is not null)
                     return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaratorSymbol, declarator);
-
-                if (semanticModel.GetDeclaredSymbol(declarator) is { } declaredSymbol)
-                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaredSymbol, declarator);
             }
 
             if (token.Parent is SingleVariableDesignationSyntax single &&
@@ -5060,6 +5007,3 @@ internal sealed class HoverHandler : IHoverHandler
         return $"Captures: `{captures}`";
     }
 }
-
-internal readonly record struct HoverCacheKey(string Uri, VersionStamp Version, TextSpan Span);
-internal readonly record struct HoverCacheEntry(Hover? Hover);

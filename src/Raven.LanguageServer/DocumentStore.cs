@@ -56,7 +56,6 @@ internal sealed class DocumentStore
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<DocumentStore> _logger;
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _documentSemanticGates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<DocumentAnalysisCacheKey, CachedDocumentAnalysis> _documentAnalysisCache = new();
     private readonly ConcurrentDictionary<DocumentUri, Document> _openDocumentSnapshots = new();
     private readonly ConcurrentDictionary<SyntaxTree, SourceDiagnosticSuppressionMap> _syntaxSuppressionMaps = new();
@@ -257,9 +256,12 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken,
         string? purpose = null)
     {
-        var gate = _documentSemanticGates.GetOrAdd(uri.ToString(), static _ => new SemaphoreSlim(1, 1));
+        var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (semanticModel is null)
+            return NoopAccessLease.Instance;
+
         var stopwatch = Stopwatch.StartNew();
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var lease = await semanticModel.EnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
         if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
@@ -271,7 +273,7 @@ internal sealed class DocumentStore
                 stopwatch.Elapsed.TotalMilliseconds);
         }
 
-        return new CompilerAccessLease(gate);
+        return lease;
     }
 
     public async ValueTask<IDisposable?> TryEnterDocumentSemanticAccessAsync(
@@ -279,12 +281,15 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken,
         string? purpose = null)
     {
-        var gate = _documentSemanticGates.GetOrAdd(uri.ToString(), static _ => new SemaphoreSlim(1, 1));
+        var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (semanticModel is null)
+            return null;
+
         var stopwatch = Stopwatch.StartNew();
-        var acquired = await gate.WaitAsync(0, cancellationToken).ConfigureAwait(false);
+        var lease = await semanticModel.TryEnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
-        if (!acquired)
+        if (lease is null)
         {
             _logger.LogDebug(
                 "Skipped document semantic gate acquisition for {Purpose} {Uri}: gate busy.",
@@ -302,7 +307,7 @@ internal sealed class DocumentStore
                 stopwatch.Elapsed.TotalMilliseconds);
         }
 
-        return new CompilerAccessLease(gate);
+        return lease;
     }
 
     public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(
@@ -860,6 +865,15 @@ internal sealed class DocumentStore
         {
             var gate = Interlocked.Exchange(ref _gate, null);
             gate?.Release();
+        }
+    }
+
+    private sealed class NoopAccessLease : IDisposable
+    {
+        public static readonly NoopAccessLease Instance = new();
+
+        public void Dispose()
+        {
         }
     }
 

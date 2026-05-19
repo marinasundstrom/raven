@@ -2018,6 +2018,12 @@ internal abstract partial class Binder
         return result;
     }
 
+    public virtual BoundNode GetOrBindForSemanticQuery(SyntaxNode node)
+    {
+        using var _ = _diagnostics.CreateNonReportingScope();
+        return GetOrBind(node);
+    }
+
     protected virtual BoundNode BindArrowExpressionClause(ArrowExpressionClauseSyntax clause)
     {
         var expression = BindExpression(clause.Expression);

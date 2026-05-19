@@ -30,7 +30,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private const double DidCloseLogThresholdMs = 50;
 
     private readonly DocumentStore _documents;
-    private readonly HoverHandler _hoverHandler;
     private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDiagnostics = new();
@@ -41,10 +40,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
 
-    public RavenTextDocumentSyncHandler(DocumentStore documents, HoverHandler hoverHandler, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
+    public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
         _documents = documents;
-        _hoverHandler = hoverHandler;
         _languageServer = languageServer;
         _logger = logger;
     }
@@ -62,7 +60,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         try
         {
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
-            _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
             _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
             if (notification.TextDocument.Version is { } openVersion)
@@ -141,7 +138,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             applyChangesMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
-            _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
             _documents.UpsertDocument(notification.TextDocument.Uri, updatedText, deferMacroConsumerRefresh: true);
             if (notification.TextDocument.Version is { } appliedVersion)
@@ -328,7 +324,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             _logger.LogInformation("DidClose started for {Uri}.", notification.TextDocument.Uri);
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
-            _hoverHandler.InvalidateDocument(notification.TextDocument.Uri);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
             _lastPublishedDiagnosticVersions.TryRemove(notification.TextDocument.Uri, out _);

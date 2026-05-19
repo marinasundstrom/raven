@@ -23,7 +23,10 @@ internal static partial class SymbolResolver
         if (!parameter.Span.Contains(token.Span))
             return false;
 
-        if (parameter.Pattern?.Span.Contains(token.Span) == true)
+        var isParameterIdentifier = parameter.Identifier.Kind == token.Kind &&
+            parameter.Identifier.Span == token.Span;
+        if (!isParameterIdentifier &&
+            parameter.Pattern?.Span.Contains(token.Span) == true)
             return false;
 
         // Let nested syntax keep their own hover identity:
@@ -155,7 +158,10 @@ internal static partial class SymbolResolver
         if (!parameter.Span.Contains(token.Span))
             return false;
 
-        if (parameter.Pattern?.Span.Contains(token.Span) == true)
+        var isParameterIdentifier = parameter.Identifier.Kind == token.Kind &&
+            parameter.Identifier.Span == token.Span;
+        if (!isParameterIdentifier &&
+            parameter.Pattern?.Span.Contains(token.Span) == true)
             return false;
 
         if (parameter.TypeAnnotation?.Type.Span.Contains(token.Span) == true)
@@ -486,46 +492,4 @@ internal static partial class SymbolResolver
         return null;
     }
 
-    private static bool TryResolveEnclosingLambdaParameterReference(
-        SemanticModel semanticModel,
-        SyntaxNode node,
-        SyntaxToken token,
-        [NotNullWhen(true)] out ISymbol? symbol)
-    {
-        symbol = null;
-
-        if (node is not IdentifierNameSyntax identifierName ||
-            !identifierName.Identifier.Span.Contains(token.Span))
-        {
-            return false;
-        }
-
-        var functionExpression = identifierName.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault();
-        if (functionExpression is null || !IsInsideFunctionExpressionBody(functionExpression, token))
-            return false;
-
-        if (functionExpression is ParenthesizedFunctionExpressionSyntax parenthesized)
-        {
-            foreach (var parameter in parenthesized.ParameterList.Parameters)
-            {
-                if (!string.Equals(parameter.Identifier.ValueText, identifierName.Identifier.ValueText, StringComparison.Ordinal))
-                    continue;
-
-                symbol = semanticModel.TryResolveFunctionExpressionParameterSymbolFast(parameter, out var fastParameter)
-                    ? fastParameter
-                    : null;
-                return symbol is not null;
-            }
-        }
-        else if (functionExpression is SimpleFunctionExpressionSyntax simple &&
-                 string.Equals(simple.Parameter.Identifier.ValueText, identifierName.Identifier.ValueText, StringComparison.Ordinal))
-        {
-            symbol = semanticModel.TryResolveFunctionExpressionParameterSymbolFast(simple.Parameter, out var fastParameter)
-                ? fastParameter
-                : null;
-            return symbol is not null;
-        }
-
-        return false;
-    }
 }

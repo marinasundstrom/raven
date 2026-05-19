@@ -63,7 +63,7 @@ internal static class UnionSymbolExtensions
     public static (string First, string Second) FormatAmbiguousCasePair(
         INamedTypeSymbol first, INamedTypeSymbol second)
     {
-        var firstUnion  = first.TryGetUnionCase()?.Union  as INamedTypeSymbol;
+        var firstUnion = first.TryGetUnionCase()?.Union as INamedTypeSymbol;
         var secondUnion = second.TryGetUnionCase()?.Union as INamedTypeSymbol;
 
         // If both carriers share the same short name we need the namespace to distinguish them.
@@ -147,6 +147,115 @@ internal static class UnionSymbolExtensions
             };
 
         return null;
+    }
+
+    internal static bool TryFindUnionCaseType(
+        this INamedTypeSymbol targetType,
+        string caseName,
+        out INamedTypeSymbol caseType)
+    {
+        caseType = null!;
+
+        var normalizedType = targetType.UnwrapLiteralType() ?? targetType;
+        normalizedType = normalizedType.GetPlainType();
+        if (normalizedType is not INamedTypeSymbol namedType)
+            return false;
+
+        var unionSymbol = namedType.TryGetUnion()
+            ?? namedType.TryGetUnionCase()?.Union;
+        if (unionSymbol is null)
+            return false;
+
+        var unionCarrier = namedType.TryGetUnion() is not null
+            ? namedType
+            : unionSymbol as INamedTypeSymbol;
+        if (unionCarrier is null)
+            return false;
+
+        if (!TryFindUnionCaseDefinition(unionSymbol, caseName, out var caseDefinition) ||
+            caseDefinition is not INamedTypeSymbol namedCaseDefinition)
+        {
+            return false;
+        }
+
+        caseType = ProjectCaseTypeToUnionArguments(namedCaseDefinition, unionCarrier);
+        return true;
+    }
+
+    private static bool TryFindUnionCaseDefinition(
+        IUnionSymbol unionSymbol,
+        string caseName,
+        out IUnionCaseTypeSymbol caseType)
+    {
+        if (unionSymbol is PEUnionSymbol peUnion &&
+            peUnion.TryGetDeclaredCaseType(caseName, out caseType))
+        {
+            return true;
+        }
+
+        caseType = unionSymbol.CaseTypes
+            .OfType<IUnionCaseTypeSymbol>()
+            .FirstOrDefault(@case => string.Equals(@case.Name, caseName, System.StringComparison.Ordinal))!;
+        return caseType is not null;
+    }
+
+    private static INamedTypeSymbol ProjectCaseTypeToUnionArguments(
+        INamedTypeSymbol caseType,
+        INamedTypeSymbol unionType)
+    {
+        if (!caseType.IsGenericType || caseType.TypeParameters.IsDefaultOrEmpty)
+            return caseType;
+
+        var unionDefinition = unionType.TryGetUnion() ?? unionType;
+        var unionTypeParameters = unionDefinition.TypeParameters;
+        var unionTypeArguments = unionType.TypeArguments;
+
+        if (unionTypeParameters.IsDefaultOrEmpty || unionTypeArguments.IsDefaultOrEmpty)
+            return caseType;
+
+        var caseSymbol = caseType.TryGetUnionCase();
+        if (caseSymbol is null)
+            return caseType;
+
+        var projectedArguments = new ITypeSymbol[caseType.TypeParameters.Length];
+        var changed = false;
+        for (var i = 0; i < caseType.TypeParameters.Length; i++)
+        {
+            var parameter = caseType.TypeParameters[i];
+            if (Raven.CodeAnalysis.UnionFacts.TryProjectCaseTypeParameterFromUnionArguments(
+                    caseSymbol,
+                    parameter,
+                    unionTypeParameters,
+                    unionTypeArguments,
+                    out var mapped))
+            {
+                projectedArguments[i] = mapped;
+                if (!AreEquivalentGenericInstantiationArgument(mapped, parameter))
+                    changed = true;
+            }
+            else
+            {
+                projectedArguments[i] = parameter;
+            }
+        }
+
+        return changed && caseType.Construct(projectedArguments) is INamedTypeSymbol projectedCase
+            ? projectedCase
+            : caseType;
+    }
+
+    private static bool AreEquivalentGenericInstantiationArgument(ITypeSymbol candidate, ITypeSymbol parameter)
+    {
+        if (SymbolEqualityComparer.Default.Equals(candidate, parameter))
+            return true;
+
+        if (candidate is ITypeParameterSymbol candidateParameter &&
+            parameter is ITypeParameterSymbol expectedParameter)
+        {
+            return string.Equals(candidateParameter.Name, expectedParameter.Name, System.StringComparison.Ordinal);
+        }
+
+        return false;
     }
 
     public static bool TryGetUnionCarrierConstructor(

@@ -56,6 +56,57 @@ internal static partial class SymbolResolver
             return true;
         }
 
+        if (invocation.Expression is MemberBindingExpressionSyntax invocationMemberBinding &&
+            semanticModel.GetSymbolInfo(invocationMemberBinding) is var memberBindingInfo &&
+            (memberBindingInfo.Symbol is not null || !memberBindingInfo.CandidateSymbols.IsDefaultOrEmpty))
+        {
+            if (memberBindingInfo.Symbol is INamedTypeSymbol memberBindingType &&
+                TryChooseConstructorForInvocation(memberBindingType, invocation, out var memberBindingConstructor))
+            {
+                symbol = memberBindingConstructor;
+                return true;
+            }
+
+            if (memberBindingInfo.Symbol is not null)
+            {
+                var projectedSymbol = ProjectInvocationSymbolForDisplay(memberBindingInfo.Symbol, semanticModel, invocation);
+                if (projectedSymbol is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedSymbol))
+                {
+                    symbol = projectedSymbol;
+                    return true;
+                }
+            }
+
+            if (!memberBindingInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                foreach (var candidateType in memberBindingInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                {
+                    if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
+                    {
+                        symbol = candidateConstructor;
+                        return true;
+                    }
+                }
+
+                var methodCandidates = memberBindingInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var candidate = methodCandidates.Length == 1
+                    ? methodCandidates[0]
+                    : SemanticModel.TryChooseInvocationMethodCandidate(
+                        methodCandidates,
+                        invocation,
+                        SemanticModel.InvocationCandidateFallback.None);
+                if (candidate is not null &&
+                    ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
+                    projectedCandidate is not ILocalSymbol &&
+                    !IsUnitTypeSymbol(projectedCandidate))
+                {
+                    symbol = projectedCandidate;
+                    return true;
+                }
+            }
+        }
+
         if (TryResolveUnionCaseFromInvocationContext(semanticModel, invocation, out var unionCaseSymbol))
         {
             symbol = unionCaseSymbol;

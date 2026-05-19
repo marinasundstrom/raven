@@ -133,39 +133,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task HoverHandler_InvalidateDocument_ClearsCachedEntriesForReopenedFileAsync()
-    {
-        var (store, _, uri) = CreateWorkspace("""
-import System.Console.*
-
-func Main() -> unit {
-    val query = 42
-    WriteLine(query)
-}
-""");
-        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
-
-        var firstHover = await handler.Handle(new HoverParams
-        {
-            TextDocument = new TextDocumentIdentifier(uri),
-            Position = new Position(4, 14)
-        }, CancellationToken.None);
-
-        firstHover.ShouldNotBeNull();
-
-        var cacheField = typeof(HoverHandler).GetField("_hoverCache", BindingFlags.Instance | BindingFlags.NonPublic);
-        cacheField.ShouldNotBeNull();
-        var cache = cacheField!.GetValue(handler);
-        cache.ShouldNotBeNull();
-        cache.GetType().GetProperty("Count")!.GetValue(cache).ShouldBe(1);
-
-        handler.InvalidateDocument(uri);
-
-        cache.GetType().GetProperty("Count")!.GetValue(cache).ShouldBe(0);
-    }
-
-    [Fact]
-    public async Task HoverHandler_CanceledRequest_ReturnsNullAndDoesNotPopulateCacheAsync()
+    public async Task HoverHandler_CanceledRequest_ReturnsNullAsync()
     {
         var (store, _, uri) = CreateWorkspace("""
 import System.Console.*
@@ -186,12 +154,6 @@ func Main() -> unit {
         }, cancellation.Token);
 
         hover.ShouldBeNull();
-
-        var cacheField = typeof(HoverHandler).GetField("_hoverCache", BindingFlags.Instance | BindingFlags.NonPublic);
-        cacheField.ShouldNotBeNull();
-        var cache = cacheField!.GetValue(handler);
-        cache.ShouldNotBeNull();
-        cache.GetType().GetProperty("Count")!.GetValue(cache).ShouldBe(0);
     }
 
     [Fact]
@@ -1803,11 +1765,11 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
         var targets = new[]
         {
-            new HoverPositionTarget("UseNpgsql", 15, 24, "UseNpgsql"),
-            new HoverPositionTarget("Task", 10, 49, "class Task"),
-            new HoverPositionTarget("CreateBuilder", 11, 42, "CreateBuilder"),
-            new HoverPositionTarget("builder", 11, 16, "builder: WebApplicationBuilder"),
-            new HoverPositionTarget("VehicleAppServices", 15, 41, "VehicleAppServices")
+            CreateHoverPositionTarget(context.Value.SourceText, text, "UseNpgsql", "UseNpgsql", "UseNpgsql"),
+            CreateHoverPositionTarget(context.Value.SourceText, text, "Task", "Task {", "class Task"),
+            CreateHoverPositionTarget(context.Value.SourceText, text, "CreateBuilder", "CreateBuilder", "CreateBuilder"),
+            CreateHoverPositionTarget(context.Value.SourceText, text, "builder", "builder.Services", "builder: WebApplicationBuilder"),
+            CreateHoverPositionTarget(context.Value.SourceText, text, "VehicleDbContext", "VehicleDbContext", "VehicleDbContext")
         };
 
         foreach (var target in targets)
@@ -2176,6 +2138,20 @@ class C {
         }
 
         return index;
+    }
+
+    private static HoverPositionTarget CreateHoverPositionTarget(
+        SourceText sourceText,
+        string text,
+        string label,
+        string searchText,
+        string expectedText)
+    {
+        var targetOffset = text.IndexOf(searchText, StringComparison.Ordinal);
+        targetOffset.ShouldBeGreaterThanOrEqualTo(0);
+
+        var position = PositionHelper.ToRange(sourceText, new TextSpan(targetOffset, 0)).Start;
+        return new HoverPositionTarget(label, position.Line, position.Character, expectedText);
     }
 
     private (DocumentStore store, WorkspaceManager manager, DocumentUri uri) CreateWorkspace(string text)

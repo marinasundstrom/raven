@@ -1171,16 +1171,20 @@ System.Console.WriteLine(true)
 import System.*
 
 func Main() -> unit {
-    Console.WriteLine("hello")
+    val value = 42
+    Console.WriteLine("value: ${value.ToString()}")
 }
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var instrumentation = new PerformanceInstrumentation();
         var compilation = Compilation.Create(
             "test",
             [syntaxTree],
             [.. LanguageServerTestReferences.Default],
-            new CompilationOptions(OutputKind.ConsoleApplication));
+            new CompilationOptions(
+                OutputKind.ConsoleApplication,
+                performanceInstrumentation: instrumentation));
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
@@ -1192,13 +1196,20 @@ func Main() -> unit {
 
         var tryResolveInvocationTargetHoverDirect = typeof(HoverHandler)
             .GetMethod("TryResolveInvocationTargetHoverDirect", BindingFlags.NonPublic | BindingFlags.Static)!;
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
         var resolution = (SymbolResolutionResult?)tryResolveInvocationTargetHoverDirect.Invoke(
             null,
             [semanticModel, root, hoverOffset]);
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
 
         resolution.ShouldNotBeNull();
         var method = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
         method.Name.ShouldBe("WriteLine");
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
 
         var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
             .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1381,6 +1392,41 @@ class C {
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, argumentIdentifier.Identifier.SpanStart + 1])!;
 
         signature.ShouldBe("val b: int");
+    }
+
+    [Fact]
+    public void LambdaParameterReferenceHover_UsesAvailableDelegateParameterFastPath()
+    {
+        const string code = """
+func Apply(value: int, transform: int -> int) -> int {
+    transform(value)
+}
+
+func Main() -> int {
+    Apply(1, value => value + 1)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var valueReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(identifier => identifier.Identifier.ValueText == "value");
+        var hoverOffset = valueReference.Identifier.SpanStart + 1;
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        parameter.Name.ShouldBe("value");
+        parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
     }
 
     [Fact]

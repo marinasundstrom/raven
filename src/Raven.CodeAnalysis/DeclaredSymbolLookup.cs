@@ -345,6 +345,10 @@ internal sealed class DeclaredSymbolLookup
                 symbol = methodSymbol;
                 return true;
 
+            case FunctionStatementSyntax functionStatement when _semanticModel.TryGetMethodSymbol(functionStatement, out var functionSymbol):
+                symbol = functionSymbol;
+                return true;
+
             case PropertyDeclarationSyntax propertyDeclaration when _semanticModel.TryGetPropertySymbol(propertyDeclaration, out var propertySymbol):
                 symbol = propertySymbol;
                 return true;

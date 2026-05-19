@@ -842,6 +842,214 @@ union MyResult<T>(List<T> | int)
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_TopLevelGenericInvocationAfterOpenFeatures_DoesNotPublishStaleOverloadDiagnosticAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var semanticTokensHandler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.Text.Json.*
+
+val foo = Foo("Marina")
+val options = JsonSerializerOptions()
+val str = JsonSerializer.Serialize(foo, options)
+val obj = JsonSerializer.Deserialize<Foo>(str, options)
+
+record Foo(Name: string)
+""";
+
+        store.UpsertDocument(uri, code);
+        _ = await semanticTokensHandler.Handle(new SemanticTokensParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri)
+        }, CancellationToken.None);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV1501", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("Deserialize", StringComparison.Ordinal))
+            .ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("'str' is not in scope", StringComparison.Ordinal))
+            .ShouldBeFalse();
+        result.Diagnostics
+            .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_InvalidTopLevelGenericInvocationAfterOpenFeatures_PublishesOverloadDiagnosticAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var semanticTokensHandler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.Text.Json.*
+
+val foo = Foo("Marina")
+val options = JsonSerializerOptions()
+val str = JsonSerializer.Serialize(foo, options)
+val obj = JsonSerializer.Deserialize<Foo>(options, str)
+
+record Foo(Name: string)
+""";
+
+        store.UpsertDocument(uri, code);
+        _ = await semanticTokensHandler.Handle(new SemanticTokensParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri)
+        }, CancellationToken.None);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        var diagnostic = result.Diagnostics.Single(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV1501", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Deserialize", StringComparison.Ordinal));
+
+        diagnostic.Severity.ShouldBe(LspDiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_TopLevelTargetTypedUnionCaseAfterOpenFeatures_DoesNotPublishMissingTargetTypeDiagnosticAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var semanticTokensHandler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var hoverHandler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.*
+
+val foo = Foo(
+    Name: "Foo",
+    Status: .OnMaintenance(.UtcNow, "Test"),
+    Item: .Some("Foo")
+)
+
+record Foo(
+    val Name: string,
+    val Status: Status
+    val Item: Option<string>
+)
+
+union Status {
+    case Active(Date: DateTimeOffset)
+    case OnMaintenance(Date: DateTimeOffset, Reason: string)
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        _ = await semanticTokensHandler.Handle(new SemanticTokensParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri)
+        }, CancellationToken.None);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var onMaintenanceOffset = code.IndexOf("OnMaintenance", StringComparison.Ordinal);
+        onMaintenanceOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var hover = await hoverHandler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new CodeTextSpan(onMaintenanceOffset + 1, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV2010", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("OnMaintenance", StringComparison.Ordinal))
+            .ShouldBeFalse();
+        result.Diagnostics
+            .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_TestCaseSample_AfterInlayHints_DoesNotReportSelfShadowingDiagnosticsAsync()
     {
         var sampleRoot = Path.Combine(

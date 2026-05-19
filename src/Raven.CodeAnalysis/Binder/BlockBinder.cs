@@ -248,6 +248,113 @@ partial class BlockBinder : Binder
         return BindLocalDeclaration(variableDeclarator, declarationOnly: true).Local;
     }
 
+    internal ILocalSymbol? TryDeclareLocalSymbolShallow(
+        VariableDeclaratorSyntax variableDeclarator,
+        bool allowInitializerBinding = true)
+    {
+        if (variableDeclarator.Parent is not VariableDeclarationSyntax declaration)
+            return null;
+
+        var name = variableDeclarator.Identifier.ValueText;
+        if (name == "_" || variableDeclarator.Identifier.IsMissing)
+            return null;
+
+        if (TryGetDeclaredLocal(variableDeclarator, out var existingDeclaredLocal))
+        {
+            RegisterLocalForCurrentLookup(name, existingDeclaredLocal);
+            return existingDeclaredLocal;
+        }
+
+        if (TryGetSameLocalFromCurrentLookup(name, variableDeclarator, out var sameLocal))
+        {
+            RegisterLocalForCurrentLookup(name, sameLocal);
+            OnLocalDeclared(sameLocal, variableDeclarator);
+            return sameLocal;
+        }
+
+        if (declaration.BindingKeyword.Kind is not (SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword))
+            return null;
+
+        var isMutable = declaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+        var isConst = declaration.BindingKeyword.Kind == SyntaxKind.ConstKeyword;
+        var type = TryResolveLocalDeclaredTypeShallow(variableDeclarator)
+            ?? TryInferLocalTypeFromAvailableInitializer(variableDeclarator)
+            ?? (allowInitializerBinding ? TryInferLocalTypeFromBoundInitializer(variableDeclarator) : null);
+        if (type is null)
+            return null;
+
+        return CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst);
+    }
+
+    private ITypeSymbol? TryResolveLocalDeclaredTypeShallow(VariableDeclaratorSyntax variableDeclarator)
+    {
+        if (variableDeclarator.TypeAnnotation?.Type is not { } typeSyntax)
+            return null;
+
+        var result = BindTypeSyntax(typeSyntax);
+        if (!result.Success || result.ResolvedType is null)
+            return Compilation.ErrorTypeSymbol;
+
+        var type = result.ResolvedType;
+        if (type.TypeKind == TypeKind.Error)
+            return type;
+
+        type = EnsureTypeAccessible(type, typeSyntax.GetLocation());
+        return EnsureTypeValidForStorageLocation(type, typeSyntax.GetLocation());
+    }
+
+    private ITypeSymbol? TryInferLocalTypeFromAvailableInitializer(VariableDeclaratorSyntax variableDeclarator)
+    {
+        if (variableDeclarator.TypeAnnotation is not null ||
+            variableDeclarator.Initializer?.Value is not { } initializer)
+        {
+            return null;
+        }
+
+        if (initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any())
+            return null;
+
+        if (initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any())
+            return null;
+
+        if (!SemanticModel.TryGetAvailableTypeInfo(initializer, out var typeInfo))
+            return null;
+
+        var type = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (type is null || type.TypeKind == TypeKind.Error)
+            return null;
+
+        type = TypeSymbolNormalization.NormalizeForInference(type);
+        type = EnsureTypeAccessible(type, initializer.GetLocation());
+        return EnsureTypeValidForStorageLocation(type, initializer.GetLocation());
+    }
+
+    private ITypeSymbol? TryInferLocalTypeFromBoundInitializer(VariableDeclaratorSyntax variableDeclarator)
+    {
+        if (variableDeclarator.TypeAnnotation is not null ||
+            variableDeclarator.Initializer?.Value is not { } initializer)
+        {
+            return null;
+        }
+
+        if (!initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any() ||
+            initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any())
+        {
+            return null;
+        }
+
+        EnsurePrecedingStatementDeclarations(variableDeclarator);
+
+        var boundInitializer = BindExpression(initializer);
+        var type = boundInitializer.Type ?? boundInitializer.GetConvertedType();
+        if (type is null || type.TypeKind == TypeKind.Error)
+            return null;
+
+        type = TypeSymbolNormalization.NormalizeForInference(type);
+        type = EnsureTypeAccessible(type, initializer.GetLocation());
+        return EnsureTypeValidForStorageLocation(type, initializer.GetLocation());
+    }
+
     private void EnsurePrecedingStatementDeclarations(SyntaxNode node)
     {
         var statement = node.AncestorsAndSelf().OfType<StatementSyntax>().FirstOrDefault();
@@ -1837,6 +1944,12 @@ partial class BlockBinder : Binder
         }
 
         return base.GetOrBind(node);
+    }
+
+    public override BoundNode GetOrBindForSemanticQuery(SyntaxNode node)
+    {
+        using var _ = EnterSemanticQueryScope();
+        return GetOrBind(node);
     }
 
     private ExecutionScope EnterExecutionScope()

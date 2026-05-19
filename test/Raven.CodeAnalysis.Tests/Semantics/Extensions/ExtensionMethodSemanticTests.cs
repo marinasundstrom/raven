@@ -1723,6 +1723,42 @@ class C {
     }
 
     [Fact]
+    public void MemberAccess_WithSystemLinqSum_FastLambdaParameterUsesReceiverType()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+class FuelConsumptionRecord(var DistanceDrivenKm: double)
+
+class C {
+    func Run(samples: IEnumerable<FuelConsumptionRecord>) -> double {
+        samples.Sum(entry => entry.DistanceDrivenKm)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var sumInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Sum" });
+        var lambdaSyntax = Assert.IsType<SimpleFunctionExpressionSyntax>(sumInvocation.ArgumentList.Arguments.Single().Expression);
+        var parameterSyntax = lambdaSyntax.Parameter;
+
+        Assert.True(model.TryResolveFunctionExpressionParameterSymbolFast(parameterSyntax, out var fastParameter));
+        Assert.NotNull(fastParameter);
+        Assert.Equal("FuelConsumptionRecord", fastParameter.Type.Name);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void PipeOperator_WithSystemLinqWhere_LambdaParameterDoesNotTriggerUseBeforeDeclarationFromLaterLocal()
     {
         const string source = """

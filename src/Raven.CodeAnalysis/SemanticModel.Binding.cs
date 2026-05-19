@@ -165,8 +165,11 @@ public partial class SemanticModel
 
     private void DeclareNamespaceMembers(SyntaxNode containerNode, INamespaceSymbol parentNamespace)
     {
-        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var objectType = Compilation.TryGetMetadataReferenceTypeByMetadataName("System.Object");
 
+        // Type-like declarations must be available before member signatures are
+        // resolved, because top-level functions can reference source types that
+        // are declared later in the same file or namespace.
         foreach (var member in containerNode.ChildNodes())
         {
             switch (member)
@@ -209,6 +212,24 @@ public partial class SemanticModel
                         break;
                     }
 
+                case EnumDeclarationSyntax enumDecl:
+                    {
+                        DeclareEnumSymbol(enumDecl, parentNamespace);
+                        break;
+                    }
+
+                case UnionDeclarationSyntax unionDecl:
+                    {
+                        DeclareUnionSymbol(unionDecl, parentNamespace);
+                        break;
+                    }
+            }
+        }
+
+        foreach (var member in containerNode.ChildNodes())
+        {
+            switch (member)
+            {
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
                          globalStatement.Statement is FunctionStatementSyntax functionStatement:
@@ -221,18 +242,6 @@ public partial class SemanticModel
                     {
                         if (!Compilation.Options.AllowNamespaceMembers)
                             _declarationDiagnostics.Report(Diagnostic.Create(s_namespaceMembersDisabled, constDecl.GetLocation()));
-                        break;
-                    }
-
-                case EnumDeclarationSyntax enumDecl:
-                    {
-                        DeclareEnumSymbol(enumDecl, parentNamespace);
-                        break;
-                    }
-
-                case UnionDeclarationSyntax unionDecl:
-                    {
-                        DeclareUnionSymbol(unionDecl, parentNamespace);
                         break;
                     }
             }
@@ -318,6 +327,8 @@ public partial class SemanticModel
         if (HasFileScopeModifier(functionStatement.Modifiers))
             methodSymbol.MarkFileScoped(functionStatement.SyntaxTree?.FilePath);
 
+        RegisterMethodSymbol(functionStatement, methodSymbol);
+        container.AddMember(methodSymbol);
     }
 
     private static Accessibility DetermineNamespaceMemberAccessibility(SyntaxTokenList modifiers)
@@ -358,7 +369,7 @@ public partial class SemanticModel
             ? TypeKind.Struct
             : TypeKind.Class;
         var defaultBaseType = declaredTypeKind == TypeKind.Struct
-            ? Compilation.GetSpecialType(SpecialType.System_ValueType)
+            ? Compilation.TryGetMetadataReferenceTypeByMetadataName("System.ValueType")
             : objectType;
 
         var hasSealedModifier = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.SealedKeyword);
@@ -673,8 +684,8 @@ public partial class SemanticModel
 
     private void DeclareClassMemberTypes(TypeDeclarationSyntax classDecl, SourceNamedTypeSymbol classSymbol)
     {
-        var objectType = Compilation.GetTypeByMetadataName("System.Object");
-        var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
+        var objectType = Compilation.TryGetMetadataReferenceTypeByMetadataName("System.Object");
+        var valueType = Compilation.TryGetMetadataReferenceTypeByMetadataName("System.ValueType");
         var parentType = (INamedTypeSymbol)classSymbol;
 
         foreach (var effectiveMember in GetEffectiveTypeMembers(classDecl))
@@ -1887,12 +1898,12 @@ public partial class SemanticModel
 
         var supportsTopLevelProgram = Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
 
-        var shouldCreateTopLevelProgram = supportsTopLevelProgram
-            && (bindableGlobals.Count > 0
-            || (bindableGlobals.Count == 0
+        var shouldCreateTopLevelProgram = bindableGlobals.Count > 0
+            || (supportsTopLevelProgram
+                && bindableGlobals.Count == 0
                 && !hasNonGlobalMembers
                 && !hadDisabledGlobalStatements
-                && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu)));
+                && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu));
         var hasExecutableFileScopedCode = bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
 
         if (fileScopedNamespace != null)
@@ -2457,7 +2468,7 @@ public partial class SemanticModel
 
         if (baseTypeSymbol is not null &&
             !SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, baseTypeSymbol) &&
-            SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, defaultBaseType))
+            (typeSymbol.BaseType is null || SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, defaultBaseType)))
         {
             typeSymbol.SetBaseType(baseTypeSymbol);
         }

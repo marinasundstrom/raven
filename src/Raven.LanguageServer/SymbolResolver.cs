@@ -21,6 +21,12 @@ internal static partial class SymbolResolver
         if (IsImportDirectiveNamePosition(root, offset))
             return null;
 
+        if (IsDiscardIdentifierPosition(root, offset))
+            return null;
+
+        if (TryResolveExactLocalOrParameterIdentifierAtOffset(semanticModel, root, offset, out var exactLocalOrParameterResolution))
+            return exactLocalOrParameterResolution;
+
         if (TryResolveInvocationIdentifierAtOffset(semanticModel, root, offset, out var invocationIdentifierResolution))
             return invocationIdentifierResolution;
 
@@ -48,6 +54,17 @@ internal static partial class SymbolResolver
             return compoundTypeSyntaxResolution;
         }
 
+        foreach (var candidate in GetCandidateNodes(root, offset))
+        {
+            if (TryResolveParameterDeclarationTokenFastPath(semanticModel, candidate.Token, out var parameterSymbol, out var parameterNode))
+            {
+                return new SymbolResolutionResult(
+                    SymbolResolutionKind.ParameterDeclaration,
+                    parameterSymbol.UnderlyingSymbol,
+                    parameterNode);
+            }
+        }
+
         if (TryResolveExactIdentifierSymbol(semanticModel, root, offset, out var exactIdentifierResolution))
             return exactIdentifierResolution;
 
@@ -62,14 +79,6 @@ internal static partial class SymbolResolver
                     memberTokenSymbol.UnderlyingSymbol,
                     candidate.Token.Parent ?? candidate.Node);
 
-            if (TryResolveParameterDeclarationTokenFastPath(semanticModel, candidate.Token, out var parameterSymbol, out var parameterNode))
-            {
-                return new SymbolResolutionResult(
-                    SymbolResolutionKind.ParameterDeclaration,
-                    parameterSymbol.UnderlyingSymbol,
-                    parameterNode);
-            }
-
             if (ShouldSkipCandidateNode(candidate.Node, candidate.Token))
                 continue;
 
@@ -82,6 +91,57 @@ internal static partial class SymbolResolver
         }
 
         return null;
+    }
+
+    private static bool TryResolveExactLocalOrParameterIdentifierAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        if (!TryGetIdentifierTokenAtOffset(root, offset, out _, out var identifier))
+            return false;
+
+        if (!TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
+            return false;
+
+        var symbol = ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, identifier);
+        if (symbol is not ILocalSymbol and not IParameterSymbol)
+            return false;
+
+        var kind = identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
+                   HaveEquivalentSpan(memberAccess.Expression, identifier)
+            ? SymbolResolutionKind.MemberReceiver
+            : SymbolResolutionKind.Identifier;
+
+        resolution = new SymbolResolutionResult(kind, symbol.UnderlyingSymbol, identifier);
+        return true;
+    }
+
+    private static bool IsDiscardIdentifierPosition(SyntaxNode root, int offset)
+    {
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Kind is SyntaxKind.IdentifierToken or SyntaxKind.UnderscoreToken &&
+                token.ValueText == "_")
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryResolveMemberAccessAtOffset(
@@ -691,9 +751,6 @@ internal static partial class SymbolResolver
             if (lambdaSymbol is not null)
                 return ProjectSymbolForDisplay(lambdaSymbol);
         }
-
-        if (TryResolveEnclosingLambdaParameterReference(semanticModel, node, token, out var lambdaParameterSymbol))
-            return lambdaParameterSymbol;
 
         if (TryResolvePatternDeclaredSymbol(semanticModel, node, token, out var patternSymbol))
             return patternSymbol;

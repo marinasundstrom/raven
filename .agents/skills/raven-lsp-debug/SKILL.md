@@ -1,6 +1,6 @@
 ---
 name: raven-lsp-debug
-description: Troubleshooting workflow for Raven language service and editor failures. Use when investigating hover, completion, definition, diagnostics, or other LSP and editor integration problems. Covers required log capture, repro reduction, and cross-checking client and server behavior.
+description: Troubleshooting workflow for Raven language service and editor failures. Use when investigating hover, completion, definition, diagnostics, inlays, semantic tokens, document symbols, request stalls, or other LSP/editor integration problems. Covers required log capture, headless repros, compiler API cross-checks, request scheduling, and the compiler-owned semantic model direction.
 ---
 
 # Raven LSP Debugging
@@ -51,6 +51,21 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 5. Check the server log to see request handling, failures, or missing symbol results.
 6. Correlate the failing request with syntax, symbol lookup, binding, diagnostics behavior, compiler API caching, and language service code.
 7. Add focused regression coverage if the failure is fixed in code.
+
+## Compiler Boundary
+
+- The language server should present compiler answers. It should not own semantic invalidation, symbol inference, overload selection, binder selection, or cache policy.
+- First verify the Roslyn-shaped compiler APIs: `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, operations, and available public semantic entry points.
+- If those APIs are wrong, slow, or cache-dependent, fix `Raven.CodeAnalysis`. Keep LSP-side semantic inference temporary and remove it once the compiler can answer.
+- Binders are the compiler execution units. Method binders own parameters; block binders own immediate locals, statement/expression binding state, and binder-produced diagnostics.
+- The LSP may coordinate request cancellation, prioritize interactive requests, skip stale background work, and avoid monopolizing semantic access, but it should not change semantic meaning.
+
+## Request Pile-Ups
+
+- When hovers, inlays, semantic tokens, and document symbols appear stuck, check whether a full-document/background request started first and failed to complete.
+- Compare client request start/complete events with `logs/raven-lsp.log` and `logs/raven-lsp-performance.txt`.
+- Use the headless harness for hover and inlay ranges to separate compiler cold-path cost from VS Code scheduling.
+- If a request is slow because public semantic APIs force broad binding, fix the compiler path. If a request blocks newer interactive work, fix LSP scheduling/cancellation without duplicating compiler semantics.
 
 ## Notes
 

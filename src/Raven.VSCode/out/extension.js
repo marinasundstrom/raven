@@ -101,6 +101,28 @@ function formatRequestType(type) {
     }
     return '<unknown>';
 }
+function formatRequestTarget(param) {
+    if (!param || typeof param !== 'object') {
+        return '';
+    }
+    const candidate = param;
+    const uri = candidate.textDocument?.uri ?? candidate.uri;
+    if (!uri) {
+        return '';
+    }
+    const position = candidate.position;
+    if (position?.line !== undefined && position.character !== undefined) {
+        return ` ${uri} ${position.line}:${position.character}`;
+    }
+    const range = candidate.range;
+    if (range?.start?.line !== undefined &&
+        range.start.character !== undefined &&
+        range.end?.line !== undefined &&
+        range.end.character !== undefined) {
+        return ` ${uri} ${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`;
+    }
+    return ` ${uri}`;
+}
 function areInferredTypeInlayHintsEnabled() {
     return vscode.workspace
         .getConfiguration('raven')
@@ -320,20 +342,21 @@ function createLanguageClient(context) {
                     method === 'textDocument/documentDiagnostic' ||
                     method === 'workspace/diagnostic';
                 const startedAt = Date.now();
+                const target = interesting ? formatRequestTarget(param) : '';
                 if (interesting) {
-                    appendLifecycleLog(`Request started: ${method}`);
+                    appendLifecycleLog(`Request started: ${method}${target}`);
                 }
                 try {
                     const result = await next(type, param, token);
                     if (interesting) {
-                        appendLifecycleLog(`Request completed: ${method} in ${Date.now() - startedAt}ms.`);
+                        appendLifecycleLog(`Request completed: ${method}${target} in ${Date.now() - startedAt}ms.`);
                     }
                     return result;
                 }
                 catch (error) {
                     const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
                     if (interesting) {
-                        appendLifecycleLog(`Request failed: ${method} after ${Date.now() - startedAt}ms: ${message}`);
+                        appendLifecycleLog(`Request failed: ${method}${target} after ${Date.now() - startedAt}ms: ${message}`);
                     }
                     throw error;
                 }
@@ -345,7 +368,7 @@ function createLanguageClient(context) {
                     method === 'textDocument/didSave' ||
                     method === 'textDocument/didClose';
                 if (interesting) {
-                    appendLifecycleLog(`Notification sent: ${method}`);
+                    appendLifecycleLog(`Notification sent: ${method}${formatRequestTarget(params)}`);
                 }
                 return next(type, params);
             },

@@ -34,6 +34,14 @@ class FunctionBinder : Binder
         if (_methodSymbol is not null)
             return _methodSymbol;
 
+        if (Compilation.TryGetMethodSymbol(_syntax, out var cachedMethod) &&
+            cachedMethod is SourceMethodSymbol { IsSignatureSkeleton: false } cachedCompletedMethod)
+        {
+            _methodSymbol = cachedCompletedMethod;
+            _methodBodyBinder ??= new MethodBinder(_methodSymbol, this);
+            return _methodSymbol;
+        }
+
         var container = ResolveContainingType();
         if (container is null)
             throw new InvalidOperationException("Unable to resolve containing type for function declaration.");
@@ -46,6 +54,7 @@ class FunctionBinder : Binder
         if (existingMethod is SourceMethodSymbol existingSource && !existingSource.IsSignatureSkeleton)
         {
             _methodSymbol = existingSource;
+            Compilation.RegisterMethodSymbol(_syntax, _methodSymbol);
             return _methodSymbol;
         }
 
@@ -191,6 +200,7 @@ class FunctionBinder : Binder
 
         _methodSymbol.SetParameters(parameters);
         _methodSymbol.MarkSignatureBindingComplete();
+        Compilation.RegisterMethodSymbol(_syntax, _methodSymbol);
 
         if (isNamespaceMember && _methodSymbol is Symbol sourceSymbol && _syntax.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword))
             sourceSymbol.MarkFileScoped(_syntax.SyntaxTree?.FilePath);
@@ -282,7 +292,9 @@ class FunctionBinder : Binder
 
     public MethodBinder GetMethodBodyBinder()
     {
-        var methodSymbol = GetMethodSymbol();
+        var methodSymbol = Compilation.TryGetMethodSymbol(_syntax, out var cachedMethod)
+            ? cachedMethod
+            : GetMethodSymbol();
         return _methodBodyBinder ??= new MethodBinder(methodSymbol!, this);
     }
 }
