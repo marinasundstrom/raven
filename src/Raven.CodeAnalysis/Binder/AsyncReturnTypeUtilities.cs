@@ -4,6 +4,59 @@ namespace Raven.CodeAnalysis;
 
 internal static class AsyncReturnTypeUtilities
 {
+    public static bool IsValidAsyncReturnType(ITypeSymbol? type, bool allowErrorType = true)
+    {
+        if (type is null)
+            return false;
+
+        if (type.TypeKind == TypeKind.Error)
+            return allowErrorType;
+
+        if (type is NullableTypeSymbol nullable)
+            type = nullable.UnderlyingType;
+
+        if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
+            return true;
+
+        if (type is INamedTypeSymbol named &&
+            (named.OriginalDefinition as INamedTypeSymbol ?? named.ConstructedFrom as INamedTypeSymbol ?? named)
+                .SpecialType == SpecialType.System_Threading_Tasks_Task_T)
+        {
+            return true;
+        }
+
+        if (IsNonGenericValueTask(type) || IsGenericValueTask(type))
+            return true;
+
+        if (type is INamedTypeSymbol namedType)
+        {
+            var definition = namedType.OriginalDefinition as INamedTypeSymbol
+                ?? namedType.ConstructedFrom as INamedTypeSymbol
+                ?? namedType;
+
+            if ((definition.MetadataName == "IAsyncEnumerable`1" ||
+                 definition.MetadataName == "IAsyncEnumerator`1") &&
+                definition.ContainingNamespace is
+                {
+                    Name: "Generic",
+                    ContainingNamespace:
+                    {
+                        Name: "Collections",
+                        ContainingNamespace:
+                        {
+                            Name: "System",
+                            ContainingNamespace.IsGlobalNamespace: true
+                        }
+                    }
+                })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static string GetSuggestedAsyncReturnTypeDisplay(Compilation compilation, ITypeSymbol? returnType)
     {
         var taskType = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);

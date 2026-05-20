@@ -34,6 +34,10 @@ class FunctionBinder : Binder
         if (_methodSymbol is not null)
             return _methodSymbol;
 
+        var isNamespaceMember = IsNamespaceLevelFunctionMember(_syntax);
+        if (isNamespaceMember && !Compilation.SourceDeclarationsDeclared)
+            Compilation.EnsureSourceDeclarationsDeclared();
+
         if (Compilation.TryGetMethodSymbol(_syntax, out var cachedMethod) &&
             cachedMethod is SourceMethodSymbol { IsSignatureSkeleton: false } cachedCompletedMethod)
         {
@@ -65,7 +69,6 @@ class FunctionBinder : Binder
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
 
-        var isNamespaceMember = IsTopLevelFunctionMember(_syntax);
         var accessibility = isNamespaceMember
             ? AccessibilityUtilities.DetermineAccessibility(_syntax.Modifiers, Accessibility.Internal)
             : Accessibility.Internal;
@@ -106,7 +109,8 @@ class FunctionBinder : Binder
             ? inferredReturnType
             : methodBinder.BindTypeSyntaxAndReport(_syntax.ReturnType.Type);
 
-        if (isAsync && _syntax.ReturnType is { } annotatedReturn && !IsValidAsyncReturnType(returnType))
+        if (isAsync && _syntax.ReturnType is { } annotatedReturn &&
+            (!IsValidAsyncReturnType(returnType) || returnType.TypeKind == TypeKind.Error))
         {
             var display = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(Compilation, returnType);
@@ -234,7 +238,7 @@ class FunctionBinder : Binder
 
     private INamedTypeSymbol? TryResolveNamespaceMembersContainer()
     {
-        if (!IsTopLevelFunctionMember(_syntax))
+        if (!IsNamespaceLevelFunctionMember(_syntax))
             return null;
 
         var targetNamespace = ResolveNamespaceMemberNamespace(_syntax);
@@ -286,15 +290,21 @@ class FunctionBinder : Binder
             : Compilation.GetOrCreateNamespaceSymbol(namespaceName)?.AsSourceNamespace();
     }
 
-    private static bool IsTopLevelFunctionMember(FunctionStatementSyntax syntax)
+    private bool IsNamespaceLevelFunctionMember(FunctionStatementSyntax syntax)
         => syntax.Parent is GlobalStatementSyntax globalStatement &&
-            Compilation.IsTopLevelFunctionMember(globalStatement);
+            Compilation.IsTopLevelFunctionMember(globalStatement) &&
+            !IsFileScopeLocalFunction(globalStatement);
+
+    private bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
+        => globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
+            Compilation.HasRunnableFileScopeCode(compilationUnit);
 
     public MethodBinder GetMethodBodyBinder()
     {
-        var methodSymbol = Compilation.TryGetMethodSymbol(_syntax, out var cachedMethod)
-            ? cachedMethod
-            : GetMethodSymbol();
+        var methodSymbol = Compilation.TryGetMethodSymbol(_syntax, out var cachedMethod) &&
+            cachedMethod is SourceMethodSymbol { IsSignatureSkeleton: false }
+                ? cachedMethod
+                : GetMethodSymbol();
         return _methodBodyBinder ??= new MethodBinder(methodSymbol!, this);
     }
 }

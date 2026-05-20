@@ -262,6 +262,8 @@ public partial class SemanticModel
                 {
                     EnsureDeclarations();
                     EnsureMemberSignaturesDeclared();
+                    if (root is CompilationUnitSyntax compilationUnit)
+                        EnsureTopLevelFunctionDeclarations(compilationUnit);
                 }
 
                 EnsureDeclarations();
@@ -277,7 +279,7 @@ public partial class SemanticModel
                         // Declaration and import-scope binders own diagnostics produced
                         // while deriving the scope itself. Keep those immutable syntax facts
                         // intact; the rebind below is for executable/body binders.
-                        if (binderState is TypeMemberBinder or ImportBinder or CompilationUnitBinder or NamespaceBinder or TopLevelBinder)
+                        if (ShouldPreserveBinderDiagnosticsDuringExecutableRebind(binderState))
                             continue;
 
                         binderState.Diagnostics.ClearDiagnostics(root.Span);
@@ -491,12 +493,30 @@ public partial class SemanticModel
 
                 case PropertyDeclarationSyntax property:
                     BindMemberAttributes(property, currentBinder);
-                    TraversePropertyBody(property, currentBinder);
+                    var propertyBinder = GetBinderForDiagnostics(property, currentBinder);
+                    if (propertyBinder is TypeMemberBinder propertyMemberBinder)
+                    {
+                        var accessorBinders = propertyMemberBinder.BindPropertyDeclaration(property);
+                        CacheBinderForNode(property, propertyMemberBinder);
+                        foreach (var (accessor, accessorBinder) in accessorBinders)
+                            CacheBinderForNode(accessor, accessorBinder);
+                    }
+
+                    TraversePropertyBody(property, propertyBinder);
                     return true;
 
                 case IndexerDeclarationSyntax indexer:
                     BindMemberAttributes(indexer, currentBinder);
-                    TraversePropertyBody(indexer, currentBinder);
+                    var indexerBinder = GetBinderForDiagnostics(indexer, currentBinder);
+                    if (indexerBinder is TypeMemberBinder indexerMemberBinder)
+                    {
+                        var accessorBinders = indexerMemberBinder.BindIndexerDeclaration(indexer);
+                        CacheBinderForNode(indexer, indexerMemberBinder);
+                        foreach (var (accessor, accessorBinder) in accessorBinders)
+                            CacheBinderForNode(accessor, accessorBinder);
+                    }
+
+                    TraversePropertyBody(indexer, indexerBinder);
                     return true;
 
                 case EventDeclarationSyntax eventDeclaration:
@@ -644,7 +664,12 @@ public partial class SemanticModel
             void ClearCachedBinderDiagnostics(Text.TextSpan span)
             {
                 foreach (var binderState in _binderCache.Values)
+                {
+                    if (ShouldPreserveBinderDiagnosticsDuringExecutableRebind(binderState))
+                        continue;
+
                     binderState.Diagnostics.ClearDiagnostics(span);
+                }
             }
         }
 
@@ -832,6 +857,14 @@ public partial class SemanticModel
             }
         }
     }
+
+    private static bool ShouldPreserveBinderDiagnosticsDuringExecutableRebind(Binder binderState)
+        => binderState is TypeMemberBinder
+            or FunctionBinder
+            or ImportBinder
+            or CompilationUnitBinder
+            or NamespaceBinder
+            or TopLevelBinder;
 
     private static SyntaxNode? TryGetMacroTarget(AttributeSyntax attributeSyntax)
         => attributeSyntax.Parent?.Parent switch
@@ -4583,18 +4616,25 @@ public partial class SemanticModel
         };
     }
 
-    internal bool TryGetAvailablePropagationFailureInfo(
-        PropagateExpressionSyntax propagateExpression,
+    internal bool TryGetCarrierFailureInfo(
+        ExpressionSyntax carrierExpression,
         out string caseName,
         out ITypeSymbol? payloadType,
-        out bool hasPayload)
+        out bool hasPayload,
+        bool allowBindingFallback = false)
     {
         caseName = string.Empty;
         payloadType = null;
         hasPayload = false;
 
-        if (!TryGetAvailableTypeInfo(propagateExpression.Expression, out var operandTypeInfo))
-            return false;
+        TypeInfo operandTypeInfo;
+        if (!TryGetAvailableTypeInfo(carrierExpression, out operandTypeInfo))
+        {
+            if (!allowBindingFallback)
+                return false;
+
+            operandTypeInfo = GetTypeInfo(carrierExpression);
+        }
 
         var operandType = (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType)?.GetPlainType();
         if (operandType is not INamedTypeSymbol operandNamed ||
@@ -4604,7 +4644,7 @@ public partial class SemanticModel
             return false;
         }
 
-        if (!TryGetAvailableCarrierFailureInfo(operandNamed, out caseName, out payloadType, out hasPayload))
+        if (!TryGetCarrierFailureInfo(operandNamed, out caseName, out payloadType, out hasPayload))
             return false;
 
         if (payloadType is not null)
@@ -4613,7 +4653,7 @@ public partial class SemanticModel
         return payloadType is null || payloadType.TypeKind != TypeKind.Error;
     }
 
-    private static bool TryGetAvailableCarrierFailureInfo(
+    private static bool TryGetCarrierFailureInfo(
         INamedTypeSymbol operandNamed,
         out string caseName,
         out ITypeSymbol? payloadType,
@@ -5791,6 +5831,12 @@ public partial class SemanticModel
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
+        if (node is FunctionStatementSyntax topLevelFunctionStatement &&
+            IsTopLevelFunctionMember(topLevelFunctionStatement))
+        {
+            Compilation.EnsureSourceDeclarationsDeclared();
+        }
+
         if (node is FunctionStatementSyntax functionStatement &&
             TryResolveAvailableFunctionStatementSymbol(functionStatement, out var functionStatementSymbol))
         {
@@ -5855,6 +5901,10 @@ public partial class SemanticModel
             or ConversionOperatorDeclarationSyntax
             or ParameterSyntax { Parent.Parent: not LocalDeclarationStatementSyntax };
 
+    private static bool IsTopLevelFunctionMember(FunctionStatementSyntax functionStatement)
+        => functionStatement.Parent is GlobalStatementSyntax globalStatement &&
+           Compilation.IsTopLevelFunctionMember(globalStatement);
+
     private bool TryResolveAvailableDeclaredSymbol(SyntaxNode node, out ISymbol? symbol)
     {
         switch (node)
@@ -5899,8 +5949,11 @@ public partial class SemanticModel
     {
         if (_declaredSymbolLookup.Lookup(functionStatement) is IMethodSymbol declaredMethod)
         {
-            methodSymbol = declaredMethod;
-            return true;
+            if (declaredMethod is not SourceMethodSymbol { IsSignatureSkeleton: true })
+            {
+                methodSymbol = declaredMethod;
+                return true;
+            }
         }
 
         if (GetBinder(functionStatement) is FunctionBinder functionBinder)
@@ -5942,6 +5995,15 @@ public partial class SemanticModel
 
     internal void ReportTopLevelFunctionAlreadyDefined(string name, Location location)
         => _declarationDiagnostics.ReportFunctionAlreadyDefined(name, location);
+
+    internal void ReportDeclarationAsyncReturnTypeMustBeTaskLike(
+        string returnType,
+        string suggestedReturnType,
+        Location location)
+        => _declarationDiagnostics.ReportAsyncReturnTypeMustBeTaskLike(
+            returnType,
+            suggestedReturnType,
+            location);
 
     private void StoreSymbolInfo(SyntaxNode node, ISymbol symbol)
     {
@@ -6004,6 +6066,9 @@ public partial class SemanticModel
         bool allowInitializerBinding = true,
         bool allowBindingFallback = true)
     {
+        if (IsInsideTopLevelFunctionMember(variableDeclarator))
+            Compilation.EnsureSourceDeclarationsDeclared();
+
         if (!IsLocalVariableDeclarator(variableDeclarator))
         {
             localSymbol = null;
@@ -6063,6 +6128,19 @@ public partial class SemanticModel
 
         EnsureDeclarations();
 
+        if (variableDeclarator.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } functionExpression)
+        {
+            var functionExpressionRoot = GetFunctionExpressionRebindRoot(functionExpression);
+            _ = GetBoundNode(functionExpressionRoot, BoundTreeView.Original);
+
+            if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator functionExpressionDeclarator &&
+                (allowErrorType || !functionExpressionDeclarator.Local.Type.ContainsErrorType()))
+            {
+                localSymbol = functionExpressionDeclarator.Local;
+                return true;
+            }
+        }
+
         var binder = GetBinderForIncrementalSemanticQuery(variableDeclarator);
         if (TryGetNearestBlockBinder(binder, out var blockBinder))
         {
@@ -6110,18 +6188,18 @@ public partial class SemanticModel
             errorLocal ??= reboundDeclarator.Local;
         }
 
+        if (allowErrorType && errorLocal is not null)
+        {
+            localSymbol = errorLocal;
+            return true;
+        }
+
         if (allowInitializerBinding &&
             errorLocal is not null &&
             variableDeclarator.Initializer is not null &&
             TryRebindLocalDeclarationFromInterestRoot(variableDeclarator, allowErrorType, out var reboundLocal))
         {
             localSymbol = reboundLocal;
-            return true;
-        }
-
-        if (allowErrorType && errorLocal is not null)
-        {
-            localSymbol = errorLocal;
             return true;
         }
 
@@ -8457,7 +8535,7 @@ public partial class SemanticModel
         }
 
         if (parameterSyntax.Parent?.Parent is FunctionStatementSyntax functionStatement &&
-            GetDeclaredSymbol(functionStatement) is IMethodSymbol functionSymbol)
+            TryResolveAvailableFunctionStatementSymbol(functionStatement, out var functionSymbol))
         {
             parameterSymbol = functionSymbol.Parameters.FirstOrDefault(parameter =>
                 SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
@@ -8852,7 +8930,7 @@ public partial class SemanticModel
         }
 
         if (functionStatement is not null &&
-            GetDeclaredSymbol(functionStatement) is IMethodSymbol function)
+            TryResolveAvailableFunctionStatementSymbol(functionStatement, out var function))
         {
             type = function.Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Type;
             return type is not null && type.TypeKind != TypeKind.Error;
@@ -10369,7 +10447,10 @@ public partial class SemanticModel
             switch (current)
             {
                 case FunctionStatementSyntax functionStatement:
-                    return GetDeclaredSymbol(functionStatement) as SourceMethodSymbol;
+                    return TryResolveAvailableFunctionStatementSymbol(functionStatement, out var function) &&
+                        function is SourceMethodSymbol sourceFunction
+                            ? sourceFunction
+                            : null;
                 case BaseMethodDeclarationSyntax methodDeclaration:
                     return ResolveCanonicalSourceMethod(methodDeclaration);
             }
@@ -10541,23 +10622,28 @@ public partial class SemanticModel
         }
     }
 
-    private static IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
+    private IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
     {
         foreach (var member in compilationUnit.Members)
         {
             switch (member)
             {
-                case GlobalStatementSyntax global when global.Statement is not FunctionStatementSyntax:
+                case GlobalStatementSyntax global when IsTopLevelProgramStatement(global):
                     yield return global;
                     break;
                 case FileScopedNamespaceDeclarationSyntax fileScoped:
                     foreach (var nested in fileScoped.Members.OfType<GlobalStatementSyntax>()
-                                 .Where(static global => global.Statement is not FunctionStatementSyntax))
+                                 .Where(IsTopLevelProgramStatement))
                         yield return nested;
                     break;
             }
         }
     }
+
+    private bool IsTopLevelProgramStatement(GlobalStatementSyntax global)
+        => global.Statement is not FunctionStatementSyntax ||
+            (Compilation.IsTopLevelFunctionMember(global) &&
+             IsFileScopeLocalFunction(global));
 
     private BoundBlockStatement CreateSyntheticTopLevelBlock(CompilationUnitSyntax compilationUnit)
     {
@@ -10599,7 +10685,15 @@ public partial class SemanticModel
         => GetBinderCore(node, parentBinder, ensureSourceDeclarations: true);
 
     private Binder GetBinderForIncrementalSemanticQuery(SyntaxNode node, Binder? parentBinder = null)
-        => GetBinderCore(node, parentBinder, ensureSourceDeclarations: false);
+        => GetBinderCore(
+            node,
+            parentBinder,
+            ensureSourceDeclarations: IsInsideTopLevelFunctionMember(node));
+
+    private static bool IsInsideTopLevelFunctionMember(SyntaxNode node)
+        => node.AncestorsAndSelf()
+            .OfType<FunctionStatementSyntax>()
+            .Any(IsTopLevelFunctionMember);
 
     private Binder GetBinderCore(SyntaxNode node, Binder? parentBinder, bool ensureSourceDeclarations)
     {
@@ -11043,7 +11137,14 @@ public partial class SemanticModel
         FunctionStatementSyntax functionStatement,
         out IMethodSymbol methodSymbol)
     {
-        if (GetDeclaredSymbol(functionStatement) is IMethodSymbol symbol)
+        if (TryResolveAvailableFunctionStatementSymbol(functionStatement, out var availableSymbol))
+        {
+            methodSymbol = availableSymbol;
+            return true;
+        }
+
+        if (GetDeclaredSymbol(functionStatement) is IMethodSymbol symbol &&
+            symbol is not SourceMethodSymbol { IsSignatureSkeleton: true })
         {
             methodSymbol = symbol;
             return true;

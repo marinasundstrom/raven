@@ -266,6 +266,125 @@ class C {
     }
 
     [Fact]
+    public void TryGetCarrierFailureInfo_ForPropagationAndConditionalAccess_UsesAvailableSemanticState()
+    {
+        var code = """
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+union class FulfillmentError {
+    case MissingPlan
+}
+
+record class FulfillmentPlan(val Name: string)
+
+class C {
+    func Test(planResult: Result<FulfillmentPlan, FulfillmentError>) -> Result<string, FulfillmentError> {
+        val plan = planResult?
+        val nameResult = planResult?.Name
+        return Result<string, FulfillmentError>.Ok(plan.Name)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var propagateExpression = root.DescendantNodes().OfType<PropagateExpressionSyntax>().Single();
+        var conditionalAccess = root.DescendantNodes().OfType<ConditionalAccessExpressionSyntax>().Single();
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetCarrierFailureInfo(
+            propagateExpression.Expression,
+            out var propagateCaseName,
+            out var propagatePayloadType,
+            out var propagateHasPayload));
+        Assert.True(model.TryGetCarrierFailureInfo(
+            conditionalAccess.Expression,
+            out var conditionalCaseName,
+            out var conditionalPayloadType,
+            out var conditionalHasPayload));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("Error", propagateCaseName);
+        Assert.True(propagateHasPayload);
+        Assert.Equal("FulfillmentError", propagatePayloadType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Error", conditionalCaseName);
+        Assert.True(conditionalHasPayload);
+        Assert.Equal("FulfillmentError", conditionalPayloadType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void GetDiagnostics_AfterInferredAwaitedResultLocalQuery_DoesNotUseSpeculativeMainReturnState()
+    {
+        var code = """
+import System.Threading.Tasks.*
+
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+async func Main() -> Task<Result<(), string>> {
+    val result = await Load()
+    val value = result?
+    return Result<(), string>.Ok(())
+}
+
+async func Load() -> Task<Result<int, string>> {
+    return .Ok(1)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var resultDeclarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "result");
+        var mainFunction = root
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(static function => function.Identifier.ValueText == "Main");
+
+        Assert.True(model.TryGetAvailableLocalDeclarationSymbol(resultDeclarator, out var resultLocal));
+        Assert.NotNull(resultLocal);
+        Assert.Equal("Result<int, string>", resultLocal!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        var mainMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(mainFunction));
+        Assert.Equal(
+            "Task<Result<(), string>>",
+            mainMethod.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var errors = compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(static diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ToArray();
+
+        Assert.Empty(errors);
+
+        var documentErrors = compilation.GetDocumentDiagnostics(tree)
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(static diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ToArray();
+
+        Assert.Empty(documentErrors);
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ForTryLocal_UsesAvailableSemanticState()
     {
         var code = """

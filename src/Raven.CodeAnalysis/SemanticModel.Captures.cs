@@ -160,6 +160,12 @@ public partial class SemanticModel
             return ImmutableArray<ISymbol>.Empty;
         }
 
+        if (function.Parent is GlobalStatementSyntax globalStatement &&
+            SyntaxTree.GetRoot() is { } root)
+        {
+            BindPrecedingGlobalStatementsForScope(root, globalStatement, requireCompleteDeclarations: false);
+        }
+
         BoundBlockStatement? functionBody = function.Body is not null
             ? GetBoundNode(function.Body, BoundTreeView.Original) as BoundBlockStatement
                 ?? GetBoundNode(function.Body, BoundTreeView.Lowered) as BoundBlockStatement
@@ -184,9 +190,11 @@ public partial class SemanticModel
                 return true;
 
             if (current is GlobalStatementSyntax globalStatement &&
-                Compilation.IsBindableGlobalStatement(globalStatement) &&
+                Compilation.IsTopLevelFunctionMember(globalStatement) &&
                 globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit)
+            {
                 return Compilation.HasRunnableFileScopeCode(compilationUnit);
+            }
 
             if (current is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
                 return false;

@@ -15819,13 +15819,18 @@ partial class BlockBinder : Binder
             return method.DeclaringSyntaxReferences
                 .Select(r => r.GetSyntax())
                 .OfType<FunctionStatementSyntax>()
-                .Any(static f => f.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || IsTopLevelFunctionMember(f));
+                .Any(f => f.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || IsNamespaceLevelFunctionMember(f));
         }
     }
 
-    private static bool IsTopLevelFunctionMember(FunctionStatementSyntax function)
+    private bool IsNamespaceLevelFunctionMember(FunctionStatementSyntax function)
         => function.Parent is GlobalStatementSyntax globalStatement &&
-            Compilation.IsTopLevelFunctionMember(globalStatement);
+            Compilation.IsTopLevelFunctionMember(globalStatement) &&
+            !IsFileScopeLocalFunction(globalStatement);
+
+    private bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
+        => globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
+            Compilation.HasRunnableFileScopeCode(compilationUnit);
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)
     {

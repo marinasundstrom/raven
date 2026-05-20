@@ -1172,6 +1172,75 @@ union Status {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_FulfillmentWorkflowSample_AfterVisibleInlayHints_DoesNotReportTaskPropagationDiagnosticAsync()
+    {
+        var sampleRoot = Path.Combine(
+            GetRepositoryRoot(),
+            "samples",
+            "projects",
+            "fulfillment-workflow");
+        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "fulfillment-workflow",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        store.UpsertDocument(uri, code);
+
+        var beforeInlayResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        beforeInlayResult.WasSkipped.ShouldBeFalse();
+        var beforeInlayErrors = beforeInlayResult.Diagnostics
+            .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ToArray();
+
+        beforeInlayErrors.ShouldBeEmpty();
+
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range
+            {
+                Start = new Position(0, 0),
+                End = new Position(25, 0)
+            }
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        var errors = result.Diagnostics
+            .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ToArray();
+
+        errors.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_ProjectBackedDocument_VarValToggle_RecomputesReadOnlyAssignmentDiagnosticAsync()
     {
         Directory.CreateDirectory(_tempRoot);

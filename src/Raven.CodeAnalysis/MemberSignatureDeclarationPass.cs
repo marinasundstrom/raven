@@ -290,9 +290,8 @@ internal static class MemberSignatureDeclarationPass
         if (!HasExplicitPropertyTypeAnnotation(propertyDeclaration))
             return;
 
-        var propertyType = ResolveSkeletonType(semanticModel, propertyDeclaration.Type.Type, compilation.ErrorTypeSymbol, containingType);
-        if (propertyType.TypeKind == TypeKind.Error)
-            return;
+        var propertyTypeSyntax = propertyDeclaration.Type.Type;
+        var propertyType = ResolveSkeletonType(semanticModel, propertyTypeSyntax, compilation.ErrorTypeSymbol, containingType);
 
         var isStatic = propertyDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
         var defaultAccessibility = compilation.Options.MembersPublicByDefault
@@ -315,6 +314,12 @@ internal static class MemberSignatureDeclarationPass
         if (propertyDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.RequiredKeyword))
             propertySymbol.MarkAsRequired();
 
+        ReportAsyncAccessorReturnTypeDiagnostics(
+            semanticModel,
+            propertyDeclaration.AccessorList?.Accessors,
+            propertyType,
+            propertyTypeSyntax);
+
         propertySymbol.SetMutability(propertyDeclaration.BindingKeyword.Kind == SyntaxKind.VarKeyword);
         propertySymbol.SetAccessors(
             CreatePropertyAccessorSymbol(
@@ -336,6 +341,38 @@ internal static class MemberSignatureDeclarationPass
                 compilation.GetSpecialType(SpecialType.System_Unit),
                 propertyAccessibility));
         compilation.RegisterPropertySymbol(propertyDeclaration, propertySymbol);
+    }
+
+    private static void ReportAsyncAccessorReturnTypeDiagnostics(
+        SemanticModel semanticModel,
+        SyntaxList<AccessorDeclarationSyntax>? accessors,
+        ITypeSymbol propertyType,
+        TypeSyntax propertyTypeSyntax)
+    {
+        if (accessors is null)
+            return;
+
+        foreach (var accessor in accessors)
+        {
+            var isAsyncGetter = accessor.Kind == SyntaxKind.GetAccessorDeclaration &&
+                accessor.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword);
+            if (!isAsyncGetter)
+                continue;
+
+            if (AsyncReturnTypeUtilities.IsValidAsyncReturnType(propertyType, allowErrorType: false))
+                continue;
+
+            var display = propertyType.TypeKind == TypeKind.Error
+                ? propertyTypeSyntax.ToString()
+                : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(
+                semanticModel.Compilation,
+                propertyType);
+            semanticModel.ReportDeclarationAsyncReturnTypeMustBeTaskLike(
+                display,
+                suggestedReturnType,
+                propertyTypeSyntax.GetLocation());
+        }
     }
 
     public static void DeclareEventSignature(

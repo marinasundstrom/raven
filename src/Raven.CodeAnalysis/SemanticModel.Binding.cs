@@ -232,6 +232,7 @@ public partial class SemanticModel
             {
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
+                         !IsFileScopeLocalFunction(globalStatement) &&
                          globalStatement.Statement is FunctionStatementSyntax functionStatement:
                     {
                         DeclareTopLevelFunctionSymbol(functionStatement, parentNamespace);
@@ -277,7 +278,7 @@ public partial class SemanticModel
 
         var isAsync = functionStatement.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword);
         var isExtern = functionStatement.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.ExternKeyword);
-        var returnType = isAsync
+        ITypeSymbol returnType = isAsync
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
         var accessibility = DetermineNamespaceMemberAccessibility(functionStatement.Modifiers);
@@ -306,12 +307,25 @@ public partial class SemanticModel
 
         if (functionStatement.ReturnType is { } returnTypeSyntax)
         {
-            methodSymbol.SetReturnType(MemberSignatureDeclarationPass.ResolveSkeletonType(
+            returnType = MemberSignatureDeclarationPass.ResolveSkeletonType(
                 this,
                 returnTypeSyntax.Type,
                 returnType,
                 container,
-                methodSymbol.TypeParameters));
+                methodSymbol.TypeParameters);
+            methodSymbol.SetReturnType(returnType);
+
+            if (isAsync && !AsyncReturnTypeUtilities.IsValidAsyncReturnType(returnType, allowErrorType: false))
+            {
+                var display = returnType.TypeKind == TypeKind.Error
+                    ? returnTypeSyntax.Type.ToString()
+                    : returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(Compilation, returnType);
+                _declarationDiagnostics.ReportAsyncReturnTypeMustBeTaskLike(
+                    display,
+                    suggestedReturnType,
+                    returnTypeSyntax.Type.GetLocation());
+            }
         }
 
         var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
@@ -328,11 +342,43 @@ public partial class SemanticModel
             methodSymbol.MarkFileScoped(functionStatement.SyntaxTree?.FilePath);
 
         RegisterMethodSymbol(functionStatement, methodSymbol);
+        if (container.GetMembers(functionStatement.Identifier.ValueText)
+            .OfType<IMethodSymbol>()
+            .Any(existing =>
+                !existing.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() == functionStatement) &&
+                HaveSameSignature(existing, methodSymbol)))
+        {
+            _declarationDiagnostics.ReportFunctionAlreadyDefined(
+                methodSymbol.Name,
+                functionStatement.Identifier.GetLocation());
+        }
+
         container.AddMember(methodSymbol);
+    }
+
+    private static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second)
+    {
+        if (first.Parameters.Length != second.Parameters.Length ||
+            first.TypeParameters.Length != second.TypeParameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < first.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(first.Parameters[i].Type, second.Parameters[i].Type))
+                return false;
+        }
+
+        return true;
     }
 
     private static Accessibility DetermineNamespaceMemberAccessibility(SyntaxTokenList modifiers)
         => AccessibilityUtilities.DetermineAccessibility(modifiers, Accessibility.Internal);
+
+    private bool IsFileScopeLocalFunction(GlobalStatementSyntax globalStatement)
+        => globalStatement.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit &&
+            Compilation.HasRunnableFileScopeCode(compilationUnit);
 
     private void ReportInvalidTopLevelFunctionModifiers(FunctionStatementSyntax functionStatement)
     {
@@ -1957,10 +2003,14 @@ public partial class SemanticModel
         // rebuilding it.
         CacheBinder(cu, topLevelBinder);
 
-        foreach (var stmt in bindableGlobals)
+        var topLevelFunctionGlobals = topLevelFunctionMembers
+            .Select(static function => (GlobalStatementSyntax)function.Parent!)
+            .ToArray();
+
+        foreach (var stmt in bindableGlobals.Concat(topLevelFunctionGlobals))
             CacheBinder(stmt, topLevelBinder);
 
-        topLevelBinder.DeclareGlobalFunctions(bindableGlobals);
+        topLevelBinder.DeclareGlobalFunctions(topLevelFunctionGlobals);
 
         return topLevelBinder;
 

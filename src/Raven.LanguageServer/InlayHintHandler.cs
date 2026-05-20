@@ -29,6 +29,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private readonly DocumentStore _documents;
     private readonly ILogger<InlayHintHandler> _logger;
     private readonly ConcurrentDictionary<InlayHintDocumentCacheKey, ImmutableArray<InlayHint>> _cache = new();
+    private readonly ConcurrentDictionary<string, InlayHintRequestState> _latestRequests = new();
+    private long _requestSequence;
 
     public InlayHintHandler(DocumentStore documents, ILogger<InlayHintHandler> logger)
     {
@@ -73,6 +75,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     public async Task<InlayHintContainer> Handle(InlayHintParams request, CancellationToken cancellationToken)
     {
+        var requestState = BeginRequest(request.TextDocument.Uri, cancellationToken);
+        var effectiveCancellationToken = requestState.Token;
         var totalStopwatch = Stopwatch.StartNew();
         var stageStopwatch = Stopwatch.StartNew();
         var gateWaitMs = 0d;
@@ -83,6 +87,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var patternTypeHintsMs = 0d;
         var forTargetTypeHintsMs = 0d;
         var functionParameterTypeHintsMs = 0d;
+        var carrierFailureHintsMs = 0d;
         var returnTypeHintsMs = 0d;
         var resultCount = 0;
         var outcome = "Completed";
@@ -91,7 +96,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         try
         {
             stageStopwatch.Restart();
-            var syntaxContext = await _documents.GetDocumentSyntaxContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var syntaxContext = await _documents.GetDocumentSyntaxContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (syntaxContext is null)
             {
@@ -101,6 +106,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
             var sourceText = syntaxContext.Value.SourceText;
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
+            effectiveCancellationToken.ThrowIfCancellationRequested();
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
             var isPreciseRequest = requestSpan.Length == 0;
             var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
@@ -121,7 +127,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             stageStopwatch.Restart();
             using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(
                 request.TextDocument.Uri,
-                cancellationToken,
+                effectiveCancellationToken,
                 "inlayHint").ConfigureAwait(false);
             gateWaitMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticLease is null)
@@ -139,7 +145,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             stageStopwatch.Restart();
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             if (context is null)
             {
                 outcome = "NoContext";
@@ -147,7 +153,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
             {
@@ -155,7 +161,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 return new InlayHintContainer();
             }
 
-            var root = context.Value.SyntaxTree.GetRoot(cancellationToken);
+            var root = context.Value.SyntaxTree.GetRoot(effectiveCancellationToken);
             var allowExpensiveBinding = !isLargeDocument ||
                 isPreciseRequest;
             var collectionBudgetMs = allowExpensiveBinding
@@ -166,7 +172,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var hints = new List<InlayHint>();
             var collectionBudget = new InlayHintCollectionBudget(
                 Stopwatch.StartNew(),
-                cancellationToken,
+                effectiveCancellationToken,
                 collectionBudgetMs,
                 includeTooltips: sourceText.Length <= MaxUnboundedDocumentLength);
             var collectStopwatch = Stopwatch.StartNew();
@@ -180,6 +186,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 allowInitializerBinding: allowExpensiveBinding,
                 collectionBudget);
             localTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            stageStopwatch.Restart();
+            AddCarrierFailureHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+            carrierFailureHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
                 AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
@@ -205,6 +214,19 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             CacheHints(request, context.Value.Document.Version, hintArray);
             return new InlayHintContainer(hintArray);
         }
+        catch (OperationCanceledException) when (requestState.IsSuperseded && !cancellationToken.IsCancellationRequested)
+        {
+            if (TryGetCachedHints(request, out var cachedHints))
+            {
+                cacheHit = true;
+                outcome = "SupersededCached";
+                resultCount = cachedHints.Length;
+                return new InlayHintContainer(cachedHints);
+            }
+
+            outcome = "Superseded";
+            return new InlayHintContainer();
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             outcome = "Canceled";
@@ -225,6 +247,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
         finally
         {
+            CompleteRequest(requestState);
             totalStopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "inlayHint",
@@ -233,7 +256,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 totalStopwatch.Elapsed.TotalMilliseconds,
                 cacheHit: cacheHit,
                 resultCount: resultCount,
-                detail: $"{request.TextDocument.Uri} {request.Range.Start.Line}:{request.Range.Start.Character}-{request.Range.End.Line}:{request.Range.End.Character} outcome={outcome}",
+                detail: $"{request.TextDocument.Uri} {request.Range.Start.Line}:{request.Range.Start.Character}-{request.Range.End.Line}:{request.Range.End.Character} request={requestState.Sequence} outcome={outcome}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -244,12 +267,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     new LanguageServerPerformanceInstrumentation.StageTiming("patternTypeHints", patternTypeHintsMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("forTargetTypeHints", forTargetTypeHintsMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("functionParameterTypeHints", functionParameterTypeHintsMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("carrierFailureHints", carrierFailureHintsMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("returnTypeHints", returnTypeHintsMs)
                 ]);
             if (totalStopwatch.Elapsed.TotalMilliseconds >= SlowInlayHintThresholdMs)
             {
                 _logger.LogInformation(
-                    "Inlay hint request completed for {Uri} in {ElapsedMs:F1}ms: gateWait={GateWaitMs:F1}ms analysisContext={AnalysisContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms collect={CollectMs:F1}ms localTypes={LocalTypesMs:F1}ms patterns={PatternsMs:F1}ms forTargets={ForTargetsMs:F1}ms functionParameters={FunctionParametersMs:F1}ms returns={ReturnsMs:F1}ms hints={HintCount} outcome={Outcome}.",
+                    "Inlay hint request completed for {Uri} in {ElapsedMs:F1}ms: gateWait={GateWaitMs:F1}ms analysisContext={AnalysisContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms collect={CollectMs:F1}ms localTypes={LocalTypesMs:F1}ms patterns={PatternsMs:F1}ms forTargets={ForTargetsMs:F1}ms functionParameters={FunctionParametersMs:F1}ms carrierFailures={CarrierFailuresMs:F1}ms returns={ReturnsMs:F1}ms hints={HintCount} outcome={Outcome}.",
                     request.TextDocument.Uri,
                     totalStopwatch.Elapsed.TotalMilliseconds,
                     gateWaitMs,
@@ -260,11 +284,45 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     patternTypeHintsMs,
                     forTargetTypeHintsMs,
                     functionParameterTypeHintsMs,
+                    carrierFailureHintsMs,
                     returnTypeHintsMs,
                     resultCount,
                     outcome);
             }
         }
+    }
+
+    private InlayHintRequestState BeginRequest(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        var key = uri.ToString();
+        var sequence = Interlocked.Increment(ref _requestSequence);
+        var state = new InlayHintRequestState(
+            key,
+            sequence,
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken));
+
+        _latestRequests.AddOrUpdate(
+            key,
+            state,
+            (_, previous) =>
+            {
+                previous.CancelAsSuperseded();
+                return state;
+            });
+
+        return state;
+    }
+
+    private void CompleteRequest(InlayHintRequestState state)
+    {
+        if (_latestRequests.TryGetValue(state.Key, out var latest) &&
+            ReferenceEquals(latest, state))
+        {
+            ((ICollection<KeyValuePair<string, InlayHintRequestState>>)_latestRequests)
+                .Remove(new KeyValuePair<string, InlayHintRequestState>(state.Key, state));
+        }
+
+        state.Dispose();
     }
 
     private bool TryGetCachedHints(InlayHintParams request, out InlayHint[] hints)
@@ -544,6 +602,111 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return false;
         }
 
+        return true;
+    }
+
+    private static void AddCarrierFailureHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        bool allowBinding,
+        InlayHintCollectionBudget budget)
+    {
+        foreach (var propagateExpression in DescendantNodesInSpan<PropagateExpressionSyntax>(root, requestSpan))
+        {
+            if (budget.ShouldStop())
+                return;
+
+            var insertionPosition = GetTokenEndPosition(sourceText, propagateExpression.QuestionToken);
+            if (!ContainsPosition(requestSpan, insertionPosition))
+                continue;
+
+            if (TryCreateCarrierFailureHint(
+                semanticModel,
+                sourceText,
+                propagateExpression.Expression,
+                insertionPosition,
+                allowBinding,
+                out var hint))
+            {
+                hints.Add(hint);
+            }
+        }
+
+        foreach (var conditionalAccess in DescendantNodesInSpan<ConditionalAccessExpressionSyntax>(root, requestSpan))
+        {
+            if (budget.ShouldStop())
+                return;
+
+            if (!ShouldAnnotateCarrierConditionalAccess(conditionalAccess))
+                continue;
+
+            var insertionPosition = conditionalAccess.Span.End;
+            if (!ContainsPosition(requestSpan, insertionPosition))
+                continue;
+
+            if (TryCreateCarrierFailureHint(
+                semanticModel,
+                sourceText,
+                conditionalAccess.Expression,
+                insertionPosition,
+                allowBinding,
+                out var hint))
+            {
+                hints.Add(hint);
+            }
+        }
+    }
+
+    private static bool ShouldAnnotateCarrierConditionalAccess(ConditionalAccessExpressionSyntax conditionalAccess)
+    {
+        if (conditionalAccess.Parent is ConditionalAccessExpressionSyntax parentConditional &&
+            parentConditional.Expression == conditionalAccess)
+        {
+            return false;
+        }
+
+        if (conditionalAccess.Parent is PropagateExpressionSyntax parentPropagate &&
+            parentPropagate.Expression == conditionalAccess)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryCreateCarrierFailureHint(
+        SemanticModel semanticModel,
+        SourceText sourceText,
+        ExpressionSyntax carrierExpression,
+        int insertionPosition,
+        bool allowBinding,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out InlayHint? hint)
+    {
+        hint = null;
+
+        if (!semanticModel.TryGetCarrierFailureInfo(
+            carrierExpression,
+            out var caseName,
+            out var payloadType,
+            out var hasPayload,
+            allowBindingFallback: allowBinding))
+        {
+            return false;
+        }
+
+        var label = $"↩ {caseName}";
+        if (hasPayload)
+        {
+            if (!TryFormatType(semanticModel, carrierExpression, payloadType, out var payloadDisplay))
+                return false;
+
+            label = $"↩ {caseName}<{payloadDisplay}>";
+        }
+
+        hint = CreateCarrierFailureHint(sourceText, insertionPosition, label);
         return true;
     }
 
@@ -841,6 +1004,22 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 Range = range,
                 NewText = text
             })
+        };
+    }
+
+    private static InlayHint CreateCarrierFailureHint(
+        SourceText sourceText,
+        int insertionPosition,
+        string text)
+    {
+        var range = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0));
+        return new InlayHint
+        {
+            Position = range.Start,
+            Label = text,
+            Kind = InlayHintKind.Type,
+            PaddingLeft = true,
+            PaddingRight = false
         };
     }
 
@@ -1372,6 +1551,41 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     private static bool ContainsPosition(TextSpan span, int position)
         => position >= span.Start && position <= span.End;
+
+    private sealed class InlayHintRequestState : IDisposable
+    {
+        private int _isSuperseded;
+        private readonly CancellationTokenSource _cancellationTokenSource;
+
+        public InlayHintRequestState(
+            string key,
+            long sequence,
+            CancellationTokenSource cancellationTokenSource)
+        {
+            Key = key;
+            Sequence = sequence;
+            _cancellationTokenSource = cancellationTokenSource;
+        }
+
+        public string Key { get; }
+
+        public long Sequence { get; }
+
+        public CancellationToken Token => _cancellationTokenSource.Token;
+
+        public bool IsSuperseded => Volatile.Read(ref _isSuperseded) != 0;
+
+        public void CancelAsSuperseded()
+        {
+            if (Interlocked.Exchange(ref _isSuperseded, 1) == 0)
+                _cancellationTokenSource.Cancel();
+        }
+
+        public void Dispose()
+        {
+            _cancellationTokenSource.Dispose();
+        }
+    }
 
     private readonly record struct InlayHintDocumentCacheKey(
         string Uri,

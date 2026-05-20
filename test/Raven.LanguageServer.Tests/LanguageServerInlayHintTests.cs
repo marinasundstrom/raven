@@ -279,6 +279,122 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_CarrierPropagation_ProvidesFailureChannelHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+union class FulfillmentError {
+    case MissingPlan
+}
+
+record class FulfillmentPlan(val Name: string)
+
+func Test(planResult: Result<FulfillmentPlan, FulfillmentError>) -> Result<string, FulfillmentError> {
+    val plan = planResult?
+    val nameResult = planResult?.Name
+    return .Ok(plan.Name)
+}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var propagateInsertion = code.IndexOf("planResult?", StringComparison.Ordinal) + "planResult?".Length;
+        var conditionalAccessInsertion = code.IndexOf("planResult?.Name", StringComparison.Ordinal) + "planResult?.Name".Length;
+
+        var propagateHint = AssertHasHintAtInsertion(sourceText, hints, propagateInsertion, "↩ Error<FulfillmentError>");
+        var conditionalAccessHint = AssertHasHintAtInsertion(sourceText, hints, conditionalAccessInsertion, "↩ Error<FulfillmentError>");
+        propagateHint.TextEdits.ShouldBeNull();
+        conditionalAccessHint.TextEdits.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_FulfillmentWorkflowVisibleRange_UsesAwaitedCarrierTypesAndFailureHintsAsync()
+    {
+        var sampleRoot = Path.Combine(
+            FindRepositoryRoot(),
+            "samples",
+            "projects",
+            "fulfillment-workflow");
+        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "fulfillment-workflow",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange
+            {
+                Start = new Position(0, 0),
+                End = new Position(25, 0)
+            }
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        AssertHasHintAtInsertion(
+            sourceText,
+            hints,
+            code.IndexOf("inventoryResult = await", StringComparison.Ordinal) + "inventoryResult".Length,
+            ": Result<InventoryItem[], FulfillmentError>");
+        AssertHasHintAtInsertion(
+            sourceText,
+            hints,
+            code.IndexOf("inventory = inventoryResult", StringComparison.Ordinal) + "inventory".Length,
+            ": InventoryItem[]");
+        AssertHasHintAtInsertion(
+            sourceText,
+            hints,
+            code.IndexOf("planResult?", StringComparison.Ordinal) + "planResult?".Length,
+            "↩ Error<FulfillmentError>");
+    }
+
+    [Fact]
     public async Task Handle_LargeRange_UsesAvailablePropagationInitializerTypeAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1113,13 +1229,15 @@ func Main() -> unit {
         edit.Range.End.Character.ShouldBe(expectedRange.End.Character);
     }
 
-    private static void AssertHasHintAtInsertion(SourceText sourceText, InlayHint[] hints, int insertionPosition, string labelPrefix)
+    private static InlayHint AssertHasHintAtInsertion(SourceText sourceText, InlayHint[] hints, int insertionPosition, string labelPrefix)
     {
         var expectedPosition = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0)).Start;
-        hints.ShouldContain(hint =>
+        var hint = hints.FirstOrDefault(hint =>
             hint.Label.String.StartsWith(labelPrefix, StringComparison.Ordinal) &&
             hint.Position.Line == expectedPosition.Line &&
             hint.Position.Character == expectedPosition.Character);
+        hint.ShouldNotBeNull();
+        return hint;
     }
 
     private static void AssertTooltipMentionsInsertion(InlayHint hint, string insertionText)
