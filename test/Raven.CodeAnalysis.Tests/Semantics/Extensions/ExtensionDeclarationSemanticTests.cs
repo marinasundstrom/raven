@@ -98,6 +98,46 @@ extension MyEnumerableExt<T> for IEnumerable<T> {
     }
 
     [Fact]
+    public void ExtensionDeclaration_OpenGenericReceiver_DoesNotCollapseOverloadsWithSameArityAndParameterCount()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val items = List<int>()
+items.Add(1)
+items.Add(2)
+val inferredOverload = items.CountItems(true)
+
+extension MyEnumerableExt<T> for IEnumerable<T> {
+    func CountItems<B>(arg: T) -> B {
+        return default(B)
+    }
+
+    func CountItems<B>(arg: B) -> B {
+        return arg
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member &&
+                            member.Name.Identifier.ValueText == "CountItems");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.Equal("CountItems", boundInvocation.Method.Name);
+        Assert.Equal(SpecialType.System_Boolean, boundInvocation.Method.ReturnType.GetPlainType().SpecialType);
+    }
+
+    [Fact]
     public void ExtensionDeclaration_AsyncMethod_BindsAndLowers()
     {
         const string source = """

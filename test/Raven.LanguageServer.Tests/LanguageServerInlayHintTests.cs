@@ -49,12 +49,17 @@ func Main() -> unit {
 
         store.UpsertDocument(uri, code);
         var sourceText = SourceText.From(code);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
 
         var result = await handler.Handle(new InlayHintParams
         {
             TextDocument = new TextDocumentIdentifier(uri),
             Range = FullDocumentRange(sourceText)
         }, CancellationToken.None);
+        var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
 
         var hints = result.ToArray();
         hints.Select(static hint => hint.Label.String).ShouldContain(" -> int");
@@ -70,6 +75,8 @@ func Main() -> unit {
 
         var stringHint = hints.Single(static hint => hint.Label.String == ": string");
         AssertSourceApplicable(sourceText, stringHint, code.IndexOf("name", StringComparison.Ordinal) + "name".Length, ": string");
+        delta.TypeInfoBoundFallbacks.ShouldBe(0);
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
     }
 
     [Fact]

@@ -154,14 +154,7 @@ class ImportBinder : Binder
                 yield return member;
         }
 
-        if (symbol is not ITypeSymbol type)
-            yield break;
-
-        foreach (var member in type.GetMembers())
-        {
-            if (member.Name == name)
-                yield return member;
-        }
+        yield break;
     }
 
     private bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)
@@ -508,10 +501,10 @@ class ImportBinder : Binder
     }
 
     private static string GetExtensionMethodDedupKey(IMethodSymbol method)
-        => method.GetLookupIdentityKey();
+        => method.GetShallowLookupIdentityKey();
 
     private static string GetExtensionPropertyDedupKey(IPropertySymbol property)
-        => property.GetLookupIdentityKey();
+        => property.GetShallowLookupIdentityKey();
 
     protected override IReadOnlyList<INamespaceOrTypeSymbol> GetImportedScopesForTypeResolution()
     {

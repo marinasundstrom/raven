@@ -241,4 +241,48 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
         result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
         change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyDeclaration);
     }
+
+    [Fact]
+    public void Analyze_ReusesNestedFunctionExpression_WhenParentEditIsBeforeNestedOwner()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class Edited {
+                func Main() {
+                    val route = "/vehicles"
+                    val map = func (value: int) => value + 1
+                }
+            }
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class Edited {
+                func Main() {
+                    val route = "/vehicles-test"
+                    val map = func (value: int) => value + 1
+                }
+            }
+            """));
+        var previousFunction = previousTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Single();
+        var currentFunction = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Single();
+        var currentRoot = currentTree.GetRoot();
+        var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentFunction.Span, currentFunction.Kind);
+        var previousDescriptor = new Compilation.ExecutableOwnerDescriptor(previousFunction.Span, previousFunction.Kind);
+        var currentRootDescriptor = new Compilation.ExecutableOwnerDescriptor(currentRoot.Span, currentRoot.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.MatchedOwners.ShouldContain(match =>
+            match.CurrentOwner == currentDescriptor &&
+            match.PreviousOwner == previousDescriptor);
+        result.ChangedOwners.ShouldNotContain(currentDescriptor);
+        result.ChangedOwners.ShouldNotContain(currentRootDescriptor);
+        result.OwnerChanges.ShouldNotContainKey(currentDescriptor);
+    }
 }

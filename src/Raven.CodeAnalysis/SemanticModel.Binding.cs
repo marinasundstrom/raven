@@ -6627,7 +6627,43 @@ public partial class SemanticModel
         if (typeof(BoundNode).IsAssignableFrom(propertyType))
             return true;
 
-        return propertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(propertyType);
+        return TryGetEnumerableElementType(propertyType, out var elementType) &&
+               typeof(BoundNode).IsAssignableFrom(elementType);
+    }
+
+    private static bool TryGetEnumerableElementType(Type type, [NotNullWhen(true)] out Type? elementType)
+    {
+        elementType = null;
+
+        if (type == typeof(string) || !typeof(IEnumerable).IsAssignableFrom(type))
+            return false;
+
+        if (type.IsArray)
+        {
+            elementType = type.GetElementType();
+            return elementType is not null;
+        }
+
+        if (type.IsGenericType &&
+            type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+        {
+            elementType = type.GetGenericArguments()[0];
+            return true;
+        }
+
+        foreach (var @interface in type.GetInterfaces())
+        {
+            if (!@interface.IsGenericType ||
+                @interface.GetGenericTypeDefinition() != typeof(IEnumerable<>))
+            {
+                continue;
+            }
+
+            elementType = @interface.GetGenericArguments()[0];
+            return true;
+        }
+
+        return false;
     }
 
     internal void RemoveCachedBoundNode(SyntaxNode node)

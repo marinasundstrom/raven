@@ -1175,6 +1175,9 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
+        if (!type.HasStaticExtensionMembers)
+            yield break;
+
         var members = string.IsNullOrEmpty(name)
             ? type.GetMembers().OfType<IMethodSymbol>()
             : type.GetMembers(name!).OfType<IMethodSymbol>();
@@ -1261,6 +1264,9 @@ internal abstract partial class Binder
         }
 
         if (scope is not INamedTypeSymbol type)
+            yield break;
+
+        if (!type.HasStaticExtensionMembers)
             yield break;
 
         var members = string.IsNullOrEmpty(name)

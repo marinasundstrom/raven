@@ -2204,7 +2204,8 @@ public partial class SemanticModel
         if (string.IsNullOrWhiteSpace(name))
             return false;
 
-        foreach (var scope in identifier.Ancestors().OfType<BlockSyntax>())
+        foreach (var scope in identifier.Ancestors().Where(static ancestor =>
+                     ancestor is BlockSyntax or BlockStatementSyntax or CompilationUnitSyntax))
         {
             foreach (var declarator in DescendantNodesExcludingNestedScopes(scope).OfType<VariableDeclaratorSyntax>())
             {
@@ -2355,10 +2356,19 @@ public partial class SemanticModel
             if (!TryGetFastParameterCount(method, out var total))
                 continue;
 
-            var required = total;
-            var hasParams = method is not PEMethodSymbol && method.Parameters.Any(static parameter => parameter.IsVarParams);
+            var receiverOffset = method.IsExtensionMethod &&
+                invocation.Expression is MemberAccessExpressionSyntax
+                    ? 1
+                    : 0;
+            if (total < receiverOffset)
+                continue;
 
-            if (argumentCount < required || (!hasParams && argumentCount > total))
+            var visibleTotal = total - receiverOffset;
+            var required = TryGetFastRequiredParameterCount(method, receiverOffset, out var requiredCount, out var hasParams)
+                ? requiredCount
+                : visibleTotal;
+
+            if (argumentCount < required || (!hasParams && argumentCount > visibleTotal))
                 continue;
 
             if (selected is not null)
@@ -2381,6 +2391,49 @@ public partial class SemanticModel
                 when argumentCount > 0 && candidates.Length > 1 => candidates[1],
             _ => null
         };
+    }
+
+    private static bool TryGetFastRequiredParameterCount(
+        IMethodSymbol method,
+        int parameterOffset,
+        out int requiredCount,
+        out bool hasParams)
+    {
+        requiredCount = 0;
+        hasParams = false;
+
+        if (!TryGetFastParameterCount(method, out var parameterCount) ||
+            parameterOffset < 0 ||
+            parameterOffset > parameterCount)
+        {
+            return false;
+        }
+
+        if (method is PEMethodSymbol peMethod)
+        {
+            for (var i = parameterOffset; i < parameterCount; i++)
+            {
+                if (!peMethod.TryGetParameterUsage(i, out var hasExplicitDefaultValue, out var isParams))
+                    return false;
+
+                hasParams |= isParams;
+                if (!hasExplicitDefaultValue && !isParams)
+                    requiredCount++;
+            }
+
+            return true;
+        }
+
+        var parameters = method.Parameters;
+        for (var i = parameterOffset; i < parameters.Length; i++)
+        {
+            var parameter = parameters[i];
+            hasParams |= parameter.IsVarParams;
+            if (!parameter.HasExplicitDefaultValue && !parameter.IsVarParams)
+                requiredCount++;
+        }
+
+        return true;
     }
 
     private IMethodSymbol? TryChooseAvailableInvocationMethodCandidate(
@@ -2463,7 +2516,15 @@ public partial class SemanticModel
         {
             var peParameterCount = peMethod.ParameterCount;
             if (peParameterCount < receiverOffset ||
-                peParameterCount - receiverOffset != argumentTypes.Count)
+                !TryGetFastRequiredParameterCount(method, receiverOffset, out var peRequiredParameterCount, out var peHasParamsParameter))
+            {
+                return false;
+            }
+
+            var visibleParameterCount = peParameterCount - receiverOffset;
+            if (argumentTypes.Count < peRequiredParameterCount ||
+                argumentTypes.Count > visibleParameterCount ||
+                peHasParamsParameter)
             {
                 return false;
             }
@@ -2783,6 +2844,7 @@ public partial class SemanticModel
             return true;
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var seenMethods = new HashSet<string>(StringComparer.Ordinal);
         var explicitGenericName = TryGetInvocationGenericName(invocation.Expression);
         var explicitTypeArgumentsResolved = false;
         var explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
@@ -2829,13 +2891,8 @@ public partial class SemanticModel
             if (!TryNormalizeAvailableInvocationCandidate(method, out method) || method is null)
                 return;
 
-            foreach (var existing in builder)
-            {
-                if (SymbolEqualityComparer.Default.Equals(existing, method))
-                    return;
-            }
-
-            builder.Add(method);
+            if (seenMethods.Add(method.GetShallowLookupIdentityKey()))
+                builder.Add(method);
         }
 
         void AddSymbolInfoCandidates(SymbolInfo symbolInfo)
@@ -3009,9 +3066,6 @@ public partial class SemanticModel
         methods = BuildAvailableExtensionMethods(extensions.InstanceMethods);
 
         if (methods.IsDefaultOrEmpty)
-            methods = BuildAvailableExtensionMethods(binder.LookupExtensionMethodsByName(extensionName));
-
-        if (methods.IsDefaultOrEmpty && usedCachedExtensions)
         {
             extensions = ExtensionMemberLookup.Lookup(
                 binder,
@@ -3023,15 +3077,7 @@ public partial class SemanticModel
         }
 
         if (methods.IsDefaultOrEmpty)
-        {
-            extensions = ExtensionMemberLookup.Lookup(
-                binder,
-                receiverType!,
-                extensionName,
-                includePartialMatches: false,
-                kinds: ExtensionMemberKinds.InstanceMethods);
-            methods = BuildAvailableExtensionMethods(extensions.InstanceMethods);
-        }
+            methods = BuildAvailableExtensionMethods(binder.LookupExtensionMethodsByName(extensionName));
 
         if (methods.IsDefaultOrEmpty)
             return false;
@@ -3494,6 +3540,7 @@ public partial class SemanticModel
                                                   IsExpressionTreeDelegateParameter(candidate.Method.Parameters[1].Type))
             .Select(static candidate => candidate.Method)
             .ToImmutableArray();
+
         return methods.Length > 0;
     }
 
@@ -3648,6 +3695,13 @@ public partial class SemanticModel
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
         var seenFunctions = new HashSet<SyntaxNode>();
+        var seenMethods = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        void AddMethod(IMethodSymbol method)
+        {
+            if (seenMethods.Add(method))
+                builder.Add(method);
+        }
 
         void AddFunction(FunctionStatementSyntax function)
         {
@@ -3658,7 +3712,22 @@ public partial class SemanticModel
             }
 
             if (GetDeclaredSymbol(function) is IMethodSymbol method)
-                builder.Add(method);
+                AddMethod(method);
+        }
+
+        void AddNamespaceFunctionMembers()
+        {
+            if (GetBinderForIncrementalSemanticQuery(contextNode).CurrentNamespace is not { } currentNamespace)
+                return;
+
+            foreach (var method in Compilation.GetNamespaceMembers(
+                         currentNamespace,
+                         name,
+                         Compilation.Options.AllowNamespaceMemberImports).OfType<IMethodSymbol>())
+            {
+                if (string.Equals(method.Name, name, StringComparison.Ordinal))
+                    AddMethod(method);
+            }
         }
 
         for (SyntaxNode? current = contextNode; current is not null; current = current.Parent)
@@ -3688,6 +3757,14 @@ public partial class SemanticModel
                     }
                     break;
             }
+        }
+
+        AddNamespaceFunctionMembers();
+
+        if (builder.Count == 0 && !Compilation.SourceDeclarationsDeclared)
+        {
+            Compilation.EnsureSourceDeclarationsDeclared();
+            AddNamespaceFunctionMembers();
         }
 
         methods = builder.ToImmutable();
@@ -4069,7 +4146,10 @@ public partial class SemanticModel
         }
 
         if (TryGetAvailableSymbolInfo(receiver, out var receiverInfo))
-            return GetTypeFromSymbol(receiverInfo.Symbol?.UnderlyingSymbol ?? receiverInfo.Symbol);
+        {
+            var symbolType = GetTypeFromSymbol(receiverInfo.Symbol?.UnderlyingSymbol ?? receiverInfo.Symbol);
+            return symbolType;
+        }
 
         return null;
     }
@@ -6369,7 +6449,7 @@ public partial class SemanticModel
         }
     }
 
-    private bool TryGetAvailableFunctionExpressionDelegateType(
+    internal bool TryGetAvailableFunctionExpressionDelegateType(
         FunctionExpressionSyntax functionExpression,
         out ITypeSymbol? delegateType)
     {
@@ -6430,6 +6510,40 @@ public partial class SemanticModel
 
         return TryGetAvailableInvocationCandidates(invocation, out var methods) &&
                TryGetDelegateTypeFromCandidateParameter(methods, argumentIndex, receiverType: null, out delegateType);
+    }
+
+    internal bool TryGetAvailableFunctionExpressionReturnType(
+        FunctionExpressionSyntax functionExpression,
+        out ITypeSymbol? returnType)
+    {
+        if (_functionExpressionSymbolCache.TryGetValue(functionExpression, out var cachedMethod) &&
+            cachedMethod.ReturnType.TypeKind != TypeKind.Error &&
+            !ContainsTypeParameter(cachedMethod.ReturnType))
+        {
+            returnType = cachedMethod.ReturnType;
+            return true;
+        }
+
+        if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedFunction &&
+            !IsLikelyStaleFunctionBodyNode(cachedFunction) &&
+            cachedFunction.ReturnType.TypeKind != TypeKind.Error &&
+            !ContainsTypeParameter(cachedFunction.ReturnType))
+        {
+            returnType = cachedFunction.ReturnType;
+            return true;
+        }
+
+        if (TryGetAvailableFunctionExpressionDelegateType(functionExpression, out var delegateType) &&
+            delegateType is INamedTypeSymbol namedDelegateType &&
+            namedDelegateType.GetDelegateInvokeMethod()?.ReturnType is { TypeKind: not TypeKind.Error } delegateReturnType &&
+            !ContainsTypeParameter(delegateReturnType))
+        {
+            returnType = delegateReturnType;
+            return true;
+        }
+
+        returnType = null;
+        return false;
     }
 
     private bool TryGetCachedFunctionExpressionDelegateTypeFromInvocation(
@@ -7994,7 +8108,8 @@ public partial class SemanticModel
     {
         foreach (var child in scopeNode.ChildNodes())
         {
-            if (IsNestedExecutableScope(child))
+            var isCurrentBlockBody = scopeNode is BlockStatementSyntax && child is BlockSyntax;
+            if (!isCurrentBlockBody && IsNestedExecutableScope(child))
                 continue;
 
             yield return child;

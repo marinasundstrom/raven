@@ -960,6 +960,9 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
                 foreach (var prop in props)
                 {
+                    if (_memberNamesLoaded.Contains(prop.Name))
+                        continue;
+
                     var property = new SynthesizedExtensionPropertySymbol(
                             this,
                             [new MetadataLocation(ContainingModule!)],
@@ -1132,6 +1135,42 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                         this,
                         [new MetadataLocation(ContainingModule!)],
                         associatedSymbol: property);
+                }
+            }
+
+            if (this.HasStaticExtensionMembers)
+            {
+                foreach (var prop in ExtensionPropertyReflection.GroupByAccessorConvention(_typeInfo))
+                {
+                    if (!string.Equals(prop.Name, name, StringComparison.Ordinal))
+                        continue;
+
+                    var property = new SynthesizedExtensionPropertySymbol(
+                            this,
+                            [new MetadataLocation(ContainingModule!)],
+                            [], name: prop.Name);
+
+                    if (prop.GetMethod is not null)
+                    {
+                        property.GetMethod = new PEMethodSymbol(
+                            _reflectionTypeLoader,
+                            prop.GetMethod,
+                            this,
+                            this,
+                            [new MetadataLocation(ContainingModule!)],
+                            associatedSymbol: property);
+                    }
+
+                    if (prop.SetMethod is not null)
+                    {
+                        property.SetMethod = new PEMethodSymbol(
+                            _reflectionTypeLoader,
+                            prop.SetMethod,
+                            this,
+                            this,
+                            [new MetadataLocation(ContainingModule!)],
+                            associatedSymbol: property);
+                    }
                 }
             }
 

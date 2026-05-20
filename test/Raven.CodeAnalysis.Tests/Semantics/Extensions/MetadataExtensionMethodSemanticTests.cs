@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -246,6 +247,103 @@ val projection = numbers.NotAnExtension()
             includePartialMatches: false,
             kinds: ExtensionMemberKinds.InstanceMethods));
         Assert.True(cached.IsEmpty);
+    }
+
+    [Fact]
+    public void ExtensionLookup_DeduplicatesMetadataCandidatesWithoutLoadingReturnTypes()
+    {
+        const string metadataSource = """
+import System.Runtime.CompilerServices.*
+
+namespace Lib {
+    static class NumberExtensions {
+        [ExtensionAttribute]
+        static func Echo(value: int) -> string {
+            return value.ToString()
+        }
+    }
+}
+""";
+
+        const string source = """
+import Lib.*
+
+val value = 1
+val echoed = value.Echo()
+""";
+
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            metadataSource,
+            assemblyName: "extension-lookup-shallow-dedup-fixture");
+        var references = TestMetadataReferences.Default.Append(metadataReference).ToArray();
+        var (compilation, tree) = CreateCompilation(source, references: references);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(GetMemberAccess(tree, "Echo").Parent);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var result = model.LookupApplicableExtensionMembers(
+            intType,
+            invocation,
+            name: "Echo",
+            kinds: ExtensionMemberKinds.InstanceMethods);
+
+        var method = Assert.Single(result.InstanceMethods);
+        Assert.Equal("Echo", method.Name);
+        var peMethod = Assert.IsType<PEMethodSymbol>(method.OriginalDefinition ?? method);
+        Assert.False(IsReturnTypeLoaded(peMethod));
+    }
+
+    [Fact]
+    public void AvailableInvocationTargetSymbolInfo_ResolvesMetadataExtensionWithOptionalParameters()
+    {
+        const string metadataSource = """
+import System.Runtime.CompilerServices.*
+
+namespace Lib {
+    static class NumberExtensions {
+        [ExtensionAttribute]
+        static func Echo(value: int, suffix: string = "") -> string {
+            return value.ToString() + suffix
+        }
+    }
+}
+""";
+
+        const string source = """
+import Lib.*
+
+val value = 1
+val echoed = value.Echo()
+""";
+
+        var instrumentation = new PerformanceInstrumentation();
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            metadataSource,
+            assemblyName: "extension-optional-parameter-fixture");
+        var references = TestMetadataReferences.Default.Append(metadataReference).ToArray();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var (compilation, tree) = CreateCompilation(source, options: options, references: references);
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = Assert.IsType<InvocationExpressionSyntax>(GetMemberAccess(tree, "Echo").Parent);
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(invocation, out var info));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        Assert.Equal("Echo", method.Name);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
     }
 
     [Fact]
@@ -865,4 +963,9 @@ val result = properties.Where(pi => !pi.GetMethod.IsStatic)
             .OfType<MemberAccessExpressionSyntax>()
             .Single(node => node.Name.Identifier.Text == methodName);
     }
+
+    private static bool IsReturnTypeLoaded(PEMethodSymbol method)
+        => typeof(PEMethodSymbol)
+            .GetField("_returnType", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(method) is not null;
 }

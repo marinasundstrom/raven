@@ -304,8 +304,8 @@ class NamespaceBinder : Binder
     }
 
     private static string GetExtensionMethodDedupKey(IMethodSymbol method)
-        => method.GetLookupIdentityKey();
+        => method.GetShallowLookupIdentityKey();
 
     private static string GetExtensionPropertyDedupKey(IPropertySymbol property)
-        => property.GetLookupIdentityKey();
+        => property.GetShallowLookupIdentityKey();
 }

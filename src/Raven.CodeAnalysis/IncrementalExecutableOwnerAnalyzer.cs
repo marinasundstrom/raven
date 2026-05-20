@@ -326,8 +326,8 @@ internal static class IncrementalExecutableOwnerAnalyzer
             currentOwner.Span.Start - currentParent.Span.Start,
             currentOwner.Span.Length);
 
-        if (previousRelativeSpan.End > parentChange.PreviousSpan.Start ||
-            currentRelativeSpan.End > parentChange.CurrentSpan.Start)
+        if (OverlapsOrContainsInsertion(previousRelativeSpan, parentChange.PreviousSpan) ||
+            OverlapsOrContainsInsertion(currentRelativeSpan, parentChange.CurrentSpan))
         {
             return false;
         }
@@ -421,7 +421,12 @@ internal static class IncrementalExecutableOwnerAnalyzer
 
     private static IEnumerable<SyntaxNode> GetExecutableOwners(SyntaxNode root)
     {
-        return root.DescendantNodesAndSelf().Where(static node =>
+        var includeCompilationUnit = root is CompilationUnitSyntax compilationUnit &&
+            compilationUnit.Members
+                .OfType<GlobalStatementSyntax>()
+                .Any(static global => global.Statement is not FunctionStatementSyntax);
+
+        return root.DescendantNodesAndSelf().Where(node =>
             node is FunctionExpressionSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
@@ -429,8 +434,8 @@ internal static class IncrementalExecutableOwnerAnalyzer
                 or AccessorDeclarationSyntax
                 or PropertyDeclarationSyntax
                 or EventDeclarationSyntax
-                or GlobalStatementSyntax
-                or CompilationUnitSyntax);
+                or GlobalStatementSyntax ||
+            includeCompilationUnit && node is CompilationUnitSyntax);
     }
 
     private static bool TryGetReusableContainingExecutableOwnerDescriptor(

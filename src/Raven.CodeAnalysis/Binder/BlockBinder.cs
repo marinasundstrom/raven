@@ -282,8 +282,12 @@ partial class BlockBinder : Binder
             }
         }
 
-        if (declaration.BindingKeyword.Kind is not (SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword))
+        var isUseDeclaration = declaration.Parent is UseDeclarationStatementSyntax;
+        if (!isUseDeclaration &&
+            declaration.BindingKeyword.Kind is not (SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword or SyntaxKind.ConstKeyword))
+        {
             return null;
+        }
 
         var isMutable = declaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
         var isConst = declaration.BindingKeyword.Kind == SyntaxKind.ConstKeyword;
@@ -297,6 +301,21 @@ partial class BlockBinder : Binder
 
         if (type is null)
             return null;
+
+        if (existingDeclaredLocal is not null &&
+            existingDeclaredLocal.Type.ContainsErrorType() &&
+            !type.ContainsErrorType())
+        {
+            var upgradedLocal = CreateLocalSymbol(
+                variableDeclarator,
+                name,
+                isMutable,
+                type,
+                isConst,
+                recordDeclaration: false);
+            _declarationState.ReplaceDeclaredLocal(existingDeclaredLocal, upgradedLocal, variableDeclarator);
+            return upgradedLocal;
+        }
 
         return CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst);
     }
@@ -1512,8 +1531,11 @@ partial class BlockBinder : Binder
                 return patternOwner;
             }
 
-            if (declaringSyntax.AncestorsAndSelf().OfType<BlockSyntax>().FirstOrDefault() is { } block)
+            if (declaringSyntax.AncestorsAndSelf()
+                .FirstOrDefault(static ancestor => ancestor is BlockSyntax or BlockStatementSyntax) is { } block)
+            {
                 return block;
+            }
 
             if (declaringSyntax.AncestorsAndSelf().OfType<CompilationUnitSyntax>().FirstOrDefault() is { } compilationUnit)
                 return compilationUnit;

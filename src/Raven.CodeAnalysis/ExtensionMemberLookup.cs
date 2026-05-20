@@ -149,7 +149,7 @@ internal static class ExtensionMemberLookup
 
         foreach (var symbol in symbols)
         {
-            if (!seen.Add(symbol.GetLookupIdentityKey()))
+            if (!seen.Add(symbol.GetShallowLookupIdentityKey()))
                 continue;
 
             builder.Add(symbol);

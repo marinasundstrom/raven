@@ -346,6 +346,39 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         }
     }
 
+    internal bool TryGetParameterUsage(int index, out bool hasExplicitDefaultValue, out bool isParams)
+    {
+        hasExplicitDefaultValue = false;
+        isParams = false;
+
+        if (index < 0)
+            return false;
+
+        try
+        {
+            if (!TryGetParameterInfos(out var parameterInfos) ||
+                index >= parameterInfos.Length)
+            {
+                return false;
+            }
+
+            var parameterInfo = parameterInfos[index];
+            hasExplicitDefaultValue = parameterInfo.IsOptional || parameterInfo.HasDefaultValue;
+            isParams = parameterInfo
+                .GetCustomAttributesData()
+                .Any(static attribute => string.Equals(
+                    attribute.AttributeType.FullName,
+                    typeof(ParamArrayAttribute).FullName,
+                    StringComparison.Ordinal));
+            return true;
+        }
+        catch
+        {
+            _hasUnreadableSignature = true;
+            return false;
+        }
+    }
+
     private void CacheParameterCount(int count)
     {
         if (TryCreateMetadataMethodKey(out var key))
@@ -364,6 +397,20 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
             key = default;
             return false;
         }
+    }
+
+    internal bool TryGetMetadataIdentity(out Guid moduleVersionId, out int metadataToken)
+    {
+        if (TryCreateMetadataMethodKey(out var key))
+        {
+            moduleVersionId = key.ModuleVersionId;
+            metadataToken = key.MetadataToken;
+            return true;
+        }
+
+        moduleVersionId = default;
+        metadataToken = 0;
+        return false;
     }
 
     private bool TryGetParameterInfos(out ParameterInfo[] parameterInfos)

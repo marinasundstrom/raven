@@ -386,6 +386,7 @@ public sealed class ProjectFileNuGetReferenceTests
         var root = tree.GetRoot();
         var addDbContext = FindMemberInvocation(root, "AddDbContext");
         var useNpgsql = FindMemberInvocation(root, "UseNpgsql");
+        var getRequiredService = FindMemberInvocation(root, "GetRequiredService");
 
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
@@ -394,10 +395,28 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.Contains(dbContextCandidates, static method => method.Name == "AddDbContext");
         Assert.True(model.TryGetAvailableInvocationCandidates(useNpgsql, out var npgsqlCandidates));
         Assert.Contains(npgsqlCandidates, static method => method.Name == "UseNpgsql");
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(useNpgsql, out var npgsqlInfo));
+        var useNpgsqlMethod = Assert.IsAssignableFrom<IMethodSymbol>(npgsqlInfo.Symbol);
+        Assert.Equal("UseNpgsql", useNpgsqlMethod.Name);
+        Assert.Contains(
+            useNpgsqlMethod.Parameters,
+            static parameter => parameter.Name == "connectionString" &&
+                parameter.Type.GetPlainType().SpecialType == SpecialType.System_String);
+
+        var afterUseNpgsql = instrumentation.SemanticQuery.CaptureSnapshot();
+        var useNpgsqlDelta = SemanticQueryInstrumentation.Subtract(afterUseNpgsql, before);
+        Assert.Equal(0, useNpgsqlDelta.BoundNodeQueries);
+
+        before = instrumentation.SemanticQuery.CaptureSnapshot();
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(getRequiredService, out var getRequiredServiceInfo));
+        var getRequiredServiceMethod = Assert.IsAssignableFrom<IMethodSymbol>(getRequiredServiceInfo.Symbol);
+        Assert.Equal("GetRequiredService", getRequiredServiceMethod.Name);
+        Assert.Equal("VehicleDbContext", getRequiredServiceMethod.ReturnType.GetPlainType().Name);
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeQueries);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }
 

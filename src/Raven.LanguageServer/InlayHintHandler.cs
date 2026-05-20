@@ -167,7 +167,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             functionParameterTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
-                AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+                AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             returnTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             collectMs = collectStopwatch.Elapsed.TotalMilliseconds;
             var hintArray = hints.ToArray();
@@ -623,7 +623,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SyntaxNode root,
         SourceText sourceText,
         TextSpan requestSpan,
-        bool allowBinding,
         InlayHintCollectionBudget budget)
     {
         foreach (var method in DescendantNodesInSpan<MethodDeclarationSyntax>(root, requestSpan))
@@ -641,7 +640,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 method.ReturnType,
                 method.ParameterList,
                 method.Body ?? (SyntaxNode?)method.ExpressionBody,
-                allowBinding,
+                IsAsyncDeclaration(method),
                 budget);
         }
 
@@ -660,7 +659,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 function.ReturnType,
                 function.ParameterList,
                 function.Body ?? (SyntaxNode?)function.ExpressionBody,
-                allowBinding,
+                IsAsyncDeclaration(function),
                 budget);
         }
 
@@ -669,7 +668,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (budget.ShouldStop())
                 return;
 
-            AddFunctionExpressionReturnTypeHint(hints, semanticModel, root, sourceText, requestSpan, functionExpression, allowBinding, budget);
+            AddFunctionExpressionReturnTypeHint(hints, semanticModel, root, sourceText, requestSpan, functionExpression, budget);
         }
     }
 
@@ -686,7 +685,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         ArrowTypeClauseSyntax? returnType,
         ParameterListSyntax parameterList,
         SyntaxNode? body,
-        bool allowBinding,
+        bool isAsync,
         InlayHintCollectionBudget budget)
     {
         if (HasExplicitReturnType(returnType) || body is null)
@@ -699,8 +698,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (budget.ShouldStop())
             return;
 
-        if (!allowBinding ||
-            !TryGetInferredReturnType(semanticModel, body, out var inferredReturnType) ||
+        if (!TryGetInferredReturnType(semanticModel, body, isAsync, out var inferredReturnType) ||
             !TryFormatType(semanticModel, declaration, inferredReturnType, out var typeDisplay))
         {
             return;
@@ -729,7 +727,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SourceText sourceText,
         TextSpan requestSpan,
         FunctionExpressionSyntax functionExpression,
-        bool allowBinding,
         InlayHintCollectionBudget budget)
     {
         var insertionPosition = functionExpression switch
@@ -748,8 +745,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (IsBlockFunctionExpressionWithoutValueReturn(functionExpression))
             return;
 
-        if (!allowBinding ||
-            !TryGetFunctionExpressionReturnType(semanticModel, functionExpression, out var returnType) ||
+        if (!TryGetFunctionExpressionReturnType(semanticModel, functionExpression, out var returnType) ||
             !TryFormatType(semanticModel, functionExpression, returnType, out var typeDisplay))
         {
             return;
@@ -1153,13 +1149,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static readonly SymbolDisplayFormat QualifiedSourceTypeDisplayFormat =
         SourceTypeDisplayFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces);
 
-    private static bool TryGetInferredReturnType(SemanticModel semanticModel, SyntaxNode body, out ITypeSymbol? inferredReturnType)
+    private static bool TryGetInferredReturnType(
+        SemanticModel semanticModel,
+        SyntaxNode body,
+        bool isAsync,
+        out ITypeSymbol? inferredReturnType)
     {
-        inferredReturnType = ReturnTypeCollector.Infer(semanticModel.GetBoundNode(body));
-        if (IsInlayHintReturnType(inferredReturnType))
-            return true;
-
-        return TryInferReturnTypeFromReturnSyntax(semanticModel, body, out inferredReturnType) &&
+        return TryInferReturnTypeFromAvailableSyntax(semanticModel, body, isAsync, out inferredReturnType) &&
             IsInlayHintReturnType(inferredReturnType);
     }
 
@@ -1167,29 +1163,74 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         => type is not null &&
            type.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void);
 
-    private static bool TryInferReturnTypeFromReturnSyntax(
+    private static bool TryInferReturnTypeFromAvailableSyntax(
         SemanticModel semanticModel,
         SyntaxNode body,
+        bool isAsync,
         out ITypeSymbol? inferredReturnType)
     {
         var types = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        if (body is ArrowExpressionClauseSyntax arrowExpression)
+        {
+            if (!TryAddAvailableReturnExpressionType(semanticModel, arrowExpression.Expression, types))
+            {
+                inferredReturnType = null;
+                return false;
+            }
+
+            return TryCompleteAvailableReturnTypeInference(semanticModel, types, isAsync, out inferredReturnType);
+        }
+
         foreach (var returnStatement in DescendantNodesExcludingNestedExecutableScopes(body).OfType<ReturnStatementSyntax>())
         {
             if (returnStatement.Expression is not { } expression)
                 continue;
 
-            var typeInfo = semanticModel.GetTypeInfo(expression);
-            var type = typeInfo.Type ?? typeInfo.ConvertedType;
-            if (type is null ||
-                type.TypeKind == TypeKind.Error ||
-                type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+            if (!TryAddAvailableReturnExpressionType(semanticModel, expression, types))
             {
-                continue;
+                inferredReturnType = null;
+                return false;
             }
-
-            types.Add(TypeSymbolNormalization.NormalizeForInference(type));
         }
 
+        if (types.Count == 0 &&
+            TryGetTailExpression(body) is { } tailExpression &&
+            !TryAddAvailableReturnExpressionType(semanticModel, tailExpression, types))
+        {
+            inferredReturnType = null;
+            return false;
+        }
+
+        return TryCompleteAvailableReturnTypeInference(semanticModel, types, isAsync, out inferredReturnType);
+    }
+
+    private static bool TryAddAvailableReturnExpressionType(
+        SemanticModel semanticModel,
+        ExpressionSyntax expression,
+        HashSet<ITypeSymbol> types)
+    {
+        if (!semanticModel.TryGetAvailableTypeInfo(expression, out var typeInfo))
+            return false;
+
+        var type = typeInfo.Type ?? typeInfo.ConvertedType;
+        if (type is null ||
+            type.TypeKind == TypeKind.Error ||
+            type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+        {
+            return true;
+        }
+
+        types.Add(TypeSymbolNormalization.NormalizeForInference(type));
+        return true;
+    }
+
+    private static bool TryCompleteAvailableReturnTypeInference(
+        SemanticModel semanticModel,
+        HashSet<ITypeSymbol> types,
+        bool isAsync,
+        out ITypeSymbol? inferredReturnType)
+    {
         inferredReturnType = types.Count switch
         {
             0 => null,
@@ -1197,7 +1238,25 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             _ => TypeSymbolNormalization.NormalizeUnion(types)
         };
 
+        if (isAsync)
+            inferredReturnType = AsyncReturnTypeUtilities.InferAsyncReturnType(semanticModel.Compilation, inferredReturnType);
+
         return inferredReturnType is not null;
+    }
+
+    private static ExpressionSyntax? TryGetTailExpression(SyntaxNode body)
+    {
+        var statements = body switch
+        {
+            BlockStatementSyntax blockStatement => blockStatement.Statements,
+            BlockSyntax blockExpression => blockExpression.Statements,
+            _ => default
+        };
+
+        return statements.Count > 0 &&
+            statements[^1] is ExpressionStatementSyntax expressionStatement
+                ? expressionStatement.Expression
+                : null;
     }
 
     private static IEnumerable<SyntaxNode> DescendantNodesExcludingNestedExecutableScopes(SyntaxNode node)
@@ -1224,29 +1283,42 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     {
         returnType = null;
 
-        if (semanticModel.TryGetContextualBoundFunctionExpression(functionExpression, out var contextualFunction) &&
-            IsInlayHintReturnType(contextualFunction.ReturnType))
+        if (semanticModel.TryGetAvailableFunctionExpressionReturnType(functionExpression, out var availableReturnType) &&
+            IsInlayHintReturnType(availableReturnType))
         {
-            returnType = contextualFunction.ReturnType;
+            returnType = availableReturnType;
             return true;
         }
 
-        if (semanticModel.GetBoundNode(functionExpression) is BoundFunctionExpression boundFunction &&
-            IsInlayHintReturnType(boundFunction.ReturnType))
-        {
-            returnType = boundFunction.ReturnType;
-            return true;
-        }
+        var isAsync = IsAsyncFunctionExpression(functionExpression);
+        var body = (SyntaxNode?)functionExpression.ExpressionBody ?? functionExpression.Body;
 
-        if (semanticModel.GetDeclaredSymbol(functionExpression) is IMethodSymbol method &&
-            method.ReturnType.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void))
+        if (body is not null &&
+            TryInferReturnTypeFromAvailableSyntax(semanticModel, body, isAsync, out var inferredReturnType) &&
+            IsInlayHintReturnType(inferredReturnType))
         {
-            returnType = method.ReturnType;
+            returnType = inferredReturnType;
             return true;
         }
 
         return false;
     }
+
+    private static bool IsAsyncDeclaration(SyntaxNode declaration)
+        => declaration switch
+        {
+            MethodDeclarationSyntax method => method.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword),
+            FunctionStatementSyntax function => function.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword),
+            _ => false
+        };
+
+    private static bool IsAsyncFunctionExpression(FunctionExpressionSyntax functionExpression)
+        => functionExpression switch
+        {
+            SimpleFunctionExpressionSyntax simple => simple.AsyncKeyword.Kind == SyntaxKind.AsyncKeyword,
+            ParenthesizedFunctionExpressionSyntax parenthesized => parenthesized.AsyncKeyword.Kind == SyntaxKind.AsyncKeyword,
+            _ => false
+        };
 
     private static TextSpan GetRequestedSpan(SourceText text, LspRange requestRange)
     {

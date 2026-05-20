@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Symbols;
@@ -208,6 +209,26 @@ public class MemberContainer {
     }
 
     [Fact]
+    public void ConstructedMetadataType_GetMembersByName_DoesNotForceFullDefinitionMemberLoad()
+    {
+        var compilation = Compilation.Create("pe_constructed_member_lookup", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var listDefinition = Assert.IsType<PENamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+
+        Assert.False(IsFullyLoaded(listDefinition));
+
+        var addMembers = listOfInt.GetMembers("Add").OfType<IMethodSymbol>().ToArray();
+
+        Assert.NotEmpty(addMembers);
+        Assert.All(addMembers, method => Assert.Equal("Add", method.Name));
+        Assert.False(IsFullyLoaded(listDefinition));
+    }
+
+    [Fact]
     public void MetadataType_AndReflectionType_ResolveToSameSymbol()
     {
         var compilation = Compilation.Create("pe_identity_single", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -405,5 +426,12 @@ public class MemberContainer {
                 .Where(field => field.Name == "Empty"));
 
         Assert.Equal("Empty", emptyField.MetadataName);
+    }
+
+    private static bool IsFullyLoaded(PENamedTypeSymbol type)
+    {
+        var field = typeof(PENamedTypeSymbol).GetField("_membersLoaded", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        return Assert.IsType<bool>(field.GetValue(type));
     }
 }

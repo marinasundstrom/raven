@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -16,6 +17,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
     private readonly INamedTypeSymbol? _containingTypeOverride;
     private ImmutableArray<ISymbol>? _members;
+    private readonly ConcurrentDictionary<string, ImmutableArray<ISymbol>> _membersByName = new(StringComparer.Ordinal);
     private ImmutableArray<IFieldSymbol>? _tupleElements;
     private ImmutableArray<INamedTypeSymbol>? _interfaces;
     private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
@@ -662,8 +664,24 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         return _members ??= substitutedMembers;
     }
 
-    public ImmutableArray<ISymbol> GetMembers(string name) =>
-        GetMembers().Where(m => m.Name == name).ToImmutableArray();
+    public ImmutableArray<ISymbol> GetMembers(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return GetMembers();
+
+        if (ShouldCacheMutableSourceUnionState())
+            return BuildMembersByName(name);
+
+        return _membersByName.GetOrAdd(name, BuildMembersByName);
+
+        ImmutableArray<ISymbol> BuildMembersByName(string memberName)
+        {
+            return _originalDefinition.GetMembers(memberName)
+                .Select(SubstituteMember)
+                .Where(member => string.Equals(member.Name, memberName, StringComparison.Ordinal))
+                .ToImmutableArray();
+        }
+    }
 
     internal ImmutableArray<ITypeSymbol> GetAllTypeArguments() =>
         _allTypeArguments.IsDefault ? _allTypeArguments = BuildAllTypeArguments() : _allTypeArguments;

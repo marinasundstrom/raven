@@ -27,6 +27,55 @@ public static partial class SymbolExtensions
         };
     }
 
+    internal static string GetShallowLookupIdentityKey(this ISymbol symbol)
+    {
+        var underlying = symbol.UnderlyingSymbol;
+
+        return underlying switch
+        {
+            IMethodSymbol method => GetMethodShallowLookupIdentityKey(method),
+            IPropertySymbol property => GetPropertyShallowLookupIdentityKey(property),
+            ITypeSymbol type => GetTypeLookupIdentityKey(type),
+            _ => $"{underlying.Kind}:{underlying.MetadataName}"
+        };
+    }
+
+    private static string GetMethodShallowLookupIdentityKey(IMethodSymbol method)
+    {
+        var definition = UnwrapMethodDefinition(method);
+        var typeArguments = method.TypeArguments.IsDefaultOrEmpty
+            ? string.Empty
+            : string.Join(",", method.TypeArguments.Select(static type => GetTypeLookupIdentityKey(type)));
+
+        if (definition is PEMethodSymbol peMethod &&
+            peMethod.TryGetMetadataIdentity(out var moduleVersionId, out var metadataToken))
+        {
+            return $"MPE:{moduleVersionId:N}:{metadataToken}:{method.Arity}|{typeArguments}";
+        }
+
+        var containingType = GetTypeLookupIdentityKey(definition.ContainingType);
+        if (definition is PEMethodSymbol peDefinition)
+            return $"M:{containingType}|{definition.MetadataName}|{method.Arity}|{typeArguments}|{peDefinition.ParameterCount}";
+
+        var parameters = string.Join(",", definition.Parameters.Select(static p => $"{p.RefKind}:{GetTypeLookupIdentityKey(p.Type)}"));
+        return $"M:{containingType}|{definition.MetadataName}|{method.Arity}|{typeArguments}|{parameters}";
+    }
+
+    private static IMethodSymbol UnwrapMethodDefinition(IMethodSymbol method)
+    {
+        if (method is ConstructedMethodSymbol constructedMethod)
+            return UnwrapMethodDefinition(constructedMethod.Definition);
+
+        return method.OriginalDefinition ?? method;
+    }
+
+    private static string GetPropertyShallowLookupIdentityKey(IPropertySymbol property)
+    {
+        var definition = property.OriginalDefinition ?? property;
+        var containingType = GetTypeLookupIdentityKey(definition.ContainingType);
+        return $"P:{containingType}|{definition.MetadataName}|{definition.Parameters.Length}";
+    }
+
     private static string GetMethodLookupIdentityKey(IMethodSymbol method)
     {
         var definition = method.OriginalDefinition ?? method;
