@@ -46,6 +46,46 @@ public sealed class WorkspaceManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task UpsertDocumentAsync_WithUnchangedText_KeepsDocumentVersionAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var text = "func Main() -> int => 1";
+        WriteRavenFile(filePath, text);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        var firstDocument = await manager.UpsertDocumentAsync(uri, text);
+        var firstProjectVersion = firstDocument.Project.Version;
+
+        var secondDocument = await manager.UpsertDocumentAsync(uri, text);
+
+        secondDocument.Id.ShouldBe(firstDocument.Id);
+        secondDocument.Version.ShouldBe(firstDocument.Version);
+        secondDocument.Project.Version.ShouldBe(firstProjectVersion);
+    }
+
+    [Fact]
     public void FindWorkspaceProjectFiles_RecursesIntoNestedProjects()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -244,7 +284,7 @@ class MacroPlugin { }
         var macroUri = DocumentUri.FromFileSystemPath(macroPath);
         var originalText = File.ReadAllText(macroPath);
 
-        _ = manager.UpsertDocument(macroUri, originalText);
+        _ = await manager.UpsertDocumentAsync(macroUri, originalText);
         manager.RemoveDocument(macroUri).ShouldBeTrue();
 
         manager.TryGetDocument(macroUri, out var document).ShouldBeTrue();
@@ -258,7 +298,7 @@ class MacroPlugin { }
     }
 
     [Fact]
-    public void TryGetCodeFixes_StaleOwnedDocumentWithExistingDocumentIdButDeadProjectId_RebindsToCurrentProject()
+    public async Task TryGetCodeFixes_StaleOwnedDocumentWithExistingDocumentIdButDeadProjectId_RebindsToCurrentProjectAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         var projectPath = WriteProject(_tempRoot, "App", """
@@ -288,7 +328,7 @@ val x = 1
         });
 
         var uri = DocumentUri.FromFileSystemPath(filePath);
-        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(filePath));
 
         manager.TryGetDocument(uri, out var originalDocument).ShouldBeTrue();
         originalDocument.ShouldNotBeNull();
@@ -346,10 +386,10 @@ val x = 1
         var appUri = DocumentUri.FromFileSystemPath(appPath);
         var macroUri = DocumentUri.FromFileSystemPath(macroPath);
 
-        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
-        _ = manager.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+        _ = await manager.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
+        _ = await manager.UpsertDocumentAsync(macroUri, File.ReadAllText(macroPath));
         manager.RemoveDocument(macroUri).ShouldBeTrue();
-        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = await manager.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
 
         manager.TryGetDocument(appUri, out var document).ShouldBeTrue();
         document.ShouldNotBeNull();
@@ -384,8 +424,8 @@ val x = 1
         var appUri = DocumentUri.FromFileSystemPath(appPath);
         var macroUri = DocumentUri.FromFileSystemPath(macroPath);
 
-        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
-        _ = store.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+        _ = await store.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
+        _ = await store.UpsertDocumentAsync(macroUri, File.ReadAllText(macroPath));
         store.RemoveDocument(macroUri).ShouldBeTrue();
 
         store.TryGetDocumentContext(appUri, out var document, out var compilation).ShouldBeTrue();
@@ -448,7 +488,7 @@ func Main() -> unit { }
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var appUri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "app", "src", "main.rvn"));
-        _ = store.UpsertDocument(appUri, File.ReadAllText(Path.Combine(_tempRoot, "app", "src", "main.rvn")));
+        _ = await store.UpsertDocumentAsync(appUri, File.ReadAllText(Path.Combine(_tempRoot, "app", "src", "main.rvn")));
 
         var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
         diagnostics.Any(d => d.Code?.String == "RAV0103").ShouldBeTrue();
@@ -493,7 +533,7 @@ func Main() -> unit { }
     }
 
     [Fact]
-    public void ReloadForWatchedFiles_ProjectOpenFailure_RetriesAfterRelevantFileChange()
+    public async Task ReloadForWatchedFiles_ProjectOpenFailure_RetriesAfterRelevantFileChangeAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         var projectPath = WriteProject(_tempRoot, "Broken", """
@@ -523,8 +563,7 @@ func Main() -> unit { }
                 Uri = DocumentUri.FromFileSystemPath(_tempRoot)
             })
         });
-
-        manager.ReloadForWatchedFiles([
+        await manager.ReloadForWatchedFilesAsync([
             new FileEvent
             {
                 Uri = DocumentUri.FromFileSystemPath(projectPath),
@@ -557,8 +596,8 @@ func Main() -> unit { }
         var appUri = DocumentUri.FromFileSystemPath(appPath);
         var macroUri = DocumentUri.FromFileSystemPath(macroPath);
 
-        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
-        _ = manager.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+        _ = await manager.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
+        _ = await manager.UpsertDocumentAsync(macroUri, File.ReadAllText(macroPath));
 
         manager.TryGetDocumentContext(appUri, out var initialDocument, out _).ShouldBeTrue();
         var initialMacroReferenceInfo = initialDocument!.Project.MacroReferences.Single();
@@ -569,7 +608,7 @@ func Main() -> unit { }
         initialExpansion.ShouldBe("1");
 
         var updatedMacroSource = CreateFreestandingMacroExpansionSource("2");
-        _ = manager.UpsertDocument(macroUri, updatedMacroSource);
+        _ = await manager.UpsertDocumentAsync(macroUri, updatedMacroSource);
 
         manager.TryGetDocumentContext(macroUri, out var refreshedMacroDocument, out _).ShouldBeTrue();
         refreshedMacroDocument!.Project.FilePath.ShouldBe(Path.Combine(_tempRoot, "macros", "FreestandingMacros.rvnproj"));
@@ -604,14 +643,14 @@ func Main() -> unit { }
         var appUri = DocumentUri.FromFileSystemPath(appPath);
         var macroUri = DocumentUri.FromFileSystemPath(macroPath);
 
-        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
-        _ = manager.UpsertDocument(macroUri, File.ReadAllText(macroPath));
+        _ = await manager.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
+        _ = await manager.UpsertDocumentAsync(macroUri, File.ReadAllText(macroPath));
 
         manager.TryGetDocumentContext(appUri, out var initialDocument, out _).ShouldBeTrue();
         var initialMacroReference = initialDocument!.Project.MacroReferences.Single().Display;
 
         var updatedMacroSource = SourceText.From(CreateFreestandingMacroExpansionSource("2"));
-        _ = manager.UpsertDocument(macroUri, updatedMacroSource, deferMacroConsumerRefresh: true);
+        _ = await manager.UpsertDocumentAsync(macroUri, updatedMacroSource, deferMacroConsumerRefresh: true);
 
         manager.TryGetDocumentContext(appUri, out var pendingDocument, out _).ShouldBeTrue();
         pendingDocument!.Project.MacroReferences.Single().Display.ShouldBe(initialMacroReference);
@@ -646,13 +685,13 @@ func Main() -> unit { }
         var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
         var appUri = DocumentUri.FromFileSystemPath(appPath);
 
-        _ = manager.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = await manager.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
 
         var initialExpansion = await GetFreestandingMacroExpansionTextAsync(manager, appUri);
         initialExpansion.ShouldBe("1");
 
         File.WriteAllText(macroPath, CreateFreestandingMacroExpansionSource("2"));
-        manager.ReloadForWatchedFiles([
+        await manager.ReloadForWatchedFilesAsync([
             new FileEvent
             {
                 Uri = DocumentUri.FromFileSystemPath(macroPath),
@@ -684,7 +723,7 @@ func Main() -> unit { }
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = await store.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
 
         var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
         diagnostics.Any(diagnostic => diagnostic.Code?.String == "RAVM010").ShouldBeFalse();
@@ -725,7 +764,7 @@ func Main() -> unit { }
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = await store.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
 
         var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
         diagnostics.Any(diagnostic => diagnostic.Code?.String == "RAVM010").ShouldBeFalse();
@@ -767,7 +806,7 @@ func Main() -> unit { }
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(appUri, File.ReadAllText(appPath));
+        _ = await store.UpsertDocumentAsync(appUri, File.ReadAllText(appPath));
 
         var diagnostics = await store.GetDiagnosticsAsync(appUri, CancellationToken.None);
         diagnostics.Any(diagnostic => diagnostic.Code?.String == "RAVM010").ShouldBeFalse();
@@ -791,7 +830,7 @@ func Main() -> unit { }
     }
 
     [Fact]
-    public void TryGetRefactorings_ReturnsContextActionsForOpenDocument()
+    public async Task TryGetRefactorings_ReturnsContextActionsForOpenDocumentAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         var filePath = Path.Combine(_tempRoot, "main.rvn");
@@ -814,7 +853,7 @@ func Main() -> unit { }
             })
         });
 
-        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(filePath));
 
         manager.TryGetRefactorings(uri, new TextSpan(0, 4), out var refactorings).ShouldBeTrue();
         refactorings.Length.ShouldBe(1);
@@ -857,7 +896,7 @@ record Data(val Value: int)
         });
 
         var uri = DocumentUri.FromFileSystemPath(filePath);
-        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(filePath));
 
         manager.TryGetDocumentContext(uri, out var document, out var compilation).ShouldBeTrue();
         document.ShouldNotBeNull();
@@ -917,7 +956,7 @@ func Main() -> int {
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(filePath);
-        _ = store.UpsertDocument(uri, File.ReadAllText(filePath));
+        _ = await store.UpsertDocumentAsync(uri, File.ReadAllText(filePath));
 
         var transitionedText = """
 val first = args.Length
@@ -930,7 +969,7 @@ if first >= 0 {
 record Data(val Value: int)
 """;
 
-        _ = store.UpsertDocument(uri, transitionedText);
+        _ = await store.UpsertDocumentAsync(uri, transitionedText);
 
         store.TryGetDocumentContext(uri, out var document, out var compilation).ShouldBeTrue();
         document.ShouldNotBeNull();
@@ -963,7 +1002,7 @@ record Data(val Value: int)
     }
 
     [Fact]
-    public void TryGetCodeFixes_StaleOwnedDocument_RebindsInsteadOfThrowing()
+    public async Task TryGetCodeFixes_StaleOwnedDocument_RebindsInsteadOfThrowingAsync()
     {
         Directory.CreateDirectory(_tempRoot);
         _ = WriteProject(_tempRoot, "App", """
@@ -996,7 +1035,7 @@ func Main() -> unit {
         });
 
         var uri = DocumentUri.FromFileSystemPath(filePath);
-        _ = manager.UpsertDocument(uri, File.ReadAllText(filePath));
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(filePath));
 
         var documentsField = typeof(WorkspaceManager).GetField("_documents", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var documents = documentsField.GetValue(manager)!;

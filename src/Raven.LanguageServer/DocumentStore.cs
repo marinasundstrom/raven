@@ -70,6 +70,9 @@ internal sealed class DocumentStore
     public Document UpsertDocument(DocumentUri uri, string text)
         => UpsertDocument(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh: false);
 
+    public Task<Document> UpsertDocumentAsync(DocumentUri uri, string text)
+        => Task.FromResult(UpsertDocument(uri, text));
+
     internal Document UpsertDocument(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
     {
         var document = _workspaceManager.UpsertDocument(uri, text, deferMacroConsumerRefresh);
@@ -79,6 +82,9 @@ internal sealed class DocumentStore
 
         return document;
     }
+
+    internal Task<Document> UpsertDocumentAsync(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
+        => Task.FromResult(UpsertDocument(uri, text, deferMacroConsumerRefresh));
 
     private void PrimeCompilationAfterEdit(DocumentUri uri)
     {

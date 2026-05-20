@@ -82,8 +82,7 @@ func Main() -> () {
     }
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
 
         diagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, "RAV1507", StringComparison.Ordinal)).ShouldBeTrue();
@@ -116,8 +115,7 @@ class C {
     }
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
 
         var diagnostic = diagnostics.Single(d => string.Equals(
@@ -159,8 +157,7 @@ class C {
     }
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
 
         diagnostics.Count(d => string.Equals(
@@ -201,8 +198,7 @@ func Main() -> unit {
     count
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var result = await store.TryGetDiagnosticsAsync(
             uri,
             DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
@@ -267,8 +263,7 @@ func Main(users: IQueryable<User>) {
         |> Select(user => user.Name)
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var beforeInlayResult = await store.TryGetDiagnosticsAsync(
             uri,
             DocumentStore.DiagnosticLane.DocumentCompiler,
@@ -353,8 +348,7 @@ func Main() -> unit {
 
 func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
         _ = await inlayHandler.Handle(new InlayHintParams
         {
@@ -420,8 +414,7 @@ for val (key: string, value: string) in doubled {
     _ = value
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var result = await store.TryGetDiagnosticsAsync(
             uri,
             DocumentStore.DiagnosticLane.DocumentCompiler,
@@ -483,8 +476,7 @@ func Parse<T>(str: string) -> T
     where T: IParsable<T>
     => T.Parse(str, null)
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
 
         diagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeFalse();
@@ -541,7 +533,7 @@ func Run() -> int {
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
         var addOneOffset = code.IndexOf("AddOne", StringComparison.Ordinal);
@@ -611,7 +603,7 @@ func Run() -> string {
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var membersUri = DocumentUri.FromFileSystemPath(membersPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         var initialResult = await store.TryGetDiagnosticsAsync(
             uri,
@@ -621,8 +613,7 @@ func Run() -> string {
         initialResult.Diagnostics.Any(diagnostic =>
             string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
             diagnostic.Message.Contains("Format", StringComparison.Ordinal)).ShouldBeTrue();
-
-        store.UpsertDocument(membersUri, """
+        await store.UpsertDocumentAsync(membersUri, """
 namespace Utilities
 
 public const Prefix: string = "ready"
@@ -694,7 +685,7 @@ public func OtherFile() -> int {
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
         var secretOffset = code.IndexOf("Secret", StringComparison.Ordinal);
@@ -758,8 +749,7 @@ func Main() {
 
 union MyResult<T>(List<T> | int)
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
 
         diagnostics.Any(diagnostic =>
@@ -800,7 +790,7 @@ union MyResult<T>(List<T> | int)
         var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
         _ = await inlayHandler.Handle(new InlayHintParams
@@ -885,7 +875,7 @@ union MyResult<T>(List<T> | int)
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         var redundantImports = diagnostics
@@ -933,8 +923,7 @@ val obj = JsonSerializer.Deserialize<Foo>(str, options)
 
 record Foo(Name: string)
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         _ = await semanticTokensHandler.Handle(new SemanticTokensParams
         {
             TextDocument = new TextDocumentIdentifier(uri)
@@ -999,8 +988,7 @@ val obj = JsonSerializer.Deserialize<Foo>(options, str)
 
 record Foo(Name: string)
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         _ = await semanticTokensHandler.Handle(new SemanticTokensParams
         {
             TextDocument = new TextDocumentIdentifier(uri)
@@ -1069,8 +1057,7 @@ union Status {
     case OnMaintenance(Date: DateTimeOffset, Reason: string)
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         _ = await semanticTokensHandler.Handle(new SemanticTokensParams
         {
             TextDocument = new TextDocumentIdentifier(uri)
@@ -1138,7 +1125,7 @@ union Status {
         var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
         _ = await inlayHandler.Handle(new InlayHintParams
@@ -1199,7 +1186,7 @@ union Status {
         var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         var beforeInlayResult = await store.TryGetDiagnosticsAsync(
             uri,
@@ -1289,20 +1276,16 @@ record Person(
 """;
 
         var readOnlySource = mutableSource.Replace("var people", "val people", StringComparison.Ordinal);
-
-        store.UpsertDocument(uri, mutableSource);
+        await store.UpsertDocumentAsync(uri, mutableSource);
         var mutableDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         mutableDiagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, ThisValueIsNotMutableDiagnosticId, StringComparison.Ordinal)).ShouldBeFalse();
-
-        store.UpsertDocument(uri, readOnlySource);
+        await store.UpsertDocumentAsync(uri, readOnlySource);
         var readOnlyDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         readOnlyDiagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, ThisValueIsNotMutableDiagnosticId, StringComparison.Ordinal)).ShouldBeTrue();
-
-        store.UpsertDocument(uri, mutableSource);
+        await store.UpsertDocumentAsync(uri, mutableSource);
         var mutableAgainDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         mutableAgainDiagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, ThisValueIsNotMutableDiagnosticId, StringComparison.Ordinal)).ShouldBeFalse();
-
-        store.UpsertDocument(uri, readOnlySource);
+        await store.UpsertDocumentAsync(uri, readOnlySource);
         var readOnlyAgainDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         readOnlyAgainDiagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, ThisValueIsNotMutableDiagnosticId, StringComparison.Ordinal)).ShouldBeTrue();
     }
@@ -1342,8 +1325,7 @@ record Person(
         var invalidSource = """
 val flag = true and
 """;
-
-        store.UpsertDocument(uri, invalidSource);
+        await store.UpsertDocumentAsync(uri, invalidSource);
         var invalidDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         invalidDiagnostics.ShouldNotBeNull();
 
@@ -1362,8 +1344,7 @@ record Person(
     val Items: string[]
 )
 """;
-
-        store.UpsertDocument(uri, readOnlySource);
+        await store.UpsertDocumentAsync(uri, readOnlySource);
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
 
         diagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, ThisValueIsNotMutableDiagnosticId, StringComparison.Ordinal)).ShouldBeTrue();
@@ -1393,8 +1374,7 @@ func Main() -> () {
     fb
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         using var heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
         var diagnosticsTask = store.TryGetDiagnosticsAsync(
@@ -1435,8 +1415,7 @@ func Main() -> () {
     fb
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         using var heldLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
         var result = await store.TryGetDiagnosticsAsync(
@@ -1472,8 +1451,7 @@ func Main() -> () {
 func Main( -> () {
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
 
         using var heldLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
         var diagnosticsTask = store.TryGetDiagnosticsAsync(

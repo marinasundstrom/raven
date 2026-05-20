@@ -385,6 +385,41 @@ async func Load() -> Task<Result<int, string>> {
     }
 
     [Fact]
+    public void GetDiagnostics_AfterNonReportingSymbolAndTypeQueries_ReportsInvalidInvocation()
+    {
+        var code = """
+class C {
+    static func Take(value: int) -> int {
+        return value
+    }
+
+    func Test() {
+        val value = C.Take("bad")
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static node => node.Expression.ToString() == "C.Take");
+
+        _ = model.GetSymbolInfo(invocation);
+        _ = model.GetTypeInfo(invocation);
+
+        var errors = compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(static diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ToArray();
+
+        Assert.Contains(errors, static diagnostic => diagnostic.Contains("RAV1503", StringComparison.Ordinal));
+        Assert.Contains(errors, static diagnostic => diagnostic.Contains("Cannot convert from 'string' to 'int'", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ForTryLocal_UsesAvailableSemanticState()
     {
         var code = """

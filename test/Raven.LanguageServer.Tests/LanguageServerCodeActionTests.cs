@@ -48,7 +48,7 @@ func Main() -> unit {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, code);
+        _ = await store.UpsertDocumentAsync(uri, code);
 
         var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
 
@@ -99,7 +99,7 @@ val x = 1
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, code);
+        _ = await store.UpsertDocumentAsync(uri, code);
         manager.TryGetDiagnostics(uri, out _).ShouldBeTrue();
 
         var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
@@ -189,7 +189,7 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, code);
+        _ = await store.UpsertDocumentAsync(uri, code);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();

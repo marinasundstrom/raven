@@ -34,7 +34,7 @@ public sealed class LanguageServerDocumentSymbolTests
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var handler = new DocumentSymbolHandler(store, NullLogger<DocumentSymbolHandler>.Instance);
             var uri = DocumentUri.FromFileSystemPath(Path.Combine(tempRoot, "main.rvn"));
-            store.UpsertDocument(uri, """
+            await store.UpsertDocumentAsync(uri, """
 val builder = WebApplication.CreateBuilder(args)
 val app = builder.Build()
 

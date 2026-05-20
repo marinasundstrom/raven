@@ -149,7 +149,6 @@ public sealed class HeadlessEditSimulationTests : IDisposable
             _store = new DocumentStore(_manager, NullLogger<DocumentStore>.Instance);
             _hoverHandler = new HoverHandler(_store, NullLogger<HoverHandler>.Instance);
             _mainUri = DocumentUri.FromFileSystemPath(_mainPath);
-
             _store.UpsertDocument(_mainUri, mainText);
             _store.UpsertDocument(DocumentUri.FromFileSystemPath(_stablePath), StableText);
         }
@@ -177,8 +176,7 @@ public sealed class HeadlessEditSimulationTests : IDisposable
             params HeadlessHoverProbe[] probes)
         {
             var before = await CaptureSnapshotAsync();
-
-            _store.UpsertDocument(_mainUri, updatedText);
+            await _store.UpsertDocumentAsync(_mainUri, updatedText);
 
             var contextStopwatch = Stopwatch.StartNew();
             var context = await _store.GetAnalysisContextAsync(_mainUri, CancellationToken.None);

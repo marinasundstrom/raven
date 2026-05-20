@@ -116,7 +116,7 @@ internal sealed class WorkspaceManager
         }
     }
 
-    public void ReloadForWatchedFiles(IEnumerable<FileEvent> changes)
+    public async Task ReloadForWatchedFilesAsync(IEnumerable<FileEvent> changes)
     {
         ArgumentNullException.ThrowIfNull(changes);
 
@@ -507,6 +507,9 @@ internal sealed class WorkspaceManager
     public Document UpsertDocument(DocumentUri uri, string text)
         => UpsertDocument(uri, SourceText.From(text), deferMacroConsumerRefresh: false);
 
+    public Task<Document> UpsertDocumentAsync(DocumentUri uri, string text)
+        => Task.FromResult(UpsertDocument(uri, text));
+
     internal Document UpsertDocument(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
     {
         var filePath = uri.GetFileSystemPath();
@@ -523,6 +526,14 @@ internal sealed class WorkspaceManager
             {
                 if (existing.ProjectId == ownerProject)
                 {
+                    var currentDocument = solution.GetDocument(existing.DocumentId);
+                    if (currentDocument is not null &&
+                        HasSameText(currentDocument, sourceText))
+                    {
+                        _documents[uri] = new OwnedDocument(currentDocument.Id, ownerProject, currentDocument.Version, IsProjectDocument: existing.IsProjectDocument);
+                        return currentDocument;
+                    }
+
                     solution = solution.WithDocumentText(existing.DocumentId, sourceText);
                     _workspace.TryApplyChanges(solution);
                     var updatedDocument = _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
@@ -538,6 +549,13 @@ internal sealed class WorkspaceManager
             if (normalizedFilePath is not null &&
                 TryFindExistingDocument(solution, ownerProject, normalizedFilePath, out var existingDocument, out var existingOwnerProject))
             {
+                if (HasSameText(existingDocument, sourceText) &&
+                    staleOwnedDocument is not { IsProjectDocument: false })
+                {
+                    _documents[uri] = new OwnedDocument(existingDocument.Id, existingOwnerProject, existingDocument.Version, IsProjectDocument: true);
+                    return existingDocument;
+                }
+
                 solution = solution.WithDocumentText(existingDocument.Id, sourceText);
                 if (staleOwnedDocument is { IsProjectDocument: false } stale
                     && stale.DocumentId != existingDocument.Id
@@ -567,6 +585,12 @@ internal sealed class WorkspaceManager
             return addedDocument;
         }
     }
+
+    internal Task<Document> UpsertDocumentAsync(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
+        => Task.FromResult(UpsertDocument(uri, sourceText, deferMacroConsumerRefresh));
+
+    private static bool HasSameText(Document document, SourceText sourceText)
+        => document.GetTextAsync(CancellationToken.None).GetAwaiter().GetResult().ContentEquals(sourceText);
 
     private static bool TryFindExistingDocument(
         Solution solution,

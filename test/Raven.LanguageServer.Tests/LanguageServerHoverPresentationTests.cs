@@ -1687,7 +1687,7 @@ union Either<T1, T2>(T1 | T2)
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
             context.ShouldNotBeNull();
@@ -2240,7 +2240,7 @@ class App {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
             context.ShouldNotBeNull();
@@ -2680,7 +2680,7 @@ class C {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(filePath);
-            _ = store.UpsertDocument(uri, code);
+            _ = await store.UpsertDocumentAsync(uri, code);
 
             var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
             context.ShouldNotBeNull();

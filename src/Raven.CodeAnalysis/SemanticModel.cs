@@ -47,6 +47,8 @@ public partial class SemanticModel
     private ConcurrentDictionary<Binder, BinderLifecycleSnapshot> _binderLifecycleSnapshots => _bindingState.BinderLifecycleSnapshots;
     private ConcurrentDictionary<SyntaxNode, SymbolInfo> _symbolMappings => _bindingState.SymbolMappings;
     private ConcurrentDictionary<SyntaxNode, TypeInfo> _typeMappings => _bindingState.TypeMappings;
+    private ConcurrentDictionary<SyntaxNode, byte> _nonReportingSymbolMappings => _bindingState.NonReportingSymbolMappings;
+    private ConcurrentDictionary<SyntaxNode, byte> _nonReportingTypeMappings => _bindingState.NonReportingTypeMappings;
     private ConcurrentDictionary<SyntaxNode, BoundNode> _boundNodeCache => _bindingState.BoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 => _bindingState.BoundNodeCacheWithBinder;
     private ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> _contextualBoundNodeCache => _bindingState.ContextualBoundNodeCache;
@@ -112,6 +114,8 @@ public partial class SemanticModel
         public ConcurrentDictionary<Binder, BinderLifecycleSnapshot> BinderLifecycleSnapshots { get; } = new();
         public ConcurrentDictionary<SyntaxNode, SymbolInfo> SymbolMappings { get; } = new();
         public ConcurrentDictionary<SyntaxNode, TypeInfo> TypeMappings { get; } = new();
+        public ConcurrentDictionary<SyntaxNode, byte> NonReportingSymbolMappings { get; } = new();
+        public ConcurrentDictionary<SyntaxNode, byte> NonReportingTypeMappings { get; } = new();
         public ConcurrentDictionary<SyntaxNode, BoundNode> BoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> BoundNodeCacheWithBinder { get; } = new();
         public ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> ContextualBoundNodeCache { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
@@ -887,7 +891,7 @@ public partial class SemanticModel
         if (TryGetPipeInvocationSymbolInfo(node, out var pipeInvocationInfo))
         {
             pipeInvocationInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, pipeInvocationInfo);
-            _symbolMappings[node] = pipeInvocationInfo;
+            StoreSymbolMapping(node, pipeInvocationInfo);
             return pipeInvocationInfo;
         }
 
@@ -895,7 +899,7 @@ public partial class SemanticModel
             BindAttribute(attributeSyntax)?.AttributeConstructor is { } attributeConstructor)
         {
             var attributeInfo = new SymbolInfo(attributeConstructor);
-            _symbolMappings[node] = attributeInfo;
+            StoreSymbolMapping(node, attributeInfo);
             StoreNodeInterestSymbolDescriptor(node, attributeConstructor);
             return attributeInfo;
         }
@@ -915,7 +919,7 @@ public partial class SemanticModel
         if (TryGetInvocationTargetSymbolInfo(node, out var invocationTargetInfo, cancellationToken))
         {
             invocationTargetInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, invocationTargetInfo);
-            _symbolMappings[node] = invocationTargetInfo;
+            StoreSymbolMapping(node, invocationTargetInfo);
             return invocationTargetInfo;
         }
 
@@ -933,9 +937,9 @@ public partial class SemanticModel
                     out var directTypeMemberInfo))
             {
                 directTypeMemberInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, directTypeMemberInfo);
-                _symbolMappings[node] = directTypeMemberInfo;
-                _symbolMappings[invokedMemberAccess] = directTypeMemberInfo;
-                _symbolMappings[invokedMemberInvocation] = directTypeMemberInfo;
+                StoreSymbolMapping(node, directTypeMemberInfo);
+                StoreSymbolMapping(invokedMemberAccess, directTypeMemberInfo);
+                StoreSymbolMapping(invokedMemberInvocation, directTypeMemberInfo);
                 return directTypeMemberInfo;
             }
 
@@ -944,7 +948,7 @@ public partial class SemanticModel
                 availableInvocationInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, availableInvocationInfo);
                 if (HasSymbolInfo(availableInvocationInfo))
                 {
-                    _symbolMappings[node] = availableInvocationInfo;
+                    StoreSymbolMapping(node, availableInvocationInfo);
                     return availableInvocationInfo;
                 }
             }
@@ -959,7 +963,7 @@ public partial class SemanticModel
                 }
 
                 invocationInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, invocationInfo);
-                _symbolMappings[node] = invocationInfo;
+                StoreSymbolMapping(node, invocationInfo);
                 return invocationInfo;
             }
         }
@@ -971,7 +975,7 @@ public partial class SemanticModel
             if (TryLookupPipelineInvocationSymbol(pipelineInvocation, pipelineIdentifier, pipelineIdentifier.Identifier.ValueText, out var directPipelineInfo))
             {
                 directPipelineInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, directPipelineInfo);
-                _symbolMappings[node] = directPipelineInfo;
+                StoreSymbolMapping(node, directPipelineInfo);
                 return directPipelineInfo;
             }
         }
@@ -981,7 +985,7 @@ public partial class SemanticModel
             IsSameSyntaxNode(earlyWithAssignment.Name, earlyWithAssignmentIdentifier) &&
             TryGetWithAssignmentMemberSymbolInfo(earlyWithAssignment, out var earlyWithAssignmentInfo))
         {
-            _symbolMappings[node] = earlyWithAssignmentInfo;
+            StoreSymbolMapping(node, earlyWithAssignmentInfo);
             return earlyWithAssignmentInfo;
         }
 
@@ -991,18 +995,18 @@ public partial class SemanticModel
             IsSameSyntaxNode(earlyNameColon.Name, earlyArgumentName) &&
             TryGetArgumentParameterSymbolInfo(earlyArgument, out var earlyArgumentInfo))
         {
-            _symbolMappings[node] = earlyArgumentInfo;
+            StoreSymbolMapping(node, earlyArgumentInfo);
             return earlyArgumentInfo;
         }
 
         if (node is MemberBindingExpressionSyntax earlyMemberBinding &&
             TryGetMemberBindingTargetMemberSymbolInfo(earlyMemberBinding, out var earlyMemberBindingInfo))
         {
-            _symbolMappings[node] = earlyMemberBindingInfo;
+            StoreSymbolMapping(node, earlyMemberBindingInfo);
             return earlyMemberBindingInfo;
         }
 
-        if (_symbolMappings.TryGetValue(node, out var symbolInfo))
+        if (TryGetCachedSymbolInfo(node, out var symbolInfo))
         {
             if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
@@ -1010,25 +1014,25 @@ public partial class SemanticModel
                 if (symbolInfo.Symbol is { } cachedSymbol)
                     StoreNodeInterestSymbolDescriptor(node, cachedSymbol);
 
-                _symbolMappings[node] = symbolInfo;
+                StoreSymbolMapping(node, symbolInfo);
                 Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoCacheHit();
                 return symbolInfo;
             }
 
-            _symbolMappings.TryRemove(node, out _);
+            RemoveCachedSymbolMapping(node);
         }
 
         if (TryGetCachedNodeInterestSymbolInfo(node, out var cachedNodeInterestInfo))
         {
             cachedNodeInterestInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, cachedNodeInterestInfo);
-            _symbolMappings[node] = cachedNodeInterestInfo;
+            StoreSymbolMapping(node, cachedNodeInterestInfo);
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoCacheHit();
             return cachedNodeInterestInfo;
         }
 
         if (TryGetPatternConstantValueSymbolInfo(node, out var patternConstantValueInfo))
         {
-            _symbolMappings[node] = patternConstantValueInfo;
+            StoreSymbolMapping(node, patternConstantValueInfo);
             return patternConstantValueInfo;
         }
 
@@ -1037,7 +1041,7 @@ public partial class SemanticModel
             availableInvocationSymbolInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, availableInvocationSymbolInfo);
             if (HasSymbolInfo(availableInvocationSymbolInfo))
             {
-                _symbolMappings[node] = availableInvocationSymbolInfo;
+                StoreSymbolMapping(node, availableInvocationSymbolInfo);
                 return availableInvocationSymbolInfo;
             }
         }
@@ -1048,7 +1052,7 @@ public partial class SemanticModel
             if (availableSymbolInfo.Symbol is { } availableSymbol)
                 StoreNodeInterestSymbolDescriptor(node, availableSymbol);
 
-            _symbolMappings[node] = availableSymbolInfo;
+            StoreSymbolMapping(node, availableSymbolInfo);
             return availableSymbolInfo;
         }
 
@@ -1061,14 +1065,14 @@ public partial class SemanticModel
             if (earlyMemberInfo.Symbol is { } earlyMemberSymbol)
                 StoreNodeInterestSymbolDescriptor(node, earlyMemberSymbol);
 
-            _symbolMappings[node] = earlyMemberInfo;
+            StoreSymbolMapping(node, earlyMemberInfo);
             return earlyMemberInfo;
         }
 
         if (TryGetNodeInterestSymbolInfo(node, out var nodeInterestInfo))
         {
             nodeInterestInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, nodeInterestInfo);
-            _symbolMappings[node] = nodeInterestInfo;
+            StoreSymbolMapping(node, nodeInterestInfo);
             return nodeInterestInfo;
         }
 
@@ -1081,7 +1085,7 @@ public partial class SemanticModel
             if (postDeclarationAvailableSymbolInfo.Symbol is { } postDeclarationAvailableSymbol)
                 StoreNodeInterestSymbolDescriptor(node, postDeclarationAvailableSymbol);
 
-            _symbolMappings[node] = postDeclarationAvailableSymbolInfo;
+            StoreSymbolMapping(node, postDeclarationAvailableSymbolInfo);
             return postDeclarationAvailableSymbolInfo;
         }
 
@@ -1447,7 +1451,7 @@ public partial class SemanticModel
         if (info.Symbol is { } resolvedSymbol)
             StoreNodeInterestSymbolDescriptor(node, resolvedSymbol);
 
-        _symbolMappings[node] = info;
+        StoreSymbolMapping(node, info);
         return info;
     }
 
@@ -1948,7 +1952,7 @@ public partial class SemanticModel
 
     internal bool TryGetCachedSymbolInfo(SyntaxNode node, out SymbolInfo info)
     {
-        if (_symbolMappings.TryGetValue(node, out info) && HasSymbolInfo(info))
+        if (TryGetSymbolMapping(node, out info) && HasSymbolInfo(info))
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoCacheHit();
             return true;
@@ -1964,7 +1968,7 @@ public partial class SemanticModel
             {
                 if (TryGetCachedSymbolInfo(invocation, out info))
                 {
-                    _symbolMappings[node] = info;
+                    StoreSymbolMapping(node, info);
                     return true;
                 }
             }
@@ -1977,13 +1981,13 @@ public partial class SemanticModel
                         IsSameSyntaxNode(memberInvocation.Expression, memberAccess) &&
                         TryGetCachedSymbolInfo(memberInvocation, out info))
                     {
-                        _symbolMappings[node] = info;
+                        StoreSymbolMapping(node, info);
                         return true;
                     }
 
                     if (TryGetCachedSymbolInfo(memberAccess, out info))
                     {
-                        _symbolMappings[node] = info;
+                        StoreSymbolMapping(node, info);
                         return true;
                     }
                 }
@@ -1994,7 +1998,7 @@ public partial class SemanticModel
                     if (HasSymbolInfo(info))
                     {
                         info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
-                        _symbolMappings[node] = info;
+                        StoreSymbolMapping(node, info);
                         return true;
                     }
                 }
@@ -2004,13 +2008,63 @@ public partial class SemanticModel
                 IsSameSyntaxNode(memberBinding.Name, identifier) &&
                 TryGetCachedSymbolInfo(memberBinding, out info))
             {
-                _symbolMappings[node] = info;
+                StoreSymbolMapping(node, info);
                 return true;
             }
         }
 
         info = default;
         return false;
+    }
+
+    private bool TryGetSymbolMapping(SyntaxNode node, out SymbolInfo info)
+    {
+        if (_isCollectingDiagnostics && _nonReportingSymbolMappings.ContainsKey(node))
+        {
+            info = default;
+            return false;
+        }
+
+        return _symbolMappings.TryGetValue(node, out info);
+    }
+
+    private bool TryGetCachedTypeInfo(SyntaxNode node, out TypeInfo info)
+    {
+        if (_isCollectingDiagnostics && _nonReportingTypeMappings.ContainsKey(node))
+        {
+            info = default;
+            return false;
+        }
+
+        return _typeMappings.TryGetValue(node, out info);
+    }
+
+    private void StoreSymbolMapping(SyntaxNode node, SymbolInfo info, bool nonReporting = false)
+    {
+        _symbolMappings[node] = info;
+        UpdateNonReportingSymbolMapping(node, nonReporting || !IsCollectingDiagnostics);
+    }
+
+    private void StoreTypeMapping(SyntaxNode node, TypeInfo info, bool nonReporting = false)
+    {
+        _typeMappings[node] = info;
+        UpdateNonReportingTypeMapping(node, nonReporting || !IsCollectingDiagnostics);
+    }
+
+    private void UpdateNonReportingSymbolMapping(SyntaxNode node, bool isNonReporting)
+    {
+        if (isNonReporting)
+            _nonReportingSymbolMappings[node] = 0;
+        else
+            _nonReportingSymbolMappings.TryRemove(node, out _);
+    }
+
+    private void UpdateNonReportingTypeMapping(SyntaxNode node, bool isNonReporting)
+    {
+        if (isNonReporting)
+            _nonReportingTypeMappings[node] = 0;
+        else
+            _nonReportingTypeMappings.TryRemove(node, out _);
     }
 
     /// <summary>
@@ -2022,7 +2076,7 @@ public partial class SemanticModel
         if (node is MemberBindingExpressionSyntax memberBinding &&
             TryGetMemberBindingTargetMemberSymbolInfo(memberBinding, out info))
         {
-            _symbolMappings[node] = info;
+            StoreSymbolMapping(node, info);
             return true;
         }
 
@@ -2038,7 +2092,7 @@ public partial class SemanticModel
         if (node is IdentifierNameSyntax forTargetReference &&
             TryGetAvailableForTargetSymbolInfo(forTargetReference, out info))
         {
-            _symbolMappings[node] = info;
+            StoreSymbolMapping(node, info);
             if (info.Symbol is { } forTargetSymbol)
                 StoreNodeInterestSymbolDescriptor(node, forTargetSymbol);
             return true;
@@ -2048,7 +2102,7 @@ public partial class SemanticModel
             TryLookupVisibleValueSymbol(identifier) is { } visibleSymbol)
         {
             info = new SymbolInfo(visibleSymbol);
-            _symbolMappings[node] = info;
+            StoreSymbolMapping(node, info);
             StoreNodeInterestSymbolDescriptor(node, visibleSymbol);
             return true;
         }
@@ -2057,7 +2111,7 @@ public partial class SemanticModel
             TryResolveAvailableLocalReferenceFromSyntax(syntaxScopedIdentifier, out var syntaxScopedLocal))
         {
             info = new SymbolInfo(syntaxScopedLocal);
-            _symbolMappings[node] = info;
+            StoreSymbolMapping(node, info);
             StoreNodeInterestSymbolDescriptor(node, syntaxScopedLocal);
             return true;
         }
@@ -2067,7 +2121,7 @@ public partial class SemanticModel
             aliasSymbol is not null)
         {
             info = new SymbolInfo(aliasSymbol);
-            _symbolMappings[node] = info;
+            StoreSymbolMapping(node, info);
             StoreNodeInterestSymbolDescriptor(node, aliasSymbol);
             return true;
         }
@@ -2078,7 +2132,7 @@ public partial class SemanticModel
             namedType is not null)
         {
             info = new SymbolInfo(namedType);
-            _symbolMappings[node] = info;
+            StoreSymbolMapping(node, info);
             StoreNodeInterestSymbolDescriptor(node, namedType);
             return true;
         }
@@ -2136,7 +2190,7 @@ public partial class SemanticModel
             }
 
             info = new SymbolInfo(parameterSymbol);
-            _symbolMappings[identifier] = info;
+            StoreSymbolMapping(identifier, info);
             StoreNodeInterestSymbolDescriptor(identifier, parameterSymbol);
             return true;
         }
@@ -2163,7 +2217,7 @@ public partial class SemanticModel
                 return false;
 
             info = new SymbolInfo(parameterSymbol);
-            _symbolMappings[identifier] = info;
+            StoreSymbolMapping(identifier, info);
             StoreNodeInterestSymbolDescriptor(identifier, parameterSymbol);
             return true;
         }
@@ -2878,19 +2932,19 @@ public partial class SemanticModel
 
     private void CacheInvocationTargetSymbolInfo(InvocationExpressionSyntax invocation, SymbolInfo info)
     {
-        _symbolMappings[invocation] = info;
-        _symbolMappings[invocation.Expression] = info;
+        StoreSymbolMapping(invocation, info);
+        StoreSymbolMapping(invocation.Expression, info);
 
         switch (invocation.Expression)
         {
             case SimpleNameSyntax simpleName:
-                _symbolMappings[simpleName] = info;
+                StoreSymbolMapping(simpleName, info);
                 break;
             case MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName }:
-                _symbolMappings[memberName] = info;
+                StoreSymbolMapping(memberName, info);
                 break;
             case MemberBindingExpressionSyntax { Name: SimpleNameSyntax memberName }:
-                _symbolMappings[memberName] = info;
+                StoreSymbolMapping(memberName, info);
                 break;
         }
     }
@@ -3452,7 +3506,7 @@ public partial class SemanticModel
 
     private ITypeSymbol? TryGetCachedReceiverType(ExpressionSyntax receiver)
     {
-        if (_typeMappings.TryGetValue(receiver, out var receiverTypeInfo) &&
+        if (TryGetCachedTypeInfo(receiver, out var receiverTypeInfo) &&
             HasTypeInfo(receiverTypeInfo))
         {
             var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
@@ -4136,9 +4190,9 @@ public partial class SemanticModel
             if (!staticMembers.IsDefaultOrEmpty)
             {
                 info = CreateAvailableMemberAccessSymbolInfo(node, staticMembers);
-                _symbolMappings[node] = info;
+                StoreSymbolMapping(node, info);
                 if (!ReferenceEquals(node, memberAccess))
-                    _symbolMappings[memberAccess] = info;
+                    StoreSymbolMapping(memberAccess, info);
 
                 if (info.Symbol is { } staticMember)
                     StoreNodeInterestSymbolDescriptor(node, staticMember);
@@ -4161,9 +4215,9 @@ public partial class SemanticModel
         }
 
         info = CreateAvailableMemberAccessSymbolInfo(node, members);
-        _symbolMappings[node] = info;
+        StoreSymbolMapping(node, info);
         if (!ReferenceEquals(node, memberAccess))
-            _symbolMappings[memberAccess] = info;
+            StoreSymbolMapping(memberAccess, info);
 
         if (info.Symbol is { } member)
             StoreNodeInterestSymbolDescriptor(node, member);
@@ -4284,7 +4338,7 @@ public partial class SemanticModel
     /// </summary>
     internal bool TryGetAvailableTypeInfo(ExpressionSyntax expression, out TypeInfo typeInfo)
     {
-        if (_typeMappings.TryGetValue(expression, out typeInfo) &&
+        if (TryGetCachedTypeInfo(expression, out typeInfo) &&
             HasNonErrorTypeInfo(typeInfo))
         {
             if (TryGetContextualArgumentConvertedType(expression, typeInfo.Type, out var contextualConvertedType) &&
@@ -4294,7 +4348,7 @@ public partial class SemanticModel
                     typeInfo.Type,
                     contextualConvertedType,
                     ComputeConversion(typeInfo.Type, contextualConvertedType));
-                _typeMappings[expression] = typeInfo;
+                StoreTypeMapping(expression, typeInfo);
             }
 
             return true;
@@ -4313,7 +4367,7 @@ public partial class SemanticModel
             }
 
             typeInfo = new TypeInfo(literalType, convertedType, ComputeConversion(literalType, convertedType));
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
@@ -4323,7 +4377,7 @@ public partial class SemanticModel
             awaitType.TypeKind != TypeKind.Error)
         {
             typeInfo = new TypeInfo(awaitType, awaitType, ComputeConversion(awaitType, awaitType));
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
@@ -4333,7 +4387,7 @@ public partial class SemanticModel
             propagateType.TypeKind != TypeKind.Error)
         {
             typeInfo = new TypeInfo(propagateType, propagateType, ComputeConversion(propagateType, propagateType));
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
@@ -4343,14 +4397,14 @@ public partial class SemanticModel
             tryType.TypeKind != TypeKind.Error)
         {
             typeInfo = new TypeInfo(tryType, tryType, ComputeConversion(tryType, tryType));
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
         if (expression is InfixOperatorExpressionSyntax infixExpression &&
             TryGetAvailableInfixExpressionType(infixExpression, out typeInfo))
         {
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
@@ -4363,7 +4417,7 @@ public partial class SemanticModel
                 functionDelegateType,
                 functionDelegateType,
                 ComputeConversion(functionDelegateType, functionDelegateType));
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
@@ -4386,7 +4440,7 @@ public partial class SemanticModel
                 };
 
                 typeInfo = new TypeInfo(type, convertedType, conversion);
-                _typeMappings[expression] = typeInfo;
+                StoreTypeMapping(expression, typeInfo);
                 return true;
             }
         }
@@ -4402,7 +4456,7 @@ public partial class SemanticModel
                     convertedType = contextualConvertedType;
 
                 typeInfo = new TypeInfo(inferredType, convertedType, ComputeConversion(inferredType, convertedType));
-                _typeMappings[expression] = typeInfo;
+                StoreTypeMapping(expression, typeInfo);
                 return true;
             }
 
@@ -4416,7 +4470,7 @@ public partial class SemanticModel
                     convertedType = contextualConvertedType;
 
                 typeInfo = new TypeInfo(selectedReturnType, convertedType, ComputeConversion(selectedReturnType, convertedType));
-                _typeMappings[expression] = typeInfo;
+                StoreTypeMapping(expression, typeInfo);
                 return true;
             }
         }
@@ -4436,7 +4490,7 @@ public partial class SemanticModel
             if (inferredType is not null)
             {
                 typeInfo = new TypeInfo(inferredType, inferredType, ComputeConversion(inferredType, inferredType));
-                _typeMappings[expression] = typeInfo;
+                StoreTypeMapping(expression, typeInfo);
                 return true;
             }
         }
@@ -4445,7 +4499,7 @@ public partial class SemanticModel
             TryGetEnclosingParameterTypeFromSyntax(identifier, out var functionParameterType))
         {
             typeInfo = new TypeInfo(functionParameterType, functionParameterType, ComputeConversion(functionParameterType, functionParameterType));
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
@@ -4454,7 +4508,7 @@ public partial class SemanticModel
             symbolType.TypeKind != TypeKind.Error)
         {
             typeInfo = new TypeInfo(symbolType, symbolType, ComputeConversion(symbolType, symbolType));
-            _typeMappings[expression] = typeInfo;
+            StoreTypeMapping(expression, typeInfo);
             return true;
         }
 
@@ -4908,7 +4962,7 @@ public partial class SemanticModel
     /// </summary>
     internal bool TryGetAvailableTypeInfo(TypeSyntax typeSyntax, out TypeInfo typeInfo)
     {
-        if (_typeMappings.TryGetValue(typeSyntax, out typeInfo) &&
+        if (TryGetCachedTypeInfo(typeSyntax, out typeInfo) &&
             HasNonErrorTypeInfo(typeInfo))
         {
             return true;
@@ -4916,7 +4970,7 @@ public partial class SemanticModel
 
         if (TryGetAvailablePredefinedTypeInfo(typeSyntax, out typeInfo))
         {
-            _typeMappings[typeSyntax] = typeInfo;
+            StoreTypeMapping(typeSyntax, typeInfo);
             return true;
         }
 
@@ -4949,7 +5003,7 @@ public partial class SemanticModel
             if (binderType is not null)
             {
                 typeInfo = new TypeInfo(binderType, binderType, ComputeConversion(binderType, binderType));
-                _typeMappings[typeSyntax] = typeInfo;
+                StoreTypeMapping(typeSyntax, typeInfo);
                 return true;
             }
         }
@@ -4966,7 +5020,7 @@ public partial class SemanticModel
             if (type is not null && type.TypeKind != TypeKind.Error)
             {
                 typeInfo = new TypeInfo(type, type, ComputeConversion(type, type));
-                _typeMappings[typeSyntax] = typeInfo;
+                StoreTypeMapping(typeSyntax, typeInfo);
                 return true;
             }
         }
@@ -4976,7 +5030,7 @@ public partial class SemanticModel
             boundType.TypeKind != TypeKind.Error)
         {
             typeInfo = new TypeInfo(boundType, boundType, ComputeConversion(boundType, boundType));
-            _typeMappings[typeSyntax] = typeInfo;
+            StoreTypeMapping(typeSyntax, typeInfo);
             return true;
         }
 
@@ -5140,7 +5194,7 @@ public partial class SemanticModel
 
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoBoundCacheHit();
         info = ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
-        _symbolMappings[node] = info;
+        StoreSymbolMapping(node, info);
         return true;
     }
 
@@ -6007,7 +6061,7 @@ public partial class SemanticModel
 
     private void StoreSymbolInfo(SyntaxNode node, ISymbol symbol)
     {
-        _symbolMappings[node] = new SymbolInfo(symbol);
+        StoreSymbolMapping(node, new SymbolInfo(symbol));
         StoreNodeInterestSymbolDescriptor(node, symbol);
     }
 
@@ -6400,7 +6454,7 @@ public partial class SemanticModel
         TypeInfo Cache(TypeInfo info)
         {
             if (HasTypeInfo(info))
-                _typeMappings[expr] = info;
+                StoreTypeMapping(expr, info);
 
             return info;
         }
@@ -9218,7 +9272,7 @@ public partial class SemanticModel
         TypeInfo Cache(TypeInfo info)
         {
             if (HasTypeInfo(info))
-                _typeMappings[typeSyntax] = info;
+                StoreTypeMapping(typeSyntax, info);
 
             return info;
         }
@@ -9722,7 +9776,9 @@ public partial class SemanticModel
     private void RemoveCachedSymbolMapping(SyntaxNode node)
     {
         _symbolMappings.TryRemove(node, out _);
+        _nonReportingSymbolMappings.TryRemove(node, out _);
         _typeMappings.TryRemove(node, out _);
+        _nonReportingTypeMappings.TryRemove(node, out _);
     }
 
     private static bool IsLikelyStaleFunctionBodyNode(BoundNode node)

@@ -44,8 +44,7 @@ func Main() -> () {
     Foo()
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var offset = code.LastIndexOf("Foo(", StringComparison.Ordinal) + "Foo(".Length;
         offset.ShouldBeGreaterThan(0);
@@ -97,8 +96,7 @@ class Runner {
     }
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var offset = code.LastIndexOf("Run(", StringComparison.Ordinal) + "Run(".Length;
         offset.ShouldBeGreaterThan(0);
@@ -142,8 +140,7 @@ func Main() -> () {
 
 union Foo(int | string)
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var offset = code.IndexOf("Foo()", StringComparison.Ordinal) + "Foo(".Length;
         offset.ShouldBeGreaterThan(0);
@@ -189,8 +186,7 @@ func Main() -> () {
 
 union Either<T1, T2>(T1 | T2)
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var offset = code.IndexOf("Either<int, string>()", StringComparison.Ordinal) + "Either<int, string>(".Length;
         offset.ShouldBeGreaterThan(0);

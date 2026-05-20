@@ -46,8 +46,7 @@ func Main() -> unit {
     val name = "Raven"
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -104,8 +103,7 @@ func Main() -> unit {
     val answer = 1 + 2
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         using var heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
@@ -147,8 +145,7 @@ func Main() -> unit {
     val answer = 1 + 2
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var request = new InlayHintParams
         {
@@ -204,8 +201,7 @@ func Main() -> unit {
     val second = "two"
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var secondLineStart = code.IndexOf("    val second", StringComparison.Ordinal);
         secondLineStart.ShouldBeGreaterThan(0);
@@ -253,8 +249,7 @@ func Main() -> unit {
 
 {{padding}}
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var answerInsertion = code.IndexOf("answer", StringComparison.Ordinal) + "answer".Length;
 
@@ -316,8 +311,7 @@ func Test(planResult: Result<FulfillmentPlan, FulfillmentError>) -> Result<strin
     return .Ok(plan.Name)
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var result = await handler.Handle(new InlayHintParams
         {
@@ -363,7 +357,7 @@ func Test(planResult: Result<FulfillmentPlan, FulfillmentError>) -> Result<strin
         var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var result = await handler.Handle(new InlayHintParams
@@ -441,8 +435,7 @@ class C {
 
 {{padding}}
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -503,8 +496,7 @@ func Main() -> unit {
 
 {{padding}}
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var valueInsertion = code.IndexOf("value in values", StringComparison.Ordinal) + "value".Length;
         var keyInsertion = code.IndexOf("key, count", StringComparison.Ordinal) + "key".Length;
@@ -567,8 +559,7 @@ func Main() -> unit {
     val answer: int = 1 + 2
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var result = await handler.Handle(new InlayHintParams
@@ -612,8 +603,7 @@ func Main() -> unit {
     }
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var result = await handler.Handle(new InlayHintParams
@@ -677,8 +667,7 @@ func Main() -> unit {
     val result = Consume(value => value + 1)
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var result = await handler.Handle(new InlayHintParams
@@ -744,8 +733,7 @@ Accept(async func (context: RequestContext) {
     return "submitted: $content"
 })
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var result = await handler.Handle(new InlayHintParams
@@ -787,8 +775,7 @@ func Main() -> unit {
     val json = System.Text.Json.Nodes.JsonObject()
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var jsonInsertion = code.IndexOf("json", StringComparison.Ordinal) + "json".Length;
 
@@ -834,8 +821,7 @@ func Main() -> unit {
     val json = JsonObject()
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var jsonInsertion = code.IndexOf("json", StringComparison.Ordinal) + "json".Length;
 
@@ -884,8 +870,7 @@ func Main() -> unit {
 
 {{padding}}
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var jsonInsertion = code.IndexOf("json", StringComparison.Ordinal) + "json".Length;
 
@@ -940,8 +925,7 @@ func Main() -> unit {
 
 {{padding}}
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var entryInsertion = code.IndexOf("entry", StringComparison.Ordinal) + "entry".Length;
 
@@ -999,8 +983,7 @@ func Main() -> unit {
     val json = First.JsonObject()
 }
 """;
-
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var result = await handler.Handle(new InlayHintParams
@@ -1041,7 +1024,7 @@ func Main() -> unit {
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var builderInsertion = code.IndexOf("builder", StringComparison.Ordinal) + "builder".Length;
@@ -1082,7 +1065,7 @@ func Main() -> unit {
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         const string selectPipe = "|> Select(user => user.Name)";
@@ -1123,7 +1106,7 @@ func Main() -> unit {
         var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var result = await handler.Handle(new InlayHintParams
@@ -1174,7 +1157,7 @@ func Main() -> unit {
         var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
-        store.UpsertDocument(uri, code);
+        await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
 
         var nameInsertion = code.IndexOf("(2, name)", StringComparison.Ordinal) + "(2, name".Length;

@@ -61,7 +61,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
-            _documents.UpsertDocument(notification.TextDocument.Uri, notification.TextDocument.Text);
+            await _documents.UpsertDocumentAsync(notification.TextDocument.Uri, notification.TextDocument.Text);
             if (notification.TextDocument.Version is { } openVersion)
                 _documentVersions[notification.TextDocument.Uri] = openVersion;
             LanguageServerPerformanceInstrumentation.RecordDocumentEdit(
@@ -139,7 +139,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
             stageStopwatch.Restart();
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
-            _documents.UpsertDocument(notification.TextDocument.Uri, updatedText, deferMacroConsumerRefresh: true);
+            await _documents.UpsertDocumentAsync(notification.TextDocument.Uri, updatedText, deferMacroConsumerRefresh: true);
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
             updateDocumentMs = stageStopwatch.Elapsed.TotalMilliseconds;

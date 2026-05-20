@@ -6418,7 +6418,7 @@ public partial class SemanticModel
 
         _syntaxCache[selectedBound] = node;
         UpdateNonReportingBoundNodeCache(node, selectedBound, bound, binder);
-        CacheSymbolInfo(node, selectedBound);
+        CacheSymbolInfo(node, selectedBound, binder);
         if (IsDebuggingEnabled && binder is not null)
         {
             _boundNodeCache2.AddOrUpdate(
@@ -6465,7 +6465,7 @@ public partial class SemanticModel
 
         _syntaxCache[selectedBound] = node;
         UpdateNonReportingBoundNodeCache(key, selectedBound, bound, binder);
-        CacheSymbolInfo(node, selectedBound);
+        CacheSymbolInfo(node, selectedBound, binder);
         if (IsDebuggingEnabled && binder is not null)
         {
             _contextualBoundNodeCache2.AddOrUpdate(
@@ -6510,7 +6510,7 @@ public partial class SemanticModel
             _nonReportingContextualBoundNodeCache.TryRemove(key, out _);
     }
 
-    private void CacheSymbolInfo(SyntaxNode node, BoundNode bound)
+    private void CacheSymbolInfo(SyntaxNode node, BoundNode bound, Binder? binder)
     {
         var info = bound switch
         {
@@ -6520,7 +6520,7 @@ public partial class SemanticModel
         };
 
         if (info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty)
-            _symbolMappings[node] = info;
+            StoreSymbolMapping(node, info, binder?.Diagnostics.IsReportingDisabled == true);
     }
 
     private static bool ShouldReplaceCachedBoundNode(BoundNode existing, BoundNode incoming)
@@ -6735,6 +6735,9 @@ public partial class SemanticModel
         }
 
         _symbolMappings.TryRemove(node, out _);
+        _nonReportingSymbolMappings.TryRemove(node, out _);
+        _typeMappings.TryRemove(node, out _);
+        _nonReportingTypeMappings.TryRemove(node, out _);
         _operationCache.TryRemove(node, out _);
         if (node is FunctionExpressionSyntax functionExpression)
         {

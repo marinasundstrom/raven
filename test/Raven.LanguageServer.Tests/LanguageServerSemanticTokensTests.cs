@@ -67,7 +67,7 @@ class Customer(name: string, age: int? = null) {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             var result = await handler.Handle(new SemanticTokensParams
@@ -155,7 +155,7 @@ func Main(value) -> unit {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             var result = await handler.Handle(new SemanticTokensParams
@@ -204,7 +204,7 @@ func Main() -> unit {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             using var heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
@@ -278,7 +278,7 @@ func Main() -> unit {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             var result = await handler.Handle(new SemanticTokensParams
@@ -375,7 +375,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, initialCode);
+            await store.UpsertDocumentAsync(uri, initialCode);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             var initialResult = await handler.Handle(new SemanticTokensRangeParams
@@ -385,8 +385,7 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
             }, CancellationToken.None);
 
             initialResult.ShouldNotBeNull();
-
-            store.UpsertDocument(uri, updatedCode);
+            await store.UpsertDocumentAsync(uri, updatedCode);
 
             var updatedResult = await handler.Handle(new SemanticTokensRangeParams
             {
@@ -507,7 +506,7 @@ func Get() -> (int, string) {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, initialCode);
+            await store.UpsertDocumentAsync(uri, initialCode);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             var initialResult = await handler.Handle(new SemanticTokensParams
@@ -516,8 +515,7 @@ func Get() -> (int, string) {
             }, CancellationToken.None);
 
             initialResult.ShouldNotBeNull();
-
-            store.UpsertDocument(uri, updatedCode);
+            await store.UpsertDocumentAsync(uri, updatedCode);
 
             var updatedResult = await handler.Handle(new SemanticTokensParams
             {
@@ -603,7 +601,7 @@ func InvalidFeedResult(message: string) -> Result<InboundBatch, FulfillmentError
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             var result = await handler.Handle(new SemanticTokensRangeParams
@@ -689,7 +687,7 @@ func Main() -> string {
 
             var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
             var uri = DocumentUri.FromFileSystemPath(documentPath);
-            store.UpsertDocument(uri, code);
+            await store.UpsertDocumentAsync(uri, code);
 
             var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
             var result = await handler.Handle(new SemanticTokensParams

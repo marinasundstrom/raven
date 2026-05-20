@@ -277,7 +277,7 @@ func Main() -> int => #answer()
             var text = await File.ReadAllTextAsync(filePath);
             var offset = text.IndexOf(marker, StringComparison.Ordinal);
             offset.ShouldBeGreaterThanOrEqualTo(0);
-            store.UpsertDocument(uri, text);
+            await store.UpsertDocumentAsync(uri, text);
             var sourceText = Raven.CodeAnalysis.Text.SourceText.From(text);
 
             return await handler.Handle(new DefinitionParams

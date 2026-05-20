@@ -406,8 +406,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         public async Task<ProjectEditMetrics> ApplyEditAndMeasureAsync(SourceText updatedText, bool measureHover = true)
         {
             var before = await CaptureSnapshotAsync();
-
-            _store.UpsertDocument(_mainUri, updatedText, deferMacroConsumerRefresh: true);
+            await _store.UpsertDocumentAsync(_mainUri, updatedText, deferMacroConsumerRefresh: true);
             var hoverSetupBefore = CaptureSetupSnapshot();
             var firstHover = measureHover
                 ? await RunHoverProbeAsync(updatedText)

@@ -20,18 +20,18 @@ internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandle
         _logger = logger;
     }
 
-    public override Task<Unit> Handle(DidChangeWatchedFilesParams request, CancellationToken cancellationToken)
+    public override async Task<Unit> Handle(DidChangeWatchedFilesParams request, CancellationToken cancellationToken)
     {
         try
         {
-            _workspaceManager.ReloadForWatchedFiles(request.Changes);
+            await _workspaceManager.ReloadForWatchedFilesAsync(request.Changes);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process watched file changes.");
         }
 
-        return Unit.Task;
+        return await Unit.Task;
     }
 
     protected override DidChangeWatchedFilesRegistrationOptions CreateRegistrationOptions(DidChangeWatchedFilesCapability capability, ClientCapabilities clientCapabilities)

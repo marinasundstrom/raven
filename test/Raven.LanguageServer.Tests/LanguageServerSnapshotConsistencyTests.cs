@@ -18,8 +18,8 @@ public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
     [Fact]
     public async Task HoverHandler_ClearedDocument_DoesNotReuseStaleStateAsync()
     {
-        var (store, _, uri) = CreateWorkspace("val number = 42");
-        store.UpsertDocument(uri, string.Empty);
+        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
+        await store.UpsertDocumentAsync(uri, string.Empty);
 
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
         var hover = await handler.Handle(new HoverParams
@@ -34,7 +34,7 @@ public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
     [Fact]
     public async Task HoverHandler_UpdatedDocument_DoesNotReuseCachedHoverFromPreviousVersionAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.Console.*
 
 func Main() -> unit {
@@ -52,8 +52,7 @@ func Main() -> unit {
 
         firstHover.ShouldNotBeNull();
         firstHover.Contents.ShouldNotBeNull();
-
-        store.UpsertDocument(uri, """
+        await store.UpsertDocumentAsync(uri, """
 import System.Console.*
 
 func Main() -> unit {
@@ -84,7 +83,7 @@ func Main() -> unit {
     val message = "Hello $name"
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -110,7 +109,7 @@ func Main() -> unit {
     val message = "Hello $name"
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -134,7 +133,7 @@ func Main() -> unit {
     [Fact]
     public async Task HoverHandler_CanceledRequest_ReturnsNullAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.Console.*
 
 func Main() -> unit {
@@ -158,7 +157,7 @@ func Main() -> unit {
     [Fact]
     public async Task HoverHandler_BrokenNearbyCode_StillShowsUnchangedLocalSymbolAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.Console.*
 
 func Main() -> unit {
@@ -187,7 +186,7 @@ func Main() -> unit {
     [Fact]
     public async Task HoverHandler_MalformedEarlierRecord_DoesNotFailLaterHoverAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.Collections.Generic.*
 
 record Foo(
@@ -220,7 +219,7 @@ x.Properties["name"].HasValue
     [Fact]
     public async Task HoverHandler_MalformedRecordBeforeUnion_DoesNotFailTypeHoverAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.*
 import System.Console.*
 
@@ -264,7 +263,7 @@ func Test(element: JsonElement) -> bool {
     return element.ValueKind is JsonValueKind.Array
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -292,7 +291,7 @@ func Test(element: JsonElement) -> bool {
     [Fact]
     public async Task HoverHandler_LocalDeclarationRange_DoesNotCoverPipeInitializerInvocationAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.*
 
 class Runner {
@@ -372,12 +371,11 @@ func Main() -> unit {
 }
 """;
 
-        var (store, _, uri) = CreateWorkspace(initialText);
+        var (store, _, uri) = await CreateWorkspaceAsync(initialText);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         await AssertMemberAccessHoverAsync(store, handler, uri, initialText, expectedLine: 12);
-
-        store.UpsertDocument(uri, updatedText);
+        await store.UpsertDocumentAsync(uri, updatedText);
 
         await AssertMemberAccessHoverAsync(store, handler, uri, updatedText, expectedLine: 13);
     }
@@ -406,16 +404,14 @@ func Main() -> unit {
 """;
         var restoredText = initialText;
 
-        var (store, _, uri) = CreateWorkspace(initialText);
+        var (store, _, uri) = await CreateWorkspaceAsync(initialText);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         await AssertPropertyMemberHoverAsync(store, handler, uri, initialText);
-
-        store.UpsertDocument(uri, withoutPropertyText);
+        await store.UpsertDocumentAsync(uri, withoutPropertyText);
         var missingHover = await GetPropertyMemberHoverAsync(store, handler, uri, withoutPropertyText);
         missingHover?.Contents.MarkupContent?.Value.ShouldNotContain("val Test: string");
-
-        store.UpsertDocument(uri, restoredText);
+        await store.UpsertDocumentAsync(uri, restoredText);
 
         await AssertPropertyMemberHoverAsync(store, handler, uri, restoredText);
     }
@@ -440,12 +436,11 @@ class Runner {
 }
 """;
 
-        var (store, _, uri) = CreateWorkspace(initialText);
+        var (store, _, uri) = await CreateWorkspaceAsync(initialText);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         await AssertLocalHoverAsync(store, handler, uri, initialText, "return result", "result", "val result: int");
-
-        store.UpsertDocument(uri, updatedText);
+        await store.UpsertDocumentAsync(uri, updatedText);
 
         await AssertLocalHoverAsync(store, handler, uri, updatedText, "return renamed", "renamed", "val renamed: int");
     }
@@ -480,10 +475,9 @@ class Runner {
 }
 """;
 
-        var (store, _, uri) = CreateWorkspace(initialText);
+        var (store, _, uri) = await CreateWorkspaceAsync(initialText);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
-
-        store.UpsertDocument(uri, updatedText);
+        await store.UpsertDocumentAsync(uri, updatedText);
 
         await AssertMethodDeclarationHoverAsync(
             store,
@@ -531,12 +525,11 @@ class Runner {
 }
 """;
 
-        var (store, _, uri) = CreateWorkspace(initialText);
+        var (store, _, uri) = await CreateWorkspaceAsync(initialText);
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 
         await AssertPipeWhereHoverAsync(store, handler, uri, initialText, expectedLine: 9);
-
-        store.UpsertDocument(uri, updatedText);
+        await store.UpsertDocumentAsync(uri, updatedText);
 
         await AssertPipeWhereHoverAsync(store, handler, uri, updatedText, expectedLine: 10);
     }
@@ -544,8 +537,8 @@ class Runner {
     [Fact]
     public async Task CompletionHandler_ClearedDocument_ReturnsWithoutOutOfBoundsFailureAsync()
     {
-        var (store, _, uri) = CreateWorkspace("val number = 42");
-        store.UpsertDocument(uri, string.Empty);
+        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
+        await store.UpsertDocumentAsync(uri, string.Empty);
 
         var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
         var completions = await handler.Handle(new CompletionParams
@@ -561,8 +554,8 @@ class Runner {
     [Fact]
     public async Task GetAnalysisContextAsync_ClearedDocument_ReturnsCompilationOwnedSyntaxTreeAsync()
     {
-        var (store, _, uri) = CreateWorkspace("val number = 42");
-        store.UpsertDocument(uri, string.Empty);
+        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
+        await store.UpsertDocumentAsync(uri, string.Empty);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
 
@@ -575,10 +568,9 @@ class Runner {
     [Fact]
     public async Task GetAnalysisContextAsync_RapidSuccessiveUpdates_StaysSnapshotConsistentAsync()
     {
-        var (store, _, uri) = CreateWorkspace("val number = 42");
-
-        store.UpsertDocument(uri, "val number = 100");
-        store.UpsertDocument(uri, """
+        var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
+        await store.UpsertDocumentAsync(uri, "val number = 100");
+        await store.UpsertDocumentAsync(uri, """
 record Payment(amount: int)
 
 val payment = Payment(42)
@@ -595,7 +587,7 @@ val payment = Payment(42)
     [Fact]
     public async Task GetSemanticModelAsync_ReturnsCurrentDocumentSemanticModel_AndInvalidatesOnUpdateAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
     val number = 42
 }
@@ -613,8 +605,7 @@ func Main() -> () {
         ReferenceEquals(firstContext.Value.SyntaxTree, secondContext.Value.SyntaxTree).ShouldBeTrue();
         Should.NotThrow(() => firstModel.GetDiagnostics());
         Should.NotThrow(() => secondModel.GetDiagnostics());
-
-        store.UpsertDocument(uri, """
+        await store.UpsertDocumentAsync(uri, """
 func Main() -> () {
     val value = 100
 }
@@ -633,7 +624,7 @@ func Main() -> () {
     [Fact]
     public async Task GetAnalysisContextAsync_ProjectBackedDocumentFullReplacement_DoesNotRetainStaleGenericScopeDiagnosticsAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.*
 
 func Main() -> () {
@@ -641,8 +632,7 @@ func Main() -> () {
     Console.WriteLine(value)
 }
 """);
-
-        store.UpsertDocument(uri, """
+        await store.UpsertDocumentAsync(uri, """
 import System.*
 import System.Console.*
 
@@ -776,8 +766,7 @@ func Helper() -> () { }
 
         firstContext.ShouldNotBeNull();
         firstModel.ShouldNotBeNull();
-
-        store.UpsertDocument(helperUri, """
+        await store.UpsertDocumentAsync(helperUri, """
 func Helper() -> () {
     val answer = 42
 }
@@ -797,7 +786,7 @@ func Helper() -> () {
     [Fact]
     public async Task WarmAnalysisAsync_UsesCompilerOwnedSemanticModelWhileDocumentSemanticGateIsHeldAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
     val number = 42
 }
@@ -818,7 +807,7 @@ func Main() -> () {
     [Fact]
     public async Task WarmAnalysisAsync_WaitsForCompilerGateInsteadOfSkippingAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
     val number = 42
 }
@@ -840,7 +829,7 @@ func Main() -> () {
     [Fact]
     public async Task HoverHandler_WaitsForDocumentSemanticGateInsteadOfReturningNullAsync()
     {
-        var (store, _, uri) = CreateWorkspace("""
+        var (store, _, uri) = await CreateWorkspaceAsync("""
 import System.Console.*
 
 func Main() -> unit {
@@ -884,7 +873,7 @@ union Status {
     case Active
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -923,7 +912,7 @@ union Status {
     case Active
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -958,7 +947,7 @@ class Runner {
     }
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -993,7 +982,7 @@ class Runner {
     }
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -1026,7 +1015,7 @@ union VehicleStatus {
     case Decommissioned(retiredUtc: DateTimeOffset, reason: string)
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -1069,7 +1058,7 @@ val options = Options()
 val str = Test(foo, options)
 WriteLine(str)
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -1142,7 +1131,7 @@ class Runner {
     }
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -1174,7 +1163,7 @@ class Runner {
     }
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -1206,7 +1195,7 @@ class Runner {
     }
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -1238,7 +1227,7 @@ class Runner {
     }
 }
 """;
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -1311,7 +1300,7 @@ record CustomError(val Message: string)
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(filePath);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -1376,7 +1365,7 @@ record CustomError(val Message: string)
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -1436,7 +1425,7 @@ record CustomError(val Message: string)
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -1496,7 +1485,7 @@ record CustomError(val Message: string)
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -1587,7 +1576,7 @@ record CustomError(val Message: string)
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -1632,7 +1621,7 @@ record CustomError(val Message: string)
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -1733,7 +1722,7 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -1800,10 +1789,9 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, originalText);
+        _ = await store.UpsertDocumentAsync(uri, originalText);
         _ = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
-
-        store.UpsertDocument(uri, updatedText);
+        await store.UpsertDocumentAsync(uri, updatedText);
 
         var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
         diagnostics.Any(diagnostic => string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeFalse();
@@ -1881,7 +1869,7 @@ class C {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        _ = store.UpsertDocument(uri, text);
+        _ = await store.UpsertDocumentAsync(uri, text);
 
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
@@ -2069,7 +2057,7 @@ class C {
         string text,
         params HoverReplayTarget[] targets)
     {
-        var (store, _, uri) = CreateWorkspace(text);
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
         var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
         context.ShouldNotBeNull();
 
@@ -2130,7 +2118,7 @@ class C {
         return new HoverPositionTarget(label, position.Line, position.Character, expectedText);
     }
 
-    private (DocumentStore store, WorkspaceManager manager, DocumentUri uri) CreateWorkspace(string text)
+    private async Task<(DocumentStore store, WorkspaceManager manager, DocumentUri uri)> CreateWorkspaceAsync(string text)
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -2163,7 +2151,7 @@ class C {
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(filePath);
-        store.UpsertDocument(uri, text);
+        await store.UpsertDocumentAsync(uri, text);
         return (store, manager, uri);
     }
 

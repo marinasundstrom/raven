@@ -49,6 +49,12 @@ var model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
     ?? throw new InvalidOperationException($"No semantic model for '{filePath}'.");
 var root = context.SyntaxTree.GetRoot();
 
+if (options.ProjectSequence)
+{
+    await RunProjectSequenceAsync();
+    return;
+}
+
 if (options.RandomHover)
 {
     await RunRandomHoversAsync();
@@ -131,6 +137,143 @@ foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyn
 
     Console.WriteLine(
         $"candidates {name.Identifier.ValueText}: {sw.Elapsed.TotalMilliseconds:F1}ms has={hasCandidates} count={candidates.Length} [{SemanticQueryInstrumentation.FormatDelta(delta)}]");
+}
+
+async Task RunProjectSequenceAsync()
+{
+    var sequenceFiles = options.SequenceFiles.Count > 0
+        ? options.SequenceFiles.Select(ResolveSequenceFile).ToArray()
+        : Directory.Exists(Path.Combine(projectRoot, "src"))
+            ? Directory.GetFiles(Path.Combine(projectRoot, "src"), "*.rvn", SearchOption.AllDirectories)
+                .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+            : Directory.GetFiles(projectRoot, "*.rvn", SearchOption.AllDirectories)
+                .Where(static path =>
+                    !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) &&
+                    !path.Contains($"{Path.DirectorySeparatorChar}tmp-", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+    if (sequenceFiles.Length == 0)
+    {
+        Console.WriteLine($"project-sequence project={projectRoot} files=0");
+        return;
+    }
+
+    var expandedSequence = Enumerable.Range(0, options.SequenceRepeatCount)
+        .SelectMany(_ => sequenceFiles)
+        .Concat(sequenceFiles.Take(1))
+        .ToArray();
+
+    Console.WriteLine(
+        $"project-sequence project={projectRoot} files={sequenceFiles.Length} steps={expandedSequence.Length} repeat={options.SequenceRepeatCount}");
+
+    var openedDocuments = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        Path.GetFullPath(filePath)
+    };
+
+    foreach (var sequenceFile in expandedSequence)
+    {
+        var normalizedSequenceFile = Path.GetFullPath(sequenceFile);
+        var upsertDocument = options.SequenceReopenDocuments || openedDocuments.Add(normalizedSequenceFile);
+        var loadMs = await SwitchDocumentAsync(sequenceFile, upsertDocument);
+        var lineCount = sourceText.GetLineCount();
+
+        var documentDiagnosticsStopwatch = Stopwatch.StartNew();
+        var documentDiagnostics = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            CancellationToken.None);
+        documentDiagnosticsStopwatch.Stop();
+        var errorCount = documentDiagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+
+        Console.WriteLine(
+            $"project-sequence file={Path.GetRelativePath(projectRoot, filePath)} " +
+            $"mode={(upsertDocument ? "open" : "switch")} " +
+            $"load={loadMs:F1}ms documentDiagnostics={documentDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+            $"diagnostics={documentDiagnostics.Diagnostics.Count} errors={errorCount} lines={lineCount}");
+
+        if (options.SequenceInlayProbes)
+        {
+            Console.WriteLine(await RunInlayAsync(new RangeTarget(0, 0, Math.Min(60, Math.Max(0, lineCount - 1)), 0, "visible:0-60")));
+            if (lineCount > 60)
+                Console.WriteLine(await RunInlayAsync(new RangeTarget(60, 0, Math.Min(120, Math.Max(0, lineCount - 1)), 0, "visible:60-120")));
+        }
+
+        foreach (var hoverTarget in SelectSequenceHoverTargets())
+        {
+            var hoverResult = await RunHoverAsync(hoverTarget.Label, hoverTarget.Position);
+            var marker = hoverResult.Exception is not null
+                ? "error"
+                : !hoverResult.HasHover
+                    ? "null"
+                    : hoverResult.ElapsedMs >= options.SlowThresholdMs
+                        ? "slow"
+                        : "ok";
+            Console.WriteLine($"{marker} {FormatHoverResult(hoverResult)}");
+        }
+    }
+
+    string ResolveSequenceFile(string path)
+    {
+        if (Path.IsPathFullyQualified(path))
+            return path;
+
+        var projectRelative = Path.Combine(projectRoot, path);
+        if (File.Exists(projectRelative))
+            return projectRelative;
+
+        return Path.GetFullPath(path);
+    }
+}
+
+async Task<double> SwitchDocumentAsync(string nextFilePath, bool upsertDocument = true)
+{
+    var stopwatch = Stopwatch.StartNew();
+    filePath = Path.GetFullPath(nextFilePath);
+    text = File.ReadAllText(filePath);
+    uri = DocumentUri.FromFileSystemPath(filePath);
+    if (upsertDocument)
+        _ = store.UpsertDocument(uri, text);
+    context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No analysis context for '{filePath}'.");
+    sourceText = context.SourceText;
+    model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No semantic model for '{filePath}'.");
+    root = context.SyntaxTree.GetRoot();
+    stopwatch.Stop();
+    return stopwatch.Elapsed.TotalMilliseconds;
+}
+
+IReadOnlyList<(string Label, Position Position)> SelectSequenceHoverTargets()
+{
+    var targets = new List<(string Label, Position Position)>();
+    var seen = new HashSet<string>(StringComparer.Ordinal);
+
+    foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+    {
+        if (targets.Count >= options.SequenceHoverCount)
+            break;
+
+        var name = invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax { Name: SimpleNameSyntax memberName } => memberName,
+            SimpleNameSyntax simpleName => simpleName,
+            _ => null
+        };
+
+        if (name is null || !seen.Add(name.Identifier.ValueText))
+            continue;
+
+        var position = PositionHelper.ToRange(
+            sourceText,
+            new TextSpan(name.Identifier.SpanStart + Math.Min(3, name.Identifier.ValueText.Length), 0)).Start;
+        targets.Add((name.Identifier.ValueText, position));
+    }
+
+    return targets;
 }
 
 async Task RunRandomHoversAsync()
@@ -596,6 +739,12 @@ static HeadlessOptions ParseOptions(string[] args)
     var editHoverTargets = new List<string>();
     RangeTarget? inlayRange = null;
     var inlayRepeatCount = 1;
+    var projectSequence = false;
+    var sequenceFiles = new List<string>();
+    var sequenceRepeatCount = 1;
+    var sequenceInlayProbes = true;
+    var sequenceHoverCount = 5;
+    var sequenceReopenDocuments = false;
 
     for (var i = 0; i < args.Length; i++)
     {
@@ -640,6 +789,28 @@ static HeadlessOptions ParseOptions(string[] args)
                 inlayRepeatCount = Math.Max(1, parsedInlayRepeatCount);
                 i++;
                 break;
+            case "--project-sequence":
+                projectSequence = true;
+                break;
+            case "--sequence-file" when i + 1 < args.Length:
+                projectSequence = true;
+                sequenceFiles.Add(args[i + 1]);
+                i++;
+                break;
+            case "--sequence-repeat" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedSequenceRepeatCount):
+                sequenceRepeatCount = Math.Max(1, parsedSequenceRepeatCount);
+                i++;
+                break;
+            case "--sequence-hover-count" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedSequenceHoverCount):
+                sequenceHoverCount = Math.Max(0, parsedSequenceHoverCount);
+                i++;
+                break;
+            case "--no-sequence-inlays":
+                sequenceInlayProbes = false;
+                break;
+            case "--sequence-reopen":
+                sequenceReopenDocuments = true;
+                break;
             case "--edit-replace" when i + 2 < args.Length:
                 editReplacements.Add(new EditReplacement(args[i + 1], args[i + 2]));
                 i += 2;
@@ -667,7 +838,13 @@ static HeadlessOptions ParseOptions(string[] args)
         editReplacements,
         editHoverTargets,
         inlayRange,
-        inlayRepeatCount);
+        inlayRepeatCount,
+        projectSequence,
+        sequenceFiles,
+        sequenceRepeatCount,
+        sequenceInlayProbes,
+        sequenceHoverCount,
+        sequenceReopenDocuments);
 }
 
 static bool TryParsePosition(string text, out PositionTarget position)
@@ -749,7 +926,13 @@ internal sealed record HeadlessOptions(
     IReadOnlyList<EditReplacement> EditReplacements,
     IReadOnlyList<string> EditHoverTargets,
     RangeTarget? InlayRange,
-    int InlayRepeatCount);
+    int InlayRepeatCount,
+    bool ProjectSequence,
+    IReadOnlyList<string> SequenceFiles,
+    int SequenceRepeatCount,
+    bool SequenceInlayProbes,
+    int SequenceHoverCount,
+    bool SequenceReopenDocuments);
 
 internal readonly record struct EditReplacement(
     string OldText,
