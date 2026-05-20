@@ -628,7 +628,7 @@ async Task<string> RunInlayAsync(RangeTarget range)
     sw.Stop();
     var after = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
     var delta = SemanticQueryInstrumentation.Subtract(after, before);
-    var hints = result.ToArray();
+    var hints = result?.ToArray() ?? [];
     var tooltipCount = hints.Count(static hint => hint.Tooltip is not null);
     var preview = string.Join(
         "; ",

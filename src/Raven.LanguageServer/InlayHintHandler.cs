@@ -73,7 +73,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return node.FullSpan.IntersectsWith(span);
     }
 
-    public async Task<InlayHintContainer> Handle(InlayHintParams request, CancellationToken cancellationToken)
+    public async Task<InlayHintContainer?> Handle(InlayHintParams request, CancellationToken cancellationToken)
     {
         var requestState = BeginRequest(request.TextDocument.Uri, cancellationToken);
         var effectiveCancellationToken = requestState.Token;
@@ -902,6 +902,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return;
 
         if (!TryGetInferredReturnType(semanticModel, body, isAsync, out var inferredReturnType) ||
+            inferredReturnType is null ||
             !TryFormatType(semanticModel, declaration, inferredReturnType, out var typeDisplay))
         {
             return;
@@ -949,6 +950,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return;
 
         if (!TryGetFunctionExpressionReturnType(semanticModel, functionExpression, out var returnType) ||
+            returnType is null ||
             !TryFormatType(semanticModel, functionExpression, returnType, out var typeDisplay))
         {
             return;
@@ -994,7 +996,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return new InlayHint
         {
             Position = range.Start,
-            Label = text,
+            Label = new StringOrInlayHintLabelParts(text),
             Kind = InlayHintKind.Type,
             Tooltip = includeTooltip ? CreateTooltip(type, semanticModel, root, contextNode, insertionPosition, text) : null,
             PaddingLeft = false,
@@ -1016,7 +1018,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return new InlayHint
         {
             Position = range.Start,
-            Label = text,
+            Label = new StringOrInlayHintLabelParts(text),
             Kind = InlayHintKind.Type,
             PaddingLeft = true,
             PaddingRight = false
