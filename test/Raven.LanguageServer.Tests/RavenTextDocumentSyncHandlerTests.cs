@@ -75,7 +75,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetSaveDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredDocumentDiagnosticsWithoutWarmup()
+    public void GetSaveDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredAnalyzerDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetSaveDiagnosticsPolicy();
 
@@ -84,12 +84,12 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
         policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
         policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
-        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void GetOpenDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredDocumentDiagnosticsWithoutWarmup()
+    public void GetOpenDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredAnalyzerDiagnosticsWithoutWarmup()
     {
         var policy = RavenTextDocumentSyncHandler.GetOpenDiagnosticsPolicy();
 
@@ -98,12 +98,12 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
         policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
         policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeLessThanOrEqualTo(750);
-        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredDocumentDiagnosticsWhileTyping()
+    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredAnalyzerDiagnosticsWhileTyping()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
@@ -112,12 +112,12 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
         policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
         policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(0);
-        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void ActiveEditorDiagnosticsPolicies_DoNotScheduleProjectOrAnalyzerLanes()
+    public void ActiveEditorDiagnosticsPolicies_UseSyntaxFirstThenAnalyzerFollowUp()
     {
         var policies = new[]
         {
@@ -130,8 +130,12 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         {
             policy.InitialMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectCompiler);
             policy.InitialMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
-            policy.FollowUpMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectCompiler);
-            policy.FollowUpMode.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
+            policy.FollowUpMode.ShouldNotBeNull();
+            new[]
+            {
+                DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
+                DocumentStore.DiagnosticLane.DocumentWithAnalyzers
+            }.Contains(policy.FollowUpMode.Value).ShouldBeTrue();
         }
     }
 
@@ -331,6 +335,11 @@ func Main() -> unit {
     [InlineData(3, 2, "publishProjectCompilerDiagnosticsUnchanged")]
     [InlineData(3, 3, "publishProjectCompilerDiagnosticsVersionMismatch")]
     [InlineData(3, 4, "publishProjectCompilerDiagnosticsAlreadyCompleted")]
+    [InlineData(4, 0, "publishDocumentWithAnalyzersDiagnostics")]
+    [InlineData(4, 1, "publishDocumentWithAnalyzersDiagnosticsSkipped")]
+    [InlineData(4, 2, "publishDocumentWithAnalyzersDiagnosticsUnchanged")]
+    [InlineData(4, 3, "publishDocumentWithAnalyzersDiagnosticsVersionMismatch")]
+    [InlineData(4, 4, "publishDocumentWithAnalyzersDiagnosticsAlreadyCompleted")]
     public void GetPublishDiagnosticsOperationName_UsesOutcomeSpecificNames(
         int modeValue,
         int outcomeValue,

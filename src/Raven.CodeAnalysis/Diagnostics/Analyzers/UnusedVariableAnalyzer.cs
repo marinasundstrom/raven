@@ -9,6 +9,7 @@ namespace Raven.CodeAnalysis.Diagnostics;
 public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 {
     public const string DiagnosticId = "RAV9027";
+    public const string UnusedParameterDiagnosticId = "RAV9030";
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
@@ -19,12 +20,26 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
 
+    private static readonly DiagnosticDescriptor ParameterDescriptor = DiagnosticDescriptor.Create(
+        id: UnusedParameterDiagnosticId,
+        title: "Parameter is never used",
+        description: null,
+        helpLinkUri: string.Empty,
+        messageFormat: "Parameter '{0}' is never used.",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Warning);
+
     public override void Initialize(AnalysisContext context)
     {
         context.RegisterSyntaxNodeAction(
             AnalyzeBodyOwner,
             SyntaxKind.MethodDeclaration,
-            SyntaxKind.FunctionStatement);
+            SyntaxKind.FunctionStatement,
+            SyntaxKind.ConstructorDeclaration,
+            SyntaxKind.OperatorDeclaration,
+            SyntaxKind.ConversionOperatorDeclaration,
+            SyntaxKind.SimpleFunctionExpression,
+            SyntaxKind.ParenthesizedFunctionExpression);
         context.RegisterSyntaxNodeAction(
             AnalyzeCompilationUnit,
             SyntaxKind.CompilationUnit);
@@ -39,6 +54,8 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         {
             MethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody?.Expression,
             FunctionStatementSyntax f => (SyntaxNode?)f.Body ?? f.ExpressionBody?.Expression,
+            BaseMethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody?.Expression,
+            FunctionExpressionSyntax f => (SyntaxNode?)f.Body ?? f.ExpressionBody?.Expression,
             _ => null
         };
 
@@ -46,8 +63,9 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             return;
 
         var collector = new CandidateCollector(context.SemanticModel);
+        collector.CollectParameters(context.Node);
         collector.Visit(body);
-        ReportDiagnostics(context, collector.GetCandidates(), GetUsedLocals(context.SemanticModel, body));
+        ReportDiagnostics(context, collector.GetCandidates(), GetUsedSymbols(context.SemanticModel, body));
     }
 
     private static void AnalyzeCompilationUnit(SyntaxNodeAnalysisContext context)
@@ -59,32 +77,32 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             return;
 
         var collector = new CandidateCollector(context.SemanticModel);
-        var usedLocals = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var usedSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
         foreach (var member in compilationUnit.Members.OfType<GlobalStatementSyntax>())
         {
             collector.Visit(member.Statement);
-            UnionWith(usedLocals, GetUsedLocals(context.SemanticModel, member.Statement));
+            UnionWith(usedSymbols, GetUsedSymbols(context.SemanticModel, member.Statement));
         }
 
-        ReportDiagnostics(context, collector.GetCandidates(), usedLocals);
+        ReportDiagnostics(context, collector.GetCandidates(), usedSymbols);
     }
 
     private static void ReportDiagnostics(
         SyntaxNodeAnalysisContext context,
         IEnumerable<Candidate> candidates,
-        HashSet<ISymbol> usedLocals)
+        HashSet<ISymbol> usedSymbols)
     {
         foreach (var candidate in candidates)
         {
-            if (usedLocals.Contains(candidate.Symbol) ||
+            if (usedSymbols.Contains(candidate.Symbol) ||
                 context.SemanticModel.IsCapturedVariable(candidate.Symbol))
             {
                 continue;
             }
 
             context.ReportDiagnostic(Diagnostic.Create(
-                Descriptor,
+                candidate.Descriptor,
                 candidate.Location,
                 candidate.Name));
         }
@@ -92,16 +110,18 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
     private readonly struct Candidate
     {
-        public Candidate(ISymbol symbol, string name, Location location)
+        public Candidate(ISymbol symbol, string name, Location location, DiagnosticDescriptor descriptor)
         {
             Symbol = symbol;
             Name = name;
             Location = location;
+            Descriptor = descriptor;
         }
 
         public ISymbol Symbol { get; }
         public string Name { get; }
         public Location Location { get; }
+        public DiagnosticDescriptor Descriptor { get; }
     }
 
     private sealed class CandidateCollector : SyntaxWalker
@@ -116,6 +136,21 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         }
 
         public IEnumerable<Candidate> GetCandidates() => _candidates.Values;
+
+        public void CollectParameters(SyntaxNode node)
+        {
+            IEnumerable<ParameterSyntax> parameters = node switch
+            {
+                BaseMethodDeclarationSyntax method => method.ParameterList.Parameters,
+                FunctionStatementSyntax function => function.ParameterList.Parameters,
+                SimpleFunctionExpressionSyntax function => [function.Parameter],
+                ParenthesizedFunctionExpressionSyntax function => function.ParameterList.Parameters,
+                _ => []
+            };
+
+            foreach (var parameter in parameters)
+                CollectParameter(parameter);
+        }
 
         public override void DefaultVisit(SyntaxNode node)
         {
@@ -153,7 +188,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                     if (string.IsNullOrEmpty(local.Name) || local.Name == "_")
                         continue;
 
-                    _candidates[local.UnderlyingSymbol] = new Candidate(local.UnderlyingSymbol, local.Name, declarator.Identifier.GetLocation());
+                    _candidates[local.UnderlyingSymbol] = new Candidate(local.UnderlyingSymbol, local.Name, declarator.Identifier.GetLocation(), Descriptor);
                 }
             }
 
@@ -167,10 +202,25 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 !string.IsNullOrEmpty(local.Name) &&
                 local.Name != "_")
             {
-                _candidates[local.UnderlyingSymbol] = new Candidate(local.UnderlyingSymbol, local.Name, node.Identifier.GetLocation());
+                _candidates[local.UnderlyingSymbol] = new Candidate(local.UnderlyingSymbol, local.Name, node.Identifier.GetLocation(), Descriptor);
             }
 
             base.VisitSingleVariableDesignation(node);
+        }
+
+        private void CollectParameter(ParameterSyntax parameter)
+        {
+            if (_semanticModel.GetDeclaredSymbol(parameter) is not IParameterSymbol parameterSymbol)
+                return;
+
+            if (string.IsNullOrEmpty(parameterSymbol.Name) || parameterSymbol.Name == "_")
+                return;
+
+            _candidates[parameterSymbol.UnderlyingSymbol] = new Candidate(
+                parameterSymbol.UnderlyingSymbol,
+                parameterSymbol.Name,
+                parameter.Identifier.GetLocation(),
+                ParameterDescriptor);
         }
 
         private bool IsInClosure => _closureDepth > 0;
@@ -186,11 +236,11 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static HashSet<ISymbol> GetUsedLocals(SemanticModel semanticModel, SyntaxNode body)
+    private static HashSet<ISymbol> GetUsedSymbols(SemanticModel semanticModel, SyntaxNode body)
     {
         var collector = new UsageCollector(semanticModel);
         collector.Visit(body);
-        return collector.GetUsedLocals();
+        return collector.GetUsedSymbols();
     }
 
     private static void UnionWith(HashSet<ISymbol> target, IEnumerable<ISymbol> source)
@@ -202,14 +252,14 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
     private sealed class UsageCollector : SyntaxWalker
     {
         private readonly SemanticModel _semanticModel;
-        private readonly HashSet<ISymbol> _usedLocals = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
 
         public UsageCollector(SemanticModel semanticModel)
         {
             _semanticModel = semanticModel;
         }
 
-        public HashSet<ISymbol> GetUsedLocals() => _usedLocals;
+        public HashSet<ISymbol> GetUsedSymbols() => _usedSymbols;
 
         public override void DefaultVisit(SyntaxNode node)
         {
@@ -254,29 +304,40 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             if (IsWriteTarget(node))
                 return;
 
-            if (_semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol is ILocalSymbol local &&
-                !string.IsNullOrEmpty(local.Name))
-            {
-                _usedLocals.Add(local.UnderlyingSymbol);
-                return;
-            }
-
-            if (node is IdentifierNameSyntax visibleIdentifier &&
-                CanReferenceLocal(visibleIdentifier) &&
-                _semanticModel.TryLookupVisibleValueSymbol(visibleIdentifier) is ILocalSymbol visibleLocal &&
-                !string.IsNullOrEmpty(visibleLocal.Name))
-            {
-                _usedLocals.Add(visibleLocal.UnderlyingSymbol);
-                return;
-            }
-
             if (node is IdentifierNameSyntax identifier &&
-                CanReferenceLocal(identifier) &&
-                _semanticModel.GetBinder(identifier).LookupSymbol(identifier.Identifier.ValueText) is ILocalSymbol lookedUpLocal &&
-                !string.IsNullOrEmpty(lookedUpLocal.Name))
+                CanReferenceLocal(identifier))
             {
-                _usedLocals.Add(lookedUpLocal.UnderlyingSymbol);
+                if (_semanticModel.TryLookupVisibleValueSymbol(identifier) is { } visibleSymbol &&
+                    TryGetLocalOrParameter(visibleSymbol, out var visibleUsedSymbol))
+                {
+                    _usedSymbols.Add(visibleUsedSymbol.UnderlyingSymbol);
+                    return;
+                }
+
+                if (_semanticModel.GetBinder(identifier).LookupSymbol(identifier.Identifier.ValueText) is { } lookedUpSymbol &&
+                    TryGetLocalOrParameter(lookedUpSymbol, out var lookedUpUsedSymbol))
+                {
+                    _usedSymbols.Add(lookedUpUsedSymbol.UnderlyingSymbol);
+                    return;
+                }
             }
+
+            if (_semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol is { } symbol &&
+                TryGetLocalOrParameter(symbol, out var usedSymbol))
+            {
+                _usedSymbols.Add(usedSymbol.UnderlyingSymbol);
+            }
+        }
+
+        private static bool TryGetLocalOrParameter(ISymbol symbol, out ISymbol usedSymbol)
+        {
+            usedSymbol = symbol.UnderlyingSymbol;
+            return usedSymbol switch
+            {
+                ILocalSymbol local => !string.IsNullOrEmpty(local.Name),
+                IParameterSymbol parameter => !string.IsNullOrEmpty(parameter.Name),
+                _ => false
+            };
         }
 
         private static bool IsWriteTarget(SyntaxNode node)

@@ -25,7 +25,7 @@ func RunExistingPatternExamples() {
 
     PrintSection("Tuple and nominal deconstruction")
     Tuple()
-    Person()
+    Person1()
     Person2()
 
     val arr = [3, 9, 10, 3, 2]
@@ -173,7 +173,7 @@ func Tuple() {
     WriteLine("Tuple deconstruction -> id = $id, name = $name")
 }
 
-func Person() {
+func Person1() {
     val person = Person(1, "John Doe", 20)
     val (id, name, _) = person
 

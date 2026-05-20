@@ -19,6 +19,10 @@ public abstract class DiagnosticAnalyzer
 
     /// <summary>Runs the analyzer for the specified compilation.</summary>
     public IEnumerable<Diagnostic> Analyze(Compilation compilation, CancellationToken cancellationToken = default)
+        => Analyze(compilation, syntaxTree: null, cancellationToken);
+
+    /// <summary>Runs the analyzer for the specified syntax tree in the compilation.</summary>
+    public IEnumerable<Diagnostic> Analyze(Compilation compilation, SyntaxTree? syntaxTree, CancellationToken cancellationToken = default)
     {
         if (!_initialized)
         {
@@ -38,7 +42,11 @@ public abstract class DiagnosticAnalyzer
         }
 
         var diagnostics = new List<Diagnostic>();
-        foreach (var tree in compilation.SyntaxTrees)
+        var syntaxTrees = syntaxTree is null
+            ? compilation.SyntaxTrees
+            : [syntaxTree];
+
+        foreach (var tree in syntaxTrees)
         {
             var treeContext = new SyntaxTreeAnalysisContext(tree, compilation, diagnostics.Add, cancellationToken);
             foreach (var action in _syntaxTreeActions)

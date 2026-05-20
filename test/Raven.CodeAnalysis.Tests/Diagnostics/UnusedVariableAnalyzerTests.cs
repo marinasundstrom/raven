@@ -44,6 +44,91 @@ class C {
     }
 
     [Fact]
+    public void UnusedMethodParameter_ReportsDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(value: int) -> unit {
+    }
+}
+""";
+
+        var diagnostics = AnalyzeParameters(code);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("value", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
+    }
+
+    [Fact]
+    public void ReadMethodParameter_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(value: int) -> int {
+        value
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
+    public void CapturedMethodParameter_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(value: int) -> int {
+        val read = func () => value
+        read()
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
+    public void UnusedFunctionStatementParameter_ReportsDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> unit {
+        func Local(value: int) -> unit {
+        }
+
+        Local(1)
+    }
+}
+""";
+
+        var diagnostics = AnalyzeParameters(code);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("value", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
+    }
+
+    [Fact]
+    public void UnusedFunctionExpressionParameter_ReportsDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> unit {
+        val callback = func (value: int) -> unit {
+        }
+
+        callback(1)
+    }
+}
+""";
+
+        var diagnostics = AnalyzeParameters(code);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("value", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
+    }
+
+    [Fact]
     public void CapturedLocal_DoesNotReportDiagnostic()
     {
         const string code = """
@@ -279,6 +364,12 @@ class C {
     }
 
     private static Diagnostic[] Analyze(string code)
+        => Analyze(code, UnusedVariableAnalyzer.DiagnosticId);
+
+    private static Diagnostic[] AnalyzeParameters(string code)
+        => Analyze(code, UnusedVariableAnalyzer.UnusedParameterDiagnosticId);
+
+    private static Diagnostic[] Analyze(string code, string diagnosticId)
     {
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create(
@@ -289,7 +380,7 @@ class C {
 
         return new UnusedVariableAnalyzer()
             .Analyze(compilation)
-            .Where(d => d.Id == UnusedVariableAnalyzer.DiagnosticId)
+            .Where(d => d.Id == diagnosticId)
             .ToArray();
     }
 }

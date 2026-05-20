@@ -78,9 +78,11 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
     public ITypeSymbol? LookupType(string name)
     {
         EnsureMemberWithNameLoaded(name);
-        ITypeSymbol? type;
+        ImmutableArray<ITypeSymbol> candidates;
         lock (_membersGate)
-            type = TypeLookupUtilities.SelectBestTypeByName(_members.OfType<ITypeSymbol>().Where(t => t.Name == name));
+            candidates = _members.OfType<ITypeSymbol>().Where(t => t.Name == name).ToImmutableArray();
+
+        var type = TypeLookupUtilities.SelectBestTypeByName(candidates);
         if (type != null)
             return type;
 

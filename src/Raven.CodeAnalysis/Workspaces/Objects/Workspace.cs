@@ -386,6 +386,66 @@ public class Workspace
         return compilation.GetDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
     }
 
+    public ImmutableArray<Diagnostic> GetDocumentDiagnosticsWithAnalyzers(
+        ProjectId projectId,
+        DocumentId documentId,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var project = CurrentSolution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var document = project.GetDocument(documentId)
+            ?? throw new ArgumentException("Document not found", nameof(documentId));
+
+        var syntaxTree = document.SyntaxTree
+            ?? throw new InvalidOperationException("Document does not have a syntax tree.");
+
+        var compilation = CreateAnalysisCompilation(projectId);
+        var diagnostics = compilation.GetDocumentDiagnostics(syntaxTree, analyzerOptions, cancellationToken).ToHashSet();
+
+        if (project.CompilationOptions?.RunAnalyzers != false)
+        {
+            foreach (var reference in project.AnalyzerReferences)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                foreach (var analyzer in reference.GetAnalyzers())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
+                    IEnumerable<Diagnostic> analyzerDiagnostics;
+                    try
+                    {
+                        analyzerDiagnostics = analyzer.Analyze(compilation, syntaxTree, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch
+                    {
+                        // Analyzer failures should not stop normal compilation diagnostics.
+                        continue;
+                    }
+
+                    foreach (var diagnostic in analyzerDiagnostics)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        AnalyzerDiagnosticIdValidator.Validate(analyzer, diagnostic, isInternalAnalyzer);
+
+                        var mapped = compilation.ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+                        if (mapped is not null)
+                            diagnostics.Add(mapped);
+                    }
+                }
+            }
+        }
+
+        return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+    }
+
     public ImmutableArray<Diagnostic> GetDocumentSyntaxDiagnostics(
         ProjectId projectId,
         DocumentId documentId,
@@ -401,7 +461,7 @@ public class Workspace
         var syntaxTree = document.SyntaxTree
             ?? throw new InvalidOperationException("Document does not have a syntax tree.");
 
-        var compilation = GetCompilation(projectId);
+        var compilation = CreateAnalysisCompilation(projectId);
         return compilation.GetSyntaxDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
     }
 

@@ -47,14 +47,16 @@ internal sealed class DocumentStore
         ProjectWithAnalyzers,
         Syntax,
         DocumentCompiler,
-        ProjectCompiler
+        ProjectCompiler,
+        DocumentWithAnalyzers
     }
 
     private static readonly HashSet<string> UnnecessaryDiagnosticIds = new(StringComparer.OrdinalIgnoreCase)
     {
         CompilerDiagnostics.UnreachableCodeDetected.Id,
         CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id,
-        Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.DiagnosticId
+        Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.DiagnosticId,
+        Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId
     };
 
     private readonly WorkspaceManager _workspaceManager;
@@ -347,6 +349,12 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken)
         => TryGetDiagnosticsAsync(uri, DiagnosticLane.ProjectWithAnalyzers, shouldSkipWork, cancellationToken);
 
+    internal Task<DiagnosticsComputationResult> TryGetDocumentWithAnalyzersDiagnosticsAsync(
+        DocumentUri uri,
+        Func<bool>? shouldSkipWork,
+        CancellationToken cancellationToken)
+        => TryGetDiagnosticsAsync(uri, DiagnosticLane.DocumentWithAnalyzers, shouldSkipWork, cancellationToken);
+
     internal Task<DiagnosticsComputationResult> TryGetDiagnosticsAsync(
         DocumentUri uri,
         DiagnosticLane lane,
@@ -416,6 +424,13 @@ internal sealed class DocumentStore
                     syntaxTree,
                     analyzerOptions: null,
                     cancellationToken: cancellationToken);
+            }
+            else if (lane == DiagnosticLane.DocumentWithAnalyzers)
+            {
+                if (!_workspaceManager.TryGetDocumentDiagnosticsWithAnalyzers(uri, out var documentDiagnosticsWithAnalyzers, cancellationToken: cancellationToken))
+                    return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+
+                diagnosticsForProject = documentDiagnosticsWithAnalyzers;
             }
             else if (lane == DiagnosticLane.ProjectCompiler)
             {
@@ -537,6 +552,8 @@ internal sealed class DocumentStore
             (DiagnosticLane.DocumentCompiler, true) => "computeDocumentCompilerDiagnosticsSkipped",
             (DiagnosticLane.ProjectCompiler, false) => "computeProjectCompilerDiagnostics",
             (DiagnosticLane.ProjectCompiler, true) => "computeProjectCompilerDiagnosticsSkipped",
+            (DiagnosticLane.DocumentWithAnalyzers, false) => "computeDocumentWithAnalyzersDiagnostics",
+            (DiagnosticLane.DocumentWithAnalyzers, true) => "computeDocumentWithAnalyzersDiagnosticsSkipped",
             (DiagnosticLane.ProjectWithAnalyzers, false) => "computeProjectWithAnalyzersDiagnostics",
             _ => "computeProjectWithAnalyzersDiagnosticsSkipped"
         };

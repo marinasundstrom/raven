@@ -716,6 +716,22 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    public bool TryGetDocumentDiagnosticsWithAnalyzers(
+        DocumentUri uri,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
+        {
+            diagnostics = _workspace.GetDocumentDiagnosticsWithAnalyzers(ownedDocument.ProjectId, ownedDocument.DocumentId, analyzerOptions, cancellationToken);
+            return true;
+        }
+
+        diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+        return false;
+    }
+
     public bool TryGetDocumentSyntaxDiagnostics(
         DocumentUri uri,
         out ImmutableArray<CodeDiagnostic> diagnostics,

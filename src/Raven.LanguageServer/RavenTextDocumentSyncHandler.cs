@@ -23,7 +23,7 @@ namespace Raven.LanguageServer;
 
 internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
-    private const int DiagnosticsDebounceMilliseconds = 250;
+    private const int DiagnosticsDebounceMilliseconds = 500;
     private const int DocumentCompilerDiagnosticsAfterEditDelayMilliseconds = 750;
     private const int DocumentDiagnosticsAfterOpenDelayMilliseconds = 750;
     private const int DiagnosticsRetryDelayMilliseconds = 150;
@@ -171,9 +171,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 followUpDiagnosticsDelayMilliseconds: shouldScheduleStructuralDiagnostics
                     ? DocumentCompilerDiagnosticsAfterEditDelayMilliseconds
                     : policy.FollowUpDiagnosticsDelayMilliseconds,
-                followUpDiagnosticsMode: shouldScheduleStructuralDiagnostics
-                    ? DocumentStore.DiagnosticLane.DocumentCompiler
-                    : policy.FollowUpMode,
+                followUpDiagnosticsMode: policy.FollowUpMode,
                 diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
             scheduleMs = stageStopwatch.Elapsed.TotalMilliseconds;
             return result;
@@ -385,7 +383,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DocumentCompilerDiagnosticsAfterEditDelayMilliseconds,
-            FollowUpMode: DocumentStore.DiagnosticLane.DocumentCompiler,
+            FollowUpMode: DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetOpenDiagnosticsPolicy()
@@ -394,7 +392,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DocumentDiagnosticsAfterOpenDelayMilliseconds,
-            FollowUpMode: DocumentStore.DiagnosticLane.DocumentCompiler,
+            FollowUpMode: DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetEditDiagnosticsPolicy()
@@ -403,7 +401,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds,
-            FollowUpMode: DocumentStore.DiagnosticLane.DocumentCompiler,
+            FollowUpMode: DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
             DiagnosticsDelayMilliseconds: 0);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
@@ -855,6 +853,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishProjectCompilerDiagnosticsUnchanged",
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishProjectCompilerDiagnosticsVersionMismatch",
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishProjectCompilerDiagnosticsAlreadyCompleted",
+            (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.Published) => "publishDocumentWithAnalyzersDiagnostics",
+            (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedRequeued) => "publishDocumentWithAnalyzersDiagnosticsSkipped",
+            (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishDocumentWithAnalyzersDiagnosticsUnchanged",
+            (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishDocumentWithAnalyzersDiagnosticsVersionMismatch",
+            (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishDocumentWithAnalyzersDiagnosticsAlreadyCompleted",
             (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.Published) => "publishProjectWithAnalyzersDiagnostics",
             (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.SkippedRequeued) => "publishProjectWithAnalyzersDiagnosticsSkipped",
             (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishProjectWithAnalyzersDiagnosticsUnchanged",

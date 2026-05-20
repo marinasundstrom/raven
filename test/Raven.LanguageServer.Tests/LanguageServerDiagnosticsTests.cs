@@ -129,6 +129,44 @@ class C {
     }
 
     [Fact]
+    public async Task GetDiagnosticsAsync_TagsUnusedParameterAsUnnecessaryAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+class C {
+    public func M(value: int) -> unit {
+    }
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        var diagnostic = diagnostics.Single(d => string.Equals(
+            d.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId,
+            StringComparison.Ordinal));
+
+        diagnostic.Tags.ShouldNotBeNull();
+        diagnostic.Tags!.ShouldContain(DiagnosticTag.Unnecessary);
+        diagnostic.Severity.ShouldBe(LspDiagnosticSeverity.Warning);
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TagsUnusedLocalFunctionAsUnnecessaryAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -171,6 +209,48 @@ class C {
         diagnostic.Tags.ShouldNotBeNull();
         diagnostic.Tags!.ShouldContain(DiagnosticTag.Unnecessary);
         diagnostic.Severity.ShouldBe(LspDiagnosticSeverity.Warning);
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_IncludesBuiltInAnalyzerDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func test() -> int {
+    42
+}
+
+func Main() -> unit {
+    test()
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.UnhandledMemberReturnValueAnalyzer.DiagnosticId,
+            StringComparison.Ordinal)).ShouldBeTrue();
     }
 
     [Fact]

@@ -25,6 +25,8 @@ Raven currently provides analyzers for two different contexts:
   methods that are never invoked. In console applications, all ordinary methods are
   considered (entry points are excluded); in library-style outputs, only non-public methods
   are considered.
+- **UnusedVariableAnalyzer** (Raven, `RAV9027` / `RAV9030`) – reports unused local
+  variables, local pattern bindings, and callable parameters.
 - **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
   invocations, property accesses, or field accesses whose returned value is ignored.
   Assign the returned value to a target, assign it to `_`, return it, or pass it on.

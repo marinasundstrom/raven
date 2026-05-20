@@ -7,6 +7,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added warning `RAV9029` for bare member invocations and member accesses whose returned
   value is ignored. Assign the returned value to a target, assign it to `_`, return it, or
   pass it on.
+- Extended unused-variable analysis to report unused callable parameters as warning
+  `RAV9030`, covering methods, `func` statements, constructors, operators, and function
+  expressions.
+- Fixed editor diagnostic scheduling so open, edit, and save follow-up passes include
+  analyzer diagnostics such as unused locals and parameters, while typing uses a throttled
+  document-scoped analyzer pass instead of running full-project analyzers on every edit.
 
 ### Changed
 - Namespace-level `func` and `const` declarations now bind as namespace-level members emitted into a synthesized `[TopLevel]` `NamespaceMembers` container, and static types marked with `[TopLevel]` promote their static members through namespace lookup/completion. `AllowNamespaceMembers` controls declarations independently from top-level statements, while `AllowNamespaceMemberImports` controls namespace promotion from namespace-member containers.
