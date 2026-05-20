@@ -25,6 +25,9 @@ Raven currently provides analyzers for two different contexts:
   methods that are never invoked. In console applications, all ordinary methods are
   considered (entry points are excluded); in library-style outputs, only non-public methods
   are considered.
+- **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
+  invocations, property accesses, or field accesses whose returned value is ignored.
+  Assign the returned value to a target, assign it to `_`, return it, or pass it on.
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
 
@@ -52,6 +55,7 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `MemberCanBeStaticAnalyzer`
 - `UnusedPropertyAnalyzer`
 - `UnusedMethodAnalyzer`
+- `UnhandledMemberReturnValueAnalyzer`
 - `PreferDuLinqExtensionsAnalyzer`
 - `PreferIsNullOverEqualityAnalyzer`
 - `ConstructorParameterNamingAnalyzer`
