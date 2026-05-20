@@ -23,6 +23,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 {
     private const int MaxUnboundedDocumentLength = 2_000;
     private const int MaxCachedInlayHintEntries = 256;
+    private const double LargeRangeInlayBudgetMs = 250;
     private const double SlowInlayHintThresholdMs = 150;
 
     private readonly DocumentStore _documents;
@@ -90,6 +91,34 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         try
         {
             stageStopwatch.Restart();
+            var syntaxContext = await _documents.GetDocumentSyntaxContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (syntaxContext is null)
+            {
+                outcome = "NoContext";
+                return new InlayHintContainer();
+            }
+
+            var sourceText = syntaxContext.Value.SourceText;
+            var requestSpan = GetRequestedSpan(sourceText, request.Range);
+            var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
+            var isPreciseRequest = requestSpan.Length == 0;
+            var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
+            if (isLargeDocument && isFullDocumentRequest && TryGetCachedHints(request, out var opportunisticCachedHints))
+            {
+                cacheHit = true;
+                outcome = "LargeRangeCached";
+                resultCount = opportunisticCachedHints.Length;
+                return new InlayHintContainer(opportunisticCachedHints);
+            }
+
+            if (isLargeDocument && isFullDocumentRequest)
+            {
+                outcome = "LargeRangeSkippedCold";
+                return new InlayHintContainer();
+            }
+
+            stageStopwatch.Restart();
             using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(
                 request.TextDocument.Uri,
                 cancellationToken,
@@ -111,7 +140,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
             stageStopwatch.Restart();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
-            analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
             {
                 outcome = "NoContext";
@@ -127,13 +155,12 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 return new InlayHintContainer();
             }
 
-            var sourceText = context.Value.SourceText;
             var root = context.Value.SyntaxTree.GetRoot(cancellationToken);
-            var requestSpan = GetRequestedSpan(sourceText, request.Range);
-            var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
-            var isPreciseRequest = requestSpan.Length == 0;
-            var allowExpensiveBinding = true;
-            var collectionBudgetMs = double.PositiveInfinity;
+            var allowExpensiveBinding = !isLargeDocument ||
+                isPreciseRequest;
+            var collectionBudgetMs = allowExpensiveBinding
+                ? double.PositiveInfinity
+                : LargeRangeInlayBudgetMs;
 
             stageStopwatch.Restart();
             var hints = new List<InlayHint>();
@@ -155,11 +182,11 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             localTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
-                AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+                AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
             patternTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
-                AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
+                AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
             forTargetTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
@@ -382,7 +409,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (declarator.Initializer?.Value is not { } initializer)
             return false;
 
-        return !initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any() &&
+        return !initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any(IsExpensiveInlayInitializerInvocation) &&
             !initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any();
     }
 
@@ -392,8 +419,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return false;
 
         return initializer.DescendantNodesAndSelf().Any(static node =>
-            node is InvocationExpressionSyntax or FunctionExpressionSyntax);
+            node is FunctionExpressionSyntax ||
+            node is InvocationExpressionSyntax invocation && IsExpensiveInlayInitializerInvocation(invocation));
     }
+
+    private static bool IsExpensiveInlayInitializerInvocation(InvocationExpressionSyntax invocation)
+        => invocation.ArgumentList.Arguments.Count > 0 ||
+           invocation.TrailingBlock is not null;
 
     private static void AddForTargetTypeHints(
         List<InlayHint> hints,
@@ -401,6 +433,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SyntaxNode root,
         SourceText sourceText,
         TextSpan requestSpan,
+        bool allowBinding,
         InlayHintCollectionBudget budget)
     {
         foreach (var forStatement in DescendantNodesInSpan<ForStatementSyntax>(root, requestSpan))
@@ -423,7 +456,11 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (budget.ShouldStop())
                 return;
 
-            if (semanticModel.GetBoundNode(forStatement) is not BoundForStatement { Local: { } local } ||
+            var boundForStatement = allowBinding
+                ? semanticModel.GetBoundNode(forStatement) as BoundForStatement
+                : semanticModel.TryGetCachedBoundNode(forStatement) as BoundForStatement;
+
+            if (boundForStatement is not { Local: { } local } ||
                 !TryFormatType(semanticModel, forStatement, local.Type, out var typeDisplay))
             {
                 continue;
@@ -447,6 +484,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SyntaxNode root,
         SourceText sourceText,
         TextSpan requestSpan,
+        bool allowBinding,
         InlayHintCollectionBudget budget)
     {
         foreach (var designation in DescendantNodesInSpan<SingleVariableDesignationSyntax>(root, requestSpan))
@@ -464,7 +502,11 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (budget.ShouldStop())
                 return;
 
-            if (semanticModel.GetDeclaredSymbol(designation) is not ILocalSymbol local ||
+            var local = allowBinding
+                ? semanticModel.GetDeclaredSymbol(designation) as ILocalSymbol
+                : (semanticModel.TryGetCachedBoundNode(designation) as BoundSingleVariableDesignator)?.Local;
+
+            if (local is null ||
                 !TryFormatType(semanticModel, designation, local.Type, out var typeDisplay))
             {
                 continue;

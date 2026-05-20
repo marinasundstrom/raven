@@ -222,7 +222,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_LargeRange_BindsInvocationInitializersAsync()
+    public async Task Handle_LargeRange_DoesNotColdBindInvocationInitializersAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -243,12 +243,12 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 220).Select(static i => $"// padding {i}"));
         var code = $$"""
-func Make() -> int {
-    return 42
+func Make(value: int) -> int {
+    return value + 1
 }
 
 func Main() -> unit {
-    val answer = Make()
+    val answer = Make(41)
 }
 
 {{padding}}
@@ -265,8 +265,9 @@ func Main() -> unit {
         }, CancellationToken.None);
 
         var largeHints = largeResult.ToArray();
-        var answerPosition = PositionHelper.ToRange(sourceText, new TextSpan(answerInsertion, 0)).Start;
-        AssertHasHintAtInsertion(sourceText, largeHints, answerInsertion, ": int");
+        largeHints.ShouldNotContain(hint =>
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(answerInsertion, 0)).Start &&
+            hint.Label.String == ": int");
 
         var smallResult = await handler.Handle(new InlayHintParams
         {
@@ -275,6 +276,78 @@ func Main() -> unit {
         }, CancellationToken.None);
 
         AssertHasHintAtInsertion(sourceText, smallResult.ToArray(), answerInsertion, ": int");
+    }
+
+    [Fact]
+    public async Task Handle_LargeRange_DoesNotColdBindLoopTargetsOrPatternsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 220).Select(static i => $"// padding {i}"));
+        var code = $$"""
+func Main() -> unit {
+    val values = [1, 2, 3]
+    for value in values {
+        WriteLine(value)
+    }
+
+    val pairs = [("one", 1)]
+    for val (key, count) in pairs {
+        WriteLine(key)
+        WriteLine(count)
+    }
+}
+
+{{padding}}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+        var valueInsertion = code.IndexOf("value in values", StringComparison.Ordinal) + "value".Length;
+        var keyInsertion = code.IndexOf("key, count", StringComparison.Ordinal) + "key".Length;
+
+        var largeResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var largeHints = largeResult.ToArray();
+        largeHints.ShouldNotContain(hint =>
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(valueInsertion, 0)).Start &&
+            hint.Label.String == ": int");
+        largeHints.ShouldNotContain(hint =>
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(keyInsertion, 0)).Start &&
+            hint.Label.String == ": string");
+
+        var smallForResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(valueInsertion, 0))
+        }, CancellationToken.None);
+        AssertHasHintAtInsertion(sourceText, smallForResult.ToArray(), valueInsertion, ": int");
+
+        var smallPatternResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(keyInsertion, 0))
+        }, CancellationToken.None);
+        AssertHasHintAtInsertion(sourceText, smallPatternResult.ToArray(), keyInsertion, ": string");
     }
 
     [Fact]
@@ -529,6 +602,7 @@ func Main() -> unit {
 
         store.UpsertDocument(uri, code);
         var sourceText = SourceText.From(code);
+        var jsonInsertion = code.IndexOf("json", StringComparison.Ordinal) + "json".Length;
 
         var result = await handler.Handle(new InlayHintParams
         {
@@ -540,7 +614,7 @@ func Main() -> unit {
         AssertSourceApplicable(
             sourceText,
             hint,
-            code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
+            jsonInsertion,
             ": JsonObject");
         AssertTooltipMentionsInsertion(hint, ": JsonObject");
     }
@@ -575,18 +649,19 @@ func Main() -> unit {
 
         store.UpsertDocument(uri, code);
         var sourceText = SourceText.From(code);
+        var jsonInsertion = code.IndexOf("json", StringComparison.Ordinal) + "json".Length;
 
         var result = await handler.Handle(new InlayHintParams
         {
             TextDocument = new TextDocumentIdentifier(uri),
-            Range = FullDocumentRange(sourceText)
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(jsonInsertion, 0))
         }, CancellationToken.None);
 
         var hint = result.Single(static hint => hint.Label.String == ": JsonObject");
         AssertSourceApplicable(
             sourceText,
             hint,
-            code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
+            jsonInsertion,
             ": JsonObject");
         AssertTooltipMentionsInsertion(hint, ": JsonObject");
     }
@@ -624,11 +699,12 @@ func Main() -> unit {
 
         store.UpsertDocument(uri, code);
         var sourceText = SourceText.From(code);
+        var jsonInsertion = code.IndexOf("json", StringComparison.Ordinal) + "json".Length;
 
         var result = await handler.Handle(new InlayHintParams
         {
             TextDocument = new TextDocumentIdentifier(uri),
-            Range = FullDocumentRange(sourceText)
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(jsonInsertion, 0))
         }, CancellationToken.None);
 
         var hints = result.ToArray();
@@ -637,7 +713,7 @@ func Main() -> unit {
         AssertSourceApplicable(
             sourceText,
             hint,
-            code.IndexOf("json", StringComparison.Ordinal) + "json".Length,
+            jsonInsertion,
             ": JsonObject");
     }
 
@@ -679,11 +755,12 @@ func Main() -> unit {
 
         store.UpsertDocument(uri, code);
         var sourceText = SourceText.From(code);
+        var entryInsertion = code.IndexOf("entry", StringComparison.Ordinal) + "entry".Length;
 
         var result = await handler.Handle(new InlayHintParams
         {
             TextDocument = new TextDocumentIdentifier(uri),
-            Range = FullDocumentRange(sourceText)
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(entryInsertion, 0))
         }, CancellationToken.None);
 
         var hints = result.ToArray();
@@ -692,7 +769,7 @@ func Main() -> unit {
         AssertSourceApplicable(
             sourceText,
             hint,
-            code.IndexOf("entry", StringComparison.Ordinal) + "entry".Length,
+            entryInsertion,
             ": FuelConsumptionRecord");
     }
 

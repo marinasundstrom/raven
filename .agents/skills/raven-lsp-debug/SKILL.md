@@ -70,6 +70,8 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 - When hovers, inlays, semantic tokens, and document symbols appear stuck, check whether a full-document/background request started first and failed to complete.
 - Compare client request start/complete events with `logs/raven-lsp.log` and `logs/raven-lsp-performance.txt`.
 - Use the headless harness for hover and inlay ranges to separate compiler cold-path cost from VS Code scheduling.
+- When investigating hangs, compare the same project with editor inlays enabled and disabled. A project that loads without inlays but stalls with inlays points to request pressure or inlay-triggered cold semantic binding, not necessarily a broken compiler answer.
+- When investigating stale or surprising diagnostics, compare compiler diagnostics without source-code analyzers against diagnostics with analyzers enabled. This keeps binder/compiler diagnostics distinct from analyzer diagnostics and avoids chasing analyzer behavior as a binder regression.
 - If a request is slow because public semantic APIs force broad binding, fix the compiler path. If a request blocks newer interactive work, fix LSP scheduling/cancellation without duplicating compiler semantics.
 - For inlay flicker or disappearing hints, check whether the server returned an empty result while semantic access was busy. Prefer returning cached results for the same document version and range-filtering them over clearing the editor UI.
 - For slow inlays, separate three costs: semantic model materialization, binding needed for missing symbols/types, and presentation formatting such as type-name qualification. Fix broad metadata lookup or formatting costs before suppressing annotations.

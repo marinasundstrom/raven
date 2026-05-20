@@ -107,7 +107,7 @@ class C {
     }
 
     [Fact]
-    public void GetDeclaredSymbol_ForInvocationLocalWithAmbiguousAvailableReturnTypes_FallsBackToBinding()
+    public void GetDeclaredSymbol_ForInvocationLocalWithDistinctArgumentTypes_UsesAvailableSemanticState()
     {
         var code = """
 class Widget {
@@ -139,12 +139,195 @@ class C {
             .OfType<InvocationExpressionSyntax>()
             .Single(node => node.Expression.ToString() == "Factory.Make");
 
-        Assert.False(model.TryGetAvailableTypeInfo(invocation, out _));
+        Assert.True(model.TryGetAvailableTypeInfo(invocation, out var availableTypeInfo));
+        Assert.Equal("Widget", availableTypeInfo.Type?.Name);
 
         var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Widget", local.Type.Name);
-        Assert.NotNull(model.TryGetCachedBoundNode(invocation));
+        Assert.Null(model.TryGetCachedBoundNode(invocation));
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_ForPropagationLocal_UsesAvailableSemanticState()
+    {
+        var code = """
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+class C {
+    func Test() -> Result<int, string> {
+        val result: Result<int, string> = Result<int, string>.Ok(1)
+        var value = result?
+        return Result<int, string>.Ok(value)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static node => node.Identifier.ValueText == "value");
+        var propagateExpression = root.DescendantNodes().OfType<PropagateExpressionSyntax>().Single();
+        var operand = Assert.IsAssignableFrom<IdentifierNameSyntax>(propagateExpression.Expression);
+
+        Assert.True(model.TryGetAvailableSymbolInfo(operand, out var operandSymbolInfo));
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(operandSymbolInfo.Symbol);
+        Assert.Equal("Result<int, string>", resultLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        Assert.True(model.TryGetAvailableTypeInfo(propagateExpression, out var availableTypeInfo));
+        Assert.Equal("int", availableTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void TryGetInvocationTargetSymbolInfo_ForMemberInvocationOnConstructorInferredLocal_UsesAvailableSemanticState()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+func Test() {
+    val order = Order("ORD-1", [OrderLine("SKU-1", 1)])
+    val picks = List<PickLine>()
+    for line in order.Lines {
+        picks.Add(PickLine(order.Id, line.Sku, line.Quantity))
+    }
+}
+
+record class Order(val Id: string, val Lines: OrderLine[])
+record class OrderLine(val Sku: string, val Quantity: int)
+record class PickLine(val OrderId: string, val Sku: string, val Quantity: int)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static node => node.Expression.ToString() == "picks.Add");
+        var receiver = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static node => node.Identifier.ValueText == "picks" && node.Parent is MemberAccessExpressionSyntax);
+        var listInitializer = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static node => node.Expression.ToString() == "List<PickLine>");
+
+        Assert.True(model.TryGetAvailableTypeInfo(listInitializer, out var listInitializerTypeInfo));
+        Assert.Equal("List<PickLine>", listInitializerTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        Assert.True(model.TryGetAvailableSymbolInfo(receiver, out var receiverInfo));
+        var receiverLocal = Assert.IsAssignableFrom<ILocalSymbol>(receiverInfo.Symbol);
+        Assert.Equal("List<PickLine>", receiverLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(invocation, out var info));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("Add", method.Name);
+        Assert.Equal("PickLine", method.Parameters.Single().Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void TryGetInvocationTargetSymbolInfo_ForImportedStaticFunction_UsesAvailableSemanticState()
+    {
+        var code = """
+import System.Console.*
+
+func Test() {
+    WriteLine("hello")
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static node => node.Expression.ToString() == "WriteLine");
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(invocation, out var info));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("WriteLine", method.Name);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void TryGetAvailableSymbolInfo_ForForTarget_UsesAvailableSemanticState()
+    {
+        var code = """
+func Test() {
+    val values = [|"a", "b"|]
+    for value in values {
+        value
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var target = root.DescendantNodes()
+            .OfType<ForStatementSyntax>()
+            .Single()
+            .Target;
+        var targetIdentifier = Assert.IsAssignableFrom<IdentifierNameSyntax>(target);
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableSymbolInfo(targetIdentifier, out var info));
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(info.Symbol);
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("string", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }
 
     [Fact]
