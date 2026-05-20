@@ -23,7 +23,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 {
     private const int MaxUnboundedDocumentLength = 2_000;
     private const int MaxCachedInlayHintEntries = 256;
-    private const double LargeRangeInlayBudgetMs = 250;
+    private const double LargeRangeInlayBudgetMs = 1_000;
     private const double SlowInlayHintThresholdMs = 150;
 
     private readonly DocumentStore _documents;
@@ -366,19 +366,29 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (budget.ShouldStop())
                 return;
 
-            var avoidInitializerBinding = !allowInitializerBinding &&
+            var shouldAvoidInitializerBinding = !allowInitializerBinding &&
                 ShouldAvoidInitializerBindingForInlay(declarator);
-            if (avoidInitializerBinding && !CanResolveLocalHintWithoutInitializerBinding(declarator))
-                continue;
-
-            var local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
-                declarator,
-                out var availableLocal,
-                allowInitializerBinding: !avoidInitializerBinding)
-                    ? availableLocal
-                    : allowInitializerBinding
-                        ? semanticModel.GetDeclaredSymbol(declarator) as ILocalSymbol
+            ILocalSymbol? local;
+            if (shouldAvoidInitializerBinding)
+            {
+                local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
+                    declarator,
+                    out var availableLocal,
+                    allowInitializerBinding: true,
+                    allowBindingFallback: false)
+                        ? availableLocal
                         : null;
+            }
+            else
+            {
+                local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
+                    declarator,
+                    out var availableLocal)
+                        ? availableLocal
+                        : allowInitializerBinding
+                            ? semanticModel.GetDeclaredSymbol(declarator) as ILocalSymbol
+                            : null;
+            }
 
             if (local is null)
             {
@@ -399,18 +409,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 declarator,
                 includeTooltip: budget.ShouldIncludeTooltip()));
         }
-    }
-
-    private static bool CanResolveLocalHintWithoutInitializerBinding(VariableDeclaratorSyntax declarator)
-    {
-        if (declarator.TypeAnnotation is not null)
-            return false;
-
-        if (declarator.Initializer?.Value is not { } initializer)
-            return false;
-
-        return !initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any(IsExpensiveInlayInitializerInvocation) &&
-            !initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any();
     }
 
     private static bool ShouldAvoidInitializerBindingForInlay(VariableDeclaratorSyntax declarator)

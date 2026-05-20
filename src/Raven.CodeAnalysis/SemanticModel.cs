@@ -4304,6 +4304,16 @@ public partial class SemanticModel
             return true;
         }
 
+        if (expression is TryExpressionSyntax tryExpression &&
+            TryGetAvailableTryExpressionType(tryExpression, out var tryType) &&
+            tryType is not null &&
+            tryType.TypeKind != TypeKind.Error)
+        {
+            typeInfo = new TypeInfo(tryType, tryType, ComputeConversion(tryType, tryType));
+            _typeMappings[expression] = typeInfo;
+            return true;
+        }
+
         if (expression is InfixOperatorExpressionSyntax infixExpression &&
             TryGetAvailableInfixExpressionType(infixExpression, out typeInfo))
         {
@@ -4543,11 +4553,21 @@ public partial class SemanticModel
             return false;
         }
 
-        var union = operandNamed.TryGetUnion();
-        if (union is null)
+        var payloadType = TryGetAvailableCarrierPayloadType(operandNamed);
+        if (payloadType is null || payloadType.TypeKind == TypeKind.Error)
             return false;
 
-        var payloadType = operandNamed.Name switch
+        type = TypeSymbolNormalization.NormalizeForInference(payloadType);
+        return type.TypeKind != TypeKind.Error;
+    }
+
+    private static ITypeSymbol? TryGetAvailableCarrierPayloadType(INamedTypeSymbol operandNamed)
+    {
+        var union = operandNamed.TryGetUnion();
+        if (union is null)
+            return null;
+
+        return operandNamed.Name switch
         {
             "Result" => union.DeclaredCaseTypes
                 .FirstOrDefault(static @case => @case.Name == "Ok")
@@ -4561,11 +4581,116 @@ public partial class SemanticModel
                 ?.Type,
             _ => null
         };
+    }
 
-        if (payloadType is null || payloadType.TypeKind == TypeKind.Error)
+    internal bool TryGetAvailablePropagationFailureInfo(
+        PropagateExpressionSyntax propagateExpression,
+        out string caseName,
+        out ITypeSymbol? payloadType,
+        out bool hasPayload)
+    {
+        caseName = string.Empty;
+        payloadType = null;
+        hasPayload = false;
+
+        if (!TryGetAvailableTypeInfo(propagateExpression.Expression, out var operandTypeInfo))
             return false;
 
-        type = TypeSymbolNormalization.NormalizeForInference(payloadType);
+        var operandType = (operandTypeInfo.Type ?? operandTypeInfo.ConvertedType)?.GetPlainType();
+        if (operandType is not INamedTypeSymbol operandNamed ||
+            operandNamed.TypeKind == TypeKind.Error ||
+            !UnionFacts.UsesCarrierRepresentation(operandNamed))
+        {
+            return false;
+        }
+
+        if (!TryGetAvailableCarrierFailureInfo(operandNamed, out caseName, out payloadType, out hasPayload))
+            return false;
+
+        if (payloadType is not null)
+            payloadType = TypeSymbolNormalization.NormalizeForInference(payloadType);
+
+        return payloadType is null || payloadType.TypeKind != TypeKind.Error;
+    }
+
+    private static bool TryGetAvailableCarrierFailureInfo(
+        INamedTypeSymbol operandNamed,
+        out string caseName,
+        out ITypeSymbol? payloadType,
+        out bool hasPayload)
+    {
+        caseName = string.Empty;
+        payloadType = null;
+        hasPayload = false;
+
+        var union = operandNamed.TryGetUnion();
+        if (union is null)
+            return false;
+
+        switch (operandNamed.Name)
+        {
+            case "Result":
+                var errorCase = union.DeclaredCaseTypes.FirstOrDefault(static @case => @case.Name == "Error");
+                if (errorCase is null)
+                    return false;
+
+                caseName = errorCase.Name;
+                payloadType = errorCase.ConstructorParameters.SingleOrDefault()?.Type;
+                hasPayload = payloadType is not null;
+                return true;
+
+            case "Option":
+                var noneCase = union.DeclaredCaseTypes.FirstOrDefault(static @case => @case.Name == "None");
+                if (noneCase is null)
+                    return false;
+
+                caseName = noneCase.Name;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private bool TryGetAvailableTryExpressionType(
+        TryExpressionSyntax tryExpression,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+    {
+        type = null;
+
+        if (!TryGetAvailableTypeInfo(tryExpression.Expression, out var expressionTypeInfo))
+            return false;
+
+        var expressionType = expressionTypeInfo.Type ?? expressionTypeInfo.ConvertedType;
+        if (expressionType is null || expressionType.TypeKind == TypeKind.Error)
+            return false;
+
+        var exceptionType = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
+        if (exceptionType.TypeKind == TypeKind.Error)
+            return false;
+
+        var resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as INamedTypeSymbol;
+        if (resultDefinition is null &&
+            (!TryLookupAvailableNamedType("Result", 2, out resultDefinition) || resultDefinition is null))
+        {
+            return false;
+        }
+
+        var resultType = resultDefinition.Construct(expressionType, exceptionType);
+        if (tryExpression.QuestionToken.Kind == SyntaxKind.None)
+        {
+            type = resultType;
+            return true;
+        }
+
+        if (resultType is not INamedTypeSymbol resultNamedType)
+            return false;
+
+        var resultPayloadType = TryGetAvailableCarrierPayloadType(resultNamedType);
+        if (resultPayloadType is null || resultPayloadType.TypeKind == TypeKind.Error)
+            return false;
+
+        type = TypeSymbolNormalization.NormalizeForInference(resultPayloadType);
         return type.TypeKind != TypeKind.Error;
     }
 
@@ -5914,6 +6039,28 @@ public partial class SemanticModel
         bool allowInitializerBinding = true,
         bool allowBindingFallback = true)
     {
+        if (!allowBindingFallback)
+        {
+            var queryBinder = GetBinderForIncrementalSemanticQuery(variableDeclarator);
+            if (TryGetNearestBlockBinder(queryBinder, out var queryBlockBinder))
+            {
+                var availableLocal = queryBlockBinder.TryDeclareLocalSymbolShallow(
+                    variableDeclarator,
+                    allowInitializerBinding,
+                    allowBoundInitializerBinding: false,
+                    ensurePrecedingDeclarations: false);
+                if (availableLocal is not null &&
+                    (allowErrorType || !availableLocal.Type.ContainsErrorType()))
+                {
+                    localSymbol = availableLocal;
+                    return true;
+                }
+            }
+
+            localSymbol = null;
+            return false;
+        }
+
         EnsureDeclarations();
 
         var binder = GetBinderForIncrementalSemanticQuery(variableDeclarator);

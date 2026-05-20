@@ -185,6 +185,12 @@ class C {
         Assert.True(model.TryGetAvailableTypeInfo(propagateExpression, out var availableTypeInfo));
         Assert.Equal("int", availableTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
+        Assert.True(model.TryGetAvailableLocalDeclarationSymbol(
+            declarator,
+            out var availableLocal,
+            allowBindingFallback: false));
+        Assert.Equal("int", availableLocal?.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
 
@@ -193,6 +199,123 @@ class C {
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
         Assert.Equal("int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_ForPropagationInvocationLocal_UsesAvailableSemanticState()
+    {
+        var code = """
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+record class Dto(val Priority: string)
+
+class Parser {
+    static func ParsePriority(value: string) -> Result<int, string> {
+        return Result<int, string>.Ok(1)
+    }
+}
+
+class C {
+    func Test(dto: Dto) -> Result<int, string> {
+        val priority = Parser.ParsePriority(dto.Priority)?
+        return Result<int, string>.Ok(priority)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static node => node.Identifier.ValueText == "priority");
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static node => node.Expression.ToString() == "Parser.ParsePriority");
+        var propagateExpression = root.DescendantNodes().OfType<PropagateExpressionSyntax>().Single();
+
+        Assert.True(model.TryGetAvailableTypeInfo(invocation, out var invocationTypeInfo));
+        Assert.Equal("Result<int, string>", invocationTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.True(model.TryGetAvailableTypeInfo(propagateExpression, out var availableTypeInfo));
+        Assert.Equal("int", availableTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        Assert.True(model.TryGetAvailableLocalDeclarationSymbol(
+            declarator,
+            out var availableLocal,
+            allowBindingFallback: false));
+        Assert.Equal("int", availableLocal?.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void GetDeclaredSymbol_ForTryLocal_UsesAvailableSemanticState()
+    {
+        var code = """
+namespace System
+
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+class C {
+    func Test(rawJson: string) {
+        val parsed: string = rawJson
+        val dtoResult = try parsed
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static node => node.Identifier.ValueText == "dtoResult");
+        var parsedDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static node => node.Identifier.ValueText == "parsed");
+        var tryExpression = root.DescendantNodes().OfType<TryExpressionSyntax>().Single();
+        _ = model.GetDeclaredSymbol(parsedDeclarator);
+
+        Assert.True(model.TryGetAvailableTypeInfo(tryExpression.Expression, out var operandTypeInfo), "operand type should be available");
+        Assert.Equal("string", operandTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.True(model.TryGetAvailableTypeInfo(tryExpression, out var availableTypeInfo));
+        Assert.Equal("Result<string, Exception>", availableTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        Assert.True(model.TryGetAvailableLocalDeclarationSymbol(
+            declarator,
+            out var availableLocal,
+            allowBindingFallback: false));
+        Assert.Equal("Result<string, Exception>", availableLocal?.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        Assert.Equal("Result<string, Exception>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
     }
@@ -620,6 +743,47 @@ class C {
         Assert.Equal(1, delta.SymbolInfoCacheHits);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
+    }
+
+    [Fact]
+    public void TryGetAvailableLocalDeclarationSymbol_WithoutBindingFallback_DoesNotCompleteSourceDeclarationsOrBind()
+    {
+        var code = """
+val first = 1
+val target = 42
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "target");
+
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+        instrumentation.BinderReentry.Reset();
+
+        Assert.True(model.TryGetAvailableLocalDeclarationSymbol(
+            declarator,
+            out var local,
+            allowBindingFallback: false));
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        local = Assert.IsAssignableFrom<ILocalSymbol>(local);
+        Assert.Equal("int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(1, setupDelta.EnsureDeclarationsCalls);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsDeclared);
+        Assert.False(compilation.SourceDeclarationsComplete);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
     }
 
     [Fact]

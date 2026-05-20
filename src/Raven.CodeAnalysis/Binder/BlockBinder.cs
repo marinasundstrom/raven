@@ -252,7 +252,8 @@ partial class BlockBinder : Binder
     internal ILocalSymbol? TryDeclareLocalSymbolShallow(
         VariableDeclaratorSyntax variableDeclarator,
         bool allowInitializerBinding = true,
-        bool allowBoundInitializerBinding = true)
+        bool allowBoundInitializerBinding = true,
+        bool ensurePrecedingDeclarations = true)
     {
         if (variableDeclarator.Parent is not VariableDeclarationSyntax declaration)
             return null;
@@ -261,7 +262,8 @@ partial class BlockBinder : Binder
         if (name == "_" || variableDeclarator.Identifier.IsMissing)
             return null;
 
-        EnsurePrecedingStatementDeclarations(variableDeclarator);
+        if (ensurePrecedingDeclarations)
+            EnsurePrecedingStatementDeclarations(variableDeclarator);
 
         if (TryGetDeclaredLocal(variableDeclarator, out var existingDeclaredLocal))
         {

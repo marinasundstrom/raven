@@ -279,6 +279,78 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_LargeRange_UsesAvailablePropagationInitializerTypeAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 220).Select(static i => $"// padding {i}"));
+        var code = $$"""
+namespace System
+
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+record class Dto(val Priority: string)
+
+class Parser {
+    static func ParsePriority(value: string) -> Result<int, string> {
+        return Result<int, string>.Ok(1)
+    }
+}
+
+class C {
+    func Test() -> Result<int, string> {
+        val dto = Dto("normal")
+        val priority = Parser.ParsePriority(dto.Priority)?
+        return Result<int, string>.Ok(priority)
+    }
+}
+
+{{padding}}
+""";
+
+        store.UpsertDocument(uri, code);
+        var sourceText = SourceText.From(code);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var priorityInsertion = code.IndexOf("priority = Parser.ParsePriority", StringComparison.Ordinal) + "priority".Length;
+        var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange
+            {
+                Start = new Position(0, 0),
+                End = new Position(24, 0)
+            }
+        }, CancellationToken.None);
+
+        var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var hints = result.ToArray();
+        AssertHasHintAtInsertion(sourceText, hints, priorityInsertion, ": int");
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task Handle_LargeRange_DoesNotColdBindLoopTargetsOrPatternsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
