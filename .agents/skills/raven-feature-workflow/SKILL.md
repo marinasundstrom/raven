@@ -28,7 +28,7 @@ Walk the feature through every affected layer:
 - Code generation: ensure emit and runtime paths handle the feature or intentionally reject it with diagnostics.
 - Operations API: update operation kinds, interfaces or nodes, factory logic, and tests or docs.
 - Language service and editor: evaluate symbol lookup, hover, completion, diagnostics, and TextMate grammar coverage when relevant.
-- Grammar, spec, and docs: update `docs/` for the final supported behavior.
+- Grammar, spec, and docs: keep `docs/` aligned with the final supported behavior; if the behavior should be documented but lacks coverage in `docs/`, add it.
 - Changelog: update `CHANGELOG.md` for user-visible behavior changes.
 
 ## Compiler Architecture Direction

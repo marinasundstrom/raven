@@ -73,6 +73,8 @@ Choose the narrowest layer that proves the bug is fixed:
 - lazy-binding issue: test both a cold semantic query and, when relevant, a second query that proves the first query populated compiler-owned state for reuse
 - available-state optimization: include a negative or ambiguous case proving the code falls back to normal full binding instead of returning a partial or guessed answer
 
+Keep documentation in step with stabilized behavior. When test triage exposes behavior that should be documented but is missing from `docs/`, consider adding the documentation instead of leaving the expectation only in tests.
+
 `ITestOutputHelper` may be used for targeted diagnostics during investigation.
 
 ## Validation

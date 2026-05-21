@@ -80,6 +80,7 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 
 - Do not report only one side of the logs.
 - If the compiler model is clearly wrong, fix the underlying compiler or language-service behavior rather than encoding client-side workarounds.
+- Keep language-service and compiler documentation up to date when fixing or clarifying editor-facing behavior; if the behavior should be documented but is missing from `docs/`, consider adding it.
 - Consider that hover, completion, definition, or diagnostics failures may be compiler-side issues exposed by the LSP, especially when incremental semantic caches or available-symbol APIs disagree with one-shot compilation.
 - The language server should mostly present data provided by public compiler APIs. Keep LSP-side inference minimal unless the compiler API cannot reasonably provide the data yet.
 - Keep the public compiler API Roslyn-like unless there is an intentional Raven-specific divergence. LSP, analyzers, refactorings, and completion should normally call APIs such as `GetTypeInfo`, `GetSymbolInfo`, and `GetDeclaredSymbol`, not cache-specific helper methods.

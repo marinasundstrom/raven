@@ -78,6 +78,7 @@ Keep runtime, emit, execution, and reflection-heavy tests separate from normal c
 When a cleanup uncovers broader structure issues, propose concrete follow-up changes:
 
 - feature folders that better match `docs/lang/spec/`
+- documentation updates for current behavior that should live in `docs/` but is missing, stale, or only implied by tests
 - shared helpers for repeated compilation, diagnostics, or symbol assertions
 - renamed tests that describe current behavior rather than implementation history
 - removal of duplicate legacy coverage after equivalent behavior-focused tests exist

@@ -41,6 +41,7 @@ If you change flags, rebuild before running again.
 4. Only enable emit after analysis looks correct.
 5. If emit or runtime still fails, inspect the produced assembly or IL.
 6. Lock the repro with a focused test in `test/Raven.CodeAnalysis.Tests`.
+7. Keep documentation current when the investigation changes or clarifies compiler behavior; if expected behavior should be documented but is missing from `docs/`, consider adding it.
 
 ## Binder And Semantic Model Checks
 
