@@ -10,6 +10,18 @@
   href: json-serialization.md
 - name: Diagnostics
   href: diagnostics.md
+- name: Analyzers
+  items:
+    - name: Overview
+      href: analyzers/README.md
+    - name: Specification
+      href: analyzers/specification.md
+    - name: Authoring analyzers
+      href: analyzers/authoring.md
+    - name: Analyzer API surface
+      href: analyzers/api-surface.md
+    - name: Configuration
+      href: analyzers/configuration.md
 - name: Tooling
   items:
     - name: Raven Language Server

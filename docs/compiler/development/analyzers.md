@@ -1,8 +1,13 @@
 # Analyzers
 
-Raven ships with Roslyn-style source code analyzers that inspect syntax and semantics and
+Raven ships with Roslyn-style analyzers that inspect syntax and semantics and
 report diagnostics. Analyzers run as part of compilation and can surface suggestions or
 warnings for code that compiles but might benefit from additional annotations or fixes.
+
+For the analyzer specification, authoring guidance, API surface, and configuration model, see
+[Analyzers](../analyzers/README.md) and the
+[analyzer specification](../analyzers/specification.md). This page tracks the
+built-in analyzer set and the diagnostics-vs-refactoring boundary.
 
 Raven currently provides analyzers for two different contexts:
 

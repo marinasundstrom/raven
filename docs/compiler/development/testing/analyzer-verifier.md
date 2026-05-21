@@ -2,6 +2,9 @@
 
 `AnalyzerVerifier<TAnalyzer>` runs analyzers through `RavenWorkspace` so diagnostics are evaluated with project-level context.
 
+For the analyzer authoring model and API surface, see
+[Analyzers](../../analyzers/README.md).
+
 Derive from `AnalyzerTestBase` and call `CreateAnalyzerVerifier<TAnalyzer>(...)` to reduce setup.
 
 ```csharp

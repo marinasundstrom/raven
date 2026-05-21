@@ -12,4 +12,5 @@ For deeper dives into the implementation see:
 - [Project system](project-system.md) for `.rvnproj` structure, implicit source inclusion, and NuGet integration.
 - [Raven VS Code extension](raven-vscode-extension.md) for editor setup, language server wiring, and F5 compile-and-debug.
 - [Diagnostics](diagnostics.md) for how errors and warnings are produced.
+- [Analyzers](analyzers/README.md) for analyzer authoring, API surface, and configuration.
 - [Compiler API](api/README.md) for using syntax, symbols, and the new [operations surface](api/operations.md).
