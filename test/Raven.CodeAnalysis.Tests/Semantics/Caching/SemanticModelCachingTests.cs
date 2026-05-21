@@ -1147,6 +1147,131 @@ record Foo(Name: string)
     }
 
     [Fact]
+    public void TryGetInvocationTargetSymbolInfo_UsesWithExpressionLocalTypeForMetadataOverloadScoring()
+    {
+        var code = """
+import System.Text.Json.*
+
+func Main() -> () {
+    val foo = Foo("Marina")
+    val options = JsonSerializerOptions with {
+        WriteIndented = true
+    }
+    val str = JsonSerializer.Serialize(foo, options)
+    val obj = JsonSerializer.Deserialize<Foo>(str, options)
+}
+
+record Foo(Name: string)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.ConsoleApplication,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "JsonSerializer.Deserialize<Foo>");
+        var serializeInvocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "JsonSerializer.Serialize");
+        var serializeArguments = serializeInvocation.ArgumentList.Arguments;
+        var arguments = invocation.ArgumentList.Arguments;
+
+        instrumentation.BinderReentry.Reset();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        model.TryGetAvailableTypeInfo(serializeArguments[0].Expression, out var fooArgumentTypeInfo).ShouldBeTrue();
+        model.TryGetAvailableTypeInfo(serializeArguments[1].Expression, out var serializeOptionsArgumentTypeInfo).ShouldBeTrue();
+        fooArgumentTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Foo");
+        serializeOptionsArgumentTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("JsonSerializerOptions");
+        model.TryGetInvocationTargetSymbolInfo(serializeInvocation, out var serializeInvocationInfo).ShouldBeTrue();
+        var serializeMethod = Assert.IsAssignableFrom<IMethodSymbol>(serializeInvocationInfo.Symbol);
+        serializeMethod.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        model.TryGetAvailableTypeInfo(serializeInvocation, out var serializeTypeInfo).ShouldBeTrue();
+        serializeTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        model.TryGetAvailableTypeInfo(arguments[0].Expression, out var strArgumentTypeInfo).ShouldBeTrue();
+        model.TryGetAvailableTypeInfo(arguments[1].Expression, out var optionsArgumentTypeInfo).ShouldBeTrue();
+        strArgumentTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        optionsArgumentTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("JsonSerializerOptions");
+
+        var resolved = model.TryGetInvocationTargetSymbolInfo(invocation, out var info);
+        var delta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            before);
+
+        resolved.ShouldBeTrue();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        method.Name.ShouldBe("Deserialize");
+        method.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
+        method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Foo");
+        instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
+        delta.BoundNodeContextualCacheHits.ShouldBe(0);
+    }
+
+    [Fact]
+    public void GetDiagnostics_MetadataInterfaceClosureDuringJsonOverloadResolution_DoesNotThrow()
+    {
+        var code = """
+import System.*
+import System.Console.*
+import System.Text.Json.*
+import System.Text.Json.Serialization.*
+
+val foo = Foo(
+    Name: "Foo",
+    Status: .OnMaintenance(.UtcNow, "Test"),
+    Item: .Some("Foo"),
+    Test: true
+)
+
+val options = JsonSerializerOptions with {
+    WriteIndented = true,
+    PropertyNamingPolicy = .CamelCase
+}
+
+val str = JsonSerializer.Serialize(foo, options)
+WriteLine(str)
+
+val obj = JsonSerializer.Deserialize<Foo>(str, options)
+WriteLine(obj)
+
+match foo.Test {
+    int i => WriteLine(i)
+    bool b => WriteLine(b)
+}
+
+record Foo(
+    val Name: string,
+    val Status: Status
+    val Item: Option<string>
+    val Test: int | bool
+)
+
+[RavenTaggedUnionJsonConverter("kind")]
+union Status {
+    case Active(Date: DateTimeOffset)
+    case OnMaintenance(Date: DateTimeOffset, Reason: string)
+    case Inactive(Date: DateTimeOffset, Reason: string)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(
+            tree,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var exception = Record.Exception(() => compilation.GetDiagnostics());
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void GetSymbolInfo_TopLevelInvocationArgument_ResolvesPrecedingInvocationInitializedLocalCold()
     {
         var code = """

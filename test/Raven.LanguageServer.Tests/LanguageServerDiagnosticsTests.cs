@@ -240,6 +240,11 @@ func Main() -> unit {
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
+        var project = manager.GetProjectsSnapshot().Single();
+        var compilationOptions = (project.CompilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication))
+            .WithReturnedValueHandlingMode(ReturnedValueHandlingMode.Full);
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(project.Id, compilationOptions)).ShouldBeTrue();
+
         var result = await store.TryGetDiagnosticsAsync(
             uri,
             DocumentStore.DiagnosticLane.DocumentWithAnalyzers,

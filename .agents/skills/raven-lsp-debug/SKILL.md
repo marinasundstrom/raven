@@ -46,6 +46,7 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
    ```
 
    Use this harness to simulate hover behavior without VS Code, gather timings, and inspect semantic performance counters such as symbol-info fallback, type-info fallback, and bound-node bind fallback.
+   For edit recovery regressions, use headless edit probes to model the way developers actually reshape code: type an opening wrapper such as `func Main() {`, later add the closing `}`, or create `func Main() { }` and paste existing top-level statements into the body. Compare the first semantic query after the edit with a cold one-shot compilation and with a follow-up edit inside the stabilized owner.
    For deterministic regression coverage, use the language-server unit-test hover replay helpers to load inline Raven source, open it through the mock workspace/document store, and orchestrate hovers at exact positions or marker-derived positions.
 4. Check the client log to confirm the request lifecycle and parameters.
 5. Check the server log to see request handling, failures, or missing symbol results.
@@ -73,7 +74,10 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 - When investigating hangs, compare the same project with editor inlays enabled and disabled. A project that loads without inlays but stalls with inlays points to request pressure or inlay-triggered cold semantic binding, not necessarily a broken compiler answer.
 - When investigating stale or surprising diagnostics, compare compiler diagnostics without source-code analyzers against diagnostics with analyzers enabled. This keeps binder/compiler diagnostics distinct from analyzer diagnostics and avoids chasing analyzer behavior as a binder regression.
 - If a request is slow because public semantic APIs force broad binding, fix the compiler path. If a request blocks newer interactive work, fix LSP scheduling/cancellation without duplicating compiler semantics.
+- Treat structural edits that change executable ownership, such as wrapping top-level statements in `func Main`, as first-class recovery cases. Verify that changed-owner detection identifies the source-level owner and that later body-only edits can reuse unaffected semantic state.
 - For inlay flicker or disappearing hints, check whether the server returned an empty result while semantic access was busy. Prefer returning cached results for the same document version and range-filtering them over clearing the editor UI.
+- Treat large full-document inlay requests as background presentation work: they should prefer cached or available compiler state and avoid cold expensive binding fallbacks. Small full-document, precise, or visible-range inlay requests may trigger the authoritative compiler bind when needed.
+- Do not eagerly build tooltip markdown for full-document inlay responses. Full-document responses should prioritize correct labels and source-applicable edits; focused range requests can include richer tooltip content.
 - For slow inlays, separate three costs: semantic model materialization, binding needed for missing symbols/types, and presentation formatting such as type-name qualification. Fix broad metadata lookup or formatting costs before suppressing annotations.
 
 ## Notes

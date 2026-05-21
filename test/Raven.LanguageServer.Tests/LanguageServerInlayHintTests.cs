@@ -218,6 +218,56 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_FullDocument_ProvidesInvocationInitializerHintsForSmallDocumentsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Make(value: int) -> int {
+    return value + 1
+}
+
+func Main() -> unit {
+    val answer = Make(41)
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var answerInsertion = code.IndexOf("answer", StringComparison.Ordinal) + "answer".Length;
+
+        var fullDocumentResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        AssertHasHintAtInsertion(sourceText, fullDocumentResult.ToArray(), answerInsertion, ": int");
+
+        var preciseResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(answerInsertion, 0))
+        }, CancellationToken.None);
+
+        AssertHasHintAtInsertion(sourceText, preciseResult.ToArray(), answerInsertion, ": int");
+    }
+
+    [Fact]
     public async Task Handle_LargeRange_DoesNotColdBindInvocationInitializersAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -791,7 +841,16 @@ func Main() -> unit {
             hint,
             jsonInsertion,
             ": JsonObject");
-        AssertTooltipMentionsInsertion(hint, ": JsonObject");
+        hint.Tooltip.ShouldBeNull();
+
+        var preciseResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(jsonInsertion, 0))
+        }, CancellationToken.None);
+
+        var preciseHint = preciseResult.Single(static hint => hint.Label.String == ": JsonObject");
+        AssertTooltipMentionsInsertion(preciseHint, ": JsonObject");
     }
 
     [Fact]

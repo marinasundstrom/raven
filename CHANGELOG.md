@@ -37,6 +37,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Equality operands now target-type member-binding shorthand such as `value == .Case`, matching pattern shorthand while still allowing `value is .Case` when pattern syntax better communicates intent.
 
 ### Fixed
+- Incremental executable-owner analysis now treats top-level `func` statements as
+  function owners instead of generic global-statement owners, improving editor
+  recovery after wrapping top-level statements in `func Main`.
+- Semantic invocation queries can now use already-available argument types to
+  construct simple generic metadata candidates, avoiding unnecessary body
+  rebinding for language-service hovers such as `JsonSerializer.Serialize` /
+  `Deserialize<T>` chains.
+- Large full-document inlay hint requests now avoid cold expensive binding
+  fallbacks, reducing editor request pile-ups while small documents and precise
+  range requests can still bind to fill missing hints.
+- Full-document inlay hint responses now skip eager tooltip markdown generation,
+  keeping initial annotation payloads lighter while focused range requests still
+  include richer tooltip content.
 - The redundant-import quick fix now offers a document-level action to remove all imports already covered by global imports.
 - Optional enum parameter defaults now accept target-typed member binding syntax such as `value: ServiceLifetime = .Scoped`.
 - Qualified constant-member patterns such as `value is Math.PI` and enum-member patterns such as `value is JsonValueKind.True` now bind and emit as value comparisons instead of type tests.

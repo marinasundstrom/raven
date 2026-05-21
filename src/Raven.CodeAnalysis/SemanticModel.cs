@@ -2395,6 +2395,7 @@ public partial class SemanticModel
             else if (!HasFunctionExpressionArgument(invocation))
             {
                 methods = methods
+                    .Select(method => ConstructAvailableGenericInvocationCandidate(method, invocation))
                     .Where(static method => method.TypeParameters.Length == 0 || !HasUnresolvedMethodTypeParameters(method))
                     .ToImmutableArray();
                 if (methods.IsDefaultOrEmpty)
@@ -2434,6 +2435,75 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private IMethodSymbol ConstructAvailableGenericInvocationCandidate(
+        IMethodSymbol method,
+        InvocationExpressionSyntax invocation)
+    {
+        if (method.TypeParameters.IsDefaultOrEmpty)
+            return method;
+
+        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        TryInferAvailableInvocationArgumentSubstitutions(method, invocation, substitutions);
+
+        if (substitutions.Count == 0)
+            return method;
+
+        var typeArguments = new ITypeSymbol[method.TypeParameters.Length];
+        var changed = false;
+
+        for (var i = 0; i < method.TypeParameters.Length; i++)
+        {
+            var typeParameter = method.TypeParameters[i];
+            var existingArgument = method.TypeArguments.Length == method.TypeParameters.Length
+                ? method.TypeArguments[i]
+                : typeParameter;
+
+            if (substitutions.TryGetValue(typeParameter, out var inferred) &&
+                inferred.TypeKind != TypeKind.Error)
+            {
+                typeArguments[i] = inferred;
+                changed |= !SymbolEqualityComparer.Default.Equals(existingArgument, inferred);
+            }
+            else
+            {
+                typeArguments[i] = existingArgument;
+            }
+        }
+
+        return changed ? method.Construct(typeArguments) : method;
+    }
+
+    private void TryInferAvailableInvocationArgumentSubstitutions(
+        IMethodSymbol method,
+        InvocationExpressionSyntax invocation,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    {
+        if (invocation.TrailingBlock is not null ||
+            invocation.ArgumentList.Arguments.Any(static argument => argument.NameColon is not null))
+        {
+            return;
+        }
+
+        var parameterOffset = IsAvailableExtensionReceiverInvocation(method, invocation) ? 1 : 0;
+        for (var argumentIndex = 0; argumentIndex < invocation.ArgumentList.Arguments.Count; argumentIndex++)
+        {
+            var parameterIndex = argumentIndex + parameterOffset;
+            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                continue;
+
+            var argumentExpression = invocation.ArgumentList.Arguments[argumentIndex].Expression;
+            if (argumentExpression is FunctionExpressionSyntax)
+                continue;
+
+            var argumentType = TryGetNonContextualAvailableArgumentType(argumentExpression);
+            if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
+                continue;
+
+            var parameterType = SubstituteTypeParameters(method.Parameters[parameterIndex].Type, substitutions);
+            _ = TryUnifyExtensionReceiver(parameterType, argumentType, substitutions);
+        }
     }
 
     private static GenericNameSyntax? TryGetInvocationGenericName(ExpressionSyntax expression)
@@ -3827,6 +3897,14 @@ public partial class SemanticModel
             return literalType;
         }
 
+        if (expression is WithExpressionSyntax withExpression &&
+            TryGetWithReceiverType(withExpression.Expression, out var withReceiverType) &&
+            withReceiverType is not null &&
+            withReceiverType.TypeKind != TypeKind.Error)
+        {
+            return withReceiverType;
+        }
+
         if (expression is InvocationExpressionSyntax invocation &&
             TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates) &&
             TryGetCommonAvailableInvocationReturnType(invocationCandidates, out var invocationReturnType) &&
@@ -4478,6 +4556,19 @@ public partial class SemanticModel
             }
 
             typeInfo = new TypeInfo(literalType, convertedType, ComputeConversion(literalType, convertedType));
+            StoreTypeMapping(expression, typeInfo);
+            return true;
+        }
+
+        if (expression is WithExpressionSyntax withExpression &&
+            TryGetWithReceiverType(withExpression.Expression, out var withReceiverType) &&
+            withReceiverType is not null &&
+            withReceiverType.TypeKind != TypeKind.Error)
+        {
+            typeInfo = new TypeInfo(
+                withReceiverType,
+                withReceiverType,
+                ComputeConversion(withReceiverType, withReceiverType));
             StoreTypeMapping(expression, typeInfo);
             return true;
         }

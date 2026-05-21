@@ -72,6 +72,24 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return node.FullSpan.IntersectsWith(span);
     }
 
+    internal static bool ShouldAllowExpensiveBindingForInlay(SourceText sourceText, TextSpan requestSpan)
+    {
+        var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
+        var isPreciseRequest = requestSpan.Length == 0;
+        var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
+
+        return !isLargeDocument || isPreciseRequest || !isFullDocumentRequest;
+    }
+
+    private static bool ShouldIncludeTooltipsForInlay(SourceText sourceText, TextSpan requestSpan)
+    {
+        if (sourceText.Length > MaxUnboundedDocumentLength)
+            return false;
+
+        var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
+        return !isFullDocumentRequest;
+    }
+
     public async Task<InlayHintContainer?> Handle(InlayHintParams request, CancellationToken cancellationToken)
     {
         var requestState = _latestRequests.Begin(request.TextDocument.Uri, cancellationToken);
@@ -161,9 +179,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             var root = context.Value.SyntaxTree.GetRoot(effectiveCancellationToken);
-            var allowExpensiveBinding = !isLargeDocument ||
-                isPreciseRequest ||
-                !isFullDocumentRequest;
+            var allowExpensiveBinding = ShouldAllowExpensiveBindingForInlay(sourceText, requestSpan);
             var collectionBudgetMs = allowExpensiveBinding
                 ? double.PositiveInfinity
                 : LargeRangeInlayBudgetMs;
@@ -174,7 +190,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 Stopwatch.StartNew(),
                 effectiveCancellationToken,
                 collectionBudgetMs,
-                includeTooltips: sourceText.Length <= MaxUnboundedDocumentLength);
+                includeTooltips: ShouldIncludeTooltipsForInlay(sourceText, requestSpan));
             var collectStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
             AddLocalTypeHints(

@@ -145,6 +145,27 @@ This keeps the compiler deterministic and makes editor scenarios fast. A hover,
 type hint, or diagnostic update should not depend on a previous whole-file bind
 having happened first.
 
+Structural edits need the same treatment as ordinary expression edits. A common
+editor flow is to start with top-level statements and then wrap them in
+`func Main() { ... }`, either by typing the opening function and later adding the
+closing brace, or by creating an empty function block and pasting the statements
+inside it. The first transition may invalidate the executable owner because the
+source-level owner changed. Once the function owner exists, edits inside its body
+should be treated as body edits for that function rather than as changes to the
+global statement wrapper.
+
+Regression tests for these cases should compare:
+
+- cold one-shot compilation of the top-level form
+- cold one-shot compilation of the wrapped function form
+- the incremental transition from top-level statements to `func Main`
+- a follow-up edit inside the already-wrapped function body
+
+The semantic API answer must be correct in every case. Fast paths may use
+available binder-owned state, but if that state is insufficient they must fall
+back to the authoritative binding path rather than returning a partial symbol,
+wrong diagnostic, or stale inlay result.
+
 ## Testing guidance
 
 Binder tests should describe durable state and lifecycle behavior, not private
@@ -159,6 +180,10 @@ Useful assertions:
 - preceding declaration seeding makes later references resolve without eager
   body binding
 - pattern locals have the expected lexical scope owner
+- executable owner analysis treats top-level `func` statements as function
+  owners, not as generic global-statement owners
+- semantic queries after structural edits either reuse valid binder state or
+  rebind through the responsible source-level owner
 
 Avoid tests that depend on a complete bound-tree shape unless the shape itself
 is the product contract. Prefer symbol identity, type identity, diagnostics, and

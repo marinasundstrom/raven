@@ -494,7 +494,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
             builder.Add(interfaceType);
 
-            foreach (var inherited in interfaceType.Interfaces)
+            var inheritedInterfaces = interfaceType.Interfaces;
+            if (inheritedInterfaces.IsDefaultOrEmpty)
+                return;
+
+            foreach (var inherited in inheritedInterfaces)
                 AddInterface(inherited);
         }
     }

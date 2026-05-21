@@ -243,6 +243,81 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_TreatsTopLevelFunctionStatement_AsFunctionOwner()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            func Main() {
+                val value = 1
+            }
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            func Main() {
+                val value = 2
+            }
+            """));
+        var previousFunction = previousTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+        var currentFunction = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+        var currentGlobal = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<GlobalStatementSyntax>()
+            .Single();
+        var currentFunctionDescriptor = new Compilation.ExecutableOwnerDescriptor(currentFunction.Span, currentFunction.Kind);
+        var previousFunctionDescriptor = new Compilation.ExecutableOwnerDescriptor(previousFunction.Span, previousFunction.Kind);
+        var currentGlobalDescriptor = new Compilation.ExecutableOwnerDescriptor(currentGlobal.Span, currentGlobal.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.MatchedOwners.ShouldContain(match =>
+            match.CurrentOwner == currentFunctionDescriptor &&
+            match.PreviousOwner == previousFunctionDescriptor);
+        result.ChangedOwners.ShouldContain(currentFunctionDescriptor);
+        result.ChangedOwners.ShouldNotContain(currentGlobalDescriptor);
+        result.OwnerChanges.TryGetValue(currentFunctionDescriptor, out var change).ShouldBeTrue();
+        change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyDeclaration);
+    }
+
+    [Fact]
+    public void Analyze_WrappingTopLevelStatementsInMain_ReportsFunctionOwnerRatherThanGlobalWrapper()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            val first = 1
+            WriteLine(first)
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            func Main() {
+                val first = 1
+                WriteLine(first)
+            }
+            """));
+        var currentFunction = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+        var currentGlobal = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<GlobalStatementSyntax>()
+            .Single();
+        var currentFunctionDescriptor = new Compilation.ExecutableOwnerDescriptor(currentFunction.Span, currentFunction.Kind);
+        var currentGlobalDescriptor = new Compilation.ExecutableOwnerDescriptor(currentGlobal.Span, currentGlobal.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.ChangedOwners.ShouldContain(currentFunctionDescriptor);
+        result.ChangedOwners.ShouldNotContain(currentGlobalDescriptor);
+        result.MatchedOwners.ShouldNotContain(match => match.CurrentOwner == currentGlobalDescriptor);
+    }
+
+    [Fact]
     public void Analyze_ReusesNestedFunctionExpression_WhenParentEditIsBeforeNestedOwner()
     {
         var previousTree = SyntaxTree.ParseText(SourceText.From(

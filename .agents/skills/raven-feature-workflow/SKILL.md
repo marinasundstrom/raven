@@ -52,6 +52,7 @@ Add focused coverage at the right layer:
 - operations tests when operation shape changes
 - codegen or runtime tests for observable behavior
 - binder or semantic-model tests for binder-owned state, invalidation behavior, and cheap public semantic queries
+- incremental edit-shape tests for recovery scenarios users hit in the editor, especially wrapping top-level statements in `func Main` by typing an opening wrapper and later adding `}`, or by creating an empty block and pasting statements into it
 - language-server tests for request presentation, cancellation/scheduling, and editor-facing regressions after compiler behavior is covered
 
 Do not add stable tests that assert emitted opcodes or exact lowered instruction sequences.

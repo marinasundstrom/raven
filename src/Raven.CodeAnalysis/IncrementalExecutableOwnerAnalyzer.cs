@@ -476,12 +476,13 @@ internal static class IncrementalExecutableOwnerAnalyzer
     }
 
     private static bool IsExecutableOwnerNode(SyntaxNode node)
-        => node is FunctionExpressionSyntax
+        => node is FunctionStatementSyntax
+            or FunctionExpressionSyntax
             or BaseMethodDeclarationSyntax
             or BaseConstructorDeclarationSyntax
             or ParameterlessConstructorDeclarationSyntax
             or AccessorDeclarationSyntax
             or PropertyDeclarationSyntax
             or EventDeclarationSyntax
-            or GlobalStatementSyntax;
+            or GlobalStatementSyntax { Statement: not FunctionStatementSyntax };
 }

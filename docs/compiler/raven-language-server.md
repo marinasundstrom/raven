@@ -80,3 +80,28 @@ The two logs answer different questions:
 
 - `logs/raven-lsp.log` shows what the server process actually handled, including parser/diagnostics exceptions, code-action failures, and server startup/shutdown.
 - The `Raven` output channel shows what the client requested and whether requests were canceled before the server answered.
+
+## Headless edit probes
+
+Use `tools/Raven.LanguageServer.Headless` to reproduce editor edit flows without
+VS Code. Important recovery scenarios include wrapping existing top-level
+statements in `func Main() { ... }`, either by typing the opening wrapper and
+later adding the closing brace or by creating an empty block and pasting the
+statements into it. These probes should compare the first semantic query after
+the structural edit with a follow-up body edit inside the new function owner.
+
+When a probe reports slow hover, inlay, or diagnostics, inspect the semantic
+counters before changing LSP behavior. `symbolBinderFallbacks`,
+`typeBoundFallbacks`, `boundBindFallbacks`, and `boundContextHits` indicate that
+the compiler API had to bind or contextually rebind. If the compiler can answer
+from sound available state, fix that path in `Raven.CodeAnalysis`; if it cannot,
+the authoritative bind path should still produce the correct result.
+
+Large full-document inlay requests are background presentation work and should
+avoid cold expensive binding fallbacks. They may use cached or available
+compiler state and return fewer hints. Small full-document, precise, and
+visible-range inlay requests may use the authoritative binding path so the
+editor can fill in missing hints without blocking broad scrolling requests.
+Full-document inlay responses should prioritize labels and source-applicable
+text edits over tooltip markdown. Focused range requests can include richer
+tooltip content because they are tied to the user's current view or cursor.
