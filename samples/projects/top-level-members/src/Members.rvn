@@ -1,6 +1,7 @@
 namespace Samples.NamespaceMembers.Members
 
 import System.Console.*
+import System.Runtime.CompilerServices.*
 
 public const DefaultTopic: string = "binding"
 public const DefaultCount: int = 3
