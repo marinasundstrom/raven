@@ -52,6 +52,8 @@
   items:
     - name: Overview
       href: api/README.md
+    - name: Performance guidance
+      href: api/performance.md
     - name: Operations
       href: api/operations.md
     - name: Operations implementation status

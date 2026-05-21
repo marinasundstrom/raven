@@ -2,6 +2,9 @@
 
 This document outlines the API of the Raven compiler, providing guidance on syntax analysis, semantic analysis, and code generation.
 
+For analyzer, source-generator, refactoring, and language-server hot paths, see
+the [Compiler API performance guidance](performance.md).
+
 ---
 
 ## Syntax Analysis
