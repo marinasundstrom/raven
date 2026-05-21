@@ -3,20 +3,34 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
+
+using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
+using LspDocumentUri = OmniSharp.Extensions.LanguageServer.Protocol.DocumentUri;
+using LspFileSystemWatcher = OmniSharp.Extensions.LanguageServer.Protocol.Models.FileSystemWatcher;
 
 namespace Raven.LanguageServer;
 
 internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandlerBase
 {
     private readonly WorkspaceManager _workspaceManager;
+    private readonly DocumentStore _documents;
+    private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<DidChangeWatchedFilesHandler> _logger;
 
-    public DidChangeWatchedFilesHandler(WorkspaceManager workspaceManager, ILogger<DidChangeWatchedFilesHandler> logger)
+    public DidChangeWatchedFilesHandler(
+        WorkspaceManager workspaceManager,
+        DocumentStore documents,
+        ILanguageServerFacade languageServer,
+        ILogger<DidChangeWatchedFilesHandler> logger)
     {
         _workspaceManager = workspaceManager;
+        _documents = documents;
+        _languageServer = languageServer;
         _logger = logger;
     }
 
@@ -24,6 +38,10 @@ internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandle
     {
         try
         {
+            var openDocumentsToRefresh = _workspaceManager.ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges(request.Changes);
+            if (openDocumentsToRefresh.Count > 0)
+                await PublishDiagnosticsForOpenDocumentsAsync(openDocumentsToRefresh, cancellationToken).ConfigureAwait(false);
+
             await _workspaceManager.ReloadForWatchedFilesAsync(request.Changes);
         }
         catch (Exception ex)
@@ -34,13 +52,42 @@ internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandle
         return await Unit.Task;
     }
 
+    private async Task PublishDiagnosticsForOpenDocumentsAsync(
+        IReadOnlyList<LspDocumentUri> documentUris,
+        CancellationToken cancellationToken)
+    {
+        foreach (var uri in documentUris)
+        {
+            var result = await _documents.TryGetDocumentWithAnalyzersDiagnosticsAsync(
+                uri,
+                shouldSkipWork: null,
+                cancellationToken).ConfigureAwait(false);
+            if (result.WasSkipped)
+                continue;
+
+            _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
+            {
+                Uri = uri,
+                Diagnostics = result.Diagnostics.Count > 0
+                    ? new Container<LspDiagnostic>(result.Diagnostics)
+                    : new Container<LspDiagnostic>(),
+                Version = null
+            });
+        }
+    }
+
     protected override DidChangeWatchedFilesRegistrationOptions CreateRegistrationOptions(DidChangeWatchedFilesCapability capability, ClientCapabilities clientCapabilities)
         => new()
         {
-            Watchers = new Container<OmniSharp.Extensions.LanguageServer.Protocol.Models.FileSystemWatcher>(
-                new OmniSharp.Extensions.LanguageServer.Protocol.Models.FileSystemWatcher
+            Watchers = new Container<LspFileSystemWatcher>(
+                new LspFileSystemWatcher
                 {
                     GlobPattern = new GlobPattern("**/*.{rvn,rav,rvnproj,csproj,fsproj}"),
+                    Kind = WatchKind.Create | WatchKind.Change | WatchKind.Delete
+                },
+                new LspFileSystemWatcher
+                {
+                    GlobPattern = new GlobPattern("**/.editorconfig"),
                     Kind = WatchKind.Create | WatchKind.Change | WatchKind.Delete
                 })
         };

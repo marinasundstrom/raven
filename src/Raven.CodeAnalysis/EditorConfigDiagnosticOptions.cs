@@ -20,6 +20,22 @@ public static class EditorConfigDiagnosticOptions
         IEnumerable<string?> sourceFilePaths)
     {
         ArgumentNullException.ThrowIfNull(options);
+
+        var loaded = LoadDiagnosticSeverityOptions(projectOrSourcePath, sourceFilePaths);
+        if (loaded.Count == 0)
+            return options;
+
+        var merged = options.SpecificDiagnosticOptions.SetItems(loaded);
+        if (merged == options.SpecificDiagnosticOptions)
+            return options;
+
+        return options.WithExactSpecificDiagnosticOptions(merged);
+    }
+
+    public static ImmutableDictionary<string, ReportDiagnostic> LoadDiagnosticSeverityOptions(
+        string? projectOrSourcePath,
+        IEnumerable<string?> sourceFilePaths)
+    {
         ArgumentNullException.ThrowIfNull(sourceFilePaths);
 
         var normalizedSourcePaths = sourceFilePaths
@@ -39,9 +55,9 @@ public static class EditorConfigDiagnosticOptions
         }
 
         if (normalizedSourcePaths.Length == 0)
-            return options;
+            return ImmutableDictionary<string, ReportDiagnostic>.Empty;
 
-        var merged = options.SpecificDiagnosticOptions;
+        var merged = ImmutableDictionary.Create<string, ReportDiagnostic>(StringComparer.OrdinalIgnoreCase);
         foreach (var sourcePath in normalizedSourcePaths)
         {
             var forPath = LoadForSourcePath(sourcePath);
@@ -49,10 +65,7 @@ public static class EditorConfigDiagnosticOptions
                 merged = merged.SetItems(forPath);
         }
 
-        if (merged == options.SpecificDiagnosticOptions)
-            return options;
-
-        return options.WithSpecificDiagnosticOptions(merged);
+        return merged;
     }
 
     private static ImmutableDictionary<string, ReportDiagnostic> LoadForSourcePath(string sourcePath)

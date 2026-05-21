@@ -115,6 +115,8 @@ gating), see `docs/compiler/development/suggestions.md`.
 Analyzer severities can be configured through `.editorconfig` using standard keys such as
 `dotnet_diagnostic.<ID>.severity`, `dotnet_diagnostic.*.severity`, and
 `dotnet_analyzer_diagnostic.severity`.
+The language server watches `.editorconfig` and reapplies diagnostic severity changes to open
+projects without reopening the project.
 
 For a concrete project sample that disables `RAV9012` (not-use-null), `RAV9013` (don't use
 throw), and `RAV9014` (prefer Result/Option-based extensions), see

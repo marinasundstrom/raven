@@ -60,6 +60,7 @@ internal sealed class WorkspaceManager
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<ProjectId, CancellationTokenSource> _pendingMacroConsumerRefreshes = new();
     private readonly Dictionary<string, FailedProjectOpen> _failedProjectOpens = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<ProjectId, ImmutableDictionary<string, ReportDiagnostic>> _editorConfigDiagnosticOptionsByProject = new();
     private readonly PerformanceInstrumentation _compilerPerformanceInstrumentation = new();
     private ImmutableArray<string> _workspaceRoots = ImmutableArray<string>.Empty;
     private ProjectId? _fallbackProjectId;
@@ -99,6 +100,7 @@ internal sealed class WorkspaceManager
         {
             _workspace.OpenSolution(_workspace.CreateSolution());
             _projectsByRoot.Clear();
+            _editorConfigDiagnosticOptionsByProject.Clear();
             _fallbackProjectId = null;
             _documents.Clear();
             var loadedProjects = new Dictionary<string, ProjectId>(StringComparer.OrdinalIgnoreCase);
@@ -156,6 +158,54 @@ internal sealed class WorkspaceManager
             {
                 _ = UpsertDocument(openDocument.Uri, openDocument.Text);
             }
+        }
+    }
+
+    public IReadOnlyList<DocumentUri> ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges(IEnumerable<FileEvent> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+
+        var changedPaths = changes
+            .Select(change => change.Uri?.GetFileSystemPath())
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => NormalizePath(path!))
+            .ToArray();
+
+        if (changedPaths.Length == 0 ||
+            !changedPaths.Any(IsEditorConfigWatchedFileChangePath))
+        {
+            return [];
+        }
+
+        lock (_gate)
+        {
+            var solution = _workspace.CurrentSolution;
+            var changed = false;
+
+            foreach (var project in solution.Projects.ToArray())
+            {
+                var previousOptions = GetTrackedEditorConfigDiagnosticOptions(project);
+                var currentOptions = LoadEditorConfigDiagnosticOptions(project);
+
+                if (DiagnosticOptionsEqual(previousOptions, currentOptions))
+                    continue;
+
+                var compilationOptions = project.CompilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication);
+                var mergedSpecificOptions = compilationOptions.SpecificDiagnosticOptions
+                    .RemoveRange(previousOptions.Keys)
+                    .SetItems(currentOptions);
+                var updatedOptions = compilationOptions.WithExactSpecificDiagnosticOptions(mergedSpecificOptions);
+
+                solution = solution.WithCompilationOptions(project.Id, updatedOptions);
+                _editorConfigDiagnosticOptionsByProject[project.Id] = currentOptions;
+                changed = true;
+            }
+
+            if (!changed)
+                return [];
+
+            _workspace.TryApplyChanges(solution);
+            return _documents.Keys.ToArray();
         }
     }
 
@@ -271,6 +321,7 @@ internal sealed class WorkspaceManager
 
         var projectId = projectSystem.OpenProject(_workspace, normalizedProjectPath);
         EnsureCompilerPerformanceInstrumentation(projectId);
+        ApplyInitialEditorConfigDiagnosticOptions(projectId);
         EnsureRavenCoreReference(projectId);
         EnsureBuiltInAnalyzers(projectId);
         loadedProjects[normalizedProjectPath] = projectId;
@@ -433,6 +484,11 @@ internal sealed class WorkspaceManager
     internal static bool ShouldReloadForWatchedFileChanges(IEnumerable<string> changedPaths)
         => changedPaths.Any(IsRelevantWatchedFileChangePath);
 
+    internal static bool IsEditorConfigWatchedFileChangePath(string path)
+        => !string.IsNullOrWhiteSpace(path) &&
+           !IsWatchedFilePathExcluded(path) &&
+           string.Equals(Path.GetFileName(path), ".editorconfig", StringComparison.OrdinalIgnoreCase);
+
     internal static bool IsRelevantWatchedFileChangePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || IsWatchedFilePathExcluded(path))
@@ -443,6 +499,59 @@ internal sealed class WorkspaceManager
                string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
                RavenFileExtensions.HasRavenExtension(path);
+    }
+
+    private ImmutableDictionary<string, ReportDiagnostic> GetTrackedEditorConfigDiagnosticOptions(Project project)
+    {
+        if (_editorConfigDiagnosticOptionsByProject.TryGetValue(project.Id, out var options))
+            return options;
+
+        options = LoadEditorConfigDiagnosticOptions(project);
+        _editorConfigDiagnosticOptionsByProject[project.Id] = options;
+        return options;
+    }
+
+    private void ApplyInitialEditorConfigDiagnosticOptions(ProjectId projectId)
+    {
+        var project = _workspace.CurrentSolution.GetProject(projectId);
+        if (project is null)
+            return;
+
+        var editorConfigOptions = LoadEditorConfigDiagnosticOptions(project);
+        _editorConfigDiagnosticOptionsByProject[projectId] = editorConfigOptions;
+
+        if (editorConfigOptions.Count == 0)
+            return;
+
+        var compilationOptions = project.CompilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication);
+        var mergedSpecificOptions = compilationOptions.SpecificDiagnosticOptions.SetItems(editorConfigOptions);
+        if (DiagnosticOptionsEqual(compilationOptions.SpecificDiagnosticOptions, mergedSpecificOptions))
+            return;
+
+        _workspace.TryApplyChanges(_workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            compilationOptions.WithExactSpecificDiagnosticOptions(mergedSpecificOptions)));
+    }
+
+    private static ImmutableDictionary<string, ReportDiagnostic> LoadEditorConfigDiagnosticOptions(Project project)
+        => EditorConfigDiagnosticOptions.LoadDiagnosticSeverityOptions(
+            project.FilePath,
+            project.Documents.Select(static document => document.FilePath));
+
+    private static bool DiagnosticOptionsEqual(
+        ImmutableDictionary<string, ReportDiagnostic> left,
+        ImmutableDictionary<string, ReportDiagnostic> right)
+    {
+        if (left.Count != right.Count)
+            return false;
+
+        foreach (var (key, value) in left)
+        {
+            if (!right.TryGetValue(key, out var rightValue) || rightValue != value)
+                return false;
+        }
+
+        return true;
     }
 
     private static bool IsWorkspaceDiscoveryDirectoryExcluded(string path)

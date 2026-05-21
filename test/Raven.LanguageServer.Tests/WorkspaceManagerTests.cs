@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
@@ -185,6 +186,15 @@ public sealed class WorkspaceManagerTests : IDisposable
 
         WorkspaceManager.ShouldReloadForWatchedFileChanges([sourcePath]).ShouldBeTrue();
         WorkspaceManager.ShouldReloadForWatchedFileChanges([projectPath]).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsEditorConfigWatchedFileChangePath_RecognizesEditorConfigWithoutProjectReload()
+    {
+        var editorConfigPath = Path.Combine(_tempRoot, ".editorconfig");
+
+        WorkspaceManager.IsEditorConfigWatchedFileChangePath(editorConfigPath).ShouldBeTrue();
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([editorConfigPath]).ShouldBeFalse();
     }
 
     [Fact]
@@ -572,6 +582,70 @@ func Main() -> unit { }
         ]);
 
         projectSystem.OpenAttempts.ShouldBe(2);
+    }
+
+    [Fact]
+    public void ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges_UpdatesProjectOptionsWithoutReload()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), """
+func Main() -> unit { }
+""");
+        var editorConfigPath = Path.Combine(_tempRoot, ".editorconfig");
+        File.WriteAllText(editorConfigPath, """
+root = true
+
+[*.rvn]
+dotnet_diagnostic.RAV9029.severity = warning
+""");
+
+        var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        var projectId = manager.GetProjectsSnapshot().Single().Id;
+        manager.GetProjectsSnapshot().Single().CompilationOptions!.SpecificDiagnosticOptions[UnhandledMemberReturnValueAnalyzer.DiagnosticId]
+            .ShouldBe(ReportDiagnostic.Warn);
+
+        File.WriteAllText(editorConfigPath, """
+root = true
+
+[*.rvn]
+dotnet_diagnostic.RAV9029.severity = error
+""");
+
+        _ = manager.ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(editorConfigPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        var project = manager.GetProjectsSnapshot().Single();
+        project.Id.ShouldBe(projectId);
+        project.CompilationOptions!.SpecificDiagnosticOptions[UnhandledMemberReturnValueAnalyzer.DiagnosticId]
+            .ShouldBe(ReportDiagnostic.Error);
     }
 
     [Fact]
@@ -1337,6 +1411,33 @@ class AnswerMacro: IFreestandingExpressionMacro {
         {
             context.RegisterRefactoring(CodeFixAction.Create("Test refactoring", static (solution, _) => solution));
         }
+    }
+
+    private sealed class CountingProjectSystemService : IProjectSystemService
+    {
+        private readonly IProjectSystemService _inner;
+
+        public CountingProjectSystemService(IProjectSystemService inner)
+        {
+            _inner = inner;
+        }
+
+        public bool CanOpenProject(string projectFilePath)
+            => _inner.CanOpenProject(projectFilePath);
+
+        public IReadOnlyList<string> GetProjectReferencePaths(string projectFilePath)
+            => _inner.GetProjectReferencePaths(projectFilePath);
+
+        public ProjectId OpenProject(Workspace workspace, string projectFilePath)
+        {
+            OpenAttempts++;
+            return _inner.OpenProject(workspace, projectFilePath);
+        }
+
+        public int OpenAttempts { get; private set; }
+
+        public void SaveProject(Project project, string filePath)
+            => _inner.SaveProject(project, filePath);
     }
 
     private sealed class ThrowingProjectSystemService : IProjectSystemService
