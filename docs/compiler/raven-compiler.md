@@ -37,6 +37,10 @@ rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type 
 - `--dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]]` &ndash; dump original and/or expanded macro source for a single file. Defaults to `both:plain`. Expanded pretty output is colorized, but diagnostic underlines are only available for the original source view.
 - `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
   compiler, analyzer, and emit diagnostics)
+- `--returned-value-handling <default|none|info|warning|error>` &ndash; configure the built-in
+  returned-value analyzer (`RAV9029`); defaults to warning and otherwise follows `.editorconfig`
+- `--force-returned-value-handling` &ndash; shorthand for treating returned values that are not
+  handled as errors
 - `-r` &ndash; print the raw source (single file only)
 - `-b` &ndash; print the binder tree (single file only)
 - `-bt` &ndash; print the binder and bound tree (single file only)

@@ -10,10 +10,10 @@ public sealed class UnhandledMemberReturnValueAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
-        title: "Member return value is ignored",
+        title: "Returned value is not handled",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Return value of member '{0}' is ignored. Assign it to a target or explicitly discard it.",
+        messageFormat: "Returned value of '{0}' is not handled.",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
 

@@ -1,5 +1,6 @@
 using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
@@ -29,6 +30,24 @@ func Test() -> () {
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void ReturningMethodCall_DefaultWarningMessage_SaysReturnValueIsIgnored()
+    {
+        var diagnostic = AnalyzeReturnedValueDiagnostic();
+
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("Returned value of 'Compute' is not handled.", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void ReturningMethodCall_ErrorSeverity_KeepsStableMessage()
+    {
+        var diagnostic = AnalyzeReturnedValueDiagnostic(ReportDiagnostic.Error);
+
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("Returned value of 'Compute' is not handled.", diagnostic.GetMessage());
     }
 
     [Fact]
@@ -163,5 +182,42 @@ func Test() -> () {
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
+    }
+
+    private static Diagnostic AnalyzeReturnedValueDiagnostic(ReportDiagnostic? option = null)
+    {
+        const string code = """
+func Compute() -> int {
+    42
+}
+
+func Test() -> () {
+    Compute()
+}
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        if (option is { } diagnosticOption)
+        {
+            options = options.WithSpecificDiagnosticOption(
+                UnhandledMemberReturnValueAnalyzer.DiagnosticId,
+                diagnosticOption);
+        }
+
+        var projectId = workspace.AddProject("Test", compilationOptions: options);
+        var documentId = DocumentId.CreateNew(projectId);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddDocument(documentId, "test.rvn", SourceText.From(code)));
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new UnhandledMemberReturnValueAnalyzer()));
+        foreach (var reference in ReferenceAssemblies.Default)
+            project = project.AddMetadataReference(reference);
+
+        workspace.TryApplyChanges(project.Solution);
+
+        return Assert.Single(
+            workspace.GetDiagnostics(projectId),
+            diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId);
     }
 }

@@ -52,6 +52,7 @@ var stopwatch = Stopwatch.StartNew();
 // --format          - normalize whitespace and indentation in source files
 // --highlight       - display diagnostics with highlighted source
 // --suggestions     - display instructional rewrite suggestions for diagnostics that provide them
+// --returned-value-handling <default|none|info|warning|error> - configure RAV9029 returned-value diagnostics
 // -h, --help        - display help
 // --run             - execute the produced assembly when compilation succeeds (console apps only)
 
@@ -103,6 +104,7 @@ var format = false;
 var hasInvalidOption = false;
 var highlightDiagnostics = false;
 var showSuggestions = false;
+ReportDiagnostic? returnedValueHandlingDiagnostic = null;
 var quote = false;
 var runIlVerify = false;
 string? ilVerifyPath = null;
@@ -230,6 +232,14 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--suggestions":
             showSuggestions = true;
+            break;
+        case "--returned-value-handling":
+        case "--returned-value-diagnostic":
+            if (!TryParseReturnedValueHandlingDiagnostic(args, ref i, out returnedValueHandlingDiagnostic))
+                hasInvalidOption = true;
+            break;
+        case "--force-returned-value-handling":
+            returnedValueHandlingDiagnostic = ReportDiagnostic.Error;
             break;
         case "--quote":
         case "-q":
@@ -990,6 +1000,13 @@ if (!string.IsNullOrWhiteSpace(editorConfigAnchorPath))
         options,
         editorConfigAnchorPath,
         sourceDocumentPaths);
+}
+
+if (returnedValueHandlingDiagnostic is { } returnedValueHandlingOption)
+{
+    options = options.WithSpecificDiagnosticOption(
+        UnhandledMemberReturnValueAnalyzer.DiagnosticId,
+        returnedValueHandlingOption);
 }
 
 project = project.WithCompilationOptions(options);
@@ -1998,6 +2015,10 @@ static void PrintHelp()
     Console.WriteLine("                     Log overload resolution details to the console or the provided file.");
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
+    Console.WriteLine("  --returned-value-handling <default|none|info|warning|error>");
+    Console.WriteLine("                    Configure RAV9029 diagnostics for returned values that are not handled");
+    Console.WriteLine("  --force-returned-value-handling");
+    Console.WriteLine("                    Treat returned values that are not handled as errors");
     Console.WriteLine("  -q, --quote        Display AST as compilable C# code.");
     Console.WriteLine("  --no-emit        Skip emitting the output assembly");
     Console.WriteLine("  --publish        Emit runtime artifacts; for Raven project-file inputs defaults output to <project-dir>/bin/<Configuration>/publish");
@@ -2588,6 +2609,49 @@ static bool TryParseNonNegativeInt(string[] args, ref int index, out int value)
         return false;
 
     return true;
+}
+
+static bool TryParseReturnedValueHandlingDiagnostic(string[] args, ref int index, out ReportDiagnostic? option)
+{
+    option = null;
+    var value = ConsumeOptionValue(args, ref index);
+    if (value is null)
+    {
+        AnsiConsole.MarkupLine("[red]--returned-value-handling requires a diagnostic level.[/]");
+        return false;
+    }
+
+    switch (value.ToLowerInvariant())
+    {
+        case "default":
+            option = ReportDiagnostic.Default;
+            return true;
+        case "none":
+        case "off":
+        case "suppress":
+        case "suppressed":
+            option = ReportDiagnostic.Suppress;
+            return true;
+        case "hidden":
+        case "silent":
+        case "suggestion":
+            option = ReportDiagnostic.Hidden;
+            return true;
+        case "info":
+        case "information":
+            option = ReportDiagnostic.Info;
+            return true;
+        case "warning":
+        case "warn":
+            option = ReportDiagnostic.Warn;
+            return true;
+        case "error":
+            option = ReportDiagnostic.Error;
+            return true;
+    }
+
+    AnsiConsole.MarkupLine($"[red]Unknown returned-value diagnostic level '{value}'.[/]");
+    return false;
 }
 
 static string ResolveDocumentationOutputPath(

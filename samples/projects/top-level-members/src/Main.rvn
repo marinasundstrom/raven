@@ -4,4 +4,9 @@ import Samples.NamespaceMembers.Members.*
 
 func Main() {
     PrintSummary(DecorateTopic(DefaultTopic), DefaultCount)
+
+    _ = test()
+    val x = 2
 }
+
+func test() -> int => 42

@@ -7,6 +7,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added warning `RAV9029` for bare member invocations and member accesses whose returned
   value is ignored. Assign the returned value to a target, assign it to `_`, return it, or
   pass it on.
+- Added `--returned-value-handling <default|none|info|warning|error>` and
+  `--force-returned-value-handling` to configure `RAV9029` from the compiler CLI.
 - Extended unused-variable analysis to report unused callable parameters as warning
   `RAV9030`, covering methods, `func` statements, constructors, operators, and function
   expressions.
