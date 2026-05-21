@@ -2802,6 +2802,16 @@ public partial class Compilation
         return resolved;
     }
 
+    internal INamedTypeSymbol? TryGetMetadataReferenceTypeByMetadataName(INamespaceSymbol currentNamespace, string metadataName)
+    {
+        EnsureSetup();
+
+        var namespaceName = currentNamespace.ToMetadataName() ?? string.Empty;
+        var qualifiedMetadataName = currentNamespace.QualifyName(metadataName);
+        return TryGetMetadataReferenceTypeByMetadataName(qualifiedMetadataName)
+            ?? TryGetMetadataReferenceTypeByMetadataName(metadataName);
+    }
+
     private INamedTypeSymbol? GetTypeByMetadataNameUncached(string metadataName)
     {
         if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)

@@ -6233,12 +6233,6 @@ public partial class SemanticModel
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
-        if (node is FunctionStatementSyntax topLevelFunctionStatement &&
-            IsTopLevelFunctionMember(topLevelFunctionStatement))
-        {
-            Compilation.EnsureSourceDeclarationsDeclared();
-        }
-
         if (node is FunctionStatementSyntax functionStatement &&
             TryResolveAvailableFunctionStatementSymbol(functionStatement, out var functionStatementSymbol))
         {
@@ -6358,7 +6352,7 @@ public partial class SemanticModel
             }
         }
 
-        if (GetBinder(functionStatement) is FunctionBinder functionBinder)
+        if (GetBinderForIncrementalSemanticQuery(functionStatement) is FunctionBinder functionBinder)
         {
             methodSymbol = functionBinder.GetMethodSymbol();
             return true;
@@ -6468,9 +6462,6 @@ public partial class SemanticModel
         bool allowInitializerBinding = true,
         bool allowBindingFallback = true)
     {
-        if (IsInsideTopLevelFunctionMember(variableDeclarator))
-            Compilation.EnsureSourceDeclarationsDeclared();
-
         if (!IsLocalVariableDeclarator(variableDeclarator))
         {
             localSymbol = null;
@@ -11356,7 +11347,7 @@ public partial class SemanticModel
         => GetBinderCore(
             node,
             parentBinder,
-            ensureSourceDeclarations: IsInsideTopLevelFunctionMember(node));
+            ensureSourceDeclarations: false);
 
     private static bool IsInsideTopLevelFunctionMember(SyntaxNode node)
         => node.AncestorsAndSelf()

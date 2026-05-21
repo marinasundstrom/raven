@@ -520,17 +520,30 @@ func GetConnectionString() -> string {
 """;
 
         var tree = SyntaxTree.ParseText(source);
-        var compilation = CreateCompilation(tree);
+        var instrumentation = new PerformanceInstrumentation();
+        var compilation = CreateCompilation(
+            tree,
+            new CompilationOptions(
+                OutputKind.ConsoleApplication,
+                performanceInstrumentation: instrumentation));
         var model = compilation.GetSemanticModel(tree);
         var localDeclarator = tree.GetRoot()
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.ValueText == "trimmed");
 
+        var before = instrumentation.Setup.CaptureSnapshot();
         var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
+        var delta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            before);
         var containingMethod = Assert.IsAssignableFrom<IMethodSymbol>(localSymbol.ContainingSymbol);
 
         Assert.Equal("GetConnectionString", containingMethod.Name);
+        Assert.Equal(0, delta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, delta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsDeclared);
+        Assert.False(compilation.SourceDeclarationsComplete);
     }
 
     [Fact]

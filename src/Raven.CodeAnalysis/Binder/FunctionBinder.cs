@@ -35,8 +35,6 @@ class FunctionBinder : Binder
             return _methodSymbol;
 
         var isNamespaceMember = IsNamespaceLevelFunctionMember(_syntax);
-        if (isNamespaceMember && !Compilation.SourceDeclarationsDeclared)
-            Compilation.EnsureSourceDeclarationsDeclared();
 
         if (Compilation.TryGetMethodSymbol(_syntax, out var cachedMethod) &&
             cachedMethod is SourceMethodSymbol { IsSignatureSkeleton: false } cachedCompletedMethod)

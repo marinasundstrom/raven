@@ -1531,12 +1531,22 @@ public partial class SemanticModel
 
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
-            return Compilation.GetTypeByMetadataName(name)
-                ?? Compilation.GetTypeByMetadataName(current, name)
+            return ResolveMetadataTypeByName(name)
+                ?? ResolveScopedMetadataType(current, name)
                 ?? ResolveTypeFromContainingNamespace(current, name)
                 ?? ResolveTypeFromNamespace(current, name)
                 ?? ResolveTypeFromNamespace(Compilation.GlobalNamespace, name);
         }
+
+        INamedTypeSymbol? ResolveMetadataTypeByName(string name)
+            => allowSourceDeclarationCompletion
+                ? Compilation.GetTypeByMetadataName(name)
+                : Compilation.TryGetMetadataReferenceTypeByMetadataName(name);
+
+        INamedTypeSymbol? ResolveScopedMetadataType(INamespaceSymbol current, string name)
+            => allowSourceDeclarationCompletion
+                ? Compilation.GetTypeByMetadataName(current, name)
+                : Compilation.TryGetMetadataReferenceTypeByMetadataName(current, name);
 
         ITypeSymbol? ResolveTypeFromContainingNamespace(INamespaceSymbol current, string name)
         {
@@ -1670,7 +1680,7 @@ public partial class SemanticModel
             if (name is GenericNameSyntax g)
             {
                 var baseName = $"{g.Identifier.ValueText}`{g.TypeArgumentList.Arguments.Count}";
-                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -1684,8 +1694,8 @@ public partial class SemanticModel
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.Count}";
-                var unconstructed = Compilation.GetTypeByMetadataName(baseName)
-                    ?? Compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveMetadataTypeByName(baseName)
+                    ?? ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -1703,7 +1713,7 @@ public partial class SemanticModel
             if (name is GenericNameSyntax g)
             {
                 var baseName = $"{g.Identifier.ValueText}`{g.TypeArgumentList.Arguments.SeparatorCount + 1}";
-                var unconstructed = Compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -1717,8 +1727,8 @@ public partial class SemanticModel
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = $"{leftName}.{gen.Identifier.ValueText}`{gen.TypeArgumentList.Arguments.SeparatorCount + 1}";
-                var unconstructed = Compilation.GetTypeByMetadataName(baseName)
-                    ?? Compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveMetadataTypeByName(baseName)
+                    ?? ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is not null)
                     return unconstructed;
             }

@@ -233,12 +233,22 @@ class BinderFactory
 
         ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
         {
-            return _compilation.GetTypeByMetadataName(name)
-                ?? _compilation.GetTypeByMetadataName(current, name)
+            return ResolveMetadataTypeByName(name)
+                ?? ResolveScopedMetadataType(current, name)
                 ?? ResolveTypeFromContainingNamespace(current, name)
                 ?? ResolveTypeFromNamespace(current, name)
                 ?? ResolveTypeFromNamespace(_compilation.GlobalNamespace, name);
         }
+
+        INamedTypeSymbol? ResolveMetadataTypeByName(string name)
+            => _compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+                ? _compilation.TryGetMetadataReferenceTypeByMetadataName(name)
+                : _compilation.GetTypeByMetadataName(name);
+
+        INamedTypeSymbol? ResolveScopedMetadataType(INamespaceSymbol current, string name)
+            => _compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+                ? _compilation.TryGetMetadataReferenceTypeByMetadataName(current, name)
+                : _compilation.GetTypeByMetadataName(current, name);
 
         ITypeSymbol? ResolveTypeFromContainingNamespace(INamespaceSymbol current, string name)
         {
@@ -249,11 +259,11 @@ class BinderFactory
             var namespaceName = name[..lastDot];
             var typeName = name[(lastDot + 1)..];
             var ns = ResolveNamespace(current, namespaceName);
-            return ns?.LookupType(typeName)
+            return (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ? ns?.LookupType(typeName) : null)
                 ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
         }
 
-        static ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
+        ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
         {
             if (string.IsNullOrEmpty(name))
                 return null;
@@ -265,7 +275,7 @@ class BinderFactory
             {
                 if (current is INamespaceSymbol ns)
                 {
-                    var typeMember = ns.LookupType(part)
+                    var typeMember = (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ? ns.LookupType(part) : null)
                         ?? ns.GetMembers(part).OfType<ITypeSymbol>().FirstOrDefault();
                     if (typeMember is not null)
                     {
@@ -360,7 +370,7 @@ class BinderFactory
             if (name is GenericNameSyntax g)
             {
                 var baseName = g.Identifier.ValueText + "`" + g.TypeArgumentList.Arguments.Count;
-                var unconstructed = _compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -374,8 +384,8 @@ class BinderFactory
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = leftName + "." + gen.Identifier.ValueText + "`" + gen.TypeArgumentList.Arguments.Count;
-                var unconstructed = _compilation.GetTypeByMetadataName(baseName)
-                    ?? _compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveMetadataTypeByName(baseName)
+                    ?? ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -393,7 +403,7 @@ class BinderFactory
             if (name is GenericNameSyntax g)
             {
                 var baseName = g.Identifier.ValueText + "`" + (g.TypeArgumentList.Arguments.SeparatorCount + 1);
-                var unconstructed = _compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is null)
                     return null;
 
@@ -407,8 +417,8 @@ class BinderFactory
             {
                 var leftName = ((QualifiedNameSyntax)name).Left.ToString();
                 var baseName = leftName + "." + gen.Identifier.ValueText + "`" + (gen.TypeArgumentList.Arguments.SeparatorCount + 1);
-                var unconstructed = _compilation.GetTypeByMetadataName(baseName)
-                    ?? _compilation.GetTypeByMetadataName(current, baseName);
+                var unconstructed = ResolveMetadataTypeByName(baseName)
+                    ?? ResolveScopedMetadataType(current, baseName);
                 if (unconstructed is not null)
                     return unconstructed;
             }

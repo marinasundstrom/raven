@@ -23,7 +23,11 @@ sealed class GlobalBinder : Binder
         if (type != null)
             return type;
 
-        // Fallback to global metadata-based lookup
-        return Compilation.GetTypeByMetadataName(name);
+        // Fallback to global metadata-based lookup. Semantic-query binder paths
+        // suppress source namespace completion and should not initialize all
+        // source declarations just to probe a metadata type.
+        return Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+            ? Compilation.TryGetMetadataReferenceTypeByMetadataName(name)
+            : Compilation.GetTypeByMetadataName(name);
     }
 }

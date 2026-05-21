@@ -35,7 +35,9 @@ class ImportBinder : Binder
         if (_aliases.TryGetValue(name, out var aliasSymbols))
             return aliasSymbols.OfType<ITypeSymbol>().FirstOrDefault();
 
-        var declared = CurrentNamespace?.LookupType(name);
+        var declared = !Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+            ? CurrentNamespace?.LookupType(name)
+            : null;
         if (declared is not null)
             return declared;
 
@@ -45,7 +47,9 @@ class ImportBinder : Binder
 
         foreach (var ns in _namespaceOrTypeScopeImports)
         {
-            var t = ns.LookupType(name);
+            var t = !Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+                ? ns.LookupType(name)
+                : null;
             if (t != null)
                 return t;
         }
@@ -101,7 +105,9 @@ class ImportBinder : Binder
                 if (seen.Add(member))
                     results.Add(member);
 
-            var t = ns.LookupType(name);
+            var t = !Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+                ? ns.LookupType(name)
+                : null;
             if (t != null && seen.Add(t))
                 results.Add(t);
 
@@ -166,10 +172,15 @@ class ImportBinder : Binder
             return false;
         }
 
-        type = Compilation.GetTypeByMetadataName(namespaceName)
+        type = ResolveMetadataType(namespaceName)
             ?? ResolveTypeFromContainingNamespace(namespaceName);
         return type is not null;
     }
+
+    private INamedTypeSymbol? ResolveMetadataType(string name)
+        => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+            ? Compilation.TryGetMetadataReferenceTypeByMetadataName(name)
+            : Compilation.GetTypeByMetadataName(name);
 
     private ITypeSymbol? ResolveTypeFromContainingNamespace(string name)
     {
@@ -180,7 +191,7 @@ class ImportBinder : Binder
         var namespaceName = name[..lastDot];
         var typeName = name[(lastDot + 1)..];
         var ns = Compilation.GetNamespaceSymbol(namespaceName);
-        return ns?.LookupType(typeName)
+        return (!Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ? ns?.LookupType(typeName) : null)
             ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
     }
 
