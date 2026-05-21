@@ -62,6 +62,7 @@ public partial class SemanticModel
     private ConcurrentDictionary<FunctionExpressionSyntax, byte> _functionExpressionSymbolCreationInProgress => _bindingState.FunctionExpressionSymbolCreationInProgress;
     private ConcurrentDictionary<SyntaxNode, byte> _functionExpressionParameterLookupInProgress => _bindingState.FunctionExpressionParameterLookupInProgress;
     private ConcurrentDictionary<SyntaxNode, byte> _functionExpressionRebindInProgress => _bindingState.FunctionExpressionRebindInProgress;
+    private ConcurrentDictionary<SyntaxNode, byte> _typeMemberSignaturesDeclared => _bindingState.TypeMemberSignaturesDeclared;
     private ConcurrentDictionary<BoundNode, SyntaxNode> _syntaxCache => _bindingState.SyntaxCache;
     private ConcurrentDictionary<BoundNode, SyntaxNode> _loweredSyntaxCache => _bindingState.LoweredSyntaxCache;
     private ConcurrentDictionary<SyntaxNode, ImmutableArray<Compilation.VisibleValueDeclaration>> _visibleValueScopeCache => _bindingState.VisibleValueScopeCache;
@@ -129,6 +130,7 @@ public partial class SemanticModel
         public ConcurrentDictionary<FunctionExpressionSyntax, byte> FunctionExpressionSymbolCreationInProgress { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> FunctionExpressionParameterLookupInProgress { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> FunctionExpressionRebindInProgress { get; } = new();
+        public ConcurrentDictionary<SyntaxNode, byte> TypeMemberSignaturesDeclared { get; } = new();
         public ConcurrentDictionary<BoundNode, SyntaxNode> SyntaxCache { get; } = new(ReferenceEqualityComparer.Instance);
         public ConcurrentDictionary<BoundNode, SyntaxNode> LoweredSyntaxCache { get; } = new(ReferenceEqualityComparer.Instance);
         public ConcurrentDictionary<SyntaxNode, ImmutableArray<Compilation.VisibleValueDeclaration>> VisibleValueScopeCache { get; } = new();
@@ -4822,9 +4824,8 @@ public partial class SemanticModel
 
         var member = TryGetAvailableInstanceValueMember(namedReceiver, memberName);
         if (member is null &&
-            namedReceiver.DeclaringSyntaxReferences.Any())
+            TryEnsureSourceTypeMemberSignaturesDeclared(namedReceiver))
         {
-            Compilation.EnsureSourceDeclarationsComplete();
             member = TryGetAvailableInstanceValueMember(namedReceiver, memberName);
         }
 
@@ -4840,10 +4841,35 @@ public partial class SemanticModel
     }
 
     private static ISymbol? TryGetAvailableInstanceValueMember(INamedTypeSymbol receiverType, string memberName)
-        => receiverType
-            .GetMembers(memberName)
+        => GetAvailableMembers(receiverType, memberName)
             .FirstOrDefault(static symbol =>
                 symbol is IFieldSymbol or IPropertySymbol or IEventSymbol);
+
+    private static ImmutableArray<ISymbol> GetAvailableMembers(INamedTypeSymbol receiverType, string memberName)
+        => receiverType is SourceNamedTypeSymbol sourceType
+            ? sourceType.GetDeclaredMembersWithoutEnsuring(memberName)
+            : receiverType.GetMembers(memberName);
+
+    private bool TryEnsureSourceTypeMemberSignaturesDeclared(INamedTypeSymbol receiverType)
+    {
+        var sourceType = receiverType.GetPlainType() as SourceNamedTypeSymbol ??
+            receiverType.ConstructedFrom as SourceNamedTypeSymbol;
+        if (sourceType is null)
+            return false;
+
+        var declarationSyntax = sourceType.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .FirstOrDefault();
+        if (declarationSyntax?.SyntaxTree is null)
+            return false;
+
+        var declaringModel = ReferenceEquals(declarationSyntax.SyntaxTree, SyntaxTree)
+            ? this
+            : Compilation.GetSemanticModel(declarationSyntax.SyntaxTree);
+
+        return declaringModel.TryEnsureTypeMemberSignaturesDeclared(sourceType);
+    }
 
     private static bool IsUsefulAvailableExpressionType(ITypeSymbol? type)
         => type is not null &&
@@ -11341,6 +11367,10 @@ public partial class SemanticModel
     {
         if (ensureSourceDeclarations && !Compilation.SourceDeclarationsDeclared)
             Compilation.EnsureSourceDeclarationsDeclared();
+
+        using var sourceNamespaceLookupSuppression = ensureSourceDeclarations
+            ? null
+            : Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
 
         FunctionExpressionSyntax? enclosingFunctionExpression = null;
         var isFunctionExpressionBodyNode = parentBinder is null &&

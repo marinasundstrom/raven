@@ -672,6 +672,7 @@ void PrintInvocationSymbolInfoDebug(string target, int offset)
 async Task<HoverResult> RunHoverAsync(string label, Position position)
 {
     var before = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var setupBefore = CaptureSetupSnapshot();
     var functionParameterBefore = context.Compilation.PerformanceInstrumentation.FunctionExpressionParameters.CaptureSnapshot();
     var sw = Stopwatch.StartNew();
     Hover? hover = null;
@@ -693,6 +694,7 @@ async Task<HoverResult> RunHoverAsync(string label, Position position)
     sw.Stop();
     var after = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
     var delta = SemanticQueryInstrumentation.Subtract(after, before);
+    var setupDelta = CompilerSetupInstrumentation.Subtract(CaptureSetupSnapshot(), setupBefore);
     var functionParameterDelta = FunctionExpressionParameterInstrumentation.Subtract(
         context.Compilation.PerformanceInstrumentation.FunctionExpressionParameters.CaptureSnapshot(),
         functionParameterBefore);
@@ -701,7 +703,7 @@ async Task<HoverResult> RunHoverAsync(string label, Position position)
         ? string.Join(" | ", hoverLines.Take(3))
         : exception.GetType().Name + ": " + exception.Message;
 
-    return new HoverResult(label, position.Line, position.Character, sw.Elapsed.TotalMilliseconds, hover is not null, exception, firstLine, delta, functionParameterDelta);
+    return new HoverResult(label, position.Line, position.Character, sw.Elapsed.TotalMilliseconds, hover is not null, exception, firstLine, delta, setupDelta, functionParameterDelta);
 }
 
 async Task<string> RunInlayAsync(RangeTarget range)
@@ -776,6 +778,7 @@ static bool TryReplaceFirst(SourceText sourceText, string oldText, string newTex
 static string FormatHoverResult(HoverResult result)
     => $"{result.Label} hover: {result.ElapsedMs:F1}ms {result.Line}:{result.Character} {result.Preview} " +
        $"[{SemanticQueryInstrumentation.FormatDelta(result.SemanticDelta)}] " +
+       $"[{CompilerSetupInstrumentation.FormatDelta(result.SetupDelta)}] " +
        $"[{FunctionExpressionParameterInstrumentation.FormatDelta(result.FunctionExpressionParameterDelta)}]";
 
 static string FormatDiagnostic(OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic diagnostic)
@@ -1192,6 +1195,7 @@ internal sealed record HoverResult(
     Exception? Exception,
     string Preview,
     SemanticQueryInstrumentation.Snapshot SemanticDelta,
+    CompilerSetupInstrumentation.Snapshot SetupDelta,
     FunctionExpressionParameterInstrumentation.Snapshot FunctionExpressionParameterDelta);
 
 internal sealed class HeadlessConsoleLogger<T> : ILogger<T>

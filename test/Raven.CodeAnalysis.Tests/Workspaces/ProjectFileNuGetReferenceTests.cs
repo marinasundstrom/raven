@@ -588,12 +588,17 @@ public sealed class ProjectFileNuGetReferenceTests
 
         IParameterSymbol? QueryParameterFromBinderOwnedState(string label, ParameterSyntax parameter)
         {
+            var setupBefore = compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
             var before = instrumentation.FunctionExpressionParameters.CaptureSnapshot();
             var symbol = QueryWithoutBinding(label, () => model.GetFunctionExpressionParameterSymbol(parameter));
+            var setupDelta = CompilerSetupInstrumentation.Subtract(
+                compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
+                setupBefore);
             var delta = FunctionExpressionParameterInstrumentation.Subtract(
                 instrumentation.FunctionExpressionParameters.CaptureSnapshot(),
                 before);
 
+            Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
             Assert.True(
                 delta.FastBoundCacheHits + delta.FastSymbolCacheHits + delta.FastDelegateHits > 0,
                 $"{label} did not resolve from cached or binder-owned lambda state: {FunctionExpressionParameterInstrumentation.FormatDelta(delta)}");

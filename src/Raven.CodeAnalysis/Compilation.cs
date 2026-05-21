@@ -74,7 +74,7 @@ public partial class Compilation
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
 
-    private IDisposable SuppressSourceNamespaceLookupDeclarationCompletion()
+    internal IDisposable SuppressSourceNamespaceLookupDeclarationCompletion()
     {
         Interlocked.Increment(ref _sourceNamespaceLookupDeclarationCompletionSuppression);
         return new SourceNamespaceLookupDeclarationCompletionSuppression(this);

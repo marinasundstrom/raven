@@ -1332,6 +1332,10 @@ public partial class SemanticModel
         Binder parentBinder,
         bool allowSourceDeclarationCompletion = true)
     {
+        using var sourceNamespaceLookupSuppression = allowSourceDeclarationCompletion
+            ? null
+            : Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
+
         // Step 1: Resolve namespace
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
         INamespaceSymbol targetNamespace;
@@ -2535,6 +2539,48 @@ public partial class SemanticModel
             ResolveSealedHierarchyPermits(declaration, typeSymbol, declarationBinder);
 
         classBinders.Add((declaration, declarationBinder));
+    }
+
+    internal bool TryEnsureTypeMemberSignaturesDeclared(SourceNamedTypeSymbol typeSymbol)
+    {
+        foreach (var reference in typeSymbol.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is TypeDeclarationSyntax declaration &&
+                TryEnsureTypeMemberSignaturesDeclared(declaration))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryEnsureTypeMemberSignaturesDeclared(TypeDeclarationSyntax declaration)
+    {
+        if (!IsNominalTypeDeclaration(declaration) ||
+            !Compilation.TryGetDeclaredTypeSymbol(declaration, out _))
+        {
+            return false;
+        }
+
+        if (!_typeMemberSignaturesDeclared.TryAdd(declaration, 0))
+            return true;
+
+        using var sourceNamespaceLookupSuppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
+        var parentBinder = declaration.Parent is null
+            ? Compilation.GlobalBinder
+            : GetBinderCore(declaration.Parent, null, ensureSourceDeclarations: false);
+        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
+
+        BindNominalTypeDeclaration(declaration, parentBinder, objectType, classBinders);
+        foreach (var (classDecl, classBinder) in classBinders)
+        {
+            RegisterClassMembers(classDecl, classBinder);
+            classBinder.EnsureDefaultConstructor();
+        }
+
+        return true;
     }
 
     private static bool IsNominalTypeDeclaration(TypeDeclarationSyntax declaration)
