@@ -17,12 +17,25 @@ using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Model
 
 var repoRoot = FindRepositoryRoot();
 var options = ParseOptions(args);
-var projectRoot = options.Positionals.Count > 0
+if (options.ListScenarios)
+{
+    foreach (var replayScenario in CreateReplayScenarios(repoRoot))
+        Console.WriteLine($"{replayScenario.Name}: {replayScenario.Description}");
+
+    return;
+}
+
+var scenario = options.ScenarioName is { Length: > 0 }
+    ? ResolveReplayScenario(repoRoot, options.ScenarioName)
+    : null;
+var projectRoot = scenario?.ProjectRoot ??
+    (options.Positionals.Count > 0
     ? Path.GetFullPath(options.Positionals[0])
-    : Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs");
-var filePath = options.Positionals.Count > 1
+    : Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs"));
+var filePath = scenario?.FilePath ??
+    (options.Positionals.Count > 1
     ? Path.GetFullPath(options.Positionals[1])
-    : Path.Combine(projectRoot, "src", "Api", "Main.rvn");
+    : Path.Combine(projectRoot, "src", "Api", "Main.rvn"));
 
 var text = File.ReadAllText(filePath);
 var uri = DocumentUri.FromFileSystemPath(filePath);
@@ -48,6 +61,12 @@ var inlayHandler = new InlayHintHandler(store, new HeadlessConsoleLogger<InlayHi
 var model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
     ?? throw new InvalidOperationException($"No semantic model for '{filePath}'.");
 var root = context.SyntaxTree.GetRoot();
+
+if (scenario is not null)
+{
+    await RunReplayScenarioAsync(scenario);
+    return;
+}
 
 if (options.ProjectSequence)
 {
@@ -226,6 +245,75 @@ async Task RunProjectSequenceAsync()
             return projectRelative;
 
         return Path.GetFullPath(path);
+    }
+}
+
+async Task RunReplayScenarioAsync(NamedReplayScenario replayScenario)
+{
+    Console.WriteLine(
+        $"scenario name={replayScenario.Name} operation={replayScenario.Operation} project={replayScenario.ProjectRoot} file={replayScenario.FilePath}");
+
+    switch (replayScenario.Operation)
+    {
+        case ReplayScenarioOperation.ProjectSequence:
+            await RunProjectSequenceAsync();
+            break;
+        case ReplayScenarioOperation.DocumentDiagnostics:
+            await RunDocumentDiagnosticsProbeAsync(replayScenario.Name);
+            break;
+        case ReplayScenarioOperation.HoverPositions:
+            foreach (var targetPosition in replayScenario.HoverPositions)
+            {
+                var hoverResult = await RunHoverAsync(targetPosition.Label, new Position(targetPosition.Line, targetPosition.Character));
+                var marker = hoverResult.Exception is not null
+                    ? "error"
+                    : !hoverResult.HasHover
+                        ? "null"
+                        : hoverResult.ElapsedMs >= options.SlowThresholdMs
+                            ? "slow"
+                            : "ok";
+                Console.WriteLine($"{marker} {FormatHoverResult(hoverResult)}");
+            }
+
+            break;
+        default:
+            throw new InvalidOperationException($"Unsupported replay scenario operation '{replayScenario.Operation}'.");
+    }
+}
+
+async Task RunDocumentDiagnosticsProbeAsync(string label)
+{
+    var setupBefore = CaptureSetupSnapshot();
+    var diagnosticBindingBefore = context.Compilation.PerformanceInstrumentation.DiagnosticBinding.CaptureSnapshot();
+    var semanticBefore = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var stopwatch = Stopwatch.StartNew();
+    var diagnostics = await store.TryGetDiagnosticsAsync(
+        uri,
+        DocumentStore.DiagnosticLane.DocumentCompiler,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    stopwatch.Stop();
+    var setupDelta = CompilerSetupInstrumentation.Subtract(CaptureSetupSnapshot(), setupBefore);
+    var diagnosticBindingDelta = DiagnosticBindingInstrumentation.Subtract(
+        context.Compilation.PerformanceInstrumentation.DiagnosticBinding.CaptureSnapshot(),
+        diagnosticBindingBefore);
+    var semanticDelta = SemanticQueryInstrumentation.Subtract(
+        context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
+        semanticBefore);
+    var errorCount = diagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+
+    Console.WriteLine(
+        $"diagnostics {label}: {stopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"count={diagnostics.Diagnostics.Count} errors={errorCount} " +
+        $"setupDelta=[{CompilerSetupInstrumentation.FormatDelta(setupDelta)}] " +
+        $"diagnosticBindingDelta=[{DiagnosticBindingInstrumentation.FormatDelta(diagnosticBindingDelta)}] " +
+        $"semanticDelta=[{SemanticQueryInstrumentation.FormatDelta(semanticDelta)}]");
+
+    foreach (var diagnostic in diagnostics.Diagnostics
+        .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+        .Take(10))
+    {
+        Console.WriteLine("diagnostics error " + FormatDiagnostic(diagnostic));
     }
 }
 
@@ -584,6 +672,7 @@ void PrintInvocationSymbolInfoDebug(string target, int offset)
 async Task<HoverResult> RunHoverAsync(string label, Position position)
 {
     var before = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var functionParameterBefore = context.Compilation.PerformanceInstrumentation.FunctionExpressionParameters.CaptureSnapshot();
     var sw = Stopwatch.StartNew();
     Hover? hover = null;
     Exception? exception = null;
@@ -604,12 +693,15 @@ async Task<HoverResult> RunHoverAsync(string label, Position position)
     sw.Stop();
     var after = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
     var delta = SemanticQueryInstrumentation.Subtract(after, before);
+    var functionParameterDelta = FunctionExpressionParameterInstrumentation.Subtract(
+        context.Compilation.PerformanceInstrumentation.FunctionExpressionParameters.CaptureSnapshot(),
+        functionParameterBefore);
     var hoverLines = hover?.Contents.MarkupContent?.Value.Split('\n') ?? ["<null>"];
     var firstLine = exception is null
         ? string.Join(" | ", hoverLines.Take(3))
         : exception.GetType().Name + ": " + exception.Message;
 
-    return new HoverResult(label, position.Line, position.Character, sw.Elapsed.TotalMilliseconds, hover is not null, exception, firstLine, delta);
+    return new HoverResult(label, position.Line, position.Character, sw.Elapsed.TotalMilliseconds, hover is not null, exception, firstLine, delta, functionParameterDelta);
 }
 
 async Task<string> RunInlayAsync(RangeTarget range)
@@ -682,7 +774,9 @@ static bool TryReplaceFirst(SourceText sourceText, string oldText, string newTex
 }
 
 static string FormatHoverResult(HoverResult result)
-    => $"{result.Label} hover: {result.ElapsedMs:F1}ms {result.Line}:{result.Character} {result.Preview} [{SemanticQueryInstrumentation.FormatDelta(result.SemanticDelta)}]";
+    => $"{result.Label} hover: {result.ElapsedMs:F1}ms {result.Line}:{result.Character} {result.Preview} " +
+       $"[{SemanticQueryInstrumentation.FormatDelta(result.SemanticDelta)}] " +
+       $"[{FunctionExpressionParameterInstrumentation.FormatDelta(result.FunctionExpressionParameterDelta)}]";
 
 static string FormatDiagnostic(OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic diagnostic)
 {
@@ -727,6 +821,8 @@ static string FindRepositoryRoot()
 static HeadlessOptions ParseOptions(string[] args)
 {
     var positionals = new List<string>();
+    string? scenarioName = null;
+    var listScenarios = false;
     var randomHover = false;
     var randomCount = 50;
     var randomSeed = 1729;
@@ -750,6 +846,13 @@ static HeadlessOptions ParseOptions(string[] args)
     {
         switch (args[i])
         {
+            case "--scenario" when i + 1 < args.Length:
+                scenarioName = args[i + 1];
+                i++;
+                break;
+            case "--list-scenarios":
+                listScenarios = true;
+                break;
             case "--random-hover":
                 randomHover = true;
                 break;
@@ -827,6 +930,8 @@ static HeadlessOptions ParseOptions(string[] args)
 
     return new HeadlessOptions(
         positionals,
+        scenarioName,
+        listScenarios,
         randomHover,
         randomCount,
         randomSeed,
@@ -845,6 +950,107 @@ static HeadlessOptions ParseOptions(string[] args)
         sequenceInlayProbes,
         sequenceHoverCount,
         sequenceReopenDocuments);
+}
+
+static NamedReplayScenario ResolveReplayScenario(string repoRoot, string name)
+{
+    var scenario = CreateReplayScenarios(repoRoot)
+        .FirstOrDefault(candidate => string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+    return scenario ?? throw new ArgumentException(
+        $"Unknown replay scenario '{name}'. Use --list-scenarios to see available scenarios.",
+        nameof(name));
+}
+
+static IReadOnlyList<NamedReplayScenario> CreateReplayScenarios(string repoRoot)
+{
+    var samplesRoot = Path.Combine(repoRoot, "samples", "projects");
+
+    string Project(string name)
+        => Path.Combine(samplesRoot, name);
+
+    string Source(string projectName, params string[] path)
+        => Path.Combine([Project(projectName), .. path]);
+
+    return
+    [
+        new(
+            "efcore-expression-trees-project",
+            "Project replay for IQueryable extension methods, pipe expressions, and expression lambdas.",
+            Project("efcore-expression-trees"),
+            Source("efcore-expression-trees", "src", "main.rvn"),
+            ReplayScenarioOperation.ProjectSequence,
+            []),
+        new(
+            "efcore-expression-trees-lambda-hover",
+            "Single cold hover over a lambda parameter inside IQueryable extension method resolution.",
+            Project("efcore-expression-trees"),
+            Source("efcore-expression-trees", "src", "main.rvn"),
+            ReplayScenarioOperation.HoverPositions,
+            [new PositionTarget(23, 12, "onlyActiveAdults.lambda.user")]),
+        new(
+            "efcore-expression-trees-diagnostics",
+            "Single cold compiler-diagnostics pass for the IQueryable expression-tree sample.",
+            Project("efcore-expression-trees"),
+            Source("efcore-expression-trees", "src", "main.rvn"),
+            ReplayScenarioOperation.DocumentDiagnostics,
+            []),
+        new(
+            "vehicle-costs-project",
+            "Multi-file project replay for EF Core, minimal API, extension methods, and lambdas.",
+            Project("efcore-vehicle-costs"),
+            Source("efcore-vehicle-costs", "src", "Api", "Main.rvn"),
+            ReplayScenarioOperation.ProjectSequence,
+            []),
+        new(
+            "vehicle-costs-lambda-hover",
+            "Single cold hover over the first EF Core lambda parameter in the minimal API sample.",
+            Project("efcore-vehicle-costs"),
+            Source("efcore-vehicle-costs", "src", "Api", "Main.rvn"),
+            ReplayScenarioOperation.HoverPositions,
+            [new PositionTarget(31, 32, "vehicles.include.lambda.vehicle")]),
+        new(
+            "vehicle-costs-diagnostics",
+            "Single cold compiler-diagnostics pass for the EF Core minimal API main file.",
+            Project("efcore-vehicle-costs"),
+            Source("efcore-vehicle-costs", "src", "Api", "Main.rvn"),
+            ReplayScenarioOperation.DocumentDiagnostics,
+            []),
+        new(
+            "fulfillment-workflow-project",
+            "Project replay for large result-propagation and workflow code.",
+            Project("fulfillment-workflow"),
+            Source("fulfillment-workflow", "src", "main.rvn"),
+            ReplayScenarioOperation.ProjectSequence,
+            []),
+        new(
+            "fulfillment-workflow-propagation-hover",
+            "Single cold hover near a result-propagation expression in the fulfillment workflow sample.",
+            Project("fulfillment-workflow"),
+            Source("fulfillment-workflow", "src", "main.rvn"),
+            ReplayScenarioOperation.HoverPositions,
+            [new PositionTarget(10, 28, "batchResult.propagation")]),
+        new(
+            "fulfillment-workflow-diagnostics",
+            "Single cold compiler-diagnostics pass for the fulfillment workflow sample.",
+            Project("fulfillment-workflow"),
+            Source("fulfillment-workflow", "src", "main.rvn"),
+            ReplayScenarioOperation.DocumentDiagnostics,
+            []),
+        new(
+            "top-level-members-project",
+            "Project replay for top-level members, imports, and namespace-member lookup.",
+            Project("top-level-members"),
+            Source("top-level-members", "src", "Members.rvn"),
+            ReplayScenarioOperation.ProjectSequence,
+            []),
+        new(
+            "top-level-members-diagnostics",
+            "Single cold compiler-diagnostics pass for top-level member binding.",
+            Project("top-level-members"),
+            Source("top-level-members", "src", "Members.rvn"),
+            ReplayScenarioOperation.DocumentDiagnostics,
+            [])
+    ];
 }
 
 static bool TryParsePosition(string text, out PositionTarget position)
@@ -915,6 +1121,8 @@ static IReadOnlyList<PositionTarget> ReadHoverTargetsFromPerformanceReport(strin
 
 internal sealed record HeadlessOptions(
     IReadOnlyList<string> Positionals,
+    string? ScenarioName,
+    bool ListScenarios,
     bool RandomHover,
     int RandomCount,
     int RandomSeed,
@@ -933,6 +1141,21 @@ internal sealed record HeadlessOptions(
     bool SequenceInlayProbes,
     int SequenceHoverCount,
     bool SequenceReopenDocuments);
+
+internal enum ReplayScenarioOperation
+{
+    ProjectSequence,
+    DocumentDiagnostics,
+    HoverPositions
+}
+
+internal sealed record NamedReplayScenario(
+    string Name,
+    string Description,
+    string ProjectRoot,
+    string FilePath,
+    ReplayScenarioOperation Operation,
+    IReadOnlyList<PositionTarget> HoverPositions);
 
 internal readonly record struct EditReplacement(
     string OldText,
@@ -968,7 +1191,8 @@ internal sealed record HoverResult(
     bool HasHover,
     Exception? Exception,
     string Preview,
-    SemanticQueryInstrumentation.Snapshot SemanticDelta);
+    SemanticQueryInstrumentation.Snapshot SemanticDelta,
+    FunctionExpressionParameterInstrumentation.Snapshot FunctionExpressionParameterDelta);
 
 internal sealed class HeadlessConsoleLogger<T> : ILogger<T>
 {

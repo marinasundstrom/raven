@@ -112,6 +112,7 @@ public sealed class IncrementalBinderLifecycleTests
     [Fact]
     public void DocumentDiagnostics_ForExpressionTreeLambda_UsesSameFileTypeMembersWithoutCompletingSourceDeclarations()
     {
+        var instrumentation = new PerformanceInstrumentation();
         const string source = """
             import System.*
             import System.Linq.Expressions.*
@@ -130,16 +131,23 @@ public sealed class IncrementalBinderLifecycleTests
             "binder-document-diagnostics",
             [syntaxTree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.ConsoleApplication));
+            new CompilationOptions(OutputKind.ConsoleApplication)
+                .WithPerformanceInstrumentation(instrumentation));
+        var before = instrumentation.DiagnosticBinding.CaptureSnapshot();
         var diagnostics = compilation.GetDocumentDiagnostics(
             syntaxTree,
             analyzerOptions: null,
             CancellationToken.None);
+        var delta = DiagnosticBindingInstrumentation.Subtract(
+            instrumentation.DiagnosticBinding.CaptureSnapshot(),
+            before);
 
         diagnostics
             .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
             .ShouldBeEmpty();
+        delta.IncrementalPasses.ShouldBe(1);
+        delta.FullPasses.ShouldBe(0);
         compilation.SourceDeclarationsComplete.ShouldBeFalse();
     }
 

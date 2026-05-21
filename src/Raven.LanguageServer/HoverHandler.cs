@@ -1328,6 +1328,18 @@ internal sealed class HoverHandler : IHoverHandler
                     return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaratorSymbol, declarator);
             }
 
+            if (token.Parent is ParameterSyntax parameter &&
+                token == parameter.Identifier)
+            {
+                var parameterSymbol = parameter.Ancestors().Any(static ancestor =>
+                    ancestor is FunctionExpressionSyntax or TrailingBlockExpressionSyntax)
+                        ? semanticModel.GetFunctionExpressionParameterSymbol(parameter)
+                        : semanticModel.GetDeclaredSymbol(parameter) as IParameterSymbol;
+
+                if (parameterSymbol is not null)
+                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, parameterSymbol, parameter);
+            }
+
             if (token.Parent is SingleVariableDesignationSyntax single &&
                 token == single.Identifier)
             {

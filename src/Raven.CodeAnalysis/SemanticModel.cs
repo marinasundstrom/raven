@@ -282,7 +282,7 @@ public partial class SemanticModel
                 diagnosticInstrumentation.RecordBinderSelectionTicks(Stopwatch.GetTimestamp() - phaseStart);
 
                 var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
-                if (TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder))
+                if (TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder, diagnosticInstrumentation))
                 {
                     diagnosticInstrumentation.RecordIncrementalPass();
                 }
@@ -569,7 +569,8 @@ public partial class SemanticModel
         bool TryCollectIncrementalDiagnostics(
             SyntaxNode root,
             Binder rootBinder,
-            ImmutableArray<Diagnostic>.Builder diagnosticsBuilder)
+            ImmutableArray<Diagnostic>.Builder diagnosticsBuilder,
+            DiagnosticBindingInstrumentation diagnosticInstrumentation)
         {
             if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
                 return false;
@@ -584,7 +585,8 @@ public partial class SemanticModel
             var allOwners = GetExecutableOwnersForDiagnostics(root).ToArray();
 
             if (changedOwners.Length == 0)
-                return TryCollectTransferredDiagnosticsForAllOwners(root, rootBinder, allOwners, diagnosticsBuilder);
+                return TryCollectTransferredDiagnosticsForAllOwners(root, rootBinder, allOwners, diagnosticsBuilder) ||
+                       TryCollectOwnerScopedDiagnosticsForAllOwners(root, rootBinder, allOwners, diagnosticsBuilder, diagnosticInstrumentation);
 
             var changedOwnerSet = changedOwners
                 .Select(static owner => new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind))
@@ -670,6 +672,79 @@ public partial class SemanticModel
                     !ReferenceEquals(ownerToBind, owner) &&
                     ownerToBind.Span.Start <= owner.Span.Start &&
                     ownerToBind.Span.End >= owner.Span.End);
+
+            void ClearCachedBinderDiagnostics(Text.TextSpan span)
+            {
+                foreach (var binderState in _binderCache.Values)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (ShouldPreserveBinderDiagnosticsDuringExecutableRebind(binderState))
+                        continue;
+
+                    binderState.Diagnostics.ClearDiagnostics(span);
+                }
+            }
+        }
+
+        bool TryCollectOwnerScopedDiagnosticsForAllOwners(
+            SyntaxNode root,
+            Binder rootBinder,
+            SyntaxNode[] allOwners,
+            ImmutableArray<Diagnostic>.Builder diagnosticsBuilder,
+            DiagnosticBindingInstrumentation diagnosticInstrumentation)
+        {
+            if (allOwners.Length == 0)
+                return false;
+
+            var outerOwners = allOwners
+                .Where(owner => !owner.Ancestors().Any(IsExecutableOwnerForDiagnostics))
+                .ToArray();
+
+            var phaseStart = Stopwatch.GetTimestamp();
+            foreach (var owner in outerOwners)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                ClearCachedBinderDiagnostics(owner.Span);
+                ClearCachedBoundNodes(owner.Span);
+            }
+
+            diagnosticInstrumentation.RecordClearTicks(Stopwatch.GetTimestamp() - phaseStart);
+
+            phaseStart = Stopwatch.GetTimestamp();
+            foreach (var owner in outerOwners)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (owner is GlobalStatementSyntax globalOwner)
+                    BindPrecedingGlobalStatementsForScope(root, globalOwner, requireCompleteDeclarations);
+
+                var ownerBinder = ReferenceEquals(owner, root)
+                    ? rootBinder
+                    : requireCompleteDeclarations
+                        ? GetBinder(owner)
+                        : GetBinderForIncrementalSemanticQuery(owner);
+
+                Traverse(owner, ownerBinder);
+            }
+
+            diagnosticInstrumentation.RecordTraverseTicks(Stopwatch.GetTimestamp() - phaseStart);
+
+            phaseStart = Stopwatch.GetTimestamp();
+            diagnosticsBuilder.AddRange(_binderCache.Values
+                .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable())
+                .Where(diagnostic => allOwners.Any(owner => BelongsToOwner(diagnostic, owner))));
+            diagnosticInstrumentation.RecordCollectTicks(Stopwatch.GetTimestamp() - phaseStart);
+
+            phaseStart = Stopwatch.GetTimestamp();
+            DocumentationCommentValidator.Analyze(this, root, rootBinder.Diagnostics);
+            diagnosticInstrumentation.RecordDocumentationTicks(Stopwatch.GetTimestamp() - phaseStart);
+
+            diagnosticsBuilder.AddRange(rootBinder.Diagnostics.AsEnumerable()
+                .Where(diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, SyntaxTree) &&
+                                     !allOwners.Any(owner => owner.Span.IntersectsWith(diagnostic.Location.SourceSpan))));
+            return true;
 
             void ClearCachedBinderDiagnostics(Text.TextSpan span)
             {
@@ -4647,6 +4722,13 @@ public partial class SemanticModel
             }
         }
 
+        if (expression is MemberAccessExpressionSyntax memberAccessExpression &&
+            TryGetAvailableMemberAccessTypeInfo(memberAccessExpression, out typeInfo))
+        {
+            StoreTypeMapping(expression, typeInfo);
+            return true;
+        }
+
         if (expression is InvocationExpressionSyntax invocation &&
             TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates))
         {
@@ -4717,6 +4799,51 @@ public partial class SemanticModel
         typeInfo = new TypeInfo(null, null);
         return false;
     }
+
+    private bool TryGetAvailableMemberAccessTypeInfo(
+        MemberAccessExpressionSyntax memberAccess,
+        out TypeInfo typeInfo)
+    {
+        typeInfo = new TypeInfo(null, null);
+
+        if (!TryGetAvailableTypeInfo(memberAccess.Expression, out var receiverTypeInfo))
+            return false;
+
+        var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
+        if (receiverType?.GetPlainType() is not INamedTypeSymbol namedReceiver ||
+            namedReceiver.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        var memberName = memberAccess.Name.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(memberName))
+            return false;
+
+        var member = TryGetAvailableInstanceValueMember(namedReceiver, memberName);
+        if (member is null &&
+            namedReceiver.DeclaringSyntaxReferences.Any())
+        {
+            Compilation.EnsureSourceDeclarationsComplete();
+            member = TryGetAvailableInstanceValueMember(namedReceiver, memberName);
+        }
+
+        var memberType = GetTypeFromSymbol(member);
+        if (memberType is null || memberType.TypeKind == TypeKind.Error)
+            return false;
+
+        typeInfo = new TypeInfo(memberType, memberType, ComputeConversion(memberType, memberType));
+        if (member is not null)
+            StoreSymbolMapping(memberAccess, new SymbolInfo(member));
+
+        return true;
+    }
+
+    private static ISymbol? TryGetAvailableInstanceValueMember(INamedTypeSymbol receiverType, string memberName)
+        => receiverType
+            .GetMembers(memberName)
+            .FirstOrDefault(static symbol =>
+                symbol is IFieldSymbol or IPropertySymbol or IEventSymbol);
 
     private static bool IsUsefulAvailableExpressionType(ITypeSymbol? type)
         => type is not null &&
@@ -7026,7 +7153,7 @@ public partial class SemanticModel
         if (delegateType is not null &&
             delegateType.TypeKind != TypeKind.Error &&
             !ContainsTypeParameter(delegateType) &&
-            !delegateType.ContainsErrorType())
+            !ContainsErrorTypeShallow(delegateType))
         {
             _functionExpressionDelegateTypeCache[functionExpression] = delegateType;
         }
@@ -7465,6 +7592,35 @@ public partial class SemanticModel
         return false;
     }
 
+    private static bool ContainsErrorTypeShallow(ITypeSymbol? type)
+    {
+        if (type is null)
+            return false;
+
+        if (type.TypeKind == TypeKind.Error || type is IErrorTypeSymbol)
+            return true;
+
+        if (type is LiteralTypeSymbol literal)
+            return ContainsErrorTypeShallow(literal.UnderlyingType);
+
+        if (type is NullableTypeSymbol nullable)
+            return ContainsErrorTypeShallow(nullable.UnderlyingType);
+
+        if (type is IArrayTypeSymbol array)
+            return ContainsErrorTypeShallow(array.ElementType);
+
+        if (type is RefTypeSymbol refType)
+            return ContainsErrorTypeShallow(refType.ElementType);
+
+        if (type is INamedTypeSymbol namedType)
+        {
+            var typeArguments = TypeSubstitution.GetShallowTypeArguments(namedType);
+            return !typeArguments.IsDefaultOrEmpty && typeArguments.Any(ContainsErrorTypeShallow);
+        }
+
+        return false;
+    }
+
     private static bool TryUnwrapCallableDelegateType(ITypeSymbol type, out INamedTypeSymbol delegateType)
     {
         delegateType = null!;
@@ -7597,6 +7753,20 @@ public partial class SemanticModel
         foreach (var parameter in method.Parameters)
         {
             if (parameter.Type.ContainsErrorType())
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool FunctionExpressionSymbolContainsErrorShallow(IMethodSymbol method)
+    {
+        if (ContainsErrorTypeShallow(method.ReturnType))
+            return true;
+
+        foreach (var parameter in method.Parameters)
+        {
+            if (ContainsErrorTypeShallow(parameter.Type))
                 return true;
         }
 
@@ -8843,6 +9013,7 @@ public partial class SemanticModel
         out IParameterSymbol? parameterSymbol,
         bool allowCandidateLookup = true)
     {
+        Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordFastAttempt();
         parameterSymbol = null;
 
         var functionExpression = parameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault();
@@ -8857,6 +9028,16 @@ public partial class SemanticModel
         bool hasExplicitDefaultValue;
         object? explicitDefaultValue;
         bool isVarParams;
+
+        if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedFunction &&
+            cachedFunction.Parameters.ElementAtOrDefault(parameterIndex) is { Type: { TypeKind: not TypeKind.Error } cachedBoundParameterType } cachedBoundParameter &&
+            !ContainsTypeParameter(cachedBoundParameterType) &&
+            !ContainsErrorTypeShallow(cachedBoundParameterType))
+        {
+            parameterSymbol = cachedBoundParameter;
+            Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordFastBoundCacheHit();
+            return true;
+        }
 
         if (parameterSyntax.TypeAnnotation?.Type is { } typeSyntax)
         {
@@ -8877,37 +9058,54 @@ public partial class SemanticModel
         }
         else
         {
-            if (!allowCandidateLookup &&
-                _functionExpressionSymbolCache.TryGetValue(functionExpression, out var cachedFunctionSymbol) &&
-                !FunctionExpressionSymbolContainsError(cachedFunctionSymbol) &&
+            if (_functionExpressionSymbolCache.TryGetValue(functionExpression, out var cachedFunctionSymbol) &&
+                !FunctionExpressionSymbolContainsErrorShallow(cachedFunctionSymbol) &&
                 parameterIndex < cachedFunctionSymbol.Parameters.Length &&
                 cachedFunctionSymbol.Parameters[parameterIndex] is { Type: { TypeKind: not TypeKind.Error } cachedParameterType } cachedParameter &&
                 !ContainsTypeParameter(cachedParameterType))
             {
                 parameterSymbol = cachedParameter;
+                Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordFastSymbolCacheHit();
                 return true;
             }
 
-            if (!TryGetAvailableOrCachedFunctionExpressionDelegateType(functionExpression, out var delegateType, allowCandidateLookup) ||
-                delegateType is not INamedTypeSymbol namedDelegate ||
-                namedDelegate.GetDelegateInvokeMethod() is not { } invokeMethod ||
-                parameterIndex >= invokeMethod.Parameters.Length)
+            if (!TryGetAvailableOrCachedFunctionExpressionDelegateType(functionExpression, out var delegateType, allowCandidateLookup))
             {
                 return false;
             }
 
-            var delegateParameter = invokeMethod.Parameters[parameterIndex];
-            if (delegateParameter.Type is null || delegateParameter.Type.TypeKind == TypeKind.Error)
+            if (delegateType is not INamedTypeSymbol namedDelegate)
+            {
                 return false;
+            }
 
-            if (ContainsTypeParameter(delegateParameter.Type))
+            if (!TryGetCallableDelegateParameter(
+                    namedDelegate,
+                    parameterIndex,
+                    out var delegateParameterType,
+                    out var delegateRefKind,
+                    out var delegateHasExplicitDefaultValue,
+                    out var delegateExplicitDefaultValue,
+                    out var delegateIsVarParams))
+            {
                 return false;
+            }
 
-            parameterType = delegateParameter.Type;
-            refKind = delegateParameter.RefKind;
-            hasExplicitDefaultValue = delegateParameter.HasExplicitDefaultValue;
-            explicitDefaultValue = delegateParameter.ExplicitDefaultValue;
-            isVarParams = delegateParameter.IsVarParams;
+            if (delegateParameterType.TypeKind == TypeKind.Error)
+            {
+                return false;
+            }
+
+            if (ContainsTypeParameter(delegateParameterType))
+            {
+                return false;
+            }
+
+            parameterType = delegateParameterType;
+            refKind = delegateRefKind;
+            hasExplicitDefaultValue = delegateHasExplicitDefaultValue;
+            explicitDefaultValue = delegateExplicitDefaultValue;
+            isVarParams = delegateIsVarParams;
         }
 
         var containingSymbol = TryGetAvailableContainingSymbol(functionExpression) ?? Compilation.GlobalNamespace;
@@ -8928,7 +9126,82 @@ public partial class SemanticModel
             explicitDefaultValue,
             isMutable,
             isVarParams);
+        Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordFastDelegateHit();
         return true;
+    }
+
+    private bool TryGetCallableDelegateParameter(
+        INamedTypeSymbol delegateType,
+        int parameterIndex,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? parameterType,
+        out RefKind refKind,
+        out bool hasExplicitDefaultValue,
+        out object? explicitDefaultValue,
+        out bool isVarParams)
+    {
+        parameterType = null;
+        refKind = RefKind.None;
+        hasExplicitDefaultValue = false;
+        explicitDefaultValue = null;
+        isVarParams = false;
+
+        if (delegateType.GetDelegateInvokeMethod() is { } invokeMethod)
+        {
+            if (parameterIndex < 0 || parameterIndex >= invokeMethod.Parameters.Length)
+                return false;
+
+            var parameter = invokeMethod.Parameters[parameterIndex];
+            parameterType = parameter.Type;
+            refKind = parameter.RefKind;
+            hasExplicitDefaultValue = parameter.HasExplicitDefaultValue;
+            explicitDefaultValue = parameter.ExplicitDefaultValue;
+            isVarParams = parameter.IsVarParams;
+            return parameterType is not null;
+        }
+
+        if (!TryGetSystemFuncOrActionParameterTypes(delegateType, out var parameterTypes) ||
+            parameterIndex < 0 ||
+            parameterIndex >= parameterTypes.Length)
+        {
+            return false;
+        }
+
+        parameterType = parameterTypes[parameterIndex];
+        return parameterType is not null;
+    }
+
+    private static bool TryGetSystemFuncOrActionParameterTypes(
+        INamedTypeSymbol delegateType,
+        out ImmutableArray<ITypeSymbol> parameterTypes)
+    {
+        parameterTypes = default;
+
+        if (delegateType.TypeKind != TypeKind.Delegate)
+            return false;
+
+        var definition = (delegateType.OriginalDefinition as INamedTypeSymbol) ?? delegateType;
+        var metadataName = definition.MetadataName;
+        var name = definition.Name;
+        var typeArguments = TypeSubstitution.GetShallowTypeArguments(delegateType);
+
+        if (string.Equals(name, "Func", StringComparison.Ordinal) ||
+            metadataName.StartsWith("Func`", StringComparison.Ordinal))
+        {
+            if (typeArguments.IsDefaultOrEmpty)
+                return false;
+
+            parameterTypes = typeArguments.RemoveAt(typeArguments.Length - 1);
+            return true;
+        }
+
+        if (string.Equals(name, "Action", StringComparison.Ordinal) ||
+            metadataName.StartsWith("Action`", StringComparison.Ordinal))
+        {
+            parameterTypes = typeArguments.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : typeArguments;
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryGetAvailableFunctionParameterType(TypeSyntax typeSyntax, out ITypeSymbol type)
@@ -8984,8 +9257,8 @@ public partial class SemanticModel
             var typeArguments = ResolveAvailableTypeArguments(genericTypeName.TypeArgumentList);
             if (typeArguments.IsDefault || typeArguments.Length != arity)
             {
-                type = namedType;
-                return true;
+                type = null;
+                return false;
             }
 
             type = namedType.Construct(typeArguments.ToArray());
@@ -9044,7 +9317,7 @@ public partial class SemanticModel
         if (_functionExpressionDelegateTypeCache.TryGetValue(functionExpression, out var cachedDelegateType) &&
             cachedDelegateType.TypeKind != TypeKind.Error &&
             !ContainsTypeParameter(cachedDelegateType) &&
-            !cachedDelegateType.ContainsErrorType())
+            !ContainsErrorTypeShallow(cachedDelegateType))
         {
             delegateType = cachedDelegateType;
             return true;
@@ -9060,10 +9333,10 @@ public partial class SemanticModel
             return true;
         }
 
-        if (!allowCandidateLookup)
+        if (TryGetTargetTypedFunctionExpressionDelegateType(functionExpression, out delegateType))
         {
-            delegateType = null;
-            return false;
+            CacheFunctionExpressionDelegateType(functionExpression, delegateType);
+            return true;
         }
 
         if (TryGetAvailableFunctionExpressionDelegateType(functionExpression, out delegateType) &&
@@ -9074,7 +9347,51 @@ public partial class SemanticModel
             return true;
         }
 
+        if (!allowCandidateLookup)
+        {
+            delegateType = null;
+            return false;
+        }
+
         return false;
+    }
+
+    private bool TryGetTargetTypedFunctionExpressionDelegateType(
+        FunctionExpressionSyntax functionExpression,
+        out ITypeSymbol? delegateType)
+    {
+        delegateType = null;
+
+        if (functionExpression.Parent is not EqualsValueClauseSyntax initializer ||
+            !IsSameSyntaxNode(initializer.Value, functionExpression) ||
+            initializer.Parent is not VariableDeclaratorSyntax
+            {
+                TypeAnnotation.Type: { } targetTypeSyntax
+            })
+        {
+            return false;
+        }
+
+        ITypeSymbol? targetType = null;
+        if (TryGetAvailableFunctionParameterType(targetTypeSyntax, out var availableTargetType))
+            targetType = availableTargetType;
+        else if (TryGetAvailableTypeInfo(targetTypeSyntax, out var targetTypeInfo))
+            targetType = targetTypeInfo.Type ?? targetTypeInfo.ConvertedType;
+
+        if ((targetType is null || targetType.TypeKind == TypeKind.Error || ContainsTypeParameter(targetType)) &&
+            TryBindAvailableTypeSyntax(targetTypeSyntax, out var boundTargetType))
+        {
+            targetType = boundTargetType;
+        }
+
+        if (targetType is null || targetType.TypeKind == TypeKind.Error)
+            return false;
+
+        if (!TryUnwrapCallableDelegateType(targetType, out var callableDelegate))
+            return false;
+
+        delegateType = callableDelegate;
+        return true;
     }
 
     private static ITypeSymbol? GetTypeFromSymbol(ISymbol? symbol)
@@ -10007,6 +10324,16 @@ public partial class SemanticModel
             if (current is FunctionExpressionSyntax)
                 continue;
 
+            if (current is InvocationExpressionSyntax invocation &&
+                IsFunctionExpressionInvocationArgument(functionExpression, invocation))
+            {
+                var rebindRoot = GetInvocationArgumentFunctionExpressionRebindRoot(invocation);
+                Compilation.StoreFunctionExpressionRebindRootDescriptor(
+                    functionExpression,
+                    new Compilation.FunctionExpressionRebindRootDescriptor(rebindRoot.Span, rebindRoot.Kind));
+                return rebindRoot;
+            }
+
             if (current is StatementSyntax statement)
             {
                 Compilation.StoreFunctionExpressionRebindRootDescriptor(
@@ -10024,6 +10351,28 @@ public partial class SemanticModel
             functionExpression,
             new Compilation.FunctionExpressionRebindRootDescriptor(root.Span, root.Kind));
         return root;
+    }
+
+    private static SyntaxNode GetInvocationArgumentFunctionExpressionRebindRoot(InvocationExpressionSyntax invocation)
+    {
+        if (invocation.Parent is InfixOperatorExpressionSyntax
+            {
+                OperatorToken.Kind: SyntaxKind.PipeToken
+            } pipeExpression &&
+            ReferenceEquals(pipeExpression.Right, invocation))
+        {
+            return pipeExpression;
+        }
+
+        return invocation;
+    }
+
+    private static bool IsFunctionExpressionInvocationArgument(
+        FunctionExpressionSyntax functionExpression,
+        InvocationExpressionSyntax invocation)
+    {
+        return invocation.ArgumentList.Arguments.Any(argument =>
+            argument.Expression.DescendantNodesAndSelf().Contains(functionExpression, ReferenceEqualityComparer.Instance));
     }
 
     private static SyntaxNode GetCallableExpressionRebindRoot(SyntaxNode functionSyntax)
@@ -10274,33 +10623,45 @@ public partial class SemanticModel
 
     public IParameterSymbol? GetFunctionExpressionParameterSymbol(ParameterSyntax parameterSyntax)
     {
-        if (TryResolveFunctionExpressionParameterSymbolFast(parameterSyntax, out var fastParameter))
-            return fastParameter;
-
-        if (parameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } functionExpression)
+        var instrumentationStart = Compilation.PerformanceInstrumentation.FunctionExpressionParameters.BeginQuery();
+        try
         {
-            var parameter = GetFunctionExpressionParameterSymbol(functionExpression, parameterSyntax);
-            if (parameter is not null)
-                return parameter;
-        }
+            if (TryResolveFunctionExpressionParameterSymbolFast(parameterSyntax, out var fastParameter))
+                return fastParameter;
 
-        if (parameterSyntax.Ancestors().OfType<TrailingBlockExpressionSyntax>().FirstOrDefault() is { } trailingBlock)
+            if (parameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } functionExpression)
+            {
+                var parameter = GetFunctionExpressionParameterSymbol(functionExpression, parameterSyntax);
+                if (parameter is not null)
+                    return parameter;
+            }
+
+            if (parameterSyntax.Ancestors().OfType<TrailingBlockExpressionSyntax>().FirstOrDefault() is { } trailingBlock)
+            {
+                var parameter = GetTrailingBlockParameterSymbol(trailingBlock, parameterSyntax);
+                if (parameter is not null)
+                    return parameter;
+            }
+
+            EnsureBindingReady();
+            EnsureDiagnosticBindingCompleted();
+
+            if (parameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } readyFunctionExpression)
+                return GetFunctionExpressionParameterSymbol(readyFunctionExpression, parameterSyntax);
+
+            if (parameterSyntax.Ancestors().OfType<TrailingBlockExpressionSyntax>().FirstOrDefault() is { } readyTrailingBlock)
+                return GetTrailingBlockParameterSymbol(readyTrailingBlock, parameterSyntax);
+
+            var declaredParameter = GetDeclaredSymbol(parameterSyntax) as IParameterSymbol;
+            if (declaredParameter is null)
+                Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordMiss();
+
+            return declaredParameter;
+        }
+        finally
         {
-            var parameter = GetTrailingBlockParameterSymbol(trailingBlock, parameterSyntax);
-            if (parameter is not null)
-                return parameter;
+            Compilation.PerformanceInstrumentation.FunctionExpressionParameters.EndQuery(instrumentationStart);
         }
-
-        EnsureBindingReady();
-        EnsureDiagnosticBindingCompleted();
-
-        if (parameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } readyFunctionExpression)
-            return GetFunctionExpressionParameterSymbol(readyFunctionExpression, parameterSyntax);
-
-        if (parameterSyntax.Ancestors().OfType<TrailingBlockExpressionSyntax>().FirstOrDefault() is { } readyTrailingBlock)
-            return GetTrailingBlockParameterSymbol(readyTrailingBlock, parameterSyntax);
-
-        return GetDeclaredSymbol(parameterSyntax) as IParameterSymbol;
     }
 
     private IParameterSymbol? GetFunctionExpressionParameterSymbol(
@@ -10315,15 +10676,16 @@ public partial class SemanticModel
         try
         {
             if (TryGetCachedBoundNode(functionExpression) is BoundFunctionExpression cachedLambda &&
-                !IsLikelyStaleFunctionBodyNode(cachedLambda) &&
                 TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, cachedLambda.Parameters, out var cachedParameter))
             {
+                Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordDirectBoundHit();
                 return cachedParameter;
             }
 
             if (TryGetContextualBoundFunctionExpression(functionExpression, out var contextualLambda) &&
                 TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, contextualLambda.Parameters, out var contextualParameter))
             {
+                Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordContextualHit();
                 return contextualParameter;
             }
 
@@ -10331,6 +10693,7 @@ public partial class SemanticModel
                 !IsLikelyStaleFunctionBodyNode(boundLambda) &&
                 TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, boundLambda.Parameters, out var boundParameter))
             {
+                Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordDirectBoundHit();
                 return boundParameter;
             }
 
@@ -10340,9 +10703,11 @@ public partial class SemanticModel
                 !FunctionExpressionSymbolContainsError(lambdaMethod) &&
                 TryGetFunctionParameterBySyntax(functionExpression, parameterSyntax, lambdaMethod.Parameters, out var lambdaParameter))
             {
+                Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordSymbolFallbackHit();
                 return lambdaParameter;
             }
 
+            Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordMiss();
             return null;
         }
         finally
@@ -10416,6 +10781,16 @@ public partial class SemanticModel
         try
         {
             var reboundRoot = BindContextualRootForSemanticQuery(contextualRoot);
+            if (TryGetCachedBoundNode(functionSyntax) is BoundFunctionExpression cachedAfterContextualBind &&
+                !IsLikelyStaleFunctionBodyNode(cachedAfterContextualBind))
+            {
+                if (functionSyntax is FunctionExpressionSyntax functionExpression)
+                    _ = TryUpgradeFunctionExpressionSymbolFromBoundFunction(functionExpression, cachedAfterContextualBind, out _);
+
+                boundFunction = cachedAfterContextualBind;
+                return true;
+            }
+
             if (TryFindBoundNodeBySyntax(reboundRoot, functionSyntax, out var reboundFunctionNode) &&
                 reboundFunctionNode is BoundFunctionExpression reboundLambda)
             {
@@ -10535,9 +10910,15 @@ public partial class SemanticModel
 
                 break;
 
-            case SimpleFunctionExpressionSyntax simple when IsSameSyntaxNode(simple.Parameter, parameterSyntax):
-                parameterIndex = 0;
-                return true;
+            case SimpleFunctionExpressionSyntax simple:
+                if (IsSameSyntaxNode(simple.Parameter, parameterSyntax) ||
+                    parameterSyntax.Ancestors().Any(ancestor => IsSameSyntaxNode(ancestor, simple)))
+                {
+                    parameterIndex = 0;
+                    return true;
+                }
+
+                break;
         }
 
         parameterIndex = -1;

@@ -25,6 +25,7 @@ public sealed class PerformanceInstrumentation
         LambdaReplay = new LambdaReplayInstrumentation(isEnabled);
         BinderReentry = new BinderReentryInstrumentation(isEnabled);
         SemanticQuery = new SemanticQueryInstrumentation(isEnabled);
+        FunctionExpressionParameters = new FunctionExpressionParameterInstrumentation(isEnabled);
         DiagnosticBinding = new DiagnosticBindingInstrumentation(isEnabled);
         Macros = new MacroInstrumentation(isEnabled);
         Setup = new CompilerSetupInstrumentation(isEnabled);
@@ -35,6 +36,8 @@ public sealed class PerformanceInstrumentation
     public BinderReentryInstrumentation BinderReentry { get; }
 
     public SemanticQueryInstrumentation SemanticQuery { get; }
+
+    public FunctionExpressionParameterInstrumentation FunctionExpressionParameters { get; }
 
     public DiagnosticBindingInstrumentation DiagnosticBinding { get; }
 
@@ -515,6 +518,144 @@ public sealed class LambdaReplayInstrumentation
 
         Interlocked.Increment(ref _bindingFailures);
     }
+}
+
+public sealed class FunctionExpressionParameterInstrumentation
+{
+    public readonly record struct Snapshot(
+        long Queries,
+        long FastAttempts,
+        long FastBoundCacheHits,
+        long FastSymbolCacheHits,
+        long FastDelegateHits,
+        long ContextualHits,
+        long DirectBoundHits,
+        long SymbolFallbackHits,
+        long Misses,
+        long TotalTicks);
+
+    private readonly bool _isEnabled;
+    private long _queries;
+    private long _fastAttempts;
+    private long _fastBoundCacheHits;
+    private long _fastSymbolCacheHits;
+    private long _fastDelegateHits;
+    private long _contextualHits;
+    private long _directBoundHits;
+    private long _symbolFallbackHits;
+    private long _misses;
+    private long _totalTicks;
+
+    internal FunctionExpressionParameterInstrumentation(bool isEnabled)
+    {
+        _isEnabled = isEnabled;
+    }
+
+    public Snapshot CaptureSnapshot()
+        => new(
+            Volatile.Read(ref _queries),
+            Volatile.Read(ref _fastAttempts),
+            Volatile.Read(ref _fastBoundCacheHits),
+            Volatile.Read(ref _fastSymbolCacheHits),
+            Volatile.Read(ref _fastDelegateHits),
+            Volatile.Read(ref _contextualHits),
+            Volatile.Read(ref _directBoundHits),
+            Volatile.Read(ref _symbolFallbackHits),
+            Volatile.Read(ref _misses),
+            Volatile.Read(ref _totalTicks));
+
+    public static Snapshot Subtract(Snapshot end, Snapshot start)
+        => new(
+            end.Queries - start.Queries,
+            end.FastAttempts - start.FastAttempts,
+            end.FastBoundCacheHits - start.FastBoundCacheHits,
+            end.FastSymbolCacheHits - start.FastSymbolCacheHits,
+            end.FastDelegateHits - start.FastDelegateHits,
+            end.ContextualHits - start.ContextualHits,
+            end.DirectBoundHits - start.DirectBoundHits,
+            end.SymbolFallbackHits - start.SymbolFallbackHits,
+            end.Misses - start.Misses,
+            end.TotalTicks - start.TotalTicks);
+
+    public static string FormatDelta(Snapshot delta)
+        => $"lambdaParam={delta.Queries}, " +
+           $"fast={delta.FastAttempts}, " +
+           $"fastBoundHits={delta.FastBoundCacheHits}, " +
+           $"fastSymbolHits={delta.FastSymbolCacheHits}, " +
+           $"fastDelegateHits={delta.FastDelegateHits}, " +
+           $"contextualHits={delta.ContextualHits}, " +
+           $"directBoundHits={delta.DirectBoundHits}, " +
+           $"symbolFallbackHits={delta.SymbolFallbackHits}, " +
+           $"misses={delta.Misses}, " +
+           $"ms={TicksToMilliseconds(delta.TotalTicks):F1}";
+
+    internal long BeginQuery()
+    {
+        if (!_isEnabled)
+            return 0;
+
+        Interlocked.Increment(ref _queries);
+        return Stopwatch.GetTimestamp();
+    }
+
+    internal void EndQuery(long startTimestamp)
+    {
+        if (!_isEnabled || startTimestamp == 0)
+            return;
+
+        Interlocked.Add(ref _totalTicks, Stopwatch.GetTimestamp() - startTimestamp);
+    }
+
+    internal void RecordFastAttempt()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _fastAttempts);
+    }
+
+    internal void RecordFastBoundCacheHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _fastBoundCacheHits);
+    }
+
+    internal void RecordFastSymbolCacheHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _fastSymbolCacheHits);
+    }
+
+    internal void RecordFastDelegateHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _fastDelegateHits);
+    }
+
+    internal void RecordContextualHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _contextualHits);
+    }
+
+    internal void RecordDirectBoundHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _directBoundHits);
+    }
+
+    internal void RecordSymbolFallbackHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _symbolFallbackHits);
+    }
+
+    internal void RecordMiss()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _misses);
+    }
+
+    private static double TicksToMilliseconds(long ticks)
+        => ticks * 1000.0 / Stopwatch.Frequency;
 }
 
 public sealed class BinderReentryInstrumentation

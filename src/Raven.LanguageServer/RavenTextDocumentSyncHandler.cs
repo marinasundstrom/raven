@@ -401,9 +401,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DocumentDiagnosticsAfterOpenDelayMilliseconds,
-            FollowUpMode: DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
-            AnalyzerFollowUpDiagnosticsDelayMilliseconds: null,
-            AnalyzerFollowUpMode: null,
+            FollowUpMode: DocumentStore.DiagnosticLane.DocumentCompiler,
+            AnalyzerFollowUpDiagnosticsDelayMilliseconds: DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds,
+            AnalyzerFollowUpMode: DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetEditDiagnosticsPolicy()
