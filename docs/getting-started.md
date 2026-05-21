@@ -65,7 +65,7 @@ dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- 
 - Use `match` for explicit branching over values, `Option`, and `Result`.
 - Use `Ok(...)` / `Error(...)` and `Some(...)` / `None` for carrier-based flow.
 - Function type signatures use arrow notation (for example `val op: (int, int) -> int`).
-- Functions come in two forms: named declarations (`func Add(...)`) and unnamed function expressions (`func (...) => ...`, `func (...) { ... }`, or `(...) => ...`).
+- Functions are one callable concept: named declarations can be top-level functions in namespaces, methods, or local functions, and expression forms produce function values (`func (...) => ...`, `func (...) { ... }`, or `(...) => ...`).
 - Function expressions may include modifiers before `func`: `async func (...) ...`, `static func (...) ...`, or `static async func (...) ...`.
 - Shorthand without `func` is mostly an ergonomic call-site form for higher-order methods (for example `items.Where(x => x > 0)`).
 - `static` function expressions cannot capture locals/parameters from outer scopes.

@@ -3483,11 +3483,11 @@ instance field named `value__` whose type is the enum’s underlying type. Each
 enum member is emitted as a public static literal field whose constant value is
 stored using the underlying type.
 
-## Namespace-level functions and constants
+## Top-level functions and constants
 
-A compilation unit or namespace may declare `func` and `const` declarations at
-namespace scope. These declarations are namespace members in source, not
-members of a user-authored type:
+A compilation unit or namespace may declare top-level `func` and `const`
+declarations at namespace scope. These declarations are namespace members in
+source, not members of a user-authored type:
 
 ```raven
 namespace Utilities {
@@ -3497,11 +3497,11 @@ namespace Utilities {
 }
 ```
 
-Namespace-level functions and constants are implicitly static. They are emitted into a
+Top-level functions and constants are implicitly static. They are emitted into a
 synthesized static container named `NamespaceMembers` in the containing
 namespace, but that container is a metadata detail. Source lookup treats the
-declarations as namespace-level functions and constants. A wildcard namespace
-import brings accessible namespace-level functions and constants into unqualified
+declarations as namespace members. A wildcard namespace import brings accessible
+top-level functions and constants into unqualified
 lookup, and namespace-qualified member access can reference them:
 
 ```raven
@@ -3521,41 +3521,41 @@ without changing their metadata member ownership.
 
 The effect at a call site is intentionally similar to importing static members
 from a utility type, such as `import Foo.UtilityClass.*`. The semantic model is
-distinct: namespace-level functions and constants are declared in and imported from
+distinct: top-level functions and constants are declared in and imported from
 the namespace itself, so authors can place `func` and `const` declarations in
 any file and import them by namespace without inventing a containing utility
 class.
 
-Namespace-level functions and constants default to `internal`. `public`, `internal`,
+Top-level functions and constants default to `internal`. `public`, `internal`,
 and `fileprivate` are valid accessibility modifiers. `fileprivate` restricts
-access to the declaring source file. `static` is invalid on a namespace-level function
+access to the declaring source file. `static` is invalid on a top-level function
 or constant because the declaration is already implicitly static; the compiler
 diagnoses the modifier rather than treating it as meaningful. `private`,
 `protected`, `protected internal`, and `private protected` are invalid because a
-namespace-level function or constant has no source-level containing type or
+top-level function or constant has no source-level containing type or
 inheritance surface.
 
-Namespace-level `func` declarations support the same parameter, return type, generic
+Top-level `func` declarations support the same parameter, return type, generic
 type parameter, and `where` constraint syntax as methods and local functions.
-Namespace-level `const` declarations follow constant binding rules and are emitted as
+Top-level `const` declarations follow constant binding rules and are emitted as
 metadata literal fields on the synthesized container. Class, struct, interface,
 enum, union, delegate, and extension declarations remain normal declarations;
 they are not moved into the synthesized `NamespaceMembers` container, and type
 declarations such as classes and structs may still use their normal explicit
 `static` modifier where that modifier is valid.
 
-Namespace-level functions and constants are controlled by the `AllowNamespaceMembers`
+Top-level functions and constants are controlled by the `AllowNamespaceMembers`
 compilation option. This option is independent of `AllowGlobalStatements`:
 disabling top-level statements prevents synthesized entry-point code from
-file-scope statements, but namespace-level `func` and `const` declarations remain
+file-scope statements, but top-level `func` and `const` declarations remain
 valid when namespace members are enabled. Namespace promotion from
 namespace-member containers is controlled separately by
 `AllowNamespaceMemberImports`; disabling that option leaves the declarations and
 metadata containers intact but prevents container members from being imported or
 offered as namespace members.
 
-Namespace-level functions do not capture locals declared by file-scope statements. A
-namespace-level function body is a static function body, so it can only reference
+Top-level functions do not capture locals declared by file-scope statements. A
+top-level function body is a static function body, so it can only reference
 parameters, imported symbols, and accessible namespace/type members.
 
 ## Entry points
@@ -3567,10 +3567,10 @@ the same signature rules:
 
 * **File-scope code (global statements):** executable statements at the top of a
   file. These coexist with other declarations (namespaces, types, top-level
-  namespace-level functions and constants) in the same compilation unit.
-* **Top-level function:** a global `func Main` declaration that can appear next
-  to other namespace-level functions and constants. When present, no other file-scope
-  statements may appear alongside it.
+  functions and constants) in the same compilation unit.
+* **Top-level function:** a namespace-scope `func Main` declaration that can
+  appear next to other top-level functions and constants. When present, no
+  other file-scope statements may appear alongside it.
 * **Classic static method:** a `Main` method declared on a type such as
   `Program.Main`.
 
@@ -3586,9 +3586,9 @@ statements execute in source order. Top-level type declarations are hoisted for
 binding, so helper types may appear anywhere in the file or its file-scoped
 namespace without changing the execution order of file-scope code.
 
-Namespace-level functions are hoisted and may be referenced from anywhere in their
+Top-level functions are hoisted and may be referenced from anywhere in their
 namespace scope, regardless of source order. When a file contains *only*
-namespace-level functions and constants, the compiler skips synthesizing the implicit
+top-level functions and constants, the compiler skips synthesizing the implicit
 `Program.Main` bridge; entry-point discovery falls back to user-defined
 candidates such as a namespace-scope `func Main` alongside other declarations.
 
@@ -3675,6 +3675,26 @@ If the return type clause is omitted, the delegate returns `unit`. Delegate decl
 
 ## Functions
 
+Raven uses a unified function model for callable declarations and callable
+values. A named `func` declaration can appear as a top-level function at
+namespace scope, as a member of a type where it is a method, or as a statement
+inside a block where it is a local function. Top-level functions are implicitly
+static; methods follow the usual member rules for instance and static receivers.
+Local functions are scoped to the containing body and may capture context from
+enclosing scopes.
+
+Function expressions are the expression form of the same concept. They produce
+function values that can be assigned, passed, returned, or converted to
+compatible delegate types. Lambda syntax is the shorthand function-expression
+form and is described in the function-expression section below.
+
+The rules in this section cover shared callable syntax and behavior. See
+`Top-level functions and constants` for namespace placement and import rules,
+`Classes and members` for method-specific member rules, and `Function
+expressions` for the lambda and delegate-conversion form.
+
+### Function declarations
+
 ```raven
 func Foo(a: int, b: int) -> int {
     a + b
@@ -3705,7 +3725,7 @@ func find(name: string) -> string { /* ... */ }
 Attribute target prefixes are validated by declaration context:
 
 * `[assembly: ...]` is only valid as a compilation-unit attribute list (before
-  namespace-level functions and constants).
+  top-level functions and constants).
 * `[return: ...]` is only valid on callable return positions (function/method
   return metadata).
 * Other explicit targets must match the declaration kind they annotate.
@@ -3767,8 +3787,6 @@ rules. This matches the intended .NET/C# interop behavior for both Raven source
 methods and imported metadata methods.
 
 ### Generic functions and methods
-
-### Type parameters and constraints
 
 Functions, methods, types, and local functions may declare one or more **type parameters**
 using a type parameter list written after the declaration name:
@@ -3902,14 +3920,14 @@ admits reference types (including nullable references). Violating a constraint
 produces a diagnostic identifying the failing type argument and the unmet
 requirement.
 
-### Nested functions
+### Local functions
 
-Functions may be declared inside other functions. Such a function is
-scoped to its containing body and can capture local variables, parameters, and
-`self` from enclosing scopes. Local functions
-support the same generic syntax and constraints as file-scoped functions: place
-an optional type parameter list after the function name and declare constraints
-using the `:` syntax when needed.
+Functions may be declared as statements inside other functions, methods, and
+block bodies. Such a function is scoped to its containing body and can capture
+local variables, parameters, and `self` from enclosing scopes. Local functions
+support the same generic syntax and constraints as top-level functions. Place
+an optional type parameter list after the function name and declare
+constraints using the `:` syntax when needed.
 When no instance receiver is available (for example inside `static` members or
 `static func` local functions), using `self` reports `RAV2801`.
 
@@ -3930,7 +3948,7 @@ type member in Raven source.
 
 ### Async functions
 
-The `async` modifier may appear on free functions, methods, and nested
+The `async` modifier may appear on top-level functions, methods, and local
 functions. An async declaration opts the body into asynchronous control flow so
 `await` expressions can suspend and resume execution. When no return type is
 annotated, async declarations default to `System.Threading.Tasks.Task`
@@ -3941,7 +3959,7 @@ Async functions with an explicit return type must annotate one of the supported
 task shapes: `System.Threading.Tasks.Task` or `System.Threading.Tasks.Task<T>`.
 Annotating any other type produces a diagnostic, and the compiler continues
 analysis as though the return type were `Task`. This rule applies uniformly to
-methods, file-scoped functions, and local functions declared inside other
+methods, top-level functions, and local functions declared inside other
 bodies. Property and indexer accessors may also carry `async`; getters must
 expose a task-shaped return type to remain valid, while setters may await
 asynchronous work before storing values.
@@ -3967,18 +3985,41 @@ propagate directly to the caller. Once asynchronous execution begins, `await`
 unwrapped exceptions rethrow when the task is awaited, matching .NET's
 observable behaviour.
 
-### Function expressions and captured variables
+### Function expressions
+
+Unnamed function expressions support explicit and shorthand forms:
+`func (x: int) => x + 1`, `func (x: int) { x + 1 }`,
+`async func (x: int) => x + 1`, `static func (x: int) => x + 1`,
+and `(x: int) => x + 1` (or `x => x + 1`). The shorthand form is valid
+anywhere the equivalent explicit function expression is valid.
 
 Function expressions start with either a parenthesized parameter list
 or a single identifier, optionally followed by a return-type arrow. Expression
 bodies use `=>`; `func`-introduced block bodies may omit `=>` and use
 `func (...) { ... }`. Function expressions may also use modifier forms
-`async func`, `static func`, and `static async func`. Function expressions may appear wherever a function value
-is expected. When a function expression or nested function statement (`func`) references
-a local defined in an outer scope, the compiler lifts that symbol into shared
+`async func`, `static func`, and `static async func`. Function expressions may
+appear wherever a function value is expected.
+
+```raven
+val addA = func (x: int) => x + 42
+val addB = func (x: int) {
+    x + 42
+}
+val addC = x => x + 42
+```
+
+Function expressions may optionally declare a local identifier:
+`func Fib(n: int) => Fib(n - 1)`. This identifier is visible only inside the
+function-expression body. It does not declare a surrounding local/member name;
+the emitted backing method name remains compiler-generated.
+
+#### Captured variables
+
+When a function expression or local function statement (`func`) references a
+local defined in an outer scope, the compiler lifts that symbol into shared
 closure storage so both scopes observe the same value. Each capturing lambda or
-nested function materializes a synthesized closure class that stores the body as an
-instance method and exposes fields for every captured symbol. Reads and writes
+local function materializes a synthesized closure class that stores the body as
+an instance method and exposes fields for every captured symbol. Reads and writes
 in any scope access those fields directly, so mutating a `var` binding after
 creating a lambda immediately affects all delegates that captured it. Capturing
 `self` produces a reference to the enclosing instance, and capturing parameters
@@ -4748,16 +4789,9 @@ transparent. Parameter modifiers and names are not permitted inside a function
 type; specify only the types that flow into and out of the delegate. A `unit`
 return represents an action with no meaningful result.
 
-Unnamed function expressions support explicit and shorthand forms:
-`func (x: int) => x + 1`, `func (x: int) { x + 1 }`, `async func (x: int) => x + 1`,
-`static func (x: int) => x + 1`, and `(x: int) => x + 1`
-(or `x => x + 1`). The shorthand form is valid anywhere the equivalent explicit
-function expression is valid.
-
-Function expressions may optionally declare a local identifier:
-`func Fib(n: int) => Fib(n - 1)`. This identifier is visible only inside the
-function-expression body. It does not declare a surrounding local/member name;
-the emitted backing method name remains compiler-generated.
+Function-expression syntax, including explicit `func` expressions, lambda
+shorthand, modifiers, and named recursive function expressions, is described in
+`Function expressions`.
 
 When a function expression is target-typed by a delegate requirement (for
 example, assignment to `Action<int>` or passing to a delegate-typed parameter),

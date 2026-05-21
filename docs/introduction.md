@@ -302,15 +302,15 @@ val addB = func (x: int) {
 val result = addA(1)
 ```
 
-Raven treats both forms as functions:
+Raven treats declarations and expressions as one function concept:
 
-- Named function declaration: `func Add(...) -> ...`
-- Unnamed function expression: `func (...) => ...`, `func (...) { ... }`, or shorthand `(...) => ...`
+- Named declarations can appear as top-level functions in namespaces, as methods on types, or as local functions inside blocks.
+- Function expressions produce function values: `func (...) => ...`, `func (...) { ... }`, or shorthand `(...) => ...`.
 
 In practice, the difference is binding shape:
 
-- Named declarations introduce a member/local function symbol.
-- Unnamed function expressions produce a function value that you bind to `val`/`var` or pass as an argument.
+- Named declarations introduce top-level, member, or local function symbols.
+- Function expressions produce a function value that you bind to `val`/`var` or pass as an argument.
 
 Function type signatures use arrow notation:
 
@@ -319,7 +319,7 @@ val f: (int, int) -> int
 val g = func (a: int, b: int) => a + b
 ```
 
-Unnamed function expressions may omit `func` as shorthand. This is mainly a convenience for higher-order call sites such as LINQ-style APIs:
+Function expressions may omit `func` as shorthand. This is mainly a convenience for higher-order call sites such as LINQ-style APIs:
 
 ```raven
 val projected = [1, 2, 3].Where(x => x > 1).Select(x => x * 2)
