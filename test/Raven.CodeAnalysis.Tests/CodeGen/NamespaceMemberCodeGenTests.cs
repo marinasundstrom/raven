@@ -40,7 +40,7 @@ namespace Utilities {
         Assert.True(container.IsSealed);
         Assert.Contains(
             container.GetCustomAttributesData(),
-            attribute => attribute.AttributeType.FullName == "System.TopLevelAttribute");
+            attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.TopLevelAttribute");
 
         var method = container.GetMethod("AddOne", BindingFlags.Public | BindingFlags.Static);
         Assert.NotNull(method);

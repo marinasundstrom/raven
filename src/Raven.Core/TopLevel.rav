@@ -1,4 +1,6 @@
-namespace System
+namespace System.Runtime.CompilerServices
+
+import System.*
 
 /// Marks a static type as a container whose static members are promoted as namespace members.
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]

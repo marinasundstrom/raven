@@ -3512,7 +3512,7 @@ val b = Utilities.AddOne(Utilities.Answer)
 ```
 
 The synthesized container is emitted with the metadata marker attribute
-`System.TopLevelAttribute`. A user-authored static class or struct marked with
+`System.Runtime.CompilerServices.TopLevelAttribute`. A user-authored static class or struct marked with
 `[TopLevel]` is also a namespace-member container: its accessible static
 members are promoted through the containing namespace for wildcard imports,
 specific imports, namespace-qualified access, and namespace-member completion.

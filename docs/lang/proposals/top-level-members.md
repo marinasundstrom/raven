@@ -230,7 +230,7 @@ Implementation shape:
 
 * The generated class is `public`, `static`, and `partial` in metadata terms.
 * Member accessibility controls whether consumers can call individual members.
-* The generated class is marked with `System.TopLevelAttribute` (`[TopLevel]`).
+* The generated class is marked with `System.Runtime.CompilerServices.TopLevelAttribute` (`[TopLevel]`).
 * The stable metadata name is `NamespaceMembers` inside the namespace, producing
   a fully qualified metadata identity such as `MyApp.Text.NamespaceMembers`.
 * If a source type named `NamespaceMembers` already exists in a namespace that
