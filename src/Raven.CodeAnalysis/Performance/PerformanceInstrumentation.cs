@@ -25,6 +25,7 @@ public sealed class PerformanceInstrumentation
         LambdaReplay = new LambdaReplayInstrumentation(isEnabled);
         BinderReentry = new BinderReentryInstrumentation(isEnabled);
         SemanticQuery = new SemanticQueryInstrumentation(isEnabled);
+        DiagnosticBinding = new DiagnosticBindingInstrumentation(isEnabled);
         Macros = new MacroInstrumentation(isEnabled);
         Setup = new CompilerSetupInstrumentation(isEnabled);
     }
@@ -35,9 +36,194 @@ public sealed class PerformanceInstrumentation
 
     public SemanticQueryInstrumentation SemanticQuery { get; }
 
+    public DiagnosticBindingInstrumentation DiagnosticBinding { get; }
+
     public MacroInstrumentation Macros { get; }
 
     public CompilerSetupInstrumentation Setup { get; }
+}
+
+public sealed class DiagnosticBindingInstrumentation
+{
+    public readonly record struct Snapshot(
+        long Calls,
+        long DocumentCalls,
+        long CompleteCalls,
+        long TransferredDocumentHits,
+        long IncrementalPasses,
+        long FullPasses,
+        long DeclarationTicks,
+        long BinderSelectionTicks,
+        long ClearTicks,
+        long TraverseTicks,
+        long DocumentationTicks,
+        long CollectTicks,
+        long MaterializeTicks,
+        long StoreDescriptorTicks);
+
+    private readonly bool _isEnabled;
+    private long _calls;
+    private long _documentCalls;
+    private long _completeCalls;
+    private long _transferredDocumentHits;
+    private long _incrementalPasses;
+    private long _fullPasses;
+    private long _declarationTicks;
+    private long _binderSelectionTicks;
+    private long _clearTicks;
+    private long _traverseTicks;
+    private long _documentationTicks;
+    private long _collectTicks;
+    private long _materializeTicks;
+    private long _storeDescriptorTicks;
+
+    internal DiagnosticBindingInstrumentation(bool isEnabled)
+    {
+        _isEnabled = isEnabled;
+    }
+
+    public Snapshot CaptureSnapshot()
+        => new(
+            Volatile.Read(ref _calls),
+            Volatile.Read(ref _documentCalls),
+            Volatile.Read(ref _completeCalls),
+            Volatile.Read(ref _transferredDocumentHits),
+            Volatile.Read(ref _incrementalPasses),
+            Volatile.Read(ref _fullPasses),
+            Volatile.Read(ref _declarationTicks),
+            Volatile.Read(ref _binderSelectionTicks),
+            Volatile.Read(ref _clearTicks),
+            Volatile.Read(ref _traverseTicks),
+            Volatile.Read(ref _documentationTicks),
+            Volatile.Read(ref _collectTicks),
+            Volatile.Read(ref _materializeTicks),
+            Volatile.Read(ref _storeDescriptorTicks));
+
+    public static Snapshot Subtract(Snapshot end, Snapshot start)
+        => new(
+            end.Calls - start.Calls,
+            end.DocumentCalls - start.DocumentCalls,
+            end.CompleteCalls - start.CompleteCalls,
+            end.TransferredDocumentHits - start.TransferredDocumentHits,
+            end.IncrementalPasses - start.IncrementalPasses,
+            end.FullPasses - start.FullPasses,
+            end.DeclarationTicks - start.DeclarationTicks,
+            end.BinderSelectionTicks - start.BinderSelectionTicks,
+            end.ClearTicks - start.ClearTicks,
+            end.TraverseTicks - start.TraverseTicks,
+            end.DocumentationTicks - start.DocumentationTicks,
+            end.CollectTicks - start.CollectTicks,
+            end.MaterializeTicks - start.MaterializeTicks,
+            end.StoreDescriptorTicks - start.StoreDescriptorTicks);
+
+    public static string FormatDelta(Snapshot delta)
+        => $"calls={delta.Calls}, " +
+           $"documentCalls={delta.DocumentCalls}, " +
+           $"completeCalls={delta.CompleteCalls}, " +
+           $"transferredDocumentHits={delta.TransferredDocumentHits}, " +
+           $"incrementalPasses={delta.IncrementalPasses}, " +
+           $"fullPasses={delta.FullPasses}, " +
+           $"declarationMs={TicksToMilliseconds(delta.DeclarationTicks):F1}, " +
+           $"binderSelectionMs={TicksToMilliseconds(delta.BinderSelectionTicks):F1}, " +
+           $"clearMs={TicksToMilliseconds(delta.ClearTicks):F1}, " +
+           $"traverseMs={TicksToMilliseconds(delta.TraverseTicks):F1}, " +
+           $"documentationMs={TicksToMilliseconds(delta.DocumentationTicks):F1}, " +
+           $"collectMs={TicksToMilliseconds(delta.CollectTicks):F1}, " +
+           $"materializeMs={TicksToMilliseconds(delta.MaterializeTicks):F1}, " +
+           $"storeDescriptorsMs={TicksToMilliseconds(delta.StoreDescriptorTicks):F1}";
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordCall(bool requireCompleteDeclarations)
+    {
+        if (!_isEnabled)
+            return;
+
+        Interlocked.Increment(ref _calls);
+        if (requireCompleteDeclarations)
+            Interlocked.Increment(ref _completeCalls);
+        else
+            Interlocked.Increment(ref _documentCalls);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordTransferredDocumentHit()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _transferredDocumentHits);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordIncrementalPass()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _incrementalPasses);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordFullPass()
+    {
+        if (_isEnabled)
+            Interlocked.Increment(ref _fullPasses);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordDeclarationTicks(long ticks)
+    {
+        AddTicks(ref _declarationTicks, ticks);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordBinderSelectionTicks(long ticks)
+    {
+        AddTicks(ref _binderSelectionTicks, ticks);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordClearTicks(long ticks)
+    {
+        AddTicks(ref _clearTicks, ticks);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordTraverseTicks(long ticks)
+    {
+        AddTicks(ref _traverseTicks, ticks);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordDocumentationTicks(long ticks)
+    {
+        AddTicks(ref _documentationTicks, ticks);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordCollectTicks(long ticks)
+    {
+        AddTicks(ref _collectTicks, ticks);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordMaterializeTicks(long ticks)
+    {
+        AddTicks(ref _materializeTicks, ticks);
+    }
+
+    [Conditional("RAVEN_INSTRUMENTATION")]
+    internal void RecordStoreDescriptorTicks(long ticks)
+    {
+        AddTicks(ref _storeDescriptorTicks, ticks);
+    }
+
+    private void AddTicks(ref long target, long ticks)
+    {
+        if (!_isEnabled)
+            return;
+
+        Interlocked.Add(ref target, ticks);
+    }
+
+    private static double TicksToMilliseconds(long ticks)
+        => ticks * 1000d / Stopwatch.Frequency;
 }
 
 public sealed class SemanticQueryInstrumentation

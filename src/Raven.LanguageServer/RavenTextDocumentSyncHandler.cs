@@ -25,6 +25,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private const int DiagnosticsDebounceMilliseconds = 500;
     private const int DocumentCompilerDiagnosticsAfterEditDelayMilliseconds = 750;
+    private const int DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds = 1_500;
     private const int DocumentDiagnosticsAfterOpenDelayMilliseconds = 750;
     private const int DiagnosticsRetryDelayMilliseconds = 150;
     private const double DidCloseLogThresholdMs = 50;
@@ -82,6 +83,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 initialDiagnosticsMode: policy.InitialMode,
                 followUpDiagnosticsDelayMilliseconds: policy.FollowUpDiagnosticsDelayMilliseconds,
                 followUpDiagnosticsMode: policy.FollowUpMode,
+                analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
+                analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
                 diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
@@ -172,6 +175,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     ? DocumentCompilerDiagnosticsAfterEditDelayMilliseconds
                     : policy.FollowUpDiagnosticsDelayMilliseconds,
                 followUpDiagnosticsMode: policy.FollowUpMode,
+                analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
+                analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
                 diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
             scheduleMs = stageStopwatch.Elapsed.TotalMilliseconds;
             return result;
@@ -373,6 +378,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             initialDiagnosticsMode: policy.InitialMode,
             followUpDiagnosticsDelayMilliseconds: policy.FollowUpDiagnosticsDelayMilliseconds,
             followUpDiagnosticsMode: policy.FollowUpMode,
+            analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
+            analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
             diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds,
             replacePendingDiagnostics: false).ConfigureAwait(false);
     }
@@ -384,6 +391,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DocumentCompilerDiagnosticsAfterEditDelayMilliseconds,
             FollowUpMode: DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
+            AnalyzerFollowUpDiagnosticsDelayMilliseconds: null,
+            AnalyzerFollowUpMode: null,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetOpenDiagnosticsPolicy()
@@ -393,6 +402,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DocumentDiagnosticsAfterOpenDelayMilliseconds,
             FollowUpMode: DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
+            AnalyzerFollowUpDiagnosticsDelayMilliseconds: null,
+            AnalyzerFollowUpMode: null,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetEditDiagnosticsPolicy()
@@ -401,7 +412,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DiagnosticsDebounceMilliseconds,
-            FollowUpMode: DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            FollowUpMode: DocumentStore.DiagnosticLane.DocumentCompiler,
+            AnalyzerFollowUpDiagnosticsDelayMilliseconds: DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds,
+            AnalyzerFollowUpMode: DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
             DiagnosticsDelayMilliseconds: 0);
 
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
@@ -422,6 +435,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         DocumentStore.DiagnosticLane initialDiagnosticsMode = DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
         int? followUpDiagnosticsDelayMilliseconds = null,
         DocumentStore.DiagnosticLane? followUpDiagnosticsMode = null,
+        int? analyzerFollowUpDiagnosticsDelayMilliseconds = null,
+        DocumentStore.DiagnosticLane? analyzerFollowUpDiagnosticsMode = null,
         int diagnosticsDelayMilliseconds = DiagnosticsDebounceMilliseconds,
         bool replacePendingDiagnostics = true)
     {
@@ -534,6 +549,19 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                         return;
 
                     await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, followUpMode).ConfigureAwait(false);
+                }
+
+                var analyzerFollowUpMode = analyzerFollowUpDiagnosticsMode ?? followUpMode;
+                if (analyzerFollowUpDiagnosticsDelayMilliseconds is { } analyzerFollowUpDelay &&
+                    analyzerFollowUpMode != initialDiagnosticsMode &&
+                    analyzerFollowUpMode != followUpMode)
+                {
+                    await Task.Delay(analyzerFollowUpDelay, token).ConfigureAwait(false);
+
+                    if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                        return;
+
+                    await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, analyzerFollowUpMode).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -871,6 +899,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         DocumentStore.DiagnosticLane InitialMode,
         int? FollowUpDiagnosticsDelayMilliseconds,
         DocumentStore.DiagnosticLane? FollowUpMode,
+        int? AnalyzerFollowUpDiagnosticsDelayMilliseconds,
+        DocumentStore.DiagnosticLane? AnalyzerFollowUpMode,
         int DiagnosticsDelayMilliseconds);
 
     internal enum PublishDiagnosticsOutcome

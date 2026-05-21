@@ -47,7 +47,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context)
     {
-        if (context.SemanticModel.GetDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
+        if (context.SemanticModel.GetDocumentDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
             return;
 
         var body = context.Node switch
@@ -70,7 +70,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeCompilationUnit(SyntaxNodeAnalysisContext context)
     {
-        if (context.SemanticModel.GetDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
+        if (context.SemanticModel.GetDocumentDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
             return;
 
         if (context.Node is not CompilationUnitSyntax compilationUnit)

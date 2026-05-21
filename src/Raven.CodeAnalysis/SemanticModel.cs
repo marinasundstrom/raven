@@ -215,7 +215,7 @@ public partial class SemanticModel
     public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
         if (_diagnostics is null)
-            EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: true);
+            EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: true, cancellationToken);
 
         return _diagnostics;
     }
@@ -223,15 +223,19 @@ public partial class SemanticModel
     internal IImmutableList<Diagnostic> GetDocumentDiagnostics(CancellationToken cancellationToken = default)
     {
         if (_documentDiagnostics is null)
-            EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: false);
+            EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: false, cancellationToken);
 
         return _documentDiagnostics;
     }
 
-    private void EnsureDiagnosticBindingCompleted(bool requireCompleteDeclarations = true)
+    private void EnsureDiagnosticBindingCompleted(
+        bool requireCompleteDeclarations = true,
+        CancellationToken cancellationToken = default)
     {
         lock (_diagnosticsCollectionGate)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (requireCompleteDeclarations && _diagnostics is not null)
                 return;
 
@@ -250,15 +254,13 @@ public partial class SemanticModel
 
             try
             {
+                var diagnosticInstrumentation = Compilation.PerformanceInstrumentation.DiagnosticBinding;
+                diagnosticInstrumentation.RecordCall(requireCompleteDeclarations);
+                cancellationToken.ThrowIfCancellationRequested();
                 var root = SyntaxTree.GetRoot();
-                if (!requireCompleteDeclarations &&
-                    TryCollectTransferredDocumentDiagnostics(root, out var transferredDocumentDiagnostics))
-                {
-                    _documentDiagnostics = transferredDocumentDiagnostics;
-                    return;
-                }
 
-                if (requireCompleteDeclarations || ContainsTopLevelFunctionMember(root))
+                var phaseStart = Stopwatch.GetTimestamp();
+                if (requireCompleteDeclarations)
                 {
                     Compilation.EnsureSourceDeclarationsComplete();
                 }
@@ -271,15 +273,27 @@ public partial class SemanticModel
                 }
 
                 EnsureDeclarations();
+                diagnosticInstrumentation.RecordDeclarationTicks(Stopwatch.GetTimestamp() - phaseStart);
+
+                phaseStart = Stopwatch.GetTimestamp();
                 var binder = requireCompleteDeclarations
                     ? GetRootBinderForCompleteDiagnostics(root)
                     : GetBinderForIncrementalSemanticQuery(root);
+                diagnosticInstrumentation.RecordBinderSelectionTicks(Stopwatch.GetTimestamp() - phaseStart);
 
                 var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
-                if (!TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder))
+                if (TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder))
                 {
+                    diagnosticInstrumentation.RecordIncrementalPass();
+                }
+                else
+                {
+                    diagnosticInstrumentation.RecordFullPass();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    phaseStart = Stopwatch.GetTimestamp();
                     foreach (var binderState in _binderCache.Values)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         // Declaration and import-scope binders own diagnostics produced
                         // while deriving the scope itself. Keep those immutable syntax facts
                         // intact; the rebind below is for executable/body binders.
@@ -290,25 +304,39 @@ public partial class SemanticModel
                     }
 
                     ClearCachedBoundNodes(root.Span);
+                    diagnosticInstrumentation.RecordClearTicks(Stopwatch.GetTimestamp() - phaseStart);
+
+                    phaseStart = Stopwatch.GetTimestamp();
                     Traverse(root, binder);
+                    diagnosticInstrumentation.RecordTraverseTicks(Stopwatch.GetTimestamp() - phaseStart);
 
+                    cancellationToken.ThrowIfCancellationRequested();
+                    phaseStart = Stopwatch.GetTimestamp();
                     DocumentationCommentValidator.Analyze(this, root, binder.Diagnostics);
+                    diagnosticInstrumentation.RecordDocumentationTicks(Stopwatch.GetTimestamp() - phaseStart);
 
+                    phaseStart = Stopwatch.GetTimestamp();
                     diagnosticsBuilder.AddRange(_binderCache.Values
                         .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable()));
+                    diagnosticInstrumentation.RecordCollectTicks(Stopwatch.GetTimestamp() - phaseStart);
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
+                phaseStart = Stopwatch.GetTimestamp();
                 diagnosticsBuilder.AddRange(_declarationDiagnostics.AsEnumerable());
                 var diagnostics = diagnosticsBuilder
                     .Distinct()
                     .ToImmutableArray();
+                diagnosticInstrumentation.RecordMaterializeTicks(Stopwatch.GetTimestamp() - phaseStart);
 
                 if (requireCompleteDeclarations)
                     _diagnostics = diagnostics;
                 else
                     _documentDiagnostics = diagnostics;
 
+                phaseStart = Stopwatch.GetTimestamp();
                 StoreSemanticDiagnosticDescriptors(root, diagnostics.ToImmutableArray());
+                diagnosticInstrumentation.RecordStoreDescriptorTicks(Stopwatch.GetTimestamp() - phaseStart);
             }
             finally
             {
@@ -317,46 +345,10 @@ public partial class SemanticModel
             }
         }
 
-        bool TryCollectTransferredDocumentDiagnostics(
-            SyntaxNode root,
-            out IImmutableList<Diagnostic> diagnostics)
-        {
-            diagnostics = default!;
-            if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
-                return false;
-
-            if (ContainsTopLevelFunctionMember(root))
-                return false;
-
-            var allOwners = GetExecutableOwnersForDiagnostics(root).ToArray();
-            if (allOwners.Length == 0 ||
-                allOwners.Any(Compilation.IsChangedExecutableOwner))
-            {
-                return false;
-            }
-
-            var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
-            var transferredAny = false;
-            foreach (var owner in allOwners)
-            {
-                if (TryGetTransferredSemanticDiagnostics(owner, out var ownerDiagnostics))
-                {
-                    transferredAny = true;
-                    diagnosticsBuilder.AddRange(ownerDiagnostics);
-                }
-            }
-
-            if (!transferredAny)
-                return false;
-
-            diagnostics = diagnosticsBuilder
-                .Distinct()
-                .ToImmutableArray();
-            return true;
-        }
-
         void Traverse(SyntaxNode node, Binder currentBinder)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (node is TypeSyntax)
                 return;
 
@@ -378,6 +370,8 @@ public partial class SemanticModel
             {
                 foreach (var child in node.ChildNodes())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     var childBinder = requireCompleteDeclarations
                         ? GetBinder(child, currentBinder)
                         : GetBinderForIncrementalSemanticQuery(child, currentBinder);
@@ -396,6 +390,8 @@ public partial class SemanticModel
 
             foreach (var child in node.ChildNodes())
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var childBinder = requireCompleteDeclarations
                     ? GetBinder(child, currentBinder)
                     : GetBinderForIncrementalSemanticQuery(child, currentBinder);
@@ -554,9 +550,14 @@ public partial class SemanticModel
         {
             foreach (var attributeList in member.AttributeLists)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var attributeListBinder = GetBinderForDiagnostics(attributeList, currentBinder);
                 foreach (var attribute in attributeList.Attributes)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
                     Traverse(attribute, GetBinderForDiagnostics(attribute, attributeListBinder));
+                }
             }
         }
 
@@ -573,11 +574,12 @@ public partial class SemanticModel
             if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
                 return false;
 
-            if (ContainsTopLevelFunctionMember(root))
-                return false;
-
             var changedOwners = GetExecutableOwnersForDiagnostics(root)
-                .Where(Compilation.IsChangedExecutableOwner)
+                .Where(owner =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return Compilation.IsChangedExecutableOwner(owner);
+                })
                 .ToArray();
             var allOwners = GetExecutableOwnersForDiagnostics(root).ToArray();
 
@@ -593,9 +595,9 @@ public partial class SemanticModel
                 .ToArray();
 
             var ownersToBind = changedOwners
-                .Where(owner => !owner.DescendantNodes()
-                    .Any(descendant => IsExecutableOwnerForDiagnostics(descendant) &&
-                                       changedOwnerSet.Contains(new Compilation.ExecutableOwnerDescriptor(descendant.Span, descendant.Kind))))
+                .Where(owner => !owner.Ancestors()
+                    .Any(ancestor => IsExecutableOwnerForDiagnostics(ancestor) &&
+                                     changedOwnerSet.Contains(new Compilation.ExecutableOwnerDescriptor(ancestor.Span, ancestor.Kind))))
                 .Where(owner => owner is GlobalStatementSyntax ||
                                 !orderSensitiveChangedGlobalOwners.Any(globalOwner =>
                                     globalOwner.Span.Start <= owner.Span.Start &&
@@ -615,6 +617,8 @@ public partial class SemanticModel
 
             foreach (var owner in allOwners)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (ownersToBindSet.Contains(new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind)))
                     continue;
 
@@ -629,6 +633,8 @@ public partial class SemanticModel
 
             foreach (var owner in ownersToBind)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var beforeCount = diagnosticsBuilder.Count;
                 ClearCachedBinderDiagnostics(owner.Span);
                 ClearCachedBoundNodes(owner.Span);
@@ -669,6 +675,8 @@ public partial class SemanticModel
             {
                 foreach (var binderState in _binderCache.Values)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     if (ShouldPreserveBinderDiagnosticsDuringExecutableRebind(binderState))
                         continue;
 
@@ -707,6 +715,8 @@ public partial class SemanticModel
             var transferredAny = false;
             foreach (var owner in allOwners)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (TryGetTransferredSemanticDiagnostics(owner, out var diagnostics))
                 {
                     transferredAny = true;
@@ -763,6 +773,8 @@ public partial class SemanticModel
             var builder = ImmutableArray.CreateBuilder<Diagnostic>(descriptors.Length);
             foreach (var descriptor in descriptors)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var location = Location.Create(
                     owner.SyntaxTree,
                     new Text.TextSpan(owner.Span.Start + descriptor.RelativeStart, descriptor.Length));
@@ -821,16 +833,6 @@ public partial class SemanticModel
 
         static IEnumerable<SyntaxNode> GetExecutableOwnersForDiagnostics(SyntaxNode root)
             => root.DescendantNodesAndSelf().Where(IsExecutableOwnerForDiagnostics);
-
-        static bool ContainsTopLevelFunctionMember(SyntaxNode root)
-            => root.DescendantNodesAndSelf()
-                .Any(static node =>
-                    node is GlobalStatementSyntax globalStatement &&
-                    Compilation.IsTopLevelFunctionMember(globalStatement) ||
-                    node is FunctionStatementSyntax
-                    {
-                        Parent: CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax or NamespaceDeclarationSyntax
-                    });
 
         static bool IsExecutableOwnerForDiagnostics(SyntaxNode node)
             => node is FunctionExpressionSyntax
@@ -1036,6 +1038,19 @@ public partial class SemanticModel
             return patternConstantValueInfo;
         }
 
+        if (node is ExpressionSyntax cachedExpressionNode &&
+            TryGetCachedBoundNode(cachedExpressionNode) is BoundExpression cachedBoundExpression &&
+            !IsLikelyStaleFunctionBodyNode(cachedBoundExpression))
+        {
+            var cachedBoundInfo = cachedBoundExpression.GetSymbolInfo();
+            if (cachedBoundInfo.Symbol is not null || !cachedBoundInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                cachedBoundInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, cachedBoundInfo);
+                StoreSymbolMapping(node, cachedBoundInfo);
+                return cachedBoundInfo;
+            }
+        }
+
         if (TryGetAvailableInvocationSymbolInfo(node, out var availableInvocationSymbolInfo))
         {
             availableInvocationSymbolInfo = ProjectBackingFieldSymbolsToAssociatedProperty(node, availableInvocationSymbolInfo);
@@ -1076,7 +1091,10 @@ public partial class SemanticModel
             return nodeInterestInfo;
         }
 
-        Compilation.EnsureSourceDeclarationsComplete();
+        EnsureDeclarations();
+        EnsureMemberSignaturesDeclared();
+        if (SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
+            EnsureTopLevelFunctionDeclarations(compilationUnit);
 
         if (TryGetAvailableSymbolInfo(node, out var postDeclarationAvailableSymbolInfo) &&
             (postDeclarationAvailableSymbolInfo.Symbol is not null ||
@@ -2390,10 +2408,9 @@ public partial class SemanticModel
             : TryChooseAvailableInvocationMethodCandidate(methods, invocation) ??
               TryChooseInvocationMethodCandidate(methods, invocation, InvocationCandidateFallback.None);
 
-        if (preferred is null)
-            return false;
-
-        info = new SymbolInfo(preferred, candidates);
+        info = preferred is null
+            ? new SymbolInfo(CandidateReason.OverloadResolutionFailure, candidates)
+            : new SymbolInfo(preferred, candidates);
         CacheAvailableInvocationSymbolInfo(invocation, info);
         return true;
     }
@@ -3309,13 +3326,22 @@ public partial class SemanticModel
                 continue;
 
             var argument = invocation.ArgumentList.Arguments[argumentIndex];
-            if (argument.Expression is not FunctionExpressionSyntax functionExpression)
-                continue;
-
             var parameterType = SubstituteTypeParameters(method.Parameters[parameterIndex].Type, substitutions);
             if (!TryUnwrapCallableDelegateType(parameterType, out var delegateType) ||
                 delegateType.GetDelegateInvokeMethod() is not { } invokeMethod)
             {
+                continue;
+            }
+
+            if (argument.Expression is not FunctionExpressionSyntax functionExpression)
+            {
+                if (TryGetAvailableMethodGroupReturnType(argument.Expression, invokeMethod, out var methodGroupReturnType) &&
+                    methodGroupReturnType is not null &&
+                    methodGroupReturnType.TypeKind != TypeKind.Error)
+                {
+                    _ = TryUnifyExtensionReceiver(invokeMethod.ReturnType, methodGroupReturnType, substitutions);
+                }
+
                 continue;
             }
 
@@ -3331,6 +3357,70 @@ public partial class SemanticModel
 
             _ = TryUnifyExtensionReceiver(invokeMethod.ReturnType, returnType, substitutions);
         }
+    }
+
+    private bool TryGetAvailableMethodGroupReturnType(
+        ExpressionSyntax expression,
+        IMethodSymbol delegateInvokeMethod,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? returnType)
+    {
+        returnType = null;
+
+        ImmutableArray<IMethodSymbol> methods;
+        if (expression is IdentifierNameSyntax identifier &&
+            TryLookupAvailableFunctionDeclarations(identifier, identifier.Identifier.ValueText, out var availableMethods))
+        {
+            methods = availableMethods;
+        }
+        else if (TryResolveAvailableCallableExpression(expression, out var callableSymbol) &&
+                 callableSymbol is IMethodSymbol method)
+        {
+            methods = ImmutableArray.Create(method);
+        }
+        else
+        {
+            return false;
+        }
+
+        foreach (var method in methods)
+        {
+            if (method.Parameters.Length != delegateInvokeMethod.Parameters.Length)
+                continue;
+
+            var compatible = true;
+            for (var i = 0; i < delegateInvokeMethod.Parameters.Length; i++)
+            {
+                var delegateParameterType = delegateInvokeMethod.Parameters[i].Type;
+                var methodParameterType = method.Parameters[i].Type;
+                if (delegateParameterType is null ||
+                    methodParameterType is null ||
+                    delegateParameterType.TypeKind == TypeKind.Error ||
+                    methodParameterType.TypeKind == TypeKind.Error)
+                {
+                    compatible = false;
+                    break;
+                }
+
+                if (!SymbolEqualityComparer.Default.Equals(delegateParameterType, methodParameterType) &&
+                    !Compilation.ClassifyConversion(delegateParameterType, methodParameterType, includeUserDefined: true).Exists)
+                {
+                    compatible = false;
+                    break;
+                }
+            }
+
+            if (!compatible)
+                continue;
+
+            var candidateReturnType = method.ReturnType;
+            if (candidateReturnType is null || candidateReturnType.TypeKind == TypeKind.Error)
+                continue;
+
+            returnType = candidateReturnType;
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryGetAvailableFunctionExpressionReturnType(
@@ -4207,7 +4297,14 @@ public partial class SemanticModel
             return false;
         }
 
-        var members = LookupAvailableMembers(receiverType, memberName.Identifier.ValueText);
+        var memberReceiverType = receiverType.GetPlainType();
+        if (memberReceiverType is null || memberReceiverType.TypeKind == TypeKind.Error)
+        {
+            info = default;
+            return false;
+        }
+
+        var members = LookupAvailableMembers(memberReceiverType, memberName.Identifier.ValueText);
         if (members.IsDefaultOrEmpty)
         {
             info = default;
@@ -4306,7 +4403,7 @@ public partial class SemanticModel
         {
             var member = current
                 .GetMembers(memberName)
-                .FirstOrDefault(static candidate => candidate is IPropertySymbol or IFieldSymbol or IEventSymbol or IMethodSymbol);
+                .FirstOrDefault(IsAvailableLookupMember);
             if (member is not null)
                 return member;
         }
@@ -4323,7 +4420,7 @@ public partial class SemanticModel
         {
             var members = current
                 .GetMembers(memberName)
-                .Where(static candidate => candidate is IPropertySymbol or IFieldSymbol or IEventSymbol or IMethodSymbol)
+                .Where(IsAvailableLookupMember)
                 .ToImmutableArray();
             if (!members.IsDefaultOrEmpty)
                 return members;
@@ -4331,6 +4428,20 @@ public partial class SemanticModel
 
         return ImmutableArray<ISymbol>.Empty;
     }
+
+    private static bool IsAvailableLookupMember(ISymbol candidate)
+        => candidate switch
+        {
+            IFieldSymbol => true,
+            IPropertySymbol property => property.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            IEventSymbol @event => @event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            IMethodSymbol
+            {
+                MethodKind: MethodKind.Ordinary or MethodKind.Function or MethodKind.ReducedExtension,
+                ExplicitInterfaceImplementations.IsDefaultOrEmpty: true
+            } => true,
+            _ => false
+        };
 
     /// <summary>
     /// Tries to retrieve type information from semantic state that is already available.
@@ -4591,13 +4702,6 @@ public partial class SemanticModel
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
     {
         type = null;
-
-        if (awaitExpression.Expression is InvocationExpressionSyntax invocation &&
-            TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates) &&
-            invocationCandidates.Any(static method => method.TypeParameters.Length > 0 && HasUnresolvedMethodTypeParameters(method)))
-        {
-            return false;
-        }
 
         if (!TryGetAvailableTypeInfo(awaitExpression.Expression, out var operandTypeInfo))
             return false;
@@ -10653,19 +10757,23 @@ public partial class SemanticModel
         }
 
         var globals = GetTopLevelGlobalStatements(compilationUnit).ToArray();
-        if (globals.Length == 0)
+        var functionGlobals = GetTopLevelFunctionGlobalStatements(compilationUnit).ToArray();
+        if (globals.Length == 0 && functionGlobals.Length == 0)
             return;
 
         var topLevelBinder = FindTopLevelBinder(GetBinder(compilationUnit))
-            ?? FindTopLevelBinder(GetBinder(globals[0]));
-        topLevelBinder?.DeclareGlobalFunctions(globals);
+            ?? (globals.Length > 0 ? FindTopLevelBinder(GetBinder(globals[0])) : null);
 
-        foreach (var global in globals)
+        if (globals.Length > 0)
+            topLevelBinder?.DeclareGlobalFunctions(globals);
+
+        foreach (var global in functionGlobals)
         {
             if (global.Statement is FunctionStatementSyntax function)
             {
                 var declared = GetDeclaredSymbol(function) as IMethodSymbol;
                 if (declared is null ||
+                    declared is SourceMethodSymbol { IsSignatureSkeleton: true } ||
                     !declared.DeclaringSyntaxReferences.Any(reference =>
                         reference.SyntaxTree == function.SyntaxTree &&
                         reference.Span == function.Span))
@@ -10677,6 +10785,12 @@ public partial class SemanticModel
             }
         }
     }
+
+    private static IEnumerable<GlobalStatementSyntax> GetTopLevelFunctionGlobalStatements(CompilationUnitSyntax compilationUnit)
+        => compilationUnit
+            .DescendantNodes()
+            .OfType<GlobalStatementSyntax>()
+            .Where(Compilation.IsTopLevelFunctionMember);
 
     private IEnumerable<GlobalStatementSyntax> GetTopLevelGlobalStatements(CompilationUnitSyntax compilationUnit)
     {

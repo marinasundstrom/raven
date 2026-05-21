@@ -160,7 +160,9 @@ val projection = numbers.Select(value => value)
         var symbolInfo = model.GetSymbolInfo(memberAccess);
         var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
         Assert.True(selected.IsExtensionMethod);
-        Assert.True(SymbolEqualityComparer.Default.Equals(extensionCandidate, selected));
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            extensionCandidate.OriginalDefinition ?? extensionCandidate,
+            selected.OriginalDefinition ?? selected));
 
         var receiverParameter = selected.Parameters[0];
         var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);

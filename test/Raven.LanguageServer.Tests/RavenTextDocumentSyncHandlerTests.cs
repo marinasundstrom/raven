@@ -103,7 +103,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
-    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredAnalyzerDiagnosticsWhileTyping()
+    public void GetEditDiagnosticsPolicy_UsesSyntaxOnlyThenDeferredCompilerDiagnosticsWhileTyping()
     {
         var policy = RavenTextDocumentSyncHandler.GetEditDiagnosticsPolicy();
 
@@ -112,12 +112,15 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
         policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
         policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(0);
-        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
+        policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.FollowUpDiagnosticsDelayMilliseconds.Value);
+        policy.AnalyzerFollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
     [Fact]
-    public void ActiveEditorDiagnosticsPolicies_UseSyntaxFirstThenAnalyzerFollowUp()
+    public void ActiveEditorDiagnosticsPolicies_UseSyntaxFirstThenDeferredFollowUp()
     {
         var policies = new[]
         {
@@ -133,6 +136,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             policy.FollowUpMode.ShouldNotBeNull();
             new[]
             {
+                DocumentStore.DiagnosticLane.DocumentCompiler,
                 DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
                 DocumentStore.DiagnosticLane.DocumentWithAnalyzers
             }.Contains(policy.FollowUpMode.Value).ShouldBeTrue();

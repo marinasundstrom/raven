@@ -782,6 +782,38 @@ public sealed class ProjectFileNuGetReferenceTests
                 {
                     Name: IdentifierNameSyntax { Identifier.ValueText: "OrderBy" }
                 });
+        var mapVehicleSelect = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "Select" }
+                } &&
+                sourceText.ToString(invocation.Span).Contains("MapVehicle", StringComparison.Ordinal));
+        var mapVehicleToArray = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "ToArray" }
+                } &&
+                sourceText.ToString(invocation.Span).Contains("Select(MapVehicle)", StringComparison.Ordinal));
+        var fuelConsumptionAdd = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(invocation =>
+                invocation.Expression is MemberAccessExpressionSyntax
+                {
+                    Name: IdentifierNameSyntax { Identifier.ValueText: "Add" }
+                } &&
+                sourceText.ToString(invocation.Span).Contains("FuelConsumptions.Add", StringComparison.Ordinal));
+
+        foreach (var priorInvocation in root.DescendantNodes()
+                     .OfType<InvocationExpressionSyntax>()
+                     .Where(static invocation => invocation.Expression is MemberAccessExpressionSyntax)
+                     .TakeWhile(invocation => !ReferenceEquals(invocation, fuelConsumptionAdd)))
+        {
+            _ = model.GetSymbolInfo(priorInvocation);
+        }
 
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
@@ -793,6 +825,21 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.Contains(coldToListCandidates, method =>
             method.ReturnType.ToDisplayString().Contains("VehicleEntity", StringComparison.Ordinal) &&
             !method.ReturnType.ToDisplayString().Contains("TSource", StringComparison.Ordinal));
+        Assert.True(model.TryGetAvailableInvocationCandidates(mapVehicleSelect, out var coldSelectCandidates), "Select(MapVehicle) candidates");
+        Assert.Contains(coldSelectCandidates, method =>
+            method.ReturnType.ToDisplayString().Contains("VehicleResponse", StringComparison.Ordinal) &&
+            !method.ReturnType.ToDisplayString().Contains("TResult", StringComparison.Ordinal));
+        Assert.True(model.TryGetAvailableInvocationCandidates(mapVehicleToArray, out var coldToArrayCandidates), "ToArray after Select(MapVehicle) candidates");
+        Assert.Contains(coldToArrayCandidates, method =>
+            method.ReturnType.ToDisplayString().Contains("VehicleResponse", StringComparison.Ordinal) &&
+            !method.ReturnType.ToDisplayString().Contains("TSource", StringComparison.Ordinal));
+        var coldAddInfo = model.GetSymbolInfo(fuelConsumptionAdd);
+        AssertSymbolInfoContains(coldAddInfo, "Add");
+        Assert.True(model.TryGetAvailableInvocationCandidates(fuelConsumptionAdd, out var coldAddCandidates), "FuelConsumptions.Add candidates");
+        Assert.Contains(coldAddCandidates, method =>
+            string.Equals(method.Name, "Add", StringComparison.Ordinal) &&
+            method.Parameters.Length == 1 &&
+            method.Parameters[0].Type.ToDisplayString().Contains("FuelConsumptionRecord", StringComparison.Ordinal));
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -814,6 +861,24 @@ public sealed class ProjectFileNuGetReferenceTests
             model.TryGetAvailableTypeInfo(vehiclesDeclarator.Initializer!.Value, out var cheapInitializerType),
             instrumentation.BinderReentry.GetSummary());
         Assert.Equal("List", cheapInitializerType.Type?.Name);
+        Assert.True(
+            model.TryGetAvailableTypeInfo(mapVehicleSelect, out var cheapSelectType),
+            instrumentation.BinderReentry.GetSummary());
+        Assert.Contains("VehicleResponse", cheapSelectType.Type?.ToDisplayString() ?? string.Empty);
+        Assert.True(
+            model.TryGetAvailableTypeInfo(mapVehicleToArray, out var cheapToArrayType),
+            instrumentation.BinderReentry.GetSummary());
+        Assert.Equal("VehicleResponse[]", cheapToArrayType.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        Assert.True(
+            model.TryGetAvailableLocalDeclarationSymbol(
+                vehicleDeclarator,
+                out var cheapVehicleLocal,
+                allowErrorType: true,
+                allowInitializerBinding: true,
+                allowBindingFallback: false),
+            instrumentation.BinderReentry.GetSummary());
+        Assert.Contains("VehicleEntity", cheapVehicleLocal!.Type.ToDisplayString());
 
         Assert.True(
             model.TryGetAvailableLocalDeclarationSymbol(

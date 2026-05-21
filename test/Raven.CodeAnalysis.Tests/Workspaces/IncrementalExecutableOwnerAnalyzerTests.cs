@@ -285,4 +285,92 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
         result.ChangedOwners.ShouldNotContain(currentRootDescriptor);
         result.OwnerChanges.ShouldNotContainKey(currentDescriptor);
     }
+
+    [Fact]
+    public void Analyze_MatchesFunctionExpressionAcrossBodyEdit_ByStableSyntaxPath()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class Edited {
+                func Main(values: int[]) {
+                    val doubled = values.Select(value => value + 1)
+                }
+            }
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class Edited {
+                func Main(values: int[]) {
+                    val doubled = values.Select(value => value + 2)
+                }
+            }
+            """));
+        var previousFunction = previousTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Single();
+        var currentFunction = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .Single();
+        var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentFunction.Span, currentFunction.Kind);
+        var previousDescriptor = new Compilation.ExecutableOwnerDescriptor(previousFunction.Span, previousFunction.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.MatchedOwners.ShouldContain(match =>
+            match.CurrentOwner == currentDescriptor &&
+            match.PreviousOwner == previousDescriptor);
+        result.ChangedOwners.ShouldContain(currentDescriptor);
+        result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
+        change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyExpression);
+    }
+
+    [Fact]
+    public void Analyze_MatchesParentFunctionExpressionAcrossNestedLambdaTriviaEdit()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class Edited {
+                func Main(app: WebApplication, values: int[]) {
+                    app.MapGet("/", func () => values.Select(value => value + 1))
+                }
+            }
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class Edited {
+                func Main(app: WebApplication, values: int[]) {
+                    app.MapGet("/", func () => values .Select(value => value + 1))
+                }
+            }
+            """));
+        var previousFunctions = previousTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .ToArray();
+        var currentFunctions = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .ToArray();
+        var previousOuter = previousFunctions.OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var currentOuter = currentFunctions.OfType<ParenthesizedFunctionExpressionSyntax>().Single();
+        var previousInner = previousFunctions.OfType<SimpleFunctionExpressionSyntax>().Single();
+        var currentInner = currentFunctions.OfType<SimpleFunctionExpressionSyntax>().Single();
+        var currentOuterDescriptor = new Compilation.ExecutableOwnerDescriptor(currentOuter.Span, currentOuter.Kind);
+        var previousOuterDescriptor = new Compilation.ExecutableOwnerDescriptor(previousOuter.Span, previousOuter.Kind);
+        var currentInnerDescriptor = new Compilation.ExecutableOwnerDescriptor(currentInner.Span, currentInner.Kind);
+        var previousInnerDescriptor = new Compilation.ExecutableOwnerDescriptor(previousInner.Span, previousInner.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.MatchedOwners.ShouldContain(match =>
+            match.CurrentOwner == currentOuterDescriptor &&
+            match.PreviousOwner == previousOuterDescriptor);
+        result.MatchedOwners.ShouldContain(match =>
+            match.CurrentOwner == currentInnerDescriptor &&
+            match.PreviousOwner == previousInnerDescriptor);
+        result.ChangedOwners.ShouldNotContain(currentOuterDescriptor);
+        result.ChangedOwners.ShouldNotContain(currentInnerDescriptor);
+    }
 }

@@ -3,6 +3,7 @@ using System.Diagnostics;
 
 using Microsoft.Extensions.Logging;
 
+using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -23,6 +24,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
     private readonly DocumentStore _documents;
     private readonly ILogger<DocumentSymbolHandler> _logger;
     private readonly ConcurrentDictionary<DocumentSymbolCacheKey, SymbolInformationOrDocumentSymbol[]> _cache = new();
+    private readonly LatestDocumentRequestTracker _latestRequests = new();
 
     public DocumentSymbolHandler(DocumentStore documents, ILogger<DocumentSymbolHandler> logger)
     {
@@ -42,20 +44,28 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
     public async Task<SymbolInformationOrDocumentSymbolContainer?> Handle(DocumentSymbolParams request, CancellationToken cancellationToken)
     {
+        var requestState = _latestRequests.Begin(request.TextDocument.Uri, cancellationToken);
+        var effectiveCancellationToken = requestState.Token;
         var stopwatch = Stopwatch.StartNew();
         double analysisContextMs = 0;
         double rootMs = 0;
         double symbolBuildMs = 0;
         var cacheHit = false;
         var symbolCount = 0;
+        var outcome = "Completed";
 
         try
         {
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await _documents.GetDocumentSyntaxContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetDocumentSyntaxContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
+            {
+                outcome = "NoContext";
                 return new SymbolInformationOrDocumentSymbolContainer();
+            }
+
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             var document = context.Value.Document;
             var syntaxTree = context.Value.SyntaxTree;
@@ -66,11 +76,13 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             {
                 cacheHit = true;
                 symbolCount = cachedSymbols.Length;
+                outcome = "Cached";
                 return new SymbolInformationOrDocumentSymbolContainer(cachedSymbols);
             }
 
-            var root = syntaxTree.GetRoot(cancellationToken);
+            var root = syntaxTree.GetRoot(effectiveCancellationToken);
             rootMs = stopwatch.Elapsed.TotalMilliseconds - analysisContextMs;
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             var symbols = BuildMemberSymbols(root.Members, text)
                 .Select(symbol => (SymbolInformationOrDocumentSymbol)symbol)
@@ -95,17 +107,33 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
             return new SymbolInformationOrDocumentSymbolContainer(symbols);
         }
+        catch (OperationCanceledException) when (requestState.IsSuperseded && !cancellationToken.IsCancellationRequested)
+        {
+            if (TryGetCachedSymbols(request.TextDocument.Uri, out var cachedSymbols))
+            {
+                cacheHit = true;
+                symbolCount = cachedSymbols.Length;
+                outcome = "SupersededCached";
+                return new SymbolInformationOrDocumentSymbolContainer(cachedSymbols);
+            }
+
+            outcome = "Superseded";
+            return new SymbolInformationOrDocumentSymbolContainer();
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            outcome = "Canceled";
             return new SymbolInformationOrDocumentSymbolContainer();
         }
         catch (Exception ex)
         {
+            outcome = "Failed";
             _logger.LogError(ex, "Document symbols request failed for {Uri}.", request.TextDocument.Uri);
             return new SymbolInformationOrDocumentSymbolContainer();
         }
         finally
         {
+            _latestRequests.Complete(requestState);
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "documentSymbols",
                 request.TextDocument.Uri,
@@ -113,7 +141,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                 stopwatch.Elapsed.TotalMilliseconds,
                 cacheHit: cacheHit,
                 resultCount: symbolCount,
-                detail: $"{request.TextDocument.Uri}",
+                detail: $"{request.TextDocument.Uri} request={requestState.Sequence} outcome={outcome}",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", analysisContextMs),
@@ -121,6 +149,23 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
                     new LanguageServerPerformanceInstrumentation.StageTiming("buildSymbols", symbolBuildMs)
                 ]);
         }
+    }
+
+    private bool TryGetCachedSymbols(DocumentUri uri, out SymbolInformationOrDocumentSymbol[] symbols)
+    {
+        symbols = [];
+
+        if (!_documents.TryGetDocument(uri, out var document) ||
+            document is null)
+        {
+            return false;
+        }
+
+        if (!_cache.TryGetValue(new DocumentSymbolCacheKey(uri.ToString(), document.Version), out var cachedSymbols))
+            return false;
+
+        symbols = cachedSymbols;
+        return true;
     }
 
     private void CacheSymbols(DocumentSymbolCacheKey cacheKey, SymbolInformationOrDocumentSymbol[] symbols)

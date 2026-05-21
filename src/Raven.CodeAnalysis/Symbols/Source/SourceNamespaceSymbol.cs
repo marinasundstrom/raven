@@ -6,6 +6,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSymbol
 {
     private readonly List<ISymbol> _members = new();
+    private readonly object _membersGate = new();
     private readonly SourceModuleSymbol _containingModule;
 
     public SourceNamespaceSymbol(SourceModuleSymbol containingModule, string name, ISymbol containingSymbol,
@@ -43,20 +44,38 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
         }
     }
 
-    internal void AddMember(ISymbol member) => _members.Add(member);
+    internal void AddMember(ISymbol member)
+    {
+        lock (_membersGate)
+            _members.Add(member);
+    }
 
-    public ImmutableArray<ISymbol> GetMembers() => _members.ToImmutableArray();
+    public ImmutableArray<ISymbol> GetMembers()
+    {
+        lock (_membersGate)
+            return _members.ToImmutableArray();
+    }
 
-    public ImmutableArray<ISymbol> GetMembers(string name) =>
-        _members.Where(m => m.Name == name).ToImmutableArray();
+    public ImmutableArray<ISymbol> GetMembers(string name)
+    {
+        lock (_membersGate)
+            return _members.Where(m => m.Name == name).ToImmutableArray();
+    }
 
-    public INamespaceSymbol? LookupNamespace(string name) =>
-        _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
+    public INamespaceSymbol? LookupNamespace(string name)
+    {
+        lock (_membersGate)
+            return _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
+    }
 
     public ITypeSymbol? LookupType(string name)
     {
         EnsureSourceDeclarationsComplete();
-        return TypeLookupUtilities.SelectBestTypeByName(_members.OfType<ITypeSymbol>().Where(t => t.Name == name));
+        ImmutableArray<ITypeSymbol> candidates;
+        lock (_membersGate)
+            candidates = _members.OfType<ITypeSymbol>().Where(t => t.Name == name).ToImmutableArray();
+
+        return TypeLookupUtilities.SelectBestTypeByName(candidates);
     }
 
     public override string ToString() => IsGlobalNamespace ? "<global>" : ToMetadataName();
@@ -77,7 +96,8 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        symbol = _members.FirstOrDefault(m => m.Name == name);
+        lock (_membersGate)
+            symbol = _members.FirstOrDefault(m => m.Name == name);
         return symbol is not null;
     }
 }

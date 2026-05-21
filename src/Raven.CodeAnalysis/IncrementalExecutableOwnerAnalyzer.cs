@@ -116,6 +116,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
             CompilationUnitSyntax => (owner.Kind, "root"),
             MethodDeclarationSyntax method => (owner.Kind, CreateMethodDeclarationMatchIdentity(method)),
             FunctionStatementSyntax function => (owner.Kind, CreateFunctionStatementMatchIdentity(function)),
+            FunctionExpressionSyntax functionExpression => (owner.Kind, CreateFunctionExpressionMatchIdentity(functionExpression)),
             ConstructorDeclarationSyntax ctor => (owner.Kind, CreateConstructorDeclarationMatchIdentity(ctor)),
             ParameterlessConstructorDeclarationSyntax => (owner.Kind, "ctor:0"),
             PropertyDeclarationSyntax property => (owner.Kind, $"property:{property.Identifier.ValueText}"),
@@ -124,6 +125,28 @@ internal static class IncrementalExecutableOwnerAnalyzer
             GlobalStatementSyntax global => (owner.Kind, CreateGlobalStatementMatchIdentity(global)),
             _ => (owner.Kind, owner.ToFullString())
         };
+    }
+
+    private static string CreateFunctionExpressionMatchIdentity(FunctionExpressionSyntax functionExpression)
+    {
+        var path = new Stack<string>();
+        var current = (SyntaxNode)functionExpression;
+
+        while (current.Parent is { } parent)
+        {
+            var index = parent.ChildNodes()
+                .TakeWhile(child => !ReferenceEquals(child, current))
+                .Count();
+
+            path.Push($"{parent.Kind}:{index}:{current.Kind}");
+
+            if (IsExecutableOwnerNode(parent))
+                break;
+
+            current = parent;
+        }
+
+        return $"function-expression:{string.Join("/", path)}";
     }
 
     private static string CreateMethodDeclarationMatchIdentity(MethodDeclarationSyntax method)
@@ -319,6 +342,12 @@ internal static class IncrementalExecutableOwnerAnalyzer
         Compilation.ExecutableOwnerDescriptor currentParent,
         Compilation.OwnerRelativeTextChange parentChange)
     {
+        if (parentChange.Kind is Compilation.OwnerRelativeChangeKind.SignatureOrDeclaration or Compilation.OwnerRelativeChangeKind.Unknown)
+            return false;
+
+        if (previousOwner.Kind != currentOwner.Kind)
+            return false;
+
         var previousRelativeSpan = new Text.TextSpan(
             previousOwner.Span.Start - previousParent.Span.Start,
             previousOwner.Span.Length);
@@ -329,11 +358,10 @@ internal static class IncrementalExecutableOwnerAnalyzer
         if (OverlapsOrContainsInsertion(previousRelativeSpan, parentChange.PreviousSpan) ||
             OverlapsOrContainsInsertion(currentRelativeSpan, parentChange.CurrentSpan))
         {
-            return false;
+            return true;
         }
 
-        return previousOwner.Kind == currentOwner.Kind &&
-               string.Equals(previousOwner.ToString(), currentOwner.ToString(), StringComparison.Ordinal);
+        return string.Equals(previousOwner.ToString(), currentOwner.ToString(), StringComparison.Ordinal);
     }
 
     private static bool TryGetExecutableBodyRelativeStart(SyntaxNode owner, out int relativeStart)
@@ -427,14 +455,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
                 .Any(static global => global.Statement is not FunctionStatementSyntax);
 
         return root.DescendantNodesAndSelf().Where(node =>
-            node is FunctionExpressionSyntax
-                or BaseMethodDeclarationSyntax
-                or BaseConstructorDeclarationSyntax
-                or ParameterlessConstructorDeclarationSyntax
-                or AccessorDeclarationSyntax
-                or PropertyDeclarationSyntax
-                or EventDeclarationSyntax
-                or GlobalStatementSyntax ||
+            IsExecutableOwnerNode(node) ||
             includeCompilationUnit && node is CompilationUnitSyntax);
     }
 
@@ -442,15 +463,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
         SyntaxNode node,
         out Compilation.ExecutableOwnerDescriptor descriptor)
     {
-        var parentOwner = node.Ancestors().FirstOrDefault(static current =>
-            current is FunctionExpressionSyntax
-                or BaseMethodDeclarationSyntax
-                or BaseConstructorDeclarationSyntax
-                or ParameterlessConstructorDeclarationSyntax
-                or AccessorDeclarationSyntax
-                or PropertyDeclarationSyntax
-                or EventDeclarationSyntax
-                or GlobalStatementSyntax);
+        var parentOwner = node.Ancestors().FirstOrDefault(IsExecutableOwnerNode);
 
         if (parentOwner is null)
         {
@@ -461,4 +474,14 @@ internal static class IncrementalExecutableOwnerAnalyzer
         descriptor = new Compilation.ExecutableOwnerDescriptor(parentOwner.Span, parentOwner.Kind);
         return true;
     }
+
+    private static bool IsExecutableOwnerNode(SyntaxNode node)
+        => node is FunctionExpressionSyntax
+            or BaseMethodDeclarationSyntax
+            or BaseConstructorDeclarationSyntax
+            or ParameterlessConstructorDeclarationSyntax
+            or AccessorDeclarationSyntax
+            or PropertyDeclarationSyntax
+            or EventDeclarationSyntax
+            or GlobalStatementSyntax;
 }

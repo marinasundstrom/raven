@@ -1641,7 +1641,7 @@ record CustomError(val Message: string)
         hover.ShouldNotBeNull();
         hover!.Contents.MarkupContent.ShouldNotBeNull();
         hover.Contents.MarkupContent!.Value.ShouldContain("user: User");
-        hover.Contents.MarkupContent!.Value.ShouldContain("Parameter in `func (user: User) -> TKey`");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Parameter in `func (user: User) -> string`");
     }
 
     [Fact]

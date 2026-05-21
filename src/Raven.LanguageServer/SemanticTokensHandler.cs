@@ -54,6 +54,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     private readonly DocumentStore _documents;
     private readonly ILogger<SemanticTokensHandler> _logger;
     private readonly ConcurrentDictionary<SemanticTokensCacheKey, SemanticTokenEntry[]> _tokenEntryCache = new();
+    private readonly LatestDocumentRequestTracker _latestRequests = new();
 
     public SemanticTokensHandler(DocumentStore documents, ILogger<SemanticTokensHandler> logger)
     {
@@ -78,6 +79,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
     protected override async Task Tokenize(SemanticTokensBuilder builder, ITextDocumentIdentifierParams identifier, CancellationToken cancellationToken)
     {
+        var requestState = _latestRequests.Begin(identifier.TextDocument.Uri, cancellationToken);
+        var effectiveCancellationToken = requestState.Token;
         var stopwatch = Stopwatch.StartNew();
         double gateWaitMs = 0;
         double contextMs = 0;
@@ -91,25 +94,34 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         var resultCount = 0;
         Compilation? semanticCompilation = null;
         SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
+        SourceText? sourceText = null;
+        TextSpan? requestedRange = null;
+        SemanticTokensCacheKey? cacheKey = null;
+        var outcome = "Completed";
 
         try
         {
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await _documents.GetAnalysisContextAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(identifier.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             contextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
+            {
+                outcome = "NoContext";
                 return;
+            }
 
             var syntaxTree = context.Value.SyntaxTree;
-            var sourceText = context.Value.SourceText;
+            sourceText = context.Value.SourceText;
             semanticCompilation = context.Value.Compilation;
             semanticBefore = semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
-            var cacheKey = new SemanticTokensCacheKey(identifier.TextDocument.Uri.ToString(), context.Value.Document.Version);
-            var requestedRange = GetRequestedRangeSpan(identifier, sourceText);
+            cacheKey = new SemanticTokensCacheKey(identifier.TextDocument.Uri.ToString(), context.Value.Document.Version);
+            requestedRange = GetRequestedRangeSpan(identifier, sourceText);
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
-            if (_tokenEntryCache.TryGetValue(cacheKey, out var cachedEntries))
+            if (_tokenEntryCache.TryGetValue(cacheKey.Value, out var cachedEntries))
             {
                 cacheHit = true;
+                outcome = "Cached";
                 stageStopwatch.Restart();
                 var filteredEntries = FilterEntriesForRange(cachedEntries, requestedRange).ToArray();
                 resultCount = filteredEntries.Length;
@@ -121,20 +133,25 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             }
 
             stageStopwatch.Restart();
-            var root = syntaxTree.GetRoot(cancellationToken);
+            var root = syntaxTree.GetRoot(effectiveCancellationToken);
             rootMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
-            var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(identifier.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(identifier.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             var semanticModel = semanticModelResult.SemanticModel;
             skippedBusy = semanticModelResult.WasSkipped;
+            if (skippedBusy)
+                outcome = "SkippedBusy";
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
             var classification = semanticModel is null
                 ? SemanticClassifier.Classify(root, allowBinding: false)
                 : SemanticClassifier.Classify(root, semanticModel, allowBinding: false);
             classifyMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
             var declaredTypeTokenTypes = CollectDeclaredTypeTokenTypes(root);
@@ -156,7 +173,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 .ThenBy(static entry => entry.Span.Length)
                 .ToArray();
             materializeMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            CacheTokenEntries(cacheKey, entries);
+            CacheTokenEntries(cacheKey.Value, entries);
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
             var pushedEntries = FilterEntriesForRange(entries, requestedRange).ToArray();
@@ -165,8 +183,24 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
             pushMs = stageStopwatch.Elapsed.TotalMilliseconds;
         }
+        catch (OperationCanceledException) when (requestState.IsSuperseded && !cancellationToken.IsCancellationRequested)
+        {
+            outcome = "Superseded";
+            if (sourceText is not null &&
+                cacheKey is { } knownCacheKey &&
+                _tokenEntryCache.TryGetValue(knownCacheKey, out var cachedEntries))
+            {
+                cacheHit = true;
+                outcome = "SupersededCached";
+                var filteredEntries = FilterEntriesForRange(cachedEntries, requestedRange).ToArray();
+                resultCount = filteredEntries.Length;
+                foreach (var entry in filteredEntries)
+                    PushSpan(builder, sourceText, entry.Span, entry.TokenType!.Value, entry.Modifiers);
+            }
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            outcome = "Canceled";
             if (stopwatch.Elapsed.TotalMilliseconds >= SemanticTokensLogThresholdMs)
             {
                 _logger.LogInformation(
@@ -177,10 +211,12 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         }
         catch (Exception ex)
         {
+            outcome = "Failed";
             _logger.LogError(ex, "Semantic token request failed for {Uri}.", identifier.TextDocument.Uri);
         }
         finally
         {
+            _latestRequests.Complete(requestState);
             stopwatch.Stop();
             var semanticDelta = semanticCompilation is not null && semanticBefore is { } before
                 ? SemanticQueryInstrumentation.FormatDelta(
@@ -188,7 +224,6 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                         semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
                         before))
                 : null;
-            var outcome = skippedBusy ? "SkippedBusy" : "Completed";
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "semanticTokens",
                 identifier.TextDocument.Uri,
@@ -197,8 +232,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 cacheHit: cacheHit,
                 resultCount: resultCount,
                 detail: semanticDelta is null
-                    ? $"{identifier.TextDocument.Uri} outcome={outcome}"
-                    : $"{identifier.TextDocument.Uri} outcome={outcome} semantic=[{semanticDelta}]",
+                    ? $"{identifier.TextDocument.Uri} request={requestState.Sequence} outcome={outcome}"
+                    : $"{identifier.TextDocument.Uri} request={requestState.Sequence} outcome={outcome} semantic=[{semanticDelta}]",
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),

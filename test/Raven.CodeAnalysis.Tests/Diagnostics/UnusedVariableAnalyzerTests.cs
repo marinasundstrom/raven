@@ -363,6 +363,48 @@ class C {
         Assert.Empty(Analyze(code));
     }
 
+    [Fact]
+    public void AnalyzeSingleTree_UsesDocumentDiagnosticsForErrorGuard()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var targetTree = SyntaxTree.ParseText(
+            """
+class C {
+    public func M() -> unit {
+        val count = 0
+    }
+}
+""",
+            path: "/tmp/target.rav");
+        var otherTree = SyntaxTree.ParseText(
+            """
+func Broken() -> unit {
+    val value: MissingType = 0
+}
+""",
+            path: "/tmp/other.rav");
+
+        var compilation = Compilation.Create(
+                "lib",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                    .WithPerformanceInstrumentation(instrumentation))
+            .AddSyntaxTrees(targetTree, otherTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var before = instrumentation.DiagnosticBinding.CaptureSnapshot();
+        var diagnostics = new UnusedVariableAnalyzer()
+            .Analyze(compilation, targetTree)
+            .Where(d => d.Id == UnusedVariableAnalyzer.DiagnosticId)
+            .ToArray();
+        var delta = DiagnosticBindingInstrumentation.Subtract(
+            instrumentation.DiagnosticBinding.CaptureSnapshot(),
+            before);
+
+        Assert.Single(diagnostics);
+        Assert.Equal(0, delta.CompleteCalls);
+        Assert.True(delta.DocumentCalls > 0);
+    }
+
     private static Diagnostic[] Analyze(string code)
         => Analyze(code, UnusedVariableAnalyzer.DiagnosticId);
 

@@ -151,7 +151,8 @@ public class Workspace
 
     public Compilation CreateAnalysisCompilation(ProjectId projectId)
     {
-        var project = CurrentSolution.GetProject(projectId)
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         return CreateAnalysisCompilation(project, new HashSet<ProjectId>());
@@ -308,7 +309,8 @@ public class Workspace
         CompilationWithAnalyzersOptions? analyzerOptions = null,
         CancellationToken cancellationToken = default)
     {
-        var project = CurrentSolution.GetProject(projectId)
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var cacheKey = new ProjectDiagnosticsCacheKey(projectId, project.Version);
@@ -318,7 +320,7 @@ public class Workspace
             return cachedDiagnostics;
         }
 
-        var compilation = CreateAnalysisCompilation(projectId);
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         var diagnostics = compilation.GetDiagnostics(analyzerOptions, cancellationToken).ToHashSet();
 
         if (project.CompilationOptions?.RunAnalyzers != false)
@@ -373,7 +375,8 @@ public class Workspace
         CompilationWithAnalyzersOptions? analyzerOptions = null,
         CancellationToken cancellationToken = default)
     {
-        var project = CurrentSolution.GetProject(projectId)
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var document = project.GetDocument(documentId)
@@ -382,7 +385,7 @@ public class Workspace
         var syntaxTree = document.SyntaxTree
             ?? throw new InvalidOperationException("Document does not have a syntax tree.");
 
-        var compilation = CreateAnalysisCompilation(projectId);
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         return compilation.GetDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
     }
 
@@ -392,7 +395,8 @@ public class Workspace
         CompilationWithAnalyzersOptions? analyzerOptions = null,
         CancellationToken cancellationToken = default)
     {
-        var project = CurrentSolution.GetProject(projectId)
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var document = project.GetDocument(documentId)
@@ -401,7 +405,7 @@ public class Workspace
         var syntaxTree = document.SyntaxTree
             ?? throw new InvalidOperationException("Document does not have a syntax tree.");
 
-        var compilation = CreateAnalysisCompilation(projectId);
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         var diagnostics = compilation.GetDocumentDiagnostics(syntaxTree, analyzerOptions, cancellationToken).ToHashSet();
 
         if (project.CompilationOptions?.RunAnalyzers != false)
@@ -452,7 +456,8 @@ public class Workspace
         CompilationWithAnalyzersOptions? analyzerOptions = null,
         CancellationToken cancellationToken = default)
     {
-        var project = CurrentSolution.GetProject(projectId)
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var document = project.GetDocument(documentId)
@@ -461,7 +466,7 @@ public class Workspace
         var syntaxTree = document.SyntaxTree
             ?? throw new InvalidOperationException("Document does not have a syntax tree.");
 
-        var compilation = CreateAnalysisCompilation(projectId);
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         return compilation.GetSyntaxDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
     }
 

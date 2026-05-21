@@ -1862,6 +1862,177 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_DocumentDiagnostics_ForNestedLambdaBodyEdit_UsesIncrementalPass()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithPerformanceInstrumentation(instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource = """
+            import System.Linq.*
+
+            class Edited {
+                func Main(values: int[]) {
+                    val doubled = values.Select(value => value + 1)
+                }
+            }
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        initialCompilation.GetDocumentDiagnostics(initialTree, analyzerOptions: null, CancellationToken.None)
+            .ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("value + 1", "value + 2", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var before = instrumentation.DiagnosticBinding.CaptureSnapshot();
+        var diagnostics = updatedCompilation.GetDocumentDiagnostics(updatedTree, analyzerOptions: null, CancellationToken.None);
+        var delta = DiagnosticBindingInstrumentation.Subtract(
+            instrumentation.DiagnosticBinding.CaptureSnapshot(),
+            before);
+
+        diagnostics.ShouldNotContain(
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error,
+            string.Join(Environment.NewLine, diagnostics.Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")));
+        delta.IncrementalPasses.ShouldBe(1);
+        delta.FullPasses.ShouldBe(0);
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_DocumentDiagnostics_AfterTransferredBodyEdit_PreservesDeclarationDiagnostics()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource = """
+            import System.Linq.*
+
+            class Edited {
+                val Duplicate: int => 1
+
+                val Duplicate: int => 2
+
+                func Main(values: int[]) {
+                    val doubled = values.Select(value => value + 1)
+                }
+            }
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        initialCompilation.GetDocumentDiagnostics(initialTree, analyzerOptions: null, CancellationToken.None)
+            .ShouldContain(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeAlreadyDefinesMember);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("value + 1", "value + 2", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var updatedDiagnostics = updatedCompilation.GetDocumentDiagnostics(updatedTree, analyzerOptions: null, CancellationToken.None);
+
+        updatedDiagnostics.ShouldContain(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeAlreadyDefinesMember);
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_DocumentDiagnostics_ForTopLevelFunctionBodyEdit_UsesIncrementalPass()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithPerformanceInstrumentation(instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource = """
+            func Main() -> int {
+                return Helper()
+            }
+
+            func Helper() -> int {
+                return 1
+            }
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        initialCompilation.GetDocumentDiagnostics(initialTree, analyzerOptions: null, CancellationToken.None)
+            .ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("return 1", "return 2", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var before = instrumentation.DiagnosticBinding.CaptureSnapshot();
+        var diagnostics = updatedCompilation.GetDocumentDiagnostics(updatedTree, analyzerOptions: null, CancellationToken.None);
+        var delta = DiagnosticBindingInstrumentation.Subtract(
+            instrumentation.DiagnosticBinding.CaptureSnapshot(),
+            before);
+
+        diagnostics.ShouldNotContain(
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error,
+            string.Join(Environment.NewLine, diagnostics.Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")));
+        delta.IncrementalPasses.ShouldBe(1);
+        delta.FullPasses.ShouldBe(0);
+    }
+
+    [Fact]
     public void WorkspaceCompilation_ReusedSourceMethodAttributes_MapStaleDeclarationReferenceToCurrentTree()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -2256,7 +2427,7 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
-    public void WorkspaceCompilation_DoesNotMatchNestedFunctionExpressions_WhenEnclosingMethodChanged()
+    public void WorkspaceCompilation_MatchesNestedFunctionExpressions_WhenEnclosingDeclarationInitializerChanged()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -2330,10 +2501,14 @@ public sealed class IncrementalCompilationReuseTests
             .Single(node => node.Identifier.ValueText == "minAge");
 
         var matchedOwner = updatedModel.GetMatchedExecutableOwnerForTesting(updatedFunction);
-        matchedOwner.ShouldBeNull();
-        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedFunction).ShouldBeTrue();
-        updatedCompilation.HasTransferredFunctionExpressionRebindRootDescriptorForTesting(updatedFunction).ShouldBeFalse();
+        var updatedDescriptor = updatedModel.GetFunctionExpressionRebindRootDescriptorForTesting(updatedFunction);
+
+        matchedOwner.ShouldNotBeNull();
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedFunction).ShouldBeFalse();
+        updatedDescriptor.ShouldBe(initialDescriptor);
+        updatedCompilation.HasTransferredFunctionExpressionRebindRootDescriptorForTesting(updatedFunction).ShouldBeTrue();
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedMinAgeIdentifier).ShouldBeFalse();
+        updatedModel.GetSymbolInfo(updatedMinAgeIdentifier).Symbol?.Name.ShouldBe("minAge");
     }
 
     [Fact]

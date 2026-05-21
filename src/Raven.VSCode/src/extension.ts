@@ -12,6 +12,12 @@ let languageServerBuildPromise: Promise<void> | undefined;
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
 let pendingInlayHintRefresh: NodeJS.Timeout | undefined;
+const recentRavenDocumentChanges = new Map<string, RavenDocumentChangeState>();
+
+type RavenDocumentChangeState = {
+  version: number;
+  changedAt: number;
+};
 
 type ExecFileTextOptions = Omit<ExecFileOptions, 'encoding'>;
 
@@ -125,6 +131,69 @@ function areInferredTypeInlayHintsEnabled(): boolean {
   return vscode.workspace
     .getConfiguration('raven')
     .get<boolean>('inlayHints.inferredTypes.enabled', true);
+}
+
+function getInlayHintRequestDebounceMilliseconds(): number {
+  const configured = vscode.workspace
+    .getConfiguration('raven')
+    .get<number>('inlayHints.requestDebounceMilliseconds', 150);
+
+  if (!Number.isFinite(configured)) {
+    return 150;
+  }
+
+  return Math.max(0, Math.min(1000, Math.trunc(configured)));
+}
+
+function delayUnlessCanceled(milliseconds: number, token: vscode.CancellationToken): Promise<boolean> {
+  if (milliseconds <= 0) {
+    return Promise.resolve(!token.isCancellationRequested);
+  }
+
+  if (token.isCancellationRequested) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise(resolve => {
+    let disposable: vscode.Disposable | undefined;
+    const timer = setTimeout(() => {
+      disposable?.dispose();
+      resolve(!token.isCancellationRequested);
+    }, milliseconds);
+
+    disposable = token.onCancellationRequested(() => {
+      clearTimeout(timer);
+      disposable?.dispose();
+      resolve(false);
+    });
+  });
+}
+
+async function waitForInlayHintQuietPeriod(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<boolean> {
+  const debounceMilliseconds = getInlayHintRequestDebounceMilliseconds();
+  if (debounceMilliseconds <= 0) {
+    return !token.isCancellationRequested;
+  }
+
+  const key = document.uri.toString();
+  while (!token.isCancellationRequested) {
+    const state = recentRavenDocumentChanges.get(key);
+    if (!state || state.version !== document.version) {
+      return true;
+    }
+
+    const remaining = debounceMilliseconds - (Date.now() - state.changedAt);
+    if (remaining <= 0) {
+      return true;
+    }
+
+    const completed = await delayUnlessCanceled(remaining, token);
+    if (!completed) {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 async function refreshInlayHints(): Promise<void> {
@@ -410,9 +479,16 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
 
         return next(type, params);
       },
-      provideInlayHints(document, viewPort, token, next) {
+      async provideInlayHints(document, viewPort, token, next) {
         if (document.languageId === 'raven' && !areInferredTypeInlayHintsEnabled()) {
           return [];
+        }
+
+        if (document.languageId === 'raven') {
+          const shouldContinue = await waitForInlayHintQuietPeriod(document, token);
+          if (!shouldContinue) {
+            return [];
+          }
         }
 
         return next(document, viewPort, token);
@@ -1214,13 +1290,27 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(event => {
-      if (event.document.languageId !== 'raven' ||
-          !areInferredTypeInlayHintsEnabled() ||
-          !event.contentChanges.some(isInferredTypeHintInsertion)) {
+      if (event.document.languageId !== 'raven') {
         return;
       }
 
-      scheduleInlayHintRefresh();
+      recentRavenDocumentChanges.set(event.document.uri.toString(), {
+        version: event.document.version,
+        changedAt: Date.now()
+      });
+
+      if (areInferredTypeInlayHintsEnabled() &&
+          event.contentChanges.some(isInferredTypeHintInsertion)) {
+        scheduleInlayHintRefresh();
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument(document => {
+      if (document.languageId === 'raven') {
+        recentRavenDocumentChanges.delete(document.uri.toString());
+      }
     })
   );
 

@@ -144,11 +144,15 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
     public ITypeSymbol? LookupType(string name)
     {
-        return TypeLookupUtilities.SelectBestTypeByName(
-            _namespaces
-                .Select(ns => ns.LookupType(name))
-                .Where(static type => type is not null)!
-                .Cast<ITypeSymbol>());
+        var candidates = ImmutableArray.CreateBuilder<ITypeSymbol>();
+
+        foreach (var ns in _namespaces)
+        {
+            if (ns.LookupType(name) is { } type)
+                candidates.Add(type);
+        }
+
+        return TypeLookupUtilities.SelectBestTypeByName(candidates.ToImmutable());
     }
 
     internal ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)

@@ -29,8 +29,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private readonly DocumentStore _documents;
     private readonly ILogger<InlayHintHandler> _logger;
     private readonly ConcurrentDictionary<InlayHintDocumentCacheKey, ImmutableArray<InlayHint>> _cache = new();
-    private readonly ConcurrentDictionary<string, InlayHintRequestState> _latestRequests = new();
-    private long _requestSequence;
+    private readonly LatestDocumentRequestTracker _latestRequests = new();
 
     public InlayHintHandler(DocumentStore documents, ILogger<InlayHintHandler> logger)
     {
@@ -75,7 +74,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     public async Task<InlayHintContainer?> Handle(InlayHintParams request, CancellationToken cancellationToken)
     {
-        var requestState = BeginRequest(request.TextDocument.Uri, cancellationToken);
+        var requestState = _latestRequests.Begin(request.TextDocument.Uri, cancellationToken);
         var effectiveCancellationToken = requestState.Token;
         var totalStopwatch = Stopwatch.StartNew();
         var stageStopwatch = Stopwatch.StartNew();
@@ -163,7 +162,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
             var root = context.Value.SyntaxTree.GetRoot(effectiveCancellationToken);
             var allowExpensiveBinding = !isLargeDocument ||
-                isPreciseRequest;
+                isPreciseRequest ||
+                !isFullDocumentRequest;
             var collectionBudgetMs = allowExpensiveBinding
                 ? double.PositiveInfinity
                 : LargeRangeInlayBudgetMs;
@@ -247,7 +247,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
         finally
         {
-            CompleteRequest(requestState);
+            _latestRequests.Complete(requestState);
             totalStopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "inlayHint",
@@ -290,39 +290,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     outcome);
             }
         }
-    }
-
-    private InlayHintRequestState BeginRequest(DocumentUri uri, CancellationToken cancellationToken)
-    {
-        var key = uri.ToString();
-        var sequence = Interlocked.Increment(ref _requestSequence);
-        var state = new InlayHintRequestState(
-            key,
-            sequence,
-            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken));
-
-        _latestRequests.AddOrUpdate(
-            key,
-            state,
-            (_, previous) =>
-            {
-                previous.CancelAsSuperseded();
-                return state;
-            });
-
-        return state;
-    }
-
-    private void CompleteRequest(InlayHintRequestState state)
-    {
-        if (_latestRequests.TryGetValue(state.Key, out var latest) &&
-            ReferenceEquals(latest, state))
-        {
-            ((ICollection<KeyValuePair<string, InlayHintRequestState>>)_latestRequests)
-                .Remove(new KeyValuePair<string, InlayHintRequestState>(state.Key, state));
-        }
-
-        state.Dispose();
     }
 
     private bool TryGetCachedHints(InlayHintParams request, out InlayHint[] hints)
@@ -424,15 +391,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (budget.ShouldStop())
                 return;
 
-            var shouldAvoidInitializerBinding = !allowInitializerBinding &&
-                ShouldAvoidInitializerBindingForInlay(declarator);
             ILocalSymbol? local;
-            if (shouldAvoidInitializerBinding)
+            if (!allowInitializerBinding)
             {
                 local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
                     declarator,
                     out var availableLocal,
-                    allowInitializerBinding: true,
+                    allowInitializerBinding: !ShouldAvoidInitializerBindingForInlay(declarator),
                     allowBindingFallback: false)
                         ? availableLocal
                         : null;
@@ -1553,41 +1518,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     private static bool ContainsPosition(TextSpan span, int position)
         => position >= span.Start && position <= span.End;
-
-    private sealed class InlayHintRequestState : IDisposable
-    {
-        private int _isSuperseded;
-        private readonly CancellationTokenSource _cancellationTokenSource;
-
-        public InlayHintRequestState(
-            string key,
-            long sequence,
-            CancellationTokenSource cancellationTokenSource)
-        {
-            Key = key;
-            Sequence = sequence;
-            _cancellationTokenSource = cancellationTokenSource;
-        }
-
-        public string Key { get; }
-
-        public long Sequence { get; }
-
-        public CancellationToken Token => _cancellationTokenSource.Token;
-
-        public bool IsSuperseded => Volatile.Read(ref _isSuperseded) != 0;
-
-        public void CancelAsSuperseded()
-        {
-            if (Interlocked.Exchange(ref _isSuperseded, 1) == 0)
-                _cancellationTokenSource.Cancel();
-        }
-
-        public void Dispose()
-        {
-            _cancellationTokenSource.Dispose();
-        }
-    }
 
     private readonly record struct InlayHintDocumentCacheKey(
         string Uri,

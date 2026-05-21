@@ -121,6 +121,9 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
     {
         suggestion = default;
 
+        if (!TryGetUnionCaseAccess(expression, out _))
+            return false;
+
         var typeInfo = semanticModel.GetTypeInfo(expression);
         if (typeInfo.ConvertedType is null || typeInfo.ConvertedType.TypeKind == TypeKind.Error)
             return false;

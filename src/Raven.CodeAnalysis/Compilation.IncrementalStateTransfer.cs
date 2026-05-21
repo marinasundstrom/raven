@@ -124,10 +124,9 @@ public partial class Compilation
                 _descriptorState.BinderParentAnchorDescriptorsByOwner,
                 state.BinderParentAnchorDescriptorsByOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapOwnerRelativeDescriptorKey),
-            new OwnerRelativeIncrementalStateTransferTable<ImmutableArray<SemanticDiagnosticDescriptor>>(
+            new SemanticDiagnosticsIncrementalStateTransferTable(
                 _descriptorState.SemanticDiagnosticsByRelativeOwner,
-                state.SemanticDiagnosticsByRelativeOwner,
-                IncrementalBindingStateTransferPolicy.TryRemapOwnerRelativeDescriptorKey)
+                state.SemanticDiagnosticsByRelativeOwner)
         ];
 
     private interface IExactIncrementalStateTransferTable
@@ -223,6 +222,65 @@ public partial class Compilation
             if (remappedValues is not null)
                 _destination[matchedTree.CurrentTree] = remappedValues;
         }
+    }
+
+    private sealed class SemanticDiagnosticsIncrementalStateTransferTable : IOwnerRelativeIncrementalStateTransferTable
+    {
+        private readonly IDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> _source;
+        private readonly IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> _destination;
+
+        public SemanticDiagnosticsIncrementalStateTransferTable(
+            IDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> source,
+            IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> destination)
+        {
+            _source = source;
+            _destination = destination;
+        }
+
+        public bool HasTransferredState => _destination.Count != 0;
+
+        public void Copy(IncrementalMatchedSyntaxTree matchedTree, MatchedExecutableOwner match)
+        {
+            if (!_source.TryGetValue(matchedTree.PreviousTree, out var values) || values.Count == 0)
+                return;
+
+            var ownerChange = TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var change)
+                ? change
+                : (OwnerRelativeTextChange?)null;
+            if (ownerChange is not null)
+                return;
+
+            Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>? remappedValues = null;
+
+            foreach (var (key, value) in values)
+            {
+                if (key.Owner != match.PreviousOwner ||
+                    !IsSemanticDiagnosticOwnerKey(key))
+                {
+                    continue;
+                }
+
+                var remappedKey = new OwnerRelativeDescriptorKey(
+                    match.CurrentOwner,
+                    RelativeStart: 0,
+                    match.CurrentOwner.Span.Length,
+                    match.CurrentOwner.Kind);
+
+                remappedValues ??= _destination.TryGetValue(matchedTree.CurrentTree, out var existing)
+                    ? existing
+                    : new Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>();
+
+                remappedValues[remappedKey] = value;
+            }
+
+            if (remappedValues is not null)
+                _destination[matchedTree.CurrentTree] = remappedValues;
+        }
+
+        private static bool IsSemanticDiagnosticOwnerKey(OwnerRelativeDescriptorKey key)
+            => key.RelativeStart == 0 &&
+               key.Length == key.Owner.Span.Length &&
+               key.Kind == key.Owner.Kind;
     }
 
     private delegate bool TryRemapOwnerRelativeDescriptorKeyDelegate(

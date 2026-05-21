@@ -370,7 +370,7 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken)
     {
         if (lane == DiagnosticLane.Syntax)
-            return GetSyntaxDiagnosticsCore(uri, shouldSkipWork, cancellationToken);
+            return await GetSyntaxDiagnosticsCoreAsync(uri, shouldSkipWork, cancellationToken).ConfigureAwait(false);
 
         var stopwatch = Stopwatch.StartNew();
         double gateWaitMs = 0;
@@ -379,6 +379,7 @@ internal sealed class DocumentStore
         string? diagnosticsSetupDelta = null;
         string? diagnosticsBinderDelta = null;
         string? diagnosticsSemanticDelta = null;
+        string? diagnosticsBindingDelta = null;
         var busySkipped = false;
 
         try
@@ -417,6 +418,8 @@ internal sealed class DocumentStore
 
             var setupBefore = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
             var semanticBefore = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+            var diagnosticBindingBefore = context.Value.Compilation.PerformanceInstrumentation.DiagnosticBinding.CaptureSnapshot();
+            var binderBefore = context.Value.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
             IReadOnlyCollection<CodeDiagnostic> diagnosticsForProject;
             if (lane == DiagnosticLane.DocumentCompiler)
             {
@@ -458,18 +461,29 @@ internal sealed class DocumentStore
                 CompilerSetupInstrumentation.Subtract(
                     context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
                     setupBefore));
+            diagnosticsBinderDelta = BinderReentryInstrumentation.FormatDelta(
+                BinderReentryInstrumentation.Subtract(
+                    context.Value.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot(),
+                    binderBefore));
             diagnosticsSemanticDelta = SemanticQueryInstrumentation.FormatDelta(
                 SemanticQueryInstrumentation.Subtract(
                     context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
                     semanticBefore));
+            diagnosticsBindingDelta = DiagnosticBindingInstrumentation.FormatDelta(
+                DiagnosticBindingInstrumentation.Subtract(
+                    context.Value.Compilation.PerformanceInstrumentation.DiagnosticBinding.CaptureSnapshot(),
+                    diagnosticBindingBefore));
 
             stopwatch.Stop();
             if (stopwatch.Elapsed.TotalMilliseconds >= SlowDiagnosticsThresholdMs)
             {
-                if (diagnosticsSetupDelta is not null || diagnosticsBinderDelta is not null || diagnosticsSemanticDelta is not null)
+                if (diagnosticsSetupDelta is not null ||
+                    diagnosticsBinderDelta is not null ||
+                    diagnosticsSemanticDelta is not null ||
+                    diagnosticsBindingDelta is not null)
                 {
                     _logger.LogInformation(
-                        "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count} setupDelta=[{SetupDelta}] binderDelta=[{BinderDelta}] semanticDelta=[{SemanticDelta}].",
+                        "Slow diagnostics for {Uri}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms syntaxTree={SyntaxTreeMs:F1}ms diagnosticsFetch={DiagnosticsFetchMs:F1}ms count={Count} setupDelta=[{SetupDelta}] diagnosticBindingDelta=[{DiagnosticBindingDelta}] binderDelta=[{BinderDelta}] semanticDelta=[{SemanticDelta}].",
                         uri,
                         stopwatch.Elapsed.TotalMilliseconds,
                         gateWaitMs,
@@ -477,6 +491,7 @@ internal sealed class DocumentStore
                         diagnosticsFetchMs,
                         diagnostics.Length,
                         diagnosticsSetupDelta ?? "<none>",
+                        diagnosticsBindingDelta ?? "<none>",
                         diagnosticsBinderDelta ?? "<none>",
                         diagnosticsSemanticDelta ?? "<none>");
                 }
@@ -512,7 +527,13 @@ internal sealed class DocumentStore
                 uri,
                 null,
                 stopwatch.Elapsed.TotalMilliseconds,
-                detail: CreateDiagnosticsPerformanceDetail(uri, lane, diagnosticsSetupDelta, diagnosticsBinderDelta, diagnosticsSemanticDelta),
+                detail: CreateDiagnosticsPerformanceDetail(
+                    uri,
+                    lane,
+                    diagnosticsSetupDelta,
+                    diagnosticsBindingDelta,
+                    diagnosticsBinderDelta,
+                    diagnosticsSemanticDelta),
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
@@ -526,6 +547,7 @@ internal sealed class DocumentStore
         DocumentUri uri,
         DiagnosticLane lane,
         string? setupDelta,
+        string? diagnosticBindingDelta,
         string? binderDelta,
         string? semanticDelta)
     {
@@ -533,6 +555,9 @@ internal sealed class DocumentStore
 
         if (!string.IsNullOrWhiteSpace(setupDelta))
             detail += $" setup=[{setupDelta}]";
+
+        if (!string.IsNullOrWhiteSpace(diagnosticBindingDelta))
+            detail += $" diagnosticBinding=[{diagnosticBindingDelta}]";
 
         if (!string.IsNullOrWhiteSpace(binderDelta))
             detail += $" binder=[{binderDelta}]";
@@ -558,7 +583,7 @@ internal sealed class DocumentStore
             _ => "computeProjectWithAnalyzersDiagnosticsSkipped"
         };
 
-    private DiagnosticsComputationResult GetSyntaxDiagnosticsCore(
+    private async Task<DiagnosticsComputationResult> GetSyntaxDiagnosticsCoreAsync(
         DocumentUri uri,
         Func<bool>? shouldSkipWork,
         CancellationToken cancellationToken)
@@ -572,10 +597,11 @@ internal sealed class DocumentStore
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
             var stageStopwatch = Stopwatch.StartNew();
-            if (!_workspaceManager.TryGetDocumentSyntaxDiagnostics(uri, out var syntaxDiagnostics, cancellationToken: cancellationToken))
+            var context = await GetDocumentSyntaxContextAsync(uri, cancellationToken).ConfigureAwait(false);
+            if (context is null)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
 
-            var diagnostics = syntaxDiagnostics
+            var diagnostics = context.Value.SyntaxTree.GetDiagnostics()
                     .Select(MapDiagnostic)
                     .ToArray();
             diagnosticsFetchMs = stageStopwatch.Elapsed.TotalMilliseconds;

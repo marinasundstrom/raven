@@ -30,7 +30,7 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
     {
-        if (context.SemanticModel.GetDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
+        if (context.SemanticModel.GetDocumentDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
             return;
 
         if (context.Node is not TypeDeclarationSyntax typeDecl)
