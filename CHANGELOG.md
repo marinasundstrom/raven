@@ -20,6 +20,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   document-scoped analyzer pass instead of running full-project analyzers on every edit.
 
 ### Changed
+- Unused local value diagnostics now say `Value '<name>' is never used.` while unused
+  parameters continue to say `Parameter '<name>' is never used.`.
 - `TopLevelAttribute` is now generated in the `System.Runtime.CompilerServices`
   namespace, so namespace-member containers are marked with
   `System.Runtime.CompilerServices.TopLevelAttribute`.

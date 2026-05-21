@@ -23,6 +23,7 @@ class C {
         var diagnostics = Analyze(code);
 
         var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("Value 'count' is never used.", diagnostic.GetMessage());
         Assert.Equal("count", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
     }
 
@@ -56,6 +57,7 @@ class C {
         var diagnostics = AnalyzeParameters(code);
 
         var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("Parameter 'value' is never used.", diagnostic.GetMessage());
         Assert.Equal("value", diagnostic.GetMessageArgs().FirstOrDefault()?.ToString());
     }
 

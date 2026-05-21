@@ -37,10 +37,10 @@ public class LanguageServerDiagnosticTagTests
     {
         var descriptor = DiagnosticDescriptor.Create(
             Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.DiagnosticId,
-            "Variable is never used",
+            "Value is never used",
             null,
             string.Empty,
-            "Variable '{0}' is never used.",
+            "Value '{0}' is never used.",
             "Usage",
             CodeDiagnosticSeverity.Warning);
         var diagnostic = CodeDiagnostic.Create(descriptor, CodeLocation.None, "count");

@@ -13,10 +13,10 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
         id: DiagnosticId,
-        title: "Variable is never used",
+        title: "Value is never used",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Variable '{0}' is never used.",
+        messageFormat: "Value '{0}' is never used.",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
 
