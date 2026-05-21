@@ -1,10 +1,12 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Diagnostics;
 
-public sealed class UnhandledMemberReturnValueAnalyzer : DiagnosticAnalyzer
+public sealed class UnhandledMemberReturnValueAnalyzer : DiagnosticAnalyzer, ICompilationOptionsAwareAnalyzer
 {
     public const string DiagnosticId = "RAV9029";
 
@@ -20,8 +22,16 @@ public sealed class UnhandledMemberReturnValueAnalyzer : DiagnosticAnalyzer
     public override void Initialize(AnalysisContext context)
         => context.RegisterSyntaxNodeAction(AnalyzeExpressionStatement, SyntaxKind.ExpressionStatement);
 
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Descriptor];
+
+    public bool ShouldAnalyze(CompilationOptions options)
+        => options.ReturnedValueHandlingMode == ReturnedValueHandlingMode.Full;
+
     private static void AnalyzeExpressionStatement(SyntaxNodeAnalysisContext context)
     {
+        if (context.Compilation.Options.ReturnedValueHandlingMode != ReturnedValueHandlingMode.Full)
+            return;
+
         if (context.Node is not ExpressionStatementSyntax expressionStatement)
             return;
 

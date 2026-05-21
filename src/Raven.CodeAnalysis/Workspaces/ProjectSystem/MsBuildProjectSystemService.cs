@@ -188,11 +188,17 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         UpdateProperty(root, "RavenAllowGlobalStatements", (project.CompilationOptions?.AllowGlobalStatements ?? true).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenAllowNamespaceMembers", (project.CompilationOptions?.AllowNamespaceMembers ?? true).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenAllowNamespaceMemberImports", (project.CompilationOptions?.AllowNamespaceMemberImports ?? true).ToString().ToLowerInvariant());
-        UpdateProperty(root, "RavenRunAnalyzers", (project.CompilationOptions?.RunAnalyzers ?? true).ToString().ToLowerInvariant());
+        var compilationOptions = project.CompilationOptions;
+        UpdateProperty(root, "RavenRunAnalyzers", (compilationOptions?.RunAnalyzers ?? true).ToString().ToLowerInvariant());
+        if (compilationOptions?.ReturnedValueHandlingModeConfigured == true)
+            UpdateProperty(root, "RavenReturnedValueHandlingMode", ReturnedValueHandlingOptions.ToProjectFileValue(compilationOptions.ReturnedValueHandlingMode));
+        else
+            RemoveProperty(root, "RavenReturnedValueHandlingMode");
+        RemoveProperty(root, "RavenReturnedValueHandling");
 
-        if (project.CompilationOptions?.MembersPublicByDefaultConfigured == true)
+        if (compilationOptions?.MembersPublicByDefaultConfigured == true)
         {
-            var membersPublicByDefault = project.CompilationOptions.MembersPublicByDefault.ToString().ToLowerInvariant();
+            var membersPublicByDefault = compilationOptions.MembersPublicByDefault.ToString().ToLowerInvariant();
             UpdateProperty(root, "MembersPublicByDefault", membersPublicByDefault);
             RemoveProperty(root, "RavenMembersPublicByDefault");
         }

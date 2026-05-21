@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -333,6 +334,9 @@ public class Workspace
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    if (!ShouldRunAnalyzer(analyzer, project.CompilationOptions, analyzerOptions))
+                        continue;
+
                     var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
                     IEnumerable<Diagnostic> analyzerDiagnostics;
                     try
@@ -418,6 +422,9 @@ public class Workspace
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    if (!ShouldRunAnalyzer(analyzer, project.CompilationOptions, analyzerOptions))
+                        continue;
+
                     var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
                     IEnumerable<Diagnostic> analyzerDiagnostics;
                     try
@@ -448,6 +455,17 @@ public class Workspace
         }
 
         return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+    }
+
+    private static bool ShouldRunAnalyzer(
+        DiagnosticAnalyzer analyzer,
+        CompilationOptions? compilationOptions,
+        CompilationWithAnalyzersOptions? analyzerOptions)
+    {
+        _ = analyzerOptions;
+
+        return analyzer is not ICompilationOptionsAwareAnalyzer awareAnalyzer ||
+            awareAnalyzer.ShouldAnalyze(compilationOptions ?? new CompilationOptions());
     }
 
     public ImmutableArray<Diagnostic> GetDocumentSyntaxDiagnostics(

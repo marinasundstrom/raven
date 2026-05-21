@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
@@ -16,6 +17,8 @@ public abstract class DiagnosticAnalyzer
 
     /// <summary>Implement to register analysis actions.</summary>
     public abstract void Initialize(AnalysisContext context);
+
+    public virtual ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [];
 
     /// <summary>Runs the analyzer for the specified compilation.</summary>
     public IEnumerable<Diagnostic> Analyze(Compilation compilation, CancellationToken cancellationToken = default)
@@ -104,6 +107,11 @@ public abstract class DiagnosticAnalyzer
 
         return diagnostics;
     }
+}
+
+public interface ICompilationOptionsAwareAnalyzer
+{
+    bool ShouldAnalyze(CompilationOptions options);
 }
 
 /// <summary>Context used to register analysis actions.</summary>

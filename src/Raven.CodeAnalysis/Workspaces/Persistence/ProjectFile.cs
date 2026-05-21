@@ -62,6 +62,8 @@ internal static class ProjectFile
             projectElement.Add(new XAttribute("AllowNamespaceMembers", opts.AllowNamespaceMembers));
             projectElement.Add(new XAttribute("AllowNamespaceMemberImports", opts.AllowNamespaceMemberImports));
             projectElement.Add(new XAttribute("RunAnalyzers", opts.RunAnalyzers));
+            if (opts.ReturnedValueHandlingModeConfigured)
+                projectElement.Add(new XAttribute("ReturnedValueHandlingMode", ReturnedValueHandlingOptions.ToProjectFileValue(opts.ReturnedValueHandlingMode)));
             if (opts.MembersPublicByDefaultConfigured)
                 projectElement.Add(new XAttribute("MembersPublicByDefault", opts.MembersPublicByDefault));
         }
@@ -115,6 +117,12 @@ internal static class ProjectFile
         var allowNamespaceMemberImportsAttr = (string?)root.Attribute("AllowNamespaceMemberImports")
             ?? (string?)root.Attribute("AllowTopLevelMemberImports");
         var runAnalyzersAttr = (string?)root.Attribute("RunAnalyzers");
+        var returnedValueHandlingAttr = (string?)root.Attribute("ReturnedValueHandlingMode")
+            ?? (string?)root.Attribute("RavenReturnedValueHandlingMode")
+            ?? (string?)root.Attribute("ReturnedValueHandling")
+            ?? (string?)root.Attribute("RavenReturnedValueHandling");
+        var enableReturnedValueAnalyzerAttr = (string?)root.Attribute("EnableReturnedValueAnalyzer")
+            ?? (string?)root.Attribute("RavenEnableReturnedValueAnalyzer");
         var membersPublicByDefaultAttr = (string?)root.Attribute("MembersPublicByDefault");
         var generatePreludeImports = true;
         var generatePreludeImportsAttr = (string?)root.Attribute("GeneratePreludeImports");
@@ -140,6 +148,16 @@ internal static class ProjectFile
 
         if (runAnalyzersAttr is string ra && bool.TryParse(ra, out var runAnalyzers))
             options = options.WithRunAnalyzers(runAnalyzers);
+
+        if (ReturnedValueHandlingOptions.TryParse(returnedValueHandlingAttr, out var returnedValueHandling))
+        {
+            options = options.WithReturnedValueHandlingMode(returnedValueHandling);
+        }
+        else if (enableReturnedValueAnalyzerAttr is string erva && bool.TryParse(erva, out var enableReturnedValueAnalyzer))
+        {
+            options = options.WithReturnedValueHandlingMode(
+                enableReturnedValueAnalyzer ? ReturnedValueHandlingMode.Full : ReturnedValueHandlingMode.Off);
+        }
 
         if (membersPublicByDefaultAttr is string mpbd && bool.TryParse(mpbd, out var membersPublicByDefault))
             options = options.WithMembersPublicByDefault(membersPublicByDefault);

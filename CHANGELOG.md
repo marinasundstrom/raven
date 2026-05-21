@@ -4,11 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
-- Added warning `RAV9029` for bare member invocations and member accesses whose returned
-  value is ignored. Assign the returned value to a target, assign it to `_`, return it, or
-  pass it on.
-- Added `--returned-value-handling <default|none|info|warning|error>` and
+- Added opt-in diagnostic `RAV9029` for bare member invocations and member accesses whose
+  returned value is ignored. Assign the returned value to a target, assign it to `_`, return
+  it, or pass it on. The analyzer is disabled by default while it uses whole-analyzer mode.
+- Added `--returned-value-handling <default|full|none|info|warning|error>` and
   `--force-returned-value-handling` to configure `RAV9029` from the compiler CLI.
+- Added project-file mode configuration for `RAV9029` through `ReturnedValueHandlingMode` /
+  `RavenReturnedValueHandlingMode` and `EnableReturnedValueAnalyzer` /
+  `RavenEnableReturnedValueAnalyzer`.
 - Extended unused-variable analysis to report unused callable parameters as warning
   `RAV9030`, covering methods, `func` statements, constructors, operators, and function
   expressions.

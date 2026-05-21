@@ -22,7 +22,9 @@ public class TestState
 {
     public ImmutableArray<MetadataReference> AdditionalReferences { get; set; } = [];
     public ImmutableArray<MetadataReference> ReferenceAssemblies { get; set; } = Raven.CodeAnalysis.Testing.ReferenceAssemblies.Default;
+    public Dictionary<string, ReportDiagnostic> SpecificDiagnosticOptions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool EnableSuggestions { get; set; }
+    public ReturnedValueHandlingMode? ReturnedValueHandlingMode { get; set; }
 }
 
 public class DiagnosticVerifier

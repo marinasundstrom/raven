@@ -120,6 +120,7 @@ internal static class MsBuildProjectEvaluator
         var runAnalyzers = GetBooleanProperty(project, "RunAnalyzers")
             ?? GetBooleanProperty(project, "RavenRunAnalyzers")
             ?? true;
+        var returnedValueHandling = GetReturnedValueHandlingProperty(project);
         var membersPublicByDefault = GetBooleanProperty(project, "MembersPublicByDefault")
             ?? GetBooleanProperty(project, "RavenMembersPublicByDefault");
         var generatePreludeImports = GetBooleanProperty(project, "GeneratePreludeImports")
@@ -132,6 +133,9 @@ internal static class MsBuildProjectEvaluator
             .WithAllowNamespaceMembers(allowNamespaceMembers)
             .WithAllowNamespaceMemberImports(allowNamespaceMemberImports)
             .WithRunAnalyzers(runAnalyzers);
+
+        if (returnedValueHandling is { } returnedValueHandlingMode)
+            compilationOptions = compilationOptions.WithReturnedValueHandlingMode(returnedValueHandlingMode);
 
         if (membersPublicByDefault is bool configuredMembersPublicByDefault)
             compilationOptions = compilationOptions.WithMembersPublicByDefault(configuredMembersPublicByDefault);
@@ -301,6 +305,25 @@ internal static class MsBuildProjectEvaluator
     {
         var value = project.GetPropertyValue(propertyName);
         return bool.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private static ReturnedValueHandlingMode? GetReturnedValueHandlingProperty(MSBuildProject project)
+    {
+        var handling = GetOptionalProperty(project, "ReturnedValueHandlingMode")
+            ?? GetOptionalProperty(project, "RavenReturnedValueHandlingMode")
+            ?? GetOptionalProperty(project, "ReturnedValueHandling")
+            ?? GetOptionalProperty(project, "RavenReturnedValueHandling");
+        if (ReturnedValueHandlingOptions.TryParse(handling, out var parsedHandling))
+            return parsedHandling;
+
+        var enabled = GetBooleanProperty(project, "EnableReturnedValueAnalyzer")
+            ?? GetBooleanProperty(project, "RavenEnableReturnedValueAnalyzer");
+        return enabled switch
+        {
+            true => ReturnedValueHandlingMode.Full,
+            false => ReturnedValueHandlingMode.Off,
+            _ => null
+        };
     }
 
     private static bool? GetBooleanMetadata(ProjectItem item, string metadataName)

@@ -4,7 +4,13 @@ namespace Raven.CodeAnalysis.Testing;
 
 public abstract class AnalyzerTestBase
 {
-    protected AnalyzerVerifier<TAnalyzer> CreateAnalyzerVerifier<TAnalyzer>(string testCode, IEnumerable<DiagnosticResult>? expectedDiagnostics = null, IEnumerable<string>? disabledDiagnostics = null, bool enableSuggestions = false)
+    protected AnalyzerVerifier<TAnalyzer> CreateAnalyzerVerifier<TAnalyzer>(
+        string testCode,
+        IEnumerable<DiagnosticResult>? expectedDiagnostics = null,
+        IEnumerable<string>? disabledDiagnostics = null,
+        bool enableSuggestions = false,
+        IDictionary<string, ReportDiagnostic>? specificDiagnosticOptions = null,
+        ReturnedValueHandlingMode? returnedValueHandlingMode = null)
         where TAnalyzer : DiagnosticAnalyzer, new()
     {
         return new AnalyzerVerifier<TAnalyzer>
@@ -16,7 +22,11 @@ public abstract class AnalyzerTestBase
                 DisabledDiagnostics = disabledDiagnostics?.ToList() ?? [],
                 State = new TestState
                 {
-                    EnableSuggestions = enableSuggestions
+                    EnableSuggestions = enableSuggestions,
+                    ReturnedValueHandlingMode = returnedValueHandlingMode,
+                    SpecificDiagnosticOptions = specificDiagnosticOptions is not null
+                        ? new Dictionary<string, ReportDiagnostic>(specificDiagnosticOptions, StringComparer.OrdinalIgnoreCase)
+                        : []
                 }
             }
         };

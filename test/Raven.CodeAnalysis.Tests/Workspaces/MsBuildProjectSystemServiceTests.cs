@@ -33,6 +33,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
                                             <RavenAllowGlobalStatements>false</RavenAllowGlobalStatements>
                                             <RavenRunAnalyzers>false</RavenRunAnalyzers>
+                                            <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
                                             <MembersPublicByDefault>false</MembersPublicByDefault>
                                             <GenerateDocumentationFile>true</GenerateDocumentationFile>
                                             <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
@@ -56,6 +57,8 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.True(project.CompilationOptions.AllowUnsafe);
             Assert.False(project.CompilationOptions.AllowGlobalStatements);
             Assert.False(project.CompilationOptions.RunAnalyzers);
+            Assert.True(project.CompilationOptions.ReturnedValueHandlingModeConfigured);
+            Assert.Equal(ReturnedValueHandlingMode.Full, project.CompilationOptions.ReturnedValueHandlingMode);
             Assert.True(project.CompilationOptions.MembersPublicByDefaultConfigured);
             Assert.False(project.CompilationOptions.MembersPublicByDefault);
             Assert.NotNull(project.DocumentationOptions);

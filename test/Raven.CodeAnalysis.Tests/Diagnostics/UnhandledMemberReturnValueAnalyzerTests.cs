@@ -19,7 +19,7 @@ func Test() -> () {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        var verifier = CreateReturnedValueAnalyzerVerifier(
             code,
             expectedDiagnostics:
             [
@@ -33,9 +33,25 @@ func Test() -> () {
     }
 
     [Fact]
-    public void ReturningMethodCall_DefaultWarningMessage_SaysReturnValueIsIgnored()
+    public void ReturningMethodCall_Default_DoesNotReportUntilEnabled()
     {
-        var diagnostic = AnalyzeReturnedValueDiagnostic();
+        var diagnostics = AnalyzeReturnedValueDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId);
+    }
+
+    [Fact]
+    public void ReturningMethodCall_SeverityOnly_DoesNotEnableAnalyzer()
+    {
+        var diagnostics = AnalyzeReturnedValueDiagnostics(option: ReportDiagnostic.Warn);
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId);
+    }
+
+    [Fact]
+    public void ReturningMethodCall_WarningSeverity_SaysReturnValueIsNotHandled()
+    {
+        var diagnostic = Assert.Single(AnalyzeReturnedValueDiagnostics(ReturnedValueHandlingMode.Full));
 
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal("Returned value of 'Compute' is not handled.", diagnostic.GetMessage());
@@ -44,7 +60,9 @@ func Test() -> () {
     [Fact]
     public void ReturningMethodCall_ErrorSeverity_KeepsStableMessage()
     {
-        var diagnostic = AnalyzeReturnedValueDiagnostic(ReportDiagnostic.Error);
+        var diagnostic = Assert.Single(AnalyzeReturnedValueDiagnostics(
+            ReturnedValueHandlingMode.Full,
+            ReportDiagnostic.Error));
 
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
         Assert.Equal("Returned value of 'Compute' is not handled.", diagnostic.GetMessage());
@@ -62,7 +80,7 @@ func Test() -> () {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        var verifier = CreateReturnedValueAnalyzerVerifier(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -83,7 +101,7 @@ func Test() -> () {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        var verifier = CreateReturnedValueAnalyzerVerifier(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, UnusedVariableAnalyzer.DiagnosticId]);
@@ -104,7 +122,7 @@ func Test() -> () {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        var verifier = CreateReturnedValueAnalyzerVerifier(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -128,7 +146,7 @@ func Test() -> () {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        var verifier = CreateReturnedValueAnalyzerVerifier(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -149,7 +167,7 @@ func Test() -> int {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        var verifier = CreateReturnedValueAnalyzerVerifier(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -171,7 +189,7 @@ func Test() -> () {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+        var verifier = CreateReturnedValueAnalyzerVerifier(
             code,
             expectedDiagnostics:
             [
@@ -184,7 +202,23 @@ func Test() -> () {
         verifier.Verify();
     }
 
-    private static Diagnostic AnalyzeReturnedValueDiagnostic(ReportDiagnostic? option = null)
+    private AnalyzerVerifier<UnhandledMemberReturnValueAnalyzer> CreateReturnedValueAnalyzerVerifier(
+        string code,
+        IEnumerable<DiagnosticResult>? expectedDiagnostics = null,
+        IEnumerable<string>? disabledDiagnostics = null)
+        => CreateAnalyzerVerifier<UnhandledMemberReturnValueAnalyzer>(
+            code,
+            expectedDiagnostics,
+            disabledDiagnostics,
+            returnedValueHandlingMode: ReturnedValueHandlingMode.Full,
+            specificDiagnosticOptions: new Dictionary<string, ReportDiagnostic>(StringComparer.OrdinalIgnoreCase)
+            {
+                [UnhandledMemberReturnValueAnalyzer.DiagnosticId] = ReportDiagnostic.Warn
+            });
+
+    private static Diagnostic[] AnalyzeReturnedValueDiagnostics(
+        ReturnedValueHandlingMode? mode = null,
+        ReportDiagnostic? option = null)
     {
         const string code = """
 func Compute() -> int {
@@ -198,6 +232,9 @@ func Test() -> () {
 
         var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);
         var options = new CompilationOptions(OutputKind.ConsoleApplication);
+        if (mode is { } returnedValueHandlingMode)
+            options = options.WithReturnedValueHandlingMode(returnedValueHandlingMode);
+
         if (option is { } diagnosticOption)
         {
             options = options.WithSpecificDiagnosticOption(
@@ -216,8 +253,8 @@ func Test() -> () {
 
         workspace.TryApplyChanges(project.Solution);
 
-        return Assert.Single(
-            workspace.GetDiagnostics(projectId),
-            diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId);
+        return workspace.GetDiagnostics(projectId)
+            .Where(diagnostic => diagnostic.Id == UnhandledMemberReturnValueAnalyzer.DiagnosticId)
+            .ToArray();
     }
 }

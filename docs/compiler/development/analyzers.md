@@ -30,9 +30,8 @@ Raven currently provides analyzers for two different contexts:
 - **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
   invocations, property accesses, or field accesses whose returned value is not handled.
   Assign the returned value to a target, assign it to `_`, return it, or pass it on. The
-  default severity is warning; `.editorconfig` can configure `RAV9029`, and the CLI can
-  override it with `--returned-value-handling <default|none|info|warning|error>` or force
-  it to an error with `--force-returned-value-handling`.
+  analyzer is disabled by default while it uses whole-analyzer mode; enable `full` mode in
+  the project file or with the CLI, then control `RAV9029` severity through `.editorconfig`.
 
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
@@ -117,6 +116,20 @@ Analyzer severities can be configured through `.editorconfig` using standard key
 `dotnet_analyzer_diagnostic.severity`.
 The language server watches `.editorconfig` and reapplies diagnostic severity changes to open
 projects without reopening the project.
+
+Analyzer authors should keep analyzer participation separate from diagnostic severity.
+`DiagnosticDescriptor.DefaultSeverity` supplies the default level, and `.editorconfig` should
+remap that level by diagnostic ID. If a built-in analyzer needs a project-file mode, implement
+`ICompilationOptionsAwareAnalyzer.ShouldAnalyze` and model the mode on `CompilationOptions`;
+do not use descriptor disabled-by-default state or severity options to decide whether the
+analyzer runs.
+
+`RAV9029` is off by default. Project files control the analyzer mode, and `.editorconfig`
+controls severity. Legacy `.ravenproj` files can use `ReturnedValueHandlingMode="full"` or
+`EnableReturnedValueAnalyzer="true|false"`. MSBuild-style `.rvnproj` files can use
+`<RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>` or
+`<RavenEnableReturnedValueAnalyzer>true|false</RavenEnableReturnedValueAnalyzer>`. The only
+non-off mode today is `full`.
 
 For a concrete project sample that disables `RAV9012` (not-use-null), `RAV9013` (don't use
 throw), and `RAV9014` (prefer Result/Option-based extensions), see

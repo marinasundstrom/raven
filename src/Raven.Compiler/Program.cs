@@ -52,7 +52,7 @@ var stopwatch = Stopwatch.StartNew();
 // --format          - normalize whitespace and indentation in source files
 // --highlight       - display diagnostics with highlighted source
 // --suggestions     - display instructional rewrite suggestions for diagnostics that provide them
-// --returned-value-handling <default|none|info|warning|error> - configure RAV9029 returned-value diagnostics
+// --returned-value-handling <default|full|none|info|warning|error> - configure opt-in RAV9029 returned-value diagnostics
 // -h, --help        - display help
 // --run             - execute the produced assembly when compilation succeeds (console apps only)
 
@@ -104,6 +104,7 @@ var format = false;
 var hasInvalidOption = false;
 var highlightDiagnostics = false;
 var showSuggestions = false;
+ReturnedValueHandlingMode? returnedValueHandlingModeOverride = null;
 ReportDiagnostic? returnedValueHandlingDiagnostic = null;
 var quote = false;
 var runIlVerify = false;
@@ -235,10 +236,11 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--returned-value-handling":
         case "--returned-value-diagnostic":
-            if (!TryParseReturnedValueHandlingDiagnostic(args, ref i, out returnedValueHandlingDiagnostic))
+            if (!TryParseReturnedValueHandlingDiagnostic(args, ref i, out returnedValueHandlingModeOverride, out returnedValueHandlingDiagnostic))
                 hasInvalidOption = true;
             break;
         case "--force-returned-value-handling":
+            returnedValueHandlingModeOverride = ReturnedValueHandlingMode.Full;
             returnedValueHandlingDiagnostic = ReportDiagnostic.Error;
             break;
         case "--quote":
@@ -1008,6 +1010,9 @@ if (returnedValueHandlingDiagnostic is { } returnedValueHandlingOption)
         UnhandledMemberReturnValueAnalyzer.DiagnosticId,
         returnedValueHandlingOption);
 }
+
+if (returnedValueHandlingModeOverride is { } returnedValueHandlingMode)
+    options = options.WithReturnedValueHandlingMode(returnedValueHandlingMode);
 
 project = project.WithCompilationOptions(options);
 project = AddDefaultAnalyzers(project, options.EnableSuggestions);
@@ -2015,8 +2020,8 @@ static void PrintHelp()
     Console.WriteLine("                     Log overload resolution details to the console or the provided file.");
     Console.WriteLine("  --highlight       Display diagnostics with highlighted source snippets");
     Console.WriteLine("  --suggestions    Display educational rewrite suggestions for diagnostics that provide them");
-    Console.WriteLine("  --returned-value-handling <default|none|info|warning|error>");
-    Console.WriteLine("                    Configure RAV9029 diagnostics for returned values that are not handled");
+    Console.WriteLine("  --returned-value-handling <default|full|none|info|warning|error>");
+    Console.WriteLine("                    Configure opt-in RAV9029 diagnostics for returned values that are not handled");
     Console.WriteLine("  --force-returned-value-handling");
     Console.WriteLine("                    Treat returned values that are not handled as errors");
     Console.WriteLine("  -q, --quote        Display AST as compilable C# code.");
@@ -2611,46 +2616,64 @@ static bool TryParseNonNegativeInt(string[] args, ref int index, out int value)
     return true;
 }
 
-static bool TryParseReturnedValueHandlingDiagnostic(string[] args, ref int index, out ReportDiagnostic? option)
+static bool TryParseReturnedValueHandlingDiagnostic(
+    string[] args,
+    ref int index,
+    out ReturnedValueHandlingMode? mode,
+    out ReportDiagnostic? option)
 {
+    mode = null;
     option = null;
     var value = ConsumeOptionValue(args, ref index);
     if (value is null)
     {
-        AnsiConsole.MarkupLine("[red]--returned-value-handling requires a diagnostic level.[/]");
+        AnsiConsole.MarkupLine("[red]--returned-value-handling requires a mode or diagnostic level.[/]");
         return false;
     }
 
-    switch (value.ToLowerInvariant())
+    switch (value.Trim().ToLowerInvariant())
     {
         case "default":
-            option = ReportDiagnostic.Default;
+            return true;
+        case "full":
+        case "enabled":
+        case "enable":
+        case "true":
+            mode = ReturnedValueHandlingMode.Full;
             return true;
         case "none":
         case "off":
+        case "disabled":
+        case "disable":
+        case "false":
         case "suppress":
         case "suppressed":
+            mode = ReturnedValueHandlingMode.Off;
             option = ReportDiagnostic.Suppress;
             return true;
         case "hidden":
         case "silent":
         case "suggestion":
+            mode = ReturnedValueHandlingMode.Full;
             option = ReportDiagnostic.Hidden;
             return true;
         case "info":
         case "information":
+            mode = ReturnedValueHandlingMode.Full;
             option = ReportDiagnostic.Info;
             return true;
         case "warning":
         case "warn":
+            mode = ReturnedValueHandlingMode.Full;
             option = ReportDiagnostic.Warn;
             return true;
         case "error":
+            mode = ReturnedValueHandlingMode.Full;
             option = ReportDiagnostic.Error;
             return true;
     }
 
-    AnsiConsole.MarkupLine($"[red]Unknown returned-value diagnostic level '{value}'.[/]");
+    AnsiConsole.MarkupLine($"[red]Unknown returned-value handling value '{value}'.[/]");
     return false;
 }
 

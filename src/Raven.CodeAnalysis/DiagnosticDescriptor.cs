@@ -2,7 +2,15 @@ namespace Raven.CodeAnalysis;
 
 public class DiagnosticDescriptor
 {
-    private DiagnosticDescriptor(string id, LocalizableString title, LocalizableString? description, string helpLinkUri, LocalizableString messageFormat, string category, DiagnosticSeverity defaultSeverity)
+    private DiagnosticDescriptor(
+        string id,
+        LocalizableString title,
+        LocalizableString? description,
+        string helpLinkUri,
+        LocalizableString messageFormat,
+        string category,
+        DiagnosticSeverity defaultSeverity,
+        bool isEnabledByDefault)
     {
         Id = id;
         Title = title;
@@ -11,6 +19,7 @@ public class DiagnosticDescriptor
         MessageFormat = messageFormat;
         Category = category;
         DefaultSeverity = defaultSeverity;
+        IsEnabledByDefault = isEnabledByDefault;
     }
 
     public static DiagnosticDescriptor Create(
@@ -23,7 +32,7 @@ public class DiagnosticDescriptor
         DiagnosticSeverity defaultSeverity,
         bool isEnabledByDefault = true)
     {
-        return new DiagnosticDescriptor(id, title, description, helpLinkUri, messageFormat, category, defaultSeverity);
+        return new DiagnosticDescriptor(id, title, description, helpLinkUri, messageFormat, category, defaultSeverity, isEnabledByDefault);
     }
 
     public string Id { get; }
@@ -39,6 +48,8 @@ public class DiagnosticDescriptor
     public string Category { get; }
 
     public DiagnosticSeverity DefaultSeverity { get; }
+
+    public bool IsEnabledByDefault { get; }
 
     public override bool Equals(object? obj)
     {
