@@ -6,6 +6,6 @@ func Test() {
     WriteLine("Hello")
 }
 
-func A(x: int) {
-    
+func A(x: int) -> int {
+    42
 }

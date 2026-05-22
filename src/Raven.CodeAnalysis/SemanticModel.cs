@@ -6476,8 +6476,8 @@ public partial class SemanticModel
             return false;
         }
 
-        PrimeContextualFunctionExpressions(interestRoot);
         ClearCachedSemanticState(interestRoot);
+        PrimeContextualFunctionExpressions(interestRoot);
         _ = GetBoundNode(interestRoot, BoundTreeView.Original);
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
@@ -6610,6 +6610,19 @@ public partial class SemanticModel
             }
         }
 
+        var requiresInitializerOwnerBinding =
+            allowInitializerBinding &&
+            allowBindingFallback &&
+            variableDeclarator.TypeAnnotation is null &&
+            variableDeclarator.Initializer is not null;
+
+        if (requiresInitializerOwnerBinding &&
+            TryRebindLocalDeclarationFromInterestRoot(variableDeclarator, allowErrorType: false, out var ownerBoundLocal))
+        {
+            localSymbol = ownerBoundLocal;
+            return true;
+        }
+
         var binder = GetBinderForIncrementalSemanticQuery(variableDeclarator);
         if (TryGetNearestBlockBinder(binder, out var blockBinder))
         {
@@ -6660,18 +6673,18 @@ public partial class SemanticModel
             errorLocal ??= reboundDeclarator.Local;
         }
 
-        if (allowErrorType && errorLocal is not null)
-        {
-            localSymbol = errorLocal;
-            return true;
-        }
-
         if (allowInitializerBinding &&
             errorLocal is not null &&
             variableDeclarator.Initializer is not null &&
-            TryRebindLocalDeclarationFromInterestRoot(variableDeclarator, allowErrorType, out var reboundLocal))
+            TryRebindLocalDeclarationFromInterestRoot(variableDeclarator, allowErrorType: false, out var reboundLocal))
         {
             localSymbol = reboundLocal;
+            return true;
+        }
+
+        if (allowErrorType && errorLocal is not null)
+        {
+            localSymbol = errorLocal;
             return true;
         }
 
@@ -6708,9 +6721,16 @@ public partial class SemanticModel
             return false;
         }
 
-        PrimeContextualFunctionExpressions(interestRoot);
         ClearCachedSemanticState(interestRoot);
-        _ = GetBoundNode(interestRoot, BoundTreeView.Original);
+        var reboundRoot = GetBoundNode(interestRoot, BoundTreeView.Original);
+
+        if (TryFindBoundNodeBySyntax(reboundRoot, variableDeclarator, out var reboundNode) &&
+            reboundNode is BoundVariableDeclarator contextualDeclarator &&
+            (allowErrorType || !contextualDeclarator.Local.Type.ContainsErrorType()))
+        {
+            localSymbol = contextualDeclarator.Local;
+            return true;
+        }
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
             (allowErrorType || !reboundDeclarator.Local.Type.ContainsErrorType()))

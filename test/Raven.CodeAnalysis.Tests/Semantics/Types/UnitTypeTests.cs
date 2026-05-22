@@ -31,6 +31,58 @@ val u = ping()
     }
 
     [Fact]
+    public void ImportedNamespaceFunctionInitializer_GetDeclaredSymbolFirst_InfersReturnType()
+        => AssertImportedNamespaceFunctionInitializer("-> int { 42 }", SpecialType.System_Int32);
+
+    [Fact]
+    public void ImportedNamespaceFunctionInitializer_GetDeclaredSymbolFirst_InfersUnitReturnType()
+        => AssertImportedNamespaceFunctionInitializer("{ }", SpecialType.System_Unit);
+
+    private void AssertImportedNamespaceFunctionInitializer(string functionBody, SpecialType expectedType)
+    {
+        var main = SyntaxTree.ParseText(
+            """
+            import Utilities.*
+
+            func Main() {
+                val x = A(42)
+            }
+            """);
+        var utilities = SyntaxTree.ParseText(
+            $$"""
+            namespace Utilities
+
+            func A(x: int) {{functionBody}}
+            """);
+        var compilation = CreateCompilation([utilities, main], new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(main);
+        var declarator = main.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single();
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.True(
+            local.Type.SpecialType == expectedType,
+            $"Expected {expectedType} local, got {local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} ({local.Type.TypeKind}, {local.Type.SpecialType}).");
+
+        var invocation = main.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        var invocationSymbol = model.GetSymbolInfo(invocation).Symbol;
+        Assert.NotNull(invocationSymbol);
+
+        var initType = model.GetTypeInfo(declarator.Initializer!.Value).Type;
+        Assert.NotNull(initType);
+        Assert.Equal(expectedType, initType!.SpecialType);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor.Id == "RAV0103");
+    }
+
+    [Fact]
     public void ExplicitUnitTypeAnnotation_BindsToUnit()
     {
         var source = """

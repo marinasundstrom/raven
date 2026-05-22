@@ -1,6 +1,8 @@
 import Utilities.*
 
-Test()
-A(42)
-Test()
-A(42)
+func Main() {
+    Test()
+    val x = A(42)
+    Test()
+    A(42)
+}
