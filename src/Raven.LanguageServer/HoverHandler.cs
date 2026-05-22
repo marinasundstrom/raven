@@ -100,12 +100,12 @@ internal sealed class HoverHandler : IHoverHandler
 
             currentStage = "semanticGate";
             var gateWaitStopwatch = Stopwatch.StartNew();
-            using var semanticLease = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "hover").ConfigureAwait(false);
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "hover").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
 
             currentStage = "semanticModel";
             stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticAccess.SemanticModel;
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
                 return null;

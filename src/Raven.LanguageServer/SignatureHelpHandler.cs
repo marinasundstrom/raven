@@ -53,7 +53,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         try
         {
-            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "signatureHelp").ConfigureAwait(false);
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "signatureHelp").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
             var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
@@ -63,7 +63,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
             stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticAccess.SemanticModel;
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
                 return null;

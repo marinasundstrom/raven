@@ -29,6 +29,7 @@ public partial class Compilation
         public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> SemanticDiagnosticsByRelativeOwner { get; } = new();
         public ConcurrentDictionary<SyntaxTree, ImmutableHashSet<ExecutableOwnerDescriptor>> ChangedExecutableOwnerDescriptors { get; } = new();
         public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerDescriptor, MatchedExecutableOwner>> MatchedExecutableOwners { get; } = new();
+        public ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange>> ExecutableOwnerChanges { get; } = new();
         public ConcurrentDictionary<SyntaxTree, byte> SemanticDiagnosticTransferBlockedSyntaxTrees { get; } = new();
     }
 

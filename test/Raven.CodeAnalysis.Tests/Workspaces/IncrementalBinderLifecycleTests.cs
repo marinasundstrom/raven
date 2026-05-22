@@ -1131,7 +1131,7 @@ public sealed class IncrementalBinderLifecycleTests
                         })
                     }
 
-                    func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
+                    func Accept(handler: (RequestContext) -> Task<string>) -> unit { }
                 }
                 """),
             "/tmp/edited.rav").Project;
@@ -1188,7 +1188,7 @@ public sealed class IncrementalBinderLifecycleTests
                     public val Text: string = "body"
                 }
 
-                func Accept(handler: func (RequestContext) -> Task<string>) -> unit { }
+                func Accept(handler: (RequestContext) -> Task<string>) -> unit { }
 
                 Accept(async func (context: RequestContext) {
                     val content = await Task.FromResult(context.Text)

@@ -25,6 +25,7 @@ public partial class Compilation
         {
             RegisterChangedExecutableOwnerDescriptors(changedTree.CurrentTree, changedTree.ChangedOwners);
             RegisterMatchedExecutableOwners(changedTree.CurrentTree, changedTree.MatchedOwners);
+            RegisterExecutableOwnerChanges(changedTree.CurrentTree, changedTree.OwnerChanges);
 
             if (changedTree.BlocksSemanticDiagnosticTransfer)
                 RegisterSemanticDiagnosticTransferBlocked(changedTree.CurrentTree);
@@ -247,8 +248,6 @@ public partial class Compilation
             var ownerChange = TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var change)
                 ? change
                 : (OwnerRelativeTextChange?)null;
-            if (ownerChange is not null)
-                return;
 
             Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>? remappedValues = null;
 
@@ -256,6 +255,12 @@ public partial class Compilation
             {
                 if (key.Owner != match.PreviousOwner ||
                     !IsSemanticDiagnosticOwnerKey(key))
+                {
+                    continue;
+                }
+
+                if (ownerChange is { } semanticOwnerChange &&
+                    (!value.IsEmpty || !HasChangedNestedOwner(matchedTree.OwnerChanges, match.CurrentOwner, semanticOwnerChange)))
                 {
                     continue;
                 }
@@ -281,6 +286,29 @@ public partial class Compilation
             => key.RelativeStart == 0 &&
                key.Length == key.Owner.Span.Length &&
                key.Kind == key.Owner.Kind;
+
+        private static bool HasChangedNestedOwner(
+            ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> ownerChanges,
+            ExecutableOwnerDescriptor owner,
+            OwnerRelativeTextChange ownerChange)
+        {
+            var changedSpan = new Text.TextSpan(owner.Span.Start + ownerChange.CurrentSpan.Start, ownerChange.CurrentSpan.Length);
+            return ownerChanges.Keys.Any(candidate =>
+                candidate != owner &&
+                ContainsSpan(owner.Span, candidate.Span) &&
+                ContainsOrTouchesInsertion(candidate.Span, changedSpan));
+        }
+
+        private static bool ContainsOrTouchesInsertion(Text.TextSpan container, Text.TextSpan span)
+        {
+            if (span.Length == 0)
+                return span.Start >= container.Start && span.Start <= container.End + 1;
+
+            return span.Start >= container.Start && span.End <= container.End;
+        }
+
+        private static bool ContainsSpan(Text.TextSpan container, Text.TextSpan span)
+            => span.Start >= container.Start && span.End <= container.End;
     }
 
     private delegate bool TryRemapOwnerRelativeDescriptorKeyDelegate(

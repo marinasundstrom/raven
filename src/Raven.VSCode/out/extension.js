@@ -50,6 +50,7 @@ let extensionInstallPath = '';
 let pendingInlayHintRefresh;
 let pendingImportCompletionTrigger;
 const recentRavenDocumentChanges = new Map();
+const inlayHintRequestVersions = new Map();
 function execFileText(command, args, options = {}) {
     return new Promise((resolve, reject) => {
         (0, child_process_1.execFile)(command, [...args], { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
@@ -200,7 +201,10 @@ async function waitForInlayHintQuietPeriod(document, token) {
     return false;
 }
 async function refreshInlayHints() {
-    fireVisibleInlayHintProviders();
+    const providerCount = fireVisibleInlayHintProviders();
+    if (providerCount > 0) {
+        return;
+    }
     try {
         await vscode.commands.executeCommand('editor.action.inlayHints.refresh');
     }
@@ -212,7 +216,7 @@ async function refreshInlayHints() {
 function fireVisibleInlayHintProviders() {
     const activeClient = client;
     if (!activeClient || activeClient.state !== node_1.State.Running) {
-        return;
+        return 0;
     }
     let providerCount = 0;
     const seen = new Set();
@@ -234,11 +238,12 @@ function fireVisibleInlayHintProviders() {
     catch (error) {
         const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
         appendLifecycleLog(`Unable to invalidate inlay hint providers: ${message}`);
-        return;
+        return 0;
     }
     if (providerCount > 0) {
         appendLifecycleLog(`Invalidated ${providerCount} visible inlay hint provider(s).`);
     }
+    return providerCount;
 }
 function scheduleInlayHintRefresh() {
     if (pendingInlayHintRefresh) {
@@ -488,8 +493,14 @@ function createLanguageClient(context) {
                     return [];
                 }
                 if (document.languageId === 'raven') {
+                    const key = document.uri.toString();
+                    const requestVersion = (inlayHintRequestVersions.get(key) ?? 0) + 1;
+                    inlayHintRequestVersions.set(key, requestVersion);
                     const shouldContinue = await waitForInlayHintQuietPeriod(document, token);
                     if (!shouldContinue) {
+                        return [];
+                    }
+                    if (inlayHintRequestVersions.get(key) !== requestVersion) {
                         return [];
                     }
                 }
@@ -1158,6 +1169,7 @@ function activate(context) {
     context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(document => {
         if (document.languageId === 'raven') {
             recentRavenDocumentChanges.delete(document.uri.toString());
+            inlayHintRequestVersions.delete(document.uri.toString());
         }
     }));
     context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(event => {

@@ -41,14 +41,14 @@ internal sealed class ReferencesHandler : IReferencesHandler
     {
         try
         {
-            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "references").ConfigureAwait(false);
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "references").ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new LocationContainer();
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticAccess.SemanticModel;
             if (semanticModel is null)
                 return new LocationContainer();
             var root = syntaxTree.GetRoot(cancellationToken);

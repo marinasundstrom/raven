@@ -49,7 +49,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
 
         try
         {
-            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "definition").ConfigureAwait(false);
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "definition").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
             var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
@@ -60,7 +60,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
             stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticAccess.SemanticModel;
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
                 return new LocationOrLocationLinks();

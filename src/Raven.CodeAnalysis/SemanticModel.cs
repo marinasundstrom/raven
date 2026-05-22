@@ -576,18 +576,20 @@ public partial class SemanticModel
             if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
                 return false;
 
-            var changedOwners = GetExecutableOwnersForDiagnostics(root)
+            var allOwners = GetExecutableOwnersForDiagnostics(root).ToArray();
+            var changedOwners = allOwners
                 .Where(owner =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     return Compilation.IsChangedExecutableOwner(owner);
                 })
                 .ToArray();
-            var allOwners = GetExecutableOwnersForDiagnostics(root).ToArray();
 
             if (changedOwners.Length == 0)
                 return TryCollectTransferredDiagnosticsForAllOwners(root, rootBinder, allOwners, diagnosticsBuilder) ||
                        TryCollectOwnerScopedDiagnosticsForAllOwners(root, rootBinder, allOwners, diagnosticsBuilder, diagnosticInstrumentation);
+
+            changedOwners = RemoveChangedAncestorsCoveredByChangedNestedOwners(changedOwners);
 
             var changedOwnerSet = changedOwners
                 .Select(static owner => new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind))
@@ -673,6 +675,34 @@ public partial class SemanticModel
                     !ReferenceEquals(ownerToBind, owner) &&
                     ownerToBind.Span.Start <= owner.Span.Start &&
                     ownerToBind.Span.End >= owner.Span.End);
+
+            SyntaxNode[] RemoveChangedAncestorsCoveredByChangedNestedOwners(SyntaxNode[] owners)
+            {
+                if (owners.Length <= 1)
+                    return owners;
+
+                return owners
+                    .Where(owner => !ShouldTransferAncestorDiagnostics(owner))
+                    .ToArray();
+
+                bool ShouldTransferAncestorDiagnostics(SyntaxNode owner)
+                {
+                    if (!Compilation.TryGetExecutableOwnerChange(owner, out var change) ||
+                        change.Kind is Compilation.OwnerRelativeChangeKind.SignatureOrDeclaration or Compilation.OwnerRelativeChangeKind.Unknown)
+                    {
+                        return false;
+                    }
+
+                    if (!Compilation.TryGetSemanticDiagnosticDescriptors(owner, out _))
+                        return false;
+
+                    var changedSpan = new Text.TextSpan(owner.Span.Start + change.CurrentSpan.Start, change.CurrentSpan.Length);
+                    return owners.Any(candidate =>
+                        !ReferenceEquals(candidate, owner) &&
+                        ContainsSpan(owner.Span, candidate.Span) &&
+                        ContainsOrTouchesInsertion(candidate.Span, changedSpan));
+                }
+            }
 
             void ClearCachedBinderDiagnostics(Text.TextSpan span)
             {
@@ -906,6 +936,17 @@ public partial class SemanticModel
         static bool BelongsToOwner(Diagnostic diagnostic, SyntaxNode owner)
             => ReferenceEquals(diagnostic.Location.SourceTree, owner.SyntaxTree) &&
                owner.Span.IntersectsWith(diagnostic.Location.SourceSpan);
+
+        static bool ContainsOrTouchesInsertion(Text.TextSpan container, Text.TextSpan span)
+        {
+            if (span.Length == 0)
+                return span.Start >= container.Start && span.Start <= container.End + 1;
+
+            return span.Start >= container.Start && span.End <= container.End;
+        }
+
+        static bool ContainsSpan(Text.TextSpan container, Text.TextSpan span)
+            => span.Start >= container.Start && span.End <= container.End;
 
         static IEnumerable<SyntaxNode> GetExecutableOwnersForDiagnostics(SyntaxNode root)
             => root.DescendantNodesAndSelf().Where(IsExecutableOwnerForDiagnostics);
@@ -6519,13 +6560,53 @@ public partial class SemanticModel
         if (variableDeclarator.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } functionExpression)
         {
             var functionExpressionRoot = GetFunctionExpressionRebindRoot(functionExpression);
-            _ = GetBoundNode(functionExpressionRoot, BoundTreeView.Original);
+            if (functionExpressionRoot.SyntaxTree.GetRoot() is CompilationUnitSyntax functionExpressionCompilationUnit)
+                EnsureTopLevelFunctionDeclarations(functionExpressionCompilationUnit);
+
+            PrimeContextualFunctionExpressions(functionExpressionRoot);
+            var contextualBoundRoot = GetBoundNode(functionExpressionRoot, BoundTreeView.Original);
+
+            if (TryGetLocalFromContextualBoundRoot(contextualBoundRoot, out localSymbol))
+                return true;
 
             if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator functionExpressionDeclarator &&
                 (allowErrorType || !functionExpressionDeclarator.Local.Type.ContainsErrorType()))
             {
-                localSymbol = functionExpressionDeclarator.Local;
-                return true;
+                if (!functionExpressionDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding)
+                {
+                    localSymbol = functionExpressionDeclarator.Local;
+                    return true;
+                }
+
+                ClearCachedSemanticState(functionExpressionRoot);
+                PrimeContextualFunctionExpressions(functionExpressionRoot);
+                contextualBoundRoot = GetBoundNode(functionExpressionRoot, BoundTreeView.Original);
+
+                if (TryGetLocalFromContextualBoundRoot(contextualBoundRoot, out localSymbol))
+                    return true;
+
+                if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundFunctionExpressionDeclarator &&
+                    (allowErrorType || !reboundFunctionExpressionDeclarator.Local.Type.ContainsErrorType()) &&
+                    (!reboundFunctionExpressionDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding))
+                {
+                    localSymbol = reboundFunctionExpressionDeclarator.Local;
+                    return true;
+                }
+            }
+
+            bool TryGetLocalFromContextualBoundRoot(BoundNode boundRoot, out ILocalSymbol? contextualLocal)
+            {
+                if (TryFindBoundNodeBySyntax(boundRoot, variableDeclarator, out var boundNode) &&
+                    boundNode is BoundVariableDeclarator contextualDeclarator &&
+                    (allowErrorType || !contextualDeclarator.Local.Type.ContainsErrorType()) &&
+                    (!contextualDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding))
+                {
+                    contextualLocal = contextualDeclarator.Local;
+                    return true;
+                }
+
+                contextualLocal = null;
+                return false;
             }
         }
 
@@ -6539,8 +6620,11 @@ public partial class SemanticModel
             if (shallowLocal is not null &&
                 (allowErrorType || !shallowLocal.Type.ContainsErrorType()))
             {
-                localSymbol = shallowLocal;
-                return true;
+                if (!shallowLocal.Type.ContainsErrorType() || !allowInitializerBinding)
+                {
+                    localSymbol = shallowLocal;
+                    return true;
+                }
             }
         }
 
@@ -11242,6 +11326,7 @@ public partial class SemanticModel
         if (topLevelBinder is null)
             return;
 
+        EnsureTopLevelFunctionDeclarations(compilationUnit);
         topLevelBinder.BindGlobalStatements(globals);
     }
 
@@ -11266,8 +11351,8 @@ public partial class SemanticModel
         var topLevelBinder = FindTopLevelBinder(GetBinder(compilationUnit))
             ?? (globals.Length > 0 ? FindTopLevelBinder(GetBinder(globals[0])) : null);
 
-        if (globals.Length > 0)
-            topLevelBinder?.DeclareGlobalFunctions(globals);
+        if (topLevelBinder is not null)
+            topLevelBinder.DeclareGlobalFunctions(globals.Concat(functionGlobals));
 
         foreach (var global in functionGlobals)
         {
@@ -11383,6 +11468,13 @@ public partial class SemanticModel
         var useStructuralCache = CanUseStructuralBinderCache(node);
         if (TryGetCompatibleCachedBinder(node, useStructuralCache, nodeKey, out var existingBinder))
         {
+            if (parentBinder is not null &&
+                !ReferenceEquals(existingBinder.ParentBinder, parentBinder) &&
+                node is FunctionStatementSyntax)
+            {
+                return Compilation.BinderFactory.GetBinder(node, parentBinder) ?? existingBinder;
+            }
+
             if (isFunctionExpressionBodyNode &&
                 !IsFunctionExpressionBodyBinder(existingBinder) &&
                 TryEnsureFunctionExpressionBodyBinder(node, enclosingFunctionExpression!, out var functionBodyBinder))

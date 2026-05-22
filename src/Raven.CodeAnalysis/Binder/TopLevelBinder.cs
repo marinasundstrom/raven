@@ -44,11 +44,13 @@ class TopLevelBinder : BlockBinder
         if (_globalFunctionsDeclared)
             return;
 
+        var declaredAny = false;
         foreach (var stmt in statements)
         {
             if (stmt.Statement is not FunctionStatementSyntax localFunc)
                 continue;
 
+            declaredAny = true;
             var binder = SemanticModel.GetBinder(localFunc, this);
             if (binder is FunctionBinder lfBinder)
             {
@@ -60,7 +62,8 @@ class TopLevelBinder : BlockBinder
             }
         }
 
-        _globalFunctionsDeclared = true;
+        if (declaredAny)
+            _globalFunctionsDeclared = true;
     }
 
     public void BindGlobalStatements(IEnumerable<GlobalStatementSyntax> statements)

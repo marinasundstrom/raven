@@ -42,6 +42,24 @@ internal sealed class DocumentStore
         IReadOnlyList<LspDiagnostic> Diagnostics,
         bool WasSkipped);
 
+    internal sealed class DocumentSemanticAccess : IDisposable
+    {
+        private IDisposable? _lease;
+
+        public DocumentSemanticAccess(SemanticModel? semanticModel, IDisposable lease)
+        {
+            SemanticModel = semanticModel;
+            _lease = lease;
+        }
+
+        public SemanticModel? SemanticModel { get; }
+
+        public void Dispose()
+        {
+            Interlocked.Exchange(ref _lease, null)?.Dispose();
+        }
+    }
+
     internal enum DiagnosticLane
     {
         ProjectWithAnalyzers,
@@ -63,6 +81,8 @@ internal sealed class DocumentStore
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<DocumentStore> _logger;
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
+    private readonly object _backgroundDiagnosticsCancellationGate = new();
+    private CancellationTokenSource _backgroundDiagnosticsPreemption = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
     {
@@ -262,32 +282,53 @@ internal sealed class DocumentStore
         DocumentUri uri,
         CancellationToken cancellationToken,
         string? purpose = null)
+        => await EnterDocumentSemanticModelAccessAsync(uri, cancellationToken, purpose).ConfigureAwait(false);
+
+    internal async ValueTask<DocumentSemanticAccess> EnterDocumentSemanticModelAccessAsync(
+        DocumentUri uri,
+        CancellationToken cancellationToken,
+        string? purpose = null)
     {
-        var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
-        if (semanticModel is null)
-            return NoopAccessLease.Instance;
+        PreemptBackgroundDiagnostics(uri, purpose);
 
-        var stopwatch = Stopwatch.StartNew();
-        var lease = await semanticModel.EnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
-        stopwatch.Stop();
-
-        if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
+        using (await EnterCompilerAccessAsync(cancellationToken, purpose ?? "semanticModel", uri).ConfigureAwait(false))
         {
-            _logger.LogInformation(
-                "Slow document semantic gate wait for {Purpose} {Uri}: wait={WaitMs:F1}ms.",
-                purpose ?? "unknown",
-                uri,
-                stopwatch.Elapsed.TotalMilliseconds);
-        }
+            var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
+            if (semanticModel is null)
+                return new DocumentSemanticAccess(null, NoopAccessLease.Instance);
 
-        return lease;
+            var stopwatch = Stopwatch.StartNew();
+            var lease = await semanticModel.EnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
+            {
+                _logger.LogInformation(
+                    "Slow document semantic gate wait for {Purpose} {Uri}: wait={WaitMs:F1}ms.",
+                    purpose ?? "unknown",
+                    uri,
+                    stopwatch.Elapsed.TotalMilliseconds);
+            }
+
+            return new DocumentSemanticAccess(semanticModel, lease);
+        }
     }
 
     public async ValueTask<IDisposable?> TryEnterDocumentSemanticAccessAsync(
         DocumentUri uri,
         CancellationToken cancellationToken,
         string? purpose = null)
+        => await TryEnterDocumentSemanticModelAccessAsync(uri, cancellationToken, purpose).ConfigureAwait(false);
+
+    internal async ValueTask<DocumentSemanticAccess?> TryEnterDocumentSemanticModelAccessAsync(
+        DocumentUri uri,
+        CancellationToken cancellationToken,
+        string? purpose = null)
     {
+        using var compilerLease = await TryEnterCompilerAccessAsync(cancellationToken, purpose ?? "semanticModel", uri).ConfigureAwait(false);
+        if (compilerLease is null)
+            return null;
+
         var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
         if (semanticModel is null)
             return null;
@@ -314,7 +355,7 @@ internal sealed class DocumentStore
                 stopwatch.Elapsed.TotalMilliseconds);
         }
 
-        return lease;
+        return new DocumentSemanticAccess(semanticModel, lease);
     }
 
     public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(
@@ -382,6 +423,7 @@ internal sealed class DocumentStore
         string? diagnosticsSemanticDelta = null;
         string? diagnosticsBindingDelta = null;
         var busySkipped = false;
+        var preempted = false;
 
         try
         {
@@ -389,11 +431,15 @@ internal sealed class DocumentStore
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
             var useBusySkip = allowBusySkip;
+            using var effectiveCancellation = useBusySkip
+                ? CreateBackgroundDiagnosticsCancellation(cancellationToken)
+                : null;
+            var effectiveCancellationToken = effectiveCancellation?.Token ?? cancellationToken;
 
             IDisposable? lease = null;
             if (useBusySkip)
             {
-                lease = await TryEnterCompilerAccessAsync(cancellationToken, "diagnostics", uri).ConfigureAwait(false);
+                lease = await TryEnterCompilerAccessAsync(effectiveCancellationToken, "diagnostics", uri).ConfigureAwait(false);
                 if (lease is null)
                 {
                     busySkipped = true;
@@ -402,14 +448,14 @@ internal sealed class DocumentStore
             }
             else
             {
-                lease = await EnterCompilerAccessAsync(cancellationToken, "diagnostics", uri).ConfigureAwait(false);
+                lease = await EnterCompilerAccessAsync(effectiveCancellationToken, "diagnostics", uri).ConfigureAwait(false);
             }
 
             using var _ = lease;
             gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
             if (shouldSkipWork?.Invoke() == true)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
-            var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+            var context = await CreateDocumentAnalysisContextAsync(uri, effectiveCancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
             var syntaxTree = context.Value.SyntaxTree;
@@ -427,11 +473,11 @@ internal sealed class DocumentStore
                 diagnosticsForProject = context.Value.Compilation.GetDocumentDiagnostics(
                     syntaxTree,
                     analyzerOptions: null,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: effectiveCancellationToken);
             }
             else if (lane == DiagnosticLane.DocumentWithAnalyzers)
             {
-                if (!_workspaceManager.TryGetDocumentDiagnosticsWithAnalyzers(uri, out var documentDiagnosticsWithAnalyzers, cancellationToken: cancellationToken))
+                if (!_workspaceManager.TryGetDocumentDiagnosticsWithAnalyzers(uri, out var documentDiagnosticsWithAnalyzers, cancellationToken: effectiveCancellationToken))
                     return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
 
                 diagnosticsForProject = documentDiagnosticsWithAnalyzers;
@@ -440,11 +486,11 @@ internal sealed class DocumentStore
             {
                 diagnosticsForProject = context.Value.Compilation.GetDiagnostics(
                     analyzerOptions: null,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: effectiveCancellationToken);
             }
             else
             {
-                if (!_workspaceManager.TryGetDiagnostics(uri, out var projectDiagnosticsWithAnalyzers, cancellationToken: cancellationToken))
+                if (!_workspaceManager.TryGetDiagnostics(uri, out var projectDiagnosticsWithAnalyzers, cancellationToken: effectiveCancellationToken))
                     return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
 
                 diagnosticsForProject = projectDiagnosticsWithAnalyzers;
@@ -515,6 +561,11 @@ internal sealed class DocumentStore
         {
             return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
         }
+        catch (OperationCanceledException) when (allowBusySkip && !cancellationToken.IsCancellationRequested)
+        {
+            preempted = true;
+            return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Diagnostic computation failed for {Uri}.", uri);
@@ -539,9 +590,45 @@ internal sealed class DocumentStore
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("gateWait", gateWaitMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("syntaxTree", syntaxTreeMs),
-                    new LanguageServerPerformanceInstrumentation.StageTiming("diagnosticsFetch", diagnosticsFetchMs)
+                    new LanguageServerPerformanceInstrumentation.StageTiming("diagnosticsFetch", diagnosticsFetchMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("preempted", preempted ? 1 : 0)
                 ]);
         }
+    }
+
+    private void PreemptBackgroundDiagnostics(DocumentUri uri, string? purpose)
+    {
+        lock (_backgroundDiagnosticsCancellationGate)
+        {
+            var previous = _backgroundDiagnosticsPreemption;
+            _backgroundDiagnosticsPreemption = new CancellationTokenSource();
+
+            try
+            {
+                previous.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        _logger.LogDebug(
+            "Preempted background diagnostics before semantic request for {Purpose} {Uri}.",
+            purpose ?? "unknown",
+            uri);
+    }
+
+    private CancellationTokenSource CreateBackgroundDiagnosticsCancellation(CancellationToken cancellationToken)
+    {
+        CancellationToken preemptionToken;
+        lock (_backgroundDiagnosticsCancellationGate)
+        {
+            preemptionToken = _backgroundDiagnosticsPreemption.Token;
+        }
+
+        return cancellationToken.CanBeCanceled
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, preemptionToken)
+            : CancellationTokenSource.CreateLinkedTokenSource(preemptionToken);
     }
 
     private static string CreateDiagnosticsPerformanceDetail(

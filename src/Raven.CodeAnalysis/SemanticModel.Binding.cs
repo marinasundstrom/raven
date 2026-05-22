@@ -2440,6 +2440,7 @@ public partial class SemanticModel
 
                 case GlobalStatementSyntax globalStatement
                     when Compilation.IsTopLevelFunctionMember(globalStatement) &&
+                         !IsFileScopeLocalFunction(globalStatement) &&
                          globalStatement.Statement is FunctionStatementSyntax functionStatement:
                     {
                         if (!Compilation.Options.AllowNamespaceMembers)

@@ -438,6 +438,18 @@ public partial class Compilation
             : descriptors.ToImmutableHashSet();
     }
 
+    internal void RegisterExecutableOwnerChanges(
+        SyntaxTree syntaxTree,
+        ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> ownerChanges)
+    {
+        if (ownerChanges.IsEmpty)
+            return;
+
+        var map = _descriptorState.ExecutableOwnerChanges.GetOrAdd(syntaxTree, _ => new());
+        foreach (var (owner, change) in ownerChanges)
+            map[owner] = change;
+    }
+
     internal void RegisterMatchedExecutableOwners(
         SyntaxTree syntaxTree,
         ImmutableArray<MatchedExecutableOwner> matches)
@@ -460,6 +472,15 @@ public partial class Compilation
     {
         return _descriptorState.ChangedExecutableOwnerDescriptors.TryGetValue(node.SyntaxTree, out var descriptors) &&
                descriptors.Contains(new ExecutableOwnerDescriptor(node.Span, node.Kind));
+    }
+
+    internal bool TryGetExecutableOwnerChange(
+        SyntaxNode node,
+        out OwnerRelativeTextChange change)
+    {
+        change = default;
+        return _descriptorState.ExecutableOwnerChanges.TryGetValue(node.SyntaxTree, out var changes) &&
+               changes.TryGetValue(new ExecutableOwnerDescriptor(node.Span, node.Kind), out change);
     }
 
     internal ImmutableArray<ExecutableOwnerDescriptor> GetChangedExecutableOwnerDescriptorsForTesting(SyntaxTree syntaxTree)

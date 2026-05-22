@@ -142,12 +142,12 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             stageStopwatch.Restart();
-            using var semanticLease = await _documents.TryEnterDocumentSemanticAccessAsync(
+            using var semanticAccess = await _documents.TryEnterDocumentSemanticModelAccessAsync(
                 request.TextDocument.Uri,
                 effectiveCancellationToken,
                 "inlayHint").ConfigureAwait(false);
             gateWaitMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            if (semanticLease is null)
+            if (semanticAccess is null)
             {
                 if (TryGetCachedHints(request, out var cachedHints))
                 {
@@ -162,19 +162,18 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             stageStopwatch.Restart();
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
-            if (context is null)
-            {
-                outcome = "NoContext";
-                return new InlayHintContainer();
-            }
-
-            stageStopwatch.Restart();
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticAccess.SemanticModel;
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticModel is null)
             {
                 outcome = "NoSemanticModel";
+                return new InlayHintContainer();
+            }
+
+            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
+            if (context is null)
+            {
+                outcome = "NoContext";
                 return new InlayHintContainer();
             }
 

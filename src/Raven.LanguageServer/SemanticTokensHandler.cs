@@ -273,15 +273,14 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         DocumentUri uri,
         CancellationToken cancellationToken)
     {
-        using var lease = await _documents.TryEnterDocumentSemanticAccessAsync(
+        using var access = await _documents.TryEnterDocumentSemanticModelAccessAsync(
             uri,
             cancellationToken,
             "semanticTokens-semanticModel").ConfigureAwait(false);
-        if (lease is null)
+        if (access is null)
             return (null, true);
 
-        var semanticModel = await _documents.GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
-        return (semanticModel, false);
+        return (access.SemanticModel, false);
     }
 
     private static IEnumerable<SemanticTokenEntry> FilterEntriesForRange(

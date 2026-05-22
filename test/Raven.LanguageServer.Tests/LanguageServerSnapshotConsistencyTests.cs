@@ -1016,6 +1016,41 @@ func Main() -> () {
     }
 
     [Fact]
+    public async Task EnterDocumentSemanticModelAccessAsync_ReturnsCompilerOwnedSemanticModelAsync()
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync("""
+func Main() -> () {
+    val number = 42
+}
+""");
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var expectedModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+        using var access = await store.EnterDocumentSemanticModelAccessAsync(uri, CancellationToken.None, "test");
+
+        access.SemanticModel.ShouldNotBeNull();
+        ReferenceEquals(expectedModel, access.SemanticModel).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task TryEnterDocumentSemanticModelAccessAsync_SkipsWhenCompilerGateIsBusyAsync()
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync("""
+func Main() -> () {
+    val number = 42
+}
+""");
+
+        using var compilerLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
+
+        var access = await store.TryEnterDocumentSemanticModelAccessAsync(uri, CancellationToken.None, "inlayHint");
+
+        access.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task HoverHandler_WaitsForDocumentSemanticGateInsteadOfReturningNullAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""

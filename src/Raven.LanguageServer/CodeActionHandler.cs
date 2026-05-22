@@ -84,7 +84,8 @@ internal sealed class CodeActionHandler : ICodeActionHandler
 
             if (supportsRefactorRewrite)
             {
-                var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+                using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "codeAction").ConfigureAwait(false);
+                var semanticModel = semanticAccess.SemanticModel;
                 var root = syntaxTree.GetRoot(cancellationToken);
                 if (semanticModel is not null &&
                     TryCreateMacroExpansionAction(request.TextDocument.Uri, documentText, semanticModel, root, request.Range, out var macroAction))

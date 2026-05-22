@@ -41,14 +41,14 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "prepareRename", request.TextDocument.Uri).ConfigureAwait(false);
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "prepareRename").ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return null;
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticAccess.SemanticModel;
             if (semanticModel is null)
                 return null;
             var root = syntaxTree.GetRoot(cancellationToken);
@@ -88,7 +88,7 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
     {
         try
         {
-            using var _ = await _documents.EnterCompilerAccessAsync(cancellationToken, "rename", request.TextDocument.Uri).ConfigureAwait(false);
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "rename").ConfigureAwait(false);
             if (!RenameService.IsValidIdentifier(request.NewName))
                 return null;
 
@@ -98,7 +98,7 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
-            var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var semanticModel = semanticAccess.SemanticModel;
             if (semanticModel is null)
                 return null;
             var root = syntaxTree.GetRoot(cancellationToken);
