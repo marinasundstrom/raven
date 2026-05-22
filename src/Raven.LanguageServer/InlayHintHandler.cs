@@ -200,6 +200,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 sourceText,
                 requestSpan,
                 allowInitializerBinding: allowExpensiveBinding,
+                avoidExpensiveInitializerBinding: isFullDocumentRequest,
                 collectionBudget);
             localTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
@@ -385,6 +386,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SourceText sourceText,
         TextSpan requestSpan,
         bool allowInitializerBinding,
+        bool avoidExpensiveInitializerBinding,
         InlayHintCollectionBudget budget)
     {
         foreach (var declarator in DescendantNodesInSpan<VariableDeclaratorSyntax>(root, requestSpan))
@@ -420,13 +422,27 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
             else
             {
-                local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
-                    declarator,
-                    out var availableLocal)
-                        ? availableLocal
-                        : allowInitializerBinding
-                            ? semanticModel.GetDeclaredSymbol(declarator) as ILocalSymbol
+                if (avoidExpensiveInitializerBinding &&
+                    ShouldAvoidInitializerBindingForInlay(declarator))
+                {
+                    local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
+                        declarator,
+                        out var availableLocal,
+                        allowInitializerBinding: false,
+                        allowBindingFallback: false)
+                            ? availableLocal
                             : null;
+                }
+                else
+                {
+                    local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
+                        declarator,
+                        out var availableLocal)
+                            ? availableLocal
+                            : allowInitializerBinding
+                                ? semanticModel.GetDeclaredSymbol(declarator) as ILocalSymbol
+                                : null;
+                }
             }
 
             if (local is null)

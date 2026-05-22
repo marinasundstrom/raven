@@ -271,9 +271,9 @@
         },
         "raven.inlayHints.requestDebounceMilliseconds": {
           "type": "number",
-          "default": 150,
+          "default": 250,
           "minimum": 0,
-          "maximum": 1000,
+          "maximum": 2000,
           "description": "Delay inlay hint requests briefly after Raven document edits so typing coalesces before semantic inlay work reaches the language server. Set to 0 to disable client-side debouncing."
         },
         "raven.sdkPath": {

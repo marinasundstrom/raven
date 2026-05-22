@@ -156,13 +156,13 @@ function areInferredTypeInlayHintsEnabled(): boolean {
 function getInlayHintRequestDebounceMilliseconds(): number {
   const configured = vscode.workspace
     .getConfiguration('raven')
-    .get<number>('inlayHints.requestDebounceMilliseconds', 150);
+    .get<number>('inlayHints.requestDebounceMilliseconds', 250);
 
   if (!Number.isFinite(configured)) {
-    return 150;
+    return 250;
   }
 
-  return Math.max(0, Math.min(1000, Math.trunc(configured)));
+  return Math.max(0, Math.min(2000, Math.trunc(configured)));
 }
 
 function delayUnlessCanceled(milliseconds: number, token: vscode.CancellationToken): Promise<boolean> {
@@ -198,8 +198,12 @@ async function waitForInlayHintQuietPeriod(document: vscode.TextDocument, token:
   const key = document.uri.toString();
   while (!token.isCancellationRequested) {
     const state = recentRavenDocumentChanges.get(key);
-    if (!state || state.version !== document.version) {
+    if (!state) {
       return true;
+    }
+
+    if (state.version !== document.version) {
+      return false;
     }
 
     const remaining = debounceMilliseconds - (Date.now() - state.changedAt);

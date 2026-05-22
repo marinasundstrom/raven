@@ -218,7 +218,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_FullDocument_ProvidesInvocationInitializerHintsForSmallDocumentsAsync()
+    public async Task Handle_FullDocument_DoesNotColdBindInvocationInitializersForSmallDocumentsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -256,7 +256,9 @@ func Main() -> unit {
             Range = FullDocumentRange(sourceText)
         }, CancellationToken.None);
 
-        AssertHasHintAtInsertion(sourceText, fullDocumentResult.ToArray(), answerInsertion, ": int");
+        fullDocumentResult.ToArray().ShouldNotContain(hint =>
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(answerInsertion, 0)).Start &&
+            hint.Label.String == ": int");
 
         var preciseResult = await handler.Handle(new InlayHintParams
         {
@@ -814,7 +816,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_TopLevelAsyncFunctionExpression_ProvidesBodyLocalTypeHintsAsync()
+    public async Task Handle_FullDocument_DoesNotColdBindTopLevelAsyncFunctionExpressionInitializerAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -855,13 +857,11 @@ Accept(async func (context: RequestContext) {
             TextDocument = new TextDocumentIdentifier(uri),
             Range = FullDocumentRange(sourceText)
         }, CancellationToken.None);
+        var contentInsertion = code.IndexOf("content", StringComparison.Ordinal) + "content".Length;
 
-        var contentHint = result.Single(static hint => hint.Label.String == ": string");
-        AssertSourceApplicable(
-            sourceText,
-            contentHint,
-            code.IndexOf("content", StringComparison.Ordinal) + "content".Length,
-            ": string");
+        result.ToArray().ShouldNotContain(hint =>
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(contentInsertion, 0)).Start &&
+            hint.Label.String == ": string");
     }
 
     [Fact]
