@@ -75,6 +75,36 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task HoverHandler_AddedDocument_ResolvesCrossFileFunctionAsync()
+    {
+        var (store, _, mainUri) = await CreateWorkspaceAsync("""
+func Main() -> () {
+    Test()
+}
+""");
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        await store.UpsertDocumentAsync(testUri, """
+func Test() -> () {
+}
+""");
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(mainUri),
+            Position = new Position(1, 5)
+        }, CancellationToken.None);
+        var completedTask = await Task.WhenAny(hoverTask, Task.Delay(1000));
+
+        completedTask.ShouldBe(hoverTask);
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("func Test() -> ()");
+    }
+
+    [Fact]
     public async Task HoverHandler_InterpolatedStringText_DoesNotShowLoweredConcatAsync()
     {
         const string text = """
@@ -1032,6 +1062,25 @@ func Main() -> () {
 
         access.SemanticModel.ShouldNotBeNull();
         ReferenceEquals(expectedModel, access.SemanticModel).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task EnterDocumentSemanticModelAccessAsync_DoesNotWaitForCompilerGateAsync()
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync("""
+func Main() -> () {
+    val number = 42
+}
+""");
+
+        using var compilerLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
+
+        var accessTask = store.EnterDocumentSemanticModelAccessAsync(uri, CancellationToken.None, "hover").AsTask();
+        var completedTask = await Task.WhenAny(accessTask, Task.Delay(1000));
+
+        completedTask.ShouldBe(accessTask);
+        using var access = await accessTask;
+        access.SemanticModel.ShouldNotBeNull();
     }
 
     [Fact]

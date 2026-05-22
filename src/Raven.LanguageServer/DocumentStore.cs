@@ -291,27 +291,24 @@ internal sealed class DocumentStore
     {
         PreemptBackgroundDiagnostics(uri, purpose);
 
-        using (await EnterCompilerAccessAsync(cancellationToken, purpose ?? "semanticModel", uri).ConfigureAwait(false))
+        var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (semanticModel is null)
+            return new DocumentSemanticAccess(null, NoopAccessLease.Instance);
+
+        var stopwatch = Stopwatch.StartNew();
+        var lease = await semanticModel.EnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
+        stopwatch.Stop();
+
+        if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
         {
-            var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
-            if (semanticModel is null)
-                return new DocumentSemanticAccess(null, NoopAccessLease.Instance);
-
-            var stopwatch = Stopwatch.StartNew();
-            var lease = await semanticModel.EnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
-            stopwatch.Stop();
-
-            if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
-            {
-                _logger.LogInformation(
-                    "Slow document semantic gate wait for {Purpose} {Uri}: wait={WaitMs:F1}ms.",
-                    purpose ?? "unknown",
-                    uri,
-                    stopwatch.Elapsed.TotalMilliseconds);
-            }
-
-            return new DocumentSemanticAccess(semanticModel, lease);
+            _logger.LogInformation(
+                "Slow document semantic gate wait for {Purpose} {Uri}: wait={WaitMs:F1}ms.",
+                purpose ?? "unknown",
+                uri,
+                stopwatch.Elapsed.TotalMilliseconds);
         }
+
+        return new DocumentSemanticAccess(semanticModel, lease);
     }
 
     public async ValueTask<IDisposable?> TryEnterDocumentSemanticAccessAsync(
