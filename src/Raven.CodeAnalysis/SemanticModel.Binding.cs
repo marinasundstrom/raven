@@ -1393,6 +1393,9 @@ public partial class SemanticModel
                 continue;
             }
 
+            if (IsIncompleteImportName(import.Name))
+                continue;
+
             var nsSymbol = ResolveNamespace(targetNamespace, name);
             if (nsSymbol != null)
             {
@@ -1675,6 +1678,11 @@ public partial class SemanticModel
         static bool HasTypeArguments(NameSyntax nameSyntax)
             => nameSyntax.DescendantNodes().OfType<GenericNameSyntax>().Any();
 
+        static bool IsIncompleteImportName(NameSyntax nameSyntax)
+            => nameSyntax.DescendantNodesAndSelf()
+                .OfType<SimpleNameSyntax>()
+                .Any(static name => name.Identifier.IsMissing);
+
         ITypeSymbol? ResolveGenericType(INamespaceSymbol current, NameSyntax name)
         {
             if (name is GenericNameSyntax g)
@@ -1864,9 +1872,9 @@ public partial class SemanticModel
             foreach (var import in compilationUnit.Imports)
                 yield return (import, false);
 
-            foreach (var namespaceDeclaration in compilationUnit.Members.OfType<BaseNamespaceDeclarationSyntax>())
+            if (compilationUnit.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault() is { } fileScopedNamespace)
             {
-                foreach (var import in namespaceDeclaration.Imports)
+                foreach (var import in fileScopedNamespace.Imports)
                     yield return (import, false);
             }
         }

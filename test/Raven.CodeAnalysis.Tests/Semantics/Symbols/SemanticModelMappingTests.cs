@@ -248,6 +248,39 @@ class C {
     }
 
     [Fact]
+    public void GetDeclaredSymbol_AssignmentPatternDesignations_OnlyReturnsInlineDeclarations()
+    {
+        const string code = """
+class C {
+    func Run() {
+        var assignedA = 0
+        var assignedB = ""
+        (assignedA, assignedB) = (1, "one")
+        (var inlineA, let inlineB) = (2, "two")
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var designations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .ToLookup(designation => designation.Identifier.ValueText);
+
+        Assert.Null(model.GetDeclaredSymbol(designations["assignedA"].Single()));
+        Assert.Null(model.GetDeclaredSymbol(designations["assignedB"].Single()));
+
+        var inlineA = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["inlineA"].Single()));
+        var inlineB = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["inlineB"].Single()));
+
+        Assert.Equal("int", inlineA.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.True(inlineA.IsMutable);
+        Assert.Equal("string", inlineB.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.False(inlineB.IsMutable);
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ComprehensionPatternDesignations_UseIterationElementTypes()
     {
         const string code = """

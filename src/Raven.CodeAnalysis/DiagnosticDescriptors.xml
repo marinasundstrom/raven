@@ -550,7 +550,7 @@
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1052" Identifier="ImportDirectiveRedundantWithGlobalImport"
     Title="Import directive is redundant"
-    Message="Import directive '{importName}' is redundant because it is already globally imported."
+    Message="Import directive '{importName}' is redundant because it is already imported by an enclosing scope."
     Category="compiler" Severity="Hidden" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1006" Identifier="AliasDirectiveOutOfOrder"
     Title="Alias directive out of order"

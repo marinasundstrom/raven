@@ -12,6 +12,7 @@ let languageServerBuildPromise: Promise<void> | undefined;
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
 let pendingInlayHintRefresh: NodeJS.Timeout | undefined;
+let pendingImportCompletionTrigger: NodeJS.Timeout | undefined;
 const recentRavenDocumentChanges = new Map<string, RavenDocumentChangeState>();
 
 type RavenDocumentChangeState = {
@@ -125,6 +126,25 @@ function formatRequestTarget(param: unknown): string {
   }
 
   return ` ${uri}`;
+}
+
+function formatRequestResult(method: string, result: unknown): string {
+  if (method !== 'textDocument/completion') {
+    return '';
+  }
+
+  if (Array.isArray(result)) {
+    return ` items=${result.length}`;
+  }
+
+  if (result && typeof result === 'object') {
+    const candidate = result as { items?: unknown[] };
+    if (Array.isArray(candidate.items)) {
+      return ` items=${candidate.items.length}`;
+    }
+  }
+
+  return '';
 }
 
 function areInferredTypeInlayHintsEnabled(): boolean {
@@ -251,6 +271,54 @@ function scheduleInlayHintRefresh(): void {
     pendingInlayHintRefresh = undefined;
     void refreshInlayHints();
   }, 50);
+}
+
+function shouldTriggerImportCompletionAfterQuietPeriod(event: vscode.TextDocumentChangeEvent): boolean {
+  if (event.contentChanges.length === 0) {
+    return false;
+  }
+
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.uri.toString() !== event.document.uri.toString()) {
+    return false;
+  }
+
+  return event.contentChanges.some(change => {
+    const lineNumber = Math.min(change.range.start.line, event.document.lineCount - 1);
+    const line = event.document.lineAt(lineNumber).text;
+    return /^\s*import\s+[\w.]*\.\s*$/.test(line);
+  });
+}
+
+function scheduleImportCompletionTrigger(document: vscode.TextDocument): void {
+  if (pendingImportCompletionTrigger) {
+    clearTimeout(pendingImportCompletionTrigger);
+  }
+
+  const uri = document.uri.toString();
+  const version = document.version;
+
+  pendingImportCompletionTrigger = setTimeout(() => {
+    pendingImportCompletionTrigger = undefined;
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor ||
+        editor.document.uri.toString() !== uri ||
+        editor.document.version !== version ||
+        editor.document.languageId !== 'raven') {
+      return;
+    }
+
+    const cursor = editor.selection.active;
+    const line = editor.document.lineAt(cursor.line).text;
+    const prefix = line.slice(0, cursor.character);
+    if (!/^\s*import\s+[\w.]*\.$/.test(prefix)) {
+      return;
+    }
+
+    appendLifecycleLog(`Triggering import completion after document quiet period at ${uri} ${cursor.line}:${cursor.character}.`);
+    void vscode.commands.executeCommand('editor.action.triggerSuggest');
+  }, 125);
 }
 
 function isInferredTypeHintInsertion(change: vscode.TextDocumentContentChangeEvent): boolean {
@@ -436,6 +504,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
         const method = formatRequestType(type);
         const interesting =
           method === 'textDocument/hover' ||
+          method === 'textDocument/completion' ||
           method === 'textDocument/inlayHint' ||
           method === 'textDocument/semanticTokens/full' ||
           method === 'textDocument/semanticTokens/range' ||
@@ -452,7 +521,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
         try {
           const result = await next(type, param, token);
           if (interesting) {
-            appendLifecycleLog(`Request completed: ${method}${target} in ${Date.now() - startedAt}ms.`);
+            appendLifecycleLog(`Request completed: ${method}${target} in ${Date.now() - startedAt}ms.${formatRequestResult(method, result)}`);
           }
 
           return result;
@@ -1302,6 +1371,10 @@ export function activate(context: vscode.ExtensionContext): void {
       if (areInferredTypeInlayHintsEnabled() &&
           event.contentChanges.some(isInferredTypeHintInsertion)) {
         scheduleInlayHintRefresh();
+      }
+
+      if (shouldTriggerImportCompletionAfterQuietPeriod(event)) {
+        scheduleImportCompletionTrigger(event.document);
       }
     })
   );

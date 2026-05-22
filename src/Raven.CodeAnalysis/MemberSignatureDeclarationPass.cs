@@ -769,7 +769,9 @@ internal static class MemberSignatureDeclarationPass
         string name,
         int? arity)
     {
-        foreach (var import in EnumerateEffectiveImports(semanticModel.Compilation, contextNode.SyntaxTree))
+        var compilation = semanticModel.Compilation;
+
+        foreach (var import in EnumerateEffectiveImports(semanticModel.Compilation, contextNode))
         {
             var importName = import.Name.ToString();
             if (string.IsNullOrWhiteSpace(importName))
@@ -777,8 +779,7 @@ internal static class MemberSignatureDeclarationPass
 
             if (TryGetWildcardImportName(importName, out var scopeName))
             {
-                if (ResolveImportScope(semanticModel.Compilation, scopeName)?.LookupType(name) is { } scopedType &&
-                    MatchesArity(scopedType, arity))
+                if (ResolveWildcardImportedSkeletonType(compilation, scopeName, name, arity) is { } scopedType)
                 {
                     return scopedType;
                 }
@@ -789,7 +790,7 @@ internal static class MemberSignatureDeclarationPass
             if (!NameEndsWith(importName, name))
                 continue;
 
-            var importedType = semanticModel.Compilation.GetTypeByMetadataName(importName);
+            var importedType = ResolveExactImportedSkeletonType(compilation, importName, arity);
             if (importedType is not null && MatchesArity(importedType, arity))
                 return importedType;
         }
@@ -799,7 +800,7 @@ internal static class MemberSignatureDeclarationPass
 
     private static IEnumerable<ImportDirectiveSyntax> EnumerateEffectiveImports(
         Compilation compilation,
-        SyntaxTree syntaxTree)
+        SyntaxNode contextNode)
     {
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -813,22 +814,79 @@ internal static class MemberSignatureDeclarationPass
             }
         }
 
-        if (syntaxTree.GetRoot() is not CompilationUnitSyntax compilationUnit)
+        if (contextNode.SyntaxTree.GetRoot() is not CompilationUnitSyntax compilationUnit)
             yield break;
 
         foreach (var import in compilationUnit.Imports)
             yield return import;
 
-        foreach (var namespaceDeclaration in compilationUnit.Members.OfType<BaseNamespaceDeclarationSyntax>())
+        foreach (var namespaceDeclaration in contextNode
+                     .AncestorsAndSelf()
+                     .OfType<BaseNamespaceDeclarationSyntax>()
+                     .Reverse())
         {
             foreach (var import in namespaceDeclaration.Imports)
                 yield return import;
         }
     }
 
-    private static INamespaceOrTypeSymbol? ResolveImportScope(Compilation compilation, string scopeName)
-        => (INamespaceOrTypeSymbol?)compilation.GetNamespaceSymbol(scopeName)
-           ?? compilation.GetTypeByMetadataName(scopeName);
+    private static ITypeSymbol? ResolveWildcardImportedSkeletonType(
+        Compilation compilation,
+        string scopeName,
+        string name,
+        int? arity)
+    {
+        var metadataTypeName = GetMetadataTypeName(name, arity);
+        var scopedMetadataName = scopeName + "." + metadataTypeName;
+
+        if (ResolveExactImportedSkeletonType(compilation, scopedMetadataName, arity) is { } exactType)
+            return exactType;
+
+        if (ResolveSourceNamespace(compilation, scopeName)?.LookupType(name) is { } sourceType &&
+            MatchesArity(sourceType, arity))
+        {
+            return sourceType;
+        }
+
+        if (ResolveExactImportedSkeletonType(compilation, scopeName, arity: null) is { } importedTypeScope &&
+            importedTypeScope.LookupType(name) is { } nestedType &&
+            MatchesArity(nestedType, arity))
+        {
+            return nestedType;
+        }
+
+        return null;
+    }
+
+    private static ITypeSymbol? ResolveExactImportedSkeletonType(
+        Compilation compilation,
+        string metadataName,
+        int? arity)
+    {
+        var resolved = compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName)
+            ?? compilation.Assembly.GetTypeByMetadataName(metadataName);
+
+        return MatchesArity(resolved, arity) ? resolved : null;
+    }
+
+    private static INamespaceSymbol? ResolveSourceNamespace(
+        Compilation compilation,
+        string metadataName)
+    {
+        var parts = metadataName.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return compilation.SourceGlobalNamespace;
+
+        INamespaceSymbol current = compilation.SourceGlobalNamespace;
+        foreach (var part in parts)
+        {
+            current = current.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+            if (current is null)
+                return null;
+        }
+
+        return current;
+    }
 
     private static bool TryGetWildcardImportName(string importName, out string scopeName)
     {
@@ -847,10 +905,14 @@ internal static class MemberSignatureDeclarationPass
         => string.Equals(metadataName, name, StringComparison.Ordinal) ||
            metadataName.EndsWith("." + name, StringComparison.Ordinal);
 
-    private static bool MatchesArity(ITypeSymbol type, int? arity)
-        => arity is null ||
+    private static bool MatchesArity(ITypeSymbol? type, int? arity)
+        => type is not null &&
+           (arity is null ||
            type is not INamedTypeSymbol namedType ||
-           namedType.Arity == arity;
+           namedType.Arity == arity);
+
+    private static string GetMetadataTypeName(string name, int? arity)
+        => arity is > 0 ? name + "`" + arity.Value : name;
 
     private static ITypeSymbol ResolvePredefinedSkeletonType(
         Compilation compilation,

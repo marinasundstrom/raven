@@ -82,4 +82,56 @@ public sealed class ImportDirectiveDiagnosticsTests : CompilationTestBase
             Assert.Same(source, diagnostic.Location.SourceTree);
         });
     }
+
+    [Fact]
+    public void RedundantOuterNamespaceImport_NestedNamespaceImports_ProducesHiddenDiagnostics()
+    {
+        var source = SyntaxTree.ParseText(
+            """
+            namespace Outer {
+                import System.*
+
+                namespace Inner {
+                    import System.*
+
+                    class C {}
+                }
+            }
+            """,
+            path: "Nested.rvn");
+
+        var compilation = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Id == CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id)
+            .ToArray();
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal(DiagnosticSeverity.Hidden, diagnostic.Severity);
+        Assert.Same(source, diagnostic.Location.SourceTree);
+    }
+
+    [Fact]
+    public void RedundantCompilationUnitImport_NamespaceImports_ProducesHiddenDiagnostics()
+    {
+        var source = SyntaxTree.ParseText(
+            """
+            import System.*
+
+            namespace Outer {
+                import System.*
+
+                class C {}
+            }
+            """,
+            path: "Nested.rvn");
+
+        var compilation = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Id == CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id)
+            .ToArray();
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal(DiagnosticSeverity.Hidden, diagnostic.Severity);
+        Assert.Same(source, diagnostic.Location.SourceTree);
+    }
 }

@@ -8,7 +8,7 @@ The Raven language server provides Language Server Protocol (LSP) support for `.
 - **Completions:** Maps the compiler's completion items into LSP responses with snippet ranges for insertion.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
 - **Hover capture annotations:** Hover on lambdas and nested `func` statements includes captured-symbol lists. Hover on captured locals/parameters marks them as captured variables.
-- **Inferred type inlay hints:** Locals and functions with omitted type annotations surface inferred `: T` and `-> T` hints. The hints include source edits so editors can apply the annotation directly, and the VS Code extension exposes `raven.inlayHints.inferredTypes.enabled` plus the `Raven: Toggle Inferred Type Inlay Hints` command.
+- **Inferred type inlay hints:** Locals, functions, and pattern declarations with omitted type annotations surface inferred `: T` and `-> T` hints. Assignment patterns that deconstruct into existing variables do not receive declaration hints. The hints include source edits so editors can apply the annotation directly, and the VS Code extension exposes `raven.inlayHints.inferredTypes.enabled` plus the `Raven: Toggle Inferred Type Inlay Hints` command.
 - **Framework references:** Loads reference assemblies from the latest installed .NET targeting pack so compilations can bind to standard library types without additional setup.
 
 ## Project layout

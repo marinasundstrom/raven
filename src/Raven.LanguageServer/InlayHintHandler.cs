@@ -576,6 +576,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (designation.Ancestors().Any(static ancestor => ancestor is TypedVariableDesignationSyntax))
             return false;
 
+        if (IsExistingAssignmentTargetPatternDesignation(designation))
+            return false;
+
         if (designation.Ancestors().OfType<DeclarationPatternSyntax>().Any(pattern =>
                 pattern.Designation is not null &&
                 pattern.Designation.Span.Contains(designation.Span)))
@@ -585,6 +588,56 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
         return true;
     }
+
+    private static bool IsExistingAssignmentTargetPatternDesignation(SingleVariableDesignationSyntax designation)
+    {
+        if (HasInlinePatternBindingKeyword(designation))
+            return false;
+
+        for (SyntaxNode? current = designation; current is not null; current = current.Parent)
+        {
+            if (current.Parent is PatternDeclarationAssignmentStatementSyntax patternDeclaration &&
+                ContainsNode(patternDeclaration.Left, designation))
+            {
+                return false;
+            }
+
+            if (current.Parent is AssignmentStatementSyntax assignmentStatement &&
+                ContainsNode(assignmentStatement.Left, designation))
+            {
+                return true;
+            }
+
+            if (current.Parent is AssignmentExpressionSyntax assignmentExpression &&
+                ContainsNode(assignmentExpression.Left, designation))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasInlinePatternBindingKeyword(SingleVariableDesignationSyntax designation)
+    {
+        if (IsPatternBindingKeyword(designation.BindingKeyword.Kind))
+            return true;
+
+        return designation
+            .Ancestors()
+            .OfType<VariablePatternSyntax>()
+            .Any(pattern =>
+                IsPatternBindingKeyword(pattern.BindingKeyword.Kind) &&
+                ContainsNode(pattern.Designation, designation));
+    }
+
+    private static bool IsPatternBindingKeyword(SyntaxKind kind)
+        => kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
+
+    private static bool ContainsNode(SyntaxNode root, SyntaxNode node)
+        => ReferenceEquals(root.SyntaxTree, node.SyntaxTree) &&
+           node.Span.Start >= root.Span.Start &&
+           node.Span.End <= root.Span.End;
 
     private static void AddCarrierFailureHints(
         List<InlayHint> hints,

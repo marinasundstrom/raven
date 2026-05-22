@@ -52,6 +52,24 @@ public class LanguageServerCompletionMappingTests
     }
 
     [Fact]
+    public void ToLspCompletion_WildcardImportCompletion_UsesOperatorKindAndTopSort()
+    {
+        var text = SourceText.From("import System.");
+        var item = new Raven.CodeAnalysis.CompletionItem(
+            DisplayText: "*",
+            InsertionText: "*",
+            ReplacementSpan: new TextSpan(text.Length, 0),
+            Description: "Import all accessible members");
+
+        var mapped = CompletionItemMapper.ToLspCompletion(item, text);
+
+        mapped.Kind.ShouldBe(CompletionItemKind.Operator);
+        mapped.Detail.ShouldBe("Import all accessible members");
+        mapped.SortText.ShouldBe("00_*");
+        mapped.InsertText.ShouldBe("*");
+    }
+
+    [Fact]
     public void ToLspCompletion_ExtensionMethodCompletion_AddsExtensionLabelDetail()
     {
         var text = SourceText.From("widget.");

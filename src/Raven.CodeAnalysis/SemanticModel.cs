@@ -268,8 +268,7 @@ public partial class SemanticModel
                 }
                 else
                 {
-                    EnsureDeclarations();
-                    EnsureMemberSignaturesDeclared();
+                    Compilation.EnsureSourceDeclarationsDeclared();
                     if (root is CompilationUnitSyntax compilationUnit)
                         EnsureTopLevelFunctionDeclarations(compilationUnit);
                 }
@@ -4064,6 +4063,9 @@ public partial class SemanticModel
         if (string.IsNullOrWhiteSpace(name))
             return false;
 
+        if (!Compilation.SourceDeclarationsDeclared)
+            Compilation.EnsureSourceDeclarationsDeclared();
+
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
         var seenFunctions = new HashSet<SyntaxNode>();
         var seenMethods = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
@@ -4147,13 +4149,6 @@ public partial class SemanticModel
 
         AddNamespaceFunctionMembers();
         AddImportedFunctionMembers();
-
-        if (builder.Count == 0 && !Compilation.SourceDeclarationsDeclared)
-        {
-            Compilation.EnsureSourceDeclarationsDeclared();
-            AddNamespaceFunctionMembers();
-            AddImportedFunctionMembers();
-        }
 
         methods = builder.ToImmutable();
 
@@ -8505,6 +8500,9 @@ public partial class SemanticModel
 
     private static bool IsExistingAssignmentTargetDesignation(SingleVariableDesignationSyntax designation)
     {
+        if (HasInlinePatternBindingKeyword(designation))
+            return false;
+
         for (SyntaxNode? current = designation; current is not null; current = current.Parent)
         {
             if (current.Parent is PatternDeclarationAssignmentStatementSyntax patternDeclaration &&
@@ -8528,6 +8526,22 @@ public partial class SemanticModel
 
         return false;
     }
+
+    private static bool HasInlinePatternBindingKeyword(SingleVariableDesignationSyntax designation)
+    {
+        if (IsPatternBindingKeyword(designation.BindingKeyword.Kind))
+            return true;
+
+        return designation
+            .Ancestors()
+            .OfType<VariablePatternSyntax>()
+            .Any(pattern =>
+                IsPatternBindingKeyword(pattern.BindingKeyword.Kind) &&
+                ContainsNode(pattern.Designation, designation));
+    }
+
+    private static bool IsPatternBindingKeyword(SyntaxKind kind)
+        => kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword;
 
     private static bool ContainsNode(SyntaxNode root, SyntaxNode node)
         => ReferenceEquals(root.SyntaxTree, node.SyntaxTree) &&
@@ -9947,8 +9961,7 @@ public partial class SemanticModel
     /// <returns>The bound node</returns>
     private bool TryGetBoundNodeForSemanticQuery(SyntaxNode node, out BoundNode boundNode)
     {
-        EnsureDeclarations();
-        EnsureMemberSignaturesDeclared();
+        EnsureBindingReady();
 
         if (TryGetCachedBoundNode(node) is { } cachedNode &&
             !IsLikelyStaleFunctionBodyNode(cachedNode))
@@ -11961,7 +11974,9 @@ public partial class SemanticModel
 
     private void EnsureBindingReady()
     {
-        if (!DeclarationsComplete)
+        if (!Compilation.SourceDeclarationsDeclared)
+            Compilation.EnsureSourceDeclarationsDeclared();
+        else if (!DeclarationsComplete)
             EnsureDeclarations();
 
         if (!RootBinderCreated)

@@ -620,6 +620,16 @@ func Run() -> int {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         await store.UpsertDocumentAsync(uri, code);
 
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var semanticModel = await store.GetSemanticModelAsync(uri, CancellationToken.None);
+        semanticModel.ShouldNotBeNull();
+        var invocation = context.Value.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
+        semanticModel.GetSymbolInfo(invocation).Symbol.ShouldNotBeNull();
+
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
         var addOneOffset = code.IndexOf("AddOne", StringComparison.Ordinal);
         var hover = await handler.Handle(new HoverParams

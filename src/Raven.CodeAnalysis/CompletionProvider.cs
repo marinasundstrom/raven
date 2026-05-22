@@ -153,6 +153,31 @@ public static class CompletionProvider
             };
         }
 
+        INamespaceOrTypeSymbol? TryResolveImportNamespaceOrType(NameSyntax name)
+        {
+            return name switch
+            {
+                IdentifierNameSyntax identifier => TryResolveIdentifierNamespaceOrType(identifier),
+                QualifiedNameSyntax qualified => TryResolveImportQualifiedNamespaceOrType(qualified),
+                GenericNameSyntax generic => TryResolveGenericNamespaceOrType(generic),
+                _ => null
+            };
+        }
+
+        INamespaceOrTypeSymbol? TryResolveImportQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
+        {
+            var left = TryResolveImportNamespaceOrType(qualified.Left);
+            if (left is null)
+                return null;
+
+            return qualified.Right switch
+            {
+                IdentifierNameSyntax identifier => LookupQualifiedMember(left, identifier.Identifier.ValueText, arity: 0),
+                GenericNameSyntax generic => LookupQualifiedMember(left, generic.Identifier.ValueText, generic.TypeArgumentList.Arguments.Count),
+                _ => null
+            };
+        }
+
         INamespaceOrTypeSymbol? TryResolveIdentifierNamespaceOrType(IdentifierNameSyntax identifier)
         {
             var name = identifier.Identifier.ValueText;
@@ -221,16 +246,31 @@ public static class CompletionProvider
                 ?? (binder.LookupSymbol(name)?.UnderlyingSymbol as INamespaceOrTypeSymbol);
         }
 
-        static INamespaceOrTypeSymbol? LookupQualifiedMember(INamespaceOrTypeSymbol? container, string name, int arity)
+        INamespaceOrTypeSymbol? LookupQualifiedMember(INamespaceOrTypeSymbol? container, string name, int arity)
         {
             if (container is null || string.IsNullOrWhiteSpace(name))
                 return null;
 
             if (container is INamespaceSymbol namespaceSymbol)
             {
-                return (INamespaceOrTypeSymbol?)namespaceSymbol.LookupNamespace(name)
+                var directMember = (INamespaceOrTypeSymbol?)namespaceSymbol.LookupNamespace(name)
                     ?? SelectTypeMember(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity)
                     ?? (INamespaceOrTypeSymbol?)namespaceSymbol.LookupType(name);
+                if (directMember is not null)
+                    return directMember;
+
+                foreach (var member in GetNamespaceCompletionMembers(namespaceSymbol).OfType<INamespaceOrTypeSymbol>())
+                {
+                    if (!string.Equals(member.Name, name, StringComparison.Ordinal))
+                        continue;
+
+                    if (member is INamedTypeSymbol namedType)
+                        return SelectTypeMember(new[] { namedType }, arity);
+
+                    return member;
+                }
+
+                return null;
             }
 
             if (container is ITypeSymbol typeSymbol)
@@ -608,6 +648,9 @@ public static class CompletionProvider
             return false;
         }
 
+        static bool IsImportDirectiveTypeMemberCompletion(ISymbol member)
+            => member is INamespaceOrTypeSymbol or IFieldSymbol { IsConst: true };
+
         static bool ShouldIncludeExtensionMethod(IMethodSymbol method, string prefix)
         {
             if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
@@ -735,6 +778,43 @@ public static class CompletionProvider
             return null;
         }
 
+        static SyntaxToken? GetImportCompletionNameToken(NameSyntax name)
+            => name switch
+            {
+                SimpleNameSyntax simpleName => simpleName.Identifier,
+                WildcardNameSyntax wildcardName => wildcardName.StartToken,
+                _ => null
+            };
+
+        static TextSpan GetImportCompletionReplacementSpan(SyntaxToken token, int position)
+            => token.IsMissing
+                ? new TextSpan(position, 0)
+                : token.Span;
+
+        static bool IsAtImportCompletionName(QualifiedNameSyntax qualified, SyntaxToken token, int position)
+            => position >= token.Position ||
+               (token.IsMissing && position >= qualified.DotToken.Span.End);
+
+        bool IsImportLineCompletionContext(SyntaxNode node)
+        {
+            var text = sourceText.ToString();
+            var start = Math.Clamp(node.Span.Start, 0, text.Length);
+            var lineStart = start;
+
+            while (lineStart > 0)
+            {
+                var ch = text[lineStart - 1];
+                if (ch is '\r' or '\n')
+                    break;
+
+                lineStart--;
+            }
+
+            var prefix = text.Substring(lineStart, start - lineStart).TrimStart();
+            return prefix.StartsWith("import ", StringComparison.Ordinal) ||
+                   string.Equals(prefix, "import", StringComparison.Ordinal);
+        }
+
         (ISymbol? Symbol, ITypeSymbol? Type) ResolveReceiver(ExpressionSyntax expression)
         {
             var symbol = TryGetPreferredSymbolInfo(expression, out var symbolInfo)
@@ -858,6 +938,51 @@ public static class CompletionProvider
                 Description: SafeToDisplayString(symbol),
                 Symbol: symbol
             ));
+        }
+
+        void AddWildcardImportCompletion(string prefix, TextSpan replacementSpan)
+        {
+            if (!NameMatchesPrefix("*", prefix))
+                return;
+
+            if (!seen.Add("__import_wildcard"))
+                return;
+
+            completions.Add(new CompletionItem(
+                DisplayText: "*",
+                InsertionText: "*",
+                ReplacementSpan: replacementSpan,
+                Description: "Import all accessible members"));
+        }
+
+        void AddImportDirectiveMemberCompletions(INamespaceOrTypeSymbol nsOrType, string prefix, TextSpan replacementSpan)
+        {
+            AddWildcardImportCompletion(prefix, replacementSpan);
+
+            var members = nsOrType is INamespaceSymbol importNamespace
+                ? GetNamespaceCompletionMembers(importNamespace)
+                : nsOrType.GetMembers()
+                    .Where(IsAccessible)
+                    .Where(IsImportDirectiveTypeMemberCompletion);
+
+            foreach (var member in members
+                .Where(m => NameMatchesPrefix(m.Name, prefix)))
+            {
+                var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
+                var cursorOffset = member is ITypeSymbol ? insertText.Length : (int?)null;
+
+                if (seen.Add(dedupKey))
+                {
+                    completions.Add(new CompletionItem(
+                        DisplayText: displayText,
+                        InsertionText: insertText,
+                        ReplacementSpan: replacementSpan,
+                        CursorOffset: cursorOffset,
+                        Description: SafeToDisplayString(member),
+                        Symbol: member
+                    ));
+                }
+            }
         }
 
         void AddExtensionMemberCompletions(
@@ -1432,37 +1557,16 @@ public static class CompletionProvider
         if (importDirective is not null)
         {
             var qualified = token.GetAncestor<QualifiedNameSyntax>();
-            if (qualified is not null && qualified.Right is SimpleNameSyntax importSimple)
+            if (qualified is not null && GetImportCompletionNameToken(qualified.Right) is { } importNameToken)
             {
-                var nameToken = importSimple.Identifier;
-                if (position >= nameToken.Position)
+                if (IsAtImportCompletionName(qualified, importNameToken, position))
                 {
-                    var symbol = TryResolveNamespaceOrType(qualified.Left);
+                    var symbol = TryResolveImportNamespaceOrType(qualified.Left);
                     if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
-                        var prefix = nameToken.ValueText;
-                        var nameSpan = nameToken.Span;
-                        var importMembers = nsOrType is INamespaceSymbol importNamespace
-                            ? GetNamespaceCompletionMembers(importNamespace)
-                            : nsOrType.GetMembers().Where(IsAccessible);
-                        foreach (var member in importMembers
-                            .Where(m => NameMatchesPrefix(m.Name, prefix)))
-                        {
-                            var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
-                            var cursorOffset = member is ITypeSymbol ? insertText.Length : (int?)null;
-
-                            if (seen.Add(dedupKey))
-                            {
-                                completions.Add(new CompletionItem(
-                                    DisplayText: displayText,
-                                    InsertionText: insertText,
-                                    ReplacementSpan: nameSpan,
-                                    CursorOffset: cursorOffset,
-                                    Description: SafeToDisplayString(member),
-                                    Symbol: member
-                                ));
-                            }
-                        }
+                        var prefix = importNameToken.ValueText;
+                        var nameSpan = GetImportCompletionReplacementSpan(importNameToken, position);
+                        AddImportDirectiveMemberCompletions(nsOrType, prefix, nameSpan);
                     }
                     return completions;
                 }
@@ -1816,6 +1920,27 @@ public static class CompletionProvider
                 IEnumerable<ISymbol>? members = null;
                 ITypeSymbol? instanceTypeForExtensions = null;
 
+                var isRecoveredImportCompletion = IsImportLineCompletionContext(memberAccess);
+                if (isRecoveredImportCompletion)
+                {
+                    if (memberAccess.Expression is NameSyntax importReceiver &&
+                        TryResolveImportNamespaceOrType(importReceiver) is { } importReceiverSymbol)
+                    {
+                        var hasNameAtCaret = !memberAccess.Name.Identifier.IsMissing &&
+                            position > memberAccess.Name.Identifier.Span.Start;
+                        var prefix = hasNameAtCaret
+                            ? memberAccess.Name.Identifier.ValueText
+                            : string.Empty;
+                        var nameSpan = hasNameAtCaret
+                            ? memberAccess.Name.Identifier.Span
+                            : new TextSpan(position, 0);
+
+                        AddImportDirectiveMemberCompletions(importReceiverSymbol, prefix, nameSpan);
+                    }
+
+                    return completions;
+                }
+
                 if (memberAccess.Expression is NameSyntax nameReceiver &&
                     TryResolveNamespaceOrType(nameReceiver) is { } namespaceOrTypeReceiver)
                 {
@@ -1910,12 +2035,23 @@ public static class CompletionProvider
         var qualifiedName = token.GetAncestor<QualifiedNameSyntax>();
         if (qualifiedName is not null && qualifiedName.Right is SimpleNameSyntax simple)
         {
-            var symbol = (ISymbol?)TryResolveNamespaceOrType(qualifiedName.Left);
+            var isImportLineCompletion = IsImportLineCompletionContext(qualifiedName);
+            var symbol = (ISymbol?)(isImportLineCompletion
+                ? TryResolveImportNamespaceOrType(qualifiedName.Left)
+                : TryResolveNamespaceOrType(qualifiedName.Left));
             var prefix = simple.Identifier.ValueText;
-            var nameSpan = simple.Identifier.Span;
+            var nameSpan = isImportLineCompletion
+                ? GetImportCompletionReplacementSpan(simple.Identifier, position)
+                : simple.Identifier.Span;
 
             if (symbol is INamespaceOrTypeSymbol nsOrType)
             {
+                if (isImportLineCompletion)
+                {
+                    AddImportDirectiveMemberCompletions(nsOrType, prefix, nameSpan);
+                    return completions;
+                }
+
                 var qualifiedMembers = nsOrType is INamespaceSymbol qualifiedNamespace
                     ? GetNamespaceCompletionMembers(qualifiedNamespace)
                     : nsOrType.GetMembers().Where(IsAccessible);
@@ -1941,6 +2077,9 @@ public static class CompletionProvider
 
                 return completions;
             }
+
+            if (isImportLineCompletion)
+                return completions;
 
             var receiverType = GetTypeFromSymbol(symbol)
                 ?? model.GetTypeInfo(qualifiedName.Left).Type;

@@ -21,7 +21,7 @@ Binders are chained together so that each scope can fall back to its parent. The
 | --- | --- | --- | --- |
 | `GlobalBinder` | Root binder for the entire compilation and entry point for symbol lookup. | Once per compilation. | – |
 | `NamespaceBinder` | Tracks the current namespace and collects declared types. | Entering a namespace declaration or the global namespace. | `GlobalBinder` or another `NamespaceBinder` |
-| `ImportBinder` | Applies `import` directives and alias declarations. | After a `NamespaceBinder` is created for the file. | `NamespaceBinder` |
+| `ImportBinder` | Applies `import` directives and alias declarations for one lexical import scope. | After a `NamespaceBinder` is created for a compilation unit or namespace declaration that has imports or aliases. | `NamespaceBinder` |
 | `CompilationUnitBinder` | Associates a syntax tree with its `SemanticModel`. | For each compilation unit. | `ImportBinder` |
 | `TopLevelBinder` | Binds global statements and synthesizes the entry point. | When a file contains top‑level statements. | `ImportBinder` |
 | `TypeDeclarationBinder` | Base binder for type declarations, establishing member scope. | For each type (class, enum, etc.). | `ImportBinder` or containing `TypeDeclarationBinder` |

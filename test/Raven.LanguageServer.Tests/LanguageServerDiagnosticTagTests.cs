@@ -59,7 +59,7 @@ public class LanguageServerDiagnosticTagTests
             "Import directive is redundant",
             null,
             string.Empty,
-            "Import directive '{0}' is redundant because it is already globally imported.",
+            "Import directive '{0}' is redundant because it is already imported by an enclosing scope.",
             "Compiler",
             CodeDiagnosticSeverity.Hidden);
         var diagnostic = CodeDiagnostic.Create(

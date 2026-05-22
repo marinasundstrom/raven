@@ -552,6 +552,195 @@ class Runner {
     }
 
     [Fact]
+    public async Task CompletionHandler_ImportNamespaceTrailingDot_ReturnsWildcardAndTypeMembersAsync()
+    {
+        const string text = "import System.Collections.Generic.";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(0, text.Length),
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("*");
+        completions.Items!.Select(static item => item.Label).ShouldContain("List");
+    }
+
+    [Fact]
+    public async Task CompletionHandler_ImportRootNamespaceTrailingDot_ReturnsWildcardAndMembersAsync()
+    {
+        const string text = "import System.";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(0, text.Length),
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("*");
+        completions.Items!.Select(static item => item.Label).ShouldContain("String");
+        var wildcard = completions.Items!.Single(static item => item.Label == "*");
+        wildcard.TextEdit.ShouldNotBeNull();
+        wildcard.TextEdit!.IsTextEdit.ShouldBeTrue();
+        wildcard.TextEdit.TextEdit.Range.Start.Line.ShouldBe(0);
+        wildcard.TextEdit.TextEdit.Range.Start.Character.ShouldBe(text.Length);
+        wildcard.TextEdit.TextEdit.Range.End.Line.ShouldBe(0);
+        wildcard.TextEdit.TextEdit.Range.End.Character.ShouldBe(text.Length);
+    }
+
+    [Fact]
+    public async Task CompletionHandler_ImportRootNamespaceTrailingDot_DoesNotBindExpressionReceiverAsync()
+    {
+        const string text = """
+import System.*
+import System.Console.*
+import System.Text.Json.*
+import System.
+
+val foo = 1
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(3, "import System.".Length),
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+        var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("*");
+        completions.Items!.Select(static item => item.Label).ShouldContain("String");
+        var wildcard = completions.Items!.Single(static item => item.Label == "*");
+        wildcard.TextEdit.ShouldNotBeNull();
+        wildcard.TextEdit!.IsTextEdit.ShouldBeTrue();
+        wildcard.TextEdit.TextEdit.Range.Start.Line.ShouldBe(3);
+        wildcard.TextEdit.TextEdit.Range.Start.Character.ShouldBe("import System.".Length);
+        wildcard.TextEdit.TextEdit.Range.End.Line.ShouldBe(3);
+        wildcard.TextEdit.TextEdit.Range.End.Character.ShouldBe("import System.".Length);
+        delta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        delta.TypeInfoBoundFallbacks.ShouldBe(0);
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task CompletionHandler_ImportRootNamespaceTrailingDot_DoesNotWaitForSemanticGateAsync()
+    {
+        const string text = "import System.";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(
+            uri,
+            CancellationToken.None,
+            "test-held-lease");
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(0, text.Length),
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(1));
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("*");
+        completions.Items!.Select(static item => item.Label).ShouldContain("String");
+    }
+
+    [Fact]
+    public async Task CompletionHandler_ImportMetadataNamespaceTrailingDot_ReturnsWildcardAndMembersAsync()
+    {
+        const string text = "import System.Net.";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(0, text.Length),
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("*");
+        completions.Items!.Select(static item => item.Label).ShouldContain("Http");
+        completions.Items!.Select(static item => item.Label).ShouldContain("IPAddress");
+    }
+
+    [Theory]
+    [InlineData("""
+namespace App
+
+import System.Collections.Generic.
+""")]
+    [InlineData("""
+namespace App {
+    import System.Collections.Generic.
+}
+""")]
+    public async Task CompletionHandler_NamespaceScopedImportNamespaceTrailingDot_ReturnsWildcardAndTypeMembersAsync(string text)
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(
+                (await store.GetAnalysisContextAsync(uri, CancellationToken.None))!.Value.SourceText,
+                new TextSpan(text.LastIndexOf('.') + 1, 0)).Start,
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("*");
+        completions.Items!.Select(static item => item.Label).ShouldContain("List");
+    }
+
+    [Fact]
     public async Task GetAnalysisContextAsync_ClearedDocument_ReturnsCompilationOwnedSyntaxTreeAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");

@@ -1577,6 +1577,7 @@ public partial class Compilation
                     []);
 
                 currentSourceNamespace.AddMember(nextSource);
+                InvalidateNamespaceSymbolLookupCache();
             }
 
             currentSourceNamespace = nextSource;
@@ -2718,8 +2719,16 @@ public partial class Compilation
             return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamespaceSymbol)cached;
 
         var resolved = GetNamespaceSymbolUncached(ns);
+        if (resolved is null && !_sourceDeclarationsDeclared)
+            return null;
+
         _namespaceSymbolCache.TryAdd(cacheKey, resolved ?? s_missingMetadataType);
         return resolved;
+    }
+
+    private void InvalidateNamespaceSymbolLookupCache()
+    {
+        _namespaceSymbolCache.Clear();
     }
 
     private INamespaceSymbol? GetNamespaceSymbolUncached(string? ns)

@@ -49,13 +49,12 @@ internal sealed class CompletionHandler : ICompletionHandler
         int itemCount = 0;
         var usedFallback = false;
         string? failureType = null;
+        var usedImportFastPath = false;
         Compilation? semanticCompilation = null;
         SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
 
         try
         {
-            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "completion").ConfigureAwait(false);
-            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
             _logger.LogDebug(
                 "Completion request for {Uri} at {Line}:{Character}. Trigger={TriggerKind}/{TriggerCharacter}",
                 request.TextDocument.Uri,
@@ -72,6 +71,37 @@ internal sealed class CompletionHandler : ICompletionHandler
             var syntaxTree = context.Value.SyntaxTree;
             var text = context.Value.SourceText;
             var position = Math.Clamp(PositionHelper.ToOffset(text, request.Position), 0, syntaxTree.GetRoot(cancellationToken).FullSpan.End);
+
+            stageStopwatch.Restart();
+            if (_completionService.TryGetImportDirectiveCompletionsWithMetrics(
+                    context.Value.Compilation,
+                    syntaxTree,
+                    position,
+                    out var importCompletion))
+            {
+                usedImportFastPath = true;
+                semanticModelMs = importCompletion.SemanticModelMs;
+                providerMs = importCompletion.ProviderMs;
+                usedFallback = importCompletion.UsedFallback;
+                failureType = importCompletion.FailureType;
+
+                stageStopwatch.Restart();
+                var importItems = importCompletion.Items
+                    .Select(item => CompletionItemMapper.ToLspCompletion(item, text))
+                    .ToList();
+                completionMaterializationMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                itemCount = importItems.Count;
+
+                _logger.LogDebug(
+                    "Import completion produced {Count} items for {Uri}.",
+                    importItems.Count,
+                    request.TextDocument.Uri);
+
+                return new CompletionList(importItems, isIncomplete: false);
+            }
+
+            using var _ = await _documents.EnterDocumentSemanticAccessAsync(request.TextDocument.Uri, cancellationToken, "completion").ConfigureAwait(false);
+            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
             var semanticModel = await _documents.GetSemanticModelAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
@@ -134,7 +164,7 @@ internal sealed class CompletionHandler : ICompletionHandler
                 totalStopwatch.Elapsed.TotalMilliseconds,
                 resultCount: itemCount,
                 detail: semanticDelta is null
-                    ? $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}"
+                    ? $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character}{(usedImportFastPath ? " fastPath=import" : string.Empty)}"
                     : $"{request.TextDocument.Uri} {request.Position.Line}:{request.Position.Character} semantic=[{semanticDelta}]",
                 stages:
                 [
@@ -153,6 +183,9 @@ internal sealed class CompletionHandler : ICompletionHandler
 
     internal static CompletionItemKind MapCompletionItemKind(RavenCompletionItem item)
     {
+        if (item.Symbol is null && item.DisplayText == "*")
+            return CompletionItemKind.Operator;
+
         if (item.Symbol is { } symbol)
         {
             return symbol switch
@@ -188,6 +221,9 @@ internal sealed class CompletionHandler : ICompletionHandler
 
     internal static string GetSortText(RavenCompletionItem item)
     {
+        if (item.Symbol is null && item.DisplayText == "*")
+            return "00_*";
+
         var rank = item.Symbol switch
         {
             IFieldSymbol => 10,

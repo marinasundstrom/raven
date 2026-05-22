@@ -3241,7 +3241,18 @@ Import directives appear at the beginning of a compilation unit or namespace and
 simply make existing namespaces or types available. They do not introduce new
 names. To bind a custom name, use an `alias` directive. All imports for a given
 scope must come before any alias directives or member declarations. Placing an
-import directive after an alias or member is a compile-time error (`RAV1005`).
+import directive after an alias or member in the same scope is a compile-time
+error (`RAV1005`).
+
+An import belongs to the scope that syntactically contains it. Compilation-unit
+imports are visible to declarations in that compilation unit, including
+declarations inside a file-scoped namespace. Imports inside a block-scoped
+namespace are visible only inside that namespace declaration and its nested
+declarations; they are not visible to sibling namespace declarations.
+File-scoped namespace imports participate in the same file namespace context as
+compilation-unit imports. For clarity, style guidance recommends placing imports
+and aliases after the file-scoped namespace declaration, but imports before the
+file-scoped namespace declaration are also part of the file's namespace context.
 
 Project builds also include a generated prelude source file. The prelude uses a
 top-level `global` block. Global blocks are top-level constructs whose supported

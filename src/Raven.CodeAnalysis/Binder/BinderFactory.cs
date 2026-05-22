@@ -116,14 +116,12 @@ class BinderFactory
         var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
 
         var provisionalImportBinder = new ImportBinder(nsBinder, namespaceImports, typeImports, aliases);
-        var globalImportKeys = nsSyntax.Parent is CompilationUnitSyntax
-            ? null
-            : CollectGlobalImportKeys();
+        var inheritedImportKeys = CollectInheritedImportKeys();
 
         foreach (var importDirective in nsSyntax.Imports)
         {
             var importName = importDirective.Name.ToString();
-            if (globalImportKeys?.Contains(importName) == true)
+            if (inheritedImportKeys.Contains(importName))
             {
                 nsBinder.Diagnostics.ReportImportDirectiveRedundantWithGlobalImport(
                     importName,
@@ -140,6 +138,9 @@ class BinderFactory
                     nsBinder.Diagnostics.ReportInvalidImportTarget(nsName.GetLocation());
                 continue;
             }
+
+            if (IsIncompleteImportName(importDirective.Name))
+                continue;
 
             var namespaceSymbol = ResolveNamespace(nsSymbol!, importName);
             if (namespaceSymbol != null)
@@ -205,6 +206,27 @@ class BinderFactory
             importBinder.Diagnostics.Report(diagnostic);
 
         return importBinder;
+
+        HashSet<string> CollectInheritedImportKeys()
+        {
+            var keys = CollectGlobalImportKeys();
+
+            if (nsSyntax.SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
+            {
+                foreach (var import in compilationUnit.Imports)
+                    keys.Add(import.Name.ToString());
+            }
+
+            foreach (var ancestorNamespace in nsSyntax
+                         .Ancestors()
+                         .OfType<BaseNamespaceDeclarationSyntax>())
+            {
+                foreach (var import in ancestorNamespace.Imports)
+                    keys.Add(import.Name.ToString());
+            }
+
+            return keys;
+        }
 
         HashSet<string> CollectGlobalImportKeys()
         {
@@ -364,6 +386,11 @@ class BinderFactory
 
         static bool HasTypeArguments(NameSyntax nameSyntax)
             => nameSyntax.DescendantNodes().OfType<GenericNameSyntax>().Any();
+
+        static bool IsIncompleteImportName(NameSyntax nameSyntax)
+            => nameSyntax.DescendantNodesAndSelf()
+                .OfType<SimpleNameSyntax>()
+                .Any(static name => name.Identifier.IsMissing);
 
         ITypeSymbol? ResolveGenericType(INamespaceSymbol current, NameSyntax name)
         {

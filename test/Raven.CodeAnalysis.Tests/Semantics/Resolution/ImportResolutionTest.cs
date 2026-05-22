@@ -277,6 +277,19 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
+    public void IncompleteNamespaceImportTrailingDot_ShouldNot_ProduceWildcardDiagnostic()
+    {
+        string testCode =
+            """
+            import System.
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void WildcardTypeImport_MakesStaticMembersAvailable()
     {
         string testCode =

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -12,6 +13,110 @@ namespace Raven.CodeAnalysis.Semantics.Tests.Declarations;
 
 public sealed class NamespaceMemberTests : CompilationTestBase
 {
+    [Fact]
+    public void MemberSignatureDeclaration_MetadataWildcardImport_IsStableUnderConcurrentDeclarationQueries()
+    {
+        const string source = """
+namespace App
+
+import System.Text.Json.*
+
+public func Normalize(options: JsonSerializerOptions) -> JsonSerializerOptions {
+    return options
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+
+        var exception = Record.Exception(() =>
+            Parallel.For(0, 16, _ => compilation.EnsureSourceDeclarationsDeclared()));
+
+        Assert.Null(exception);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(static function => function.Identifier.ValueText == "Normalize");
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+
+        Assert.Equal("JsonSerializerOptions", method.ReturnType.Name);
+        Assert.Equal("JsonSerializerOptions", method.Parameters.Single().Type.Name);
+    }
+
+    [Fact]
+    public void MemberSignatureDeclaration_SourceWildcardImport_ResolvesDeclaredTypes()
+    {
+        var libraryTree = SyntaxTree.ParseText("""
+namespace Shared
+
+public class Payload {
+}
+""");
+        var appTree = SyntaxTree.ParseText("""
+namespace App
+
+import Shared.*
+
+public func Create() -> Payload {
+    return Payload()
+}
+""");
+        var compilation = CreateCompilation([libraryTree, appTree]);
+
+        compilation.EnsureSourceDeclarationsDeclared();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(appTree);
+        var function = appTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(static function => function.Identifier.ValueText == "Create");
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+
+        Assert.Equal("Payload", method.ReturnType.Name);
+    }
+
+    [Fact]
+    public void NamespaceWildcardImport_AfterEarlyMissingNamespaceLookup_ResolvesSourceMembers()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Samples.NamespaceMembers.Members
+
+public const DefaultTopic: string = "binding"
+public const DefaultCount: int = 3
+
+public func PrintSummary(topic: string, count: int) {
+}
+""");
+        var mainTree = SyntaxTree.ParseText("""
+namespace Samples.NamespaceMembers.App
+
+import Samples.NamespaceMembers.Members.*
+
+func Main() {
+    PrintSummary(DefaultTopic, DefaultCount)
+}
+""");
+        var compilation = CreateCompilation([mainTree, membersTree]);
+
+        Assert.Null(compilation.GetNamespaceSymbol("Samples.NamespaceMembers.Members"));
+        Assert.DoesNotContain(compilation.GetDiagnostics(mainTree), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(mainTree);
+        var invocation = mainTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "PrintSummary" });
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("PrintSummary", method.Name);
+        Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
+    }
+
     [Fact]
     public void NamespaceWildcardImport_BringsTopLevelFunctionAndConstIntoScope()
     {
@@ -55,6 +160,200 @@ func Run() -> int {
         Assert.True(field.IsConst);
         Assert.Equal(41, field.GetConstantValue());
         Assert.Equal("NamespaceMembers", field.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void NamespaceWildcardImport_MultiFileGlobalFunction_ResolvesSourceMembers()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public const Answer: int = 41
+
+public func AddOne(value: int) -> int => value + 1
+""");
+        var mainTree = SyntaxTree.ParseText("""
+import Utilities.*
+
+func Run() -> int {
+    return AddOne(Answer)
+}
+""");
+        var compilation = CreateCompilation([membersTree, mainTree]);
+        var model = compilation.GetSemanticModel(mainTree);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(mainTree), static d => d.Severity == DiagnosticSeverity.Error);
+
+        var invocation = mainTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("AddOne", method.Name);
+        Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
+
+        var invocationIdentifier = (IdentifierNameSyntax)invocation.Expression;
+        var identifierMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocationIdentifier).Symbol);
+        Assert.Equal("AddOne", identifierMethod.Name);
+    }
+
+    [Fact]
+    public void NamespaceWildcardImport_MultiFileGlobalFunction_ColdSymbolQuery_ResolvesSourceMembers()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public const Answer: int = 41
+
+public func AddOne(value: int) -> int => value + 1
+""");
+        var mainTree = SyntaxTree.ParseText("""
+import Utilities.*
+
+func Run() -> int {
+    return AddOne(Answer)
+}
+""");
+        var compilation = CreateCompilation([membersTree, mainTree]);
+        var model = compilation.GetSemanticModel(mainTree);
+
+        var invocation = mainTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("AddOne", method.Name);
+        Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void NamespaceScopedImport_DoesNotLeakToSiblingNamespace()
+    {
+        const string source = """
+namespace Utilities {
+    public func AddOne(value: int) -> int => value + 1
+}
+
+namespace A {
+    import Utilities.*
+
+    public func Run() -> int {
+        return AddOne(1)
+    }
+}
+
+namespace B {
+    public func Run() -> int {
+        return AddOne(1)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, diagnostic =>
+            diagnostic.Descriptor.Id == "RAV0103" &&
+            diagnostic.GetMessage().Contains("'AddOne' is not in scope", StringComparison.Ordinal));
+        Assert.Single(diagnostics.Where(diagnostic =>
+            diagnostic.Descriptor.Id == "RAV0103" &&
+            diagnostic.GetMessage().Contains("'AddOne' is not in scope", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void CompilationUnitImport_IsVisibleInsideNamespaceDeclaration()
+    {
+        const string source = """
+import Utilities.*
+
+namespace Utilities {
+    public func AddOne(value: int) -> int => value + 1
+}
+
+namespace App {
+    public func Run() -> int {
+        return AddOne(1)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("AddOne", method.Name);
+    }
+
+    [Fact]
+    public void FileScopedNamespaceImport_IsVisibleToNamespaceMembers()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func AddOne(value: int) -> int => value + 1
+""");
+        var mainTree = SyntaxTree.ParseText("""
+namespace App
+
+import Utilities.*
+
+public func Run() -> int {
+    return AddOne(1)
+}
+""");
+        var compilation = CreateCompilation([membersTree, mainTree]);
+        var model = compilation.GetSemanticModel(mainTree);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(mainTree), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var invocation = mainTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("AddOne", method.Name);
+    }
+
+    [Fact]
+    public void CompilationUnitImport_IsVisibleInsideFileScopedNamespace()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func AddOne(value: int) -> int => value + 1
+""");
+        var mainTree = SyntaxTree.ParseText("""
+import Utilities.*
+
+namespace App
+
+public func Run() -> int {
+    return AddOne(1)
+}
+""");
+        var compilation = CreateCompilation([membersTree, mainTree]);
+        var model = compilation.GetSemanticModel(mainTree);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(mainTree), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var invocation = mainTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("AddOne", method.Name);
     }
 
     [Fact]

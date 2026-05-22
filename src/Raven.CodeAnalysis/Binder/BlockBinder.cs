@@ -136,6 +136,9 @@ partial class BlockBinder : Binder
 
     private static bool IsExistingAssignmentTargetDesignation(SingleVariableDesignationSyntax designation)
     {
+        if (HasInlinePatternBindingKeyword(designation))
+            return false;
+
         for (SyntaxNode? current = designation; current is not null; current = current.Parent)
         {
             if (current.Parent is PatternDeclarationAssignmentStatementSyntax patternDeclaration &&
@@ -158,6 +161,19 @@ partial class BlockBinder : Binder
         }
 
         return false;
+    }
+
+    private static bool HasInlinePatternBindingKeyword(SingleVariableDesignationSyntax designation)
+    {
+        if (IsDeclarationBindingKeyword(designation.BindingKeyword.Kind))
+            return true;
+
+        return designation
+            .Ancestors()
+            .OfType<VariablePatternSyntax>()
+            .Any(pattern =>
+                IsDeclarationBindingKeyword(pattern.BindingKeyword.Kind) &&
+                ContainsNode(pattern.Designation, designation));
     }
 
     private static bool ContainsNode(SyntaxNode root, SyntaxNode node)
@@ -236,6 +252,20 @@ partial class BlockBinder : Binder
             owner = purpose == PatternDeclarationOwnerPurpose.LexicalScope
                 ? patternDeclarationAssignment.Parent ?? patternDeclarationAssignment
                 : patternDeclarationAssignment;
+            return true;
+        }
+
+        if (designation.GetAncestor<AssignmentStatementSyntax>() is { } assignmentStatement &&
+            ContainsNode(assignmentStatement.Left, designation))
+        {
+            owner = assignmentStatement;
+            return true;
+        }
+
+        if (designation.GetAncestor<AssignmentExpressionSyntax>() is { } assignmentExpression &&
+            ContainsNode(assignmentExpression.Left, designation))
+        {
+            owner = assignmentExpression;
             return true;
         }
 
@@ -11221,15 +11251,30 @@ partial class BlockBinder : Binder
         ITypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
-        if (pattern.BindingKeyword.Kind == SyntaxKind.None &&
-            !IsDeclarationBindingKeyword(declarationBindingKeywordKind))
+        var bindingKeywordKind = GetPatternAssignmentBindingKeywordKind(pattern, declarationBindingKeywordKind);
+        if (!IsDeclarationBindingKeyword(bindingKeywordKind))
         {
             return BindVariableDesignationForExistingAssignment(pattern.Designation, valueType);
         }
 
-        var isMutable = pattern.BindingKeyword.IsKind(SyntaxKind.VarKeyword) ||
-                        (pattern.BindingKeyword.Kind == SyntaxKind.None && declarationBindingKeywordKind == SyntaxKind.VarKeyword);
+        var isMutable = IsMutableBindingKeyword(bindingKeywordKind);
         return BindVariableDesignationForAssignment(pattern.Designation, valueType, isMutable);
+    }
+
+    private static SyntaxKind GetPatternAssignmentBindingKeywordKind(
+        VariablePatternSyntax pattern,
+        SyntaxKind declarationBindingKeywordKind)
+    {
+        if (IsDeclarationBindingKeyword(pattern.BindingKeyword.Kind))
+            return pattern.BindingKeyword.Kind;
+
+        if (pattern.Designation is SingleVariableDesignationSyntax single &&
+            IsDeclarationBindingKeyword(single.BindingKeyword.Kind))
+        {
+            return single.BindingKeyword.Kind;
+        }
+
+        return declarationBindingKeywordKind;
     }
 
     private BoundPattern BindDeclarationPatternForAssignment(

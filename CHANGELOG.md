@@ -50,6 +50,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Full-document inlay hint responses now skip eager tooltip markdown generation,
   keeping initial annotation payloads lighter while focused range requests still
   include richer tooltip content.
+- Pattern inlay hints now skip assignment patterns that deconstruct into
+  existing variables, while still annotating `val`/`var`/`let` pattern
+  declarations and inline pattern bindings.
 - The redundant-import quick fix now offers a document-level action to remove all imports already covered by global imports.
 - Optional enum parameter defaults now accept target-typed member binding syntax such as `value: ServiceLifetime = .Scoped`.
 - Qualified constant-member patterns such as `value is Math.PI` and enum-member patterns such as `value is JsonValueKind.True` now bind and emit as value comparisons instead of type tests.

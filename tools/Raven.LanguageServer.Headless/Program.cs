@@ -58,6 +58,7 @@ var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
 var sourceText = context.SourceText;
 var handler = new HoverHandler(store, new HeadlessConsoleLogger<HoverHandler>());
 var inlayHandler = new InlayHintHandler(store, new HeadlessConsoleLogger<InlayHintHandler>());
+var completionHandler = new CompletionHandler(store, new HeadlessConsoleLogger<CompletionHandler>());
 var model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
     ?? throw new InvalidOperationException($"No semantic model for '{filePath}'.");
 var root = context.SyntaxTree.GetRoot();
@@ -83,6 +84,12 @@ if (options.RandomHover)
 if (options.EditReplacements.Count > 0)
 {
     await RunEditProbeAsync();
+    return;
+}
+
+if (options.TypeImportText is { Length: > 0 })
+{
+    await RunTypeImportProbeAsync(options.TypeImportText);
     return;
 }
 
@@ -732,6 +739,58 @@ async Task<string> RunInlayAsync(RangeTarget range)
     return $"inlay {range.Label}: {sw.Elapsed.TotalMilliseconds:F1}ms hints={hints.Length} tooltips={tooltipCount} [{SemanticQueryInstrumentation.FormatDelta(delta)}] {preview}";
 }
 
+async Task RunTypeImportProbeAsync(string importText)
+{
+    if (!importText.EndsWith('\n'))
+        importText += Environment.NewLine;
+
+    var typedText = string.Empty;
+    Console.WriteLine($"type-import project={projectRoot} file={filePath} text={importText.TrimEnd()}");
+
+    for (var i = 0; i < importText.Length; i++)
+    {
+        typedText += importText[i];
+        _ = store.UpsertDocument(uri, SourceText.From(typedText), deferMacroConsumerRefresh: true);
+        context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
+            ?? throw new InvalidOperationException($"No analysis context for '{filePath}'.");
+        sourceText = context.SourceText;
+        model = await store.GetSemanticModelAsync(uri, CancellationToken.None)
+            ?? throw new InvalidOperationException($"No semantic model for '{filePath}'.");
+        root = context.SyntaxTree.GetRoot();
+
+        if (importText[i] != '.')
+            continue;
+
+        var position = PositionHelper.ToRange(sourceText, new TextSpan(typedText.Length, 0)).Start;
+        var before = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var sw = Stopwatch.StartNew();
+        var completionList = await completionHandler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position,
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+        sw.Stop();
+        var after = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var items = completionList?.Items?.ToArray() ?? [];
+        var labels = string.Join(", ", items.Take(12).Select(static item => item.Label));
+        var lineText = typedText.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
+
+        Console.WriteLine(
+            $"type-import completion step={i + 1} position={position.Line}:{position.Character} " +
+            $"typed=\"{lineText}\" elapsed={sw.Elapsed.TotalMilliseconds:F1}ms items={items.Length} " +
+            $"wildcard={items.Any(static item => item.Label == "*")} " +
+            $"http={items.Any(static item => item.Label == "Http")} " +
+            $"ipAddress={items.Any(static item => item.Label == "IPAddress")} " +
+            $"[{SemanticQueryInstrumentation.FormatDelta(delta)}] labels=[{labels}]");
+    }
+}
+
 CompilerSetupInstrumentation.Snapshot CaptureSetupSnapshot()
 {
     if (!manager.TryGetCompilation(uri, out var compilation) || compilation is null)
@@ -844,6 +903,7 @@ static HeadlessOptions ParseOptions(string[] args)
     var sequenceInlayProbes = true;
     var sequenceHoverCount = 5;
     var sequenceReopenDocuments = false;
+    string? typeImportText = null;
 
     for (var i = 0; i < args.Length; i++)
     {
@@ -925,6 +985,11 @@ static HeadlessOptions ParseOptions(string[] args)
                 editHoverTargets.Add(args[i + 1]);
                 i++;
                 break;
+            case "--type-import":
+                typeImportText = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)
+                    ? args[++i]
+                    : "import System.Net.";
+                break;
             default:
                 positionals.Add(args[i]);
                 break;
@@ -952,7 +1017,8 @@ static HeadlessOptions ParseOptions(string[] args)
         sequenceRepeatCount,
         sequenceInlayProbes,
         sequenceHoverCount,
-        sequenceReopenDocuments);
+        sequenceReopenDocuments,
+        typeImportText);
 }
 
 static NamedReplayScenario ResolveReplayScenario(string repoRoot, string name)
@@ -1143,7 +1209,8 @@ internal sealed record HeadlessOptions(
     int SequenceRepeatCount,
     bool SequenceInlayProbes,
     int SequenceHoverCount,
-    bool SequenceReopenDocuments);
+    bool SequenceReopenDocuments,
+    string? TypeImportText);
 
 internal enum ReplayScenarioOperation
 {
