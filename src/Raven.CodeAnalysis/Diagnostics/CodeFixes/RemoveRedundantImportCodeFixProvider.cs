@@ -9,7 +9,8 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
 {
     private static readonly ImmutableArray<string> FixableIds =
     [
-        CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id
+        CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id,
+        UnusedImportDirectiveAnalyzer.DiagnosticId
     ];
 
     public override IEnumerable<string> FixableDiagnosticIds => FixableIds;
@@ -17,7 +18,7 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
     public override void RegisterCodeFixes(CodeFixContext context)
     {
         var diagnostic = context.Diagnostic;
-        if (!string.Equals(diagnostic.Id, CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id, StringComparison.OrdinalIgnoreCase))
+        if (!FixableIds.Contains(diagnostic.Id, StringComparer.OrdinalIgnoreCase))
             return;
 
         if (!diagnostic.Location.IsInSource)
@@ -34,7 +35,7 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
 
         var sourceText = context.Document.GetTextAsync(context.CancellationToken).GetAwaiter().GetResult().ToString();
         var removalSpan = GetLineRemovalSpan(sourceText, importDirective.Span);
-        var allRemovalSpans = GetRedundantImportRemovalSpans(context.Document.Project, root, sourceText, context.CancellationToken)
+        var allRemovalSpans = GetRedundantImportRemovalSpans(context.Document, root, sourceText, context.CancellationToken)
             .Distinct()
             .OrderByDescending(static span => span.Start)
             .ToArray();
@@ -42,7 +43,7 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
         {
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    "Remove all redundant imports",
+                    "Remove all redundant or unused imports",
                     (solution, _) =>
                     {
                         var document = solution.GetDocument(context.Document.Id);
@@ -65,39 +66,67 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
     }
 
     private static IEnumerable<TextSpan> GetRedundantImportRemovalSpans(
-        Project project,
+        Document document,
         SyntaxNode root,
         string sourceText,
         CancellationToken cancellationToken)
     {
-        var globalImportKeys = CollectGlobalImportKeys(project, cancellationToken);
-        if (globalImportKeys.Count == 0)
-            yield break;
+        var diagnostics = GetRedundantImportDiagnostics(document, cancellationToken);
+        var diagnosticSpans = diagnostics
+            .Where(diagnostic => diagnostic.Location.IsInSource)
+            .Select(diagnostic => diagnostic.Location.SourceSpan)
+            .ToArray();
 
         foreach (var import in EnumerateSourceImports(root))
         {
-            if (globalImportKeys.Contains(import.Name.ToString()))
+            if (diagnosticSpans.Any(span => import.Span.Start <= span.Start && import.Span.End >= span.End))
                 yield return GetLineRemovalSpan(sourceText, import.Span);
         }
     }
 
-    private static HashSet<string> CollectGlobalImportKeys(Project project, CancellationToken cancellationToken)
+    private static IEnumerable<Diagnostic> GetRedundantImportDiagnostics(
+        Document document,
+        CancellationToken cancellationToken)
     {
-        var keys = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var document in project.Documents)
+        var workspace = document.Solution.Workspace;
+        if (workspace is not null)
         {
-            var syntaxTree = document.GetSyntaxTreeAsync(cancellationToken).GetAwaiter().GetResult();
-            if (syntaxTree?.GetRoot(cancellationToken) is not CompilationUnitSyntax root)
-                continue;
-
-            foreach (var globalImport in root.Members.OfType<GlobalImportBlockSyntax>())
-            {
-                foreach (var import in globalImport.Imports)
-                    keys.Add(import.Name.ToString());
-            }
+            return workspace.GetDocumentDiagnosticsWithAnalyzers(
+                    document.Project.Id,
+                    document.Id,
+                    cancellationToken: cancellationToken)
+                .Where(IsFixableImportDiagnostic)
+                .ToArray();
         }
 
-        return keys;
+        var syntaxTree = document.GetSyntaxTreeAsync(cancellationToken).GetAwaiter().GetResult();
+        if (syntaxTree is null)
+            return [];
+
+        var semanticModel = document.GetSemanticModelAsync(cancellationToken).GetAwaiter().GetResult();
+        if (semanticModel is null)
+            return [];
+
+        var compilation = semanticModel.Compilation;
+        var compilerDiagnostics = compilation
+            .GetDocumentDiagnostics(syntaxTree, cancellationToken: cancellationToken)
+            .Where(IsFixableImportDiagnostic);
+        var analyzerDiagnostics = new UnusedImportDirectiveAnalyzer()
+            .Analyze(compilation, syntaxTree, cancellationToken)
+            .Where(IsFixableImportDiagnostic);
+
+        return compilerDiagnostics.Concat(analyzerDiagnostics).ToArray();
+    }
+
+    private static bool IsFixableImportDiagnostic(Diagnostic diagnostic)
+    {
+        foreach (var id in FixableIds)
+        {
+            if (string.Equals(diagnostic.Id, id, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     private static IEnumerable<ImportDirectiveSyntax> EnumerateSourceImports(SyntaxNode root)

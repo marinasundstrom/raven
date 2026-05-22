@@ -15,6 +15,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Extended unused-variable analysis to report unused callable parameters as warning
   `RAV9030`, covering methods, `func` statements, constructors, operators, and function
   expressions.
+- Added hidden analyzer diagnostic `RAV9031` for unused wildcard namespace imports within
+  the lexical scope that declares them, with cleanup support through the redundant-import
+  code fix.
 - Fixed editor diagnostic scheduling so open, edit, and save follow-up passes include
   analyzer diagnostics such as unused locals and parameters, while typing uses a throttled
   document-scoped analyzer pass instead of running full-project analyzers on every edit.

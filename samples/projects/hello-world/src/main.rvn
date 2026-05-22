@@ -1,7 +1,5 @@
-import System.*
 import System.Console.*
 import System.Text.Json.*
-import System.Text.Json.Serialization.*
 
 val foo = Foo(
     Name: "Foo", 

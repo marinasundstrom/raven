@@ -22,6 +22,7 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<UnusedPropertyAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnusedMethodAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnusedVariableAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UnusedImportDirectiveAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnhandledMemberReturnValueAnalyzer>(project);
         project = AddAnalyzerIfMissing<ImmutableCollectionOperationResultAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferDuLinqExtensionsAnalyzer>(project);

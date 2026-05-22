@@ -55,6 +55,7 @@ internal sealed class DocumentStore
     {
         CompilerDiagnostics.UnreachableCodeDetected.Id,
         CompilerDiagnostics.ImportDirectiveRedundantWithGlobalImport.Id,
+        Raven.CodeAnalysis.Diagnostics.UnusedImportDirectiveAnalyzer.DiagnosticId,
         Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.DiagnosticId,
         Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId
     };

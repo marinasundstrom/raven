@@ -32,6 +32,10 @@ Raven currently provides analyzers for two different contexts:
   are considered.
 - **UnusedVariableAnalyzer** (Raven, `RAV9027` / `RAV9030`) – reports unused local
   variables, local pattern bindings, and callable parameters.
+- **UnusedImportDirectiveAnalyzer** (Raven, `RAV9031`) – reports wildcard namespace
+  imports whose declaring compilation-unit or namespace scope does not reference any
+  imported type, top-level namespace member, or nested namespace member. Nested namespaces
+  are included in the declaring import scope.
 - **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
   invocations, property accesses, or field accesses whose returned value is not handled.
   Assign the returned value to a target, assign it to `_`, return it, or pass it on. The
@@ -65,6 +69,7 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `MemberCanBeStaticAnalyzer`
 - `UnusedPropertyAnalyzer`
 - `UnusedMethodAnalyzer`
+- `UnusedImportDirectiveAnalyzer`
 - `UnhandledMemberReturnValueAnalyzer`
 - `PreferDuLinqExtensionsAnalyzer`
 - `PreferIsNullOverEqualityAnalyzer`

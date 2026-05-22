@@ -75,6 +75,29 @@ public class LanguageServerDiagnosticTagTests
     }
 
     [Fact]
+    public void MapTags_UnusedImport_ReturnsUnnecessaryTag()
+    {
+        var descriptor = DiagnosticDescriptor.Create(
+            Raven.CodeAnalysis.Diagnostics.UnusedImportDirectiveAnalyzer.DiagnosticId,
+            "Import directive is unused",
+            null,
+            string.Empty,
+            "Import directive '{0}' is unused within this scope.",
+            "Usage",
+            CodeDiagnosticSeverity.Hidden);
+        var diagnostic = CodeDiagnostic.Create(
+            descriptor,
+            CodeLocation.None,
+            CodeDiagnosticSeverity.Hidden,
+            "System.Net");
+
+        var tags = DocumentStore.MapTags(diagnostic);
+
+        tags.ShouldNotBeNull();
+        tags!.ShouldContain(DiagnosticTag.Unnecessary);
+    }
+
+    [Fact]
     public void MapTags_LocalFunctionDiagnostic_ReturnsUnnecessaryTag()
     {
         var descriptor = DiagnosticDescriptor.Create(
