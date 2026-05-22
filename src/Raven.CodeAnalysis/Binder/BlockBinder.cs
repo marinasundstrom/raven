@@ -15951,9 +15951,13 @@ partial class BlockBinder : Binder
             // Members/imports remain visible even after the boundary.
             if (current is TypeMemberBinder typeMemberBinder)
             {
-                foreach (var member in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingTypeSymbol, name))
-                    if (seen.Add(GetLookupKey(member)))
-                        yield return member;
+                var containingType = typeMemberBinder.ContainingTypeSymbol;
+                if (!IsSuppressedNamespaceMembersContainer(containingType))
+                {
+                    foreach (var member in EnumerateTypeAndBaseMembers(containingType, name))
+                        if (seen.Add(GetLookupKey(member)))
+                            yield return member;
+                }
             }
 
             if (current is ImportBinder importBinder)
@@ -15968,7 +15972,7 @@ partial class BlockBinder : Binder
 
         if (CurrentNamespace is { } currentNamespace)
         {
-            foreach (var member in Compilation.GetNamespaceMembers(currentNamespace, name))
+            foreach (var member in Compilation.GetNamespaceMembers(currentNamespace, name, ShouldIncludeNamespaceMembers()))
                 if (seen.Add(GetLookupKey(member)))
                     yield return member;
         }
@@ -15977,9 +15981,17 @@ partial class BlockBinder : Binder
             if (seen.Add(GetLookupKey(member)))
                 yield return member;
 
-        foreach (var member in Compilation.GetNamespaceMembers(Compilation.SourceGlobalNamespace, name))
+        foreach (var member in Compilation.GetNamespaceMembers(Compilation.SourceGlobalNamespace, name, ShouldIncludeNamespaceMembers()))
             if (seen.Add(GetLookupKey(member)))
                 yield return member;
+
+        bool ShouldIncludeNamespaceMembers()
+            => Compilation.Options.AllowNamespaceMembers &&
+               Compilation.Options.AllowNamespaceMemberImports;
+
+        bool IsSuppressedNamespaceMembersContainer(INamedTypeSymbol type)
+            => Compilation.IsNamespaceMemberContainer(type) &&
+               !ShouldIncludeNamespaceMembers();
     }
 
     public override IEnumerable<ISymbol> LookupAvailableSymbols()
@@ -16019,10 +16031,21 @@ partial class BlockBinder : Binder
             {
                 foreach (var ns in importBinder.GetImportedNamespacesOrTypeScopes())
                 {
-                    foreach (var member in ns.GetMembers())
+                    if (ns is INamespaceSymbol namespaceSymbol)
                     {
-                        if (seen.Add(member.Name))
-                            yield return member;
+                        foreach (var member in GetNamespaceScopeCompletionMembers(namespaceSymbol))
+                        {
+                            if (seen.Add(member.Name))
+                                yield return member;
+                        }
+                    }
+                    else
+                    {
+                        foreach (var member in ns.GetMembers())
+                        {
+                            if (seen.Add(member.Name))
+                                yield return member;
+                        }
                     }
                 }
             }
@@ -16057,6 +16080,11 @@ partial class BlockBinder : Binder
             if (current is TypeMemberBinder typeMemberBinder)
             {
                 var containingType = typeMemberBinder.ContainingTypeSymbol;
+                if (IsSuppressedNamespaceMembersContainer(containingType))
+                {
+                    current = current.ParentBinder;
+                    continue;
+                }
 
                 if (seen.Add(containingType.Name))
                     yield return containingType;
@@ -16074,12 +16102,100 @@ partial class BlockBinder : Binder
             current = current.ParentBinder;
         }
 
+        if (!IsInsideTopLevelProgramBinder() &&
+            CurrentNamespace is { IsGlobalNamespace: false } currentNamespace)
+        {
+            foreach (var member in GetNamespaceScopeCompletionMembers(currentNamespace))
+            {
+                if (seen.Add(member.Name))
+                    yield return member;
+            }
+        }
+
         // Also include GlobalNamespace as a last fallback
         foreach (var member in Compilation.GlobalNamespace.GetMembers())
         {
             if (seen.Add(member.Name))
                 yield return member;
         }
+
+        if (CurrentNamespace is null or { IsGlobalNamespace: true })
+        {
+            foreach (var member in GetNamespaceMemberCompletionSymbols(Compilation.SourceGlobalNamespace))
+            {
+                if (seen.Add(member.Name))
+                    yield return member;
+            }
+        }
+
+        IEnumerable<ISymbol> GetNamespaceScopeCompletionMembers(INamespaceSymbol namespaceSymbol)
+        {
+            var namespaceMembersContainer = Compilation.GetNamespaceMembersContainer(namespaceSymbol);
+
+            foreach (var member in GetNamespaceMemberCompletionSymbols(namespaceSymbol))
+            {
+                yield return member;
+            }
+
+            foreach (var member in namespaceSymbol.GetMembers())
+            {
+                if (namespaceMembersContainer is not null &&
+                    SymbolEqualityComparer.Default.Equals(namespaceMembersContainer, member))
+                {
+                    continue;
+                }
+
+                if (member is not INamespaceOrTypeSymbol)
+                    continue;
+
+                yield return member;
+            }
+        }
+
+        IEnumerable<ISymbol> GetNamespaceMemberCompletionSymbols(INamespaceSymbol namespaceSymbol)
+        {
+            if (!Compilation.Options.AllowNamespaceMembers ||
+                !Compilation.Options.AllowNamespaceMemberImports)
+            {
+                yield break;
+            }
+
+            foreach (var member in Compilation.GetNamespaceMembers(namespaceSymbol))
+            {
+                if (IsNamespaceScopeCompletionSymbol(member))
+                    yield return member;
+            }
+        }
+
+        static bool IsNamespaceScopeCompletionSymbol(ISymbol symbol)
+            => symbol switch
+            {
+                IMethodSymbol method => method.DeclaringSyntaxReferences
+                    .Any(static reference =>
+                        reference.GetSyntax() is FunctionStatementSyntax { Parent: GlobalStatementSyntax global } &&
+                        Compilation.IsTopLevelFunctionMember(global)),
+                IFieldSymbol { IsConst: true } field => field.DeclaringSyntaxReferences
+                    .Any(static reference =>
+                        reference.GetSyntax() is ConstDeclarationSyntax constDeclaration &&
+                        constDeclaration.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax or NamespaceDeclarationSyntax),
+                _ => symbol is INamespaceOrTypeSymbol
+            };
+
+        bool IsInsideTopLevelProgramBinder()
+        {
+            for (var current = (Binder?)this; current is not null; current = current.ParentBinder)
+            {
+                if (current is TopLevelBinder)
+                    return true;
+            }
+
+            return false;
+        }
+
+        bool IsSuppressedNamespaceMembersContainer(INamedTypeSymbol type)
+            => Compilation.IsNamespaceMemberContainer(type) &&
+               (!Compilation.Options.AllowNamespaceMembers ||
+                !Compilation.Options.AllowNamespaceMemberImports);
     }
 
     public override BoundFunctionStatement BindFunction(FunctionStatementSyntax function)

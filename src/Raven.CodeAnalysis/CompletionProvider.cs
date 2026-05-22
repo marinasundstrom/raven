@@ -915,9 +915,14 @@ public static class CompletionProvider
         }
 
         IEnumerable<ISymbol> GetNamespaceCompletionMembers(INamespaceSymbol namespaceSymbol)
-            => namespaceSymbol.GetMembers()
-                .Concat(model.Compilation.GetNamespaceMembers(namespaceSymbol, model.Compilation.Options.AllowNamespaceMemberImports))
+        {
+            var includeNamespaceMembers = model.Compilation.Options.AllowNamespaceMembers &&
+                                          model.Compilation.Options.AllowNamespaceMemberImports;
+
+            return namespaceSymbol.GetMembers()
+                .Concat(model.Compilation.GetNamespaceMembers(namespaceSymbol, includeNamespaceMembers))
                 .Where(IsAccessible);
+        }
 
         void AddCompletionItem(ISymbol symbol, TextSpan replacementSpan)
         {

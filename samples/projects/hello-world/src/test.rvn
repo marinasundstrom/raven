@@ -3,3 +3,7 @@ import System.Console.*
 func Test() {
     WriteLine("Hello")
 }
+
+func A(x: int) {
+    
+}

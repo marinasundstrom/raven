@@ -506,9 +506,14 @@ public class CompletionService
     }
 
     private static IEnumerable<ISymbol> GetNamespaceCompletionMembers(Compilation compilation, INamespaceSymbol namespaceSymbol)
-        => namespaceSymbol.GetMembers()
-            .Concat(compilation.GetNamespaceMembers(namespaceSymbol, compilation.Options.AllowNamespaceMemberImports))
+    {
+        var includeNamespaceMembers = compilation.Options.AllowNamespaceMembers &&
+                                      compilation.Options.AllowNamespaceMemberImports;
+
+        return namespaceSymbol.GetMembers()
+            .Concat(compilation.GetNamespaceMembers(namespaceSymbol, includeNamespaceMembers))
             .Where(IsAccessibleForImportCompletion);
+    }
 
     private static bool IsAccessibleForImportCompletion(ISymbol symbol)
         => symbol.DeclaredAccessibility is Accessibility.NotApplicable

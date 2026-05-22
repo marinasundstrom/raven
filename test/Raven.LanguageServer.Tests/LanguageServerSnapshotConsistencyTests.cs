@@ -771,6 +771,96 @@ namespace App {
     }
 
     [Fact]
+    public async Task CompletionHandler_SameNamespaceSourceMemberPrefix_IncludesCrossFileFunctionAsync()
+    {
+        const string text = """
+namespace Samples.App
+
+func Main() -> unit {
+    Tes
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        await store.UpsertDocumentAsync(testUri, """
+namespace Samples.App
+
+public func Test() -> unit {
+}
+""");
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(3, "    Tes".Length)
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        var testCompletion = completions.Items!.Single(static item => item.Label == "Test");
+        testCompletion.LabelDetails.ShouldNotBeNull();
+        testCompletion.LabelDetails!.Description.ShouldBe("Samples.App");
+        testCompletion.LabelDetails.Description.ShouldNotContain("NamespaceMembers");
+    }
+
+    [Fact]
+    public async Task CompletionHandler_GlobalNamespaceSourceMemberPrefix_IncludesCrossFileFunctionAsync()
+    {
+        const string text = """
+func Main() -> unit {
+    Tes
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        await store.UpsertDocumentAsync(testUri, """
+public func Test() -> unit {
+}
+""");
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(1, "    Tes".Length)
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        var testCompletion = completions.Items!.Single(static item => item.Label == "Test");
+        testCompletion.LabelDetails?.Description.ShouldNotBe("NamespaceMembers");
+    }
+
+    [Fact]
+    public async Task CompletionHandler_GlobalTopLevelProgramSourceMemberPrefix_IncludesCrossFileFunctionAsync()
+    {
+        const string text = """
+Tes
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        await store.UpsertDocumentAsync(testUri, """
+public func Test() -> unit {
+}
+""");
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(0, "Tes".Length)
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("Test");
+    }
+
+    [Fact]
     public async Task GetAnalysisContextAsync_ClearedDocument_ReturnsCompilationOwnedSyntaxTreeAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");

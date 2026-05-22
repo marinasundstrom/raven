@@ -62,6 +62,43 @@ public sealed class HeadlessEditSimulationTests : IDisposable
         result.Probes.ShouldAllBe(probe => probe.ElapsedMs < 5_000);
     }
 
+    [Fact]
+    public async Task AddSecondSourceFile_CrossFileHoverResolvesThroughCurrentSnapshotAsync()
+    {
+        await using var simulation = HeadlessEditSimulation.Create(
+            _tempRoot,
+            """
+            func Main() {
+                Test()
+            }
+            """);
+
+        var initialDiagnostics = await simulation.GetDocumentCompilerDiagnosticsAsync();
+        initialDiagnostics.Diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Severity == LspDiagnosticSeverity.Error &&
+            diagnostic.Message.Contains("'Test' is not in scope", StringComparison.Ordinal));
+
+        await simulation.UpsertAdditionalDocumentAsync(
+            "test.rvn",
+            """
+            func Test() {
+            }
+            """);
+
+        var diagnostics = await simulation.GetDocumentCompilerDiagnosticsAsync();
+        diagnostics.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+
+        var firstHover = await simulation.RunHoverProbeAsync(new HeadlessHoverProbe("cross-file function", "Test", "func Test"));
+        var secondHover = await simulation.RunHoverProbeAsync(new HeadlessHoverProbe("cross-file function repeat", "Test", "func Test"));
+
+        firstHover.HasHover.ShouldBeTrue();
+        secondHover.HasHover.ShouldBeTrue();
+        secondHover.ElapsedMs.ShouldBeLessThan(250);
+        secondHover.SemanticDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        secondHover.SemanticDelta.SymbolInfoOperationFallbacks.ShouldBe(0);
+        secondHover.SemanticDelta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
+
     private const string InitialMainText =
         """
         class Runner {
@@ -171,6 +208,21 @@ public sealed class HeadlessEditSimulationTests : IDisposable
                 GetCompilationTree(compilation, _stablePath));
         }
 
+        public Task<DocumentStore.DiagnosticsComputationResult> GetDocumentCompilerDiagnosticsAsync()
+            => _store.TryGetDiagnosticsAsync(
+                _mainUri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                shouldSkipWork: null,
+                CancellationToken.None);
+
+        public async Task UpsertAdditionalDocumentAsync(string fileName, string text)
+        {
+            var sourceRoot = Path.GetDirectoryName(_mainPath)!;
+            var path = Path.Combine(sourceRoot, fileName);
+            File.WriteAllText(path, text);
+            await _store.UpsertDocumentAsync(DocumentUri.FromFileSystemPath(path), text);
+        }
+
         public async Task<HeadlessEditResult> ApplyEditAndProbeAsync(
             SourceText updatedText,
             params HeadlessHoverProbe[] probes)
@@ -213,6 +265,13 @@ public sealed class HeadlessEditSimulationTests : IDisposable
                 semanticStopwatch.Elapsed.TotalMilliseconds,
                 diagnosticsStopwatch.Elapsed.TotalMilliseconds,
                 hoverResults);
+        }
+
+        public async Task<HeadlessHoverProbeResult> RunHoverProbeAsync(HeadlessHoverProbe probe)
+        {
+            var context = await _store.GetAnalysisContextAsync(_mainUri, CancellationToken.None);
+            context.ShouldNotBeNull();
+            return await RunHoverProbeAsync(context.Value.SourceText, probe);
         }
 
         private async Task<HeadlessHoverProbeResult> RunHoverProbeAsync(SourceText sourceText, HeadlessHoverProbe probe)

@@ -156,7 +156,9 @@ class ImportBinder : Binder
 
         if (symbol is INamespaceSymbol namespaceSymbol)
         {
-            foreach (var member in Compilation.GetNamespaceMembers(namespaceSymbol, name, Compilation.Options.AllowNamespaceMemberImports))
+            var includeNamespaceMembers = Compilation.Options.AllowNamespaceMembers &&
+                                          Compilation.Options.AllowNamespaceMemberImports;
+            foreach (var member in Compilation.GetNamespaceMembers(namespaceSymbol, name, includeNamespaceMembers))
                 yield return member;
         }
 

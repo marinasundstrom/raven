@@ -548,6 +548,16 @@ async Task RunEditProbeAsync()
             ? "slow"
             : "ok";
         hoverResults.Add((marker, hoverResult));
+
+        var repeatHoverResult = await RunHoverAsync(target + ".repeat", position);
+        var repeatMarker = repeatHoverResult.Exception is not null
+            ? "error"
+            : !repeatHoverResult.HasHover
+            ? "null"
+            : repeatHoverResult.ElapsedMs >= options.SlowThresholdMs
+            ? "slow"
+            : "ok";
+        hoverResults.Add((repeatMarker, repeatHoverResult));
     }
 
     var semanticStopwatch = Stopwatch.StartNew();

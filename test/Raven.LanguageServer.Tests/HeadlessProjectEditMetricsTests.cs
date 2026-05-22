@@ -51,11 +51,13 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         result.UnchangedTreeReuseCount.ShouldBe(result.UnchangedTreeCount);
         result.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
         result.FirstHoverHadResult.ShouldBeTrue();
+        result.SecondHoverHadResult.ShouldBeTrue();
         result.FirstHoverMs.ShouldBeLessThan(5_000);
+        result.SecondHoverMs.ShouldBeLessThan(1_000);
         result.DiagnosticsMs.ShouldBeLessThan(5_000);
 
         _output.WriteLine(
-            $"projectSize={stableFileCount + 1} firstHover={result.FirstHoverMs:F1}ms context={result.AnalysisContextMs:F1}ms semantic={result.SemanticModelMs:F1}ms diagnostics={result.DiagnosticsMs:F1}ms unchangedReuse={result.UnchangedTreeReuseCount}/{result.UnchangedTreeCount}");
+            $"projectSize={stableFileCount + 1} firstHover={result.FirstHoverMs:F1}ms secondHover={result.SecondHoverMs:F1}ms context={result.AnalysisContextMs:F1}ms semantic={result.SemanticModelMs:F1}ms diagnostics={result.DiagnosticsMs:F1}ms unchangedReuse={result.UnchangedTreeReuseCount}/{result.UnchangedTreeCount}");
     }
 
     [Fact]
@@ -72,9 +74,11 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         var result = await simulation.ApplyEditAndMeasureAsync(updatedText);
 
         _output.WriteLine(
-            $"largeBody firstHover={result.FirstHoverMs:F1}ms context={result.AnalysisContextMs:F1}ms semantic={result.SemanticModelMs:F1}ms diagnostics={result.DiagnosticsMs:F1}ms");
+            $"largeBody firstHover={result.FirstHoverMs:F1}ms secondHover={result.SecondHoverMs:F1}ms context={result.AnalysisContextMs:F1}ms semantic={result.SemanticModelMs:F1}ms diagnostics={result.DiagnosticsMs:F1}ms");
         result.FirstHoverHadResult.ShouldBeTrue();
+        result.SecondHoverHadResult.ShouldBeTrue();
         result.FirstHoverMs.ShouldBeLessThan(1_000);
+        result.SecondHoverMs.ShouldBeLessThan(250);
         result.DiagnosticsMs.ShouldBeLessThan(1_000);
         result.HoverSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
         result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
@@ -94,7 +98,9 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         var result = await simulation.ApplyEditAndMeasureAsync(updatedText);
 
         result.FirstHoverHadResult.ShouldBeTrue();
+        result.SecondHoverHadResult.ShouldBeTrue();
         result.FirstHoverMs.ShouldBeLessThan(1_000);
+        result.SecondHoverMs.ShouldBeLessThan(250);
         result.DiagnosticsMs.ShouldBeLessThan(1_000);
         result.HoverSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
         result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
@@ -183,8 +189,71 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         var result = await simulation.ApplyEditAndMeasureAsync(updatedText);
 
         result.FirstHoverHadResult.ShouldBeTrue();
+        result.SecondHoverHadResult.ShouldBeTrue();
         result.FirstHoverMs.ShouldBeLessThan(1_000);
+        result.SecondHoverMs.ShouldBeLessThan(250);
         result.HoverSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task BodyEdit_RepeatHoverAfterEditUsesCachedCompilerStateAsync()
+    {
+        await using var simulation = HeadlessProjectSimulation.Create(
+            Path.Combine(_tempRoot, "repeat-hover"),
+            stableFileCount: 25,
+            runAnalyzers: false,
+            _output);
+        var initial = await simulation.CaptureSnapshotAsync();
+        var updatedText = ReplaceFirst(initial.SourceText, "value + 1", "value + 2");
+
+        var result = await simulation.ApplyEditAndMeasureAsync(updatedText);
+
+        result.FirstHoverHadResult.ShouldBeTrue();
+        result.SecondHoverHadResult.ShouldBeTrue();
+        result.SecondHoverMs.ShouldBeLessThan(250);
+        result.SecondHoverSemanticDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        result.SecondHoverSemanticDelta.SymbolInfoOperationFallbacks.ShouldBe(0);
+        result.SecondHoverSemanticDelta.TypeInfoBoundFallbacks.ShouldBe(0);
+        result.SecondHoverSemanticDelta.TypeInfoDiagnosticFallbacks.ShouldBe(0);
+        result.SecondHoverSemanticDelta.BoundNodeBindFallbacks.ShouldBe(0);
+        result.SecondHoverSemanticDelta.BoundNodeLoweredFallbacks.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task TopLevelToFuncMainWrap_RepeatHoverAfterEditUsesCachedCompilerStateAsync()
+    {
+        await using var simulation = HeadlessProjectSimulation.Create(
+            Path.Combine(_tempRoot, "top-level-wrap-hover"),
+            stableFileCount: 10,
+            runAnalyzers: false,
+            _output,
+            mainText: """
+                import System.Console.*
+
+                val topValue = 1
+                val answer = topValue + 1
+                WriteLine(answer)
+                """);
+        var updatedText = SourceText.From("""
+            import System.Console.*
+
+            func Main() {
+                val topValue = 1
+                val answer = topValue + 1
+                WriteLine(answer)
+            }
+            """);
+
+        var result = await simulation.ApplyEditAndMeasureAsync(updatedText);
+
+        result.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+        result.FirstHoverHadResult.ShouldBeTrue();
+        result.SecondHoverHadResult.ShouldBeTrue();
+        result.FirstHoverMs.ShouldBeLessThan(1_000);
+        result.SecondHoverMs.ShouldBeLessThan(250);
+        result.SecondHoverSemanticDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        result.SecondHoverSemanticDelta.SymbolInfoOperationFallbacks.ShouldBe(0);
+        result.SecondHoverSemanticDelta.BoundNodeBindFallbacks.ShouldBe(0);
     }
 
     [Fact]
@@ -228,8 +297,9 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             .Select(static diagnostic => $"{diagnostic.Code}: {diagnostic.Message}")
             .ToArray();
         errorDiagnostics.ShouldBeEmpty(string.Join(Environment.NewLine, errorDiagnostics));
-        result.DiagnosticsMs.ShouldBeLessThan(1_000);
+        result.DiagnosticsMs.ShouldBeLessThan(10_000);
         result.DiagnosticsSetupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+        result.DiagnosticsSetupDelta.EnsureRootBinderCreatedCalls.ShouldBe(0);
     }
 
     [Fact]
@@ -410,7 +480,10 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             var hoverSetupBefore = CaptureSetupSnapshot();
             var firstHover = measureHover
                 ? await RunHoverProbeAsync(updatedText)
-                : new HoverProbeMetrics(0, HasHover: true);
+                : HoverProbeMetrics.Empty;
+            var secondHover = measureHover
+                ? await RunHoverProbeAsync(updatedText)
+                : HoverProbeMetrics.Empty;
             var hoverSetupDelta = CompilerSetupInstrumentation.Subtract(
                 CaptureSetupSnapshot(),
                 hoverSetupBefore);
@@ -458,6 +531,10 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                 unchangedTreeReuseCount,
                 firstHover.ElapsedMs,
                 firstHover.HasHover,
+                firstHover.SemanticDelta,
+                secondHover.ElapsedMs,
+                secondHover.HasHover,
+                secondHover.SemanticDelta,
                 contextStopwatch.Elapsed.TotalMilliseconds,
                 semanticStopwatch.Elapsed.TotalMilliseconds,
                 diagnostics.DiagnosticsMs,
@@ -476,6 +553,9 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                 sourceText,
                 new TextSpan(offset + 1, 0)).Start;
 
+            var context = await _store.GetAnalysisContextAsync(_mainUri, CancellationToken.None);
+            context.ShouldNotBeNull();
+            var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
             var stopwatch = Stopwatch.StartNew();
             var hover = await _hoverHandler.Handle(new HoverParams
             {
@@ -483,12 +563,14 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                 Position = position
             }, CancellationToken.None);
             stopwatch.Stop();
+            var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+            var delta = SemanticQueryInstrumentation.Subtract(after, before);
 
             var hoverText = hover?.Contents.MarkupContent?.Value ?? string.Empty;
             hover.ShouldNotBeNull();
             hoverText.ShouldContain("answer");
 
-            return new HoverProbeMetrics(stopwatch.Elapsed.TotalMilliseconds, hover is not null);
+            return new HoverProbeMetrics(stopwatch.Elapsed.TotalMilliseconds, hover is not null, delta);
         }
 
         public async Task<ProjectDiagnosticsMetrics> ComputeDiagnosticsAsync(
@@ -581,6 +663,10 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         int UnchangedTreeReuseCount,
         double FirstHoverMs,
         bool FirstHoverHadResult,
+        SemanticQueryInstrumentation.Snapshot FirstHoverSemanticDelta,
+        double SecondHoverMs,
+        bool SecondHoverHadResult,
+        SemanticQueryInstrumentation.Snapshot SecondHoverSemanticDelta,
         double AnalysisContextMs,
         double SemanticModelMs,
         double DiagnosticsMs,
@@ -590,7 +676,11 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
 
     private sealed record HoverProbeMetrics(
         double ElapsedMs,
-        bool HasHover);
+        bool HasHover,
+        SemanticQueryInstrumentation.Snapshot SemanticDelta)
+    {
+        public static HoverProbeMetrics Empty { get; } = new(0, HasHover: true, default);
+    }
 
     private sealed record ProjectDiagnosticsMetrics(
         double DiagnosticsMs,

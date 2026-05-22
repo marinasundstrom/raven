@@ -87,6 +87,22 @@ public class LanguageServerCompletionMappingTests
     }
 
     [Fact]
+    public void ToLspCompletion_DelegateTypeCompletion_UsesTypeIconInsteadOfFunctionIcon()
+    {
+        var text = SourceText.From("Act");
+        var item = new Raven.CodeAnalysis.CompletionItem(
+            DisplayText: "Action",
+            InsertionText: "Action",
+            ReplacementSpan: new TextSpan(0, 3),
+            Symbol: new FakeNamedTypeSymbol("Action", TypeKind.Delegate));
+
+        var mapped = CompletionItemMapper.ToLspCompletion(item, text);
+
+        mapped.Kind.ShouldBe(CompletionItemKind.Interface);
+        mapped.Kind.ShouldNotBe(CompletionItemKind.Function);
+    }
+
+    [Fact]
     public void ToLspCompletion_SymbolCompletion_UsesFullyQualifiedContainerDescription()
     {
         var text = SourceText.From("Lis");
@@ -191,6 +207,47 @@ public class LanguageServerCompletionMappingTests
             : base(RavenSymbolKind.Local, name, containingSymbol, containingNamespace)
         {
         }
+    }
+
+    private sealed class FakeNamedTypeSymbol : FakeSymbol, INamedTypeSymbol
+    {
+        public FakeNamedTypeSymbol(string name, TypeKind typeKind)
+            : base(RavenSymbolKind.Type, name)
+        {
+            TypeKind = typeKind;
+        }
+
+        public INamedTypeSymbol? BaseType => null;
+        public ITypeSymbol? OriginalDefinition => this;
+        public SpecialType SpecialType => SpecialType.None;
+        public TypeKind TypeKind { get; }
+        public ImmutableArray<INamedTypeSymbol> Interfaces => ImmutableArray<INamedTypeSymbol>.Empty;
+        public ImmutableArray<INamedTypeSymbol> AllInterfaces => ImmutableArray<INamedTypeSymbol>.Empty;
+        public bool IsNamespace => false;
+        public bool IsType => true;
+        public int Arity => 0;
+        public ImmutableArray<IMethodSymbol> Constructors => ImmutableArray<IMethodSymbol>.Empty;
+        public ImmutableArray<IMethodSymbol> InstanceConstructors => ImmutableArray<IMethodSymbol>.Empty;
+        public IMethodSymbol? StaticConstructor => null;
+        public INamedTypeSymbol UnderlyingTupleType => this;
+        public ImmutableArray<IFieldSymbol> TupleElements => ImmutableArray<IFieldSymbol>.Empty;
+        public ImmutableArray<ITypeSymbol> TypeArguments => ImmutableArray<ITypeSymbol>.Empty;
+        public ImmutableArray<ITypeParameterSymbol> TypeParameters => ImmutableArray<ITypeParameterSymbol>.Empty;
+        public ITypeSymbol? ConstructedFrom => this;
+        public bool IsAbstract => false;
+        public bool IsClosed => true;
+        public bool IsGenericType => false;
+        public bool IsUnboundGenericType => false;
+        public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
+        public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+        public ITypeSymbol? LookupType(string name) => null;
+        public bool IsMemberDefined(string name, out ISymbol? symbol)
+        {
+            symbol = null;
+            return false;
+        }
+
+        public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => this;
     }
 
     private sealed class FakeNamespaceSymbol : FakeSymbol, INamespaceSymbol

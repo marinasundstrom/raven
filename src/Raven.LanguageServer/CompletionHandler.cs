@@ -206,7 +206,7 @@ internal sealed class CompletionHandler : ICompletionHandler
                     TypeKind.Interface => CompletionItemKind.Interface,
                     TypeKind.Struct => CompletionItemKind.Struct,
                     TypeKind.Enum => CompletionItemKind.Enum,
-                    TypeKind.Delegate => CompletionItemKind.Function,
+                    TypeKind.Delegate => CompletionItemKind.Interface,
                     _ => CompletionItemKind.Class
                 },
                 _ => CompletionItemKind.Text
@@ -302,6 +302,9 @@ internal static class CompletionItemMapper
         if (symbol is null)
             return null;
 
+        if (TryGetNamespaceMemberFacadeNamespace(symbol) is { } facadeNamespace)
+            return GetNamespaceDisplayString(facadeNamespace);
+
         var containing = symbol.ContainingSymbol;
         if (containing is null || containing.Kind == Raven.CodeAnalysis.SymbolKind.Assembly)
             return null;
@@ -312,6 +315,17 @@ internal static class CompletionItemMapper
         return containing.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat
             .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
             .WithKindOptions(SymbolDisplayKindOptions.None));
+    }
+
+    private static INamespaceSymbol? TryGetNamespaceMemberFacadeNamespace(ISymbol symbol)
+    {
+        var containingType = symbol.ContainingType;
+        if (containingType is null)
+            return null;
+
+        return containingType is { Name: "NamespaceMembers", IsImplicitlyDeclared: true, ContainingNamespace: { } containingNamespace }
+            ? containingNamespace
+            : null;
     }
 
     private static string? GetNamespaceDisplayString(INamespaceSymbol namespaceSymbol)
