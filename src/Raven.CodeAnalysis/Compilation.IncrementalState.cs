@@ -54,7 +54,8 @@ public partial class Compilation
 
     internal readonly record struct IncrementalCompilationPlan(
         ImmutableArray<SyntaxTree> ReusedSyntaxTrees,
-        ImmutableArray<IncrementalChangedSyntaxTree> ChangedSyntaxTrees)
+        ImmutableArray<IncrementalChangedSyntaxTree> ChangedSyntaxTrees,
+        bool BlocksSemanticDiagnosticTransfer = false)
     {
         public ImmutableArray<IncrementalMatchedSyntaxTree> MatchedSyntaxTrees
             => ChangedSyntaxTrees

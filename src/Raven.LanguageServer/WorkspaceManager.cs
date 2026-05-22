@@ -753,6 +753,22 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    public IReadOnlyList<DocumentUri> GetOpenDocumentUrisInSameProject(DocumentUri uri, bool excludeSelf)
+    {
+        lock (_gate)
+        {
+            if (!TryResolveOwnedDocument(uri, out var ownedDocument))
+                return [];
+
+            return _documents
+                .Where(pair =>
+                    pair.Value.ProjectId == ownedDocument.ProjectId &&
+                    (!excludeSelf || pair.Key != uri))
+                .Select(static pair => pair.Key)
+                .ToArray();
+        }
+    }
+
     public bool TryGetDocumentContext(DocumentUri uri, out Document? document, out Compilation? compilation)
     {
         lock (_gate)

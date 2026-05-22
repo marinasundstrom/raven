@@ -14,7 +14,9 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        var blockReusedSemanticDiagnostics = plan.ChangedSyntaxTrees.Any(static tree => tree.BlocksSemanticDiagnosticTransfer);
+        var blockReusedSemanticDiagnostics =
+            plan.BlocksSemanticDiagnosticTransfer ||
+            plan.ChangedSyntaxTrees.Any(static tree => tree.BlocksSemanticDiagnosticTransfer);
         InitializeIncrementalState(previousCompilation.CreateIncrementalState(
             plan.ReusedSyntaxTrees,
             plan.MatchedSyntaxTrees,

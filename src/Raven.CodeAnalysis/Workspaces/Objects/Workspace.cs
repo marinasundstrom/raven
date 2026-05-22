@@ -224,6 +224,7 @@ public class Workspace
         var changedSyntaxTrees = ImmutableArray.CreateBuilder<Compilation.IncrementalChangedSyntaxTree>();
         var documentStates = state.DocumentStates;
         var presentDocs = new HashSet<DocumentId>();
+        var documentSetChanged = false;
 
         foreach (var doc in project.Documents)
         {
@@ -250,6 +251,10 @@ public class Workspace
                         ownerChanges,
                         blocksSemanticDiagnosticTransfer));
                 }
+                else if (previousCompilation is not null)
+                {
+                    documentSetChanged = true;
+                }
 
                 documentStates[doc.Id] = new DocumentState(doc.Version, tree);
             }
@@ -257,6 +262,8 @@ public class Workspace
 
         // remove cached documents no longer present
         var toRemove = documentStates.Keys.Where(id => !presentDocs.Contains(id)).ToList();
+        if (toRemove.Count > 0)
+            documentSetChanged = true;
         foreach (var id in toRemove)
             documentStates.Remove(id);
 
@@ -281,7 +288,8 @@ public class Workspace
                 previousCompilation,
                 new Compilation.IncrementalCompilationPlan(
                     reusedSyntaxTrees.ToImmutable(),
-                    changedSyntaxTrees.ToImmutable()));
+                    changedSyntaxTrees.ToImmutable(),
+                    BlocksSemanticDiagnosticTransfer: documentSetChanged));
         }
 
         state.Version = project.Version;

@@ -147,7 +147,8 @@ internal sealed class HoverHandler : IHoverHandler
                 directInvocationResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             }
 
-            if (resolution is null)
+            if (resolution is null &&
+                !IsInvocationTargetIdentifierAtOffset(root, offset))
             {
                 stageStopwatch.Restart();
                 resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
@@ -617,6 +618,9 @@ internal sealed class HoverHandler : IHoverHandler
 
         return null;
     }
+
+    private static bool IsInvocationTargetIdentifierAtOffset(SyntaxNode root, int offset)
+        => FindInvocationTargetIdentifiersAtOffset(root, offset).Any();
 
     private static IEnumerable<(SimpleNameSyntax Identifier, InvocationExpressionSyntax Invocation)> FindInvocationTargetIdentifiersAtOffset(
         SyntaxNode root,

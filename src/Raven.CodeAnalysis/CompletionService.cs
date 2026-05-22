@@ -362,10 +362,55 @@ public class CompletionService
     }
 
     private static INamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(Compilation compilation, IdentifierNameSyntax identifier)
-        => LookupQualifiedMember(compilation, compilation.GlobalNamespace, identifier.Identifier.ValueText, arity: 0);
+        => LookupRootMember(compilation, identifier.Identifier.ValueText, arity: 0);
 
     private static INamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(Compilation compilation, GenericNameSyntax generic)
-        => LookupQualifiedMember(compilation, compilation.GlobalNamespace, generic.Identifier.ValueText, generic.TypeArgumentList.Arguments.Count);
+        => LookupRootMember(compilation, generic.Identifier.ValueText, generic.TypeArgumentList.Arguments.Count);
+
+    private static INamespaceOrTypeSymbol? LookupRootMember(
+        Compilation compilation,
+        string name,
+        int arity)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        compilation.EnsureSetup();
+
+        List<INamespaceSymbol>? namespaces = null;
+        if (LookupQualifiedMember(compilation, compilation.SourceGlobalNamespace, name, arity) is { } sourceMember)
+        {
+            if (sourceMember is not INamespaceSymbol sourceNamespace)
+                return sourceMember;
+
+            namespaces = [sourceNamespace];
+        }
+
+        foreach (var referencedAssembly in compilation.ReferencedAssemblySymbols)
+        {
+            var member = LookupQualifiedMember(compilation, referencedAssembly.GlobalNamespace, name, arity);
+            if (member is null)
+                continue;
+
+            if (member is not INamespaceSymbol namespaceMember)
+            {
+                if (namespaces is null)
+                    return member;
+
+                continue;
+            }
+
+            namespaces ??= [];
+            namespaces.Add(namespaceMember);
+        }
+
+        return namespaces?.Count switch
+        {
+            null or 0 => null,
+            1 => namespaces[0],
+            _ => new MergedNamespaceSymbol(namespaces, null!)
+        };
+    }
 
     private static INamespaceOrTypeSymbol? LookupQualifiedMember(
         Compilation compilation,

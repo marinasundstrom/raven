@@ -23,11 +23,11 @@ namespace Raven.LanguageServer;
 
 internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
-    private const int DiagnosticsDebounceMilliseconds = 500;
-    private const int DocumentCompilerDiagnosticsAfterEditDelayMilliseconds = 750;
-    private const int DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds = 1_500;
+    private const int DiagnosticsDebounceMilliseconds = 900;
+    private const int DocumentCompilerDiagnosticsAfterEditDelayMilliseconds = 1_000;
+    private const int DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds = 2_000;
     private const int DocumentDiagnosticsAfterOpenDelayMilliseconds = 750;
-    private const int DiagnosticsRetryDelayMilliseconds = 150;
+    private const int DiagnosticsRetryDelayMilliseconds = 500;
     private const double DidCloseLogThresholdMs = 50;
 
     private readonly DocumentStore _documents;
@@ -40,6 +40,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<DocumentUri, int> _lastPublishedDiagnosticVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
+    private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _activeDiagnostics = new();
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
@@ -86,6 +87,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
                 analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
                 diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
+            ScheduleRelatedOpenDocumentCompilerDiagnostics(
+                notification.TextDocument.Uri,
+                DocumentCompilerDiagnosticsAfterEditDelayMilliseconds);
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "didOpen",
@@ -103,6 +107,24 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             _logger.LogError(ex, "DidOpen handling failed for {Uri}.", notification.TextDocument.Uri);
             return Unit.Value;
+        }
+    }
+
+    private void ScheduleRelatedOpenDocumentCompilerDiagnostics(
+        DocumentUri changedUri,
+        int diagnosticsDelayMilliseconds)
+    {
+        foreach (var uri in _documents.GetOpenDocumentUrisInSameProject(changedUri, excludeSelf: true))
+        {
+            if (!_documentVersions.ContainsKey(uri))
+                continue;
+
+            ClearCompletedDiagnostics(uri);
+            _ = ScheduleDiagnosticsPublishAsync(
+                uri,
+                includeWarmup: false,
+                initialDiagnosticsMode: DocumentStore.DiagnosticLane.DocumentCompiler,
+                diagnosticsDelayMilliseconds: diagnosticsDelayMilliseconds);
         }
     }
 
@@ -652,6 +674,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         var stopwatch = Stopwatch.StartNew();
         int diagnosticsCount = 0;
         var outcome = PublishDiagnosticsOutcome.Published;
+        var publishStarted = false;
 
         try
         {
@@ -666,6 +689,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 outcome = PublishDiagnosticsOutcome.SkippedAlreadyCompleted;
                 return Unit.Value;
             }
+
+            if (!TryStartDiagnosticsPublish(uri, expectedVersion, lane))
+            {
+                outcome = PublishDiagnosticsOutcome.SkippedAlreadyPending;
+                return Unit.Value;
+            }
+
+            publishStarted = true;
 
             var result = await _documents.TryGetDiagnosticsAsync(
                 uri,
@@ -745,6 +776,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
         finally
         {
+            if (publishStarted)
+                CompleteDiagnosticsPublish(uri, expectedVersion, lane);
+
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 GetPublishDiagnosticsOperationName(lane, outcome),
@@ -871,25 +905,30 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             (DocumentStore.DiagnosticLane.Syntax, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishSyntaxDiagnosticsUnchanged",
             (DocumentStore.DiagnosticLane.Syntax, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishSyntaxDiagnosticsVersionMismatch",
             (DocumentStore.DiagnosticLane.Syntax, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishSyntaxDiagnosticsAlreadyCompleted",
+            (DocumentStore.DiagnosticLane.Syntax, PublishDiagnosticsOutcome.SkippedAlreadyPending) => "publishSyntaxDiagnosticsAlreadyPending",
             (DocumentStore.DiagnosticLane.DocumentCompiler, PublishDiagnosticsOutcome.Published) => "publishDocumentCompilerDiagnostics",
             (DocumentStore.DiagnosticLane.DocumentCompiler, PublishDiagnosticsOutcome.SkippedRequeued) => "publishDocumentCompilerDiagnosticsSkipped",
             (DocumentStore.DiagnosticLane.DocumentCompiler, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishDocumentCompilerDiagnosticsUnchanged",
             (DocumentStore.DiagnosticLane.DocumentCompiler, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishDocumentCompilerDiagnosticsVersionMismatch",
             (DocumentStore.DiagnosticLane.DocumentCompiler, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishDocumentCompilerDiagnosticsAlreadyCompleted",
+            (DocumentStore.DiagnosticLane.DocumentCompiler, PublishDiagnosticsOutcome.SkippedAlreadyPending) => "publishDocumentCompilerDiagnosticsAlreadyPending",
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.Published) => "publishProjectCompilerDiagnostics",
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedRequeued) => "publishProjectCompilerDiagnosticsSkipped",
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishProjectCompilerDiagnosticsUnchanged",
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishProjectCompilerDiagnosticsVersionMismatch",
             (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishProjectCompilerDiagnosticsAlreadyCompleted",
+            (DocumentStore.DiagnosticLane.ProjectCompiler, PublishDiagnosticsOutcome.SkippedAlreadyPending) => "publishProjectCompilerDiagnosticsAlreadyPending",
             (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.Published) => "publishDocumentWithAnalyzersDiagnostics",
             (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedRequeued) => "publishDocumentWithAnalyzersDiagnosticsSkipped",
             (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishDocumentWithAnalyzersDiagnosticsUnchanged",
             (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedVersionMismatch) => "publishDocumentWithAnalyzersDiagnosticsVersionMismatch",
             (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishDocumentWithAnalyzersDiagnosticsAlreadyCompleted",
+            (DocumentStore.DiagnosticLane.DocumentWithAnalyzers, PublishDiagnosticsOutcome.SkippedAlreadyPending) => "publishDocumentWithAnalyzersDiagnosticsAlreadyPending",
             (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.Published) => "publishProjectWithAnalyzersDiagnostics",
             (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.SkippedRequeued) => "publishProjectWithAnalyzersDiagnosticsSkipped",
             (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.SkippedUnchanged) => "publishProjectWithAnalyzersDiagnosticsUnchanged",
             (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.SkippedAlreadyCompleted) => "publishProjectWithAnalyzersDiagnosticsAlreadyCompleted",
+            (DocumentStore.DiagnosticLane.ProjectWithAnalyzers, PublishDiagnosticsOutcome.SkippedAlreadyPending) => "publishProjectWithAnalyzersDiagnosticsAlreadyPending",
             _ => "publishProjectWithAnalyzersDiagnosticsVersionMismatch"
         };
 
@@ -909,7 +948,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         SkippedRequeued,
         SkippedUnchanged,
         SkippedVersionMismatch,
-        SkippedAlreadyCompleted
+        SkippedAlreadyCompleted,
+        SkippedAlreadyPending
     }
 
     private bool IsDiagnosticsPublishAlreadyCompleted(
@@ -928,12 +968,34 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             _completedDiagnostics[new CompletedDiagnosticsKey(uri, stableVersion, lane)] = 0;
     }
 
+    private bool TryStartDiagnosticsPublish(
+        DocumentUri uri,
+        int? version,
+        DocumentStore.DiagnosticLane lane)
+        => version is not { } stableVersion ||
+           _activeDiagnostics.TryAdd(new CompletedDiagnosticsKey(uri, stableVersion, lane), 0);
+
+    private void CompleteDiagnosticsPublish(
+        DocumentUri uri,
+        int? version,
+        DocumentStore.DiagnosticLane lane)
+    {
+        if (version is { } stableVersion)
+            _activeDiagnostics.TryRemove(new CompletedDiagnosticsKey(uri, stableVersion, lane), out _);
+    }
+
     private void ClearCompletedDiagnostics(DocumentUri uri)
     {
         foreach (var key in _completedDiagnostics.Keys)
         {
             if (key.Uri == uri)
                 _completedDiagnostics.TryRemove(key, out _);
+        }
+
+        foreach (var key in _activeDiagnostics.Keys)
+        {
+            if (key.Uri == uri)
+                _activeDiagnostics.TryRemove(key, out _);
         }
     }
 
