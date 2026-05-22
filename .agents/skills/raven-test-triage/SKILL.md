@@ -72,6 +72,9 @@ Choose the narrowest layer that proves the bug is fixed:
 - runtime behavior issue: runtime or codegen behavior test
 - lazy-binding issue: test both a cold semantic query and, when relevant, a second query that proves the first query populated compiler-owned state for reuse
 - available-state optimization: include a negative or ambiguous case proving the code falls back to normal full binding instead of returning a partial or guessed answer
+- cross-file incremental issue: add or update another document in the same project, then query symbols/diagnostics in the original document through the current compilation snapshot
+- LSP scheduling issue: test that foreground semantic requests are not blocked by broad background gates, while background diagnostics/analyzers/inlays can skip, cancel, or requeue
+- binder lifecycle issue: prove invalidated binders lose their owned symbols and diagnostics, and unchanged binders keep valid derived state only when their syntax and semantic context are equivalent
 
 Keep documentation in step with stabilized behavior. When test triage exposes behavior that should be documented but is missing from `docs/`, consider adding the documentation instead of leaving the expectation only in tests.
 

@@ -35,14 +35,18 @@ Walk the feature through every affected layer:
 
 - Keep public semantic APIs Roslyn-like unless Raven intentionally diverges: callers should ask `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, operations, etc.
 - Treat binders as execution units. A binder owns the derived semantic state for the syntax/scope it binds, such as method parameters, local declarations, labels, pattern variables, and binder-produced diagnostics.
+- Treat `Compilation`/`SemanticModel` as the semantic service layer. Each edit should produce a stable solution/project/document snapshot, and each semantic request should run against one snapshot instead of mutable shared state.
 - Treat lazy binding as the normal model. Any semantic query path may trigger a bind when the answer is not already available; after that, the resolved information should be cached in compiler-owned state and reused by later queries.
 - Treat available-state APIs as opportunistic, not authoritative. They may answer from already-known compiler state, but must return no answer rather than a partial or guessed one when context is missing. Authoritative semantic APIs may bind to produce the correct answer.
 - Keep semantic caching and incremental reuse inside `Raven.CodeAnalysis`. The language server, analyzers, completion, and refactorings should not depend on cache-specific helper APIs or choose invalidation policy.
 - Favor binder-owned state over broad syntax-node caches when the state is logically scoped to that binder. External caches may decide whether a binder is still valid for a syntax tree/compilation increment, but stale binders should not self-heal.
+- Use snapshot-level invalidation for binder reuse. Reuse is valid only when the syntax identity and semantic context are still equivalent: parent binder/member signature/import scope/compilation options must still match. If that context changes, recreate the binder and let its owned symbols and diagnostics be recreated lazily.
 - Design changes so one-shot compilation remains authoritative, while incremental compilation can reuse valid binders and cheaply recreate invalidated binders.
 - Full binding is acceptable when required for correctness, including cold language-service queries. Prefer cheap available-state paths only when they are sound, deterministic, and fall back to the normal bind path when information is missing or ambiguous.
 - For language-service performance, fix the compiler API path first. The VS Code extension and LSP layer should mainly schedule, cancel, and present deterministic compiler answers; they should not suppress semantic features because a compiler answer might require binding.
 - Features such as hover, inlays, completion, diagnostics, and symbol lookup should converge on the same compiler-owned semantic facts. If one path can resolve a symbol/type, the other paths should be able to obtain the same answer through public semantic APIs.
+- Keep language-service request lanes distinct. Foreground requests such as hover, completion, signature help, definition, and rename may preempt or bypass stale background work. Background diagnostics, analyzers, semantic tokens, and broad inlay passes should be cancellable, versioned, and allowed to skip/requeue.
+- The LSP may cache rendered presentation per document version, such as hover markdown or inlay labels, but not semantic truth. Compiler APIs own semantic state and correctness.
 
 ## Testing
 

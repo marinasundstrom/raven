@@ -46,6 +46,7 @@ If you change flags, rebuild before running again.
 ## Binder And Semantic Model Checks
 
 - Treat binders as the execution units for binding. First identify the binder that should own the answer: method binder for parameters, block binder for immediate locals/statements/expressions, type/member binders for declarations, etc.
+- Treat `Compilation` and `SemanticModel` as the semantic service layer. Public semantic APIs should decide whether to answer from binder-owned state, existing semantic-model caches, available incremental state, or a new lazy bind.
 - Prefer fixing the responsible binder or public semantic API over adding a caller-side workaround. Public APIs should decide whether to answer from binder-owned state, cached bound nodes, available incremental state, or a narrow rebind.
 - Lazy binding is the expected behavior. A semantic query is allowed to trigger the bind that produces missing information; that information should then live in compiler-owned binder/semantic-model state and be reused by later queries.
 - Available-state query helpers are opportunistic fast paths, not the source of truth. If the available path lacks enough context, the authoritative semantic query should bind and cache the correct answer rather than return a guessed symbol or type.
@@ -53,6 +54,9 @@ If you change flags, rebuild before running again.
 - Cheap available-state paths are useful for performance only when they are sound. If available-state inference is ambiguous or incomplete, fall back to full binding rather than returning a partial answer.
 - When debugging incremental behavior, compare one-shot compilation against the semantic query path. The first query after an edit must be correct even if no warm cache exists.
 - Binder-owned diagnostics should disappear with invalidated binders. Analyzer diagnostics should stay owned by their analyzer pipeline.
+- Binder reuse is an outer snapshot/cache decision, not a binder responsibility. A binder may cache state derived from its syntax/scope, but reuse is only valid when the syntax identity and semantic context still match: parent binder/member signature/import scope/compilation options must remain equivalent.
+- If a syntax or semantic-context change invalidates a binder, the replacement binder should recreate its owned symbols and diagnostics lazily. Do not make old binders self-heal or mutate into a new context.
+- One-shot compilation remains the correctness baseline. Incremental compilation should reuse valid semantic state only as an optimization over the same observable answers.
 - If a language-server bug reproduces as wrong `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, or operations output, fix `Raven.CodeAnalysis` first.
 
 ## IL Inspection

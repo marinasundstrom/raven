@@ -59,12 +59,16 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 - First verify the Roslyn-shaped compiler APIs: `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, operations, and available public semantic entry points.
 - If those APIs are wrong, slow, or cache-dependent, fix `Raven.CodeAnalysis`. Keep LSP-side semantic inference temporary and remove it once the compiler can answer.
 - Binders are the compiler execution units. Method binders own parameters; block binders own immediate locals, statement/expression binding state, and binder-produced diagnostics.
+- `Compilation` and `SemanticModel` are the semantic service boundary for the language server. LSP handlers should obtain the compiler-owned semantic model for the requested document snapshot and then call public semantic APIs rather than reading or composing internal cache state.
 - Lazy binding is expected. A hover, inlay, completion, or diagnostics request may be the first path to trigger binding; once it does, later paths should observe the same compiler-owned cached symbols, types, and diagnostics.
 - Prefer correctness and deterministic compiler-owned answers over cold-start speed. Cold first queries may bind; optimize later without changing semantic meaning.
 - Treat available-state APIs as opportunistic fast paths. If available state is incomplete or context-sensitive, use the authoritative semantic API that can bind instead of presenting a guessed answer.
 - Do not make editor features intentionally incomplete just to avoid binding. If a result is semantically required, ask the compiler for it; optimize the compiler path or request scheduling if the cold path is too slow.
 - Inlays should use the same semantic model answers as hover and diagnostics. They may skip tooltips or stale background work for UX reasons, but type/parameter annotations should not disappear because a separate LSP policy refused to bind. Type annotation text should stay source-friendly; do not show fully qualified names merely as a performance shortcut.
 - The LSP may coordinate request cancellation, prioritize interactive requests, skip stale background work, and avoid monopolizing semantic access, but it should not change semantic meaning.
+- Foreground semantic requests such as hover, completion, signature help, definition, and rename should not wait behind broad background work unless they need the exact same semantic model state. Background diagnostics, analyzers, semantic tokens, and full-document inlays should be cancellable and may be skipped/requeued for a newer document version.
+- LSP-side caches should be presentation-only and versioned, such as rendered hover markdown or inlay labels. Symbol/type/diagnostic truth belongs to `Raven.CodeAnalysis`.
+- Cross-file edits are normal. After adding or changing another source file, a hover in the original file should resolve symbols through the current project compilation snapshot rather than stale per-document state.
 
 ## Request Pile-Ups
 
@@ -79,6 +83,9 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 - Treat large full-document inlay requests as background presentation work: they should prefer cached or available compiler state and avoid cold expensive binding fallbacks. Small full-document, precise, or visible-range inlay requests may trigger the authoritative compiler bind when needed.
 - Do not eagerly build tooltip markdown for full-document inlay responses. Full-document responses should prioritize correct labels and source-applicable edits; focused range requests can include richer tooltip content.
 - For slow inlays, separate three costs: semantic model materialization, binding needed for missing symbols/types, and presentation formatting such as type-name qualification. Fix broad metadata lookup or formatting costs before suppressing annotations.
+- For cross-file responsiveness issues, test adding a new `.rvn` file that declares a symbol and immediately hovering a reference to that symbol in another document. This exposes whether project snapshot updates and background diagnostics are blocking interactive semantic queries.
+- When request timings show high `gateWait` but low semantic work, fix request scheduling or gate ownership before optimizing binders.
+- When timings show low gate wait but high semantic/binding work, reduce the compiler path: prefer sound binder-owned caches, narrower binding, metadata lookup shortcuts, or incremental reuse.
 
 ## Notes
 
