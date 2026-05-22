@@ -16043,6 +16043,9 @@ partial class BlockBinder : Binder
                     {
                         foreach (var member in ns.GetMembers())
                         {
+                            if (!ImportBinder.IsImportableTypeScopeMember(member))
+                                continue;
+
                             if (seen.Add(member.Name))
                                 yield return member;
                         }

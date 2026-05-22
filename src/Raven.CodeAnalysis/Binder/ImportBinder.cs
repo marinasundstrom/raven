@@ -98,7 +98,9 @@ class ImportBinder : Binder
         var results = new List<ISymbol>();
         var seen = new HashSet<ISymbol>();
 
-        // Members from namespace or type-scope imports (including static members of imported types)
+        // Members from namespace or type-scope imports. Type-scope imports make
+        // static members and nested types/cases available, but never instance
+        // members; receiver-based lookup is responsible for instance members.
         foreach (var ns in _namespaceOrTypeScopeImports)
         {
             foreach (var member in GetMembersByName(ns, name))
@@ -151,7 +153,11 @@ class ImportBinder : Binder
 
     private IEnumerable<ISymbol> GetMembersByName(INamespaceOrTypeSymbol symbol, string name)
     {
-        foreach (var member in symbol.GetMembers(name))
+        IEnumerable<ISymbol> members = symbol.GetMembers(name);
+        if (symbol is ITypeSymbol)
+            members = members.Where(IsImportableTypeScopeMember);
+
+        foreach (var member in members)
             yield return member;
 
         if (symbol is INamespaceSymbol namespaceSymbol)
@@ -164,6 +170,17 @@ class ImportBinder : Binder
 
         yield break;
     }
+
+    internal static bool IsImportableTypeScopeMember(ISymbol member)
+        => member switch
+        {
+            INamespaceOrTypeSymbol => true,
+            IFieldSymbol field => field.IsStatic || field.IsConst,
+            IPropertySymbol property => property.IsStatic,
+            IEventSymbol @event => @event.IsStatic,
+            IMethodSymbol method => method.IsStatic && !method.IsConstructor,
+            _ => false
+        };
 
     private bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)
     {

@@ -1,2 +1,6 @@
+import Utilities.*
+
+Test()
+A(42)
 Test()
 A(42)

@@ -259,6 +259,201 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_ReusesCachedCompilerDiagnosticsWhenSemanticGateIsBusyAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    let count = 0
+    fb
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        var compilerResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+        compilerResult.WasSkipped.ShouldBeFalse();
+        compilerResult.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            "RAV0103",
+            StringComparison.Ordinal)).ShouldBeTrue();
+
+        using var semanticAccess = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        var analyzerResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        analyzerResult.WasSkipped.ShouldBeFalse();
+        analyzerResult.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            "RAV0103",
+            StringComparison.Ordinal)).ShouldBeTrue();
+        analyzerResult.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            StringComparison.Ordinal)).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_SkipsWhenCompilerDiagnosticsNeedBusySemanticGateAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    let count = 0
+    fb
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        using var semanticAccess = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        var analyzerResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        analyzerResult.WasSkipped.ShouldBeTrue();
+        analyzerResult.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_DoesNotReuseStaleCompilerDiagnosticsAfterProjectChangeAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var mainPath = Path.Combine(_tempRoot, "main.rvn");
+        var testPath = Path.Combine(_tempRoot, "test.rvn");
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        const string mainCode = """
+func Main() -> () {
+    let count = 0
+    Test()
+}
+""";
+        await store.UpsertDocumentAsync(mainUri, mainCode);
+
+        var compilerResult = await store.TryGetDiagnosticsAsync(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+        compilerResult.WasSkipped.ShouldBeFalse();
+        compilerResult.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Test", StringComparison.Ordinal)).ShouldBeTrue();
+
+        await store.UpsertDocumentAsync(testUri, """
+func Test() -> () {
+}
+""");
+
+        var analyzerResult = await store.TryGetDiagnosticsAsync(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        analyzerResult.WasSkipped.ShouldBeFalse();
+        analyzerResult.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Test", StringComparison.Ordinal)).ShouldBeFalse();
+        analyzerResult.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            StringComparison.Ordinal)).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task TryGetDocumentAnalyzerDiagnostics_WithCapturedSnapshot_SurvivesWorkspaceProjectReplacementAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    let count = 0
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.RemoveProject(context.Value.Document.Project.Id)).ShouldBeTrue();
+
+        var succeeded = false;
+        Should.NotThrow(() => succeeded = manager.TryGetDocumentAnalyzerDiagnostics(
+            context.Value.Document,
+            context.Value.Compilation,
+            out _,
+            cancellationToken: CancellationToken.None));
+        succeeded.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_ProjectWithAnalyzersLane_IncludesBuiltInAnalyzerDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);

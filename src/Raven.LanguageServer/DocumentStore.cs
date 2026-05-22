@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -83,6 +84,7 @@ internal sealed class DocumentStore
     private readonly ILogger<DocumentStore> _logger;
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
     private readonly object _backgroundDiagnosticsCancellationGate = new();
+    private readonly ConcurrentDictionary<DocumentDiagnosticsCacheKey, ImmutableArray<LspDiagnostic>> _documentCompilerDiagnosticsCache = new();
     private CancellationTokenSource _backgroundDiagnosticsPreemption = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
@@ -99,7 +101,10 @@ internal sealed class DocumentStore
 
     internal Document UpsertDocument(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
     {
+        RemoveCachedDocumentDiagnostics(uri);
+
         var document = _workspaceManager.UpsertDocument(uri, text, deferMacroConsumerRefresh);
+        RemoveStaleCachedDocumentDiagnostics(document.Project.Id, document.Project.Version);
 
         if (deferMacroConsumerRefresh)
             PrimeCompilationAfterEdit(uri);
@@ -228,6 +233,7 @@ internal sealed class DocumentStore
 
     public bool RemoveDocument(DocumentUri uri)
     {
+        RemoveCachedDocumentDiagnostics(uri);
         return _workspaceManager.RemoveDocument(uri);
     }
 
@@ -440,32 +446,41 @@ internal sealed class DocumentStore
             DocumentAnalysisContext? context;
             if (useBusySkip)
             {
-                using var lease = await TryEnterCompilerAccessAsync(effectiveCancellationToken, "diagnostics", uri).ConfigureAwait(false);
-                if (lease is null)
+                using (var lease = await TryEnterCompilerAccessAsync(effectiveCancellationToken, "diagnostics", uri).ConfigureAwait(false))
                 {
-                    busySkipped = true;
-                    return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+                    if (lease is null)
+                    {
+                        busySkipped = true;
+                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+                    }
+
+                    gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
+                    if (shouldSkipWork?.Invoke() == true)
+                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+
+                    context = await CreateDocumentAnalysisContextAsync(uri, effectiveCancellationToken).ConfigureAwait(false);
                 }
-
-                gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
-                if (shouldSkipWork?.Invoke() == true)
-                    return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
-
-                context = await CreateDocumentAnalysisContextAsync(uri, effectiveCancellationToken).ConfigureAwait(false);
             }
             else
             {
-                using var lease = await EnterCompilerAccessAsync(effectiveCancellationToken, "diagnostics", uri).ConfigureAwait(false);
-                gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
-                if (shouldSkipWork?.Invoke() == true)
-                    return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+                using (var lease = await EnterCompilerAccessAsync(effectiveCancellationToken, "diagnostics", uri).ConfigureAwait(false))
+                {
+                    gateWaitMs = stopwatch.Elapsed.TotalMilliseconds;
+                    if (shouldSkipWork?.Invoke() == true)
+                        return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
-                context = await CreateDocumentAnalysisContextAsync(uri, effectiveCancellationToken).ConfigureAwait(false);
+                    context = await CreateDocumentAnalysisContextAsync(uri, effectiveCancellationToken).ConfigureAwait(false);
+                }
             }
 
             if (context is null)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
             var syntaxTree = context.Value.SyntaxTree;
+            var documentDiagnosticsCacheKey = new DocumentDiagnosticsCacheKey(
+                uri.ToString(),
+                context.Value.Document.Project.Id,
+                context.Value.Document.Version,
+                context.Value.Document.Project.Version);
             syntaxTreeMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs;
             if (shouldSkipWork?.Invoke() == true)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
@@ -474,7 +489,8 @@ internal sealed class DocumentStore
             var semanticBefore = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
             var diagnosticBindingBefore = context.Value.Compilation.PerformanceInstrumentation.DiagnosticBinding.CaptureSnapshot();
             var binderBefore = context.Value.Compilation.PerformanceInstrumentation.BinderReentry.CaptureSnapshot();
-            IReadOnlyCollection<CodeDiagnostic> diagnosticsForProject;
+            IReadOnlyCollection<CodeDiagnostic>? diagnosticsForProject = null;
+            ImmutableArray<LspDiagnostic>? mappedDiagnostics = null;
             if (lane == DiagnosticLane.DocumentCompiler)
             {
                 var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
@@ -497,10 +513,31 @@ internal sealed class DocumentStore
             }
             else if (lane == DiagnosticLane.DocumentWithAnalyzers)
             {
-                if (!_workspaceManager.TryGetDocumentDiagnosticsWithAnalyzers(uri, out var documentDiagnosticsWithAnalyzers, cancellationToken: effectiveCancellationToken))
-                    return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+                var compilerDiagnostics = await GetOrComputeDocumentCompilerDiagnosticsAsync(
+                    uri,
+                    context.Value.Compilation,
+                    syntaxTree,
+                    documentDiagnosticsCacheKey,
+                    useBusySkip,
+                    effectiveCancellationToken).ConfigureAwait(false);
+                if (compilerDiagnostics is null)
+                {
+                    busySkipped = true;
+                    return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+                }
 
-                diagnosticsForProject = documentDiagnosticsWithAnalyzers;
+                if (!_workspaceManager.TryGetDocumentAnalyzerDiagnostics(
+                    context.Value.Document,
+                    context.Value.Compilation,
+                    out var documentAnalyzerDiagnostics,
+                    cancellationToken: effectiveCancellationToken))
+                {
+                    return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
+                }
+
+                mappedDiagnostics = MergeDiagnostics(
+                    compilerDiagnostics.Value,
+                    MapDiagnostics(documentAnalyzerDiagnostics, syntaxTree));
             }
             else if (lane == DiagnosticLane.ProjectCompiler)
             {
@@ -520,10 +557,9 @@ internal sealed class DocumentStore
             if (shouldSkipWork?.Invoke() == true)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
-            var diagnostics = diagnosticsForProject
-                .Where(d => ShouldReport(d, syntaxTree))
-                .Select(MapDiagnostic)
-                .ToArray();
+            var diagnostics = mappedDiagnostics ?? MapDiagnostics(diagnosticsForProject ?? [], syntaxTree);
+            if (lane == DiagnosticLane.DocumentCompiler)
+                _documentCompilerDiagnosticsCache[documentDiagnosticsCacheKey] = diagnostics;
             diagnosticsSetupDelta = CompilerSetupInstrumentation.FormatDelta(
                 CompilerSetupInstrumentation.Subtract(
                     context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
@@ -614,6 +650,36 @@ internal sealed class DocumentStore
                     new LanguageServerPerformanceInstrumentation.StageTiming("preempted", preempted ? 1 : 0)
                 ]);
         }
+    }
+
+    private async Task<ImmutableArray<LspDiagnostic>?> GetOrComputeDocumentCompilerDiagnosticsAsync(
+        DocumentUri uri,
+        Compilation compilation,
+        SyntaxTree syntaxTree,
+        DocumentDiagnosticsCacheKey cacheKey,
+        bool useBusySkip,
+        CancellationToken cancellationToken)
+    {
+        if (_documentCompilerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
+            return cachedDiagnostics;
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        using var semanticLease = await EnterDiagnosticSemanticAccessAsync(
+            semanticModel,
+            useBusySkip,
+            cancellationToken).ConfigureAwait(false);
+        if (semanticLease is null)
+            return null;
+
+        var compilerDiagnostics = GetDocumentCompilerDiagnostics(
+            compilation,
+            syntaxTree,
+            semanticModel,
+            analyzerOptions: null,
+            cancellationToken);
+        var mappedDiagnostics = MapDiagnostics(compilerDiagnostics, syntaxTree);
+        _documentCompilerDiagnosticsCache[cacheKey] = mappedDiagnostics;
+        return mappedDiagnostics;
     }
 
     private async ValueTask<IDisposable?> EnterDiagnosticSemanticAccessAsync(
@@ -894,6 +960,33 @@ internal sealed class DocumentStore
         return PathsEqual(lineSpanPath, syntaxTreePath);
     }
 
+    private static ImmutableArray<LspDiagnostic> MapDiagnostics(
+        IEnumerable<CodeDiagnostic> diagnostics,
+        SyntaxTree syntaxTree)
+        => diagnostics
+            .Where(diagnostic => ShouldReport(diagnostic, syntaxTree))
+            .Select(MapDiagnostic)
+            .OrderBy(static diagnostic => diagnostic.Range.Start.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.Start.Character)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Character)
+            .ThenBy(static diagnostic => diagnostic.Code?.String ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(static diagnostic => diagnostic.Message, StringComparer.Ordinal)
+            .ToImmutableArray();
+
+    private static ImmutableArray<LspDiagnostic> MergeDiagnostics(
+        ImmutableArray<LspDiagnostic> compilerDiagnostics,
+        ImmutableArray<LspDiagnostic> analyzerDiagnostics)
+        => compilerDiagnostics
+            .Concat(analyzerDiagnostics)
+            .OrderBy(static diagnostic => diagnostic.Range.Start.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.Start.Character)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Character)
+            .ThenBy(static diagnostic => diagnostic.Code?.String ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(static diagnostic => diagnostic.Message, StringComparer.Ordinal)
+            .ToImmutableArray();
+
     private static LspDiagnostic MapDiagnostic(CodeDiagnostic diagnostic)
     {
         var lineSpan = diagnostic.Location.GetLineSpan();
@@ -944,6 +1037,25 @@ internal sealed class DocumentStore
             NormalizePath(left),
             NormalizePath(right),
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void RemoveCachedDocumentDiagnostics(DocumentUri uri)
+    {
+        var uriText = uri.ToString();
+        foreach (var key in _documentCompilerDiagnosticsCache.Keys)
+        {
+            if (string.Equals(key.Uri, uriText, StringComparison.Ordinal))
+                _documentCompilerDiagnosticsCache.TryRemove(key, out _);
+        }
+    }
+
+    private void RemoveStaleCachedDocumentDiagnostics(ProjectId projectId, VersionStamp projectVersion)
+    {
+        foreach (var key in _documentCompilerDiagnosticsCache.Keys)
+        {
+            if (key.ProjectId == projectId && key.ProjectVersion != projectVersion)
+                _documentCompilerDiagnosticsCache.TryRemove(key, out _);
+        }
     }
 
     private static string NormalizePath(string path)
@@ -1004,4 +1116,9 @@ internal sealed class DocumentStore
         }
     }
 
+    private readonly record struct DocumentDiagnosticsCacheKey(
+        string Uri,
+        ProjectId ProjectId,
+        VersionStamp DocumentVersion,
+        VersionStamp ProjectVersion);
 }

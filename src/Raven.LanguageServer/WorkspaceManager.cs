@@ -817,8 +817,11 @@ internal sealed class WorkspaceManager
     {
         if (_documents.TryGetValue(uri, out var ownedDocument))
         {
-            diagnostics = _workspace.GetDiagnostics(ownedDocument.ProjectId, analyzerOptions, cancellationToken);
-            return true;
+            return TryGetDiagnostics(
+                ownedDocument.ProjectId,
+                out diagnostics,
+                analyzerOptions,
+                cancellationToken);
         }
 
         diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
@@ -833,8 +836,12 @@ internal sealed class WorkspaceManager
     {
         if (TryResolveOwnedDocument(uri, out var ownedDocument))
         {
-            diagnostics = _workspace.GetDocumentDiagnostics(ownedDocument.ProjectId, ownedDocument.DocumentId, analyzerOptions, cancellationToken);
-            return true;
+            return TryGetDocumentDiagnostics(
+                ownedDocument.ProjectId,
+                ownedDocument.DocumentId,
+                out diagnostics,
+                analyzerOptions,
+                cancellationToken);
         }
 
         diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
@@ -849,12 +856,64 @@ internal sealed class WorkspaceManager
     {
         if (TryResolveOwnedDocument(uri, out var ownedDocument))
         {
-            diagnostics = _workspace.GetDocumentDiagnosticsWithAnalyzers(ownedDocument.ProjectId, ownedDocument.DocumentId, analyzerOptions, cancellationToken);
-            return true;
+            return TryGetDocumentDiagnosticsWithAnalyzers(
+                ownedDocument.ProjectId,
+                ownedDocument.DocumentId,
+                out diagnostics,
+                analyzerOptions,
+                cancellationToken);
         }
 
         diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
         return false;
+    }
+
+    public bool TryGetDocumentAnalyzerDiagnostics(
+        DocumentUri uri,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (TryResolveOwnedDocument(uri, out var ownedDocument))
+        {
+            return TryGetDocumentAnalyzerDiagnostics(
+                ownedDocument.ProjectId,
+                ownedDocument.DocumentId,
+                out diagnostics,
+                analyzerOptions,
+                cancellationToken);
+        }
+
+        diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+        return false;
+    }
+
+    internal bool TryGetDocumentAnalyzerDiagnostics(
+        Document document,
+        Compilation compilation,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            diagnostics = _workspace.GetDocumentAnalyzerDiagnostics(
+                document,
+                compilation,
+                analyzerOptions,
+                cancellationToken);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
     }
 
     public bool TryGetDocumentSyntaxDiagnostics(
@@ -865,12 +924,130 @@ internal sealed class WorkspaceManager
     {
         if (TryResolveOwnedDocument(uri, out var ownedDocument))
         {
-            diagnostics = _workspace.GetDocumentSyntaxDiagnostics(ownedDocument.ProjectId, ownedDocument.DocumentId, analyzerOptions, cancellationToken);
-            return true;
+            return TryGetDocumentSyntaxDiagnostics(
+                ownedDocument.ProjectId,
+                ownedDocument.DocumentId,
+                out diagnostics,
+                analyzerOptions,
+                cancellationToken);
         }
 
         diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
         return false;
+    }
+
+    private bool TryGetDiagnostics(
+        ProjectId projectId,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            diagnostics = _workspace.GetDiagnostics(projectId, analyzerOptions, cancellationToken);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+    }
+
+    private bool TryGetDocumentDiagnostics(
+        ProjectId projectId,
+        DocumentId documentId,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            diagnostics = _workspace.GetDocumentDiagnostics(projectId, documentId, analyzerOptions, cancellationToken);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+    }
+
+    private bool TryGetDocumentDiagnosticsWithAnalyzers(
+        ProjectId projectId,
+        DocumentId documentId,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            diagnostics = _workspace.GetDocumentDiagnosticsWithAnalyzers(projectId, documentId, analyzerOptions, cancellationToken);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+    }
+
+    private bool TryGetDocumentAnalyzerDiagnostics(
+        ProjectId projectId,
+        DocumentId documentId,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            diagnostics = _workspace.GetDocumentAnalyzerDiagnostics(projectId, documentId, analyzerOptions, cancellationToken);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+    }
+
+    private bool TryGetDocumentSyntaxDiagnostics(
+        ProjectId projectId,
+        DocumentId documentId,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            diagnostics = _workspace.GetDocumentSyntaxDiagnostics(projectId, documentId, analyzerOptions, cancellationToken);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
     }
 
     public bool TryGetCodeFixes(

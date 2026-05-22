@@ -65,4 +65,65 @@ func Pick() -> DeviceType {
 
         Assert.Contains(items, i => i.DisplayText == "Monitor");
     }
+
+    [Fact]
+    public void GetCompletions_WithWildcardTypeImport_DoesNotReturnInstanceMembersAsValues()
+    {
+        var code = """
+import Result.*
+
+union Result {
+    case Ok
+
+    func Tap() -> () {
+    }
+
+    static func TryCreate() -> Result {
+        return Ok()
+    }
+}
+
+T
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('T') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.DoesNotContain(items, static item => item.DisplayText == "Tap");
+        Assert.DoesNotContain(items, static item => item.DisplayText == "ToString");
+        Assert.DoesNotContain(items, static item => item.DisplayText == "TryGetValue");
+        Assert.Contains(items, static item => item.DisplayText == "TryCreate");
+    }
+
+    [Fact]
+    public void GetCompletions_WithWildcardTypeImport_StillReturnsImportedUnionCases()
+    {
+        var code = """
+import Result.*
+
+union Result {
+    case Ok
+    case Error(message: string)
+}
+
+O
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf('O') + 1;
+        var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
+
+        Assert.Contains(items, static item => item.InsertionText == "Ok");
+    }
 }

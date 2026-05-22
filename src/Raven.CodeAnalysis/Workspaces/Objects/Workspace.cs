@@ -465,6 +465,112 @@ public class Workspace
         return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
     }
 
+    internal ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(
+        ProjectId projectId,
+        DocumentId documentId,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var document = project.GetDocument(documentId)
+            ?? throw new ArgumentException("Document not found", nameof(documentId));
+
+        var syntaxTree = document.SyntaxTree
+            ?? throw new InvalidOperationException("Document does not have a syntax tree.");
+
+        if (project.CompilationOptions?.RunAnalyzers == false)
+            return [];
+
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
+        return GetDocumentAnalyzerDiagnostics(project, syntaxTree, compilation, analyzerOptions, cancellationToken);
+    }
+
+    internal ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(
+        Document document,
+        Compilation compilation,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(compilation);
+
+        var syntaxTree = document.SyntaxTree
+            ?? throw new InvalidOperationException("Document does not have a syntax tree.");
+
+        var compilationSyntaxTree = compilation.SyntaxTrees.FirstOrDefault(tree =>
+            ReferenceEquals(tree, syntaxTree) ||
+            (!string.IsNullOrWhiteSpace(tree.FilePath) &&
+             !string.IsNullOrWhiteSpace(syntaxTree.FilePath) &&
+             string.Equals(tree.FilePath, syntaxTree.FilePath, StringComparison.OrdinalIgnoreCase)));
+
+        if (compilationSyntaxTree is null)
+            throw new InvalidOperationException("Document syntax tree is not part of the compilation.");
+
+        if (document.Project.CompilationOptions?.RunAnalyzers == false)
+            return [];
+
+        return GetDocumentAnalyzerDiagnostics(
+            document.Project,
+            compilationSyntaxTree,
+            compilation,
+            analyzerOptions,
+            cancellationToken);
+    }
+
+    private static ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(
+        Project project,
+        SyntaxTree syntaxTree,
+        Compilation compilation,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        var diagnostics = new HashSet<Diagnostic>();
+
+        foreach (var reference in project.AnalyzerReferences)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var analyzer in reference.GetAnalyzers())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!ShouldRunAnalyzer(analyzer, project.CompilationOptions, analyzerOptions))
+                    continue;
+
+                var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
+                IEnumerable<Diagnostic> analyzerDiagnostics;
+                try
+                {
+                    analyzerDiagnostics = analyzer.Analyze(compilation, syntaxTree, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // Analyzer failures should not stop normal compilation diagnostics.
+                    continue;
+                }
+
+                foreach (var diagnostic in analyzerDiagnostics)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    AnalyzerDiagnosticIdValidator.Validate(analyzer, diagnostic, isInternalAnalyzer);
+
+                    var mapped = compilation.ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+                    if (mapped is not null)
+                        diagnostics.Add(mapped);
+                }
+            }
+        }
+
+        return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+    }
+
     private static bool ShouldRunAnalyzer(
         DiagnosticAnalyzer analyzer,
         CompilationOptions? compilationOptions,
