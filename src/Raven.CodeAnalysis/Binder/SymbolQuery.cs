@@ -26,7 +26,7 @@ internal readonly record struct SymbolQuery(
         {
             symbols = IsStatic == true
                 ? containingType.GetMembers(Name)
-                : ResolveInstanceMembersIncludingInterfaces(containingType, Name);
+                : ResolveInstanceMembersIncludingInterfaces(binder, containingType, Name);
         }
         else
         {
@@ -67,7 +67,7 @@ internal readonly record struct SymbolQuery(
         return string.Equals(method.Name, "Finalize", StringComparison.Ordinal);
     }
 
-    private static IEnumerable<ISymbol> ResolveInstanceMembersIncludingInterfaces(ITypeSymbol type, string name)
+    private static IEnumerable<ISymbol> ResolveInstanceMembersIncludingInterfaces(Binder binder, ITypeSymbol type, string name)
     {
         // For interface-typed receivers we need to flatten inherited interface members because
         // reflection-backed GetMembers(name) does not reliably include members from base interfaces
@@ -106,6 +106,10 @@ internal readonly record struct SymbolQuery(
         {
             foreach (var iface in named.AllInterfaces)
                 AddFrom(iface);
+
+            var objectType = binder.Compilation.GetSpecialType(SpecialType.System_Object);
+            if (objectType is not IErrorTypeSymbol)
+                AddFrom(objectType);
         }
 
         return results;

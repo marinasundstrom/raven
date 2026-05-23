@@ -1,6 +1,8 @@
 import System.*
 import System.Collections.Generic.*
 import System.ComponentModel.*
+import System.Linq.Expressions.*
+import System.Reflection.*
 import Avalonia.*
 import Avalonia.Controls.*
 import Avalonia.Controls.ApplicationLifetimes.*
@@ -85,9 +87,9 @@ class UiLabel : UiControl {
 class UiBoundLabel : UiControl {
     private val source: INotifyPropertyChanged
     private val propertyName: string
-    private val getContent: () -> string
+    private val getContent: Func<string>
 
-    init(source: INotifyPropertyChanged, propertyName: string, getContent: () -> string) {
+    init(source: INotifyPropertyChanged, propertyName: string, getContent: Func<string>) {
         self.source = source
         self.propertyName = propertyName
         self.getContent = getContent
@@ -95,16 +97,129 @@ class UiBoundLabel : UiControl {
 
     override func CreateNativeControl() -> Control {
         val label = Avalonia.Controls.Label()
-        label.Content = getContent()
+        label.Content = self.getContent()
+        Console.WriteLine("[binding] create label property=" + self.propertyName + " initial=" + (label.Content?.ToString() ?? ""))
 
         source.PropertyChanged += func (_, args) => {
-            if args.PropertyName == propertyName {
-                label.Content = getContent()
+            val changedName = args.PropertyName ?? ""
+            Console.WriteLine("[binding] property changed raised=" + changedName + " binding=" + self.propertyName + " current=" + self.getContent())
+
+            if changedName.Length == 0 || changedName.Equals(self.propertyName) || self.propertyName.Equals("_" + changedName) {
+                label.Content = self.getContent()
+                Console.WriteLine("[binding] label updated to " + (label.Content?.ToString() ?? ""))
+            } else {
+                Console.WriteLine("[binding] label update skipped")
             }
         }
 
         return label
     }
+}
+
+class UiBinding {
+    private static val cache: Dictionary<string, UiBindingPlan> = Dictionary<string, UiBindingPlan>()
+    private val getValue: Func<object>
+
+    init(source: INotifyPropertyChanged, propertyName: string, getValue: Func<object>) {
+        Source = source
+        PropertyName = propertyName
+        self.getValue = getValue
+    }
+
+    val Source: INotifyPropertyChanged
+    val PropertyName: string
+
+    func GetString() -> string {
+        val value = getValue()
+
+        if value is null {
+            return ""
+        }
+
+        return value.ToString() ?? ""
+    }
+
+    static func FromExpression(expression: Expression<() -> object>) -> UiBinding {
+        var body = expression.Body
+
+        if body is UnaryExpression unary {
+            body = unary.Operand
+        }
+
+        if body is not MemberExpression memberExpression {
+            throw InvalidOperationException("Binding expression must read a member.")
+        }
+
+        if memberExpression.Expression is null {
+            throw InvalidOperationException("Binding expression must read an instance member.")
+        }
+
+        val cacheKey = body.ToString()
+        var propertyName = memberExpression.Member.Name
+
+        if cache.ContainsKey(cacheKey) {
+            propertyName = cache[cacheKey].PropertyName
+        } else {
+            cache[cacheKey] = UiBindingPlan(propertyName)
+        }
+
+        val sourceValue = EvaluateRequired(memberExpression.Expression, "Binding expression must read an instance member.")
+
+        if sourceValue is not INotifyPropertyChanged source {
+            throw InvalidOperationException("Binding source must implement INotifyPropertyChanged.")
+        }
+
+        Console.WriteLine("[binding] parsed property=" + propertyName)
+        return UiBinding(source, propertyName, expression.Compile())
+    }
+
+    private static func Evaluate(expression: Expression) -> object {
+        if expression is ConstantExpression constant {
+            return RequireObject(constant.Value, "Binding constant cannot be null.")
+        }
+
+        if expression is MemberExpression memberExpression {
+            var receiver: object? = null
+
+            if memberExpression.Expression is not null {
+                receiver = EvaluateRequired(memberExpression.Expression, "Binding member receiver cannot be null.")
+            }
+
+            if memberExpression.Member is FieldInfo fieldInfo {
+                return RequireObject(fieldInfo.GetValue(receiver), "Binding field value cannot be null.")
+            }
+
+            if memberExpression.Member is PropertyInfo property {
+                return RequireObject(property.GetValue(receiver), "Binding property value cannot be null.")
+            }
+        }
+
+        throw InvalidOperationException("Unsupported binding source expression.")
+    }
+
+    private static func EvaluateRequired(expression: Expression?, message: string) -> object {
+        if expression is Expression value {
+            return Evaluate(value)
+        }
+
+        throw InvalidOperationException(message)
+    }
+
+    private static func RequireObject(value: object?, message: string) -> object {
+        if value is object result {
+            return result
+        }
+
+        throw InvalidOperationException(message)
+    }
+}
+
+class UiBindingPlan {
+    init(propertyName: string) {
+        PropertyName = propertyName
+    }
+
+    val PropertyName: string
 }
 
 class UiButton : UiControl {
@@ -130,7 +245,8 @@ class UiButton : UiControl {
                 clickedButton.Content = "Clicked"
             }
 
-            onClick?()
+            Console.WriteLine("[button] clicked " + self.Content)
+            self.onClick?()
         }
         return button
     }
@@ -261,8 +377,9 @@ func Label(text: string) -> UiNode {
     return UiNode(UiLabel(text))
 }
 
-func Label(source: INotifyPropertyChanged, propertyName: string, getContent: () -> string) -> UiNode {
-    return UiNode(UiBoundLabel(source, propertyName, getContent))
+func Label(binding: Expression<() -> object>) -> UiNode {
+    val parsed = UiBinding.FromExpression(binding)
+    return UiNode(UiBoundLabel(parsed.Source, parsed.PropertyName, () => parsed.GetString()))
 }
 
 func Button(text: string, onClick: (() -> ())? = null) -> UiNode {

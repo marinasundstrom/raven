@@ -107,7 +107,21 @@ This is *fully zero-modification* because MAUI already supports bindings via `Bi
 
 ## 3) “Typed MVVM”: compile binding expressions to delegates (no string paths)
 
-If you want “Raven-y strong typing”, make `Bind` accept a lambda:
+If you want “Raven-y strong typing”, make binding APIs accept expression-tree
+lambdas. A parameterless lambda works well when the view model is already in
+lexical scope:
+
+```raven
+Label(() => vm.CountText)
+```
+
+The DSL runtime can accept this as `Expression<() -> object>`, unwrap boxing
+conversions, extract the final member name (`CountText`), evaluate the captured
+source object (`vm`), compile the getter once, and subscribe when the source
+implements `INotifyPropertyChanged`.
+
+An explicit receiver lambda is also possible when the binding context is passed
+separately:
 
 ```raven
 Label(Text: Bind(vm => vm.CountText))
@@ -147,6 +161,11 @@ You subscribe to `INotifyPropertyChanged` on the BindingContext:
 This gives you super flexibility (computed expressions), but you’re basically implementing a tiny binding engine.
 
 **Practical hybrid**: do A for member chains, fallback to B for computed lambdas.
+
+Cache parsed expression bindings in the DSL runtime, not in the compiler. Useful
+cache data includes the source object type, member path, compiled getter, and
+subscription metadata. The compiler should continue to emit ordinary expression
+trees; the adapter/reconciler owns binding extraction and invalidation.
 
 ---
 

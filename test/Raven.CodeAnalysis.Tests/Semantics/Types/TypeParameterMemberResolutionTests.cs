@@ -32,6 +32,31 @@ func format<T>(value: T) -> string? {
     }
 
     [Fact]
+    public void InterfaceReceiver_ResolvesObjectMembers()
+    {
+        const string source = """
+import System.*
+import System.ComponentModel.*
+
+func getName(source: INotifyPropertyChanged) -> string {
+    return source.GetType().Name
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source, path: "interface-object-members.rav");
+        var compilation = Compilation.Create(
+                "interface-object-members",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
     public void StaticAbstractInterfaceMembers_WithSelfConstraint_BindsWithoutConstraintDiagnostic()
     {
         const string source = """
