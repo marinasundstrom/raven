@@ -86,6 +86,25 @@ partial class BlockBinder
         return false;
     }
 
+    private static bool HasReceiverAttribute(IParameterSymbol parameter)
+    {
+        foreach (var attribute in parameter.GetAttributes())
+        {
+            var attributeClass = attribute.AttributeClass;
+            if (attributeClass is null)
+                continue;
+
+            var name = attributeClass.Name;
+            if (string.Equals(name, "ReceiverAttribute", StringComparison.Ordinal) ||
+                string.Equals(name, "Receiver", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private BoundExpression? RewriteBuilderBody(
         BoundExpression body,
         INamedTypeSymbol builderType,

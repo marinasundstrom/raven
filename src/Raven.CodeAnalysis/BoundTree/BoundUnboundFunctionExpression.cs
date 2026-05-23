@@ -12,13 +12,15 @@ internal sealed class BoundUnboundFunctionExpression
     public ImmutableArray<IParameterSymbol> Parameters { get; }
     public ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
     public ImmutableArray<SuppressedLambdaDiagnostic> SuppressedDiagnostics { get; }
+    public bool HasImplicitReceiverParameter { get; }
 
     internal BoundUnboundFunctionExpression(
         SourceLambdaSymbol lambdaSymbol,
         ExpressionSyntax syntax,
         ImmutableArray<IParameterSymbol> parameters,
         ImmutableArray<INamedTypeSymbol> candidateDelegates,
-        ImmutableArray<SuppressedLambdaDiagnostic> suppressedDiagnostics)
+        ImmutableArray<SuppressedLambdaDiagnostic> suppressedDiagnostics,
+        bool hasImplicitReceiverParameter = false)
     {
         LambdaSymbol = lambdaSymbol;
         Syntax = syntax;
@@ -29,6 +31,7 @@ internal sealed class BoundUnboundFunctionExpression
         SuppressedDiagnostics = suppressedDiagnostics.IsDefault
             ? ImmutableArray<SuppressedLambdaDiagnostic>.Empty
             : suppressedDiagnostics;
+        HasImplicitReceiverParameter = hasImplicitReceiverParameter;
     }
 
     internal void ReportSuppressedDiagnostics(DiagnosticBag diagnostics)

@@ -1,254 +1,39 @@
-import System.*
-import System.Collections.Generic.*
 import Microsoft.AspNetCore.Builder.*
-import Microsoft.AspNetCore.Routing.*
-
-class BuilderAttribute<T> : Attribute {
-}
-
-class EndpointDslBuilder {
-    static func BuildExpression(endpoint: EndpointNode) -> EndpointNode {
-        return endpoint
-    }
-
-    static func BuildBlock(items: EndpointNode[]) -> EndpointNode {
-        return EndpointList(items)
-    }
-
-    static func BuildOptional(value: EndpointNode) -> EndpointNode {
-        return value
-    }
-
-    static func BuildArray(items: EndpointNode[]) -> EndpointNode {
-        return EndpointList(items)
-    }
-}
-
-abstract class EndpointNode {
-}
-
-class EndpointList : EndpointNode {
-    private val endpoints: List<EndpointNode> = []
-
-    init(items: EndpointNode[]) {
-        for item in items {
-            endpoints.Add(item)
-        }
-    }
-
-    val Endpoints: IEnumerable<EndpointNode> => endpoints
-}
-
-open class EndpointDefinition : EndpointNode {
-    init(method: string, pattern: string, handler: Delegate) {
-        Method = method
-        Pattern = pattern
-        Handler = handler
-        Name = ""
-    }
-
-    init(method: string, pattern: string, handler: Delegate, name: string) {
-        Method = method
-        Pattern = pattern
-        Handler = handler
-        Name = name
-    }
-
-    val Method: string
-
-    val Pattern: string
-
-    val Handler: Delegate
-
-    val Name: string
-}
-
-class EndpointGroup : EndpointNode {
-    init(prefix: string, endpoints: EndpointNode) {
-        Prefix = prefix
-        Endpoints = endpoints
-    }
-
-    val Prefix: string
-
-    val Endpoints: EndpointNode
-}
-
-class GET : EndpointDefinition {
-    init(pattern: string, handler: () -> string) : base("GET", pattern, handler) {
-    }
-}
-
-class GET<T> : EndpointDefinition {
-    init(pattern: string, handler: T -> string) : base("GET", pattern, handler) {
-    }
-}
-
-class POST : EndpointDefinition {
-    init(pattern: string, handler: () -> string) : base("POST", pattern, handler) {
-    }
-}
-
-func Group(prefix: string, [Builder<EndpointDslBuilder>] endpoints: () -> EndpointNode) -> EndpointGroup {
-    return EndpointGroup(prefix, endpoints())
-}
-
-extension WebApplicationDslExtensions for WebApplication {
-    func MapDsl([Builder<EndpointDslBuilder>] endpoints: () -> EndpointNode) -> WebApplication {
-        EndpointDslMapper.Map(self, endpoints())
-        return self
-    }
-
-    func Route(prefix: string, [Builder<EndpointDslBuilder>] endpoints: () -> EndpointNode) -> WebApplication {
-        EndpointDslMapper.Map(self, EndpointGroup(prefix, endpoints()))
-        return self
-    }
-}
-
-extension EndpointDefinitionDslExtensions for EndpointDefinition {
-    func Named(name: string) -> EndpointDefinition {
-        return EndpointDefinition(self.Method, self.Pattern, self.Handler, name)
-    }
-}
-
-class EndpointDslMapper {
-    static func Map(app: WebApplication, node: EndpointNode) -> () {
-        if node is EndpointList list {
-            for endpoint in list.Endpoints {
-                Map(app, endpoint)
-            }
-        }
-
-        if node is EndpointDefinition endpoint {
-            MapEndpoint(app, endpoint)
-        }
-
-        if node is EndpointGroup group {
-            val routeGroup = app.MapGroup(group.Prefix)
-
-            MapGroup(routeGroup, group.Endpoints)
-        }
-    }
-
-    private static func MapGroup(routeGroup: RouteGroupBuilder, node: EndpointNode) -> () {
-        if node is EndpointList list {
-            for endpoint in list.Endpoints {
-                MapGroup(routeGroup, endpoint)
-            }
-        }
-
-        if node is EndpointDefinition endpoint {
-            MapEndpoint(routeGroup, endpoint)
-        }
-
-        if node is EndpointGroup group {
-            val nested = routeGroup.MapGroup(group.Prefix)
-
-            MapGroup(nested, group.Endpoints)
-        }
-    }
-
-    private static func MapEndpoint(app: WebApplication, endpoint: EndpointDefinition) -> () {
-        if endpoint.Method == "GET" {
-            Apply(endpoint, app.MapGet(endpoint.Pattern, endpoint.Handler))
-        }
-
-        if endpoint.Method == "POST" {
-            Apply(endpoint, app.MapPost(endpoint.Pattern, endpoint.Handler))
-        }
-    }
-
-    private static func MapEndpoint(routeGroup: RouteGroupBuilder, endpoint: EndpointDefinition) -> () {
-        if endpoint.Method == "GET" {
-            Apply(endpoint, routeGroup.MapGet(endpoint.Pattern, endpoint.Handler))
-        }
-
-        if endpoint.Method == "POST" {
-            Apply(endpoint, routeGroup.MapPost(endpoint.Pattern, endpoint.Handler))
-        }
-    }
-
-    private static func Apply(endpoint: EndpointDefinition, builder: RouteHandlerBuilder) -> () {
-        if endpoint.Name != "" {
-            RoutingEndpointConventionBuilderExtensions.WithName<RouteHandlerBuilder>(builder, endpoint.Name)
-        }
-    }
-}
-
-class TodoStore {
-    private val todos: List<Todo> = []
-    private var nextId = 1
-
-    static func Seeded() -> TodoStore {
-        val store = TodoStore()
-        store.Add("Map ASP.NET Core with Raven trailing blocks")
-        store.Add("Keep the DSL as extension methods and normal delegates")
-        return store
-    }
-
-    func Summary() -> string {
-        var text = ""
-
-        for todo in todos {
-            text = text + todo.ToLine() + "\n"
-        }
-
-        return text
-    }
-
-    func Find(id: int) -> Todo? {
-        for todo in todos {
-            if todo.Id == id {
-                return todo
-            }
-        }
-
-        return null
-    }
-
-    func Add(title: string) -> Todo {
-        val todo = Todo(nextId, title, false)
-        nextId = nextId + 1
-        todos.Add(todo)
-        return todo
-    }
-}
 
 val builder = WebApplication.CreateBuilder(args)
 val app = builder.Build()
 
 val store = TodoStore.Seeded()
 
-app.MapGet("/", func () => "Raven ASP.NET Core trailing-block DSL sample. Try /todos/1.")
-app.MapGet("/health", func () => "ok")
+app.Routing {
+    Get("/", func () => "Raven ASP.NET Core receiver-block DSL sample. Try /todos/1.")
+    Get("/health", func () => "ok")
 
-app.Route("/todos") {
-    GET("") {
-        store.Summary()
-    }.Named("todos-list")
-
-    GET("/{id:int}") { (id: int) =>
-        val todo = store.Find(id)
-
-        if todo is null {
-            return "Not found"
-        } else {
-            return todo.ToLine()
+    Route("/todos") {
+        Get("") {
+            store.Summary()
+        }.Configure {
+            Name = "todos-list"
         }
-    }.Named("todos-get")
 
-    POST("/seed") {
-        store.Add("Created from a trailing block handler").ToLine()
-    }.Named("todos-seed")
-}
+        Get("/{id:int}") { (id: int) =>
+            val todo = store.Find(id)
 
-app.Run()
+            if todo is null {
+                return "Not found"
+            } else {
+                return todo.ToLine()
+            }
+        }.Configure {
+            Name = "todos-get"
+        }
 
-extension TodoTextExtensions for Todo {
-    func ToLine() -> string {
-        val done = if self.IsComplete { "done" } else { "open" }
-        return "${self.Id.ToString()}: ${self.Title} [$done]"
+        Post("/seed") {
+            store.Add("Created from a receiver-block route").ToLine()
+        }.Configure {
+            Name = "todos-seed"
+        }
     }
 }
 
-record Todo(val Id: int, val Title: string, val IsComplete: bool)
+app.Run()

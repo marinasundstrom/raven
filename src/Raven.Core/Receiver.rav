@@ -1,0 +1,10 @@
+namespace System
+
+import System.*
+
+/// Marks a function parameter as a receiver closure target for trailing blocks.
+/// An unparameterized trailing block passed to this parameter can access members
+/// of the closure's single argument without qualifying them.
+[AttributeUsage(AttributeTargets.Parameter)]
+class ReceiverAttribute : Attribute {
+}

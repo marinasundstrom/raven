@@ -1,0 +1,25 @@
+import System.*
+
+val showSecondary = true
+val labels: string[] = ["Inbox", "Today"]
+
+val view = Window(title: "Tasks") {
+    VStack {
+        for label in labels {
+            Text(label)
+        }
+
+        if showSecondary {
+            HStack {
+                Text("Open")
+                Text("Done")
+            }
+        }
+
+        Button(title: "Add") {
+            "create-task"
+        }
+    }
+}
+
+Console.WriteLine(view.Markup)

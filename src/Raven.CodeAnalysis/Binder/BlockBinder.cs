@@ -8149,7 +8149,10 @@ partial class BlockBinder : Binder
             return UnwrapNullableIfKnownNonNull(p, paramEarly);
         }
 
-        if (TryBindImplicitInstanceMember(name, syntax, allowEventAccess, out var memberExpr))
+        if (TryBindImplicitReceiverMember(name, syntax, allowEventAccess, out var memberExpr))
+            return memberExpr;
+
+        if (TryBindImplicitInstanceMember(name, syntax, allowEventAccess, out memberExpr))
             return memberExpr;
 
         if (symbol is null)
@@ -8355,6 +8358,60 @@ partial class BlockBinder : Binder
         => type is INamedTypeSymbol namedType &&
            namedType.TryGetUnionCase() is not null &&
            LookupUnionCaseTypeCandidates(name).Length == 0;
+
+    private bool TryBindImplicitReceiverMember(string name, IdentifierNameSyntax syntax, bool allowEventAccess, out BoundExpression expr)
+    {
+        expr = null!;
+
+        var receiverParameter = GetNearestImplicitReceiverParameter();
+        if (receiverParameter is null)
+            return false;
+
+        var receiverType = receiverParameter.Type is NullableTypeSymbol nullable
+            ? nullable.UnderlyingType
+            : receiverParameter.Type;
+        receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
+
+        if (receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        var preferMethods =
+            syntax.Parent is InvocationExpressionSyntax invocation &&
+            ReferenceEquals(invocation.Expression, syntax);
+
+        var hasCandidate = preferMethods
+            ? new SymbolQuery(name, receiverType, IsStatic: false).LookupMethods(this).Any()
+            : new SymbolQuery(name, receiverType, IsStatic: false).Lookup(this)
+                .Any(symbol => allowEventAccess || symbol is not IEventSymbol);
+
+        if (!hasCandidate)
+            return false;
+
+        var receiver = new BoundParameterAccess(receiverParameter);
+        expr = BindMemberAccessOnReceiver(
+            receiver,
+            syntax,
+            preferMethods,
+            allowEventAccess,
+            suppressNullWarning: false,
+            receiverTypeForLookup: receiverType,
+            forceExtensionReceiver: false);
+        return true;
+    }
+
+    private IParameterSymbol? GetNearestImplicitReceiverParameter()
+    {
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current is FunctionExpressionBinder { } lambdaBinder &&
+                lambdaBinder.GetImplicitReceiverParameter() is { } receiverParameter)
+            {
+                return receiverParameter;
+            }
+        }
+
+        return null;
+    }
 
     private bool TryBindImplicitInstanceMember(string name, IdentifierNameSyntax syntax, bool allowEventAccess, out BoundExpression expr)
     {
@@ -16077,6 +16134,26 @@ partial class BlockBinder : Binder
                 {
                     if (seen.Add(param.Name))
                         yield return param;
+                }
+
+                if (lambdaBinder.GetImplicitReceiverParameter() is { } receiverParameter)
+                {
+                    var receiverType = receiverParameter.Type is NullableTypeSymbol nullable
+                        ? nullable.UnderlyingType
+                        : receiverParameter.Type;
+                    receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
+
+                    if (receiverType is INamedTypeSymbol namedReceiverType)
+                    {
+                        for (var type = namedReceiverType; type is not null; type = type.BaseType)
+                        {
+                            foreach (var member in type.GetMembers())
+                            {
+                                if (!member.IsStatic && seen.Add(member.Name))
+                                    yield return member;
+                            }
+                        }
+                    }
                 }
             }
 

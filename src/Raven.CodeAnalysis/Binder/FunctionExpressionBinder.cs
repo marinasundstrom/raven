@@ -10,6 +10,7 @@ class FunctionExpressionBinder : BlockBinder
     private readonly Dictionary<string, IParameterSymbol> _parameters = new();
     private readonly Dictionary<string, IMethodSymbol> _functions = new();
     private readonly List<ILocalSymbol> _declaredLocals = [];
+    private IParameterSymbol? _implicitReceiverParameter;
 
     public FunctionExpressionBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
 
@@ -19,6 +20,13 @@ class FunctionExpressionBinder : BlockBinder
     }
 
     public IEnumerable<IParameterSymbol> GetParameters() => _parameters.Values;
+
+    public void DeclareImplicitReceiverParameter(IParameterSymbol parameter)
+    {
+        _implicitReceiverParameter = parameter;
+    }
+
+    public IParameterSymbol? GetImplicitReceiverParameter() => _implicitReceiverParameter;
 
     public void DeclareFunction(string name, IMethodSymbol method)
     {
@@ -100,6 +108,12 @@ class FunctionExpressionBinder : BlockBinder
     {
         if (_parameters.Values.Contains(symbol))
             return true;
+
+        if (_implicitReceiverParameter is not null &&
+            SymbolEqualityComparer.Default.Equals(_implicitReceiverParameter, symbol))
+        {
+            return true;
+        }
 
         if (symbol is IParameterSymbol parameter &&
             _parameters.Values.Any(declaredParameter => HaveSameDeclaration(declaredParameter, parameter)))

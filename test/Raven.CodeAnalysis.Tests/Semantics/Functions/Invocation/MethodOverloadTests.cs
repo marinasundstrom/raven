@@ -203,6 +203,77 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void ReceiverTrailingBlock_ImportsReceiverMembersIntoBlockScope()
+    {
+        const string source = """
+        import System.*
+
+        class ReceiverAttribute : Attribute {}
+
+        class ConfigBuilder {
+            var Name: string = ""
+
+            func Activate() -> () {
+            }
+        }
+
+        func Config([Receiver] configure: ConfigBuilder -> unit) -> () {
+            val builder = ConfigBuilder()
+            configure(builder)
+        }
+
+        Config {
+            Name = "Foo"
+            Activate()
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var nameIdentifier = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Name");
+        var activateIdentifier = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Activate");
+
+        var nameSymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(nameIdentifier).Symbol);
+        var activateSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(activateIdentifier).Symbol);
+
+        Assert.Equal("Name", nameSymbol.Name);
+        Assert.Equal("Activate", activateSymbol.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void NonReceiverTrailingBlock_DoesNotImportSingleParameterMembers()
+    {
+        const string source = """
+        class ConfigBuilder {
+            var Name: string = ""
+        }
+
+        func Config(configure: ConfigBuilder -> unit) -> () {
+            val builder = ConfigBuilder()
+            configure(builder)
+        }
+
+        Config {
+            Name = "Foo"
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext);
+
+        Assert.Contains("'Name' is not in scope.", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TrailingBlock_WithBuilderParameter_RewritesExpressionStatementsThroughBuilder()
     {
         const string source = """

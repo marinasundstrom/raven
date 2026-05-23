@@ -1,0 +1,49 @@
+import System.Collections.Generic.*
+
+class TodoStore {
+    private val todos: List<Todo> = []
+    private var nextId = 1
+
+    static func Seeded() -> TodoStore {
+        val store = TodoStore()
+        store.Add("Map ASP.NET Core with Raven receiver blocks")
+        store.Add("Keep handlers as normal trailing-block delegates")
+        return store
+    }
+
+    func Summary() -> string {
+        var text = ""
+
+        for todo in todos {
+            text = text + todo.ToLine() + "\n"
+        }
+
+        return text
+    }
+
+    func Find(id: int) -> Todo? {
+        for todo in todos {
+            if todo.Id == id {
+                return todo
+            }
+        }
+
+        return null
+    }
+
+    func Add(title: string) -> Todo {
+        val todo = Todo(nextId, title, false)
+        nextId = nextId + 1
+        todos.Add(todo)
+        return todo
+    }
+}
+
+extension TodoTextExtensions for Todo {
+    func ToLine() -> string {
+        val done = if self.IsComplete { "done" } else { "open" }
+        return "${self.Id.ToString()}: ${self.Title} [$done]"
+    }
+}
+
+record Todo(val Id: int, val Title: string, val IsComplete: bool)

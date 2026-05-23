@@ -490,6 +490,10 @@ partial class BlockBinder
                 targetType = null;
             }
 
+            var hasImplicitReceiverParameter = targetParameter is not null &&
+                HasReceiverAttribute(targetParameter) &&
+                GetTrailingBlockParameterSyntaxes(trailingBlock).Length == 0;
+
             if (targetType is not null && preInferredSubstitutions.Count > 0)
                 targetType = SubstituteTypeParameters(targetType, preInferredSubstitutions);
 
@@ -502,7 +506,8 @@ partial class BlockBinder
             var boundExpr = BindTrailingBlockExpression(
                 trailingBlock,
                 targetDelegateType,
-                useDelegateReturnTarget: targetType is not null);
+                useDelegateReturnTarget: targetType is not null,
+                hasImplicitReceiverParameter);
 
             if (targetType is not null && HasExpressionErrors(boundExpr))
             {

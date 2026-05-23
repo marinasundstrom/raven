@@ -1,0 +1,56 @@
+import System.*
+
+class BuilderAttribute<T> : Attribute {
+}
+
+class UiNode {
+    init(markup: string) {
+        Markup = markup
+    }
+
+    val Markup: string
+}
+
+class UiBuilder {
+    static func BuildExpression(node: UiNode) -> UiNode {
+        return node
+    }
+
+    static func BuildBlock(items: UiNode[]) -> UiNode {
+        var markup = ""
+
+        for item in items {
+            markup = markup + item.Markup
+        }
+
+        return UiNode(markup)
+    }
+
+    static func BuildOptional(value: UiNode) -> UiNode {
+        return value
+    }
+
+    static func BuildArray(items: UiNode[]) -> UiNode {
+        return BuildBlock(items)
+    }
+}
+
+func Window(title: string, [Builder<UiBuilder>] content: () -> UiNode) -> UiNode {
+    return UiNode("<Window Title=\"" + title + "\">" + content().Markup + "</Window>")
+}
+
+func VStack([Builder<UiBuilder>] content: () -> UiNode) -> UiNode {
+    return UiNode("<VStack>" + content().Markup + "</VStack>")
+}
+
+func HStack([Builder<UiBuilder>] content: () -> UiNode) -> UiNode {
+    return UiNode("<HStack>" + content().Markup + "</HStack>")
+}
+
+func Text(value: string) -> UiNode {
+    return UiNode("<Text>" + value + "</Text>")
+}
+
+func Button(title: string, handler: () -> string) -> UiNode {
+    return UiNode("<Button Title=\"" + title + "\" Action=\"" + handler() + "\" />")
+}

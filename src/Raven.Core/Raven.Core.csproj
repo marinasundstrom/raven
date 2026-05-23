@@ -14,6 +14,7 @@
     <RavenSource Include="Error.rav" />
     <RavenSource Include="Option.rav" />
     <RavenSource Include="Parse.rav" />
+    <RavenSource Include="Receiver.rav" />
     <RavenSource Include="Result.rav" />
     <RavenSource Include="LinqExtensions.rav" />
     <RavenSource Include="TopLevel.rav" />

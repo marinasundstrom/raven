@@ -157,6 +157,105 @@ class Runner {
     }
 
     [Fact]
+    public void ReceiverTrailingBlock_EmitsReceiverMemberAccesses()
+    {
+        const string code = """
+import System.*
+
+class ReceiverAttribute : Attribute {}
+
+class ConfigBuilder {
+    var Name: string = ""
+    var Activated: bool = false
+
+    func Activate() -> () {
+        Activated = true
+    }
+}
+
+class Configuration {
+    init(name: string, activated: bool) {
+        Name = name
+        Activated = activated
+    }
+
+    val Name: string
+    val Activated: bool
+}
+
+class Runner {
+    static func Run() -> string {
+        val config = Config {
+            Name = "Foo"
+            Activate()
+        }
+
+        return config.Name + ":" + config.Activated.ToString()
+    }
+
+    static func Config([Receiver] configure: ConfigBuilder -> unit) -> Configuration {
+        val builder = ConfigBuilder()
+        configure(builder)
+        return Configuration(builder.Name, builder.Activated)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("Foo:True", output);
+    }
+
+    [Fact]
+    public void ReceiverTrailingBlock_WorksForConstructorAndMemberInvocation()
+    {
+        const string code = """
+import System.*
+
+class ReceiverAttribute : Attribute {}
+
+class ConfigBuilder {
+    var Name: string = ""
+}
+
+class Configuration {
+    init([Receiver] configure: ConfigBuilder -> unit) {
+        val builder = ConfigBuilder()
+        configure(builder)
+        Name = builder.Name
+    }
+
+    val Name: string
+}
+
+class Factory {
+    func Define([Receiver] configure: ConfigBuilder -> unit) -> Configuration {
+        return Configuration(configure)
+    }
+}
+
+class Runner {
+    static func Run() -> string {
+        val constructed = Configuration {
+            Name = "ctor"
+        }
+
+        val factory = Factory()
+        val defined = factory.Define {
+            Name = "member"
+        }
+
+        return constructed.Name + "," + defined.Name
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("ctor,member", output);
+    }
+
+    [Fact]
     public void BuilderTrailingBlock_DoesNotHoistNestedTrailingBlockParameter()
     {
         const string code = """
