@@ -31,6 +31,7 @@ internal sealed class HoverHandler : IHoverHandler
 
     private readonly DocumentStore _documents;
     private readonly ILogger<HoverHandler> _logger;
+    private readonly LatestDocumentRequestTracker _latestRequests = new();
 
     public HoverHandler(DocumentStore documents, ILogger<HoverHandler> logger)
     {
@@ -50,6 +51,8 @@ internal sealed class HoverHandler : IHoverHandler
 
     public async Task<Hover?> Handle(HoverParams request, CancellationToken cancellationToken)
     {
+        var requestState = _latestRequests.Begin(request.TextDocument.Uri, cancellationToken);
+        var effectiveCancellationToken = requestState.Token;
         var totalStopwatch = Stopwatch.StartNew();
         double gateWaitMs = 0;
         double analysisContextMs = 0;
@@ -68,13 +71,13 @@ internal sealed class HoverHandler : IHoverHandler
         Compilation? semanticCompilation = null;
         SemanticQueryInstrumentation.Snapshot? semanticBefore = null;
         var currentStage = "starting";
-        using var hoverWatchdog = StartHoverWatchdog(request, totalStopwatch, () => currentStage, cancellationToken);
+        using var hoverWatchdog = StartHoverWatchdog(request, totalStopwatch, () => currentStage, effectiveCancellationToken);
 
         try
         {
             currentStage = "analysisContext";
             var stageStopwatch = Stopwatch.StartNew();
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (context is null)
                 return null;
@@ -82,7 +85,7 @@ internal sealed class HoverHandler : IHoverHandler
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
             currentStage = "syntaxRoot";
-            var root = syntaxTree.GetRoot(cancellationToken);
+            var root = syntaxTree.GetRoot(effectiveCancellationToken);
             var offset = Math.Clamp(PositionHelper.ToOffset(sourceText, request.Position), 0, root.FullSpan.End);
 
             currentStage = "syntaxOnlyHover";
@@ -96,11 +99,11 @@ internal sealed class HoverHandler : IHoverHandler
             if (ShouldSuppressSemanticHover(root, offset))
                 return null;
 
-            cancellationToken.ThrowIfCancellationRequested();
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "semanticGate";
             var gateWaitStopwatch = Stopwatch.StartNew();
-            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "hover").ConfigureAwait(false);
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, effectiveCancellationToken, "hover").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
 
             currentStage = "semanticModel";
@@ -112,28 +115,28 @@ internal sealed class HoverHandler : IHoverHandler
             semanticCompilation = semanticModel.Compilation;
             semanticBefore = semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
 
-            cancellationToken.ThrowIfCancellationRequested();
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "macroHover";
             var macroHover = TryBuildMacroExpansionHover(sourceText, semanticModel, root, offset);
             if (macroHover is not null)
                 return macroHover;
 
-            cancellationToken.ThrowIfCancellationRequested();
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "literalHover";
             var literalHover = TryBuildLiteralHover(sourceText, semanticModel, root, offset);
             if (literalHover is not null)
                 return literalHover;
 
-            cancellationToken.ThrowIfCancellationRequested();
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "patternHover";
             var patternHover = TryBuildPatternDeclarationHover(sourceText, semanticModel, root, offset);
             if (patternHover is not null)
                 return patternHover;
 
-            cancellationToken.ThrowIfCancellationRequested();
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             currentStage = "resolution";
             var resolutionStopwatch = Stopwatch.StartNew();
@@ -160,7 +163,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (resolution is null)
                 return null;
 
-            cancellationToken.ThrowIfCancellationRequested();
+            effectiveCancellationToken.ThrowIfCancellationRequested();
 
             var resolvedValue = resolution.Value;
             currentStage = "invocationOverride";
@@ -239,12 +242,14 @@ internal sealed class HoverHandler : IHoverHandler
                 Range = hoverRange
             };
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (effectiveCancellationToken.IsCancellationRequested)
         {
             if (totalStopwatch.Elapsed.TotalMilliseconds >= HoverLifecycleLogThresholdMs)
             {
                 _logger.LogInformation(
-                    "Hover request canceled for {Uri} at {Line}:{Character} after {ElapsedMs:F1}ms.",
+                    requestState.IsSuperseded
+                        ? "Hover request superseded for {Uri} at {Line}:{Character} after {ElapsedMs:F1}ms."
+                        : "Hover request canceled for {Uri} at {Line}:{Character} after {ElapsedMs:F1}ms.",
                     request.TextDocument.Uri,
                     request.Position.Line,
                     request.Position.Character,
@@ -331,6 +336,8 @@ internal sealed class HoverHandler : IHoverHandler
                     request.Position.Character,
                     totalStopwatch.Elapsed.TotalMilliseconds);
             }
+
+            _latestRequests.Complete(requestState);
         }
     }
 
@@ -338,9 +345,9 @@ internal sealed class HoverHandler : IHoverHandler
         HoverParams request,
         Stopwatch stopwatch,
         Func<string> getCurrentStage,
-        CancellationToken cancellationToken)
+        CancellationToken effectiveCancellationToken)
     {
-        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(effectiveCancellationToken);
         _ = LogSlowHoverProgressAsync(request, stopwatch, getCurrentStage, cancellation.Token);
         return new CancellationDisposable(cancellation);
     }
@@ -349,7 +356,7 @@ internal sealed class HoverHandler : IHoverHandler
         HoverParams request,
         Stopwatch stopwatch,
         Func<string> getCurrentStage,
-        CancellationToken cancellationToken)
+        CancellationToken effectiveCancellationToken)
     {
         var checkpoints = new[] { 1_000, 3_000, 10_000 };
         var previous = 0;
@@ -358,7 +365,7 @@ internal sealed class HoverHandler : IHoverHandler
         {
             foreach (var checkpoint in checkpoints)
             {
-                await Task.Delay(checkpoint - previous, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(checkpoint - previous, effectiveCancellationToken).ConfigureAwait(false);
                 previous = checkpoint;
 
                 _logger.LogWarning(
@@ -370,7 +377,7 @@ internal sealed class HoverHandler : IHoverHandler
                     getCurrentStage());
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (effectiveCancellationToken.IsCancellationRequested)
         {
         }
     }

@@ -1222,6 +1222,51 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task HoverHandler_NewerDocumentHoverSupersedesBlockedOlderHoverAsync()
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync("""
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    WriteLine(number)
+}
+""");
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var firstHoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        await Task.Delay(100);
+        firstHoverTask.IsCompleted.ShouldBeFalse();
+
+        var secondHoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        var firstCompletedTask = await Task.WhenAny(firstHoverTask, Task.Delay(1000));
+        firstCompletedTask.ShouldBe(firstHoverTask);
+        var firstHover = await firstHoverTask;
+        firstHover.ShouldBeNull();
+
+        secondHoverTask.IsCompleted.ShouldBeFalse();
+
+        semanticLease.Dispose();
+        var secondHover = await secondHoverTask;
+
+        secondHover.ShouldNotBeNull();
+        secondHover!.Contents.MarkupContent.ShouldNotBeNull();
+        secondHover.Contents.MarkupContent!.Value.ShouldContain("number");
+    }
+
+    [Fact]
     public async Task HoverHandler_TypeDeclarationIdentifier_UsesSyntaxHoverWithoutSemanticGateAsync()
     {
         var text = """
