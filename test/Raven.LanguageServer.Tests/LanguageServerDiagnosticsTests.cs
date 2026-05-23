@@ -1973,6 +1973,68 @@ func Main( -> () {
         result.Diagnostics.ShouldNotBeEmpty();
     }
 
+    [Fact]
+    public async Task UpsertDocumentWithResultAsync_ProjectBackedExistingDocumentWithSameText_DoesNotReportProjectChangeAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+
+        var mainPath = Path.Combine(sourceDirectory, "main.rvn");
+        const string mainCode = """
+import Utilities.*
+
+func Main() {
+    Test()
+}
+""";
+        File.WriteAllText(mainPath, mainCode);
+
+        var testPath = Path.Combine(sourceDirectory, "test.rvn");
+        const string testCode = """
+namespace Utilities
+
+func Test() {
+}
+""";
+        File.WriteAllText(testPath, testCode);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        await store.UpsertDocumentWithResultAsync(mainUri, SourceText.From(mainCode));
+
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        var result = await store.UpsertDocumentWithResultAsync(testUri, SourceText.From(testCode));
+
+        result.TextChanged.ShouldBeFalse();
+        result.ProjectChanged.ShouldBeFalse();
+        result.AddedDocument.ShouldBeFalse();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

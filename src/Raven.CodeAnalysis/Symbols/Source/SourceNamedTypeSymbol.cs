@@ -219,6 +219,16 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         }
     }
 
+    internal ImmutableArray<ISymbol> GetDeclaredMembersWithoutEnsuring()
+    {
+        lock (_membersGate)
+        {
+            return _members
+                .Distinct(SymbolReferenceComparer.Instance)
+                .ToImmutableArray();
+        }
+    }
+
     internal void MarkPrimaryConstructorMembersDeclared()
     {
         if (!HasPrimaryConstructorSyntax)

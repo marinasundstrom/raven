@@ -155,9 +155,7 @@ internal sealed class WorkspaceManager
             InitializeCore(_workspaceRoots);
 
             foreach (var openDocument in openDocuments)
-            {
-                _ = UpsertDocument(openDocument.Uri, openDocument.Text);
-            }
+                _ = UpsertDocument(openDocument.Uri, SourceText.From(openDocument.Text));
         }
     }
 
@@ -613,13 +611,13 @@ internal sealed class WorkspaceManager
             .First();
     }
 
-    public Document UpsertDocument(DocumentUri uri, string text)
-        => UpsertDocument(uri, SourceText.From(text), deferMacroConsumerRefresh: false);
-
     public Task<Document> UpsertDocumentAsync(DocumentUri uri, string text)
-        => Task.FromResult(UpsertDocument(uri, text));
+        => UpsertDocumentAsync(uri, SourceText.From(text), deferMacroConsumerRefresh: false);
 
     internal Document UpsertDocument(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
+        => UpsertDocumentWithResult(uri, sourceText, deferMacroConsumerRefresh).Document;
+
+    internal DocumentUpsertResult UpsertDocumentWithResult(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
     {
         var filePath = uri.GetFileSystemPath();
         var name = Path.GetFileName(filePath) ?? filePath ?? $"document{RavenFileExtensions.Raven}";
@@ -640,7 +638,11 @@ internal sealed class WorkspaceManager
                         HasSameText(currentDocument, sourceText))
                     {
                         _documents[uri] = new OwnedDocument(currentDocument.Id, ownerProject, currentDocument.Version, IsProjectDocument: existing.IsProjectDocument);
-                        return currentDocument;
+                        return new DocumentUpsertResult(
+                            currentDocument,
+                            TextChanged: false,
+                            ProjectChanged: false,
+                            AddedDocument: false);
                     }
 
                     solution = solution.WithDocumentText(existing.DocumentId, sourceText);
@@ -648,7 +650,11 @@ internal sealed class WorkspaceManager
                     var updatedDocument = _workspace.CurrentSolution.GetDocument(existing.DocumentId)!;
                     _documents[uri] = new OwnedDocument(updatedDocument.Id, ownerProject, updatedDocument.Version, IsProjectDocument: existing.IsProjectDocument);
                     RefreshMacroConsumersForProject(ownerProject, deferMacroConsumerRefresh);
-                    return updatedDocument;
+                    return new DocumentUpsertResult(
+                        updatedDocument,
+                        TextChanged: true,
+                        ProjectChanged: true,
+                        AddedDocument: false);
                 }
 
                 staleOwnedDocument = existing;
@@ -662,7 +668,11 @@ internal sealed class WorkspaceManager
                     staleOwnedDocument is not { IsProjectDocument: false })
                 {
                     _documents[uri] = new OwnedDocument(existingDocument.Id, existingOwnerProject, existingDocument.Version, IsProjectDocument: true);
-                    return existingDocument;
+                    return new DocumentUpsertResult(
+                        existingDocument,
+                        TextChanged: false,
+                        ProjectChanged: false,
+                        AddedDocument: false);
                 }
 
                 solution = solution.WithDocumentText(existingDocument.Id, sourceText);
@@ -676,7 +686,11 @@ internal sealed class WorkspaceManager
                 var updatedDocument = _workspace.CurrentSolution.GetDocument(existingDocument.Id)!;
                 _documents[uri] = new OwnedDocument(updatedDocument.Id, existingOwnerProject, updatedDocument.Version, IsProjectDocument: true);
                 RefreshMacroConsumersForProject(existingOwnerProject, deferMacroConsumerRefresh);
-                return updatedDocument;
+                return new DocumentUpsertResult(
+                    updatedDocument,
+                    TextChanged: true,
+                    ProjectChanged: true,
+                    AddedDocument: false);
             }
 
             if (staleOwnedDocument is { IsProjectDocument: false } staleDocument
@@ -691,12 +705,19 @@ internal sealed class WorkspaceManager
             var addedDocument = _workspace.CurrentSolution.GetDocument(documentId)!;
             _documents[uri] = new OwnedDocument(documentId, ownerProject, addedDocument.Version, IsProjectDocument: false);
 
-            return addedDocument;
+            return new DocumentUpsertResult(
+                addedDocument,
+                TextChanged: true,
+                ProjectChanged: true,
+                AddedDocument: true);
         }
     }
 
     internal Task<Document> UpsertDocumentAsync(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
         => Task.FromResult(UpsertDocument(uri, sourceText, deferMacroConsumerRefresh));
+
+    internal Task<DocumentUpsertResult> UpsertDocumentWithResultAsync(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
+        => Task.FromResult(UpsertDocumentWithResult(uri, sourceText, deferMacroConsumerRefresh));
 
     private static bool HasSameText(Document document, SourceText sourceText)
         => document.GetTextAsync(CancellationToken.None).GetAwaiter().GetResult().ContentEquals(sourceText);
@@ -1665,6 +1686,12 @@ internal sealed class WorkspaceManager
     }
 
     private readonly record struct OwnedDocument(DocumentId DocumentId, ProjectId ProjectId, VersionStamp Version, bool IsProjectDocument);
+    internal readonly record struct DocumentUpsertResult(
+        Document Document,
+        bool TextChanged,
+        bool ProjectChanged,
+        bool AddedDocument);
+
     private readonly record struct ReloadDocumentState(DocumentUri Uri, string Text, bool IsProjectDocument);
     private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType);
 }

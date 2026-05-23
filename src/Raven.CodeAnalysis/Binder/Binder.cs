@@ -310,7 +310,7 @@ internal abstract partial class Binder
 
     public virtual INamespaceSymbol? LookupNamespace(string name)
     {
-        var currentNamespace = CurrentNamespace?.LookupNamespace(name);
+        var currentNamespace = Compilation.SymbolLookup.LookupNamespaceSourceFirst(CurrentNamespace, name);
         if (currentNamespace is not null)
             return currentNamespace;
 
@@ -318,7 +318,7 @@ internal abstract partial class Binder
         if (namespaceFromParent is not null)
             return namespaceFromParent;
 
-        return Compilation.GlobalNamespace.LookupNamespace(name);
+        return Compilation.SymbolLookup.LookupNamespaceSourceFirst(null, name);
     }
 
     public virtual ISymbol? LookupSymbol(string name)
@@ -489,6 +489,9 @@ internal abstract partial class Binder
 
         return ParentBinder?.LookupExtensionMethodsByName(name) ?? Enumerable.Empty<IMethodSymbol>();
     }
+
+    protected bool CanCacheExtensionLookupResults
+        => Compilation.SourceDeclarationsDeclared;
 
     protected IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
         INamespaceOrTypeSymbol scope,
@@ -847,7 +850,7 @@ internal abstract partial class Binder
         if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
             return true;
 
-        var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
+        var conversion = Compilation.ClassifyConversion(receiverType, parameterType, includeUserDefined: false);
         return conversion.Exists && conversion.IsImplicit;
     }
 
@@ -886,7 +889,7 @@ internal abstract partial class Binder
         if (SymbolEqualityComparer.Default.Equals(extensionReceiverType, receiverType))
             return true;
 
-        var conversion = Compilation.ClassifyConversion(receiverType, extensionReceiverType);
+        var conversion = Compilation.ClassifyConversion(receiverType, extensionReceiverType, includeUserDefined: false);
         return conversion.Exists && conversion.IsImplicit;
     }
 
@@ -1082,23 +1085,28 @@ internal abstract partial class Binder
         return string.Equals(ns, "System.Collections.Generic", StringComparison.Ordinal);
     }
 
-    private static IEnumerable<IMethodSymbol> EnumerateExtensionMethods(
+    private IEnumerable<IMethodSymbol> EnumerateExtensionMethods(
         INamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
         if (scope is INamespaceSymbol ns)
         {
-            if (!string.IsNullOrEmpty(name) &&
-                TryGetMetadataExtensionMethodContainers(ns, name, out var extensionContainers))
+            if (!string.IsNullOrEmpty(name))
             {
+                var extensionContainers = Compilation.SymbolLookup.GetExtensionContainers(
+                    ns,
+                    name,
+                    ExtensionMemberKinds.InstanceMethods);
+
                 foreach (var typeMember in extensionContainers)
                 {
                     foreach (var method in EnumerateExtensionMethods(typeMember, name, includePartialMatches))
                         yield return method;
                 }
 
-                yield break;
+                if (ns is not SourceNamespaceSymbol || Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+                    yield break;
             }
 
             foreach (var member in ns.GetMembers())
@@ -1116,9 +1124,8 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var members = string.IsNullOrEmpty(name)
-            ? type.GetMembers().OfType<IMethodSymbol>()
-            : type.GetMembers(name!).OfType<IMethodSymbol>();
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var members = typeMembers.OfType<IMethodSymbol>();
 
         foreach (var member in members)
         {
@@ -1131,35 +1138,35 @@ internal abstract partial class Binder
             yield return member;
         }
 
-        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
         {
             foreach (var method in EnumerateExtensionMethods(nested, name, includePartialMatches))
                 yield return method;
         }
     }
 
-    private static bool TryGetMetadataExtensionMethodContainers(
-        INamespaceSymbol namespaceSymbol,
-        string methodName,
-        out ImmutableArray<INamedTypeSymbol> containers)
-    {
-        containers = namespaceSymbol switch
-        {
-            Symbols.PENamespaceSymbol peNamespace => peNamespace.GetExtensionMethodContainers(methodName),
-            Symbols.MergedNamespaceSymbol mergedNamespace => mergedNamespace.GetExtensionMethodContainers(methodName),
-            _ => ImmutableArray<INamedTypeSymbol>.Empty
-        };
-
-        return !containers.IsDefaultOrEmpty;
-    }
-
-    private static IEnumerable<IMethodSymbol> EnumerateExtensionStaticMethods(
+    private IEnumerable<IMethodSymbol> EnumerateExtensionStaticMethods(
         INamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
         if (scope is INamespaceSymbol ns)
         {
+            if (!string.IsNullOrEmpty(name))
+            {
+                foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
+                    ns,
+                    name,
+                    ExtensionMemberKinds.StaticMethods))
+                {
+                    foreach (var method in EnumerateExtensionStaticMethods(typeMember, name, includePartialMatches))
+                        yield return method;
+                }
+
+                if (ns is SourceNamespaceSymbol)
+                    yield break;
+            }
+
             foreach (var member in ns.GetMembers())
             {
                 if (member is INamedTypeSymbol typeMember)
@@ -1178,9 +1185,8 @@ internal abstract partial class Binder
         if (!type.HasStaticExtensionMembers)
             yield break;
 
-        var members = string.IsNullOrEmpty(name)
-            ? type.GetMembers().OfType<IMethodSymbol>()
-            : type.GetMembers(name!).OfType<IMethodSymbol>();
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var members = typeMembers.OfType<IMethodSymbol>();
 
         foreach (var member in members)
         {
@@ -1193,20 +1199,35 @@ internal abstract partial class Binder
             yield return member;
         }
 
-        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
         {
             foreach (var method in EnumerateExtensionStaticMethods(nested, name, includePartialMatches))
                 yield return method;
         }
     }
 
-    private static IEnumerable<IPropertySymbol> EnumerateExtensionProperties(
+    private IEnumerable<IPropertySymbol> EnumerateExtensionProperties(
         INamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
         if (scope is INamespaceSymbol ns)
         {
+            if (!string.IsNullOrEmpty(name))
+            {
+                foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
+                    ns,
+                    name,
+                    ExtensionMemberKinds.InstanceProperties))
+                {
+                    foreach (var property in EnumerateExtensionProperties(typeMember, name, includePartialMatches))
+                        yield return property;
+                }
+
+                if (ns is SourceNamespaceSymbol)
+                    yield break;
+            }
+
             foreach (var member in ns.GetMembers())
             {
                 if (member is INamedTypeSymbol typeMember)
@@ -1222,9 +1243,8 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var members = string.IsNullOrEmpty(name)
-            ? type.GetMembers().OfType<IPropertySymbol>()
-            : type.GetMembers(name!).OfType<IPropertySymbol>();
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var members = typeMembers.OfType<IPropertySymbol>();
 
         foreach (var property in members)
         {
@@ -1237,20 +1257,35 @@ internal abstract partial class Binder
             yield return property;
         }
 
-        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
         {
             foreach (var property in EnumerateExtensionProperties(nested, name, includePartialMatches))
                 yield return property;
         }
     }
 
-    private static IEnumerable<IPropertySymbol> EnumerateExtensionStaticProperties(
+    private IEnumerable<IPropertySymbol> EnumerateExtensionStaticProperties(
         INamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
         if (scope is INamespaceSymbol ns)
         {
+            if (!string.IsNullOrEmpty(name))
+            {
+                foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
+                    ns,
+                    name,
+                    ExtensionMemberKinds.StaticProperties))
+                {
+                    foreach (var property in EnumerateExtensionStaticProperties(typeMember, name, includePartialMatches))
+                        yield return property;
+                }
+
+                if (ns is SourceNamespaceSymbol)
+                    yield break;
+            }
+
             foreach (var member in ns.GetMembers())
             {
                 if (member is INamedTypeSymbol typeMember)
@@ -1269,9 +1304,8 @@ internal abstract partial class Binder
         if (!type.HasStaticExtensionMembers)
             yield break;
 
-        var members = string.IsNullOrEmpty(name)
-            ? type.GetMembers().OfType<IPropertySymbol>()
-            : type.GetMembers(name!).OfType<IPropertySymbol>();
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var members = typeMembers.OfType<IPropertySymbol>();
 
         foreach (var property in members)
         {
@@ -1287,11 +1321,35 @@ internal abstract partial class Binder
             yield return property;
         }
 
-        foreach (var nested in type.GetMembers().OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
         {
             foreach (var property in EnumerateExtensionStaticProperties(nested, name, includePartialMatches))
                 yield return property;
         }
+    }
+
+    private static ImmutableArray<ISymbol> GetDeclaredMembersForExtensionLookup(INamedTypeSymbol type, string? name)
+    {
+        if (type is Symbols.SourceNamedTypeSymbol sourceType)
+        {
+            var compilation = sourceType.ContainingAssembly is SourceAssemblySymbol sourceAssembly
+                ? sourceAssembly.Compilation
+                : null;
+            if (compilation?.IsSourceNamespaceLookupDeclarationCompletionSuppressed != true)
+            {
+                return string.IsNullOrEmpty(name)
+                    ? sourceType.GetMembers()
+                    : sourceType.GetMembers(name!);
+            }
+
+            return string.IsNullOrEmpty(name)
+                ? sourceType.GetDeclaredMembersWithoutEnsuring()
+                : sourceType.GetDeclaredMembersWithoutEnsuring(name!);
+        }
+
+        return string.IsNullOrEmpty(name)
+            ? type.GetMembers()
+            : type.GetMembers(name!);
     }
 
     private bool IsExtensionCandidateForReceiver(
@@ -1324,7 +1382,7 @@ internal abstract partial class Binder
         if (SymbolEqualityComparer.Default.Equals(parameterType, receiverType))
             return true;
 
-        var conversion = Compilation.ClassifyConversion(receiverType, parameterType);
+        var conversion = Compilation.ClassifyConversion(receiverType, parameterType, includeUserDefined: false);
         return conversion.Exists && conversion.IsImplicit;
     }
 

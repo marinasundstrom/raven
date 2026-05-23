@@ -989,7 +989,7 @@ public partial class Compilation
                 if (method.MethodKind is not MethodKind.Conversion)
                     continue;
 
-                if (method.GetExtensionReceiverType() is null)
+                if (!TryGetExtensionConversionReceiverType(method, out _))
                     continue;
 
                 builder.Add(method);
@@ -998,6 +998,20 @@ public partial class Compilation
 
         _extensionConversionOperators = builder.ToImmutable();
         return _extensionConversionOperators;
+
+        static bool TryGetExtensionConversionReceiverType(IMethodSymbol method, out ITypeSymbol? receiverType)
+        {
+            try
+            {
+                receiverType = method.GetExtensionReceiverType();
+                return receiverType is not null;
+            }
+            catch (InvalidOperationException)
+            {
+                receiverType = null;
+                return false;
+            }
+        }
     }
 
     private IMethodSymbol? TryConstructExtensionConversion(IMethodSymbol method, ITypeSymbol receiverType)

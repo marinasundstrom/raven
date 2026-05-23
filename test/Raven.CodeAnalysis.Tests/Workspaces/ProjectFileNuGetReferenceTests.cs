@@ -421,6 +421,62 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_EfCoreExpressionTrees_PipeChainSecondHopAfterEdit_DoesNotBindColdBody()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithCompilationOptions(
+            projectId,
+            project.CompilationOptions!.WithPerformanceInstrumentation(instrumentation)));
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        initialCompilation.GetDocumentDiagnostics(initialTree, analyzerOptions: null, CancellationToken.None);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document =>
+            string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var updatedText = SourceText.From(
+            File.ReadAllText(sourcePath).Replace("val minAge = 21", "val minAge = 26", StringComparison.Ordinal));
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(document.Id, updatedText));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var orderBy = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation =>
+                invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "OrderBy" });
+
+        instrumentation.BinderReentry.Reset();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+
+        Assert.True(model.TryGetInvocationTargetSymbolInfo(orderBy, out var orderByInfo));
+
+        var after = instrumentation.SemanticQuery.CaptureSnapshot();
+        var setupDelta = CompilerSetupInstrumentation.Subtract(instrumentation.Setup.CaptureSnapshot(), setupBefore);
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(orderByInfo.Symbol);
+        Assert.Equal("OrderBy", method.Name);
+        Assert.Contains("IOrderedQueryable<User>", method.ReturnType.ToDisplayString());
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
+        Assert.Equal(0, delta.BoundNodeBindFallbacks);
+        Assert.True(
+            instrumentation.BinderReentry.TotalBindExecutions == 0,
+            instrumentation.BinderReentry.GetSummary());
+    }
+
+    [Fact]
     public void OpenProject_EfCoreSample_IncludeLambdaInvocationTarget_PrefersGenericExpressionOverStringOverload()
     {
         var repoRoot = FindRepositoryRoot();

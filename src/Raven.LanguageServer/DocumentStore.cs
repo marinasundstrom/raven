@@ -85,6 +85,7 @@ internal sealed class DocumentStore
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
     private readonly object _backgroundDiagnosticsCancellationGate = new();
     private readonly ConcurrentDictionary<DocumentDiagnosticsCacheKey, ImmutableArray<LspDiagnostic>> _documentCompilerDiagnosticsCache = new();
+    private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingPostEditSemanticWarmups = new();
     private CancellationTokenSource _backgroundDiagnosticsPreemption = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
@@ -93,37 +94,151 @@ internal sealed class DocumentStore
         _logger = logger;
     }
 
-    public Document UpsertDocument(DocumentUri uri, string text)
-        => UpsertDocument(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh: false);
-
     public Task<Document> UpsertDocumentAsync(DocumentUri uri, string text)
-        => Task.FromResult(UpsertDocument(uri, text));
+        => UpsertDocumentAsync(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh: false);
+
+    internal Document UpsertDocument(DocumentUri uri, string text, bool deferMacroConsumerRefresh = false)
+        => UpsertDocument(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh);
 
     internal Document UpsertDocument(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
+        => UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh).Document;
+
+    internal WorkspaceManager.DocumentUpsertResult UpsertDocumentWithResult(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
     {
-        RemoveCachedDocumentDiagnostics(uri);
+        var result = _workspaceManager.UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh);
 
-        var document = _workspaceManager.UpsertDocument(uri, text, deferMacroConsumerRefresh);
-        RemoveStaleCachedDocumentDiagnostics(document.Project.Id, document.Project.Version);
+        if (result.TextChanged)
+            RemoveCachedDocumentDiagnostics(uri);
 
-        if (deferMacroConsumerRefresh)
-            PrimeCompilationAfterEdit(uri);
+        if (result.ProjectChanged)
+            RemoveStaleCachedDocumentDiagnostics(result.Document.Project.Id, result.Document.Project.Version);
 
-        return document;
+        if (deferMacroConsumerRefresh && result.ProjectChanged)
+            SchedulePostEditSemanticWarmup(uri);
+
+        return result;
     }
 
     internal Task<Document> UpsertDocumentAsync(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
         => Task.FromResult(UpsertDocument(uri, text, deferMacroConsumerRefresh));
 
-    private void PrimeCompilationAfterEdit(DocumentUri uri)
+    internal Task<WorkspaceManager.DocumentUpsertResult> UpsertDocumentWithResultAsync(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
+        => Task.FromResult(UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh));
+
+    private void SchedulePostEditSemanticWarmup(DocumentUri uri)
     {
+        var source = new CancellationTokenSource();
+        var current = _pendingPostEditSemanticWarmups.AddOrUpdate(
+            uri,
+            source,
+            (_, previous) =>
+            {
+                try
+                {
+                    previous.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+
+                return source;
+            });
+
+        if (!ReferenceEquals(current, source))
+        {
+            source.Dispose();
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(75, source.Token).ConfigureAwait(false);
+                await WarmPostEditSemanticsAsync(uri, source.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Post-edit semantic warmup failed for {Uri}.", uri);
+            }
+            finally
+            {
+                if (_pendingPostEditSemanticWarmups.TryGetValue(uri, out var active) && ReferenceEquals(active, source))
+                    _pendingPostEditSemanticWarmups.TryRemove(uri, out _);
+
+                try
+                {
+                    source.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task WarmPostEditSemanticsAsync(DocumentUri uri, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        double contextMs = 0;
+        double semanticModelMs = 0;
+        double declarationMs = 0;
+
         try
         {
-            _ = _workspaceManager.TryGetCompilation(uri, out _);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var stageStopwatch = Stopwatch.StartNew();
+            var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+            contextMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            if (context is null)
+                return;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            stageStopwatch.Restart();
+            var setupBefore = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+            _ = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+            semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            stageStopwatch.Restart();
+            context.Value.Compilation.EnsureSourceDeclarationsDeclared();
+            declarationMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            var setupAfter = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+            var setupDelta = CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore);
+
+            if (stopwatch.Elapsed.TotalMilliseconds >= SlowWarmAnalysisThresholdMs)
+            {
+                _logger.LogInformation(
+                    "Post-edit semantic warmup for {Uri}: total={TotalMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms declarations={DeclarationMs:F1}ms setupDelta=[{SetupDelta}].",
+                    uri,
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    contextMs,
+                    semanticModelMs,
+                    declarationMs,
+                    CompilerSetupInstrumentation.FormatDelta(setupDelta));
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            _logger.LogDebug(ex, "Post-edit compilation priming failed for {Uri}.", uri);
+            stopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "postEditSemanticWarmup",
+                uri,
+                null,
+                stopwatch.Elapsed.TotalMilliseconds,
+                detail: $"{uri}",
+                stages:
+                [
+                    new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", contextMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("declarations", declarationMs)
+                ]);
         }
     }
 
@@ -493,23 +608,18 @@ internal sealed class DocumentStore
             ImmutableArray<LspDiagnostic>? mappedDiagnostics = null;
             if (lane == DiagnosticLane.DocumentCompiler)
             {
-                var semanticModel = context.Value.Compilation.GetSemanticModel(syntaxTree);
-                using var semanticLease = await EnterDiagnosticSemanticAccessAsync(
-                    semanticModel,
+                mappedDiagnostics = await GetOrComputeDocumentCompilerDiagnosticsAsync(
+                    uri,
+                    context.Value.Compilation,
+                    syntaxTree,
+                    documentDiagnosticsCacheKey,
                     useBusySkip,
                     effectiveCancellationToken).ConfigureAwait(false);
-                if (semanticLease is null)
+                if (mappedDiagnostics is null)
                 {
                     busySkipped = true;
                     return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
                 }
-
-                diagnosticsForProject = GetDocumentCompilerDiagnostics(
-                    context.Value.Compilation,
-                    syntaxTree,
-                    semanticModel,
-                    analyzerOptions: null,
-                    cancellationToken: effectiveCancellationToken);
             }
             else if (lane == DiagnosticLane.DocumentWithAnalyzers)
             {

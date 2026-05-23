@@ -70,6 +70,7 @@ public partial class Compilation
     private bool isSettingUp;
     private int _setupThreadId;
     private MacroRegistry? _macroRegistry;
+    private CompilationSymbolLookup? _symbolLookup;
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -107,6 +108,8 @@ public partial class Compilation
     }
 
     internal GlobalBinder GlobalBinder => _globalBinder ??= new GlobalBinder(this);
+
+    internal CompilationSymbolLookup SymbolLookup => _symbolLookup ??= new CompilationSymbolLookup(this);
 
     public string AssemblyName { get; }
 
@@ -159,6 +162,8 @@ public partial class Compilation
     internal BinderFactory BinderFactory { get; private set; }
 
     internal DeclarationTable DeclarationTable => _declarationTable ?? EnsureDeclarationTableCreated();
+
+    internal bool AreSourceDeclarationsDeclared => _sourceDeclarationsDeclared;
 
     internal SymbolFactory SymbolFactory { get; } = new SymbolFactory();
 
@@ -1568,17 +1573,17 @@ public partial class Compilation
 
     internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {
-        // Caller asked for the root. Return the merged root.
+        // Internal binders bind source declarations. The merged global namespace is a
+        // presentation/API view; returning it here makes source declaration lookup
+        // depend on metadata namespace shape.
         if (ns is null)
-            return GlobalNamespace;
+            return SourceGlobalNamespace;
 
         var namespaceParts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries);
 
-        // Empty string / only dots => treat as root (merged).
         if (namespaceParts.Length == 0)
-            return GlobalNamespace;
+            return SourceGlobalNamespace;
 
-        // 1) Ensure the SOURCE namespace chain exists.
         var currentSourceNamespace = SourceGlobalNamespace;
 
         foreach (var part in namespaceParts)
@@ -1604,28 +1609,7 @@ public partial class Compilation
             currentSourceNamespace = nextSource;
         }
 
-        // 2) Now return the corresponding namespace symbol from the MERGED global root.
-        // This relies on GlobalNamespace being the merged view that includes source namespaces.
-        INamespaceSymbol currentMerged = GlobalNamespace;
-
-        foreach (var part in namespaceParts)
-        {
-            // Prefer a dedicated namespace lookup API if you have it:
-            var nextMerged =
-                currentMerged.LookupNamespace(part) // if available on your namespace symbol
-                ?? currentMerged.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
-
-            if (nextMerged is null)
-            {
-                // If this happens, it usually means the merged namespace view did not
-                // observe the newly-added source namespace (lazy merge / caching issue).
-                return null;
-            }
-
-            currentMerged = nextMerged;
-        }
-
-        return currentMerged;
+        return currentSourceNamespace;
     }
 
     /*
@@ -2799,6 +2783,17 @@ public partial class Compilation
         if (_metadataTypeCache.TryGetValue(metadataName, out var cached))
             return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
 
+        if (!_isDeclaringSourceTypes)
+        {
+            EnsureSourceTypesInitialized();
+
+            if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
+            {
+                _metadataTypeCache.TryAdd(metadataName, sourceType);
+                return sourceType;
+            }
+        }
+
         var metadataType = TryGetMetadataReferenceTypeByMetadataName(metadataName);
         if (metadataType is not null)
         {
@@ -2806,20 +2801,13 @@ public partial class Compilation
             return metadataType;
         }
 
-        if (_isDeclaringSourceTypes)
-            return null;
-
-        EnsureSourceTypesInitialized();
-
-        var resolved = GetTypeByMetadataNameUncached(metadataName);
-        _metadataTypeCache.TryAdd(metadataName, resolved ?? s_missingMetadataType);
-        return resolved;
+        _metadataTypeCache.TryAdd(metadataName, s_missingMetadataType);
+        return null;
     }
 
     internal INamedTypeSymbol? GetTypeByMetadataName(INamespaceSymbol currentNamespace, string metadataName)
     {
         EnsureSetup();
-        EnsureSourceTypesInitialized();
 
         var namespaceName = currentNamespace.ToMetadataName() ?? string.Empty;
         var cacheKey = namespaceName + "\0" + metadataName;
@@ -2840,14 +2828,6 @@ public partial class Compilation
         var qualifiedMetadataName = currentNamespace.QualifyName(metadataName);
         return TryGetMetadataReferenceTypeByMetadataName(qualifiedMetadataName)
             ?? TryGetMetadataReferenceTypeByMetadataName(metadataName);
-    }
-
-    private INamedTypeSymbol? GetTypeByMetadataNameUncached(string metadataName)
-    {
-        if (Assembly.GetTypeByMetadataName(metadataName) is { } sourceType)
-            return sourceType;
-
-        return GetMetadataReferenceTypeByMetadataNameUncached(metadataName);
     }
 
     internal INamedTypeSymbol? TryGetMetadataReferenceTypeByMetadataName(string metadataName)

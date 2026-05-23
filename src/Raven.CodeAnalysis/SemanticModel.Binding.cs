@@ -2318,18 +2318,9 @@ public partial class SemanticModel
         int arity,
         DiagnosticBag diagnostics)
     {
-        var mergedNamespace = GetMergedNamespace(namespaceSymbol);
-        if (mergedNamespace is null)
-            return;
-
-        foreach (var member in mergedNamespace.GetMembers(name).OfType<INamedTypeSymbol>())
-        {
-            if (member.Arity == arity && member.ContainingAssembly != Compilation.Assembly)
-            {
-                diagnostics.ReportTypeAlreadyDefined(name, location);
-                break;
-            }
-        }
+        _ = (namespaceSymbol, name, location, arity, diagnostics);
+        // Source declarations take precedence over referenced metadata. Source-source
+        // duplicates are still diagnosed by the normal declaration lookup below.
     }
 
     private void BindNamespaceMembers(
@@ -4187,18 +4178,9 @@ public partial class SemanticModel
         int arity,
         DiagnosticBag diagnostics)
     {
-        var mergedNamespace = GetMergedNamespace(namespaceSymbol);
-        if (mergedNamespace is null)
-            return;
-
-        foreach (var member in mergedNamespace.GetMembers(identifier.ValueText).OfType<INamedTypeSymbol>())
-        {
-            if (member.Arity == arity && member.ContainingAssembly != Compilation.Assembly)
-            {
-                diagnostics.ReportTypeAlreadyDefined(identifier.ValueText, identifier.GetLocation());
-                break;
-            }
-        }
+        _ = (namespaceSymbol, identifier, arity, diagnostics);
+        // Source declarations take precedence over referenced metadata. Source-source
+        // duplicates are still diagnosed by the normal declaration lookup below.
     }
 
     private (UnionDeclarationBinder Binder, SourceUnionSymbol Symbol) RegisterUnionDeclaration(

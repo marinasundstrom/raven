@@ -62,8 +62,12 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         try
         {
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
-            ClearCompletedDiagnostics(notification.TextDocument.Uri);
-            await _documents.UpsertDocumentAsync(notification.TextDocument.Uri, notification.TextDocument.Text);
+            var upsertResult = await _documents.UpsertDocumentWithResultAsync(
+                notification.TextDocument.Uri,
+                SourceText.From(notification.TextDocument.Text ?? string.Empty)).ConfigureAwait(false);
+            if (upsertResult.TextChanged)
+                ClearCompletedDiagnostics(notification.TextDocument.Uri);
+
             if (notification.TextDocument.Version is { } openVersion)
                 _documentVersions[notification.TextDocument.Uri] = openVersion;
             LanguageServerPerformanceInstrumentation.RecordDocumentEdit(
@@ -87,9 +91,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
                 analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
                 diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
-            ScheduleRelatedOpenDocumentCompilerDiagnostics(
-                notification.TextDocument.Uri,
-                DocumentCompilerDiagnosticsAfterEditDelayMilliseconds);
+            if (upsertResult.ProjectChanged)
+            {
+                ScheduleRelatedOpenDocumentCompilerDiagnostics(
+                    notification.TextDocument.Uri,
+                    DocumentCompilerDiagnosticsAfterEditDelayMilliseconds);
+            }
+
             stopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
                 "didOpen",
@@ -163,8 +171,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             applyChangesMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
-            ClearCompletedDiagnostics(notification.TextDocument.Uri);
-            await _documents.UpsertDocumentAsync(notification.TextDocument.Uri, updatedText, deferMacroConsumerRefresh: true);
+            var upsertResult = await _documents.UpsertDocumentWithResultAsync(
+                notification.TextDocument.Uri,
+                updatedText,
+                deferMacroConsumerRefresh: true).ConfigureAwait(false);
+            if (upsertResult.TextChanged)
+                ClearCompletedDiagnostics(notification.TextDocument.Uri);
+
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
             updateDocumentMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -173,12 +186,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 notification.TextDocument.Version,
                 "didChange");
             _logger.LogInformation(
-                "DidChange applied for {Uri} (version={Version}, changeCount={ChangeCount}, previousLength={PreviousLength}, updatedLength={UpdatedLength}).",
+                "DidChange applied for {Uri} (version={Version}, changeCount={ChangeCount}, previousLength={PreviousLength}, updatedLength={UpdatedLength}, projectChanged={ProjectChanged}).",
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version?.ToString() ?? "<none>",
                 contentChanges.Length,
                 currentText.Length,
-                updatedText.Length);
+                updatedText.Length,
+                upsertResult.ProjectChanged);
             _logger.LogDebug(
                 "DidChange {Uri} version={Version} changes={ChangeCount} currentLength={CurrentLength} updatedLength={UpdatedLength}.",
                 notification.TextDocument.Uri,

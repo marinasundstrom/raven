@@ -48,11 +48,13 @@ class NamespaceBinder : Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
 
-        var methods = _extensionMethodCache.GetOrAdd(
-            new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-            key => new Lazy<ImmutableArray<IMethodSymbol>>(
-                () => LookupExtensionMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        var methods = CanCacheExtensionLookupResults
+            ? _extensionMethodCache.GetOrAdd(
+                new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
+                key => new Lazy<ImmutableArray<IMethodSymbol>>(
+                    () => LookupExtensionMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
+                    LazyThreadSafetyMode.ExecutionAndPublication)).Value
+            : LookupExtensionMethodsCore(name, receiverType, includePartialMatches);
 
         foreach (var method in methods)
             yield return method;
@@ -63,12 +65,14 @@ class NamespaceBinder : Binder
         if (string.IsNullOrWhiteSpace(name))
             yield break;
 
-        var methods = _extensionMethodNameCache.GetOrAdd(
-            name,
-            static (key, self) => new Lazy<ImmutableArray<IMethodSymbol>>(
-                () => self.LookupExtensionMethodsByNameCore(key),
-                LazyThreadSafetyMode.ExecutionAndPublication),
-            this).Value;
+        var methods = CanCacheExtensionLookupResults
+            ? _extensionMethodNameCache.GetOrAdd(
+                name,
+                static (key, self) => new Lazy<ImmutableArray<IMethodSymbol>>(
+                    () => self.LookupExtensionMethodsByNameCore(key),
+                    LazyThreadSafetyMode.ExecutionAndPublication),
+                this).Value
+            : LookupExtensionMethodsByNameCore(name);
 
         foreach (var method in methods)
             yield return method;
@@ -86,7 +90,8 @@ class NamespaceBinder : Binder
             return false;
         }
 
-        if (_extensionMethodCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedMethods))
+        if (CanCacheExtensionLookupResults &&
+            _extensionMethodCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedMethods))
         {
             methods = cachedMethods.Value;
             return true;
@@ -100,11 +105,13 @@ class NamespaceBinder : Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
 
-        var properties = _extensionPropertyCache.GetOrAdd(
-            new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-            key => new Lazy<ImmutableArray<IPropertySymbol>>(
-                () => LookupExtensionPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        var properties = CanCacheExtensionLookupResults
+            ? _extensionPropertyCache.GetOrAdd(
+                new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
+                key => new Lazy<ImmutableArray<IPropertySymbol>>(
+                    () => LookupExtensionPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
+                    LazyThreadSafetyMode.ExecutionAndPublication)).Value
+            : LookupExtensionPropertiesCore(name, receiverType, includePartialMatches);
 
         foreach (var property in properties)
             yield return property;
@@ -122,7 +129,8 @@ class NamespaceBinder : Binder
             return false;
         }
 
-        if (_extensionPropertyCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedProperties))
+        if (CanCacheExtensionLookupResults &&
+            _extensionPropertyCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedProperties))
         {
             properties = cachedProperties.Value;
             return true;
@@ -136,11 +144,13 @@ class NamespaceBinder : Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
 
-        var methods = _extensionStaticMethodCache.GetOrAdd(
-            new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-            key => new Lazy<ImmutableArray<IMethodSymbol>>(
-                () => LookupExtensionStaticMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        var methods = CanCacheExtensionLookupResults
+            ? _extensionStaticMethodCache.GetOrAdd(
+                new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
+                key => new Lazy<ImmutableArray<IMethodSymbol>>(
+                    () => LookupExtensionStaticMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
+                    LazyThreadSafetyMode.ExecutionAndPublication)).Value
+            : LookupExtensionStaticMethodsCore(name, receiverType, includePartialMatches);
 
         foreach (var method in methods)
             yield return method;
@@ -158,7 +168,8 @@ class NamespaceBinder : Binder
             return false;
         }
 
-        if (_extensionStaticMethodCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedMethods))
+        if (CanCacheExtensionLookupResults &&
+            _extensionStaticMethodCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedMethods))
         {
             methods = cachedMethods.Value;
             return true;
@@ -172,11 +183,13 @@ class NamespaceBinder : Binder
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
 
-        var properties = _extensionStaticPropertyCache.GetOrAdd(
-            new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-            key => new Lazy<ImmutableArray<IPropertySymbol>>(
-                () => LookupExtensionStaticPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        var properties = CanCacheExtensionLookupResults
+            ? _extensionStaticPropertyCache.GetOrAdd(
+                new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
+                key => new Lazy<ImmutableArray<IPropertySymbol>>(
+                    () => LookupExtensionStaticPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
+                    LazyThreadSafetyMode.ExecutionAndPublication)).Value
+            : LookupExtensionStaticPropertiesCore(name, receiverType, includePartialMatches);
 
         foreach (var property in properties)
             yield return property;
@@ -194,7 +207,8 @@ class NamespaceBinder : Binder
             return false;
         }
 
-        if (_extensionStaticPropertyCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedProperties))
+        if (CanCacheExtensionLookupResults &&
+            _extensionStaticPropertyCache.TryGetValue(new BinderExtensionLookupKey(name, receiverType, includePartialMatches), out var cachedProperties))
         {
             properties = cachedProperties.Value;
             return true;

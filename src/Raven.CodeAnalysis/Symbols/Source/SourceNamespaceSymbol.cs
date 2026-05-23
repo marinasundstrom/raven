@@ -71,6 +71,11 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
     public ITypeSymbol? LookupType(string name)
     {
         EnsureSourceDeclarationsComplete();
+        return LookupTypeDeclared(name);
+    }
+
+    internal ITypeSymbol? LookupTypeDeclared(string name)
+    {
         ImmutableArray<ITypeSymbol> candidates;
         lock (_membersGate)
             candidates = _members.OfType<ITypeSymbol>().Where(t => t.Name == name).ToImmutableArray();

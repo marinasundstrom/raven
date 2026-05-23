@@ -47,8 +47,10 @@ public partial class SemanticModel
     private ConcurrentDictionary<Binder, BinderLifecycleSnapshot> _binderLifecycleSnapshots => _bindingState.BinderLifecycleSnapshots;
     private ConcurrentDictionary<SyntaxNode, SymbolInfo> _symbolMappings => _bindingState.SymbolMappings;
     private ConcurrentDictionary<SyntaxNode, TypeInfo> _typeMappings => _bindingState.TypeMappings;
+    private ConcurrentDictionary<SyntaxNodeMapKey, TypeInfo> _typeMappingsByKey => _bindingState.TypeMappingsByKey;
     private ConcurrentDictionary<SyntaxNode, byte> _nonReportingSymbolMappings => _bindingState.NonReportingSymbolMappings;
     private ConcurrentDictionary<SyntaxNode, byte> _nonReportingTypeMappings => _bindingState.NonReportingTypeMappings;
+    private ConcurrentDictionary<SyntaxNodeMapKey, byte> _nonReportingTypeMappingsByKey => _bindingState.NonReportingTypeMappingsByKey;
     private ConcurrentDictionary<SyntaxNode, BoundNode> _boundNodeCache => _bindingState.BoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 => _bindingState.BoundNodeCacheWithBinder;
     private ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> _contextualBoundNodeCache => _bindingState.ContextualBoundNodeCache;
@@ -115,8 +117,10 @@ public partial class SemanticModel
         public ConcurrentDictionary<Binder, BinderLifecycleSnapshot> BinderLifecycleSnapshots { get; } = new();
         public ConcurrentDictionary<SyntaxNode, SymbolInfo> SymbolMappings { get; } = new();
         public ConcurrentDictionary<SyntaxNode, TypeInfo> TypeMappings { get; } = new();
+        public ConcurrentDictionary<SyntaxNodeMapKey, TypeInfo> TypeMappingsByKey { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> NonReportingSymbolMappings { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> NonReportingTypeMappings { get; } = new();
+        public ConcurrentDictionary<SyntaxNodeMapKey, byte> NonReportingTypeMappingsByKey { get; } = new();
         public ConcurrentDictionary<SyntaxNode, BoundNode> BoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> BoundNodeCacheWithBinder { get; } = new();
         public ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> ContextualBoundNodeCache { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
@@ -1725,10 +1729,19 @@ public partial class SemanticModel
             return info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
         }
 
+        if (TryGetAvailableInvocationSymbolInfo(invocation, out info) &&
+            HasSymbolInfo(info))
+        {
+            CacheInvocationTargetSymbolInfo(invocation, info);
+            StorePipeExpressionTypeMapping(pipeExpression, info);
+            return true;
+        }
+
         var binderInfo = GetBinderForIncrementalSemanticQuery(pipeExpression).BindSymbol(pipeExpression);
         if (binderInfo.Symbol is not null || !binderInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
             info = binderInfo;
+            StorePipeExpressionTypeMapping(pipeExpression, info);
             return true;
         }
 
@@ -1736,7 +1749,30 @@ public partial class SemanticModel
             return false;
 
         info = boundPipe.GetSymbolInfo();
+        StorePipeExpressionTypeMapping(pipeExpression, info);
         return info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
+    }
+
+    private void StorePipeExpressionTypeMapping(InfixOperatorExpressionSyntax pipeExpression, SymbolInfo info)
+    {
+        if (info.Symbol is not IMethodSymbol method)
+        {
+            return;
+        }
+
+        var returnType = GetInvocationReturnType(method);
+        if (TryGetAvailableTypeInfo(pipeExpression.Left, out var receiverTypeInfo) &&
+            (receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType) is { TypeKind: not TypeKind.Error } receiverType)
+        {
+            returnType = GetAvailablePipeInvocationReturnType(method, receiverType) ?? returnType;
+        }
+
+        if (!IsUsefulAvailableExpressionType(returnType))
+            return;
+
+        StoreTypeMapping(
+            pipeExpression,
+            new TypeInfo(returnType, returnType, ComputeConversion(returnType, returnType)));
     }
 
     private static InvocationExpressionSyntax? TryGetPipeInvocationForSymbolNode(SyntaxNode node)
@@ -2171,7 +2207,17 @@ public partial class SemanticModel
             return false;
         }
 
-        return _typeMappings.TryGetValue(node, out info);
+        if (_typeMappings.TryGetValue(node, out info))
+            return true;
+
+        var nodeKey = GetSyntaxNodeMapKey(node);
+        if (_isCollectingDiagnostics && _nonReportingTypeMappingsByKey.ContainsKey(nodeKey))
+        {
+            info = default;
+            return false;
+        }
+
+        return _typeMappingsByKey.TryGetValue(nodeKey, out info);
     }
 
     private void StoreSymbolMapping(SyntaxNode node, SymbolInfo info, bool nonReporting = false)
@@ -2183,6 +2229,7 @@ public partial class SemanticModel
     private void StoreTypeMapping(SyntaxNode node, TypeInfo info, bool nonReporting = false)
     {
         _typeMappings[node] = info;
+        _typeMappingsByKey[GetSyntaxNodeMapKey(node)] = info;
         UpdateNonReportingTypeMapping(node, nonReporting || !IsCollectingDiagnostics);
     }
 
@@ -2197,9 +2244,15 @@ public partial class SemanticModel
     private void UpdateNonReportingTypeMapping(SyntaxNode node, bool isNonReporting)
     {
         if (isNonReporting)
+        {
             _nonReportingTypeMappings[node] = 0;
+            _nonReportingTypeMappingsByKey[GetSyntaxNodeMapKey(node)] = 0;
+        }
         else
+        {
             _nonReportingTypeMappings.TryRemove(node, out _);
+            _nonReportingTypeMappingsByKey.TryRemove(GetSyntaxNodeMapKey(node), out _);
+        }
     }
 
     /// <summary>
@@ -2523,7 +2576,8 @@ public partial class SemanticModel
         var candidates = methods.Cast<ISymbol>().ToImmutableArray();
         var preferred = methods.Length == 1
             ? methods[0]
-            : TryChooseAvailableInvocationMethodCandidate(methods, invocation) ??
+            : TryChooseAvailablePipeInvocationMethodCandidate(methods, invocation) ??
+              TryChooseAvailableInvocationMethodCandidate(methods, invocation) ??
               TryChooseInvocationMethodCandidate(methods, invocation, InvocationCandidateFallback.None);
 
         info = preferred is null
@@ -2531,6 +2585,70 @@ public partial class SemanticModel
             : new SymbolInfo(preferred, candidates);
         CacheAvailableInvocationSymbolInfo(invocation, info);
         return true;
+    }
+
+    private IMethodSymbol? TryChooseAvailablePipeInvocationMethodCandidate(
+        IEnumerable<IMethodSymbol> methods,
+        InvocationExpressionSyntax invocation)
+    {
+        if (invocation.Parent is not InfixOperatorExpressionSyntax
+            {
+                OperatorToken.Kind: SyntaxKind.PipeToken
+            } pipeExpression ||
+            !IsSameSyntaxNode(pipeExpression.Right, invocation) ||
+            !TryGetAvailableTypeInfo(pipeExpression.Left, out var receiverTypeInfo) ||
+            (receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType) is not { TypeKind: not TypeKind.Error } receiverType)
+        {
+            return null;
+        }
+
+        IMethodSymbol? selected = null;
+        var selectedScore = int.MinValue;
+        var isAmbiguous = false;
+
+        foreach (var method in methods)
+        {
+            var compatibility = GetPipeInvocationArgumentCompatibility(method, invocation);
+            if (compatibility < 0)
+                continue;
+
+            var score = compatibility * 100;
+            if (method.Parameters.Length > 0)
+            {
+                var receiverParameterType = method.Parameters[0].Type;
+                if (receiverParameterType is not null &&
+                    receiverParameterType.TypeKind != TypeKind.Error)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(receiverParameterType, receiverType))
+                    {
+                        score += 20;
+                    }
+                    else if (Compilation.ClassifyConversion(receiverType, receiverParameterType, includeUserDefined: false).Exists)
+                    {
+                        score += 10;
+                    }
+                }
+
+                if (method.Parameters.Length > 1 &&
+                    IsExpressionTreeDelegateParameter(method.Parameters[1].Type))
+                {
+                    score += 2;
+                }
+            }
+
+            if (score > selectedScore)
+            {
+                selected = method;
+                selectedScore = score;
+                isAmbiguous = false;
+            }
+            else if (score == selectedScore)
+            {
+                isAmbiguous = true;
+            }
+        }
+
+        return isAmbiguous ? null : selected;
     }
 
     private static bool HasFunctionExpressionArgument(InvocationExpressionSyntax invocation)
@@ -3064,7 +3182,7 @@ public partial class SemanticModel
             return true;
         }
 
-        var conversion = Compilation.ClassifyConversion(argumentType, parameterType, includeUserDefined: true);
+        var conversion = Compilation.ClassifyConversion(argumentType, parameterType, includeUserDefined: false);
         if (!conversion.Exists || !conversion.IsImplicit)
             return false;
 
@@ -3373,6 +3491,7 @@ public partial class SemanticModel
         if (!hasReceiverType)
             return false;
 
+        using var sourceNamespaceLookupSuppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
         var hasCachedExtensions = ExtensionMemberLookup.TryGetCached(
                 binder,
                 receiverType!,
@@ -3414,7 +3533,7 @@ public partial class SemanticModel
                     TryGetFastParameterType(method, 0, out var parameterType) &&
                     parameterType is not null &&
                     parameterType.TypeKind != TypeKind.Error &&
-                    Compilation.ClassifyConversion(receiverType!, parameterType, includeUserDefined: true).Exists)
+                    Compilation.ClassifyConversion(receiverType!, parameterType, includeUserDefined: false).Exists)
                 .ToImmutableArray();
         }
 
@@ -3443,7 +3562,7 @@ public partial class SemanticModel
         }
 
         return SymbolEqualityComparer.Default.Equals(parameterType, receiverType) ||
-               Compilation.ClassifyConversion(receiverType, parameterType, includeUserDefined: true).Exists;
+               Compilation.ClassifyConversion(receiverType, parameterType, includeUserDefined: false).Exists;
     }
 
     private IMethodSymbol ConstructAvailableExtensionCandidate(
@@ -3589,7 +3708,7 @@ public partial class SemanticModel
                 }
 
                 if (!SymbolEqualityComparer.Default.Equals(delegateParameterType, methodParameterType) &&
-                    !Compilation.ClassifyConversion(delegateParameterType, methodParameterType, includeUserDefined: true).Exists)
+                    !Compilation.ClassifyConversion(delegateParameterType, methodParameterType, includeUserDefined: false).Exists)
                 {
                     compatible = false;
                     break;
@@ -3753,7 +3872,7 @@ public partial class SemanticModel
                 if (parameterType is null ||
                     parameterType.TypeKind == TypeKind.Error ||
                     (!SymbolEqualityComparer.Default.Equals(argumentType, parameterType) &&
-                     !Compilation.ClassifyConversion(argumentType, parameterType, includeUserDefined: true).Exists))
+                     !Compilation.ClassifyConversion(argumentType, parameterType, includeUserDefined: false).Exists))
                 {
                     compatible = false;
                     break;
@@ -3909,6 +4028,7 @@ public partial class SemanticModel
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return false;
 
+        using var sourceNamespaceLookupSuppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
         var extensions = LookupApplicableExtensionMembers(
             receiverType,
             invocation,
@@ -3930,7 +4050,7 @@ public partial class SemanticModel
             .OrderByDescending(candidate => candidate.Compatibility)
             .ThenByDescending(candidate => SymbolEqualityComparer.Default.Equals(candidate.Method.Parameters[0].Type, receiverType))
             .ThenByDescending(candidate => candidate.Method.Parameters[0].Type.TypeKind != TypeKind.Error &&
-                                           Compilation.ClassifyConversion(receiverType, candidate.Method.Parameters[0].Type, includeUserDefined: true).Exists)
+                                           Compilation.ClassifyConversion(receiverType, candidate.Method.Parameters[0].Type, includeUserDefined: false).Exists)
             .ThenByDescending(static candidate => candidate.Method.Parameters.Length > 1 &&
                                                   IsExpressionTreeDelegateParameter(candidate.Method.Parameters[1].Type))
             .Select(static candidate => candidate.Method)
@@ -3977,7 +4097,7 @@ public partial class SemanticModel
                     continue;
                 }
 
-                if (Compilation.ClassifyConversion(argumentType, parameterType, includeUserDefined: true).Exists)
+                if (Compilation.ClassifyConversion(argumentType, parameterType, includeUserDefined: false).Exists)
                 {
                     score += 3;
                     continue;
@@ -4146,6 +4266,8 @@ public partial class SemanticModel
 
         void AddImportedFunctionMembers()
         {
+            using var sourceNamespaceLookupSuppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
+
             for (var binder = GetBinderForIncrementalSemanticQuery(contextNode); binder is not null; binder = binder.ParentBinder)
             {
                 if (binder is not ImportBinder importBinder)
@@ -4239,6 +4361,9 @@ public partial class SemanticModel
             }
         }
 
+        if (TryLookupImportedMetadataTypeFromSyntax(root, name, arity, out type))
+            return true;
+
         if (!Compilation.SourceDeclarationsDeclared)
         {
             Compilation.EnsureSourceDeclarationsDeclared();
@@ -4248,9 +4373,6 @@ public partial class SemanticModel
                 return true;
             }
         }
-
-        if (TryLookupImportedMetadataTypeFromSyntax(root, name, arity, out type))
-            return true;
 
         type = Compilation.GlobalNamespace
             .GetMembers(name)
@@ -4563,7 +4685,7 @@ public partial class SemanticModel
             ? memberGeneric.TypeArgumentList.Arguments.Count
             : 0;
         metadataName = memberAccess.Expression + "." + GetMetadataTypeName(memberName.Identifier.ValueText, arity);
-        type = Compilation.GetTypeByMetadataName(metadataName);
+        type = Compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName);
         return type is not null;
     }
 
@@ -5509,7 +5631,7 @@ public partial class SemanticModel
 
                     if (scope is INamespaceSymbol namespaceSymbol &&
                         TryGetNamespaceMetadataName(namespaceSymbol, out var namespaceMetadataName) &&
-                        Compilation.GetTypeByMetadataName(namespaceMetadataName + "." + GetMetadataTypeName(typeName.Identifier.ValueText, arity)) is { } metadataType)
+                        Compilation.TryGetMetadataReferenceTypeByMetadataName(namespaceMetadataName + "." + GetMetadataTypeName(typeName.Identifier.ValueText, arity)) is { } metadataType)
                     {
                         return metadataType;
                     }
@@ -9341,19 +9463,26 @@ public partial class SemanticModel
 
     private bool TryGetAvailableFunctionParameterType(TypeSyntax typeSyntax, out ITypeSymbol type)
     {
-        if (typeSyntax is SimpleNameSyntax simpleName &&
-            TryResolveAvailableNamedTypeSyntax(simpleName, out var namedType) &&
-            namedType is not null)
+        if (TryGetAvailablePredefinedTypeInfo(typeSyntax, out var predefinedTypeInfo) &&
+            (predefinedTypeInfo.Type ?? predefinedTypeInfo.ConvertedType) is { } predefinedType)
         {
-            type = namedType;
+            type = predefinedType;
             return true;
         }
 
         if (typeSyntax is SimpleNameSyntax importedTypeName &&
             TryLookupImportedTypeBySyntax(importedTypeName, out var importedType) &&
-            importedType is not null)
+            TryConstructAvailableNamedType(importedTypeName, importedType, out var constructedImportedType))
         {
-            type = importedType;
+            type = constructedImportedType;
+            return true;
+        }
+
+        if (typeSyntax is SimpleNameSyntax typeName &&
+            TryLookupAvailableTypeFromBinder(typeName, out var binderType) &&
+            TryConstructAvailableNamedType(typeName, binderType, out var constructedBinderType))
+        {
+            type = constructedBinderType;
             return true;
         }
 
@@ -9364,11 +9493,11 @@ public partial class SemanticModel
             return true;
         }
 
-        if (typeSyntax is SimpleNameSyntax typeName &&
-            TryLookupAvailableTypeFromBinder(typeName, out var binderType) &&
-            binderType is not null)
+        if (typeSyntax is SimpleNameSyntax simpleName &&
+            TryResolveAvailableNamedTypeSyntax(simpleName, out var namedType) &&
+            namedType is not null)
         {
-            type = binderType;
+            type = namedType;
             return true;
         }
 
@@ -9386,9 +9515,30 @@ public partial class SemanticModel
             return false;
         }
 
-        if (typeName is GenericNameSyntax genericTypeName &&
-            namedType.TypeParameters.Length == arity)
+        return TryConstructAvailableNamedType(typeName, namedType, out type);
+    }
+
+    private bool TryConstructAvailableNamedType(
+        SimpleNameSyntax typeName,
+        ITypeSymbol? candidate,
+        out ITypeSymbol? type)
+    {
+        if (candidate is not INamedTypeSymbol namedType ||
+            namedType.TypeKind == TypeKind.Error)
         {
+            type = null;
+            return false;
+        }
+
+        if (typeName is GenericNameSyntax genericTypeName)
+        {
+            var arity = genericTypeName.TypeArgumentList.Arguments.Count;
+            if (namedType.TypeParameters.Length != arity)
+            {
+                type = null;
+                return false;
+            }
+
             var typeArguments = ResolveAvailableTypeArguments(genericTypeName.TypeArgumentList);
             if (typeArguments.IsDefault || typeArguments.Length != arity)
             {
@@ -9417,7 +9567,7 @@ public partial class SemanticModel
                 continue;
 
             var namespaceName = importName[..^2];
-            type = Compilation.GetTypeByMetadataName(namespaceName + "." + metadataTypeName);
+            type = Compilation.TryGetMetadataReferenceTypeByMetadataName(namespaceName + "." + metadataTypeName);
             if (type is not null)
                 return true;
         }
@@ -10425,6 +10575,9 @@ public partial class SemanticModel
         _nonReportingSymbolMappings.TryRemove(node, out _);
         _typeMappings.TryRemove(node, out _);
         _nonReportingTypeMappings.TryRemove(node, out _);
+        var nodeKey = GetSyntaxNodeMapKey(node);
+        _typeMappingsByKey.TryRemove(nodeKey, out _);
+        _nonReportingTypeMappingsByKey.TryRemove(nodeKey, out _);
     }
 
     private static bool IsLikelyStaleFunctionBodyNode(BoundNode node)

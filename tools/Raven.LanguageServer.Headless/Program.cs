@@ -25,6 +25,12 @@ if (options.ListScenarios)
     return;
 }
 
+if (options.StressSuite)
+{
+    await RunStressSuiteAsync();
+    return;
+}
+
 var scenario = options.ScenarioName is { Length: > 0 }
     ? ResolveReplayScenario(repoRoot, options.ScenarioName)
     : null;
@@ -504,6 +510,9 @@ async Task RunEditProbeAsync()
     updateStopwatch.Stop();
     var updateSetupDelta = CompilerSetupInstrumentation.Subtract(CaptureSetupSnapshot(), updateSetupBefore);
 
+    if (options.EditWaitMilliseconds > 0)
+        await Task.Delay(options.EditWaitMilliseconds);
+
     var analysisStopwatch = Stopwatch.StartNew();
     context = await store.GetAnalysisContextAsync(uri, CancellationToken.None)
         ?? throw new InvalidOperationException($"No analysis context after edit for '{filePath}'.");
@@ -558,6 +567,14 @@ async Task RunEditProbeAsync()
             ? "slow"
             : "ok";
         hoverResults.Add((repeatMarker, repeatHoverResult));
+    }
+
+    if (options.EditSkipDiagnostics)
+    {
+        foreach (var (marker, hoverResult) in hoverResults)
+            Console.WriteLine(marker + " " + FormatHoverResult(hoverResult));
+
+        return;
     }
 
     var semanticStopwatch = Stopwatch.StartNew();
@@ -801,6 +818,243 @@ async Task RunTypeImportProbeAsync(string importText)
     }
 }
 
+async Task RunStressSuiteAsync()
+{
+    var sizes = options.StressSizes.Count > 0
+        ? options.StressSizes
+        : [2, 25, 75];
+    var analyzerModes = options.StressIncludeAnalyzers
+        ? [false, true]
+        : new[] { false };
+    var inlayModes = options.StressIncludeInlays
+        ? [false, true]
+        : new[] { false };
+    var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-lsp-stress-{Guid.NewGuid():N}");
+
+    Console.WriteLine(
+        $"stress-suite root={tempRoot} sizes=[{string.Join(",", sizes)}] " +
+        $"analyzers=[{string.Join(",", analyzerModes.Select(static value => value ? "on" : "off"))}] " +
+        $"inlays=[{string.Join(",", inlayModes.Select(static value => value ? "on" : "off"))}]");
+
+    try
+    {
+        foreach (var size in sizes)
+            foreach (var runAnalyzers in analyzerModes)
+                foreach (var runInlays in inlayModes)
+                    await RunStressScenarioAsync(tempRoot, size, runAnalyzers, runInlays);
+    }
+    finally
+    {
+        if (Environment.GetEnvironmentVariable("RAVEN_HEADLESS_KEEP_STRESS_PROJECTS") != "1" &&
+            Directory.Exists(tempRoot))
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+}
+
+async Task RunStressScenarioAsync(string tempRoot, int stableFileCount, bool runAnalyzers, bool runInlays)
+{
+    var scenarioRoot = Path.Combine(
+        tempRoot,
+        $"size-{stableFileCount}-analyzers-{(runAnalyzers ? "on" : "off")}-inlays-{(runInlays ? "on" : "off")}");
+    var sourceRoot = Path.Combine(scenarioRoot, "src");
+    Directory.CreateDirectory(sourceRoot);
+    File.WriteAllText(Path.Combine(scenarioRoot, "App.rvnproj"), $$"""
+        <Project Sdk="Microsoft.NET.Sdk">
+          <PropertyGroup>
+            <TargetFramework>net10.0</TargetFramework>
+            <OutputType>Exe</OutputType>
+            <RavenRunAnalyzers>{{runAnalyzers.ToString().ToLowerInvariant()}}</RavenRunAnalyzers>
+          </PropertyGroup>
+          <ItemGroup>
+            <RavenCompile Include="src/**/*.rvn" />
+          </ItemGroup>
+        </Project>
+        """);
+
+    var mainPath = Path.Combine(sourceRoot, "main.rvn");
+    var mainText = SourceText.From("""
+        class Runner {
+            func Compute(value: int) -> int {
+                val unusedValue = value
+                val answer = value + 1
+                return answer
+            }
+        }
+        """);
+    File.WriteAllText(mainPath, mainText.ToString());
+
+    for (var i = 0; i < stableFileCount; i++)
+    {
+        File.WriteAllText(
+            Path.Combine(sourceRoot, $"stable{i:D3}.rvn"),
+            $$"""
+            class Stable{{i}} {
+                func Identity(value: int) -> int {
+                    return value + {{i + 1}}
+                }
+            }
+            """);
+    }
+
+    var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+    var stressManager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+    stressManager.Initialize(new InitializeParams
+    {
+        WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+        {
+            Name = Path.GetFileName(scenarioRoot),
+            Uri = DocumentUri.FromFileSystemPath(scenarioRoot)
+        })
+    });
+
+    var stressStore = new DocumentStore(stressManager, NullLogger<DocumentStore>.Instance);
+    var stressHover = new HoverHandler(stressStore, NullLogger<HoverHandler>.Instance);
+    var stressInlay = new InlayHintHandler(stressStore, NullLogger<InlayHintHandler>.Instance);
+    var stressUri = DocumentUri.FromFileSystemPath(mainPath);
+    _ = stressStore.UpsertDocument(stressUri, mainText);
+
+    var warmContext = await stressStore.GetAnalysisContextAsync(stressUri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No stress analysis context for '{mainPath}'.");
+    var warmupStopwatch = Stopwatch.StartNew();
+    var warmupDiagnostics = await stressStore.TryGetDiagnosticsAsync(
+        stressUri,
+        DocumentStore.DiagnosticLane.DocumentCompiler,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    warmupStopwatch.Stop();
+
+    var updatedText = ReplaceStressText(mainText, "value + 1", "value + 2");
+    var updateStopwatch = Stopwatch.StartNew();
+    _ = stressStore.UpsertDocument(stressUri, updatedText, deferMacroConsumerRefresh: true);
+    updateStopwatch.Stop();
+
+    var analysisStopwatch = Stopwatch.StartNew();
+    var contextAfterEdit = await stressStore.GetAnalysisContextAsync(stressUri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No stress analysis context after edit for '{mainPath}'.");
+    analysisStopwatch.Stop();
+
+    var semanticStopwatch = Stopwatch.StartNew();
+    _ = await stressStore.GetSemanticModelAsync(stressUri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No stress semantic model after edit for '{mainPath}'.");
+    semanticStopwatch.Stop();
+
+    var firstHover = await RunStressHoverAsync(stressStore, stressHover, stressUri, updatedText, "answer", "first");
+    var secondHover = await RunStressHoverAsync(stressStore, stressHover, stressUri, updatedText, "answer", "second");
+
+    var documentDiagnosticsStopwatch = Stopwatch.StartNew();
+    var documentDiagnostics = await stressStore.TryGetDiagnosticsAsync(
+        stressUri,
+        DocumentStore.DiagnosticLane.DocumentCompiler,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    documentDiagnosticsStopwatch.Stop();
+
+    var projectDiagnosticsStopwatch = Stopwatch.StartNew();
+    var projectDiagnostics = await stressStore.TryGetDiagnosticsAsync(
+        stressUri,
+        DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    projectDiagnosticsStopwatch.Stop();
+
+    var inlayMs = 0d;
+    var inlayCount = 0;
+    if (runInlays)
+    {
+        var lineCount = Math.Max(1, contextAfterEdit.SourceText.GetLineCount());
+        var inlayStopwatch = Stopwatch.StartNew();
+        var inlayResult = await stressInlay.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(stressUri),
+            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range
+            {
+                Start = new Position(0, 0),
+                End = new Position(lineCount - 1, 0)
+            }
+        }, CancellationToken.None);
+        inlayStopwatch.Stop();
+        inlayMs = inlayStopwatch.Elapsed.TotalMilliseconds;
+        inlayCount = inlayResult?.Count() ?? 0;
+    }
+
+    var documentErrors = documentDiagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+    var projectErrors = projectDiagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+
+    Console.WriteLine(
+        $"stress scenario size={stableFileCount + 1} analyzers={(runAnalyzers ? "on" : "off")} inlays={(runInlays ? "on" : "off")} " +
+        $"warmupDiagnostics={warmupStopwatch.Elapsed.TotalMilliseconds:F1}ms warmupCount={warmupDiagnostics.Diagnostics.Count} " +
+        $"update={updateStopwatch.Elapsed.TotalMilliseconds:F1}ms analysis={analysisStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"semantic={semanticStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"firstHover={firstHover.ElapsedMs:F1}ms firstHoverHas={firstHover.HasHover} " +
+        $"secondHover={secondHover.ElapsedMs:F1}ms secondHoverHas={secondHover.HasHover} " +
+        $"documentDiagnostics={documentDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms documentCount={documentDiagnostics.Diagnostics.Count} documentErrors={documentErrors} " +
+        $"projectDiagnostics={projectDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms projectCount={projectDiagnostics.Diagnostics.Count} projectErrors={projectErrors} " +
+        $"inlay={inlayMs:F1}ms inlayCount={inlayCount} " +
+        $"firstSemantic=[{SemanticQueryInstrumentation.FormatDelta(firstHover.SemanticDelta)}] " +
+        $"secondSemantic=[{SemanticQueryInstrumentation.FormatDelta(secondHover.SemanticDelta)}]");
+
+    _ = warmContext;
+}
+
+async Task<HoverResult> RunStressHoverAsync(
+    DocumentStore stressStore,
+    HoverHandler stressHover,
+    DocumentUri stressUri,
+    SourceText stressSourceText,
+    string target,
+    string label)
+{
+    var targetOffset = IndexOfStressOccurrence(stressSourceText.ToString(), target, occurrence: 2);
+    if (targetOffset < 0)
+        return new HoverResult(label, 0, 0, 0, HasHover: false, new InvalidOperationException($"Missing target '{target}'."), "<missing>", default, default, default);
+
+    var stressContext = await stressStore.GetAnalysisContextAsync(stressUri, CancellationToken.None);
+    if (stressContext is null)
+        return new HoverResult(label, 0, 0, 0, HasHover: false, new InvalidOperationException("Missing stress context."), "<missing-context>", default, default, default);
+
+    var before = stressContext.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var position = PositionHelper.ToRange(
+        stressSourceText,
+        new TextSpan(targetOffset + Math.Min(1, target.Length), 0)).Start;
+    var stopwatch = Stopwatch.StartNew();
+    var hover = await stressHover.Handle(new HoverParams
+    {
+        TextDocument = new TextDocumentIdentifier(stressUri),
+        Position = position
+    }, CancellationToken.None);
+    stopwatch.Stop();
+    var after = stressContext.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var delta = SemanticQueryInstrumentation.Subtract(after, before);
+    var preview = hover?.Contents.MarkupContent?.Value.Split('\n').FirstOrDefault() ?? "<null>";
+
+    return new HoverResult(label, position.Line, position.Character, stopwatch.Elapsed.TotalMilliseconds, hover is not null, null, preview, delta, default, default);
+}
+
+static SourceText ReplaceStressText(SourceText sourceText, string oldText, string newText)
+{
+    var text = sourceText.ToString();
+    var start = text.IndexOf(oldText, StringComparison.Ordinal);
+    if (start < 0)
+        throw new InvalidOperationException($"Stress source did not contain '{oldText}'.");
+
+    return sourceText.Replace(new TextSpan(start, oldText.Length), newText);
+}
+
+static int IndexOfStressOccurrence(string text, string searchText, int occurrence)
+{
+    var index = -1;
+    for (var i = 0; i < occurrence; i++)
+    {
+        index = text.IndexOf(searchText, index + 1, StringComparison.Ordinal);
+        if (index < 0)
+            return -1;
+    }
+
+    return index;
+}
+
 CompilerSetupInstrumentation.Snapshot CaptureSetupSnapshot()
 {
     if (!manager.TryGetCompilation(uri, out var compilation) || compilation is null)
@@ -905,6 +1159,8 @@ static HeadlessOptions ParseOptions(string[] args)
     var replayCount = 50;
     var editReplacements = new List<EditReplacement>();
     var editHoverTargets = new List<string>();
+    var editWaitMilliseconds = 0;
+    var editSkipDiagnostics = false;
     RangeTarget? inlayRange = null;
     var inlayRepeatCount = 1;
     var projectSequence = false;
@@ -914,6 +1170,10 @@ static HeadlessOptions ParseOptions(string[] args)
     var sequenceHoverCount = 5;
     var sequenceReopenDocuments = false;
     string? typeImportText = null;
+    var stressSuite = false;
+    var stressSizes = new List<int>();
+    var stressIncludeAnalyzers = true;
+    var stressIncludeInlays = true;
 
     for (var i = 0; i < args.Length; i++)
     {
@@ -995,10 +1255,33 @@ static HeadlessOptions ParseOptions(string[] args)
                 editHoverTargets.Add(args[i + 1]);
                 i++;
                 break;
+            case "--edit-wait-ms" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedEditWaitMilliseconds):
+                editWaitMilliseconds = Math.Max(0, parsedEditWaitMilliseconds);
+                i++;
+                break;
+            case "--edit-skip-diagnostics":
+                editSkipDiagnostics = true;
+                break;
             case "--type-import":
                 typeImportText = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)
                     ? args[++i]
                     : "import System.Net.";
+                break;
+            case "--stress-suite":
+                stressSuite = true;
+                break;
+            case "--stress-size" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedStressSize):
+                stressSuite = true;
+                stressSizes.Add(Math.Max(0, parsedStressSize));
+                i++;
+                break;
+            case "--stress-no-analyzers":
+                stressSuite = true;
+                stressIncludeAnalyzers = false;
+                break;
+            case "--stress-no-inlays":
+                stressSuite = true;
+                stressIncludeInlays = false;
                 break;
             default:
                 positionals.Add(args[i]);
@@ -1020,6 +1303,8 @@ static HeadlessOptions ParseOptions(string[] args)
         replayCount,
         editReplacements,
         editHoverTargets,
+        editWaitMilliseconds,
+        editSkipDiagnostics,
         inlayRange,
         inlayRepeatCount,
         projectSequence,
@@ -1028,7 +1313,11 @@ static HeadlessOptions ParseOptions(string[] args)
         sequenceInlayProbes,
         sequenceHoverCount,
         sequenceReopenDocuments,
-        typeImportText);
+        typeImportText,
+        stressSuite,
+        stressSizes,
+        stressIncludeAnalyzers,
+        stressIncludeInlays);
 }
 
 static NamedReplayScenario ResolveReplayScenario(string repoRoot, string name)
@@ -1212,6 +1501,8 @@ internal sealed record HeadlessOptions(
     int ReplayCount,
     IReadOnlyList<EditReplacement> EditReplacements,
     IReadOnlyList<string> EditHoverTargets,
+    int EditWaitMilliseconds,
+    bool EditSkipDiagnostics,
     RangeTarget? InlayRange,
     int InlayRepeatCount,
     bool ProjectSequence,
@@ -1220,7 +1511,11 @@ internal sealed record HeadlessOptions(
     bool SequenceInlayProbes,
     int SequenceHoverCount,
     bool SequenceReopenDocuments,
-    string? TypeImportText);
+    string? TypeImportText,
+    bool StressSuite,
+    IReadOnlyList<int> StressSizes,
+    bool StressIncludeAnalyzers,
+    bool StressIncludeInlays);
 
 internal enum ReplayScenarioOperation
 {

@@ -75,6 +75,18 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 - When hovers, inlays, semantic tokens, and document symbols appear stuck, check whether a full-document/background request started first and failed to complete.
 - Compare client request start/complete events with `logs/raven-lsp.log` and `logs/raven-lsp-performance.txt`.
 - Use the headless harness for hover and inlay ranges to separate compiler cold-path cost from VS Code scheduling.
+- For CPU traces, profile the built headless apphost directly rather than `dotnet run`; profiling `dotnet run` mostly captures CLI/MSBuild startup and wait frames. Use a bounded trace with rundown enabled so method symbols are preserved and the profiler stops cleanly:
+
+  ```bash
+  dotnet build tools/Raven.LanguageServer.Headless/Raven.LanguageServer.Headless.csproj --property WarningLevel=0 --no-restore
+  dotnet trace collect --duration 00:00:12 --format speedscope \
+    -o /tmp/raven-traces/<scenario>.nettrace \
+    -- tools/Raven.LanguageServer.Headless/bin/Debug/net10.0/Raven.LanguageServer.Headless \
+       <project-dir> <source-file> <target-symbol> <headless-options>
+  dotnet trace report /tmp/raven-traces/<scenario>.nettrace topN --number 80
+  ```
+
+  Avoid open-ended `dotnet trace collect -- <headless-app>` for these short LSP probes; EventPipe shutdown can leave the target waiting even after the app prints its results. If Asynkron Profiler is used, run it against the built apphost as well, and guard direct collection with a watchdog if the scenario previously showed EventPipe shutdown issues. Keep the raw headless timing output alongside the trace, because short scenarios can be dominated by startup, sleeps, and idle waits in aggregate profiler views.
 - When investigating hangs, compare the same project with editor inlays enabled and disabled. A project that loads without inlays but stalls with inlays points to request pressure or inlay-triggered cold semantic binding, not necessarily a broken compiler answer.
 - When investigating stale or surprising diagnostics, compare compiler diagnostics without source-code analyzers against diagnostics with analyzers enabled. This keeps binder/compiler diagnostics distinct from analyzer diagnostics and avoids chasing analyzer behavior as a binder regression.
 - If a request is slow because public semantic APIs force broad binding, fix the compiler path. If a request blocks newer interactive work, fix LSP scheduling/cancellation without duplicating compiler semantics.
