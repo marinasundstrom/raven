@@ -13,6 +13,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   result builder handles block lowering, while the receiver builder exposes the
   component-specific member scope and produces the sub-result through
   `BuildFinalResult(component, receiver)`.
+- Added class-only `base` expressions for instance members, enabling explicit
+  base-member access and non-virtual base method invocation such as
+  `base.OnFrameworkInitializationCompleted()`.
+- Added `_` discard parameters for function expressions and parameterized
+  trailing blocks. They consume the delegate parameter slot without introducing
+  a body-visible name or unused-parameter warning.
 - Added opt-in diagnostic `RAV9029` for bare member invocations and member accesses whose
   returned value is ignored. Assign the returned value to a target, assign it to `_`, return
   it, or pass it on. The analyzer is disabled by default while it uses whole-analyzer mode.
@@ -57,6 +63,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   references when a module-local reference walk misses, fixing inherited
   member lookup and reference conversions across package sibling assemblies
   such as Avalonia `Button` to `Interactive`.
+- Runtime MethodInfo resolution now handles methods from constructed generic
+  package types, fixing emit for calls such as Avalonia `StackPanel.Children.Add`.
+- The compiler CLI now copies native NuGet runtime assets for the current
+  platform when running or publishing, so packages such as Avalonia can load
+  native dependencies like SkiaSharp from the output directory.
 - Unused-parameter analysis now treats constructor parameters passed to
   constructor initializers such as `base(value)` as used.
 - `MemberCanBeStatic` now recognizes instance callable members invoked through

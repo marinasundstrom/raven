@@ -398,6 +398,10 @@
                     "match": "\\b(self)\\b"
                 },
                 {
+                    "name": "variable.language.base.raven",
+                    "match": "\\b(base)\\b"
+                },
+                {
                     "name": "storage.type.event.raven",
                     "match": "\\b(event)\\b"
                 },

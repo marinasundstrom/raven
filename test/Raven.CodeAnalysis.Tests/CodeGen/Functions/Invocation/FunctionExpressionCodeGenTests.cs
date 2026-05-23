@@ -45,6 +45,42 @@ class Calculator {
     }
 
     [Fact]
+    public void Lambda_WithDiscardParameter_UsesDelegateSlotButDoesNotBindName()
+    {
+        var code = """
+class Calculator {
+    func Apply(callback: (string, string) -> string) -> string {
+        return callback("ok", "ignored")
+    }
+
+    func Run() -> string {
+        return Apply(func (value, _) => value)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Calculator", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var value = (string)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal("ok", value);
+    }
+
+    [Fact]
     public void Lambda_ComparisonExpression_ReturnsExpectedResults()
     {
         var code = """

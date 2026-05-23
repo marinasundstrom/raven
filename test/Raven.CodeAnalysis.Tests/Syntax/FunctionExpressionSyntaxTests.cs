@@ -28,6 +28,26 @@ public class FunctionExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithDiscardParameter_Parses()
+    {
+        var lambda = ParseLambdaInitializer("func (sender, _) => sender");
+
+        Assert.Collection(
+            lambda.ParameterList.Parameters,
+            parameter => Assert.Equal("sender", parameter.Identifier.Text),
+            parameter => Assert.Equal(SyntaxKind.UnderscoreToken, parameter.Identifier.Kind));
+    }
+
+    [Fact]
+    public void SimpleLambda_WithDiscardParameter_Parses()
+    {
+        var expression = ParseLambdaInitializerExpression("func _ => ()");
+
+        var lambda = Assert.IsType<SimpleFunctionExpressionSyntax>(expression);
+        Assert.Equal(SyntaxKind.UnderscoreToken, lambda.Parameter.Identifier.Kind);
+    }
+
+    [Fact]
     public void ParenthesizedLambda_WithPositionalDestructuringParameter_Parses()
     {
         var expression = ParseExpression("((a, b)) => a + b");
@@ -369,6 +389,9 @@ public class FunctionExpressionSyntaxTests
     }
 
     private static ParenthesizedFunctionExpressionSyntax ParseLambdaInitializer(string initializer)
+        => Assert.IsType<ParenthesizedFunctionExpressionSyntax>(ParseLambdaInitializerExpression(initializer));
+
+    private static ExpressionSyntax ParseLambdaInitializerExpression(string initializer)
     {
         var tree = SyntaxTree.ParseText($"val f = {initializer}");
         var root = tree.GetRoot();
@@ -377,7 +400,6 @@ public class FunctionExpressionSyntaxTests
         var globalStatement = Assert.IsType<GlobalStatementSyntax>(root.Members[0]);
         var declarationStatement = Assert.IsType<LocalDeclarationStatementSyntax>(globalStatement.Statement);
         var declarator = Assert.Single(declarationStatement.Declaration.Declarators);
-        var lambda = Assert.IsType<ParenthesizedFunctionExpressionSyntax>(declarator.Initializer!.Value);
-        return lambda;
+        return declarator.Initializer!.Value;
     }
 }

@@ -799,10 +799,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 if (TryParseParenthesizedLambdaExpression(staticKeyword, asyncKeyword, funcKeyword, out lambda))
                     return true;
             }
-            else if (CanTokenBeIdentifier(PeekToken()))
+            else if (IsSimpleLambdaParameterStart(PeekToken()))
             {
                 var shapeCheckpoint = CreateCheckpoint("static-func-lambda-shape");
-                _ = ReadIdentifierToken();
+                _ = ReadSimpleLambdaParameterToken();
                 var looksNamedParenthesized = PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.LessThanToken;
                 shapeCheckpoint.Rewind();
 
@@ -839,10 +839,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 if (TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword, funcKeyword, out lambda))
                     return true;
             }
-            else if (CanTokenBeIdentifier(PeekToken()))
+            else if (IsSimpleLambdaParameterStart(PeekToken()))
             {
                 var shapeCheckpoint = CreateCheckpoint("async-func-lambda-shape");
-                _ = ReadIdentifierToken();
+                _ = ReadSimpleLambdaParameterToken();
                 var looksNamedParenthesized = PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.LessThanToken;
                 shapeCheckpoint.Rewind();
 
@@ -887,7 +887,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 return true;
         }
 
-        if (CanTokenBeIdentifier(token) &&
+        if (IsSimpleLambdaParameterStart(token) &&
             TryParseSimpleLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword: null, out lambda))
             return true;
 
@@ -907,10 +907,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 if (TryParseParenthesizedLambdaExpression(staticKeyword: null, asyncKeyword: null, funcKeyword, out lambda))
                     return true;
             }
-            else if (CanTokenBeIdentifier(PeekToken()))
+            else if (IsSimpleLambdaParameterStart(PeekToken()))
             {
                 var shapeCheckpoint = CreateCheckpoint("func-lambda-shape");
-                _ = ReadIdentifierToken();
+                _ = ReadSimpleLambdaParameterToken();
                 var looksNamedParenthesized = PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.LessThanToken;
                 shapeCheckpoint.Rewind();
 
@@ -1007,7 +1007,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             return false;
         }
 
-        var parameterList = new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true);
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(
+            allowDestructuringPatterns: true,
+            allowDiscardParameters: true);
 
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
         var constraintClauses = typeParameterList is not null
@@ -1072,7 +1074,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         SplitLeadingLambdaAttributeLists(leadingAttributeLists, out var parameterAttributeLists, out var returnAttributeLists);
 
-        var parameterList = new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true);
+        var parameterList = new StatementSyntaxParser(this).ParseParameterList(
+            allowDestructuringPatterns: true,
+            allowDiscardParameters: true);
         if (parameterAttributeLists.SlotCount > 0 &&
             parameterList.Parameters.SlotCount > 0 &&
             parameterList.Parameters[0] is ParameterSyntax firstParameter)
@@ -1236,13 +1240,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             bindingKeyword = binding;
         }
 
-        if (!CanTokenBeIdentifier(PeekToken()))
+        if (!IsSimpleLambdaParameterStart(PeekToken()))
         {
             checkpoint.Rewind();
             return false;
         }
 
-        var identifier = ReadIdentifierToken();
+        var identifier = ReadSimpleLambdaParameterToken();
 
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -1287,6 +1291,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         return true;
     }
+
+    private static bool IsSimpleLambdaParameterStart(SyntaxToken token)
+        => CanTokenBeIdentifier(token) || token.IsKind(SyntaxKind.UnderscoreToken);
+
+    private SyntaxToken ReadSimpleLambdaParameterToken()
+        => PeekToken().IsKind(SyntaxKind.UnderscoreToken)
+            ? ReadToken()
+            : ReadIdentifierToken();
 
     /// <summary>
     /// Parse a primary expression and trailers.
@@ -2047,6 +2059,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             case SyntaxKind.SelfKeyword:
                 ReadToken();
                 return SelfExpression(token);
+
+            case SyntaxKind.BaseKeyword:
+                ReadToken();
+                return BaseExpression(token);
 
             case SyntaxKind.TrueKeyword:
                 ReadToken();
@@ -2845,6 +2861,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             SyntaxKind.CharacterLiteralToken or
             SyntaxKind.NumericLiteralToken or
             SyntaxKind.SelfKeyword or
+            SyntaxKind.BaseKeyword or
             SyntaxKind.TrueKeyword or
             SyntaxKind.FalseKeyword or
             SyntaxKind.NullKeyword or
@@ -3192,7 +3209,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
-            var parsedParameterList = new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true);
+            var parsedParameterList = new StatementSyntaxParser(this).ParseParameterList(
+                allowDestructuringPatterns: true,
+                allowDiscardParameters: true);
             if (ConsumeToken(SyntaxKind.FatArrowToken, out fatArrowToken))
             {
                 parameterList = parsedParameterList;
@@ -3223,13 +3242,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             bindingKeyword = binding;
         }
 
-        if (!CanTokenBeIdentifier(PeekToken()))
+        if (!IsSimpleLambdaParameterStart(PeekToken()))
         {
             checkpoint.Rewind();
             return false;
         }
 
-        var identifier = ReadIdentifierToken();
+        var identifier = ReadSimpleLambdaParameterToken();
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
         EqualsValueClauseSyntax? defaultValue = null;

@@ -7,6 +7,6 @@
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
     <PackageReference Include="Avalonia" Version="11.3.16" />
-    <PackageReference Include="Avalonia.Headless" Version="11.3.16" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.16" />
   </ItemGroup>
 </Project>

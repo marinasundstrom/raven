@@ -278,6 +278,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitSelfExpression(selfExpression, context);
                 break;
 
+            case BoundBaseExpression baseExpression:
+                EmitBaseExpression(baseExpression, context);
+                break;
+
             case BoundTypeOfExpression typeOfExpression:
                 EmitTypeOfExpression(typeOfExpression);
                 break;
@@ -729,6 +733,14 @@ internal partial class ExpressionGenerator : Generator
     private void EmitSelfExpression(BoundSelfExpression selfExpression, EmitContext context)
     {
         if (TryEmitCapturedVariableLoad(selfExpression.Symbol ?? selfExpression.Type))
+            return;
+
+        ILGenerator.Emit(OpCodes.Ldarg_0);
+    }
+
+    private void EmitBaseExpression(BoundBaseExpression baseExpression, EmitContext context)
+    {
+        if (TryEmitCapturedVariableLoad(baseExpression.Symbol ?? baseExpression.Type))
             return;
 
         ILGenerator.Emit(OpCodes.Ldarg_0);
@@ -2294,7 +2306,7 @@ internal partial class ExpressionGenerator : Generator
             case IFieldSymbol field:
                 if (addressOf.Receiver is not null)
                 {
-                    if (field.ContainingType?.IsValueType == true && addressOf.Receiver is BoundSelfExpression)
+                    if (field.ContainingType?.IsValueType == true && addressOf.Receiver is BoundSelfExpression or BoundBaseExpression)
                     {
                         if (MethodSymbol.IsStatic)
                             throw new NotSupportedException($"Cannot take address of instance field '{field.Name}' in a static context.");
@@ -6826,7 +6838,7 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldarg_0);
                 return true;
 
-            case BoundSelfExpression selfExpression:
+            case BoundSelfExpression or BoundBaseExpression:
                 if (MethodSymbol.IsStatic)
                     return false;
 
@@ -6904,7 +6916,7 @@ internal partial class ExpressionGenerator : Generator
             case null:
                 return !MethodSymbol.IsStatic;
 
-            case BoundSelfExpression:
+            case BoundSelfExpression or BoundBaseExpression:
                 return !MethodSymbol.IsStatic;
 
             case BoundAddressOfExpression addressOf:
@@ -7051,7 +7063,7 @@ internal partial class ExpressionGenerator : Generator
         if (target is SourceLambdaSymbol { IsStatic: false } lambdaTarget)
         {
             var inferredReceiverType = receiver?.Type?.UnwrapLiteralType() ?? receiver?.Type;
-            if (receiver is BoundSelfExpression ||
+            if (receiver is BoundSelfExpression or BoundBaseExpression ||
                 (inferredReceiverType is not null &&
                  lambdaTarget.ContainingType is not null &&
                  !SymbolEqualityComparer.Default.Equals(inferredReceiverType, lambdaTarget.ContainingType)))
@@ -7438,12 +7450,33 @@ internal partial class ExpressionGenerator : Generator
             {
                 var callOpCode = target.ContainingType!.IsValueType
                     ? (target.IsVirtual || isInterfaceCall ? OpCodes.Callvirt : OpCodes.Call)
+                    : IsBaseReceiver(receiver) ? OpCodes.Call
                     : OpCodes.Callvirt;
 
                 ILGenerator.Emit(callOpCode, targetMethodInfo);
             }
         }
 
+    }
+
+    private static bool IsBaseReceiver(BoundExpression? receiver)
+    {
+        while (true)
+        {
+            switch (receiver)
+            {
+                case BoundBaseExpression:
+                    return true;
+                case BoundConversionExpression conversion when conversion.Conversion.IsIdentity:
+                    receiver = conversion.Expression;
+                    continue;
+                case BoundRequiredResultExpression required:
+                    receiver = required.Operand;
+                    continue;
+                default:
+                    return false;
+            }
+        }
     }
 
     private static bool HaveEquivalentValueTypeReceiverShape(ITypeSymbol receiverType, ITypeSymbol methodDeclaringType)

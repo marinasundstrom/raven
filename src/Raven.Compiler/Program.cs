@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml.Linq;
 
@@ -1781,6 +1782,7 @@ static void CopyNuGetReferencesToOutput(Project project, string targetFramework,
         return;
 
     var copiedFileNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    var nuGetPackageRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     foreach (var reference in project.MetadataReferences.OfType<PortableExecutableReference>())
     {
@@ -1793,6 +1795,9 @@ static void CopyNuGetReferencesToOutput(Project project, string targetFramework,
         var isSharedFrameworkReference = IsUnderAnyDotNetSharedRoot(fullReferencePath);
         if (!isNuGetPackageReference && !isSharedFrameworkReference)
             continue;
+
+        if (isNuGetPackageReference && TryGetNuGetPackageRoot(fullReferencePath, globalPackages, out var packageRoot))
+            nuGetPackageRoots.Add(packageRoot);
 
         var runtimePath = isNuGetPackageReference
             ? ResolveNuGetRuntimeAssemblyPath(fullReferencePath, targetFramework)
@@ -1820,6 +1825,193 @@ static void CopyNuGetReferencesToOutput(Project project, string targetFramework,
         CopyDependencySidecarFile(runtimePath, outputDirectory, ".pdb");
         CopyDependencySidecarFile(runtimePath, outputDirectory, ".xml");
     }
+
+    CopyNuGetNativeRuntimeAssets(nuGetPackageRoots, globalPackages, outputDirectory, copiedFileNames);
+}
+
+static void CopyNuGetNativeRuntimeAssets(
+    HashSet<string> packageRoots,
+    string globalPackages,
+    string outputDirectory,
+    Dictionary<string, string> copiedFileNames)
+{
+    if (packageRoots.Count == 0)
+        return;
+
+    Directory.CreateDirectory(outputDirectory);
+
+    foreach (var packageRoot in ExpandNuGetPackageRootsWithDependencies(packageRoots, globalPackages))
+    {
+        foreach (var runtimeIdentifier in GetNativeRuntimeIdentifierFallbacks())
+        {
+            var nativeDirectory = Path.Combine(packageRoot, "runtimes", runtimeIdentifier, "native");
+            if (!Directory.Exists(nativeDirectory))
+                continue;
+
+            foreach (var assetPath in Directory.EnumerateFiles(nativeDirectory, "*", SearchOption.AllDirectories))
+            {
+                var fileName = Path.GetFileName(assetPath);
+                var destination = Path.Combine(outputDirectory, fileName);
+
+                if (copiedFileNames.TryGetValue(fileName, out var existingSource) &&
+                    !string.Equals(existingSource, assetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    AnsiConsole.MarkupLine(
+                        $"[yellow]Warning: Skipping NuGet native asset '{Markup.Escape(assetPath)}' because '{Markup.Escape(fileName)}' was already copied from '{Markup.Escape(existingSource)}'.[/]");
+                    continue;
+                }
+
+                copiedFileNames[fileName] = assetPath;
+
+                if (!string.Equals(assetPath, destination, StringComparison.OrdinalIgnoreCase))
+                    File.Copy(assetPath, destination, overwrite: true);
+            }
+        }
+    }
+}
+
+static IEnumerable<string> ExpandNuGetPackageRootsWithDependencies(HashSet<string> packageRoots, string globalPackages)
+{
+    var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var queue = new Queue<string>(packageRoots);
+
+    while (queue.Count > 0)
+    {
+        var packageRoot = queue.Dequeue();
+        if (!visited.Add(packageRoot))
+            continue;
+
+        yield return packageRoot;
+
+        foreach (var dependencyRoot in ResolveNuGetPackageDependencyRoots(packageRoot, globalPackages))
+        {
+            if (!visited.Contains(dependencyRoot))
+                queue.Enqueue(dependencyRoot);
+        }
+    }
+}
+
+static IEnumerable<string> ResolveNuGetPackageDependencyRoots(string packageRoot, string globalPackages)
+{
+    var nuspecPath = Directory.EnumerateFiles(packageRoot, "*.nuspec", SearchOption.TopDirectoryOnly)
+        .FirstOrDefault();
+    if (nuspecPath is null)
+        yield break;
+
+    XDocument document;
+    try
+    {
+        document = XDocument.Load(nuspecPath);
+    }
+    catch
+    {
+        yield break;
+    }
+
+    foreach (var dependency in document.Descendants().Where(static element => element.Name.LocalName == "dependency"))
+    {
+        var id = dependency.Attribute("id")?.Value;
+        if (string.IsNullOrWhiteSpace(id))
+            continue;
+
+        var version = NormalizeNuGetDependencyVersion(dependency.Attribute("version")?.Value);
+        if (!string.IsNullOrWhiteSpace(version))
+        {
+            var exactRoot = Path.Combine(globalPackages, id.ToLowerInvariant(), version.ToLowerInvariant());
+            if (Directory.Exists(exactRoot))
+            {
+                yield return exactRoot;
+                continue;
+            }
+        }
+
+        var packageDirectory = Path.Combine(globalPackages, id.ToLowerInvariant());
+        if (!Directory.Exists(packageDirectory))
+            continue;
+
+        var installedRoot = Directory.EnumerateDirectories(packageDirectory)
+            .OrderByDescending(static path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+        if (installedRoot is not null)
+            yield return installedRoot;
+    }
+}
+
+static string? NormalizeNuGetDependencyVersion(string? version)
+{
+    if (string.IsNullOrWhiteSpace(version))
+        return null;
+
+    version = version.Trim();
+    if (version.Length >= 2 && (version[0] == '[' || version[0] == '('))
+    {
+        var end = version.IndexOf(',', StringComparison.Ordinal);
+        if (end > 0)
+            return version[1..end].Trim();
+
+        return version.Trim('[', ']', '(', ')').Trim();
+    }
+
+    return version;
+}
+
+static IEnumerable<string> GetNativeRuntimeIdentifierFallbacks()
+{
+    var architecture = GetRuntimeIdentifierArchitecture();
+
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+    {
+        yield return $"osx-{architecture}";
+        yield return "osx";
+        yield return "unix";
+        yield break;
+    }
+
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    {
+        yield return $"win-{architecture}";
+        yield return "win";
+        yield break;
+    }
+
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+    {
+        yield return $"linux-{architecture}";
+        yield return "linux";
+        yield return "unix";
+    }
+}
+
+static string GetRuntimeIdentifierArchitecture() =>
+    RuntimeInformation.ProcessArchitecture switch
+    {
+        Architecture.Arm64 => "arm64",
+        Architecture.Arm => "arm",
+        Architecture.X64 => "x64",
+        Architecture.X86 => "x86",
+        _ => RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()
+    };
+
+static bool TryGetNuGetPackageRoot(string referencePath, string globalPackages, out string packageRoot)
+{
+    packageRoot = string.Empty;
+
+    var relativePath = Path.GetRelativePath(globalPackages, referencePath);
+    if (relativePath.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativePath))
+        return false;
+
+    var segments = relativePath.Split(
+        [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+        StringSplitOptions.RemoveEmptyEntries);
+    if (segments.Length < 3)
+        return false;
+
+    var candidate = Path.Combine(globalPackages, segments[0], segments[1]);
+    if (!Directory.Exists(candidate))
+        return false;
+
+    packageRoot = candidate;
+    return true;
 }
 
 static void CopyDependencySidecarFile(string assemblyPath, string outputDirectory, string extension)

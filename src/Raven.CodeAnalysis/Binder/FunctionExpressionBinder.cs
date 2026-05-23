@@ -16,6 +16,9 @@ class FunctionExpressionBinder : BlockBinder
 
     public void DeclareParameter(IParameterSymbol param)
     {
+        if (param.Name == "_")
+            return;
+
         _parameters[param.Name] = param;
     }
 

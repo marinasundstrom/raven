@@ -27,6 +27,10 @@
     Title="'self' is not available in static context"
     Message="'self' is not available in a static context." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2802" Identifier="BaseExpressionNotAvailable"
+    Title="'base' is not available in this context"
+    Message="'base' is only available in instance members of classes with a base class."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0103" Identifier="TheNameDoesNotExistInTheCurrentContext"
     Title="Name not found" Message="'{name}' is not in scope." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />

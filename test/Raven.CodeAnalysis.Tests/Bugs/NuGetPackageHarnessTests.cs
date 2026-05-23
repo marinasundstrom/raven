@@ -88,6 +88,32 @@ func Use(button: Button) -> unit {
     }
 
     [Fact]
+    public void NuGetHarness_AvaloniaConstructedGenericContainerMember_Emits()
+    {
+        using var harness = NuGetProjectTestHarness.Create(
+            """
+import Avalonia.Controls.*
+
+func AddChild(panel: StackPanel, child: Control) -> unit {
+    panel.Children.Add(child)
+}
+""",
+            [("Avalonia", "11.3.16")],
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var compilation = harness.GetCompilation();
+        using var peStream = new MemoryStream();
+        EmitResult? emitResult = null;
+
+        var exception = Record.Exception(() => emitResult = compilation.Emit(peStream));
+
+        Assert.Null(exception);
+        Assert.NotNull(emitResult);
+        Assert.True(emitResult!.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void NuGetHarness_SystemReactiveObserverCreate_WithImplicitLambdaParameter_BindsLikeCSharp()
     {
         using var harness = NuGetProjectTestHarness.Create(

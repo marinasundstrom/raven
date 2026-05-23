@@ -400,12 +400,31 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 switch (current.Parent)
                 {
                     case AssignmentStatementSyntax assignmentStatement when assignmentStatement.Left == current:
+                        return !IsReceiverWithinAssignmentTarget(node, current);
+
                     case AssignmentExpressionSyntax assignmentExpression when assignmentExpression.Left == current:
-                        return true;
+                        return !IsReceiverWithinAssignmentTarget(node, current);
                 }
             }
 
             return false;
+        }
+
+        private static bool IsReceiverWithinAssignmentTarget(SyntaxNode node, SyntaxNode assignmentTarget)
+        {
+            if (assignmentTarget is MemberAccessExpressionSyntax memberAccess &&
+                ContainsNode(memberAccess.Expression, node))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool ContainsNode(SyntaxNode root, SyntaxNode node)
+        {
+            return node.Span.Start >= root.Span.Start &&
+                   node.Span.End <= root.Span.End;
         }
 
         private static bool CanReferenceLocal(IdentifierNameSyntax node)

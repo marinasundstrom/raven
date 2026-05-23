@@ -160,6 +160,9 @@
   <Node Name="SelfExpression" Inherits="Expression">
     <Slot Name="SelfKeyword" Type="Token" DefaultToken="SelfKeyword" />
   </Node>
+  <Node Name="BaseExpression" Inherits="Expression">
+    <Slot Name="BaseKeyword" Type="Token" DefaultToken="BaseKeyword" />
+  </Node>
   <Node Name="DiscardExpression" Inherits="Expression">
     <Slot Name="UnderscoreToken" Type="Token" DefaultToken="UnderscoreToken" />
   </Node>

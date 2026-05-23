@@ -1040,7 +1040,115 @@ internal static class MethodSymbolCodeGenResolver
             return candidate;
         }
 
+        if (TryResolveConstructedGenericDefinitionMethod(runtimeType, methodSymbol, bindingFlags, codeGen) is { } constructedMethod)
+            return constructedMethod;
+
         throw new InvalidOperationException($"Unable to resolve runtime MethodInfo for '{methodSymbol}' on '{runtimeType}'.");
+    }
+
+    private static MethodInfo? TryResolveConstructedGenericDefinitionMethod(
+        Type runtimeType,
+        PEMethodSymbol methodSymbol,
+        BindingFlags bindingFlags,
+        CodeGenerator codeGen)
+    {
+        if (!runtimeType.IsGenericTypeDefinition)
+            return null;
+
+        foreach (var candidate in GetCandidateRuntimeMethods(runtimeType, methodSymbol, bindingFlags))
+        {
+            if (!CanInferConstructedDeclaringType(candidate, methodSymbol))
+                continue;
+
+            var genericParameters = runtimeType.GetGenericArguments();
+            var inferredArguments = new Type?[genericParameters.Length];
+
+            var runtimeParameters = candidate.GetParameters();
+            for (var i = 0; i < runtimeParameters.Length; i++)
+                InferDeclaringTypeArguments(runtimeParameters[i].ParameterType, methodSymbol.Parameters[i].Type, inferredArguments, codeGen);
+
+            InferDeclaringTypeArguments(candidate.ReturnType, methodSymbol.ReturnType, inferredArguments, codeGen);
+
+            if (inferredArguments.Any(static argument => argument is null))
+                continue;
+
+            var constructedType = runtimeType.MakeGenericType(inferredArguments!);
+            foreach (var constructedCandidate in GetCandidateRuntimeMethods(constructedType, methodSymbol, bindingFlags))
+            {
+                if (constructedCandidate.MetadataToken == candidate.MetadataToken &&
+                    Equals(constructedCandidate.Module.ModuleVersionId, candidate.Module.ModuleVersionId))
+                {
+                    return constructedCandidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool CanInferConstructedDeclaringType(MethodInfo candidate, PEMethodSymbol methodSymbol)
+    {
+        if (!string.Equals(candidate.Name, methodSymbol.MetadataName, StringComparison.Ordinal))
+            return false;
+
+        if (candidate.IsStatic != methodSymbol.IsStatic)
+            return false;
+
+        if (candidate.IsGenericMethod != methodSymbol.IsGenericMethod)
+            return false;
+
+        if (candidate.IsGenericMethod && candidate.GetGenericArguments().Length != methodSymbol.TypeParameters.Length)
+            return false;
+
+        return candidate.GetParameters().Length == methodSymbol.Parameters.Length;
+    }
+
+    private static void InferDeclaringTypeArguments(
+        Type runtimeType,
+        ITypeSymbol symbolType,
+        Type?[] inferredArguments,
+        CodeGenerator codeGen)
+    {
+        if (runtimeType.IsByRef)
+        {
+            InferDeclaringTypeArguments(runtimeType.GetElementType()!, symbolType.GetPlainType(), inferredArguments, codeGen);
+            return;
+        }
+
+        if (runtimeType.IsArray)
+        {
+            var symbolElementType = symbolType is IArrayTypeSymbol arrayType
+                ? arrayType.ElementType
+                : symbolType;
+            InferDeclaringTypeArguments(runtimeType.GetElementType()!, symbolElementType, inferredArguments, codeGen);
+            return;
+        }
+
+        if (runtimeType.IsGenericParameter)
+        {
+            if (runtimeType.DeclaringMethod is not null)
+                return;
+
+            var ordinal = runtimeType.GenericParameterPosition;
+            if ((uint)ordinal >= (uint)inferredArguments.Length)
+                return;
+
+            inferredArguments[ordinal] ??= TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(symbolType, codeGen);
+            return;
+        }
+
+        if (!runtimeType.IsGenericType)
+            return;
+
+        var runtimeArguments = runtimeType.GetGenericArguments();
+        if (symbolType is not INamedTypeSymbol symbolNamed ||
+            symbolNamed.TypeArguments.Length != runtimeArguments.Length)
+        {
+            return;
+        }
+
+        for (var i = 0; i < runtimeArguments.Length; i++)
+            InferDeclaringTypeArguments(runtimeArguments[i], symbolNamed.TypeArguments[i], inferredArguments, codeGen);
     }
 
     private static IEnumerable<MethodInfo> GetCandidateRuntimeMethods(Type runtimeType, PEMethodSymbol methodSymbol, BindingFlags bindingFlags)
@@ -1114,6 +1222,15 @@ internal static class MethodSymbolCodeGenResolver
             !RuntimeMethodMatchesMetadataSignature(candidate, metadataMethod))
         {
             return false;
+        }
+        else if (methodSymbol.ReflectionMethodBase is MethodInfo)
+        {
+            // For PE methods from constructed generic containers, the symbol parameters
+            // can be substituted (for example Control) while the runtime MethodInfo is
+            // still declared on the generic definition (for example T). Matching the
+            // ref/lib metadata signature identifies the runtime method; further
+            // symbol-parameter comparison would reject valid generic-definition members.
+            return true;
         }
 
         if (!ParametersMatch(candidate.GetParameters(), methodSymbol.Parameters, codeGen))

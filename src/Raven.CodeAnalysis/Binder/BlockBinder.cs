@@ -2043,6 +2043,7 @@ partial class BlockBinder : Binder
             PostfixOperatorExpressionSyntax postfixUnary => BindPostfixUnaryExpression(postfixUnary),
             IndexExpressionSyntax indexExpression => BindIndexExpression(indexExpression),
             SelfExpressionSyntax selfExpression => BindSelfExpression(selfExpression),
+            BaseExpressionSyntax baseExpression => BindBaseExpression(baseExpression),
             ReceiverBindingExpressionSyntax receiverBindingExpression => BindReceiverBindingExpression(receiverBindingExpression),
             DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
             FreestandingMacroExpressionSyntax freestandingMacroExpression => BindFreestandingMacroExpression(freestandingMacroExpression),
@@ -2291,6 +2292,30 @@ partial class BlockBinder : Binder
 
         _diagnostics.ReportSelfNotAvailableInStaticContext(selfExpression.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
+    }
+
+    private BoundExpression BindBaseExpression(BaseExpressionSyntax baseExpression)
+    {
+        if (_containingSymbol is not IMethodSymbol method || method.IsStatic)
+        {
+            _diagnostics.ReportBaseExpressionNotAvailable(baseExpression.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        if (method.ContainingType?.TypeKind == TypeKind.Interface)
+        {
+            _diagnostics.ReportBaseExpressionNotAvailable(baseExpression.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        var baseType = method.ContainingType?.BaseType;
+        if (baseType is null)
+        {
+            _diagnostics.ReportBaseExpressionNotAvailable(baseExpression.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+        }
+
+        return new BoundBaseExpression(baseType);
     }
 
     private IMethodSymbol? FindEnclosingInstanceMethod()

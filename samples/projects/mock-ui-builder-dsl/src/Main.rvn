@@ -1,8 +1,9 @@
 import System.*
 
 val showSecondary = true
+val status = UiLabel("Ready")
 
-val window = Window {
+RunApp(Window {
     Title = "Tasks"
 
     StackPanel {
@@ -14,30 +15,11 @@ val window = Window {
             Label("Today")
         }
 
+        status
+
         Button("Add") {
+            status.SetContent("Clicked Add")
             Console.WriteLine("Clicked Add")
         }
     }
-}
-
-Console.WriteLine(window.Title)
-Dump(window.Content, "")
-
-func Dump(control: UiControl, indent: string) -> () {
-    if control is UiStackPanel panel {
-        Console.WriteLine(indent + "StackPanel spacing=" + panel.Spacing.ToString())
-
-        for child in panel.Children {
-            Dump(child, indent + "  ")
-        }
-    }
-
-    if control is UiLabel label {
-        Console.WriteLine(indent + "Label: " + label.Content)
-    }
-
-    if control is UiButton button {
-        Console.WriteLine(indent + "Button: " + button.Content)
-        button.Click()
-    }
-}
+})

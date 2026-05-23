@@ -655,10 +655,30 @@ function resolveServerPath(context, output) {
 function createStableHash(input) {
     return crypto.createHash('sha256').update(input).digest('hex').slice(0, 12);
 }
+function createDirectoryFingerprint(directoryPath) {
+    const entries = [];
+    function visit(currentDirectory) {
+        for (const entry of fs.readdirSync(currentDirectory, { withFileTypes: true })) {
+            const fullPath = path.join(currentDirectory, entry.name);
+            const relativePath = path.relative(directoryPath, fullPath).split(path.sep).join('/');
+            if (entry.isDirectory()) {
+                visit(fullPath);
+                continue;
+            }
+            if (!entry.isFile()) {
+                continue;
+            }
+            const stat = fs.statSync(fullPath);
+            entries.push(`${relativePath}|${stat.mtimeMs}|${stat.size}`);
+        }
+    }
+    visit(directoryPath);
+    entries.sort();
+    return createStableHash(entries.join('\n'));
+}
 function stageServerForIsolatedLaunch(context, sourceServerPath) {
     const sourceDirectory = path.dirname(sourceServerPath);
-    const serverStat = fs.statSync(sourceServerPath);
-    const fingerprint = createStableHash(`${sourceServerPath}|${serverStat.mtimeMs}|${serverStat.size}`);
+    const fingerprint = createStableHash(`${sourceDirectory}|${createDirectoryFingerprint(sourceDirectory)}`);
     const stagingRoot = path.join(context.globalStorageUri.fsPath, 'language-server');
     const targetDirectory = path.join(stagingRoot, fingerprint);
     const targetServerPath = path.join(targetDirectory, path.basename(sourceServerPath));

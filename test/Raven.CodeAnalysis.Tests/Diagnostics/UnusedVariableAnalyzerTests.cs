@@ -152,6 +152,22 @@ class C {
     }
 
     [Fact]
+    public void UnusedFunctionExpressionDiscardParameter_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M() -> unit {
+        val callback: (int, int) -> int = func (value, _) => value
+
+        callback(1, 2)
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
     public void CapturedLocal_DoesNotReportDiagnostic()
     {
         const string code = """
@@ -199,6 +215,52 @@ class C {
     }
 
     private func Print(value: int) -> unit { }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void IfPatternBinding_UsedAsAssignmentReceiver_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class Label {
+    var Content: string = ""
+}
+
+class C {
+    private var native: object? = null
+
+    public func M(content: string) -> unit {
+        if native is Label label {
+            label.Content = content
+        }
+    }
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void FunctionExpressionPatternBinding_UsedAsAssignmentReceiver_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class Button {
+    var Content: string = ""
+}
+
+class C {
+    public func M(sender: object) -> unit {
+        val handler = func () -> unit {
+            if sender is Button clickedButton {
+                clickedButton.Content = "Clicked"
+            }
+        }
+
+        handler()
+    }
 }
 """;
 

@@ -798,7 +798,10 @@ internal class StatementSyntaxParser : SyntaxParser
         return BlockStatement(openBrace, List(statements), closeBrace);
     }
 
-    public ParameterListSyntax ParseParameterList(SyntaxToken? openParenToken = null, bool allowDestructuringPatterns = false)
+    public ParameterListSyntax ParseParameterList(
+        SyntaxToken? openParenToken = null,
+        bool allowDestructuringPatterns = false,
+        bool allowDiscardParameters = false)
     {
         var openParenTokenValue = openParenToken ?? ReadToken();
 
@@ -867,6 +870,10 @@ internal class StatementSyntaxParser : SyntaxParser
                         allowImplicitDeconstructionElementBindings: true,
                         allowWholePatternDesignation: false).ParsePattern();
                     name = MissingToken(SyntaxKind.IdentifierToken);
+                }
+                else if (allowDiscardParameters && PeekToken().IsKind(SyntaxKind.UnderscoreToken))
+                {
+                    name = ReadToken();
                 }
                 else if (CanTokenBeIdentifier(PeekToken()))
                 {

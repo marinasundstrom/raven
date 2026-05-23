@@ -111,6 +111,12 @@ underscores, and `$` is available for interop- or DSL-oriented naming schemes.
 Because `_` never produces a value, using it as an expression—for example
 in `_ + 2`—is rejected as an error.
 
+Function expressions and parameterized trailing blocks may also spell a
+parameter as `_`. The discard parameter still consumes the corresponding
+delegate parameter slot for arity and type inference, but it does not introduce
+a name that can be referenced in the function body and it is excluded from
+unused-parameter diagnostics.
+
 ```raven
 val $ffiResult = call()
 val value_1 = value0
@@ -4138,6 +4144,14 @@ Synthesized lambda method names follow C#-style metadata naming (`<Method>b__...
 available in static contexts (`RAV2801`). Static function expressions are also
 non-capturing; attempting to capture an outer local or parameter reports
 `RAV2204`.
+
+`base` is available only in instance members of classes with a base class. It
+produces a receiver typed as the direct base class. Invoking a member through
+`base` emits non-virtual dispatch to the selected base member, so an override on
+the current class is bypassed. `base` is not valid in interfaces, static
+members, or contexts without a class base receiver (`RAV2802`). Explicit
+interface implementation member access is a separate qualified-member form, for
+example `IBase.Member()`, and is not modeled as a `base` expression.
 
 Parenthesized function expressions may place attribute lists immediately before the
 parameter list as shorthand. Leading lists are applied contextually:
