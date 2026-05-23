@@ -7,7 +7,7 @@ internal partial class BoundBinaryExpression : BoundExpression
     public BoundExpression Right { get; }
 
     public BoundBinaryExpression(BoundExpression left, BoundBinaryOperator @operator, BoundExpression right)
-        : base(@operator.ResultType, null, BoundExpressionReason.None)
+        : base(@operator.ResultType, @operator.MethodSymbol, BoundExpressionReason.None)
     {
         Left = left;
         Operator = @operator;

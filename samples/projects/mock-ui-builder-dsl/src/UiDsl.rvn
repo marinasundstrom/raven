@@ -97,18 +97,13 @@ class UiBoundLabel : UiControl {
 
     override func CreateNativeControl() -> Control {
         val label = Avalonia.Controls.Label()
-        label.Content = self.getContent()
-        Console.WriteLine("[binding] create label property=" + self.propertyName + " initial=" + (label.Content?.ToString() ?? ""))
+        label.Content = getContent()
 
         source.PropertyChanged += func (_, args) => {
             val changedName = args.PropertyName ?? ""
-            Console.WriteLine("[binding] property changed raised=" + changedName + " binding=" + self.propertyName + " current=" + self.getContent())
 
-            if changedName.Length == 0 || changedName.Equals(self.propertyName) || self.propertyName.Equals("_" + changedName) {
-                label.Content = self.getContent()
-                Console.WriteLine("[binding] label updated to " + (label.Content?.ToString() ?? ""))
-            } else {
-                Console.WriteLine("[binding] label update skipped")
+            if changedName == "" || changedName == propertyName || propertyName == "_" + changedName {
+                label.Content = getContent()
             }
         }
 
@@ -169,7 +164,6 @@ class UiBinding {
             throw InvalidOperationException("Binding source must implement INotifyPropertyChanged.")
         }
 
-        Console.WriteLine("[binding] parsed property=" + propertyName)
         return UiBinding(source, propertyName, expression.Compile())
     }
 
@@ -245,8 +239,7 @@ class UiButton : UiControl {
                 clickedButton.Content = "Clicked"
             }
 
-            Console.WriteLine("[button] clicked " + self.Content)
-            self.onClick?()
+            onClick?()
         }
         return button
     }

@@ -904,7 +904,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
                 if (methodInfo.IsSpecialName &&
                     methodInfo.Name != "<Extension>$" &&
-                    methodInfo.Name is not "op_Implicit" and not "op_Explicit")
+                    !methodInfo.Name.StartsWith("op_", StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -1090,7 +1090,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
                 if (methodInfo.IsSpecialName &&
                     methodInfo.Name != "<Extension>$" &&
-                    methodInfo.Name is not "op_Implicit" and not "op_Explicit")
+                    !methodInfo.Name.StartsWith("op_", StringComparison.Ordinal))
                 {
                     continue;
                 }

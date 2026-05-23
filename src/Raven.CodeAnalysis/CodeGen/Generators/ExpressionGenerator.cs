@@ -6060,6 +6060,12 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        if (op.MethodSymbol is { } operatorMethod)
+        {
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(operatorMethod));
+            return;
+        }
+
         // Normal primitive path
         switch (operatorKind)
         {

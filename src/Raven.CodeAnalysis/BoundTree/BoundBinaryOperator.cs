@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -12,17 +13,20 @@ internal partial class BoundBinaryOperator
     public ITypeSymbol LeftType { get; }
     public ITypeSymbol RightType { get; }
     public ITypeSymbol ResultType { get; }
+    public IMethodSymbol? MethodSymbol { get; }
 
     private BoundBinaryOperator(
         BinaryOperatorKind operatorKind,
         ITypeSymbol left,
         ITypeSymbol right,
-        ITypeSymbol result)
+        ITypeSymbol result,
+        IMethodSymbol? methodSymbol = null)
     {
         OperatorKind = operatorKind;
         LeftType = left;
         RightType = right;
         ResultType = result;
+        MethodSymbol = methodSymbol;
     }
 
     public static bool TryLookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, out BoundBinaryOperator op)
@@ -101,6 +105,9 @@ internal partial class BoundBinaryOperator
             return true;
 
         if (TryLookupConstrainedInterfaceOperator(kind, left, right, out op))
+            return true;
+
+        if (TryLookupUserDefinedOperator(compilation, kind, left, right, out op))
             return true;
 
         // Reference equality/inequality (C#-style: same reference type)
@@ -469,6 +476,93 @@ internal partial class BoundBinaryOperator
         op = default!;
         return false;
     }
+
+    private static bool TryLookupUserDefinedOperator(
+        Compilation compilation,
+        SyntaxKind kind,
+        ITypeSymbol left,
+        ITypeSymbol right,
+        out BoundBinaryOperator op)
+    {
+        op = default!;
+
+        if (!OperatorFacts.TryGetUserDefinedOperatorInfo(kind, parameterCount: 2, out var operatorInfo))
+            return false;
+
+        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var candidate in EnumerateOperatorCandidates(left).Concat(EnumerateOperatorCandidates(right)))
+        {
+            if (!seen.Add(candidate))
+                continue;
+
+            if (!IsMatchingOperatorMethod(candidate, operatorInfo.MetadataName))
+                continue;
+
+            var leftParameterType = candidate.Parameters[0].Type;
+            var rightParameterType = candidate.Parameters[1].Type;
+
+            var leftConversion = compilation.ClassifyConversion(left, leftParameterType, includeUserDefined: false);
+            var rightConversion = compilation.ClassifyConversion(right, rightParameterType, includeUserDefined: false);
+            if (!leftConversion.Exists || !rightConversion.Exists)
+                continue;
+
+            op = new BoundBinaryOperator(
+                GetBinaryOperatorKind(kind),
+                leftParameterType,
+                rightParameterType,
+                candidate.ReturnType,
+                candidate);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<IMethodSymbol> EnumerateOperatorCandidates(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            yield break;
+
+        for (INamedTypeSymbol? current = named; current is not null; current = current.BaseType)
+        {
+            foreach (var method in current.GetMembers().OfType<IMethodSymbol>())
+                yield return method;
+        }
+    }
+
+    private static bool IsMatchingOperatorMethod(IMethodSymbol method, string metadataName)
+    {
+        if (!method.IsStatic || method.Parameters.Length != 2)
+            return false;
+
+        return string.Equals(method.MetadataName, metadataName, StringComparison.Ordinal) ||
+               string.Equals(method.Name, metadataName, StringComparison.Ordinal);
+    }
+
+    private static BinaryOperatorKind GetBinaryOperatorKind(SyntaxKind kind)
+        => kind switch
+        {
+            SyntaxKind.PlusToken => BinaryOperatorKind.Addition,
+            SyntaxKind.MinusToken => BinaryOperatorKind.Subtraction,
+            SyntaxKind.StarToken => BinaryOperatorKind.Multiplication,
+            SyntaxKind.SlashToken => BinaryOperatorKind.Division,
+            SyntaxKind.PercentToken => BinaryOperatorKind.Modulo,
+            SyntaxKind.EqualsEqualsToken => BinaryOperatorKind.Equality,
+            SyntaxKind.NotEqualsToken => BinaryOperatorKind.Inequality,
+            SyntaxKind.GreaterThanToken => BinaryOperatorKind.GreaterThan,
+            SyntaxKind.LessThanToken => BinaryOperatorKind.LessThan,
+            SyntaxKind.GreaterThanOrEqualsToken => BinaryOperatorKind.GreaterThanOrEqual,
+            SyntaxKind.LessThanOrEqualsToken => BinaryOperatorKind.LessThanOrEqual,
+            SyntaxKind.AmpersandToken => BinaryOperatorKind.BitwiseAnd,
+            SyntaxKind.BarToken => BinaryOperatorKind.BitwiseOr,
+            SyntaxKind.CaretToken => BinaryOperatorKind.BitwiseXor,
+            SyntaxKind.AmpersandAmpersandToken => BinaryOperatorKind.LogicalAnd,
+            SyntaxKind.BarBarToken => BinaryOperatorKind.LogicalOr,
+            SyntaxKind.LessThanLessThanToken => BinaryOperatorKind.ShiftLeft,
+            SyntaxKind.GreaterThanGreaterThanToken => BinaryOperatorKind.ShiftRight,
+            _ => BinaryOperatorKind.None,
+        };
 
     private static bool TryLookupTypeParameterConstraintOperator(
         SyntaxKind kind,

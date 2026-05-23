@@ -333,6 +333,44 @@ class Holder {
     }
 
     [Fact]
+    public void Lambda_CapturesUnqualifiedInstanceProperty_UsesInstanceState()
+    {
+        var code = """
+import System.*
+
+class Owner {
+    private val content: string = "Add"
+
+    val Content: string => content
+
+    func Create() -> Func<string> {
+        return func () => Content
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("Owner", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Create", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var func = (Func<string>)method.Invoke(instance, Array.Empty<object>())!;
+        Assert.Equal("Add", func());
+    }
+
+    [Fact]
     public void Lambda_InGenericType_CapturesLocalForLinqChain()
     {
         var code = """

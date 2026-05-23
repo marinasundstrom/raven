@@ -8470,7 +8470,7 @@ partial class BlockBinder : Binder
             var property = members.OfType<IPropertySymbol>().FirstOrDefault(p => !p.IsStatic);
             if (property is not null && IsSymbolAccessible(property))
             {
-                expr = new BoundPropertyAccess(/* new BoundSelfExpression(containingType), */ property);
+                expr = new BoundMemberAccessExpression(new BoundSelfExpression(containingType), property);
                 return true;
             }
 

@@ -59,6 +59,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Equality operands now target-type member-binding shorthand such as `value == .Case`, matching pattern shorthand while still allowing `value is .Case` when pattern syntax better communicates intent.
 
 ### Fixed
+- String `==` and `!=` now use `System.String` value equality instead of
+  reference equality.
+- Function expressions inside instance methods now capture unqualified instance
+  property receivers correctly.
 - Interface-typed receivers now resolve `System.Object` instance members such
   as `GetType`, `ToString`, `Equals`, and `GetHashCode`.
 - Function expressions now capture variables assigned through the left side of an
