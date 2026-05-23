@@ -50,22 +50,75 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         if (context.SemanticModel.GetDocumentDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
             return;
 
-        var body = context.Node switch
-        {
-            MethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody?.Expression,
-            FunctionStatementSyntax f => (SyntaxNode?)f.Body ?? f.ExpressionBody?.Expression,
-            BaseMethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody?.Expression,
-            FunctionExpressionSyntax f => (SyntaxNode?)f.Body ?? f.ExpressionBody?.Expression,
-            _ => null
-        };
+        var bodyRoots = GetBodyRoots(context.Node).ToArray();
+        var usageRoots = GetUsageRoots(context.Node).ToArray();
 
-        if (body is null)
+        if (bodyRoots.Length == 0 && usageRoots.Length == 0)
             return;
 
         var collector = new CandidateCollector(context.SemanticModel);
         collector.CollectParameters(context.Node);
-        collector.Visit(body);
-        ReportDiagnostics(context, collector.GetCandidates(), GetUsedSymbols(context.SemanticModel, body));
+        foreach (var bodyRoot in bodyRoots)
+            collector.Visit(bodyRoot);
+
+        var candidates = collector.GetCandidates().ToArray();
+        var usedSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        foreach (var usageRoot in usageRoots)
+            UnionWith(usedSymbols, GetUsedSymbols(context.SemanticModel, usageRoot));
+
+        if (context.Node is ConstructorDeclarationSyntax { Initializer: not null } constructor)
+            MarkConstructorInitializerParameterReferences(candidates, constructor.Initializer, usedSymbols);
+
+        ReportDiagnostics(context, candidates, usedSymbols);
+    }
+
+    private static void MarkConstructorInitializerParameterReferences(
+        IEnumerable<Candidate> candidates,
+        ConstructorInitializerSyntax initializer,
+        HashSet<ISymbol> usedSymbols)
+    {
+        var parametersByName = candidates
+            .Where(candidate => candidate.Descriptor.Id == UnusedParameterDiagnosticId)
+            .ToDictionary(candidate => candidate.Name, candidate => candidate.Symbol, StringComparer.Ordinal);
+
+        if (parametersByName.Count == 0)
+            return;
+
+        foreach (var identifier in initializer.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            if (parametersByName.TryGetValue(identifier.Identifier.ValueText, out var symbol))
+                usedSymbols.Add(symbol.UnderlyingSymbol);
+        }
+
+        foreach (var argument in initializer.ArgumentList.Arguments)
+        {
+            if (parametersByName.TryGetValue(argument.Expression.ToString(), out var symbol))
+                usedSymbols.Add(symbol.UnderlyingSymbol);
+        }
+    }
+
+    private static IEnumerable<SyntaxNode> GetBodyRoots(SyntaxNode node)
+    {
+        var body = node switch
+        {
+            MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression,
+            FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody?.Expression,
+            BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression,
+            FunctionExpressionSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody?.Expression,
+            _ => null
+        };
+
+        if (body is not null)
+            yield return body;
+    }
+
+    private static IEnumerable<SyntaxNode> GetUsageRoots(SyntaxNode node)
+    {
+        if (node is ConstructorDeclarationSyntax { Initializer: not null } constructor)
+            yield return constructor.Initializer;
+
+        foreach (var bodyRoot in GetBodyRoots(node))
+            yield return bodyRoot;
     }
 
     private static void AnalyzeCompilationUnit(SyntaxNodeAnalysisContext context)

@@ -168,6 +168,29 @@ class Foo {
     }
 
     [Fact]
+    public void InterfaceImplementation_IsNotReported()
+    {
+        const string code = """
+interface IHasName {
+    val Name: string
+}
+
+class Person : IHasName {
+    val Name: string = "Raven"
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedPropertyAnalyzer>(
+            code,
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void Library_InternalUnusedProperty_ReportsDiagnostic()
     {
         const string code = """

@@ -129,31 +129,6 @@ class Foo : IFoo {
     }
 
     [Fact]
-    public void BuilderMethods_AreNotReported()
-    {
-        const string code = """
-class ViewBuilder {
-    static func BuildExpression(value: int) -> int { value }
-    static func BuildBlock(items: int[]) -> int { 0 }
-    static func BuildOptional(value: int) -> int { value }
-    static func BuildEither(first: int) -> int { first }
-    static func BuildEither(second: string) -> int { 0 }
-    static func BuildArray(items: int[]) -> int { 0 }
-    static func BuildFinalResult(value: int) -> int { value }
-}
-""";
-
-        var verifier = CreateAnalyzerVerifier<UnusedMethodAnalyzer>(
-            code,
-            disabledDiagnostics:
-            [
-                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
-            ]);
-
-        verifier.Verify();
-    }
-
-    [Fact]
     public void LocalFunction_NotInvoked_ReportsDiagnostic()
     {
         const string code = """

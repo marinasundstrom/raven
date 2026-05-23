@@ -57,6 +57,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   references when a module-local reference walk misses, fixing inherited
   member lookup and reference conversions across package sibling assemblies
   such as Avalonia `Button` to `Interactive`.
+- Unused-parameter analysis now treats constructor parameters passed to
+  constructor initializers such as `base(value)` as used.
+- `MemberCanBeStatic` now recognizes instance callable members invoked through
+  bare identifier syntax, avoiding false positives for callback wrapper methods.
+- Unused-property analysis now respects interface property implementations.
+- Removed builder-method-name exemptions from unused-method analysis so generic
+  unused-member diagnostics are not coupled to DSL lowering conventions.
 - Incremental executable-owner analysis now treats top-level `func` statements as
   function owners instead of generic global-statement owners, improving editor
   recovery after wrapping top-level statements in `func Main`.

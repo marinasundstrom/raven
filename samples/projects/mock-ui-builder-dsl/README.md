@@ -29,7 +29,8 @@ While moving this sample to Avalonia, a few issues surfaced that are worth inves
 - Resolved: direct inherited member lookup/conversion on Avalonia controls was incomplete in a few places, such as `Button` to `Interactive` and inherited `RaiseEvent`. Raven now resolves package metadata base types through compilation-level metadata references when a module-local reference walk misses.
 - The Raven CLI currently copies managed NuGet assemblies for `--run`, but not all native runtime assets. Desktop Avalonia on macOS needed `libSkiaSharp.dylib` and `libAvaloniaNative.dylib`, which is why this sample uses `Avalonia.Headless`.
 - Reflection over Avalonia styled properties did not produce useful sample dump values, so the Raven wrappers retain the configured display values while still creating real Avalonia controls.
-- Some analyzer suggestions look suspicious in this sample, such as constructor parameters reported as unused when forwarded to `base(...)`, and an instance click handler reported as static even though it calls captured callback state.
+- Resolved: some analyzer suggestions were false positives. Constructor parameters forwarded to `base(...)` now count as used, and instance methods that invoke captured callable members are no longer suggested as static.
+- Generic unused/private member analyzers do not currently see DSL-lowered builder entry points such as `BuildExpression` and `BuildFinalResult`. Those are intentionally not special-cased by builder method name.
 
 ## Build and run
 

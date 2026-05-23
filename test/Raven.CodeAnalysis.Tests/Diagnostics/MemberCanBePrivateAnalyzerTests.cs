@@ -55,4 +55,5 @@ class Counter {
 
         verifier.Verify();
     }
+
 }

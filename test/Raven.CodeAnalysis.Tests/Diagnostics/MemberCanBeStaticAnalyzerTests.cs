@@ -48,6 +48,30 @@ class Counter {
     }
 
     [Fact]
+    public void MethodInvokingInstanceCallableMember_DoesNotReport()
+    {
+        const string code = """
+class Handler {
+    private val callback: () -> ()
+
+    init(callback: () -> ()) {
+        self.callback = callback
+    }
+
+    func Handle() -> () {
+        callback()
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MethodUsingPromotedPrimaryConstructorProperty_DoesNotReport()
     {
         const string code = """

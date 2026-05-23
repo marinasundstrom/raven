@@ -62,6 +62,27 @@ class C {
     }
 
     [Fact]
+    public void ConstructorParameterForwardedToBaseInitializer_DoesNotReportDiagnostic()
+    {
+        const string code = """
+open class Base {
+    private val stored: object
+
+    init(value: object) {
+        stored = value
+    }
+}
+
+class Derived : Base {
+    init(value: object) : base(value) {
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
     public void ReadMethodParameter_DoesNotReportDiagnostic()
     {
         const string code = """

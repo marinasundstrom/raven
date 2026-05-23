@@ -78,7 +78,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
             if (node is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax))
                 continue;
 
-            var referenced = semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol;
+            var referenced = ResolveReferencedSymbol(node, semanticModel);
             if (referenced is null || referenced.IsStatic)
                 continue;
 
@@ -104,6 +104,20 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    private static ISymbol? ResolveReferencedSymbol(SyntaxNode node, SemanticModel semanticModel)
+    {
+        if (node is IdentifierNameSyntax identifier)
+        {
+            if (semanticModel.TryLookupVisibleValueSymbol(identifier) is { } visibleSymbol)
+                return visibleSymbol.UnderlyingSymbol;
+
+            if (semanticModel.GetBinder(identifier).LookupSymbol(identifier.Identifier.ValueText) is { } lookedUpSymbol)
+                return lookedUpSymbol.UnderlyingSymbol;
+        }
+
+        return semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol;
     }
 
     private static bool IsPrimaryConstructorParameterOfContainingType(
