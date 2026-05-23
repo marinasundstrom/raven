@@ -32,7 +32,8 @@ partial class BlockBinder
         if (invoke is null)
             return expression;
 
-        var body = RewriteBuilderBody(lambda.Body, builderType, invoke.ReturnType, syntaxNode ?? lambda.Unbound?.Syntax);
+        var receiver = CreateImplicitReceiverAccess(lambda.Unbound?.ImplicitReceiverSymbol);
+        var body = RewriteBuilderBody(lambda.Body, builderType, invoke.ReturnType, syntaxNode ?? lambda.Unbound?.Syntax, receiver);
         if (body is null)
             return expression;
 
@@ -42,7 +43,7 @@ partial class BlockBinder
             sourceLambda.SetDelegateType(delegateType);
         }
 
-        return new BoundFunctionExpression(
+        var rewritten = new BoundFunctionExpression(
             lambda.Parameters,
             invoke.ReturnType,
             body,
@@ -50,6 +51,11 @@ partial class BlockBinder
             delegateType,
             lambda.CapturedVariables,
             lambda.CandidateDelegates);
+
+        if (lambda.Unbound is not null)
+            rewritten.AttachUnbound(lambda.Unbound);
+
+        return rewritten;
     }
 
     private bool TryGetBuilderType(IParameterSymbol parameter, out INamedTypeSymbol builderType)
@@ -86,7 +92,7 @@ partial class BlockBinder
         return false;
     }
 
-    private static bool HasReceiverAttribute(IParameterSymbol parameter)
+    private static bool TryGetReceiverAttribute(IParameterSymbol parameter, out ReceiverAttributeData receiver)
     {
         foreach (var attribute in parameter.GetAttributes())
         {
@@ -98,10 +104,16 @@ partial class BlockBinder
             if (string.Equals(name, "ReceiverAttribute", StringComparison.Ordinal) ||
                 string.Equals(name, "Receiver", StringComparison.Ordinal))
             {
+                receiver = new ReceiverAttributeData(
+                    true,
+                    !attributeClass.TypeArguments.IsDefaultOrEmpty
+                        ? attributeClass.TypeArguments[0]
+                        : null);
                 return true;
             }
         }
 
+        receiver = default;
         return false;
     }
 
@@ -109,7 +121,8 @@ partial class BlockBinder
         BoundExpression body,
         INamedTypeSymbol builderType,
         ITypeSymbol targetReturnType,
-        SyntaxNode? syntaxNode)
+        SyntaxNode? syntaxNode,
+        BoundExpression? implicitReceiver)
     {
         var descriptor = BuilderDescriptor.Create(builderType);
         var componentType = descriptor.InferComponentType(Compilation, targetReturnType);
@@ -130,11 +143,23 @@ partial class BlockBinder
 
         BoundExpression result = buildBlock;
 
-        if (descriptor.ResolveBuildFinalResult(this, result, targetReturnType, syntaxNode) is { } finalResult)
+        if (implicitReceiver is not null)
+        {
+            var finalResult = descriptor.ResolveBuildFinalResult(this, result, targetReturnType, syntaxNode, implicitReceiver);
+            if (finalResult is null)
+                return body;
+
             result = finalResult;
+        }
+        else if (descriptor.ResolveBuildFinalResult(this, result, targetReturnType, syntaxNode) is { } finalResult)
+        {
+            result = finalResult;
+        }
         else if (!SymbolEqualityComparer.Default.Equals(result.Type, targetReturnType) &&
                  IsAssignable(targetReturnType, result.Type!, out var conversion))
+        {
             result = ApplyConversion(result, targetReturnType, conversion, syntaxNode);
+        }
 
         normalStatements.Add(new BoundExpressionStatement(result));
         return new BoundBlockExpression(
@@ -159,7 +184,11 @@ partial class BlockBinder
             switch (statement)
             {
                 case BoundExpressionStatement expressionStatement:
-                    if (RewriteBuilderComponent(expressionStatement.Expression, descriptor, componentType, syntaxNode) is { } component)
+                    if (IsUnitLike(expressionStatement.Expression.Type))
+                    {
+                        normalStatements.Add(statement);
+                    }
+                    else if (RewriteBuilderComponent(expressionStatement.Expression, descriptor, componentType, syntaxNode) is { } component)
                     {
                         components.Add(component);
                     }
@@ -181,9 +210,12 @@ partial class BlockBinder
                     break;
 
                 case BoundIfStatement ifStatement:
-                    if (RewriteBuilderIfStatement(ifStatement, descriptor, componentType, syntaxNode) is { } ifComponent)
+                    if (RewriteBuilderIfStatement(ifStatement, descriptor, componentType, syntaxNode) is { } ifRewrite)
                     {
-                        components.Add(ifComponent);
+                        if (ifRewrite.Component is not null)
+                            components.Add(ifRewrite.Component);
+                        else if (ifRewrite.Statement is not null)
+                            normalStatements.Add(ifRewrite.Statement);
                     }
                     else
                     {
@@ -192,9 +224,12 @@ partial class BlockBinder
                     break;
 
                 case BoundForStatement forStatement:
-                    if (RewriteBuilderForStatement(forStatement, descriptor, componentType, syntaxNode) is { } forComponent)
+                    if (RewriteBuilderForStatement(forStatement, descriptor, componentType, syntaxNode) is { } forRewrite)
                     {
-                        components.Add(forComponent);
+                        if (forRewrite.Component is not null)
+                            components.Add(forRewrite.Component);
+                        else if (forRewrite.Statement is not null)
+                            normalStatements.Add(forRewrite.Statement);
                     }
                     else
                     {
@@ -216,45 +251,55 @@ partial class BlockBinder
         return true;
     }
 
-    private BoundExpression? RewriteBuilderIfStatement(
+    private BuilderStatementRewrite? RewriteBuilderIfStatement(
         BoundIfStatement statement,
         BuilderDescriptor descriptor,
         ITypeSymbol componentType,
         SyntaxNode? syntaxNode)
     {
-        var thenComponent = RewriteBuilderStatementBody(statement.ThenNode, descriptor, componentType, syntaxNode);
-        if (thenComponent is null)
+        if (!TryRewriteBuilderStatementBody(statement.ThenNode, descriptor, componentType, syntaxNode, out var thenStatement, out var thenComponent, out var thenHasComponents))
             return null;
 
         if (statement.ElseNode is null)
         {
+            if (!thenHasComponents)
+                return new BuilderStatementRewrite(new BoundIfStatement(statement.Condition, thenStatement), null);
+
             var optionalInput = new BoundIfExpression(
                 statement.Condition,
-                thenComponent,
+                thenComponent!,
                 new BoundDefaultValueExpression(componentType));
 
-            return descriptor.ResolveBuilderCall(this, "BuildOptional", [optionalInput], syntaxNode);
+            return new BuilderStatementRewrite(null, descriptor.ResolveBuilderCall(this, "BuildOptional", [optionalInput], syntaxNode));
         }
 
-        var elseComponent = RewriteBuilderStatementBody(statement.ElseNode, descriptor, componentType, syntaxNode);
-        if (elseComponent is null)
+        if (!TryRewriteBuilderStatementBody(statement.ElseNode, descriptor, componentType, syntaxNode, out var elseStatement, out var elseComponent, out var elseHasComponents))
             return null;
 
-        var first = descriptor.ResolveBuilderCall(this, "BuildEither", [thenComponent], syntaxNode, "first");
-        var second = descriptor.ResolveBuilderCall(this, "BuildEither", [elseComponent], syntaxNode, "second");
+        if (!thenHasComponents && !elseHasComponents)
+            return new BuilderStatementRewrite(new BoundIfStatement(statement.Condition, thenStatement, elseStatement), null);
+
+        var first = descriptor.ResolveBuilderCall(this, "BuildEither", [thenComponent!], syntaxNode, "first");
+        var second = descriptor.ResolveBuilderCall(this, "BuildEither", [elseComponent!], syntaxNode, "second");
 
         if (first is null || second is null)
             return null;
 
-        return new BoundIfExpression(statement.Condition, first, second);
+        return new BuilderStatementRewrite(null, new BoundIfExpression(statement.Condition, first, second));
     }
 
-    private BoundExpression? RewriteBuilderForStatement(
+    private BuilderStatementRewrite? RewriteBuilderForStatement(
         BoundForStatement statement,
         BuilderDescriptor descriptor,
         ITypeSymbol componentType,
         SyntaxNode? syntaxNode)
     {
+        if (!TryRewriteBuilderStatementBody(statement.Body, descriptor, componentType, syntaxNode, out var loopStatement, out var loopComponent, out var loopHasComponents))
+            return null;
+
+        if (!loopHasComponents)
+            return new BuilderStatementRewrite(new BoundForStatement(statement.Local, statement.Iteration, statement.Collection, loopStatement), null);
+
         if (syntaxNode is null)
             return null;
 
@@ -282,13 +327,9 @@ partial class BlockBinder
             new BoundVariableDeclarator(listLocal, new BoundObjectCreationExpression(constructor, []))
         ]);
 
-        var loopComponent = RewriteBuilderStatementBody(statement.Body, descriptor, componentType, syntaxNode);
-        if (loopComponent is null)
-            return null;
-
         var addInvocation = new BoundInvocationExpression(
             addMethod,
-            [loopComponent],
+            [loopComponent!],
             receiver: new BoundLocalAccess(listLocal));
 
         var loopBody = new BoundBlockStatement([new BoundExpressionStatement(addInvocation)]);
@@ -303,20 +344,23 @@ partial class BlockBinder
         if (buildArray is null)
             return null;
 
-        return new BoundBlockExpression(
+        return new BuilderStatementRewrite(null, new BoundBlockExpression(
             [
                 declaration,
                 loop,
                 new BoundExpressionStatement(buildArray)
             ],
-            buildArray.Type ?? componentType);
+            buildArray.Type ?? componentType));
     }
 
-    private BoundExpression? RewriteBuilderStatementBody(
+    private bool TryRewriteBuilderStatementBody(
         BoundStatement statement,
         BuilderDescriptor descriptor,
         ITypeSymbol componentType,
-        SyntaxNode? syntaxNode)
+        SyntaxNode? syntaxNode,
+        out BoundStatement rewrittenStatement,
+        out BoundExpression? component,
+        out bool hasComponents)
     {
         var statements = statement switch
         {
@@ -324,9 +368,20 @@ partial class BlockBinder
             _ => ImmutableArray.Create(statement)
         };
 
-        return TryRewriteBuilderStatements(statements, descriptor, componentType, syntaxNode, out var normalStatements, out var components)
-            ? BuildBuilderBlockExpression(descriptor, componentType, normalStatements, components, syntaxNode)
-            : null;
+        if (!TryRewriteBuilderStatements(statements, descriptor, componentType, syntaxNode, out var normalStatements, out var components))
+        {
+            rewrittenStatement = null!;
+            component = null;
+            hasComponents = false;
+            return false;
+        }
+
+        hasComponents = components.Count > 0;
+        rewrittenStatement = normalStatements.Count == 1
+            ? normalStatements[0]
+            : new BoundBlockStatement(normalStatements);
+        component = BuildBuilderBlockExpression(descriptor, componentType, normalStatements, components, syntaxNode);
+        return component is not null;
     }
 
     private BoundExpression? BuildBuilderBlockExpression(
@@ -367,6 +422,21 @@ partial class BlockBinder
 
         return descriptor.ResolveBuilderCall(this, "BuildExpression", [expression], syntaxNode);
     }
+
+    private static BoundExpression? CreateImplicitReceiverAccess(ISymbol? receiverSymbol)
+        => receiverSymbol switch
+        {
+            IParameterSymbol parameter => new BoundParameterAccess(parameter),
+            ILocalSymbol local => new BoundLocalAccess(local),
+            _ => null
+        };
+
+    private static bool IsUnitLike(ITypeSymbol? type)
+        => type is { SpecialType: SpecialType.System_Unit or SpecialType.System_Void };
+
+    private readonly record struct ReceiverAttributeData(bool HasReceiver, ITypeSymbol? ReceiverType);
+
+    private readonly record struct BuilderStatementRewrite(BoundStatement? Statement, BoundExpression? Component);
 
     private sealed class BuilderDescriptor
     {
@@ -415,9 +485,12 @@ partial class BlockBinder
             BlockBinder binder,
             BoundExpression component,
             ITypeSymbol targetReturnType,
-            SyntaxNode? syntaxNode)
+            SyntaxNode? syntaxNode,
+            BoundExpression? receiver = null)
         {
-            var finalResult = ResolveBuilderCall(binder, "BuildFinalResult", [component], syntaxNode, reportMissing: false);
+            var finalResult = receiver is null
+                ? ResolveBuilderCall(binder, "BuildFinalResult", [component], syntaxNode, reportMissing: false)
+                : ResolveBuilderCall(binder, "BuildFinalResult", [component, receiver], syntaxNode, reportMissing: true);
             if (finalResult is null)
                 return null;
 

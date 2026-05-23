@@ -8363,13 +8363,13 @@ partial class BlockBinder : Binder
     {
         expr = null!;
 
-        var receiverParameter = GetNearestImplicitReceiverParameter();
-        if (receiverParameter is null)
+        var implicitReceiver = GetNearestImplicitReceiver();
+        if (implicitReceiver is null)
             return false;
 
-        var receiverType = receiverParameter.Type is NullableTypeSymbol nullable
+        var receiverType = implicitReceiver.Value.LookupType is NullableTypeSymbol nullable
             ? nullable.UnderlyingType
-            : receiverParameter.Type;
+            : implicitReceiver.Value.LookupType;
         receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
 
         if (receiverType.TypeKind == TypeKind.Error)
@@ -8387,7 +8387,10 @@ partial class BlockBinder : Binder
         if (!hasCandidate)
             return false;
 
-        var receiver = new BoundParameterAccess(receiverParameter);
+        var receiver = CreateImplicitReceiverAccess(implicitReceiver.Value.Symbol);
+        if (receiver is null)
+            return false;
+
         expr = BindMemberAccessOnReceiver(
             receiver,
             syntax,
@@ -8399,14 +8402,14 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private IParameterSymbol? GetNearestImplicitReceiverParameter()
+    private ImplicitReceiverSymbol? GetNearestImplicitReceiver()
     {
         for (Binder? current = this; current is not null; current = current.ParentBinder)
         {
             if (current is FunctionExpressionBinder { } lambdaBinder &&
-                lambdaBinder.GetImplicitReceiverParameter() is { } receiverParameter)
+                lambdaBinder.GetImplicitReceiver() is { } receiver)
             {
-                return receiverParameter;
+                return receiver;
             }
         }
 
@@ -12756,10 +12759,9 @@ partial class BlockBinder : Binder
             // This mirrors local-initializer behavior and enables passing lambdas to `System.Delegate` parameters.
             if (expression is BoundFunctionExpression lambda)
             {
-                expression = BindBuilderTrailingClosureIfNeeded(expression, parameter, syntaxNode);
-
                 // First: if the parameter itself is a concrete delegate type, replay the lambda against it.
                 expression = BindLambdaToDelegateIfNeeded(expression, parameter.Type);
+                expression = BindBuilderTrailingClosureIfNeeded(expression, parameter, syntaxNode);
 
                 // Second: if the parameter is `System.Delegate` / `System.MulticastDelegate`,
                 // keep the lambda's inferred delegate type and rely on implicit reference conversion.
@@ -16136,11 +16138,11 @@ partial class BlockBinder : Binder
                         yield return param;
                 }
 
-                if (lambdaBinder.GetImplicitReceiverParameter() is { } receiverParameter)
+                if (lambdaBinder.GetImplicitReceiver() is { } implicitReceiver)
                 {
-                    var receiverType = receiverParameter.Type is NullableTypeSymbol nullable
+                    var receiverType = implicitReceiver.LookupType is NullableTypeSymbol nullable
                         ? nullable.UnderlyingType
-                        : receiverParameter.Type;
+                        : implicitReceiver.LookupType;
                     receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
 
                     if (receiverType is INamedTypeSymbol namedReceiverType)

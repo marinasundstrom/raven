@@ -1,25 +1,43 @@
 import System.*
 
 val showSecondary = true
-val labels: string[] = ["Inbox", "Today"]
 
-val view = Window(title: "Tasks") {
-    VStack {
-        for label in labels {
-            Text(label)
-        }
+val window = Window {
+    Title = "Tasks"
+
+    StackPanel {
+        Spacing = 8.0
+
+        Label("Inbox")
 
         if showSecondary {
-            HStack {
-                Text("Open")
-                Text("Done")
-            }
+            Label("Today")
         }
 
-        Button(title: "Add") {
-            "create-task"
+        Button("Add") {
+            Console.WriteLine("Clicked Add")
         }
     }
 }
 
-Console.WriteLine(view.Markup)
+Console.WriteLine(window.Title)
+Dump(window.Content, "")
+
+func Dump(control: UiControl, indent: string) -> () {
+    if control is UiStackPanel panel {
+        Console.WriteLine(indent + "StackPanel spacing=" + panel.Spacing.ToString())
+
+        for child in panel.Children {
+            Dump(child, indent + "  ")
+        }
+    }
+
+    if control is UiLabel label {
+        Console.WriteLine(indent + "Label: " + label.Content)
+    }
+
+    if control is UiButton button {
+        Console.WriteLine(indent + "Button: " + button.Content)
+        button.Click()
+    }
+}

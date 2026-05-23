@@ -249,6 +249,80 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void GenericReceiverTrailingBlock_UsesExplicitReceiverLookupType()
+    {
+        const string source = """
+        import System.*
+
+        class ReceiverAttribute<T> : Attribute {}
+
+        open class ConfigContract {
+            var Name: string = ""
+
+            func Activate() -> () {
+            }
+        }
+
+        class ConfigBuilder : ConfigContract {
+            var InternalOnly: string = ""
+        }
+
+        func Config([Receiver<ConfigContract>] configure: ConfigBuilder -> unit) -> () {
+            val builder = ConfigBuilder()
+            configure(builder)
+        }
+
+        Config {
+            Name = "Foo"
+            Activate()
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var nameIdentifier = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Name");
+        var nameSymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(nameIdentifier).Symbol);
+
+        Assert.Equal("ConfigContract", nameSymbol.ContainingType?.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void GenericReceiverTrailingBlock_RequiresReceiverTypeCompatibleWithDelegateParameter()
+    {
+        const string source = """
+        import System.*
+
+        class ReceiverAttribute<T> : Attribute {}
+
+        class ConfigBuilder {
+        }
+
+        class OtherReceiver {
+        }
+
+        func Config([Receiver<OtherReceiver>] configure: ConfigBuilder -> unit) -> () {
+            val builder = ConfigBuilder()
+            configure(builder)
+        }
+
+        Config {
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+
+        Assert.Contains("ConfigBuilder", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("OtherReceiver", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NonReceiverTrailingBlock_DoesNotImportSingleParameterMembers()
     {
         const string source = """

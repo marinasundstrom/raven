@@ -8,3 +8,9 @@ import System.*
 [AttributeUsage(AttributeTargets.Parameter)]
 class ReceiverAttribute : Attribute {
 }
+
+/// Marks a function parameter as a receiver closure target and specifies the
+/// receiver member lookup type.
+[AttributeUsage(AttributeTargets.Parameter)]
+class ReceiverAttribute<T> : Attribute {
+}

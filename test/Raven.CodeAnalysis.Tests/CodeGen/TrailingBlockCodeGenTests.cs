@@ -327,6 +327,88 @@ class Runner {
     }
 
     [Fact]
+    public void BuilderReceiverTrailingBlock_EmitsReceiverConfigurationAndComponents()
+    {
+        const string code = """
+import System.*
+
+class BuilderAttribute<T> : Attribute {}
+class ReceiverAttribute<T> : Attribute {}
+
+class Node {
+    init(markup: string) {
+        Markup = markup
+    }
+
+    val Markup: string
+}
+
+class UiBuilder {
+    static func BuildExpression(node: Node) -> Node {
+        return node
+    }
+
+    static func BuildBlock(items: Node[]) -> Node {
+        var markup = ""
+
+        for item in items {
+            markup = markup + item.Markup
+        }
+
+        return Node(markup)
+    }
+
+    static func BuildFinalResult(content: Node, receiver: WindowBuilder) -> Node {
+        return receiver.Build(content)
+    }
+}
+
+class WindowBuilder {
+    var Title: string = ""
+    var Activated: bool = false
+
+    func Activate() -> () {
+        Activated = true
+    }
+
+    func Build(content: Node) -> Node {
+        return Node(Title + ":" + Activated.ToString() + ":" + content.Markup)
+    }
+}
+
+func Window([Builder<UiBuilder>, Receiver<WindowBuilder>] content: () -> Node) -> Node {
+    return content()
+}
+
+func Text(value: string) -> Node {
+    return Node(value)
+}
+
+class Runner {
+    static func Run() -> string {
+        val danger = true
+        val view = Window {
+            Title = "Tasks"
+            Activate()
+
+            if danger {
+                Title = "DANGER!"
+            }
+
+            Text("Inbox")
+        }
+
+        return view.Markup
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("DANGER!:True:Inbox", output);
+    }
+
+    [Fact]
     public void TopLevelReturnScanner_IgnoresReturnsInsideTrailingBlock()
     {
         const string code = """

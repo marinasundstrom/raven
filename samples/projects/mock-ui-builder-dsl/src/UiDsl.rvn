@@ -1,14 +1,106 @@
 import System.*
+import System.Collections.Generic.*
+import System.Reflection.*
 
 class BuilderAttribute<T> : Attribute {
 }
 
-class UiNode {
-    init(markup: string) {
-        Markup = markup
+open class UiControl {
+    init(native: object) {
+        Native = native
     }
 
-    val Markup: string
+    val Native: object
+}
+
+class UiWindow : UiControl {
+    private val title: string
+
+    init(native: object, content: UiStackPanel, title: string) : base(native) {
+        Content = content
+        self.title = title
+    }
+
+    val Content: UiStackPanel
+    val Title: string => title
+}
+
+class UiStackPanel : UiControl {
+    private val children: List<UiControl>
+    private val spacing: double
+
+    init(native: object, children: List<UiControl>, spacing: double) : base(native) {
+        self.children = children
+        self.spacing = spacing
+    }
+
+    val Children: IEnumerable<UiControl> => children
+    val Spacing: double => spacing
+}
+
+class UiLabel : UiControl {
+    private val content: string
+
+    init(native: object, content: string) : base(native) {
+        self.content = content
+    }
+
+    val Content: string => content
+}
+
+class UiClickHandler {
+    private val onClick: () -> ()
+
+    init(onClick: () -> ()) {
+        self.onClick = onClick
+    }
+
+    func Handle(sender: object?, args: object?) -> () {
+        onClick()
+    }
+}
+
+class UiButton : UiControl {
+    private val content: string
+    private val clickHandler: UiClickHandler
+
+    init(native: object, content: string, clickHandler: UiClickHandler) : base(native) {
+        self.content = content
+        self.clickHandler = clickHandler
+    }
+
+    val Content: string => content
+
+    func Click() -> () {
+        clickHandler.Handle(null, null)
+    }
+}
+
+class UiNode {
+    private val controls: List<UiControl> = []
+
+    init() {
+    }
+
+    init(control: UiControl) {
+        Add(control)
+    }
+
+    val Controls: IEnumerable<UiControl> => controls
+
+    func Add(control: UiControl) -> () {
+        controls.Add(control)
+    }
+
+    func AddRange(node: UiNode) -> () {
+        for control in node.Controls {
+            Add(control)
+        }
+    }
+
+    func FirstControl() -> UiControl {
+        return controls[0]
+    }
 }
 
 class UiBuilder {
@@ -17,13 +109,13 @@ class UiBuilder {
     }
 
     static func BuildBlock(items: UiNode[]) -> UiNode {
-        var markup = ""
+        val result = UiNode()
 
         for item in items {
-            markup = markup + item.Markup
+            result.AddRange(item)
         }
 
-        return UiNode(markup)
+        return result
     }
 
     static func BuildOptional(value: UiNode) -> UiNode {
@@ -33,24 +125,122 @@ class UiBuilder {
     static func BuildArray(items: UiNode[]) -> UiNode {
         return BuildBlock(items)
     }
+
+    static func BuildFinalResult(content: UiNode, receiver: WindowBuilder) -> UiNode {
+        return receiver.Build(content)
+    }
+
+    static func BuildFinalResult(content: UiNode, receiver: StackPanelBuilder) -> UiNode {
+        return receiver.Build(content)
+    }
 }
 
-func Window(title: string, [Builder<UiBuilder>] content: () -> UiNode) -> UiNode {
-    return UiNode("<Window Title=\"" + title + "\">" + content().Markup + "</Window>")
+class WindowBuilder {
+    var Title: string = ""
+
+    func Build(content: UiNode) -> UiNode {
+        AvaloniaHost.InitializeHeadless()
+
+        val window = AvaloniaHost.Create("Avalonia.Controls.Window, Avalonia.Controls")
+        AvaloniaHost.Set(window, "Title", Title)
+
+        val root = StackPanelBuilder().BuildStackPanel(content)
+        AvaloniaHost.Set(window, "Content", root.Native)
+
+        return UiNode(UiWindow(window, root, Title))
+    }
 }
 
-func VStack([Builder<UiBuilder>] content: () -> UiNode) -> UiNode {
-    return UiNode("<VStack>" + content().Markup + "</VStack>")
+class StackPanelBuilder {
+    var Spacing: double = 0.0
+
+    func Build(content: UiNode) -> UiNode {
+        return UiNode(BuildStackPanel(content))
+    }
+
+    func BuildStackPanel(content: UiNode) -> UiStackPanel {
+        val panel = AvaloniaHost.Create("Avalonia.Controls.StackPanel, Avalonia.Controls")
+        AvaloniaHost.Set(panel, "Spacing", Spacing)
+
+        val children = List<UiControl>()
+        for control in content.Controls {
+            children.Add(control)
+            AvaloniaHost.AddChild(panel, control.Native)
+        }
+
+        return UiStackPanel(panel, children, Spacing)
+    }
 }
 
-func HStack([Builder<UiBuilder>] content: () -> UiNode) -> UiNode {
-    return UiNode("<HStack>" + content().Markup + "</HStack>")
+class AvaloniaHost {
+    static func InitializeHeadless() -> () {
+        val appBuilderType = Type.GetType("Avalonia.AppBuilder, Avalonia.Controls") ?? throw Exception("Avalonia AppBuilder could not be loaded.")
+        val applicationType = Type.GetType("Avalonia.Application, Avalonia.Controls") ?? throw Exception("Avalonia Application could not be loaded.")
+        val headlessExtensionsType = Type.GetType("Avalonia.Headless.AvaloniaHeadlessPlatformExtensions, Avalonia.Headless") ?? throw Exception("Avalonia Headless extensions could not be loaded.")
+        val headlessOptionsType = Type.GetType("Avalonia.Headless.AvaloniaHeadlessPlatformOptions, Avalonia.Headless") ?? throw Exception("Avalonia Headless options could not be loaded.")
+
+        val configure = appBuilderType.GetMethod("Configure", 1, Type.EmptyTypes) ?? throw Exception("Avalonia AppBuilder.Configure<TApp>() could not be found.")
+        val builder = configure.MakeGenericMethod([ applicationType ]).Invoke(null, []) ?? throw Exception("Avalonia AppBuilder could not be created.")
+        val options = Activator.CreateInstance(headlessOptionsType) ?? throw Exception("Avalonia Headless options could not be created.")
+        val useHeadless = headlessExtensionsType.GetMethod("UseHeadless") ?? throw Exception("Avalonia UseHeadless extension could not be found.")
+        useHeadless.Invoke(null, [ builder, options ])
+
+        val setup = appBuilderType.GetMethod("SetupWithoutStarting") ?? throw Exception("Avalonia SetupWithoutStarting could not be found.")
+        setup.Invoke(builder, [])
+    }
+
+    static func Create(typeName: string) -> object {
+        val type = Type.GetType(typeName) ?? throw Exception("Avalonia type '" + typeName + "' could not be loaded.")
+        return Activator.CreateInstance(type) ?? throw Exception("Avalonia type '" + typeName + "' could not be created.")
+    }
+
+    static func Get(instance: object, propertyName: string) -> object {
+        val property = FindProperty(instance, propertyName)
+        return property.GetValue(instance) ?? ""
+    }
+
+    static func Set(instance: object, propertyName: string, value: object) -> () {
+        val property = FindProperty(instance, propertyName)
+        property.SetValue(instance, value)
+    }
+
+    static func AddChild(parent: object, child: object) -> () {
+        val children = Get(parent, "Children")
+        val method = children.GetType().GetMethod("Add") ?? throw Exception("Avalonia Children collection has no Add method.")
+        method.Invoke(children, [ child ])
+    }
+
+    static func AddClickHandler(button: object, clickHandler: UiClickHandler) -> () {
+        val clickEvent = button.GetType().GetEvent("Click") ?? throw Exception("Avalonia Button has no Click event.")
+        val handlerType = clickEvent.EventHandlerType ?? throw Exception("Avalonia Button Click event has no handler type.")
+        val method = clickHandler.GetType().GetMethod("Handle") ?? throw Exception("Click handler has no Handle method.")
+        val handler = Delegate.CreateDelegate(handlerType, clickHandler, method)
+        clickEvent.AddEventHandler(button, handler)
+    }
+
+    static func FindProperty(instance: object, propertyName: string) -> PropertyInfo {
+        return instance.GetType().GetProperty(propertyName) ?? throw Exception("Avalonia type has no property '" + propertyName + "'.")
+    }
 }
 
-func Text(value: string) -> UiNode {
-    return UiNode("<Text>" + value + "</Text>")
+func Window([Builder<UiBuilder>, Receiver<WindowBuilder>] content: () -> UiNode) -> UiWindow {
+    return (UiWindow)content().FirstControl()
 }
 
-func Button(title: string, handler: () -> string) -> UiNode {
-    return UiNode("<Button Title=\"" + title + "\" Action=\"" + handler() + "\" />")
+func StackPanel([Builder<UiBuilder>, Receiver<StackPanelBuilder>] content: () -> UiNode) -> UiNode {
+    return content()
+}
+
+func Label(text: string) -> UiNode {
+    val label = AvaloniaHost.Create("Avalonia.Controls.Label, Avalonia.Controls")
+    AvaloniaHost.Set(label, "Content", text)
+    return UiNode(UiLabel(label, text))
+}
+
+func Button(text: string, onClick: () -> ()) -> UiNode {
+    val button = AvaloniaHost.Create("Avalonia.Controls.Button, Avalonia.Controls")
+    AvaloniaHost.Set(button, "Content", text)
+    val clickHandler = UiClickHandler(onClick)
+    AvaloniaHost.AddClickHandler(button, clickHandler)
+    return UiNode(UiButton(button, text, clickHandler))
 }

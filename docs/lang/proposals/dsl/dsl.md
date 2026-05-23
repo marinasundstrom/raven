@@ -1,4 +1,4 @@
-## Proposal: Builder Blocks (DSLs)
+## Proposal: Result-Builder Blocks (DSLs)
 
 > Status: **Implemented and closed**.
 >
@@ -7,15 +7,15 @@
 > Further DSL work should be tracked in
 > [`extensions.md`](extensions.md).
 
-Raven supports Swift-like **trailing blocks** as invocation syntax. A trailing block supplies a final zero-argument closure argument to a function, method, delegate invocation, or constructor. Builder blocks build on that call form to enable declarative DSLs that combine expressions, control flow, and local bindings into a single structured value.
+Raven supports Swift-like **trailing blocks** as invocation syntax. A trailing block supplies a final zero-argument closure argument to a function, method, delegate invocation, or constructor. Result-builder blocks build on that call form to enable declarative DSLs that combine expressions, control flow, and local bindings into a single structured value.
 
-Builder blocks are inspired by Swift’s *result builders* and are designed to be **type-directed, extensible, and user-definable**.
+Result-builder blocks are inspired by Swift’s *result builders* and are designed to be **type-directed, extensible, and user-definable**.
 
 ---
 
 ## Motivation
 
-Builder blocks allow users to write structured, declarative code using normal constructs (`if`, `for`, local variables) while deferring interpretation to a *builder* and a runtime adapter.
+Result-builder blocks allow users to write structured, declarative code using normal constructs (`if`, `for`, local variables) while deferring structural interpretation to a *result builder* and, when needed, component configuration to a receiver builder.
 
 Typical use cases include:
 
@@ -30,15 +30,15 @@ Typical use cases include:
 
 ## Overview
 
-A builder block is a trailing closure block that is **bound and lowered according to a builder type**, rather than as a normal closure body, object initializer, or collection initializer.
+A result-builder block is a trailing closure block that is **bound and lowered according to a result builder type**, rather than as a normal closure body, object initializer, or collection initializer.
 
-The builder type defines how expressions and control-flow constructs inside the block are combined into a final value.
+The result builder type defines how expressions and control-flow constructs inside the block are combined into a final value. A combined `[Builder<TBuilder>, Receiver<TReceiver>]` parameter also has a receiver builder: an implicit receiver object whose members are in scope and which can produce the current component's sub-result from the built child content.
 
 ---
 
-## Declaring a builder
+## Declaring a result builder
 
-A builder is declared by defining a type that exposes the appropriate static builder methods. The type itself does not require special syntax beyond being referenced by a `[Builder<T>]` attribute.
+A result builder is declared by defining a type that exposes the appropriate static builder methods. The type itself does not require special syntax beyond being referenced by a `[Builder<T>]` attribute.
 
 ```raven
 class ViewBuilder {
@@ -51,13 +51,13 @@ class ViewBuilder {
 }
 ```
 
-Builder methods are discovered by name and signature during binding. Missing methods indicate unsupported language constructs.
+Result-builder methods are discovered by name and signature during binding. Missing methods indicate unsupported language constructs.
 
 ---
 
-## Using a builder
+## Using a result builder
 
-A builder is activated by annotating a function parameter or property with `[Builder<T>]`:
+A result builder is activated by annotating a function parameter or property with `[Builder<T>]`:
 
 ```raven
 func View([Builder<ViewBuilder>] content: () -> ViewNode) -> View {
@@ -65,26 +65,26 @@ func View([Builder<ViewBuilder>] content: () -> ViewNode) -> View {
 }
 ```
 
-When a trailing `{ ... }` block is selected as the argument for a parameter annotated with `[Builder<T>]`, the block is treated as a **builder block** and bound using the specified builder. Without that annotation, the same syntax is an ordinary zero-argument trailing closure.
+When a trailing `{ ... }` block is selected as the argument for a parameter annotated with `[Builder<T>]`, the block is treated as a **result-builder block** and bound using the specified result builder. Without that annotation, the same syntax is an ordinary zero-argument trailing closure.
 
-Current implementation supports expression components, `return` components, local declarations, assignments, `if`/`else` when the builder supplies `BuildOptional` or `BuildEither`, and `for` loops when the builder supplies `BuildArray`.
+Current implementation supports expression components, `return` components, local declarations, assignments, `if`/`else` when the result builder supplies `BuildOptional` or `BuildEither`, and `for` loops when the result builder supplies `BuildArray`.
 
 The canonical `BuilderAttribute<T>` and shared DSL support types should live in `Raven.Core` once the feature graduates from prototype status. Samples may define a local `BuilderAttribute<T>` while bootstrapping the compiler feature, but framework adapters should ultimately depend on the Raven.Core definitions rather than redeclaring the attribute.
 
 ---
 
-## Builder block semantics
+## Result-builder block semantics
 
-A builder block:
+A result-builder block:
 
 * Introduces a normal lexical scope
 * Allows local variable declarations
 * Allows control-flow statements (`if`, `for`)
-* Collects *component expressions* that are rewritten using the builder
+* Collects *component expressions* that are rewritten using the result builder
 
-Only expressions that participate in the builder are rewritten; other statements remain normal statements.
+Only expressions that participate in the result builder are rewritten; other statements remain normal statements.
 
-Builder blocks are never inferred implicitly; they are only used when a builder is explicitly specified.
+Result-builder blocks are never inferred implicitly; they are only used when a result builder is explicitly specified.
 
 ---
 

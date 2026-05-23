@@ -10,7 +10,7 @@ class FunctionExpressionBinder : BlockBinder
     private readonly Dictionary<string, IParameterSymbol> _parameters = new();
     private readonly Dictionary<string, IMethodSymbol> _functions = new();
     private readonly List<ILocalSymbol> _declaredLocals = [];
-    private IParameterSymbol? _implicitReceiverParameter;
+    private ImplicitReceiverSymbol? _implicitReceiver;
 
     public FunctionExpressionBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
 
@@ -21,12 +21,19 @@ class FunctionExpressionBinder : BlockBinder
 
     public IEnumerable<IParameterSymbol> GetParameters() => _parameters.Values;
 
-    public void DeclareImplicitReceiverParameter(IParameterSymbol parameter)
+    public void DeclareImplicitReceiverParameter(IParameterSymbol parameter, ITypeSymbol? lookupType = null)
     {
-        _implicitReceiverParameter = parameter;
+        _implicitReceiver = new ImplicitReceiverSymbol(parameter, lookupType ?? parameter.Type);
     }
 
-    public IParameterSymbol? GetImplicitReceiverParameter() => _implicitReceiverParameter;
+    public void DeclareImplicitReceiverLocal(ILocalSymbol local, ITypeSymbol lookupType)
+    {
+        _implicitReceiver = new ImplicitReceiverSymbol(local, lookupType);
+    }
+
+    public ImplicitReceiverSymbol? GetImplicitReceiver() => _implicitReceiver;
+
+    public IParameterSymbol? GetImplicitReceiverParameter() => _implicitReceiver?.Symbol as IParameterSymbol;
 
     public void DeclareFunction(string name, IMethodSymbol method)
     {
@@ -109,8 +116,8 @@ class FunctionExpressionBinder : BlockBinder
         if (_parameters.Values.Contains(symbol))
             return true;
 
-        if (_implicitReceiverParameter is not null &&
-            SymbolEqualityComparer.Default.Equals(_implicitReceiverParameter, symbol))
+        if (_implicitReceiver is { } implicitReceiver &&
+            SymbolEqualityComparer.Default.Equals(implicitReceiver.Symbol, symbol))
         {
             return true;
         }
