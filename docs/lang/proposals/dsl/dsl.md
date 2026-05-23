@@ -93,20 +93,42 @@ Result-builder blocks are never inferred implicitly; they are only used when a r
 Builder blocks commonly use “node constructor calls” to declare components:
 
 ```raven
-StackLayout(Orientation: .Horizontal) { ... }
-Label(Text: "Hello")
+StackPanel(orientation: .Horizontal, spacing: 8.0) { ... }
+Label("Hello")
 ```
 
-### Named arguments only
+### Arguments and defaults
 
-To keep binding deterministic and framework-compatible, **positional arguments are not permitted** for node construction inside builder blocks.
+Node APIs are ordinary Raven functions, methods, or constructors. Libraries
+should expose framework configuration through normal parameters, usually with
+default values so callers can omit the parameters they do not care about:
 
 ```raven
-StackLayout(.Horizontal)           // ❌ not allowed
-StackLayout(Orientation: .Horizontal)  // ✅
+func StackPanel(
+    orientation: Orientation = .Vertical,
+    spacing: double = 0.0,
+    [Builder<UiBuilder>] content: (() -> UiNode)? = null
+) -> UiNode {
+    ...
+}
+
+StackPanel {
+    Label("Default")
+}
+
+StackPanel(spacing: 8.0) {
+    Label("Spaced")
+}
+
+StackPanel(orientation: .Horizontal, spacing: 8.0) {
+    Label("Horizontal")
+}
 ```
 
-This restriction allows the DSL engine to treat named arguments as property/event assignments without ambiguity.
+The trailing block supplies the final function-typed parameter. If the final
+parameter has a nullable function type and a default value of `null`, omitting
+the block means no content was supplied; writing `{ }` means an empty content
+closure was supplied and is still lowered normally.
 
 ### Trailing builder blocks
 
@@ -115,7 +137,7 @@ If an expression inside a builder block is immediately followed by `{ ... }`, th
 The same syntax can also supply an ordinary handler/action closure when the selected callable's final parameter is not annotated with `[Builder<T>]`:
 
 ```raven
-Button(text: "OK") {
+Button("OK") {
     Submit()
 }
 ```
@@ -132,7 +154,7 @@ The compiler does not need built-in knowledge of WPF, Xamarin.Forms, MAUI, Avalo
 
 * Resolving “node kinds” to framework types (if needed)
 * Creating framework objects (factories / `Activator`)
-* Applying named arguments as property updates or event subscriptions
+* Designing wrapper APIs whose parameters map to framework properties and events
 * Attaching children via framework-specific child-slot rules
 * Reconciling updates incrementally across renders
 
@@ -145,12 +167,14 @@ Raven code may refer directly to framework types:
 ```raven
 import Microsoft.Maui.Controls.*
 
-StackLayout(Orientation: .Horizontal) {
-    Label(Text: "Hello")
+StackPanel(orientation: .Horizontal) {
+    Label("Hello")
 }
 ```
 
-This avoids wrapper libraries for every framework type, while still allowing adapters to override or alias behavior when necessary.
+This avoids compiler knowledge of every framework type, while still allowing
+libraries to expose wrapper functions whose parameters map cleanly to framework
+properties and events.
 
 ---
 
@@ -159,8 +183,8 @@ This avoids wrapper libraries for every framework type, while still allowing ada
 For each framework type used in the DSL, the adapter builds and caches a descriptor:
 
 * **Factory**: how to create an instance (`Activator` by default, overridable)
-* **Setters**: mapping of property names → cached setter delegates
-* **Events**: mapping of event names → subscription/unsubscription logic
+* **Parameters**: mapping of wrapper parameters → framework property/event setters
+* **Events**: mapping of action parameters → subscription/unsubscription logic
 * **Child slot**: how children are attached:
 
   * None
@@ -177,9 +201,9 @@ A practical adapter can be implemented in layers:
 
 1. **Discovery**: build descriptors for framework types from reflection and optional hand-written overrides.
 2. **Construction**: choose the constructor/factory from named arguments, then create the object.
-3. **Configuration**: apply remaining named arguments as properties, attached properties, bindable properties, routed events, or normal events.
+3. **Configuration**: apply wrapper parameter values as properties, attached properties, bindable properties, routed events, or normal events.
 4. **Children**: flatten builder fragments and attach children through the descriptor's child slot.
-5. **Identity**: consume reserved metadata such as `Key:` before property application.
+5. **Identity**: consume reserved metadata such as `key:` before property application.
 6. **Reconciliation**: compare the new node description with the existing object graph and update in place when possible.
 
 Framework-specific overrides are expected. For example, WPF needs attached properties such as `Grid.Row`, Xamarin.Forms/MAUI need `BindableProperty` and binding-context support, and Avalonia has styled/direct properties plus routed events. Those differences should live in adapter descriptors, not in compiler semantics.
@@ -198,14 +222,14 @@ Recommended matching order:
 
 ### Reserved DSL metadata
 
-Certain named arguments are reserved for DSL metadata and are **not applied as framework properties**:
+Certain parameters may be reserved for DSL metadata and are **not applied as framework properties**:
 
-* `Key:` stable identity for reconciliation
+* `key:` stable identity for reconciliation
 
 Example:
 
 ```raven
-Label(Text: item.Name, Key: item.Id)
+Label(item.Name, key: item.Id)
 ```
 
 ---
@@ -227,22 +251,22 @@ During binding, the compiler:
 Inside a builder block, a node construction expression:
 
 ```raven
-StackLayout(Orientation: .Horizontal, Spacing: 8)
+StackPanel(orientation: .Horizontal, spacing: 8.0)
 ```
 
 is lowered into a **node specification** form:
 
-* kind: `Microsoft.Maui.Controls.StackLayout`
-* property assignments: `Orientation = Horizontal`, `Spacing = 8`
-* metadata: optional `Key`
+* kind: stack-panel wrapper over the framework layout control
+* property assignments from parameters: `Orientation = Horizontal`, `Spacing = 8`
+* metadata: optional `key`
 * children: empty unless a trailing block is present
 
 Trailing blocks attach children/content:
 
 ```raven
-StackLayout(Orientation: .Horizontal) {
-    Label(Text: "A")
-    Label(Text: "B")
+StackPanel(orientation: .Horizontal) {
+    Label("A")
+    Label("B")
 }
 ```
 
@@ -279,9 +303,9 @@ func AppRoot([Builder<MauiBuilder>] content: () -> ViewNode) -> View {
 
 val view =
 AppRoot {
-    StackLayout(Orientation: .Vertical, Spacing: 12) {
-        Label(Text: "Hello from Raven")
-        Button(Text: "Click me")
+    StackPanel(orientation: .Vertical, spacing: 12.0) {
+        Label("Hello from Raven")
+        Button("Click me")
     }
 }
 ```
@@ -289,7 +313,7 @@ AppRoot {
 Notes:
 
 * Uses MAUI types directly (no wrapper types required).
-* Named args become properties.
+* Wrapper parameters map to framework properties.
 * Trailing block becomes children.
 
 ---
@@ -300,13 +324,13 @@ Notes:
 import Microsoft.Maui.Controls.*
 
 AppRoot {
-    StackLayout(Orientation: .Vertical) {
-        Label(Text: "Title")
+    StackPanel {
+        Label("Title")
 
         if isLoggedIn {
-            Label(Text: "Welcome")
+            Label("Welcome")
         } else {
-            Button(Text: "Sign in")
+            Button("Sign in")
         }
     }
 }
@@ -322,9 +346,9 @@ Requires builder support for `BuildEither`.
 import Microsoft.Maui.Controls.*
 
 AppRoot {
-    StackLayout(Orientation: .Vertical) {
+    StackPanel {
         for item in items {
-            Label(Text: item.Name, Key: item.Id)
+            Label(item.Name, key: item.Id)
         }
     }
 }
@@ -332,7 +356,7 @@ AppRoot {
 
 Notes:
 
-* `Key:` is DSL metadata; used for reconciliation.
+* `key:` is DSL metadata; used for reconciliation.
 * Requires builder support for `BuildArray`.
 
 ---
@@ -343,12 +367,9 @@ Notes:
 import Microsoft.Maui.Controls.*
 
 AppRoot {
-    Button(
-        Text: "Save",
-        Clicked: () => Save()
-    )
+    Button("Save", onClick: () => Save())
 
-    Button(Text: "Cancel") {
+    Button("Cancel") {
         Cancel()
     }
 }
@@ -356,7 +377,7 @@ AppRoot {
 
 Adapter responsibilities:
 
-* Detect `Clicked` is an event on `Button`
+* Map `onClick` to the framework button event
 * Subscribe/unsubscribe incrementally on updates
 * Store subscription state in node instance state bag
 * Map an adapter-recognized final action closure to the framework's primary event when the framework surface exposes that convention
@@ -370,8 +391,8 @@ import Microsoft.Maui.Controls.*
 
 AppRoot {
     ScrollView {
-        StackLayout(Orientation: .Vertical) {
-            Label(Text: "Scrollable content")
+        StackPanel {
+            Label("Scrollable content")
         }
     }
 }
@@ -380,7 +401,7 @@ AppRoot {
 Adapter child-slot rules (conceptual):
 
 * `ScrollView` uses single child slot: `Content`
-* `StackLayout` uses collection slot: `Children`
+* `StackPanel` uses collection slot: `Children`
 
 ---
 
@@ -389,19 +410,19 @@ Adapter child-slot rules (conceptual):
 Render 1:
 
 ```raven
-StackLayout {
-    Label(Text: "A", Key: 1)
-    Label(Text: "B", Key: 2)
+StackPanel {
+    Label("A", key: 1)
+    Label("B", key: 2)
 }
 ```
 
 Render 2:
 
 ```raven
-StackLayout {
-    Label(Text: "B", Key: 2)
-    Label(Text: "C", Key: 3)
-    Label(Text: "A", Key: 1)
+StackPanel {
+    Label("B", key: 2)
+    Label("C", key: 3)
+    Label("A", key: 1)
 }
 ```
 
@@ -432,7 +453,9 @@ The compiler/runtime produces targeted diagnostics when:
 This proposal is closed with the core feature implemented:
 
 * `expr { ... }` is trailing closure invocation syntax.
-* `expr(args) { ... }` appends one final zero-argument closure argument.
+* `expr(args) { ... }` supplies one final zero-argument closure argument, while
+  earlier optional parameters may be omitted through normal default-argument
+  rules.
 * `[Builder<T>]` activates builder-block binding for the selected closure parameter.
 * Object initialization remains `Type with { ... }`.
 

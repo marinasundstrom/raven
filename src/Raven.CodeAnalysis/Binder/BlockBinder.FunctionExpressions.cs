@@ -2034,7 +2034,6 @@ partial class BlockBinder
 
     private ImmutableArray<IMethodSymbol> FilterMethodsForTrailingBlock(
         ImmutableArray<IMethodSymbol> methods,
-        int parameterIndex,
         TrailingBlockExpressionSyntax trailingBlock,
         bool extensionReceiverImplicit,
         int callSiteArgumentCount = -1)
@@ -2068,8 +2067,12 @@ partial class BlockBinder
                     continue;
             }
 
-            if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
+            var firstVisibleParameter = method.IsExtensionMethod && extensionReceiverImplicit ? 1 : 0;
+            var trailingParameterIndex = method.Parameters.Length - 1;
+            if (trailingParameterIndex < firstVisibleParameter)
                 continue;
+
+            var parameter = method.Parameters[trailingParameterIndex];
 
             var parameterType = parameter.Type is NullableTypeSymbol nullableParameterType
                 ? nullableParameterType.UnderlyingType

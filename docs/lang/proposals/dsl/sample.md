@@ -1,11 +1,12 @@
 ## Sample
 
-Here’s a concrete “small MAUI-ish app” example that uses the **framework-structure DSL** (named args only, trailing blocks for children, `Key:` metadata), plus a couple of re-renders worth of state.
+Here’s a concrete “small UI app” example that uses normal Raven calls with
+defaulted parameters, trailing blocks for children, and `key:` metadata, plus a
+couple of re-renders worth of state.
 
 ```raven
 import System.*
 import System.Collections.Generic.*
-import Microsoft.Maui.Controls.*
 
 record Todo(Id: int, Title: string, Done: bool)
 
@@ -49,36 +50,30 @@ class TodoApp {
 
     func Build() -> View {
         return Render {
-            // Root window/page container (exact type can be whatever your adapter treats as root)
-            ContentPage(Title: "Todos") {
+            Window(title: "Todos") {
 
-                VerticalStackLayout(Spacing: 12, Padding: Thickness(16)) {
+                StackPanel(spacing: 12.0) {
 
                     // Header row
-                    HorizontalStackLayout(Spacing: 10) {
-                        Label(Text: "Raven Todos", FontSize: 24)
-                        Spacer() // if you have an adapter alias; otherwise remove
-                        Button(
-                            Text: _showDone ? "Hide done" : "Show done",
-                            Clicked: () => ToggleShowDone()
-                        )
+                    StackPanel(orientation: .Horizontal, spacing: 10.0) {
+                        Label("Raven Todos")
+                        Button(_showDone ? "Hide done" : "Show done") {
+                            ToggleShowDone()
+                        }
                     }
 
                     // Input row
-                    HorizontalStackLayout(Spacing: 8) {
-                        Entry(Placeholder: "New todo...", Key: "newTodoEntry")
-                        Button(
-                            Text: "Add",
-                            Clicked: () => {
-                                // In a real app you’d read Entry.Text via a Ref/Binding;
-                                // leaving as a placeholder for now.
-                                AddTodo("New item")
-                            }
-                        )
+                    StackPanel(orientation: .Horizontal, spacing: 8.0) {
+                        TextBox(placeholder: "New todo...", key: "newTodoEntry")
+                        Button("Add") {
+                            // In a real app you’d read TextBox.Text via a Ref/Binding;
+                            // leaving as a placeholder for now.
+                            AddTodo("New item")
+                        }
                     }
 
                     // List
-                    VerticalStackLayout(Spacing: 6) {
+                    StackPanel(spacing: 6.0) {
                         for todo in _todos {
                             if _showDone || !todo.Done {
                                 TodoRow(todo: todo)
@@ -87,10 +82,7 @@ class TodoApp {
                     }
 
                     // Footer
-                    Label(
-                        Text: $"Total: {_todos.Count}",
-                        Opacity: 0.6
-                    )
+                    Label($"Total: {_todos.Count}")
                 }
             }
         }
@@ -98,16 +90,11 @@ class TodoApp {
 
     // “Component function” returning a node (still pure description)
     func TodoRow(todo: Todo) -> ViewNode {
-        return HorizontalStackLayout(
-            Spacing: 10,
-            Key: todo.Id,                 // <-- key for stable reconciliation
-            Opacity: todo.Done ? 0.5 : 1.0
-        ) {
-            CheckBox(
-                IsChecked: todo.Done,
-                CheckedChanged: () => ToggleTodo(todo.Id)
-            )
-            Label(Text: todo.Title, LineBreakMode: LineBreakMode.TailTruncation)
+        return StackPanel(orientation: .Horizontal, spacing: 10.0, key: todo.Id) {
+            CheckBox(isChecked: todo.Done) {
+                ToggleTodo(todo.Id)
+            }
+            Label(todo.Title)
         }
     }
 }
@@ -115,8 +102,8 @@ class TodoApp {
 
 A few notes baked into the example (matching your constraints):
 
-* **Named args only** everywhere (`Text:`, `Spacing:`, `Clicked:` etc.).
-* Uses **framework types directly** (`ContentPage`, `VerticalStackLayout`, `Label`, `Button`, `Entry`, `CheckBox`).
+* Uses normal Raven arguments and defaults (`StackPanel(spacing: 12.0)`).
+* Uses wrapper functions over framework controls (`Window`, `StackPanel`, `Label`, `Button`, `TextBox`, `CheckBox`).
 * Uses **trailing blocks** to express child hierarchies.
-* Uses **`Key:` metadata** for stable node identity (`todo.Id`, `"newTodoEntry"`).
+* Uses **`key:` metadata** for stable node identity (`todo.Id`, `"newTodoEntry"`).
 * `TodoRow` is just a normal Raven function returning a `ViewNode` description, which fits builder rewriting via `BuildExpression` (or by already being `ViewNode`).

@@ -91,7 +91,16 @@ internal static class ConstantValueEvaluator
         }
 
         if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
-            return TryConvert(enumType.EnumUnderlyingType, value, out converted);
+        {
+            var underlyingType = enumType.EnumUnderlyingType;
+            if (underlyingType is null || underlyingType.TypeKind == TypeKind.Error)
+            {
+                converted = value;
+                return IsIntegralConstant(value);
+            }
+
+            return TryConvert(underlyingType, value, out converted);
+        }
 
         switch (targetType.SpecialType)
         {
@@ -386,6 +395,16 @@ internal static class ConstantValueEvaluator
         result = default;
         return false;
     }
+
+    private static bool IsIntegralConstant(object value)
+        => value is sbyte
+            or byte
+            or short
+            or ushort
+            or int
+            or uint
+            or long
+            or ulong;
 
     private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
     {

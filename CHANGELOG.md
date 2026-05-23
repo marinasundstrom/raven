@@ -19,6 +19,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added `_` discard parameters for function expressions and parameterized
   trailing blocks. They consume the delegate parameter slot without introducing
   a body-visible name or unused-parameter warning.
+- Trailing blocks now bind to the final visible function-typed parameter even
+  when earlier optional parameters are omitted with default values, enabling DSL
+  APIs such as `StackPanel(spacing: 8.0) { ... }` with
+  `content: (() -> UiNode)? = null`.
 - Added opt-in diagnostic `RAV9029` for bare member invocations and member accesses whose
   returned value is ignored. Assign the returned value to a target, assign it to `_`, return
   it, or pass it on. The analyzer is disabled by default while it uses whole-analyzer mode.
@@ -62,6 +66,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Diagnostic binding now follows macro replacement declarations, preventing
   attached property macros from reporting the original property as a duplicate
   member after the replacement property has already been registered.
+- Target-typed enum member defaults on external enum parameters and `double`
+  default parameter constants now bind and emit without compiler crashes.
 - Emitting direct signatures over NuGet `ref/` assembly types now prefers the
   corresponding `lib/` runtime assembly and guards type probing failures,
   preventing external packages such as Avalonia from crashing emit during

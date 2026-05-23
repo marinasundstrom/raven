@@ -5,6 +5,7 @@ import Avalonia.*
 import Avalonia.Controls.*
 import Avalonia.Controls.ApplicationLifetimes.*
 import Avalonia.Interactivity.*
+import Avalonia.Layout.*
 
 class BuilderAttribute<T> : Attribute {
 }
@@ -41,18 +42,22 @@ class UiWindow {
 
 class UiStackPanel : UiControl {
     private val children: List<UiControl>
+    private val orientation: Orientation
     private val spacing: double
 
-    init(children: List<UiControl>, spacing: double) {
+    init(children: List<UiControl>, orientation: Orientation, spacing: double) {
         self.children = children
+        self.orientation = orientation
         self.spacing = spacing
     }
 
     val Children: IEnumerable<UiControl> => children
+    val Orientation: Orientation => orientation
     val Spacing: double => spacing
 
     override func CreateNativeControl() -> Control {
         val panel = Avalonia.Controls.StackPanel()
+        panel.Orientation = Orientation
         panel.Spacing = Spacing
 
         for child in children {
@@ -64,26 +69,15 @@ class UiStackPanel : UiControl {
 }
 
 class UiLabel : UiControl {
-    private var native: Label? = null
-
     init(content: string) {
         Content = content
     }
 
     var Content: string = ""
 
-    func SetContent(content: string) -> () {
-        Content = content
-
-        if native is Label label {
-            label.Content = content
-        }
-    }
-
     override func CreateNativeControl() -> Control {
         val label = Avalonia.Controls.Label()
         label.Content = Content
-        native = label
         return label
     }
 }
@@ -115,9 +109,9 @@ class UiBoundLabel : UiControl {
 
 class UiButton : UiControl {
     private val content: string
-    private val onClick: () -> ()
+    private val onClick: (() -> ())?
 
-    init(content: string, onClick: () -> ()) {
+    init(content: string, onClick: (() -> ())?) {
         self.content = content
         self.onClick = onClick
     }
@@ -125,7 +119,7 @@ class UiButton : UiControl {
     val Content: string => content
 
     func Click() -> () {
-        onClick()
+        onClick?()
     }
 
     override func CreateNativeControl() -> Control {
@@ -136,7 +130,7 @@ class UiButton : UiControl {
                 clickedButton.Content = "Clicked"
             }
 
-            onClick()
+            onClick?()
         }
         return button
     }
@@ -164,9 +158,6 @@ class UiNode {
         }
     }
 
-    func FirstControl() -> UiControl {
-        return controls[0]
-    }
 }
 
 class UiBuilder {
@@ -196,35 +187,10 @@ class UiBuilder {
         return BuildBlock(items)
     }
 
-    static func BuildFinalResult(content: UiNode, receiver: WindowBuilder) -> UiNode {
-        return receiver.Build(content)
-    }
-
-    static func BuildFinalResult(content: UiNode, receiver: StackPanelBuilder) -> UiNode {
-        return receiver.Build(content)
-    }
-}
-
-class WindowBuilder {
-    var Title: string = ""
-
-    func Build(content: UiNode) -> UiNode {
-        val root = StackPanelBuilder().BuildStackPanel(content)
-        return UiNode(WindowControl(UiWindow(root, Title)))
-    }
-}
-
-class WindowControl : UiControl {
-    private val window: UiWindow
-
-    init(window: UiWindow) {
-        self.window = window
-    }
-
-    val Value: UiWindow => window
 }
 
 class StackPanelBuilder {
+    var Orientation: Orientation = .Vertical
     var Spacing: double = 0.0
 
     func Build(content: UiNode) -> UiNode {
@@ -237,12 +203,12 @@ class StackPanelBuilder {
             children.Add(control)
         }
 
-        return UiStackPanel(children, Spacing)
+        return UiStackPanel(children, Orientation, Spacing)
     }
 }
 
 class AvaloniaHost {
-    private static var pendingWindow: UiWindow = UiWindow(UiStackPanel(List<UiControl>(), 0.0), "")
+    private static var pendingWindow: UiWindow = UiWindow(UiStackPanel(List<UiControl>(), .Vertical, 0.0), "")
 
     static func Run(window: UiWindow) -> int {
         pendingWindow = window
@@ -267,12 +233,28 @@ class RavenAvaloniaApp : Application {
     }
 }
 
-func Window([Builder<UiBuilder>, Receiver<WindowBuilder>] content: () -> UiNode) -> UiWindow {
-    return ((WindowControl)content().FirstControl()).Value
+func Window(title: string = "Untitled", [Builder<UiBuilder>] content: (() -> UiNode)? = null) -> UiWindow {
+    var body = UiNode()
+
+    if content is not null {
+        body = content()
+    }
+
+    val root = StackPanelBuilder().BuildStackPanel(body)
+    return UiWindow(root, title)
 }
 
-func StackPanel([Builder<UiBuilder>, Receiver<StackPanelBuilder>] content: () -> UiNode) -> UiNode {
-    return content()
+func StackPanel(orientation: Orientation = .Vertical, spacing: double = 0.0, [Builder<UiBuilder>] content: (() -> UiNode)? = null) -> UiNode {
+    var body = UiNode()
+
+    if content is not null {
+        body = content()
+    }
+
+    val builder = StackPanelBuilder()
+    builder.Orientation = orientation
+    builder.Spacing = spacing
+    return builder.Build(body)
 }
 
 func Label(text: string) -> UiNode {
@@ -283,7 +265,7 @@ func Label(source: INotifyPropertyChanged, propertyName: string, getContent: () 
     return UiNode(UiBoundLabel(source, propertyName, getContent))
 }
 
-func Button(text: string, onClick: () -> ()) -> UiNode {
+func Button(text: string, onClick: (() -> ())? = null) -> UiNode {
     return UiNode(UiButton(text, onClick))
 }
 

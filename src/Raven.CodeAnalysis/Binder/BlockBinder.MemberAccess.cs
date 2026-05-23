@@ -327,7 +327,7 @@ partial class BlockBinder
         {
             var extensionReceiverImplicit = receiver is not null && methods.All(static method => method.IsExtensionMethod);
             var callSiteArgumentCount = arguments.Count + 1;
-            var filteredMethods = FilterMethodsForTrailingBlock(methods, arguments.Count, trailingBlock, extensionReceiverImplicit, callSiteArgumentCount);
+            var filteredMethods = FilterMethodsForTrailingBlock(methods, trailingBlock, extensionReceiverImplicit, callSiteArgumentCount);
             if (!filteredMethods.IsDefaultOrEmpty)
                 methods = filteredMethods;
         }
@@ -479,9 +479,9 @@ partial class BlockBinder
         if (trailingBlock is not null)
         {
             var argumentIndex = arguments.Count;
-            var targetParameter = TryGetCommonPositionalParameter(methods, argumentIndex, receiver);
+            var targetParameter = TryGetCommonTrailingBlockParameter(methods, receiver);
             var targetType = targetParameter?.Type
-                ?? TryGetFirstDelegateParameterType(methods, argumentIndex, receiver, pipeReceiverType);
+                ?? TryGetFirstDelegateTrailingBlockParameterType(methods, receiver, pipeReceiverType);
             var targetDelegateType = targetType;
 
             if (targetParameter is not null && TryGetBuilderType(targetParameter, out _))
@@ -528,7 +528,11 @@ partial class BlockBinder
             if (HasExpressionErrors(boundExpr))
                 hasErrors = true;
 
-            boundArguments[argumentIndex] = new BoundArgument(boundExpr, RefKind.None, name: null, trailingBlock);
+            var targetName = targetParameter?.Name ?? TryGetCommonTrailingBlockParameterName(methods);
+            if (string.IsNullOrEmpty(targetName))
+                targetName = null;
+
+            boundArguments[argumentIndex] = new BoundArgument(boundExpr, RefKind.None, targetName, trailingBlock);
         }
 
         return boundArguments;
@@ -657,6 +661,77 @@ partial class BlockBinder
 
                 var commonType = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeReceiverType);
                 if (!SymbolEqualityComparer.Default.Equals(common!.Type, commonType))
+                    return null;
+            }
+
+            return hasCommon ? common : null;
+        }
+
+        IParameterSymbol? TryGetCommonTrailingBlockParameter(ImmutableArray<IMethodSymbol> methods, BoundExpression? invocationReceiver)
+        {
+            if (methods.IsDefaultOrEmpty)
+                return null;
+
+            IParameterSymbol? common = null;
+            var hasCommon = false;
+
+            foreach (var method in methods)
+            {
+                if (method is null)
+                    continue;
+
+                var parameterIndex = GetTrailingBlockParameterIndex(method, pipeReceiverType);
+                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                    return null;
+
+                var parameter = method.Parameters[parameterIndex];
+                if (!hasCommon)
+                {
+                    common = parameter;
+                    hasCommon = true;
+                    continue;
+                }
+
+                var commonType = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeReceiverType);
+                if (!SymbolEqualityComparer.Default.Equals(common!.Type, commonType) ||
+                    !string.Equals(common.Name, parameter.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+            }
+
+            return hasCommon ? common : null;
+        }
+
+        string? TryGetCommonTrailingBlockParameterName(ImmutableArray<IMethodSymbol> methods)
+        {
+            if (methods.IsDefaultOrEmpty)
+                return null;
+
+            string? common = null;
+            var hasCommon = false;
+
+            foreach (var method in methods)
+            {
+                if (method is null)
+                    continue;
+
+                var parameterIndex = GetTrailingBlockParameterIndex(method, pipeReceiverType);
+                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                    return null;
+
+                var name = method.Parameters[parameterIndex].Name;
+                if (string.IsNullOrEmpty(name))
+                    return null;
+
+                if (!hasCommon)
+                {
+                    common = name;
+                    hasCommon = true;
+                    continue;
+                }
+
+                if (!string.Equals(common, name, StringComparison.OrdinalIgnoreCase))
                     return null;
             }
 
@@ -1319,6 +1394,56 @@ partial class BlockBinder
         }
 
         return sawSystemDelegateLike ? null : firstConcreteDelegate;
+    }
+
+    private ITypeSymbol? TryGetFirstDelegateTrailingBlockParameterType(
+        ImmutableArray<IMethodSymbol> methods,
+        BoundExpression? receiver,
+        ITypeSymbol? pipeReceiverType)
+    {
+        ITypeSymbol? firstConcreteDelegate = null;
+        var sawSystemDelegateLike = false;
+
+        foreach (var method in methods)
+        {
+            if (method is null)
+                continue;
+
+            var parameterIndex = GetTrailingBlockParameterIndex(method, pipeReceiverType);
+            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                continue;
+
+            var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, receiver, pipeReceiverType);
+            if (type is NullableTypeSymbol nullableType)
+                type = nullableType.UnderlyingType;
+
+            if (type is INamedTypeSymbol namedType)
+            {
+                if (namedType.TypeKind == TypeKind.Delegate)
+                {
+                    firstConcreteDelegate ??= type;
+                    continue;
+                }
+
+                if (IsSystemDelegateLike(namedType))
+                    sawSystemDelegateLike = true;
+            }
+        }
+
+        return sawSystemDelegateLike ? null : firstConcreteDelegate;
+    }
+
+    private static int GetTrailingBlockParameterIndex(IMethodSymbol method, ITypeSymbol? pipeReceiverType)
+    {
+        if (method.Parameters.IsDefaultOrEmpty)
+            return -1;
+
+        var parameterIndex = method.Parameters.Length - 1;
+        var firstVisibleParameter = method.IsExtensionMethod || pipeReceiverType is not null
+            ? 1
+            : 0;
+
+        return parameterIndex >= firstVisibleParameter ? parameterIndex : -1;
     }
 
     private ITypeSymbol? TryGetFirstCollectionParameterType(

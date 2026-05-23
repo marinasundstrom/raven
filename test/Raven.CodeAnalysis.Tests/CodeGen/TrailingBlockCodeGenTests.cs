@@ -114,6 +114,55 @@ class Runner {
     }
 
     [Fact]
+    public void TrailingBlock_CanSkipOptionalParametersBeforeFinalClosure()
+    {
+        const string code = """
+class Runner {
+    static func Run() -> string {
+        val first = StackPanel(spacing: 8) {
+            "child"
+        }
+
+        val second = StackPanel()
+        return first + "|" + second
+    }
+
+    static func StackPanel(orientation: string = "vertical", spacing: int = 0, content: (() -> string)? = null) -> string {
+        return orientation + ":" + spacing.ToString() + ":" + (content?() ?? "none")
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("vertical:8:child|vertical:0:none", output);
+    }
+
+    [Fact]
+    public void OptionalDoubleParameterDefault_EmitsWithoutCustomAttributeFailure()
+    {
+        const string code = """
+class Runner {
+    static func Run() -> string {
+        if Scale() == 1.5 {
+            return "ok"
+        }
+
+        return "bad"
+    }
+
+    static func Scale(value: double = 1.5) -> double {
+        return value
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+
+        Assert.Equal("ok", output);
+    }
+
+    [Fact]
     public void ExplicitlyTypedTrailingBlock_InfersGenericConstructorLikeRegularLambdaArgument()
     {
         const string code = """

@@ -67,6 +67,50 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void TrailingBlock_BindsToFinalOptionalClosureAfterNamedArguments()
+    {
+        const string source = """
+        func StackPanel(orientation: string = "vertical", spacing: int = 0, content: (() -> string)? = null) -> string {
+            return orientation + spacing.ToString() + (content?() ?? "")
+        }
+
+        val result = StackPanel(spacing: 8) {
+            return "child"
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.TrailingBlock is not null);
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("StackPanel", symbol.Name);
+        Assert.Equal(["orientation", "spacing", "content"], symbol.Parameters.Select(static parameter => parameter.Name).ToArray());
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ParameterDefaultValue_AllowsTargetTypedExternalEnumMember()
+    {
+        const string source = """
+        import System.*
+
+        func Paint(color: ConsoleColor = .Green) -> ConsoleColor {
+            return color
+        }
+
+        val result = Paint()
+        """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void TrailingBlock_WithExplicitSingleParameterClosure_BindsParameter()
     {
         const string source = """

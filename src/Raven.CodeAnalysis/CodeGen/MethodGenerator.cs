@@ -907,7 +907,15 @@ internal class MethodGenerator
         if (dpvCtor is not null)
         {
             var dpvAttr = new CustomAttributeBuilder(dpvCtor, new object?[] { defaultValue });
-            parameterBuilder.SetCustomAttribute(dpvAttr);
+            try
+            {
+                parameterBuilder.SetCustomAttribute(dpvAttr);
+            }
+            catch (NotImplementedException)
+            {
+                // Reflection.Emit can write the parameter constant but cannot encode every
+                // primitive through DefaultParameterValueAttribute's object constructor.
+            }
         }
     }
 

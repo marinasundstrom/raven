@@ -4,12 +4,8 @@ import System.ComponentModel.*
 val showSecondary = true
 val viewModel = TasksViewModel()
 
-RunApp(Window {
-    Title = "Tasks"
-
-    StackPanel {
-        Spacing = 8.0
-
+RunApp(Window(title: "Tasks") {
+    StackPanel(spacing: 8.0) {
         Label("Inbox")
 
         if showSecondary {

@@ -1359,6 +1359,28 @@ val window = Window {
 }
 ```
 
+Parenthesized arguments keep the normal named-argument and default-parameter
+rules. The trailing block still supplies the final function-typed parameter,
+so earlier optional parameters may be omitted:
+
+```raven
+func StackPanel(
+    orientation: Orientation = .Vertical,
+    spacing: double = 0.0,
+    [Builder<UiBuilder>] content: (() -> UiNode)? = null
+) -> UiNode {
+    ...
+}
+
+StackPanel(spacing: 8.0) {
+    Label("Inbox")
+}
+```
+
+In this shape, omitting `content` means the parameter receives its default
+value (`null`). Supplying `{ ... }` means the final closure argument is present,
+even when the block is empty.
+
 The body of the trailing block is a normal Raven block. Statements inside the
 block are ordinary statements; assignments such as `Name = value` are not
 initializer entries. Brace trailers after expressions are therefore not object
@@ -1484,9 +1506,11 @@ Resolution follows ordinary overload resolution with one additional argument:
 
 1. The callee and all parenthesized arguments are bound normally.
 2. If a trailing block is present, the compiler creates an unbound
-   closure from the block and appends it as the final argument.
-3. Overload resolution accepts only candidates whose next or final parameter can
-   receive that closure.
+   closure from the block and supplies it to the final visible parameter of the
+   candidate callable.
+3. Overload resolution accepts only candidates whose final visible parameter can
+   receive that closure. Earlier parameters may be supplied positionally,
+   supplied by name, or omitted when they have defaults.
 4. If the callee has no parenthesized argument list, the call is treated as a
    zero-argument call plus the appended trailing closure.
 5. For constructor calls, the selected constructor must accept the appended
@@ -1531,6 +1555,22 @@ the block, and passes it to `TBuilder.BuildFinalResult(component, receiver)`.
 Receiver-backed builder blocks therefore require a compatible two-argument
 `BuildFinalResult` method so the receiver builder can produce the final
 sub-result and configuration cannot be silently ignored.
+
+```raven
+func Window(title: string = "Untitled", [Builder<UiBuilder>] content: (() -> UiNode)? = null) -> UiNode {
+    ...
+}
+
+Window(title: "Tasks") {
+    StackPanel(spacing: 8.0) {
+        Text("Inbox")
+    }
+}
+```
+
+When a component needs a receiver builder in addition to normal call arguments,
+the final closure parameter may combine `[Builder<TBuilder>]` and
+`[Receiver<TReceiver>]`:
 
 ```raven
 func Window([Builder<UiBuilder>, Receiver<WindowBuilder>] content: () -> UiNode) -> UiNode {
