@@ -62,6 +62,32 @@ func CreateWindow() -> Window {
     }
 
     [Fact]
+    public void NuGetHarness_AvaloniaInheritedBaseMembersAndConversions_BindAcrossPackageReferences()
+    {
+        using var harness = NuGetProjectTestHarness.Create(
+            """
+import Avalonia.Controls.*
+import Avalonia.Interactivity.*
+
+func AcceptInteractive(value: Interactive) -> unit {
+}
+
+func Use(button: Button) -> unit {
+    val interactive: Interactive = button
+    AcceptInteractive(button)
+    button.RaiseEvent(RoutedEventArgs(Button.ClickEvent))
+}
+""",
+            [("Avalonia", "11.3.16")],
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var compilation = harness.GetCompilation();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void NuGetHarness_SystemReactiveObserverCreate_WithImplicitLambdaParameter_BindsLikeCSharp()
     {
         using var harness = NuGetProjectTestHarness.Create(

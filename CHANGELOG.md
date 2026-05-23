@@ -53,6 +53,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   corresponding `lib/` runtime assembly and guards type probing failures,
   preventing external packages such as Avalonia from crashing emit during
   runtime type resolution.
+- Metadata base-type resolution now falls back to compilation-level package
+  references when a module-local reference walk misses, fixing inherited
+  member lookup and reference conversions across package sibling assemblies
+  such as Avalonia `Button` to `Interactive`.
 - Incremental executable-owner analysis now treats top-level `func` statements as
   function owners instead of generic global-statement owners, improving editor
   recovery after wrapping top-level statements in `func Main`.

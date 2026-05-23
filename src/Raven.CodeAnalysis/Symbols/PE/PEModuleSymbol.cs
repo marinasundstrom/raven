@@ -70,16 +70,79 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             return metadataType;
 
         // If the runtime type belongs to this module's assembly, we can intern it directly.
+        // MetadataLoadContext can hand us equivalent assembly identities through distinct
+        // Assembly instances when packages mix ref assets and dependency references.
         // Avoid walking namespaces/members first, as that can create alternate symbol instances.
         var thisAssembly = PEContainingAssembly.GetAssemblyInfo();
-        if (ReferenceEquals(type.Assembly, thisAssembly))
+        if (ReferenceEquals(type.Assembly, thisAssembly) ||
+            AssemblyIdentityMatches(type.Assembly.GetName(), thisAssembly.GetName()))
+        {
             return GetOrCreateTypeSymbol(type);
+        }
 
-        // Otherwise, ask referenced assemblies.
-        return ReferencedAssemblySymbols
-            .OfType<PEAssemblySymbol>()
-            .Select(x => x.GetType(type))
-            .FirstOrDefault();
+        // Otherwise, ask referenced assemblies. Package reference assets can arrive as sibling
+        // metadata references even when MetadataLoadContext could not wire them into this
+        // module's direct reference set, so fall back to the compilation-wide references too.
+        return ResolveFromAssemblySymbols(ReferencedAssemblySymbols, type)
+            ?? ResolveFromAssemblySymbols(_reflectionTypeLoader.Compilation.ReferencedAssemblySymbols, type);
+    }
+
+    private static ITypeSymbol? ResolveFromAssemblySymbols(IEnumerable<IAssemblySymbol> assemblySymbols, Type type)
+    {
+        var typeAssemblyName = type.Assembly.GetName();
+        var metadataIdentity = BuildMetadataIdentity(type);
+
+        foreach (var assemblySymbol in assemblySymbols.OfType<PEAssemblySymbol>())
+        {
+            var assembly = assemblySymbol.GetAssemblyInfo();
+            if (!AssemblyIdentityMatches(typeAssemblyName, assembly.GetName()))
+                continue;
+
+            if (assemblySymbol.GetTypeByMetadataName(type.FullName ?? type.Name) is { } namedType)
+                return namedType;
+
+            if (assemblySymbol.PrimaryModule._metadataIdentityTypeMapping.TryGetValue(metadataIdentity, out var cached))
+                return cached;
+
+            return assemblySymbol.GetType(type);
+        }
+
+        return null;
+    }
+
+    private static bool AssemblyIdentityMatches(AssemblyName left, AssemblyName right)
+    {
+        if (!string.Equals(left.Name, right.Name, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (left.Version is not null &&
+            right.Version is not null &&
+            left.Version != right.Version)
+        {
+            return false;
+        }
+
+        if (!string.Equals(left.CultureName ?? string.Empty, right.CultureName ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return PublicKeyTokensEqual(left.GetPublicKeyToken(), right.GetPublicKeyToken());
+    }
+
+    private static bool PublicKeyTokensEqual(byte[]? left, byte[]? right)
+    {
+        left ??= [];
+        right ??= [];
+
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (left[i] != right[i])
+                return false;
+        }
+
+        return true;
     }
 
     private ITypeSymbol? FindType(INamespaceSymbol namespaceSymbol, Type type)
