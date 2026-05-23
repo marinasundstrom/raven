@@ -945,7 +945,7 @@ public partial class SemanticModel
 
                         var enumSymbol = new SourceNamedTypeSymbol(
                             enumDecl.Identifier.ValueText,
-                            Compilation.GetTypeByMetadataName("System.Enum"),
+                            Compilation.GetSpecialType(SpecialType.System_Enum),
                             TypeKind.Enum,
                             parentType,
                             parentType,
@@ -1226,7 +1226,7 @@ public partial class SemanticModel
 
         var enumSymbol = new SourceNamedTypeSymbol(
             enumDecl.Identifier.ValueText,
-            Compilation.GetTypeByMetadataName("System.Enum"),
+            Compilation.GetSpecialType(SpecialType.System_Enum),
             TypeKind.Enum,
             parentNamespace.AsSourceNamespace(),
             null,
@@ -2140,7 +2140,7 @@ public partial class SemanticModel
 
         var namespaceSymbol = containingType.ContainingNamespace?.AsSourceNamespace()
             ?? declaringSymbol.ContainingNamespace?.AsSourceNamespace();
-        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var metadataName = CreateMangledTypeName("__local$", declaration, declaration.Identifier.ValueText);
 
@@ -2215,7 +2215,7 @@ public partial class SemanticModel
 
                     var enumSymbol = new SourceNamedTypeSymbol(
                         enumDeclaration.Identifier.ValueText,
-                        Compilation.GetTypeByMetadataName("System.Enum"),
+                        Compilation.GetSpecialType(SpecialType.System_Enum),
                         TypeKind.Enum,
                         declaringSymbol,
                         containingType,
@@ -2334,7 +2334,7 @@ public partial class SemanticModel
         var extensionBinders = new List<(ExtensionDeclarationSyntax Syntax, ExtensionDeclarationBinder Binder)>();
         var unionBinders = new List<(UnionDeclarationSyntax Syntax, UnionDeclarationBinder Binder, SourceUnionSymbol Symbol)>();
 
-        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
 
         foreach (var member in containerNode.ChildNodes())
         {
@@ -2580,7 +2580,7 @@ public partial class SemanticModel
         var parentBinder = declaration.Parent is null
             ? Compilation.GlobalBinder
             : GetBinderCore(declaration.Parent, null, ensureSourceDeclarations: false);
-        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
 
         BindNominalTypeDeclaration(declaration, parentBinder, objectType, classBinders);
@@ -4396,7 +4396,7 @@ public partial class SemanticModel
 
         var nestedClassBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var nestedInterfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
-        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
         var effectiveMembers = GetEffectiveTypeMembers(classDecl).ToArray();
@@ -5119,7 +5119,7 @@ public partial class SemanticModel
     {
         var nestedClassBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var nestedInterfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
-        var objectType = Compilation.GetTypeByMetadataName("System.Object");
+        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
         var members = interfaceDecl.Members.ToArray();
 

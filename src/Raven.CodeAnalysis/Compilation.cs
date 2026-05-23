@@ -71,6 +71,7 @@ public partial class Compilation
     private int _setupThreadId;
     private MacroRegistry? _macroRegistry;
     private CompilationSymbolLookup? _symbolLookup;
+    private SourceDeclarationIndex? _sourceDeclarationIndex;
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -110,6 +111,8 @@ public partial class Compilation
     internal GlobalBinder GlobalBinder => _globalBinder ??= new GlobalBinder(this);
 
     internal CompilationSymbolLookup SymbolLookup => _symbolLookup ??= new CompilationSymbolLookup(this);
+
+    internal SourceDeclarationIndex SourceDeclarationIndex => _sourceDeclarationIndex ??= new SourceDeclarationIndex(this, _syntaxTrees);
 
     public string AssemblyName { get; }
 
@@ -1211,6 +1214,14 @@ public partial class Compilation
         return members.ToImmutable();
     }
 
+    internal ImmutableArray<FunctionStatementSyntax> GetNamespaceFunctionDeclarations(INamespaceSymbol namespaceSymbol, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return ImmutableArray<FunctionStatementSyntax>.Empty;
+
+        return SourceDeclarationIndex.GetNamespaceFunctions(GetNamespaceMetadataName(namespaceSymbol), name);
+    }
+
     internal bool IsNamespaceMemberContainer(INamedTypeSymbol type)
     {
         if (type is SynthesizedNamespaceMembersClassSymbol)
@@ -1247,6 +1258,9 @@ public partial class Compilation
 
     private static bool IsPromotableTopLevelContainerMember(INamedTypeSymbol container, ISymbol member)
         => container is SynthesizedNamespaceMembersClassSymbol || member.IsStatic;
+
+    private static string GetNamespaceMetadataName(INamespaceSymbol namespaceSymbol)
+        => namespaceSymbol.IsGlobalNamespace ? string.Empty : namespaceSymbol.ToMetadataName();
 
     private static bool HasTopLevelAttributeSyntax(INamedTypeSymbol type)
     {
@@ -3016,7 +3030,7 @@ public partial class Compilation
             _ => throw new InvalidOperationException("Special type is not supported."),
         };
 
-        var type = GetTypeByMetadataName(metadataName);
+        var type = TryGetMetadataReferenceTypeByMetadataName(metadataName);
 
         if (type is INamedTypeSymbol { ContainingAssembly: { Name: var assemblyName } } &&
             !string.Equals(assemblyName, "System.Runtime", StringComparison.OrdinalIgnoreCase))

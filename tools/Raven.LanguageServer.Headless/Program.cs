@@ -124,6 +124,9 @@ if (options.InlayRange is { } inlayRange)
         Console.WriteLine(result);
     }
 
+    if (options.PrintDiagnostics)
+        await RunDocumentDiagnosticsProbeAsync("after-inlay");
+
     return;
 }
 
@@ -323,10 +326,10 @@ async Task RunDocumentDiagnosticsProbeAsync(string label)
         $"semanticDelta=[{SemanticQueryInstrumentation.FormatDelta(semanticDelta)}]");
 
     foreach (var diagnostic in diagnostics.Diagnostics
-        .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+        .Where(diagnostic => options.PrintDiagnostics || diagnostic.Severity == LspDiagnosticSeverity.Error)
         .Take(10))
     {
-        Console.WriteLine("diagnostics error " + FormatDiagnostic(diagnostic));
+        Console.WriteLine("diagnostics " + FormatDiagnostic(diagnostic));
     }
 }
 
@@ -1174,6 +1177,7 @@ static HeadlessOptions ParseOptions(string[] args)
     var stressSizes = new List<int>();
     var stressIncludeAnalyzers = true;
     var stressIncludeInlays = true;
+    var printDiagnostics = false;
 
     for (var i = 0; i < args.Length; i++)
     {
@@ -1283,6 +1287,9 @@ static HeadlessOptions ParseOptions(string[] args)
                 stressSuite = true;
                 stressIncludeInlays = false;
                 break;
+            case "--print-diagnostics":
+                printDiagnostics = true;
+                break;
             default:
                 positionals.Add(args[i]);
                 break;
@@ -1317,7 +1324,8 @@ static HeadlessOptions ParseOptions(string[] args)
         stressSuite,
         stressSizes,
         stressIncludeAnalyzers,
-        stressIncludeInlays);
+        stressIncludeInlays,
+        printDiagnostics);
 }
 
 static NamedReplayScenario ResolveReplayScenario(string repoRoot, string name)
@@ -1515,7 +1523,8 @@ internal sealed record HeadlessOptions(
     bool StressSuite,
     IReadOnlyList<int> StressSizes,
     bool StressIncludeAnalyzers,
-    bool StressIncludeInlays);
+    bool StressIncludeInlays,
+    bool PrintDiagnostics);
 
 internal enum ReplayScenarioOperation
 {

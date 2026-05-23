@@ -218,7 +218,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_FullDocument_DoesNotColdBindInvocationInitializersForSmallDocumentsAsync()
+    public async Task Handle_FullDocument_BindsInvocationInitializersForSmallDocumentsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -256,9 +256,7 @@ func Main() -> unit {
             Range = FullDocumentRange(sourceText)
         }, CancellationToken.None);
 
-        fullDocumentResult.ToArray().ShouldNotContain(hint =>
-            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(answerInsertion, 0)).Start &&
-            hint.Label.String == ": int");
+        AssertHasHintAtInsertion(sourceText, fullDocumentResult.ToArray(), answerInsertion, ": int");
 
         var preciseResult = await handler.Handle(new InlayHintParams
         {
@@ -512,7 +510,7 @@ class C {
     }
 
     [Fact]
-    public async Task Handle_LargeRange_DoesNotColdBindLoopTargetsOrPatternsAsync()
+    public async Task Handle_LargeRange_ProvidesLoopTargetAndPatternHintsWithBudgetAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -560,12 +558,8 @@ func Main() -> unit {
         }, CancellationToken.None);
 
         var largeHints = largeResult.ToArray();
-        largeHints.ShouldNotContain(hint =>
-            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(valueInsertion, 0)).Start &&
-            hint.Label.String == ": int");
-        largeHints.ShouldNotContain(hint =>
-            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(keyInsertion, 0)).Start &&
-            hint.Label.String == ": string");
+        AssertHasHintAtInsertion(sourceText, largeHints, valueInsertion, ": int");
+        AssertHasHintAtInsertion(sourceText, largeHints, keyInsertion, ": string");
 
         var smallForResult = await handler.Handle(new InlayHintParams
         {
@@ -1249,6 +1243,58 @@ func Main() -> unit {
 
         AssertHasHintAtInsertion(sourceText, hints, doubledInsertion, ": ");
         AssertHasHintAtInsertion(sourceText, hints, describeStringsTextInsertion, ": string");
+        hints.All(static hint => hint.Tooltip is null).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_LargeVisibleDocumentRange_ProvidesCheapConstructorLocalTypeHintsAsync()
+    {
+        var sampleRoot = Path.Combine(
+            FindRepositoryRoot(),
+            "samples",
+            "projects",
+            "efcore-vehicle-costs");
+        var documentPath = Path.Combine(sampleRoot, "src", "Data", "Seed.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-vehicle-costs",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange
+            {
+                Start = new Position(0, 0),
+                End = new Position(50, 0)
+            }
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var vanInsertion = code.IndexOf("van = VehicleEntity()", StringComparison.Ordinal) + "van".Length;
+        var hatchbackInsertion = code.IndexOf("hatchback = VehicleEntity()", StringComparison.Ordinal) + "hatchback".Length;
+        var entryInsertion = code.IndexOf("entry = FuelConsumptionRecord()", StringComparison.Ordinal) + "entry".Length;
+
+        AssertHasHintAtInsertion(sourceText, hints, vanInsertion, ": VehicleEntity");
+        AssertHasHintAtInsertion(sourceText, hints, hatchbackInsertion, ": VehicleEntity");
+        AssertHasHintAtInsertion(sourceText, hints, entryInsertion, ": FuelConsumptionRecord");
         hints.All(static hint => hint.Tooltip is null).ShouldBeTrue();
     }
 

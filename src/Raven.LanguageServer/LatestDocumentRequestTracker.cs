@@ -10,8 +10,10 @@ internal sealed class LatestDocumentRequestTracker
     private long _requestSequence;
 
     public LatestDocumentRequestState Begin(DocumentUri uri, CancellationToken cancellationToken)
+        => Begin(uri.ToString(), cancellationToken);
+
+    public LatestDocumentRequestState Begin(string key, CancellationToken cancellationToken)
     {
-        var key = uri.ToString();
         var sequence = Interlocked.Increment(ref _requestSequence);
         var state = new LatestDocumentRequestState(
             key,

@@ -185,7 +185,6 @@ internal sealed class DocumentStore
         var stopwatch = Stopwatch.StartNew();
         double contextMs = 0;
         double semanticModelMs = 0;
-        double declarationMs = 0;
 
         try
         {
@@ -204,23 +203,17 @@ internal sealed class DocumentStore
             _ = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
-            cancellationToken.ThrowIfCancellationRequested();
-
-            stageStopwatch.Restart();
-            context.Value.Compilation.EnsureSourceDeclarationsDeclared();
-            declarationMs = stageStopwatch.Elapsed.TotalMilliseconds;
             var setupAfter = context.Value.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
             var setupDelta = CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore);
 
             if (stopwatch.Elapsed.TotalMilliseconds >= SlowWarmAnalysisThresholdMs)
             {
                 _logger.LogInformation(
-                    "Post-edit semantic warmup for {Uri}: total={TotalMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms declarations={DeclarationMs:F1}ms setupDelta=[{SetupDelta}].",
+                    "Post-edit semantic warmup for {Uri}: total={TotalMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms setupDelta=[{SetupDelta}].",
                     uri,
                     stopwatch.Elapsed.TotalMilliseconds,
                     contextMs,
                     semanticModelMs,
-                    declarationMs,
                     CompilerSetupInstrumentation.FormatDelta(setupDelta));
             }
         }
@@ -236,8 +229,7 @@ internal sealed class DocumentStore
                 stages:
                 [
                     new LanguageServerPerformanceInstrumentation.StageTiming("analysisContext", contextMs),
-                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
-                    new LanguageServerPerformanceInstrumentation.StageTiming("declarations", declarationMs)
+                    new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs)
                 ]);
         }
     }

@@ -1128,7 +1128,7 @@ internal abstract partial class Binder
         var metadataName = string.Join(".", parts);
         if (arity is not null)
             metadataName += $"`{arity.Value}";
-        var metadataType = Compilation.GetTypeByMetadataName(metadataName);
+        var metadataType = LookupMetadataType(metadataName);
         if (metadataType is not null)
             return (metadataType, false, ImmutableArray.Create(metadataType));
 
@@ -1186,7 +1186,7 @@ internal abstract partial class Binder
                             if (arity is not null)
                                 metadataName += $"`{arity.Value}";
 
-                            if (Compilation.GetTypeByMetadataName(metadataName) is INamedTypeSymbol metadataMatch)
+                            if (LookupMetadataType(metadataName) is INamedTypeSymbol metadataMatch)
                             {
                                 current = metadataMatch;
                                 continue;
@@ -1247,6 +1247,11 @@ internal abstract partial class Binder
 
             return current as INamedTypeSymbol;
         }
+
+        INamedTypeSymbol? LookupMetadataType(string metadataName)
+            => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+                ? Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName)
+                : Compilation.GetTypeByMetadataName(metadataName);
     }
 
     internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)

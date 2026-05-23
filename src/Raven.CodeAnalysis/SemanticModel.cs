@@ -3399,7 +3399,11 @@ public partial class SemanticModel
 
         if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
             TryLookupVisibleValueSymbol(invocationIdentifier) is null &&
-            TryLookupAvailableFunctionDeclarations(invocationIdentifier, invocationIdentifier.Identifier.ValueText, out var availableFunctions))
+            TryLookupAvailableFunctionDeclarations(
+                invocationIdentifier,
+                invocationIdentifier.Identifier.ValueText,
+                allowSourceDeclarationBinding: false,
+                out var availableFunctions))
         {
             foreach (var function in availableFunctions)
                 AddIfNotPresent(function);
@@ -3674,7 +3678,11 @@ public partial class SemanticModel
 
         ImmutableArray<IMethodSymbol> methods;
         if (expression is IdentifierNameSyntax identifier &&
-            TryLookupAvailableFunctionDeclarations(identifier, identifier.Identifier.ValueText, out var availableMethods))
+            TryLookupAvailableFunctionDeclarations(
+                identifier,
+                identifier.Identifier.ValueText,
+                allowSourceDeclarationBinding: false,
+                out var availableMethods))
         {
             methods = availableMethods;
         }
@@ -4209,7 +4217,11 @@ public partial class SemanticModel
         string name,
         out IMethodSymbol? method)
     {
-        method = TryLookupAvailableFunctionDeclarations(contextNode, name, out var methods)
+        method = TryLookupAvailableFunctionDeclarations(
+                contextNode,
+                name,
+                allowSourceDeclarationBinding: false,
+                out var methods)
             ? methods[0]
             : null;
         return method is not null;
@@ -4218,13 +4230,14 @@ public partial class SemanticModel
     private bool TryLookupAvailableFunctionDeclarations(
         SyntaxNode contextNode,
         string name,
+        bool allowSourceDeclarationBinding,
         out ImmutableArray<IMethodSymbol> methods)
     {
         methods = ImmutableArray<IMethodSymbol>.Empty;
         if (string.IsNullOrWhiteSpace(name))
             return false;
 
-        if (!Compilation.SourceDeclarationsDeclared)
+        if (!Compilation.SourceDeclarationsDeclared && allowSourceDeclarationBinding)
             Compilation.EnsureSourceDeclarationsDeclared();
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
@@ -4245,7 +4258,7 @@ public partial class SemanticModel
                 return;
             }
 
-            if (GetDeclaredSymbol(function) is IMethodSymbol method)
+            if (TryGetNamespaceFunctionSymbol(function, out var method))
                 AddMethod(method);
         }
 
@@ -4253,6 +4266,14 @@ public partial class SemanticModel
         {
             if (GetBinderForIncrementalSemanticQuery(contextNode).CurrentNamespace is not { } currentNamespace)
                 return;
+
+            if (!Compilation.SourceDeclarationsDeclared)
+            {
+                foreach (var function in Compilation.GetNamespaceFunctionDeclarations(currentNamespace, name))
+                    AddFunction(function);
+
+                return;
+            }
 
             foreach (var method in Compilation.GetNamespaceMembers(
                          currentNamespace,
@@ -4316,6 +4337,25 @@ public partial class SemanticModel
         methods = builder.ToImmutable();
 
         return methods.Length > 0;
+
+        bool TryGetNamespaceFunctionSymbol(
+            FunctionStatementSyntax function,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? method)
+        {
+            method = null;
+
+            var model = ReferenceEquals(function.SyntaxTree, SyntaxTree)
+                ? this
+                : Compilation.TryGetSemanticModelForDeclarationBinding(function.SyntaxTree, out var declarationModel)
+                    ? declarationModel
+                    : null;
+
+            if (model?.GetDeclaredSymbol(function) is not IMethodSymbol functionMethod)
+                return false;
+
+            method = functionMethod;
+            return true;
+        }
     }
 
     private bool TryLookupAvailableNamedType(string name, int arity, out INamedTypeSymbol? type)
@@ -4365,14 +4405,7 @@ public partial class SemanticModel
             return true;
 
         if (!Compilation.SourceDeclarationsDeclared)
-        {
-            Compilation.EnsureSourceDeclarationsDeclared();
-            if (Compilation.TryGetDeclaredTypeSymbol(name, arity, out declaredType))
-            {
-                type = declaredType;
-                return true;
-            }
-        }
+            return false;
 
         type = Compilation.GlobalNamespace
             .GetMembers(name)
@@ -4409,7 +4442,7 @@ public partial class SemanticModel
                 if (string.IsNullOrWhiteSpace(namespaceName))
                     continue;
 
-                type = Compilation.TryGetMetadataReferenceTypeByMetadataName(namespaceName + "." + metadataTypeName);
+                type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(namespaceName + "." + metadataTypeName);
                 if (type is not null)
                     return true;
 
@@ -4424,7 +4457,7 @@ public partial class SemanticModel
             if (!string.Equals(simpleImportedName, name, StringComparison.Ordinal))
                 continue;
 
-            type = Compilation.TryGetMetadataReferenceTypeByMetadataName(arity > 0
+            type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(arity > 0
                 ? importedTypeName + "`" + arity
                 : importedTypeName);
             if (type is not null)
@@ -4664,6 +4697,13 @@ public partial class SemanticModel
             if (!IsLikelyTypeIdentifier(simpleName.Identifier.ValueText))
                 return false;
 
+            if (TryLookupAvailableTypeFromBinder(simpleName, out var binderType) &&
+                binderType is INamedTypeSymbol { TypeKind: not TypeKind.Error } namedBinderType)
+            {
+                type = namedBinderType;
+                return true;
+            }
+
             return TryLookupAvailableNamedType(simpleName.Identifier.ValueText, simpleName is GenericNameSyntax genericName
                 ? genericName.TypeArgumentList.Arguments.Count
                 : 0, out type) &&
@@ -4671,7 +4711,7 @@ public partial class SemanticModel
         }
 
         var metadataName = expression.ToString();
-        type = Compilation.GetTypeByMetadataName(metadataName);
+        type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName);
         if (type is not null)
             return true;
 
@@ -4685,7 +4725,7 @@ public partial class SemanticModel
             ? memberGeneric.TypeArgumentList.Arguments.Count
             : 0;
         metadataName = memberAccess.Expression + "." + GetMetadataTypeName(memberName.Identifier.ValueText, arity);
-        type = Compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName);
+        type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName);
         return type is not null;
     }
 
@@ -5604,6 +5644,8 @@ public partial class SemanticModel
             ? genericName.TypeArgumentList.Arguments.Count
             : 0;
 
+        using var sourceNamespaceLookupSuppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
+
         type = GetBinderForIncrementalSemanticQuery(typeName).LookupType(typeName.Identifier.ValueText);
         if (IsMatchingAvailableType(type, arity))
             return true;
@@ -5613,7 +5655,7 @@ public partial class SemanticModel
             return true;
 
         var metadataName = GetMetadataTypeName(typeName.Identifier.ValueText, arity);
-        type = Compilation.GetTypeByMetadataName(metadataName);
+        type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName);
         return type is not null;
     }
 
@@ -5631,7 +5673,7 @@ public partial class SemanticModel
 
                     if (scope is INamespaceSymbol namespaceSymbol &&
                         TryGetNamespaceMetadataName(namespaceSymbol, out var namespaceMetadataName) &&
-                        Compilation.TryGetMetadataReferenceTypeByMetadataName(namespaceMetadataName + "." + GetMetadataTypeName(typeName.Identifier.ValueText, arity)) is { } metadataType)
+                        Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(namespaceMetadataName + "." + GetMetadataTypeName(typeName.Identifier.ValueText, arity)) is { } metadataType)
                     {
                         return metadataType;
                     }
@@ -9567,7 +9609,7 @@ public partial class SemanticModel
                 continue;
 
             var namespaceName = importName[..^2];
-            type = Compilation.TryGetMetadataReferenceTypeByMetadataName(namespaceName + "." + metadataTypeName);
+            type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(namespaceName + "." + metadataTypeName);
             if (type is not null)
                 return true;
         }

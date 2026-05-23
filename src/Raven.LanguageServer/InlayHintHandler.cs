@@ -22,8 +22,9 @@ namespace Raven.LanguageServer;
 internal sealed class InlayHintHandler : IInlayHintsHandler
 {
     private const int MaxUnboundedDocumentLength = 2_000;
+    private const int MaxFocusedInlayRangeLength = 2_500;
     private const int MaxCachedInlayHintEntries = 256;
-    private const double LargeRangeInlayBudgetMs = 1_000;
+    private const double LargeRangeInlayBudgetMs = 5_000;
     private const double SlowInlayHintThresholdMs = 150;
 
     private readonly DocumentStore _documents;
@@ -78,7 +79,10 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var isPreciseRequest = requestSpan.Length == 0;
         var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
 
-        return !isLargeDocument || isPreciseRequest || !isFullDocumentRequest;
+        return !isLargeDocument ||
+            isPreciseRequest ||
+            (!isFullDocumentRequest && requestSpan.Start > 0) ||
+            (!isFullDocumentRequest && requestSpan.Length <= MaxFocusedInlayRangeLength);
     }
 
     private static bool ShouldIncludeTooltipsForInlay(SourceText sourceText, TextSpan requestSpan)
@@ -92,7 +96,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     public async Task<InlayHintContainer?> Handle(InlayHintParams request, CancellationToken cancellationToken)
     {
-        var requestState = _latestRequests.Begin(request.TextDocument.Uri, cancellationToken);
+        var requestState = _latestRequests.Begin(CreateRequestTrackerKey(request), cancellationToken);
         var effectiveCancellationToken = requestState.Token;
         var totalStopwatch = Stopwatch.StartNew();
         var stageStopwatch = Stopwatch.StartNew();
@@ -125,21 +129,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
             effectiveCancellationToken.ThrowIfCancellationRequested();
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
-            var isPreciseRequest = requestSpan.Length == 0;
             var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
-            if (isLargeDocument && isFullDocumentRequest && TryGetCachedHints(request, out var opportunisticCachedHints))
-            {
-                cacheHit = true;
-                outcome = "LargeRangeCached";
-                resultCount = opportunisticCachedHints.Length;
-                return new InlayHintContainer(opportunisticCachedHints);
-            }
-
-            if (isLargeDocument && isFullDocumentRequest)
-            {
-                outcome = "LargeRangeSkippedCold";
-                return new InlayHintContainer();
-            }
 
             stageStopwatch.Restart();
             using var semanticAccess = await _documents.TryEnterDocumentSemanticModelAccessAsync(
@@ -179,6 +169,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
             var root = context.Value.SyntaxTree.GetRoot(effectiveCancellationToken);
             var allowExpensiveBinding = ShouldAllowExpensiveBindingForInlay(sourceText, requestSpan);
+            var avoidExpensiveInitializerBinding = isLargeDocument && !allowExpensiveBinding;
             var collectionBudgetMs = allowExpensiveBinding
                 ? double.PositiveInfinity
                 : LargeRangeInlayBudgetMs;
@@ -199,23 +190,23 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 sourceText,
                 requestSpan,
                 allowInitializerBinding: allowExpensiveBinding,
-                avoidExpensiveInitializerBinding: isFullDocumentRequest,
+                avoidExpensiveInitializerBinding,
                 collectionBudget);
             localTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
-            AddCarrierFailureHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+            AddCarrierFailureHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: true, collectionBudget);
             carrierFailureHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
-                AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+                AddPatternTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: true, collectionBudget);
             patternTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
-                AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+                AddForTargetTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: true, collectionBudget);
             forTargetTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
-                AddFunctionExpressionParameterTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowExpensiveBinding, collectionBudget);
+                AddFunctionExpressionParameterTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: true, collectionBudget);
             functionParameterTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
@@ -414,7 +405,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
                     declarator,
                     out var availableLocal,
-                    allowInitializerBinding: !ShouldAvoidInitializerBindingForInlay(declarator),
+                    allowInitializerBinding: false,
                     allowBindingFallback: false)
                         ? availableLocal
                         : null;
@@ -436,7 +427,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 {
                     local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
                         declarator,
-                        out var availableLocal)
+                        out var availableLocal,
+                        allowBindingFallback: false)
                             ? availableLocal
                             : allowInitializerBinding
                                 ? semanticModel.GetDeclaredSymbol(declarator) as ILocalSymbol
@@ -1602,6 +1594,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     private static bool ContainsPosition(TextSpan span, int position)
         => position >= span.Start && position <= span.End;
+
+    private static string CreateRequestTrackerKey(InlayHintParams request)
+        => $"{request.TextDocument.Uri}|{request.Range.Start.Line}:{request.Range.Start.Character}-{request.Range.End.Line}:{request.Range.End.Character}";
 
     private readonly record struct InlayHintDocumentCacheKey(
         string Uri,
