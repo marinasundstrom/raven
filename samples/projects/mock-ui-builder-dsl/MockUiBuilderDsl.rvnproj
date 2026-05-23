@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />
+    <RavenMacro Include="../macro-observable/macros/ObservableMacros.rvnproj" />
     <PackageReference Include="Avalonia" Version="11.3.16" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.16" />
   </ItemGroup>

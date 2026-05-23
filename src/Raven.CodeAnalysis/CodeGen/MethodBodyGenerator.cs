@@ -69,6 +69,8 @@ internal class MethodBodyGenerator
     /// <summary>The shared closure used by the outer method for reference-based local hoisting (null when not applicable).</summary>
     internal TypeGenerator.LambdaClosure? OuterMethodClosure => _outerMethodClosure;
 
+    internal TypeGenerator.LambdaClosure? LambdaClosure => _lambdaClosure;
+
     /// <summary>The IL local that holds the shared outer-method closure instance.</summary>
     internal IILocal? OuterMethodClosureLocal => _outerMethodClosureLocal;
 
@@ -2760,8 +2762,10 @@ internal class MethodBodyGenerator
                     CapturedSymbols.Add(captured);
             }
 
-            // Intentionally do NOT recurse into the lambda body: its locals belong to a
-            // separate generated method and must not be hoisted into the outer method's closure.
+            // Recurse so nested lambdas that capture this method's locals share the
+            // same method closure as their containing lambda. Locals declared inside
+            // the lambda are filtered out by ShouldHoistCapture/IsDeclaredInsideLambda.
+            base.VisitFunctionExpression(node);
         }
 
         public override void VisitFunctionStatement(BoundFunctionStatement node)

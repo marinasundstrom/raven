@@ -1,7 +1,8 @@
 import System.*
+import System.ComponentModel.*
 
 val showSecondary = true
-val status = UiLabel("Ready")
+val viewModel = TasksViewModel()
 
 RunApp(Window {
     Title = "Tasks"
@@ -15,11 +16,24 @@ RunApp(Window {
             Label("Today")
         }
 
-        status
+        Label(viewModel, "Status", () => viewModel.Status)
 
         Button("Add") {
-            status.SetContent("Clicked Add")
+            viewModel.Status = "Clicked Add"
             Console.WriteLine("Clicked Add")
         }
     }
 })
+
+class TasksViewModel : ObservableBase {
+    #[Observable]
+    var Status: string = "Ready"
+}
+
+abstract class ObservableBase : INotifyPropertyChanged {
+    event PropertyChanged: PropertyChangedEventHandler?
+
+    #pragma warning disable-next-line RAV9019 RAV9012
+    protected func RaisePropertyChanged(propertyName: string, oldValue: object?, newValue: object?) -> unit
+        => PropertyChanged?(self, PropertyChangedEventArgs(propertyName))
+}

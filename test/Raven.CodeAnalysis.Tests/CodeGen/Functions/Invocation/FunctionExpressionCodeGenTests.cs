@@ -734,6 +734,81 @@ class Pair {
         Assert.Equal(17, (int)method.Invoke(instance, Array.Empty<object>())!);
     }
 
+    [Fact]
+    public void Lambda_ArgumentCapturesLocalAndUpdatesOuterMethod()
+    {
+        var code = """
+class Runner {
+    func Accept(action: () -> unit) -> unit {
+        action()
+    }
+
+    func Run() -> int {
+        var value = 0
+        Accept(() -> unit => {
+            value = 3
+        })
+        return value
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Runner", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        Assert.Equal(3, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    [Fact]
+    public void NestedLambda_CapturesOuterMethodLocal()
+    {
+        var code = """
+class Runner {
+    func Run() -> int {
+        var value = 1
+        val outer = () -> int => {
+            val inner = () -> int => value
+            value = 2
+            return inner()
+        }
+
+        return outer()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Runner", throwOnError: true)!;
+        var instance = Activator.CreateInstance(type)!;
+        var method = type.GetMethod("Run", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        Assert.Equal(2, (int)method.Invoke(instance, Array.Empty<object>())!);
+    }
+
     // ─── Local functions sharing DisplayClass with lambdas ───────────────────────
 
     [Fact]

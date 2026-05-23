@@ -84,6 +84,7 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundAssignmentExpression assign:
                 if (assign is BoundPatternAssignmentExpression patternAssignment)
                     VisitPattern(patternAssignment.Pattern);
+                VisitExpression(assign.Left);
                 VisitExpression(assign.Right);
                 break;
             case BoundUnaryExpression unary:

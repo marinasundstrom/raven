@@ -277,16 +277,24 @@ sealed class FunctionExpressionSelfCaptureCollector : BoundTreeWalker
     {
         foreach (var captured in node.CapturedVariables)
         {
-            if (captured is not null && ShouldPropagateCapture(captured))
+            if (captured is not null &&
+                ShouldPropagateCapture(captured) &&
+                !IsDeclaredInsideLambda(captured, node))
+            {
                 _captures.Add(captured);
+            }
         }
 
         if (node.Unbound is { LambdaSymbol: Symbols.SourceLambdaSymbol sourceLambda } && sourceLambda.HasCaptures)
         {
             foreach (var captured in sourceLambda.CapturedVariables)
             {
-                if (captured is not null && ShouldPropagateCapture(captured))
+                if (captured is not null &&
+                    ShouldPropagateCapture(captured) &&
+                    !IsDeclaredInsideLambda(captured, node))
+                {
                     _captures.Add(captured);
+                }
             }
         }
 
@@ -298,8 +306,28 @@ sealed class FunctionExpressionSelfCaptureCollector : BoundTreeWalker
         if (SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingSymbol))
             return true;
 
+        if (captured is ILocalSymbol or IParameterSymbol)
+            return true;
+
         if (captured is ITypeSymbol typeSymbol && _containingSymbol.ContainingType is { } containingType)
             return SymbolEqualityComparer.Default.Equals(typeSymbol, containingType);
+
+        return false;
+    }
+
+    private static bool IsDeclaredInsideLambda(ISymbol captured, BoundFunctionExpression lambda)
+    {
+        foreach (var capturedReference in captured.DeclaringSyntaxReferences)
+        {
+            foreach (var lambdaReference in lambda.Symbol?.DeclaringSyntaxReferences ?? [])
+            {
+                if (capturedReference.SyntaxTree == lambdaReference.SyntaxTree &&
+                    lambdaReference.Span.Contains(capturedReference.Span))
+                {
+                    return true;
+                }
+            }
+        }
 
         return false;
     }

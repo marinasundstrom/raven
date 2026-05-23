@@ -491,6 +491,13 @@ public partial class SemanticModel
             if (currentBinder is not TypeMemberBinder)
                 return false;
 
+            if (node is MemberDeclarationSyntax originalMember &&
+                TryGetMacroReplacementSyntax(originalMember, out var replacementNode) &&
+                replacementNode is MemberDeclarationSyntax replacementMember)
+            {
+                node = replacementMember;
+            }
+
             switch (node)
             {
                 case FieldDeclarationSyntax or ConstDeclarationSyntax:

@@ -1101,6 +1101,15 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        if (MethodBodyGenerator.LambdaClosure is { } currentLambdaClosure &&
+            ReferenceEquals(currentLambdaClosure, closure))
+        {
+            MethodBodyGenerator.EmitLoadClosure();
+            ILGenerator.Emit(OpCodes.Ldftn, runtimeLambdaMethod);
+            ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
+            return;
+        }
+
         // Fallback (value-based capture): create a new closure instance and copy captured values.
         var closureLocal = ILGenerator.DeclareLocal(runtimeClosureType);
         ILGenerator.Emit(OpCodes.Newobj, runtimeClosureCtor);

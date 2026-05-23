@@ -1,5 +1,6 @@
 import System.*
 import System.Collections.Generic.*
+import System.ComponentModel.*
 import Avalonia.*
 import Avalonia.Controls.*
 import Avalonia.Controls.ApplicationLifetimes.*
@@ -83,6 +84,31 @@ class UiLabel : UiControl {
         val label = Avalonia.Controls.Label()
         label.Content = Content
         native = label
+        return label
+    }
+}
+
+class UiBoundLabel : UiControl {
+    private val source: INotifyPropertyChanged
+    private val propertyName: string
+    private val getContent: () -> string
+
+    init(source: INotifyPropertyChanged, propertyName: string, getContent: () -> string) {
+        self.source = source
+        self.propertyName = propertyName
+        self.getContent = getContent
+    }
+
+    override func CreateNativeControl() -> Control {
+        val label = Avalonia.Controls.Label()
+        label.Content = getContent()
+
+        source.PropertyChanged += func (_, args) => {
+            if args.PropertyName == propertyName {
+                label.Content = getContent()
+            }
+        }
+
         return label
     }
 }
@@ -251,6 +277,10 @@ func StackPanel([Builder<UiBuilder>, Receiver<StackPanelBuilder>] content: () ->
 
 func Label(text: string) -> UiNode {
     return UiNode(UiLabel(text))
+}
+
+func Label(source: INotifyPropertyChanged, propertyName: string, getContent: () -> string) -> UiNode {
+    return UiNode(UiBoundLabel(source, propertyName, getContent))
 }
 
 func Button(text: string, onClick: () -> ()) -> UiNode {

@@ -1732,6 +1732,14 @@ internal class TypeGenerator
         if (owner is IMethodSymbol ownerMethod &&
             (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod)
         {
+            if (ownerSourceMethod.ContainingType is { } ownerContainingType &&
+                !SymbolEqualityComparer.Default.Equals(ownerContainingType, TypeSymbol))
+            {
+                var ownerGenerator = CodeGen.GetOrCreateTypeGenerator(ownerContainingType);
+                if (!ReferenceEquals(ownerGenerator, this))
+                    return ownerGenerator.EnsureLambdaClosure(lambdaSymbol);
+            }
+
             var methodClosure = EnsureMethodClosure(ownerSourceMethod, captures);
             // Map this lambda to the method closure so future lookups are fast and consistent.
             _lambdaClosures[lambdaSymbol] = methodClosure;
@@ -1783,6 +1791,14 @@ internal class TypeGenerator
             (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod &&
             !SymbolEqualityComparer.Default.Equals(ownerSourceMethod, methodSymbol))
         {
+            if (ownerSourceMethod.ContainingType is { } ownerContainingType &&
+                !SymbolEqualityComparer.Default.Equals(ownerContainingType, TypeSymbol))
+            {
+                var ownerGenerator = CodeGen.GetOrCreateTypeGenerator(ownerContainingType);
+                if (!ReferenceEquals(ownerGenerator, this))
+                    return ownerGenerator.EnsureMethodClosure(ownerSourceMethod, capturedVariables);
+            }
+
             var ownerClosure = EnsureMethodClosure(ownerSourceMethod, capturedVariables);
             _methodClosures[methodSymbol] = ownerClosure;
             return ownerClosure;

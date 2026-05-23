@@ -55,6 +55,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Equality operands now target-type member-binding shorthand such as `value == .Case`, matching pattern shorthand while still allowing `value is .Case` when pattern syntax better communicates intent.
 
 ### Fixed
+- Function expressions now capture variables assigned through the left side of an
+  assignment, including function expressions passed as call arguments, and nested
+  function expressions now reuse the owning method closure instead of snapshotting
+  stale values.
+- Diagnostic binding now follows macro replacement declarations, preventing
+  attached property macros from reporting the original property as a duplicate
+  member after the replacement property has already been registered.
 - Emitting direct signatures over NuGet `ref/` assembly types now prefers the
   corresponding `lib/` runtime assembly and guards type probing failures,
   preventing external packages such as Avalonia from crashing emit during

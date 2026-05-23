@@ -173,6 +173,35 @@ public sealed class MacroCodeGenTests
     }
 
     [Fact]
+    public void AttachedPropertyMacro_DiagnosticsTraverseReplacementDeclarationOnly()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            class MyViewModel {
+                #[Observable]
+                var Title: string = ""
+            }
+            """);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(typeof(EmitMacroPlugin)));
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var propertyDeclaration = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .Single(static p => p.Identifier.ValueText == "Title");
+
+        _ = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAV0111");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void AttachedPropertyMacro_WithDetachedSyntaxFactoryNodes_DoesNotRequireSyntheticRooting()
     {
         var syntaxTree = SyntaxTree.ParseText("""

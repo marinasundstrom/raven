@@ -813,7 +813,7 @@ partial class BlockBinder
         lambdaBinder.SetLambdaBody(bodyExpr);
         lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntaxNode);
 
-        var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
+        var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, bodyExpr, lambdaSymbol);
 
         if (isStaticLambda)
         {
@@ -827,7 +827,7 @@ partial class BlockBinder
         if (lambdaSymbol is SourceLambdaSymbol sourceLambdaSymbol)
         {
             sourceLambdaSymbol.SetCapturedVariables(capturedVariables);
-            sourceLambdaSymbol.SetClosureFrameType(capturedVariables.Count != 0
+            sourceLambdaSymbol.SetClosureFrameType(capturedVariables.Length != 0
                 ? ClosureFrameSymbolFactory.Create(sourceLambdaSymbol)
                 : null);
         }
@@ -1155,10 +1155,10 @@ partial class BlockBinder
 
         lambdaBinder.SetLambdaBody(bodyExpr);
         lambdaBinder.CacheLambdaBodyBinders(syntax);
-        var capturedVariables = lambdaBinder.AnalyzeCapturedVariables();
+        var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, bodyExpr, lambdaSymbol);
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
-        lambdaSymbol.SetClosureFrameType(capturedVariables.Count != 0
+        lambdaSymbol.SetClosureFrameType(capturedVariables.Length != 0
             ? ClosureFrameSymbolFactory.Create(lambdaSymbol)
             : null);
         lambdaSymbol.SetReturnType(returnType);
@@ -2614,13 +2614,7 @@ partial class BlockBinder
 
         lambdaBinder.SetLambdaBody(body);
         lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntax ?? syntax);
-        var captured = lambdaBinder.AnalyzeCapturedVariables();
-
-        var capturedSet = new HashSet<ISymbol>(captured, SymbolEqualityComparer.Default);
-        foreach (var nestedCapture in FunctionExpressionSelfCaptureCollector.Collect(body, lambdaSymbol))
-            capturedSet.Add(nestedCapture);
-
-        var capturedVariables = capturedSet.ToImmutableArray();
+        var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, body, lambdaSymbol);
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
         lambdaSymbol.SetClosureFrameType(capturedVariables.Length != 0
@@ -2890,6 +2884,19 @@ partial class BlockBinder
         }
 
         return false;
+    }
+
+    private static ImmutableArray<ISymbol> CollectFunctionExpressionCaptures(
+        FunctionExpressionBinder lambdaBinder,
+        BoundExpression body,
+        ISymbol lambdaSymbol)
+    {
+        var captured = lambdaBinder.AnalyzeCapturedVariables();
+        var capturedSet = new HashSet<ISymbol>(captured, SymbolEqualityComparer.Default);
+        foreach (var nestedCapture in FunctionExpressionSelfCaptureCollector.Collect(body, lambdaSymbol))
+            capturedSet.Add(nestedCapture);
+
+        return capturedSet.ToImmutableArray();
     }
 
     private bool HasExistingArgumentErrors(SeparatedSyntaxList<ArgumentSyntax> arguments)
