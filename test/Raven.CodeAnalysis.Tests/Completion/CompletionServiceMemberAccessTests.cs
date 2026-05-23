@@ -55,6 +55,41 @@ class C {
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnLocalInitializedFromImportedNamespaceFunction_ReturnsMemberItems()
+    {
+        var mainSource = """
+import Utilities.*
+
+func Main() {
+    val x = A(42)
+    x.
+}
+""";
+        var utilitiesSource = """
+namespace Utilities
+
+func A(value: int) -> int {
+    42
+}
+""";
+
+        var mainTree = SyntaxTree.ParseText(mainSource);
+        var utilitiesTree = SyntaxTree.ParseText(utilitiesSource);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(mainTree, utilitiesTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = mainSource.LastIndexOf("x.", StringComparison.Ordinal) + "x.".Length;
+        var completion = service.GetCompletionsWithMetrics(compilation, mainTree, position);
+
+        Assert.False(completion.UsedFallback, completion.FailureType);
+        Assert.Contains(completion.Items, item => item.DisplayText == "ToString");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnNamespace_ReturnsNamespaceMembers()
     {
         var code = """

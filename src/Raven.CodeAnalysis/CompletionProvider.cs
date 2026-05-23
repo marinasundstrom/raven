@@ -996,11 +996,22 @@ public static class CompletionProvider
             TextSpan replacementSpan,
             ExtensionMemberKinds kinds)
         {
-            var extensionMembers = ExtensionMemberLookup.Lookup(
-                binder,
-                receiverType,
-                includePartialMatches: false,
-                kinds: kinds);
+            ExtensionMemberLookupResult extensionMembers;
+            try
+            {
+                extensionMembers = ExtensionMemberLookup.Lookup(
+                    binder,
+                    receiverType,
+                    includePartialMatches: false,
+                    kinds: kinds);
+            }
+            catch
+            {
+                // Extension members are an enrichment over ordinary member access
+                // completions. Metadata lookup or an incomplete project snapshot
+                // must not collapse the whole member list into keyword fallback.
+                return;
+            }
 
             if (kinds.HasFlag(ExtensionMemberKinds.InstanceMethods))
             {

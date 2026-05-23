@@ -861,6 +861,51 @@ public func Test() -> unit {
     }
 
     [Fact]
+    public async Task CompletionHandler_MemberAccessOnLocalInitializedFromImportedNamespaceFunction_ReturnsMemberItemsAsync()
+    {
+        const string text = """
+import Utilities.*
+
+func Main() {
+    Test()
+    val x = A(42)
+    x.
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        await store.UpsertDocumentAsync(testUri, """
+namespace Utilities
+
+public func Test() -> unit {
+}
+
+public func A(value: int) -> int {
+    value
+}
+""");
+        var position = new Position(5, "    x.".Length);
+
+        var handler = new CompletionHandler(store, NullLogger<CompletionHandler>.Instance);
+        var completions = await handler.Handle(new CompletionParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = position,
+            Context = new CompletionContext
+            {
+                TriggerKind = CompletionTriggerKind.TriggerCharacter,
+                TriggerCharacter = "."
+            }
+        }, CancellationToken.None);
+
+        completions.ShouldNotBeNull();
+        completions.Items.ShouldNotBeNull();
+        completions.Items!.Select(static item => item.Label).ShouldContain("ToString");
+        completions.Items!.Select(static item => item.Label).ShouldNotContain("return");
+    }
+
+    [Fact]
     public async Task GetAnalysisContextAsync_ClearedDocument_ReturnsCompilationOwnedSyntaxTreeAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("val number = 42");
