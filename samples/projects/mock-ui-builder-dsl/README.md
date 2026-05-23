@@ -25,7 +25,7 @@ The sample intentionally stays headless: it builds an Avalonia `Window`, dumps t
 
 While moving this sample to Avalonia, a few issues surfaced that are worth investigating separately:
 
-- Direct Raven method signatures over Avalonia controls hit a `TypeLoadException` for `Avalonia.StyledElement`; the sample now keeps Avalonia controls behind `object`-backed wrapper types.
+- Resolved: direct Raven method signatures over Avalonia controls previously hit a `TypeLoadException` for `Avalonia.StyledElement`. Raven now prefers NuGet `lib/` runtime assemblies when resolving emitted signatures from `ref/` metadata assemblies.
 - Direct inherited member lookup/conversion on Avalonia controls was incomplete in a few places, such as `Button` to `Interactive` and inherited `RaiseEvent`.
 - The Raven CLI currently copies managed NuGet assemblies for `--run`, but not all native runtime assets. Desktop Avalonia on macOS needed `libSkiaSharp.dylib` and `libAvaloniaNative.dylib`, which is why this sample uses `Avalonia.Headless`.
 - Reflection over Avalonia styled properties did not produce useful sample dump values, so the Raven wrappers retain the configured display values while still creating real Avalonia controls.

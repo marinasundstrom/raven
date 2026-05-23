@@ -36,6 +36,32 @@ static func Main() -> unit {
     }
 
     [Fact]
+    public void NuGetHarness_AvaloniaRefAssemblySignature_EmitsWithoutRuntimeTypeLoadCrash()
+    {
+        using var harness = NuGetProjectTestHarness.Create(
+            """
+import Avalonia.Controls.*
+
+func CreateWindow() -> Window {
+    return Window()
+}
+""",
+            [("Avalonia", "11.3.16")],
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var compilation = harness.GetCompilation();
+        using var peStream = new MemoryStream();
+        EmitResult? emitResult = null;
+
+        var exception = Record.Exception(() => emitResult = compilation.Emit(peStream));
+
+        Assert.Null(exception);
+        Assert.NotNull(emitResult);
+        Assert.True(emitResult!.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void NuGetHarness_SystemReactiveObserverCreate_WithImplicitLambdaParameter_BindsLikeCSharp()
     {
         using var harness = NuGetProjectTestHarness.Create(

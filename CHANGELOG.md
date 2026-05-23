@@ -49,6 +49,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Equality operands now target-type member-binding shorthand such as `value == .Case`, matching pattern shorthand while still allowing `value is .Case` when pattern syntax better communicates intent.
 
 ### Fixed
+- Emitting direct signatures over NuGet `ref/` assembly types now prefers the
+  corresponding `lib/` runtime assembly and guards type probing failures,
+  preventing external packages such as Avalonia from crashing emit during
+  runtime type resolution.
 - Incremental executable-owner analysis now treats top-level `func` statements as
   function owners instead of generic global-statement owners, improving editor
   recovery after wrapping top-level statements in `func Main`.

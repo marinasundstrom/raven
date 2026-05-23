@@ -2390,35 +2390,41 @@ public partial class Compilation
         }
         else if (identity.Name is not null && _assemblyPathMap.TryGetValue(identity.Name, out var knownPath))
         {
-            runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, knownPath);
+            var runtimePath = TryMapReferenceAssemblyToRuntimePath(knownPath) ?? knownPath;
+            runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, runtimePath);
             if (runtimeAssembly is not null)
             {
                 resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
                     ? runtimeAssembly.Location
-                    : knownPath;
+                    : runtimePath;
             }
-            else if (TryMapReferenceAssemblyToRuntimePath(knownPath) is { } mappedKnownPath)
+            else if (!string.Equals(runtimePath, knownPath, StringComparison.OrdinalIgnoreCase) &&
+                     LoadRuntimeAssemblyFromPath(identity, knownPath) is { } metadataAssemblyRuntime)
             {
-                runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, mappedKnownPath);
-                if (runtimeAssembly is not null)
-                    resolvedPath = mappedKnownPath;
+                runtimeAssembly = metadataAssemblyRuntime;
+                resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
+                    ? runtimeAssembly.Location
+                    : knownPath;
             }
         }
 
         if (runtimeAssembly is null && !string.IsNullOrEmpty(explicitPath))
         {
-            runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, explicitPath);
+            var runtimePath = TryMapReferenceAssemblyToRuntimePath(explicitPath) ?? explicitPath;
+            runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, runtimePath);
             if (runtimeAssembly is not null)
             {
                 resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
                     ? runtimeAssembly.Location
-                    : explicitPath;
+                    : runtimePath;
             }
-            else if (TryMapReferenceAssemblyToRuntimePath(explicitPath) is { } mappedExplicitPath)
+            else if (!string.Equals(runtimePath, explicitPath, StringComparison.OrdinalIgnoreCase) &&
+                     LoadRuntimeAssemblyFromPath(identity, explicitPath) is { } metadataAssemblyRuntime)
             {
-                runtimeAssembly = LoadRuntimeAssemblyFromPath(identity, mappedExplicitPath);
-                if (runtimeAssembly is not null)
-                    resolvedPath = mappedExplicitPath;
+                runtimeAssembly = metadataAssemblyRuntime;
+                resolvedPath = !string.IsNullOrEmpty(runtimeAssembly.Location)
+                    ? runtimeAssembly.Location
+                    : explicitPath;
             }
         }
 
@@ -2521,6 +2527,9 @@ public partial class Compilation
         if (string.IsNullOrEmpty(metadataAssemblyPath))
             return null;
 
+        if (TryMapNuGetReferenceAssemblyToRuntimePath(metadataAssemblyPath) is { } nuGetRuntimePath)
+            return nuGetRuntimePath;
+
         try
         {
             var assemblyFileName = Path.GetFileName(metadataAssemblyPath);
@@ -2571,6 +2580,42 @@ public partial class Compilation
             var candidatePath = Path.Combine(runtimeDirectory, assemblyFileName);
 
             return File.Exists(candidatePath) ? candidatePath : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryMapNuGetReferenceAssemblyToRuntimePath(string metadataAssemblyPath)
+    {
+        try
+        {
+            var normalized = metadataAssemblyPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            var refSegment = $"{Path.DirectorySeparatorChar}ref{Path.DirectorySeparatorChar}";
+            var refIndex = normalized.IndexOf(refSegment, StringComparison.OrdinalIgnoreCase);
+            if (refIndex < 0)
+                return null;
+
+            var libCandidate = normalized[..refIndex] +
+                               $"{Path.DirectorySeparatorChar}lib{Path.DirectorySeparatorChar}" +
+                               normalized[(refIndex + refSegment.Length)..];
+            if (File.Exists(libCandidate))
+                return libCandidate;
+
+            var packageRoot = normalized[..refIndex];
+            var libRoot = Path.Combine(packageRoot, "lib");
+            if (!Directory.Exists(libRoot))
+                return null;
+
+            var assemblyFileName = Path.GetFileName(metadataAssemblyPath);
+            if (string.IsNullOrWhiteSpace(assemblyFileName))
+                return null;
+
+            return Directory
+                .EnumerateFiles(libRoot, assemblyFileName, SearchOption.AllDirectories)
+                .OrderByDescending(static path => path, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
         }
         catch
         {
@@ -2656,7 +2701,7 @@ public partial class Compilation
             if (!string.IsNullOrEmpty(peAssembly2.FullName))
             {
                 var qualifiedName = $"{metadataName}, {peAssembly2.FullName}";
-                var qualifiedType = Type.GetType(qualifiedName, throwOnError: false);
+                var qualifiedType = GetTypeSafe(qualifiedName);
                 if (qualifiedType is not null)
                 {
                     RegisterRuntimeAssembly(qualifiedType.Assembly);
@@ -2670,7 +2715,7 @@ public partial class Compilation
                 {
                     var assembly = System.Reflection.Assembly.Load(new AssemblyName(peAssembly2.Name));
                     RegisterRuntimeAssembly(assembly);
-                    var type = assembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
+                    var type = GetTypeSafe(assembly, metadataName);
                     if (type is not null)
                         return type;
                 }
@@ -2701,7 +2746,7 @@ public partial class Compilation
         }
 
         if (metadataType.AssemblyQualifiedName is { Length: > 0 } qualifiedName)
-            return Type.GetType(qualifiedName, throwOnError: false);
+            return GetTypeSafe(qualifiedName);
 
         return null;
     }
@@ -2713,17 +2758,81 @@ public partial class Compilation
 
         EnsureSetup();
 
-        if (RuntimeCoreAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false) is { } coreType)
+        if (GetTypeSafe(RuntimeCoreAssembly, metadataName) is { } coreType)
             return coreType;
 
         foreach (var (key, runtimeAssembly) in _runtimeAssemblyCache)
         {
-            var candidate = runtimeAssembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
+            var candidate = GetTypeSafe(runtimeAssembly, metadataName);
             if (candidate is not null)
                 return candidate;
         }
 
-        return Type.GetType(metadataName, throwOnError: false);
+        return GetTypeSafe(metadataName);
+    }
+
+    private static Type? GetTypeSafe(Assembly assembly, string metadataName)
+    {
+        try
+        {
+            return assembly.GetType(metadataName, throwOnError: false, ignoreCase: false);
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
+        catch (FileLoadException)
+        {
+            return null;
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+        catch (ReflectionTypeLoadException)
+        {
+            return null;
+        }
+        catch (TypeLoadException)
+        {
+            return null;
+        }
+    }
+
+    private static Type? GetTypeSafe(string assemblyQualifiedOrMetadataName)
+    {
+        try
+        {
+            return Type.GetType(assemblyQualifiedOrMetadataName, throwOnError: false);
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
+        catch (FileLoadException)
+        {
+            return null;
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+        catch (ReflectionTypeLoadException)
+        {
+            return null;
+        }
+        catch (TypeLoadException)
+        {
+            return null;
+        }
     }
 
     internal INamespaceSymbol? GetNamespaceSymbolCached(string? ns)
