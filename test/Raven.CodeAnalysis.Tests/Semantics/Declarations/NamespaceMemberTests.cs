@@ -674,7 +674,7 @@ func Run() -> int {
     }
 
     [Fact]
-    public void TopLevelFunction_DoesNotCaptureFileScopeStatementLocal()
+    public void TopLevelFunction_WithFileScopeExecutableStatement_CapturesFileScopeStatementLocal()
     {
         const string source = """
 val prefix = "point"
@@ -686,11 +686,16 @@ func Describe() -> string {
 
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(f => f.Identifier.ValueText == "Describe");
 
-        Assert.Contains(
-            compilation.GetDiagnostics(),
-            static d => d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext &&
-                        d.GetMessage().Contains("'prefix' is not in scope.", StringComparison.Ordinal));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Severity == DiagnosticSeverity.Error);
+
+        var captures = model.GetCapturedVariables(function);
+        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "prefix" });
     }
 
     [Fact]

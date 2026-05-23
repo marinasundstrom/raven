@@ -843,6 +843,77 @@ func Run() -> int {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_ProjectBackedNamespaceMemberImport_InLocalInitializer_DoesNotReportMissingImportedMemberAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>App</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var sourceDirectory = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        File.WriteAllText(Path.Combine(sourceDirectory, "test.rvn"), """
+namespace Utilities
+
+func Test() {
+}
+
+func A(x: int) -> int {
+    42
+}
+""");
+
+        var documentPath = Path.Combine(sourceDirectory, "main.rvn");
+        const string code = """
+import Utilities.*
+
+func Main() {
+    Test()
+    val x = A(42)
+    Test()
+    A(42)
+}
+""";
+        File.WriteAllText(documentPath, code);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        await store.UpsertDocumentAsync(uri, code);
+
+        var diagnostics = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        diagnostics.Diagnostics
+            .Where(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ToArray()
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_ProjectBackedNamespaceMemberEdit_InvalidatesDependentDocumentAsync()
     {
         Directory.CreateDirectory(_tempRoot);

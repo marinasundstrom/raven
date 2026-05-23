@@ -167,6 +167,7 @@ public partial class SemanticModel
         Text.TextSpan NodeSpan,
         string CacheKind,
         bool IsStructuralCacheable,
+        bool SourceDeclarationsDeclared,
         string ContainingSymbolKey,
         string? ParentBinderType,
         string? ParentContainingSymbolKey);
@@ -11813,8 +11814,15 @@ public partial class SemanticModel
         return false;
     }
 
-    private static bool IsCachedBinderCompatible(SyntaxNode node, Binder binder)
+    private bool IsCachedBinderCompatible(SyntaxNode node, Binder binder)
     {
+        if (Compilation.SourceDeclarationsDeclared &&
+            _binderLifecycleSnapshots.TryGetValue(binder, out var snapshot) &&
+            !snapshot.SourceDeclarationsDeclared)
+        {
+            return false;
+        }
+
         return node switch
         {
             MethodDeclarationSyntax => binder is MethodBinder,
@@ -11963,6 +11971,7 @@ public partial class SemanticModel
             node.Span,
             isStructuralCacheable ? "StructuralNode" : "ExactNode",
             isStructuralCacheable,
+            Compilation.SourceDeclarationsDeclared,
             CreateBinderSymbolKey(binder.ContainingSymbol),
             binder.ParentBinder?.GetType().Name,
             binder.ParentBinder is null ? null : CreateBinderSymbolKey(binder.ParentBinder.ContainingSymbol));
