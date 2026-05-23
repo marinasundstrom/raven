@@ -180,6 +180,20 @@ internal sealed class DocumentStore
         }, CancellationToken.None);
     }
 
+    private void CancelPostEditSemanticWarmup(DocumentUri uri)
+    {
+        if (!_pendingPostEditSemanticWarmups.TryRemove(uri, out var source))
+            return;
+
+        try
+        {
+            source.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
     private async Task WarmPostEditSemanticsAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -842,6 +856,8 @@ internal sealed class DocumentStore
 
     private void PreemptBackgroundDiagnostics(DocumentUri uri, string? purpose)
     {
+        CancelPostEditSemanticWarmup(uri);
+
         lock (_backgroundDiagnosticsCancellationGate)
         {
             var previous = _backgroundDiagnosticsPreemption;
