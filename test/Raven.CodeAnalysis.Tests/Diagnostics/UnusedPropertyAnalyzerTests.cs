@@ -191,6 +191,35 @@ class Person : IHasName {
     }
 
     [Fact]
+    public void OverrideProperty_IsNotReported()
+    {
+        const string code = """
+val dog = Dog()
+
+open class Animal {
+    public virtual val Name: string {
+        get { "animal" }
+    }
+}
+
+class Dog : Animal {
+    public override val Name: string {
+        get { "dog" }
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedPropertyAnalyzer>(
+            code,
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void Library_InternalUnusedProperty_ReportsDiagnostic()
     {
         const string code = """

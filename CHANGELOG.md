@@ -53,6 +53,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed pattern matching, propagation, and carrier conditional access over
   Raven.Core metadata unions by matching logical case wrappers and constructed
   PE case types by stable metadata identity.
+- Unused parameter, method, and property analyzer diagnostics now skip members
+  that are required by virtual/override or interface implementation contracts.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused

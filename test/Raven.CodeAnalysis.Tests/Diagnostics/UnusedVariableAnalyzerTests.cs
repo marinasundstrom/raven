@@ -83,6 +83,44 @@ class Derived : Base {
     }
 
     [Fact]
+    public void OverrideMethodParameter_DoesNotReportDiagnostic()
+    {
+        const string code = """
+open class Base {
+    public virtual func Transform(value: int) -> int {
+        value
+    }
+}
+
+class Derived : Base {
+    public override func Transform(value: int) -> int {
+        0
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
+    public void InterfaceImplementationParameter_DoesNotReportDiagnostic()
+    {
+        const string code = """
+interface ITransformer {
+    func Transform(value: int) -> int
+}
+
+class Transformer : ITransformer {
+    func Transform(value: int) -> int {
+        0
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
     public void ReadMethodParameter_DoesNotReportDiagnostic()
     {
         const string code = """

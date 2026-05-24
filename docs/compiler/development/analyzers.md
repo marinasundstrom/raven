@@ -25,13 +25,16 @@ Raven currently provides analyzers for two different contexts:
   access instance state and can be made `static`.
 - **UnusedPropertyAnalyzer** (Raven, `RAV9018`) – reports properties
   that are never referenced. In console applications, all properties are considered; in
-  library-style outputs, only non-public properties are considered.
+  library-style outputs, only non-public properties are considered. Properties required
+  by a virtual/override or interface contract are excluded.
 - **UnusedMethodAnalyzer** (Raven, `RAV9019`) – reports ordinary
   methods that are never invoked. In console applications, all ordinary methods are
   considered (entry points are excluded); in library-style outputs, only non-public methods
-  are considered.
+  are considered. Methods required by a virtual/override or interface contract are excluded.
 - **UnusedVariableAnalyzer** (Raven, `RAV9027` / `RAV9030`) – reports unused local
-  variables, local pattern bindings, and callable parameters.
+  variables, local pattern bindings, and callable parameters. Parameters on override and
+  virtual, override, and interface implementation methods are excluded because the contract
+  fixes the signature.
 - **UnusedImportDirectiveAnalyzer** (Raven, `RAV9031`) – reports wildcard namespace
   imports whose declaring compilation-unit or namespace scope does not reference any
   imported type, top-level namespace member, or nested namespace member. Nested namespaces

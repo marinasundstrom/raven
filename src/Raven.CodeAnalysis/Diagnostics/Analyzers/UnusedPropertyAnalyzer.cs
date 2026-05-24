@@ -78,8 +78,7 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
             if (propertySymbol.IsImplicitlyDeclared ||
                 propertySymbol.IsIndexer ||
                 (!includePublic && propertySymbol.DeclaredAccessibility == Accessibility.Public) ||
-                !propertySymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty ||
-                ImplementsInterfaceProperty(propertySymbol))
+                AnalyzerContractFacts.IsContractProperty(propertySymbol))
             {
                 continue;
             }
@@ -88,26 +87,6 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
         }
 
         return candidates;
-    }
-
-    private static bool ImplementsInterfaceProperty(IPropertySymbol property)
-    {
-        if (property.ContainingType is null)
-            return false;
-
-        foreach (var interfaceType in property.ContainingType.AllInterfaces)
-        {
-            foreach (var interfaceMember in interfaceType.GetMembers(property.Name).OfType<IPropertySymbol>())
-            {
-                if (interfaceMember.IsIndexer != property.IsIndexer)
-                    continue;
-
-                if (SymbolEqualityComparer.Default.Equals(property.Type, interfaceMember.Type))
-                    return true;
-            }
-        }
-
-        return false;
     }
 
     private static void MarkReferences(

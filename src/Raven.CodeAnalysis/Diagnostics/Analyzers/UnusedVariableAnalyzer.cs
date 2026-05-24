@@ -269,6 +269,12 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             if (string.IsNullOrEmpty(parameterSymbol.Name) || parameterSymbol.Name == "_")
                 return;
 
+            if (parameterSymbol.ContainingSymbol is IMethodSymbol method &&
+                AnalyzerContractFacts.IsContractMethod(method))
+            {
+                return;
+            }
+
             _candidates[parameterSymbol.UnderlyingSymbol] = new Candidate(
                 parameterSymbol.UnderlyingSymbol,
                 parameterSymbol.Name,

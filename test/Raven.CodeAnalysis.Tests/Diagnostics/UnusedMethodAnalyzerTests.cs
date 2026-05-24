@@ -129,6 +129,33 @@ class Foo : IFoo {
     }
 
     [Fact]
+    public void OverrideMethod_IsNotReported()
+    {
+        const string code = """
+val derived = Derived()
+
+open class Base {
+    public virtual func RaiseEvent(x: int) -> int {
+        x
+    }
+}
+
+class Derived : Base {
+    public override func RaiseEvent(x: int) -> int => 42
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedMethodAnalyzer>(
+            code,
+            disabledDiagnostics:
+            [
+                CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void LocalFunction_NotInvoked_ReportsDiagnostic()
     {
         const string code = """
