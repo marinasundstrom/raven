@@ -83,11 +83,11 @@ internal sealed class DocumentStore
     private readonly WorkspaceManager _workspaceManager;
     private readonly ILogger<DocumentStore> _logger;
     private readonly SemaphoreSlim _compilerAccessGate = new(1, 1);
-    private readonly object _backgroundDiagnosticsCancellationGate = new();
+    private readonly object _backgroundSemanticWorkCancellationGate = new();
     private readonly ConcurrentDictionary<DocumentDiagnosticsCacheKey, ImmutableArray<LspDiagnostic>> _documentCompilerDiagnosticsCache = new();
     private readonly ConcurrentDictionary<DocumentDiagnosticsCacheKey, ImmutableArray<LspDiagnostic>> _documentWithAnalyzersDiagnosticsCache = new();
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingPostEditSemanticWarmups = new();
-    private CancellationTokenSource _backgroundDiagnosticsPreemption = new();
+    private CancellationTokenSource _backgroundSemanticWorkPreemption = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
     {
@@ -421,7 +421,7 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken,
         string? purpose = null)
     {
-        PreemptBackgroundDiagnostics(uri, purpose);
+        PreemptBackgroundSemanticWork(uri, purpose);
 
         var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
         if (semanticModel is null)
@@ -561,7 +561,7 @@ internal sealed class DocumentStore
 
             var useBusySkip = allowBusySkip;
             using var effectiveCancellation = useBusySkip
-                ? CreateBackgroundDiagnosticsCancellation(cancellationToken)
+                ? CreateBackgroundSemanticWorkCancellation(cancellationToken)
                 : null;
             var effectiveCancellationToken = effectiveCancellation?.Token ?? cancellationToken;
 
@@ -881,14 +881,14 @@ internal sealed class DocumentStore
         }
     }
 
-    private void PreemptBackgroundDiagnostics(DocumentUri uri, string? purpose)
+    private void PreemptBackgroundSemanticWork(DocumentUri uri, string? purpose)
     {
         CancelPostEditSemanticWarmup(uri);
 
-        lock (_backgroundDiagnosticsCancellationGate)
+        lock (_backgroundSemanticWorkCancellationGate)
         {
-            var previous = _backgroundDiagnosticsPreemption;
-            _backgroundDiagnosticsPreemption = new CancellationTokenSource();
+            var previous = _backgroundSemanticWorkPreemption;
+            _backgroundSemanticWorkPreemption = new CancellationTokenSource();
 
             try
             {
@@ -900,17 +900,17 @@ internal sealed class DocumentStore
         }
 
         _logger.LogDebug(
-            "Preempted background diagnostics before semantic request for {Purpose} {Uri}.",
+            "Preempted background semantic work before semantic request for {Purpose} {Uri}.",
             purpose ?? "unknown",
             uri);
     }
 
-    private CancellationTokenSource CreateBackgroundDiagnosticsCancellation(CancellationToken cancellationToken)
+    internal CancellationTokenSource CreateBackgroundSemanticWorkCancellation(CancellationToken cancellationToken)
     {
         CancellationToken preemptionToken;
-        lock (_backgroundDiagnosticsCancellationGate)
+        lock (_backgroundSemanticWorkCancellationGate)
         {
-            preemptionToken = _backgroundDiagnosticsPreemption.Token;
+            preemptionToken = _backgroundSemanticWorkPreemption.Token;
         }
 
         return cancellationToken.CanBeCanceled

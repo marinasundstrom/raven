@@ -16,6 +16,67 @@ public sealed class LanguageServerInlayHintTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-inlay-hints-{Guid.NewGuid():N}");
 
     [Fact]
+    public void CreateRequestTrackerKey_UsesDocumentScopeInsteadOfRangeScope()
+    {
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var fullDocumentRequest = new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange
+            {
+                Start = new Position(0, 0),
+                End = new Position(100, 0)
+            }
+        };
+        var visibleRangeRequest = new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange
+            {
+                Start = new Position(30, 0),
+                End = new Position(45, 0)
+            }
+        };
+
+        InlayHintHandler.CreateRequestTrackerKey(visibleRangeRequest)
+            .ShouldBe(InlayHintHandler.CreateRequestTrackerKey(fullDocumentRequest));
+    }
+
+    [Fact]
+    public async Task EnterDocumentSemanticAccess_CancelsBackgroundSemanticWorkAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> unit {
+    val answer = 1 + 2
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        using var backgroundCancellation = store.CreateBackgroundSemanticWorkCancellation(CancellationToken.None);
+        backgroundCancellation.Token.IsCancellationRequested.ShouldBeFalse();
+
+        using var semanticAccess = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "hover");
+
+        backgroundCancellation.Token.IsCancellationRequested.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task Handle_InferredLocalsAndReturns_ProvidesSourceApplicableTypeHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
