@@ -33,12 +33,11 @@ class UiWindow {
     val Title: string => title
 
     func CreateNativeWindow() -> Avalonia.Controls.Window {
-        val window = Avalonia.Controls.Window() with {
-            Title = Title
-            Width = 360.0
-            Height = 240.0
-            Content = Content.CreateNativeControl()
-        }
+        val window = Avalonia.Controls.Window()
+        window.Title = Title
+        window.Width = 360.0
+        window.Height = 240.0
+        window.Content = Content.CreateNativeControl()
         return window
     }
 }
