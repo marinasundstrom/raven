@@ -353,16 +353,12 @@ internal class TypeGenerator
 
         if (TypeSymbol is SourceUnionSymbol discriminatedUnionSymbol)
         {
+            TypeBuilder!.AddInterfaceImplementation(CodeGen.GetUnionInterfaceType());
+
             if (discriminatedUnionSymbol.TypeKind == TypeKind.Struct)
                 ApplyDiscriminatedUnionLayout();
             var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
             TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
-        }
-        else if (TypeSymbol is SourceUnionCaseTypeSymbol caseSymbol)
-        {
-            var unionType = TypeSymbolExtensionsForCodeGen.GetClrType(caseSymbol.Union, CodeGen);
-            var discriminatedUnionCaseAttribute = CodeGen.CreateUnionCaseAttribute(unionType);
-            TypeBuilder!.SetCustomAttribute(discriminatedUnionCaseAttribute);
         }
 
         if (TypeSymbol is SourceNamedTypeSymbol sourceNamedType && sourceNamedType.IsSealedHierarchy)
@@ -410,6 +406,33 @@ internal class TypeGenerator
 
         var attribute = new CustomAttributeBuilder(layoutCtor, new object[] { layoutKind });
         TypeBuilder.SetCustomAttribute(attribute);
+    }
+
+    internal void ApplyDeferredTypeBuilderAttributes()
+    {
+        if (TypeSymbol is SourceUnionSymbol unionSymbol)
+            ApplyRavenUnionCaseAttributes(unionSymbol);
+    }
+
+    private bool _ravenUnionCaseAttributesApplied;
+
+    private void ApplyRavenUnionCaseAttributes(SourceUnionSymbol unionSymbol)
+    {
+        if (_ravenUnionCaseAttributesApplied ||
+            TypeBuilder is null ||
+            unionSymbol.DeclaredCaseTypes.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        foreach (var caseSymbol in unionSymbol.DeclaredCaseTypes.OrderBy(static caseSymbol => caseSymbol.Ordinal))
+        {
+            var caseTypeMetadataName = ((INamedTypeSymbol)caseSymbol).ToFullyQualifiedMetadataName();
+            var caseAttribute = CodeGen.CreateRavenUnionCaseAttribute(caseTypeMetadataName, caseSymbol.Name, caseSymbol.Ordinal);
+            TypeBuilder.SetCustomAttribute(caseAttribute);
+        }
+
+        _ravenUnionCaseAttributesApplied = true;
     }
 
     private bool ShouldUseExplicitUnionLayout(SourceUnionSymbol unionSymbol)
@@ -2201,6 +2224,13 @@ internal class TypeGenerator
         if (methodSymbol.IsStatic)
             return false;
 
+        if (TypeSymbol is SourceUnionSymbol &&
+            methodSymbol.MethodKind == MethodKind.PropertyGet &&
+            string.Equals(methodSymbol.Name, "get_Value", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
         var interfaces = GetAllInterfaces(named);
         if (interfaces.IsDefaultOrEmpty)
             return false;
@@ -2234,8 +2264,36 @@ internal class TypeGenerator
         if (TypeSymbol is INamedTypeSymbol named && named.TypeKind != TypeKind.Interface)
         {
             ImplementInterfaceMembers(named);
+            ImplementUnionInterfaceMember();
             ImplementVirtualOverrides(named);
         }
+    }
+
+    private void ImplementUnionInterfaceMember()
+    {
+        if (TypeBuilder is null || TypeSymbol is not SourceUnionSymbol union)
+            return;
+
+        var valueProperty = union
+            .GetMembers("Value")
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(static property => property.GetMethod is not null);
+
+        if (valueProperty?.GetMethod is not { } valueGetter)
+            return;
+
+        if (!_methodGenerators.TryGetValue(valueGetter, out var valueGetterGenerator))
+            return;
+
+        if (valueGetterGenerator.MethodBase is not MethodBuilder valueGetterBuilder)
+            return;
+
+        var unionInterface = CodeGen.GetUnionInterfaceType();
+        var interfaceGetter = unionInterface.GetMethod("get_Value", Type.EmptyTypes);
+        if (interfaceGetter is null)
+            return;
+
+        TypeBuilder.DefineMethodOverride(valueGetterBuilder, interfaceGetter);
     }
 
     private void ImplementInterfaceMembers(INamedTypeSymbol named)

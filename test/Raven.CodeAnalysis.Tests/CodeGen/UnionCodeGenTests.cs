@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 
 using Raven.CodeAnalysis;
@@ -281,6 +284,86 @@ union Option {
         Assert.Contains(
             unionType.GetCustomAttributesData(),
             a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionAttribute");
+    }
+
+    [Fact]
+    public void DiscriminatedUnion_ImplementsGeneratedIUnionWhenRuntimeDoesNotProvideIt()
+    {
+        var code = """
+union Option {
+    case Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
+        var generatedInterface = runtimeAssembly.GetType("System.Runtime.CompilerServices.IUnion", throwOnError: true)!;
+
+        Assert.Contains(generatedInterface, unionType.GetInterfaces());
+        Assert.Same(runtimeAssembly, generatedInterface.Assembly);
+    }
+
+    [Fact]
+    public void DiscriminatedUnion_UsesRuntimeIUnionWhenRuntimeProvidesIt()
+    {
+        if (typeof(object).Assembly.GetType("System.Runtime.CompilerServices.IUnion", throwOnError: false) is null)
+            return;
+
+        var code = """
+union Option {
+    case Some(value: int)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion("net11.0");
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var peReader = new PEReader(ImmutableArray.Create(peStream.ToArray()));
+        var metadata = peReader.GetMetadataReader();
+        var optionDefinition = metadata.TypeDefinitions
+            .Select(metadata.GetTypeDefinition)
+            .Single(type => metadata.StringComparer.Equals(type.Name, "Option"));
+
+        Assert.Contains(optionDefinition.GetInterfaceImplementations(), handle =>
+        {
+            var implementation = metadata.GetInterfaceImplementation(handle);
+            return IsMetadataType(metadata, implementation.Interface, "System.Runtime.CompilerServices", "IUnion");
+        });
+        Assert.DoesNotContain(metadata.TypeDefinitions, handle =>
+        {
+            var type = metadata.GetTypeDefinition(handle);
+            return IsMetadataType(metadata, type, "System.Runtime.CompilerServices", "IUnion");
+        });
     }
 
     [Fact]
@@ -886,7 +969,7 @@ union Payment(Cash | Card)
     }
 
     [Fact]
-    public void DiscriminatedUnionCaseTypes_AnnotatedWithMarkerAttribute()
+    public void DiscriminatedUnionCaseTypes_AreRecordedOnCarrierWithRavenMetadata()
     {
         var code = """
 union Option {
@@ -914,20 +997,26 @@ union Option {
         using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
-        var caseTypes = runtimeAssembly.GetTypes()
-            .Where(type => type.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionCaseAttribute"))
+        Assert.DoesNotContain(runtimeAssembly.GetTypes(), type =>
+            type.GetCustomAttributesData().Any(a =>
+                a.AttributeType.FullName is
+                    "System.Runtime.CompilerServices.UnionCaseAttribute" or
+                    "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute"));
+
+        var caseAttributes = unionType
+            .GetCustomAttributesData()
+            .Where(a => a.AttributeType.FullName == "Raven.Runtime.CompilerServices.RavenUnionCaseAttribute")
+            .OrderBy(a => (int)a.ConstructorArguments[2].Value!)
             .ToArray();
-        Assert.NotEmpty(caseTypes);
 
-        foreach (var caseType in caseTypes)
-        {
-            var attribute = Assert.Single(caseType
-                .GetCustomAttributesData()
-                .Where(a => a.AttributeType.FullName == "System.Runtime.CompilerServices.UnionCaseAttribute"));
+        Assert.Equal(2, caseAttributes.Length);
+        Assert.Equal("None", caseAttributes[0].ConstructorArguments[1].Value);
+        Assert.Equal(0, caseAttributes[0].ConstructorArguments[2].Value);
+        Assert.Equal("Some", caseAttributes[1].ConstructorArguments[1].Value);
+        Assert.Equal(1, caseAttributes[1].ConstructorArguments[2].Value);
 
-            Assert.Single(attribute.ConstructorArguments);
-            Assert.Equal(unionType, attribute.ConstructorArguments[0].Value);
-        }
+        Assert.Equal("Option_None", caseAttributes[0].ConstructorArguments[0].Value);
+        Assert.Equal("Option_Some", caseAttributes[1].ConstructorArguments[0].Value);
     }
 
     [Fact]
@@ -2400,5 +2489,27 @@ class Container {
 
         Assert.True(isError);
         Assert.False(isOk);
+    }
+
+    private static bool IsMetadataType(MetadataReader metadata, EntityHandle handle, string @namespace, string name)
+    {
+        return handle.Kind switch
+        {
+            HandleKind.TypeDefinition => IsMetadataType(metadata, metadata.GetTypeDefinition((TypeDefinitionHandle)handle), @namespace, name),
+            HandleKind.TypeReference => IsMetadataType(metadata, metadata.GetTypeReference((TypeReferenceHandle)handle), @namespace, name),
+            _ => false
+        };
+    }
+
+    private static bool IsMetadataType(MetadataReader metadata, TypeDefinition type, string @namespace, string name)
+    {
+        return metadata.StringComparer.Equals(type.Namespace, @namespace) &&
+            metadata.StringComparer.Equals(type.Name, name);
+    }
+
+    private static bool IsMetadataType(MetadataReader metadata, TypeReference type, string @namespace, string name)
+    {
+        return metadata.StringComparer.Equals(type.Namespace, @namespace) &&
+            metadata.StringComparer.Equals(type.Name, name);
     }
 }

@@ -56,7 +56,7 @@ internal static class UnionFacts
         if (metadataCaseName.StartsWith(separatedPrefix, StringComparison.Ordinal) &&
             metadataCaseName.Length > separatedPrefix.Length)
         {
-            logicalCaseName = metadataCaseName.Substring(separatedPrefix.Length);
+            logicalCaseName = StripGenericArity(metadataCaseName.Substring(separatedPrefix.Length));
             return true;
         }
 
@@ -64,12 +64,18 @@ internal static class UnionFacts
         if (metadataCaseName.StartsWith(unionName, StringComparison.Ordinal) &&
             metadataCaseName.Length > unionName.Length)
         {
-            logicalCaseName = metadataCaseName.Substring(unionName.Length);
+            logicalCaseName = StripGenericArity(metadataCaseName.Substring(unionName.Length));
             return true;
         }
 
-        logicalCaseName = metadataCaseName;
+        logicalCaseName = StripGenericArity(metadataCaseName);
         return false;
+    }
+
+    private static string StripGenericArity(string metadataName)
+    {
+        var arityIndex = metadataName.IndexOf('`', StringComparison.Ordinal);
+        return arityIndex >= 0 ? metadataName[..arityIndex] : metadataName;
     }
 
     public static bool TryProjectCaseTypeParameterFromUnionArguments(

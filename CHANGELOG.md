@@ -46,6 +46,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed editor diagnostic scheduling so open, edit, and save follow-up passes include
   analyzer diagnostics such as unused locals and parameters, while typing uses a throttled
   document-scoped analyzer pass instead of running full-project analyzers on every edit.
+- Fixed Raven.Core metadata union case imports so `import System.Result.*` and
+  `import System.Option.*` bring `Ok`, `Error`, `Some`, and `None` into
+  unqualified scope even though the PE case types are emitted as standalone
+  types.
+- Fixed pattern matching, propagation, and carrier conditional access over
+  Raven.Core metadata unions by matching logical case wrappers and constructed
+  PE case types by stable metadata identity.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused
@@ -63,6 +70,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - `for` loop identifier targets now support explicit type annotations such as `for item: int in items`, and inferred type inlay hints are offered for unannotated identifier targets.
 - Outer pattern-binding contexts now allow implicit deconstruction captures to carry type annotations without repeating the binding keyword, so forms such as `val (key: string, value: int) = entry` and `val [head: string, ..tail: string[]] = values` parse as typed captures.
 - Equality operands now target-type member-binding shorthand such as `value == .Case`, matching pattern shorthand while still allowing `value is .Case` when pattern syntax better communicates intent.
+- Raven unions now align their emitted interop surface with the .NET 11 union
+  direction by implementing `IUnion`; body-declared Raven case types are recorded
+  on the carrier with Raven-owned metadata instead of non-standard system case
+  marker attributes.
 
 ### Fixed
 - String `==` and `!=` now use `System.String` value equality instead of

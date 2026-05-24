@@ -1591,6 +1591,9 @@ internal partial class ExpressionGenerator : Generator
             if (SymbolEqualityComparer.Default.Equals(leftPlain, rightPlain))
                 return true;
 
+            if (leftPlain.MetadataIdentityEquals(rightPlain))
+                return true;
+
             var leftCase = leftPlain.TryGetUnionCase();
             var rightCase = rightPlain.TryGetUnionCase();
             if (leftCase is not null && rightCase is not null)

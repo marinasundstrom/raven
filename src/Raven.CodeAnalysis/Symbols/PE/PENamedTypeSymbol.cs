@@ -121,32 +121,6 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 return new PEUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
             }
 
-            if (attributeName is
-                "System.Runtime.CompilerServices.UnionCaseAttribute" or
-                "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute")
-            {
-                IUnionSymbol? unionSymbol = null;
-
-                if (containingType is IUnionSymbol containingUnion)
-                {
-                    unionSymbol = containingUnion;
-                }
-
-                if (TryGetAttributeConstructorTypeArgument(attribute, out var unionType))
-                {
-                    unionSymbol = reflectionTypeLoader.ResolveType(unionType) as IUnionSymbol;
-                }
-
-                return new PEUnionCaseSymbol(
-                    reflectionTypeLoader,
-                    typeInfo,
-                    containingSymbol,
-                    containingType,
-                    containingNamespace,
-                    locations,
-                    unionSymbol).AddAsMember();
-
-            }
         }
 
         if (LooksLikeDiscriminatedUnion(typeInfo))
@@ -155,7 +129,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             return new PEUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
         }
 
-        if (containingType is IUnionSymbol parentUnion)
+        if (containingType is IUnionSymbol parentUnion ||
+            TryInferContainingUnionFromCaseMetadataName(typeInfo, containingNamespace, out parentUnion))
         {
             return new PEUnionCaseSymbol(
                 reflectionTypeLoader,
@@ -169,6 +144,49 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
         return new PENamedTypeSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
             .AddAsMember();
+    }
+
+    private static bool TryInferContainingUnionFromCaseMetadataName(
+        System.Reflection.TypeInfo typeInfo,
+        INamespaceSymbol? containingNamespace,
+        out IUnionSymbol unionSymbol)
+    {
+        unionSymbol = null!;
+
+        if (containingNamespace is null)
+            return false;
+
+        if (containingNamespace is PENamespaceSymbol { IsLoadingMembers: true })
+            return false;
+
+        var metadataName = StripGenericArity(typeInfo.Name);
+        var separatorIndex = metadataName.IndexOf('_', StringComparison.Ordinal);
+        if (separatorIndex <= 0 || separatorIndex == metadataName.Length - 1)
+            return false;
+
+        var unionName = metadataName[..separatorIndex];
+        var candidate = containingNamespace
+            .GetMembers(unionName)
+            .OfType<IUnionSymbol>()
+            .FirstOrDefault();
+
+        if (candidate is null)
+            return false;
+
+        if (!UnionFacts.TryGetLogicalCaseNameFromMetadata(candidate.Name, metadataName, out var logicalCaseName) ||
+            string.Equals(logicalCaseName, metadataName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        unionSymbol = candidate;
+        return true;
+    }
+
+    private static string StripGenericArity(string name)
+    {
+        var index = name.IndexOf('`', StringComparison.Ordinal);
+        return index >= 0 ? name[..index] : name;
     }
 
     private static bool LooksLikeDiscriminatedUnion(System.Reflection.TypeInfo typeInfo)
@@ -235,7 +253,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         }
     }
 
-    private static string? GetAttributeTypeName(CustomAttributeData attribute)
+    internal static string? GetAttributeTypeName(CustomAttributeData attribute)
     {
         try
         {
@@ -254,26 +272,6 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             var attributeName = GetAttributeTypeName(attribute);
             if (attributeName is not null && predicate(attributeName))
                 return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryGetAttributeConstructorTypeArgument(CustomAttributeData attribute, out Type unionType)
-    {
-        unionType = null!;
-
-        try
-        {
-            if (attribute.ConstructorArguments is [{ Value: Type unionTypeValue }])
-            {
-                unionType = unionTypeValue;
-                return true;
-            }
-        }
-        catch (ArgumentException)
-        {
-            return false;
         }
 
         return false;

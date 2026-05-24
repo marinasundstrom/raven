@@ -273,7 +273,8 @@ internal class CodeGenerator
     public Type? NullableAttributeType { get; private set; }
     public Type? TupleElementNamesAttributeType { get; private set; }
     public Type? DiscriminatedUnionAttributeType { get; private set; }
-    public Type? UnionCaseAttributeType { get; private set; }
+    public Type? UnionInterfaceType { get; private set; }
+    public Type? RavenUnionCaseAttributeType { get; private set; }
     public Type? ExtensionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     public Type? ClosedHierarchyAttributeType { get; private set; }
@@ -281,7 +282,7 @@ internal class CodeGenerator
     ConstructorInfo? _nullableCtor;
     ConstructorInfo? _tupleElementNamesCtor;
     ConstructorInfo? _discriminatedUnionCtor;
-    ConstructorInfo? _discriminatedUnionCaseCtor;
+    ConstructorInfo? _ravenUnionCaseCtor;
     ConstructorInfo? _extensionMarkerNameCtor;
     ConstructorInfo? _fixedLengthArrayCtor;
     ConstructorInfo? _extensionAttributeCtor;
@@ -569,13 +570,19 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_discriminatedUnionCtor!, Array.Empty<object?>());
     }
 
-    internal CustomAttributeBuilder CreateUnionCaseAttribute(Type unionType)
+    internal Type GetUnionInterfaceType()
     {
-        if (unionType is null)
-            throw new ArgumentNullException(nameof(unionType));
+        EnsureUnionInterfaceType();
+        return UnionInterfaceType!;
+    }
 
-        EnsureUnionCaseAttributeType();
-        return new CustomAttributeBuilder(_discriminatedUnionCaseCtor!, new object?[] { unionType });
+    internal CustomAttributeBuilder CreateRavenUnionCaseAttribute(string caseTypeMetadataName, string name, int ordinal)
+    {
+        ArgumentNullException.ThrowIfNull(caseTypeMetadataName);
+        ArgumentNullException.ThrowIfNull(name);
+
+        EnsureRavenUnionCaseAttributeType();
+        return new CustomAttributeBuilder(_ravenUnionCaseCtor!, new object?[] { caseTypeMetadataName, name, ordinal });
     }
 
     internal CustomAttributeBuilder CreateClosedHierarchyAttribute(Type[] permittedTypes)
@@ -636,11 +643,17 @@ internal class CodeGenerator
         if (DiscriminatedUnionAttributeType is not null)
             return;
 
-        if (!_compilation.Options.EmbedCoreTypes)
+        if (TargetRuntimeTypeExists("System.Runtime.CompilerServices.UnionAttribute") ||
+            TargetRuntimeTypeExists("System.Runtime.CompilerServices.DiscriminatedUnionAttribute"))
         {
             TryBindRuntimeCoreTypes();
             if (DiscriminatedUnionAttributeType is not null)
                 return;
+        }
+
+        if (!_compilation.Options.EmbedCoreTypes)
+        {
+            throw new InvalidOperationException("Type 'System.Runtime.CompilerServices.UnionAttribute' not found in runtime assemblies.");
         }
 
         var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Attribute"), this);
@@ -673,54 +686,100 @@ internal class CodeGenerator
             ?? throw new InvalidOperationException("Missing UnionAttribute() constructor.");
     }
 
-    void EnsureUnionCaseAttributeType()
+    void EnsureUnionInterfaceType()
     {
-        if (UnionCaseAttributeType is not null)
+        if (UnionInterfaceType is not null)
             return;
+
+        if (TargetRuntimeTypeExists("System.Runtime.CompilerServices.IUnion"))
+        {
+            TryBindRuntimeCoreTypes();
+            if (UnionInterfaceType is not null)
+                return;
+        }
 
         if (!_compilation.Options.EmbedCoreTypes)
         {
-            TryBindRuntimeCoreTypes();
-            if (UnionCaseAttributeType is not null)
+            throw new InvalidOperationException("Type 'System.Runtime.CompilerServices.IUnion' not found in runtime assemblies.");
+        }
+
+        var objectType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Object), this);
+
+        var interfaceBuilder = ModuleBuilder.DefineType(
+            "System.Runtime.CompilerServices.IUnion",
+            TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
+
+        var valueProperty = interfaceBuilder.DefineProperty(
+            "Value",
+            PropertyAttributes.None,
+            objectType,
+            null);
+
+        var getter = interfaceBuilder.DefineMethod(
+            "get_Value",
+            MethodAttributes.Public |
+            MethodAttributes.Abstract |
+            MethodAttributes.Virtual |
+            MethodAttributes.HideBySig |
+            MethodAttributes.SpecialName |
+            MethodAttributes.NewSlot,
+            objectType,
+            Type.EmptyTypes);
+
+        valueProperty.SetGetMethod(getter);
+
+        UnionInterfaceType = interfaceBuilder.CreateType();
+    }
+
+    private bool TargetRuntimeTypeExists(string metadataName)
+        => Compilation.GetTypeByMetadataName(metadataName) is INamedTypeSymbol { TypeKind: not TypeKind.Error };
+
+    void EnsureRavenUnionCaseAttributeType()
+    {
+        if (RavenUnionCaseAttributeType is not null)
+            return;
+
+        RavenUnionCaseAttributeType = Compilation.ResolveRuntimeType("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute");
+        if (RavenUnionCaseAttributeType is not null)
+        {
+            _ravenUnionCaseCtor = RavenUnionCaseAttributeType.GetConstructor(new[] { typeof(string), typeof(string), typeof(int) });
+            if (_ravenUnionCaseCtor is not null)
                 return;
         }
 
         var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetTypeByMetadataName("System.Attribute"), this);
-        var typeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Type), this);
+        var stringType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_String), this);
+        var intType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Int32), this);
 
         var attrBuilder = ModuleBuilder.DefineType(
-            "System.Runtime.CompilerServices.UnionCaseAttribute",
+            "Raven.Runtime.CompilerServices.RavenUnionCaseAttribute",
             TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
             attributeType);
 
-        var unionTypeField = attrBuilder.DefineField(
-            "_discriminatedUnionType",
-            typeType,
-            FieldAttributes.Private | FieldAttributes.InitOnly);
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)])
+            ?? throw new InvalidOperationException("Missing AttributeUsageAttribute(AttributeTargets) constructor.");
+        var allowMultipleProperty = typeof(AttributeUsageAttribute).GetProperty(nameof(AttributeUsageAttribute.AllowMultiple))
+            ?? throw new InvalidOperationException("Missing AttributeUsageAttribute.AllowMultiple property.");
+        var inheritedProperty = typeof(AttributeUsageAttribute).GetProperty(nameof(AttributeUsageAttribute.Inherited))
+            ?? throw new InvalidOperationException("Missing AttributeUsageAttribute.Inherited property.");
+        attrBuilder.SetCustomAttribute(new CustomAttributeBuilder(
+            attrUsageCtor,
+            [AttributeTargets.Class | AttributeTargets.Struct],
+            [allowMultipleProperty, inheritedProperty],
+            [true, false]));
 
-        var propertyBuilder = attrBuilder.DefineProperty(
-            "DiscriminatedUnionType",
-            PropertyAttributes.None,
-            typeType,
-            null);
+        var caseTypeMetadataNameField = DefineReadOnlyBackingField(attrBuilder, "CaseTypeMetadataName", stringType);
+        var nameField = DefineReadOnlyBackingField(attrBuilder, "Name", stringType);
+        var ordinalField = DefineReadOnlyBackingField(attrBuilder, "Ordinal", intType);
 
-        var getterMethod = attrBuilder.DefineMethod(
-            "get_DiscriminatedUnionType",
-            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
-            typeType,
-            Type.EmptyTypes);
-
-        var getterIl = getterMethod.GetILGenerator();
-        getterIl.Emit(OpCodes.Ldarg_0);
-        getterIl.Emit(OpCodes.Ldfld, unionTypeField);
-        getterIl.Emit(OpCodes.Ret);
-
-        propertyBuilder.SetGetMethod(getterMethod);
+        DefineReadOnlyProperty(attrBuilder, "CaseTypeMetadataName", stringType, caseTypeMetadataNameField);
+        DefineReadOnlyProperty(attrBuilder, "Name", stringType, nameField);
+        DefineReadOnlyProperty(attrBuilder, "Ordinal", intType, ordinalField);
 
         var ctorBuilder = attrBuilder.DefineConstructor(
             MethodAttributes.Public,
             CallingConventions.Standard,
-            new[] { typeType });
+            new[] { stringType, stringType, intType });
 
         var il = ctorBuilder.GetILGenerator();
         var baseCtor = attributeType.GetConstructor(
@@ -735,12 +794,46 @@ internal class CodeGenerator
         il.Emit(OpCodes.Call, baseCtor);
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Ldarg_1);
-        il.Emit(OpCodes.Stfld, unionTypeField);
+        il.Emit(OpCodes.Stfld, caseTypeMetadataNameField);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldarg_2);
+        il.Emit(OpCodes.Stfld, nameField);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Ldarg_3);
+        il.Emit(OpCodes.Stfld, ordinalField);
         il.Emit(OpCodes.Ret);
 
-        UnionCaseAttributeType = attrBuilder.CreateType();
-        _discriminatedUnionCaseCtor = UnionCaseAttributeType.GetConstructor(new[] { typeType })
-            ?? throw new InvalidOperationException("Missing UnionCaseAttribute(Type) constructor.");
+        RavenUnionCaseAttributeType = attrBuilder.CreateType();
+        _ravenUnionCaseCtor = RavenUnionCaseAttributeType.GetConstructor(new[] { stringType, stringType, intType })
+            ?? throw new InvalidOperationException("Missing RavenUnionCaseAttribute(string, string, int) constructor.");
+    }
+
+    private static FieldBuilder DefineReadOnlyBackingField(TypeBuilder typeBuilder, string propertyName, Type propertyType)
+        => typeBuilder.DefineField(
+            $"<{propertyName}>k__BackingField",
+            propertyType,
+            FieldAttributes.Private | FieldAttributes.InitOnly);
+
+    private static void DefineReadOnlyProperty(TypeBuilder typeBuilder, string propertyName, Type propertyType, FieldBuilder field)
+    {
+        var propertyBuilder = typeBuilder.DefineProperty(
+            propertyName,
+            PropertyAttributes.None,
+            propertyType,
+            null);
+
+        var getterMethod = typeBuilder.DefineMethod(
+            "get_" + propertyName,
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName,
+            propertyType,
+            Type.EmptyTypes);
+
+        var getterIl = getterMethod.GetILGenerator();
+        getterIl.Emit(OpCodes.Ldarg_0);
+        getterIl.Emit(OpCodes.Ldfld, field);
+        getterIl.Emit(OpCodes.Ret);
+
+        propertyBuilder.SetGetMethod(getterMethod);
     }
 
     void EnsureClosedHierarchyAttributeType()
@@ -941,6 +1034,8 @@ internal class CodeGenerator
 
             DefineTypeBuilders();
             PrintDebug("Type builders defined.");
+            ApplyDeferredTypeBuilderAttributes();
+            PrintDebug("Deferred type builder attributes applied.");
 
             // Entry-point bridge synthesis mutates the containing source type by adding a
             // synthesized method (for example <Main>_EntryPoint). Compute the entry point
@@ -1114,17 +1209,8 @@ internal class CodeGenerator
             _discriminatedUnionCtor = DiscriminatedUnionAttributeType?.GetConstructor(Type.EmptyTypes);
         }
 
-        if (UnionCaseAttributeType is null)
-        {
-            UnionCaseAttributeType = Compilation.ResolveRuntimeType(
-                "System.Runtime.CompilerServices.UnionCaseAttribute")
-                ?? Compilation.ResolveRuntimeType(
-                    "System.Runtime.CompilerServices.DiscriminatedUnionCaseAttribute");
+        UnionInterfaceType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.IUnion");
 
-            var typeType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Type), this);
-
-            _discriminatedUnionCaseCtor = UnionCaseAttributeType?.GetConstructor(new[] { typeType });
-        }
     }
 
     private void CreateExtensionMarkerNameAttributeType()
@@ -1682,6 +1768,12 @@ internal class CodeGenerator
         {
             typeGenerator.CompleteInterfaceImplementations();
         }
+    }
+
+    private void ApplyDeferredTypeBuilderAttributes()
+    {
+        foreach (var typeGenerator in _typeGenerators.Values.ToArray())
+            typeGenerator.ApplyDeferredTypeBuilderAttributes();
     }
 
     private void CreateTypes()

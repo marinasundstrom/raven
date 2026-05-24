@@ -5,6 +5,8 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 class ImportBinder : Binder
@@ -160,6 +162,16 @@ class ImportBinder : Binder
         foreach (var member in members)
             yield return member;
 
+        if (symbol is INamedTypeSymbol typeSymbol &&
+            typeSymbol.TryGetUnion() is { } union)
+        {
+            foreach (var caseType in union.DeclaredCaseTypes)
+            {
+                if (string.Equals(caseType.Name, name, StringComparison.Ordinal))
+                    yield return caseType;
+            }
+        }
+
         if (symbol is INamespaceSymbol namespaceSymbol)
         {
             var includeNamespaceMembers = Compilation.Options.AllowNamespaceMembers &&
@@ -182,7 +194,7 @@ class ImportBinder : Binder
             _ => false
         };
 
-    private bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)
+    internal bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)
     {
         var namespaceName = namespaceSymbol.ToString();
         if (string.IsNullOrWhiteSpace(namespaceName))

@@ -2472,6 +2472,9 @@ internal partial class BlockBinder
                 return false;
 
             var parameterType = parameter.GetByRefElementType().GetPlainType();
+            if (parameterType.MetadataIdentityEquals(targetCaseType))
+                return true;
+
             var parameterCase = parameterType.TryGetUnionCase();
             if (parameterCase is not null)
             {

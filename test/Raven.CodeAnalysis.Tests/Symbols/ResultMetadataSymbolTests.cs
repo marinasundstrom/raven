@@ -160,6 +160,124 @@ public class ResultMetadataSymbolTests
     }
 
     [Fact]
+    public void ParenthesizedUnionFromMetadata_DerivesMemberTypesFromConstructors()
+    {
+        var reference = TestMetadataFactory.CreateFileReferenceFromSource(
+            """
+public union Choice(string | int)
+""",
+            "raven-parenthesized-union-fixture");
+
+        var path = Assert.IsType<PortableExecutableReference>(reference).FilePath;
+        try
+        {
+            var compilation = Compilation.Create("metadata-parenthesized-union", new CompilationOptions(OutputKind.ConsoleApplication))
+                .AddReferences([.. TestMetadataReferences.Default, reference]);
+
+            var choice = compilation.GlobalNamespace
+                .GetMembers("Choice")
+                .OfType<IUnionSymbol>()
+                .Single();
+
+            Assert.Empty(choice.DeclaredCaseTypes);
+
+            var stringType = compilation.GetSpecialType(SpecialType.System_String);
+            var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+            Assert.Contains(choice.MemberTypes, member => AreEquivalentTypes(member, stringType));
+            Assert.Contains(choice.MemberTypes, member => AreEquivalentTypes(member, intType));
+            Assert.Contains(choice.CaseTypes, member => AreEquivalentTypes(member, stringType));
+            Assert.Contains(choice.CaseTypes, member => AreEquivalentTypes(member, intType));
+        }
+        finally
+        {
+            if (path is not null && File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void BodyUnionFromMetadata_UsesRavenCaseMetadataForDeclaredCases()
+    {
+        var reference = TestMetadataFactory.CreateFileReferenceFromSource(
+            """
+public union Option {
+    case None
+    case Some(value: int)
+}
+""",
+            "raven-body-union-fixture");
+
+        var path = Assert.IsType<PortableExecutableReference>(reference).FilePath;
+        try
+        {
+            var compilation = Compilation.Create("metadata-body-union", new CompilationOptions(OutputKind.ConsoleApplication))
+                .AddReferences([.. TestMetadataReferences.Default, reference]);
+
+            var option = compilation.GlobalNamespace
+                .GetMembers("Option")
+                .OfType<IUnionSymbol>()
+                .Single();
+
+            Assert.Equal(["None", "Some"], option.DeclaredCaseTypes.Select(c => c.Name).ToArray());
+            Assert.Equal(["None", "Some"], option.CaseTypes.Select(c => c.Name).ToArray());
+            Assert.All(option.DeclaredCaseTypes, caseType => Assert.Same(option, caseType.Union));
+        }
+        finally
+        {
+            if (path is not null && File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void WildcardCaseImportsFromMetadata_BringUnionCasesIntoUnqualifiedScope()
+    {
+        var (reference, path) = CreateRavenCoreResultReference();
+        try
+        {
+            const string source = """
+import System.*
+import System.Result.*
+import System.Option.*
+
+func BuildResult(value: int) -> Result<int, string> {
+    if value > 0 {
+        return Ok(value)
+    }
+
+    Error("missing")
+}
+
+func BuildOption(value: int) -> Option<int> {
+    if value > 0 {
+        return Some(value)
+    }
+
+    None
+}
+""";
+
+            var tree = SyntaxTree.ParseText(source);
+            var compilation = Compilation.Create(
+                    "metadata-case-imports",
+                    [tree],
+                    [.. TestMetadataReferences.Default, reference],
+                    new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            compilation.EnsureSetup();
+            var diagnostics = compilation.GetDiagnostics();
+
+            Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void ResultFromMetadata_ExtensionPropertyGetter_BindsInvokedUnionCaseIdentifier()
     {
         var (reference, path) = CreateRavenCoreResultReference();
@@ -167,6 +285,8 @@ public class ResultMetadataSymbolTests
         {
             const string source = """
 import System.*
+import System.Result.*
+import System.Option.*
 
 extension ResultExt<T, E> for Result<T, E> {
     val Probe: Option<T> {

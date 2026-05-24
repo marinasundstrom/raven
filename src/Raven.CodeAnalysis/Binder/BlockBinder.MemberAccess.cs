@@ -2646,20 +2646,20 @@ partial class BlockBinder
             .OfType<IMethodSymbol>()
             .Where(method => method.Parameters.Length == 1)
             .Select(method => method.Parameters[0].GetByRefElementType().GetPlainType() as INamedTypeSymbol)
-            .FirstOrDefault(type => type is not null && type.Name.StartsWith(name, StringComparison.Ordinal));
+            .FirstOrDefault(type => type is not null && IsUnionCaseNameMatch(carrier, type, name));
         if (tryGetCase is not null)
             return tryGetCase;
 
         var constructorCase = carrier.Constructors
             .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
             .Select(ctor => ctor.Parameters[0].Type.GetPlainType() as INamedTypeSymbol)
-            .FirstOrDefault(type => type is not null && type.Name.StartsWith(name, StringComparison.Ordinal));
+            .FirstOrDefault(type => type is not null && IsUnionCaseNameMatch(carrier, type, name));
         if (constructorCase is not null)
             return constructorCase;
 
         var directCase = carrier.GetTypeMembers(name).FirstOrDefault()
             ?? carrier.GetTypeMembers()
-                .FirstOrDefault(t => t.Name.StartsWith(name, StringComparison.Ordinal));
+                .FirstOrDefault(t => IsUnionCaseNameMatch(carrier, t, name));
         if (directCase is not null)
             return directCase;
 
@@ -2672,6 +2672,34 @@ partial class BlockBinder
         }
 
         return null;
+    }
+
+    private static bool IsUnionCaseNameMatch(INamedTypeSymbol carrier, INamedTypeSymbol caseType, string logicalName)
+    {
+        if (string.Equals(caseType.Name, logicalName, StringComparison.Ordinal))
+            return true;
+
+        if (caseType.Name.StartsWith(logicalName, StringComparison.Ordinal))
+            return true;
+
+        var rawCaseMetadataName = caseType.OriginalDefinition is INamedTypeSymbol originalDefinition
+            ? originalDefinition.MetadataName
+            : caseType.MetadataName;
+
+        if (UnionFacts.TryGetLogicalCaseNameFromMetadata(carrier.Name, rawCaseMetadataName, out var metadataLogicalName) &&
+            string.Equals(metadataLogicalName, logicalName, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (carrier.OriginalDefinition is INamedTypeSymbol carrierDefinition &&
+            !string.Equals(carrierDefinition.Name, carrier.Name, StringComparison.Ordinal) &&
+            UnionFacts.TryGetLogicalCaseNameFromMetadata(carrierDefinition.Name, rawCaseMetadataName, out metadataLogicalName))
+        {
+            return string.Equals(metadataLogicalName, logicalName, StringComparison.Ordinal);
+        }
+
+        return false;
     }
 
     private static IMethodSymbol? FindTryGetValueMethod(INamedTypeSymbol receiverType, INamedTypeSymbol? caseType)

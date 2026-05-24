@@ -10872,6 +10872,12 @@ partial class BlockBinder : Binder
             {
                 if (importedScope is INamedTypeSymbol importedTypeScope)
                     AddCasesFromUnionCarrier(importedTypeScope);
+                else if (importedScope is INamespaceSymbol importedNamespaceScope &&
+                    importBinder.TryResolveTypeFromNamespaceName(importedNamespaceScope, out var namespaceNamedType) &&
+                    namespaceNamedType is INamedTypeSymbol namespaceNamedCarrier)
+                {
+                    AddCasesFromUnionCarrier(namespaceNamedCarrier);
+                }
 
                 if (includeNamespaceTypeLookups &&
                     importedScope.LookupType(name) is INamedTypeSymbol importedScopeType)

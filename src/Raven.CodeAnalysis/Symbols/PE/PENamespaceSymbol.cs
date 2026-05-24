@@ -37,6 +37,15 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
 
     public override string MetadataName => IsGlobalNamespace ? "" : ToMetadataName();
 
+    internal bool IsLoadingMembers
+    {
+        get
+        {
+            lock (_membersGate)
+                return _membersLoading;
+        }
+    }
+
     public bool IsNamespace => true;
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;

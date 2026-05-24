@@ -315,7 +315,11 @@ internal static class PropagateLowerer
             if (okCaseType is not null)
             {
                 var caseMatch = candidates.FirstOrDefault(m =>
-                    SymbolEqualityComparer.Default.Equals(m.Parameters[0].GetByRefElementType().GetPlainType(), okCaseType));
+                {
+                    var parameterType = m.Parameters[0].GetByRefElementType().GetPlainType();
+                    return SymbolEqualityComparer.Default.Equals(parameterType, okCaseType) ||
+                        parameterType.MetadataIdentityEquals(okCaseType);
+                });
                 if (caseMatch is not null)
                     return caseMatch;
             }
