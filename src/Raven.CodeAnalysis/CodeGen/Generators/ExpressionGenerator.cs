@@ -6194,9 +6194,6 @@ internal partial class ExpressionGenerator : Generator
 
     private bool TryEmitLiftedNullableValueEquality(BoundBinaryExpression binaryExpression, BinaryOperatorKind operatorKind)
     {
-        if ((binaryExpression.Operator.OperatorKind & BinaryOperatorKind.Lifted) == 0)
-            return false;
-
         if (operatorKind is not (BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality))
             return false;
 
@@ -6212,6 +6209,16 @@ internal partial class ExpressionGenerator : Generator
         if (!leftNullableValue && !rightNullableValue)
             return false;
 
+        var compareLeftType = leftNullableValue ? leftNullable!.UnderlyingType : leftType;
+        var compareRightType = rightNullableValue ? rightNullable!.UnderlyingType : rightType;
+
+        if (!BoundBinaryOperator.TryLookup(Compilation, SyntaxKind.EqualsEqualsToken, compareLeftType, compareRightType, out var compareOperator))
+            return false;
+
+        var compareKind = compareOperator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
+        if (compareKind is not BinaryOperatorKind.Equality)
+            return false;
+
         var leftClrType = ResolveClrType(leftType);
         var rightClrType = ResolveClrType(rightType);
         var leftLocal = ILGenerator.DeclareLocal(leftClrType);
@@ -6222,16 +6229,6 @@ internal partial class ExpressionGenerator : Generator
 
         EmitExpression(binaryExpression.Right);
         ILGenerator.Emit(OpCodes.Stloc, rightLocal);
-
-        var compareLeftType = leftNullableValue ? leftNullable!.UnderlyingType : leftType;
-        var compareRightType = rightNullableValue ? rightNullable!.UnderlyingType : rightType;
-
-        if (!BoundBinaryOperator.TryLookup(Compilation, SyntaxKind.EqualsEqualsToken, compareLeftType, compareRightType, out var compareOperator))
-            return false;
-
-        var compareKind = compareOperator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
-        if (compareKind is not BinaryOperatorKind.Equality)
-            return false;
 
         var isNotEquals = operatorKind == BinaryOperatorKind.Inequality;
         var doneLabel = ILGenerator.DefineLabel();
@@ -6251,7 +6248,7 @@ internal partial class ExpressionGenerator : Generator
 
             EmitComparableValue(leftLocal, leftType, compareOperator.LeftType);
             EmitComparableValue(rightLocal, rightType, compareOperator.RightType);
-            ILGenerator.Emit(OpCodes.Ceq);
+            EmitEqualityComparison(compareOperator);
             if (isNotEquals)
             {
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -6279,7 +6276,7 @@ internal partial class ExpressionGenerator : Generator
 
             EmitComparableValue(leftLocal, leftType, compareOperator.LeftType);
             EmitComparableValue(rightLocal, rightType, compareOperator.RightType);
-            ILGenerator.Emit(OpCodes.Ceq);
+            EmitEqualityComparison(compareOperator);
         }
         else
         {
@@ -6288,7 +6285,7 @@ internal partial class ExpressionGenerator : Generator
 
             EmitComparableValue(leftLocal, leftType, compareOperator.LeftType);
             EmitComparableValue(rightLocal, rightType, compareOperator.RightType);
-            ILGenerator.Emit(OpCodes.Ceq);
+            EmitEqualityComparison(compareOperator);
         }
 
         if (isNotEquals)
@@ -6302,6 +6299,17 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(isNotEquals ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
         ILGenerator.MarkLabel(doneLabel);
         return true;
+    }
+
+    private void EmitEqualityComparison(BoundBinaryOperator compareOperator)
+    {
+        if (compareOperator.MethodSymbol is { } methodSymbol)
+        {
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(methodSymbol));
+            return;
+        }
+
+        ILGenerator.Emit(OpCodes.Ceq);
     }
 
     private static ITypeSymbol NormalizeRuntimeType(ITypeSymbol type)

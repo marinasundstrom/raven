@@ -62,6 +62,38 @@ class Foo {
     }
 
     [Fact]
+    public void ConditionalAccess_NullableValueEquality_EmitsAndRuns()
+    {
+        var code = """
+class Foo {
+    public func HasLength() -> bool {
+        val values: int[]? = [1, 2]
+        return values?.Length == 2
+    }
+
+    public func MissingLengthIsZero() -> bool {
+        val values: int[]? = null
+        return values?.Length == 0
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success);
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true)!;
+        var instance = Activator.CreateInstance(type)!;
+
+        Assert.True((bool)type.GetMethod("HasLength")!.Invoke(instance, Array.Empty<object>())!);
+        Assert.False((bool)type.GetMethod("MissingLengthIsZero")!.Invoke(instance, Array.Empty<object>())!);
+    }
+
+    [Fact]
     public void ConditionalInvocation_NullDelegate_ReturnsNull()
     {
         var code = """
