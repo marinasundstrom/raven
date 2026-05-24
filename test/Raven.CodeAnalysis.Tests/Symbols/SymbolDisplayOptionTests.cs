@@ -208,6 +208,49 @@ class C {
     }
 
     [Fact]
+    public void SymbolInfo_TargetTypedMetadataOptionMemberBindingInConstructorArgumentDoesNotPoisonDiagnostics()
+    {
+        const string source = """
+import System.*
+
+val foo = Foo(
+    Name: "Foo",
+    Item: .Some("Foo")
+)
+
+record Foo(
+    val Name: string,
+    val Item: Option<string>
+)
+""";
+
+        var references = GetMetadataReferences()
+            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
+            .ToArray();
+        var (compilation, tree) = CreateCompilation(source, references: references);
+        var model = compilation.GetSemanticModel(tree);
+
+        var invocation = tree.GetRoot().DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression is MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Some" });
+        var memberBinding = Assert.IsAssignableFrom<MemberBindingExpressionSyntax>(invocation.Expression);
+
+        var symbolInfo = model.GetSymbolInfo(memberBinding);
+        Assert.True(
+            symbolInfo.Symbol is INamedTypeSymbol { IsUnionCase: true } or IMethodSymbol { ContainingType.IsUnionCase: true },
+            $"Expected a union case symbol, got '{symbolInfo.Symbol?.ToDisplayString() ?? "<null>"}'.");
+
+        var typeInfo = model.GetTypeInfo(invocation);
+        Assert.Equal("Some<string>", typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Option<string>", typeInfo.ConvertedType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic =>
+            string.Equals(diagnostic.Id, "RAV0103", System.StringComparison.Ordinal) &&
+            diagnostic.GetMessage().Contains("Some", System.StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void TypeInfo_TargetTypedSourceOptionCaseInConstructorArgumentProjectsUnionTypeArguments()
     {
         const string source = """

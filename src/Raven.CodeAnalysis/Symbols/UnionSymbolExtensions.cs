@@ -193,6 +193,13 @@ internal static class UnionSymbolExtensions
             return true;
         }
 
+        if (unionSymbol is INamedTypeSymbol unionNamed &&
+            TypeSubstitution.GetDefinitionForSubstitution(unionNamed) is PEUnionSymbol peUnionDefinition &&
+            peUnionDefinition.TryGetDeclaredCaseType(caseName, out caseType))
+        {
+            return true;
+        }
+
         caseType = unionSymbol.CaseTypes
             .OfType<IUnionCaseTypeSymbol>()
             .FirstOrDefault(@case => string.Equals(@case.Name, caseName, System.StringComparison.Ordinal))!;
