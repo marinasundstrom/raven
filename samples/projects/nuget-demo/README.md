@@ -15,7 +15,7 @@ If the package is missing, Raven triggers restore and then loads references from
 From this folder (`samples/projects/nuget-demo`):
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- NuGetDemo.rvnproj
+dotnet build NuGetDemo.rvnproj --property WarningLevel=0
 ```
 
 Optional run step:

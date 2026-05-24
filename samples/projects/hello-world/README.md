@@ -15,7 +15,7 @@ Source file:
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- HelloWorld.rvnproj
+dotnet build HelloWorld.rvnproj --property WarningLevel=0
 ```
 
 ## Run

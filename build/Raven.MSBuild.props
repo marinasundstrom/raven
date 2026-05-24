@@ -1,14 +1,10 @@
 <Project>
   <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.rvnproj' and '$(LanguageTargets)' == ''">
-    <LanguageTargets>$(MSBuildThisFileDirectory)build/Raven.Language.targets</LanguageTargets>
+    <LanguageTargets>$(MSBuildThisFileDirectory)Raven.Language.targets</LanguageTargets>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
-    <DefineConstants>$(DefineConstants);RAVEN_INSTRUMENTATION</DefineConstants>
   </PropertyGroup>
 </Project>

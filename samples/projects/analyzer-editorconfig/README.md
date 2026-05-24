@@ -19,5 +19,5 @@ Files:
 From repository root:
 
 ```bash
-dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- samples/projects/analyzer-editorconfig/AnalyzerEditorConfig.rvnproj -o samples/projects/analyzer-editorconfig/bin
+dotnet build samples/projects/analyzer-editorconfig/AnalyzerEditorConfig.rvnproj --property WarningLevel=0
 ```

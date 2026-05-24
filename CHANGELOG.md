@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added first-class MSBuild language targets for `.rvnproj` builds. Raven projects
+  now build through `dotnet build`, produce SDK-style outputs, and can be consumed
+  from C# projects through normal `ProjectReference` when wired to
+  `build/Raven.Language.targets`.
+- Deprecated legacy `.ravenproj` project files in favor of MSBuild-backed `.rvnproj`
+  projects. The CLI now warns when compiling a legacy project file.
 - Added `[Receiver]` and `[Receiver<T>]` trailing-block parameters. An
   unparameterized trailing block passed to a one-argument function parameter
   marked with `[Receiver]` can access receiver members directly inside the block;

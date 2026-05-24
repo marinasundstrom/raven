@@ -52,13 +52,133 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         }
     }
 
-    private static string EnsureCompilerBuilt(string repoRoot)
+    [Fact]
+    public void RavenProject_BuildsThroughDotnetBuild()
     {
-        var compilerDllPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "bin", "Debug", "net11.0", "rvn.dll");
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var sourceDirectory = Path.Combine(projectRoot, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var projectPath = Path.Combine(projectRoot, "Library.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>RavenBuildOutput</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="src/**/*.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                class Greeter {
+                    static func Message() -> string {
+                        "Hello from dotnet build"
+                    }
+                }
+                """);
+
+            var result = RunProcess("dotnet", $"build \"{projectPath}\" --property WarningLevel=0", projectRoot, timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(result.ExitCode == 0, $"dotnet build failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.True(
+                File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "RavenBuildOutput.dll")),
+                "Expected Raven project build output in the SDK target directory.");
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
+    public void CSharpProject_CanReferenceRavenProjectThroughProjectReference()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var root = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var ravenDirectory = Path.Combine(root, "raven");
+            var csharpDirectory = Path.Combine(root, "csharp");
+            Directory.CreateDirectory(ravenDirectory);
+            Directory.CreateDirectory(csharpDirectory);
+
+            File.WriteAllText(Path.Combine(ravenDirectory, "Greeter.rvnproj"), $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>GreeterLib</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(ravenDirectory, "main.rvn"), """
+                class Greeter {
+                    static func Message() -> string {
+                        "Hello from Raven reference"
+                    }
+                }
+                """);
+
+            File.WriteAllText(Path.Combine(csharpDirectory, "App.csproj"), """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <OutputType>Exe</OutputType>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <ProjectReference Include="../raven/Greeter.rvnproj" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(csharpDirectory, "Program.cs"), """
+                using System;
+
+                Console.WriteLine(Greeter.Message());
+                """);
+
+            var appProjectPath = Path.Combine(csharpDirectory, "App.csproj");
+            var result = RunProcess("dotnet", $"run --project \"{appProjectPath}\" --property WarningLevel=0", root, timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(result.ExitCode == 0, $"dotnet run failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.Contains("Hello from Raven reference", result.StdOut);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    private static string EnsureCompilerBuilt(string repoRoot, string targetFramework = "net11.0")
+    {
+        var compilerDllPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "bin", "Debug", targetFramework, "rvn.dll");
         if (!File.Exists(compilerDllPath))
         {
             var compilerProjectPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "Raven.Compiler.csproj");
-            var buildArgs = $"build \"{compilerProjectPath}\" --framework net11.0 /property:WarningLevel=0";
+            var buildArgs = $"build \"{compilerProjectPath}\" --framework {targetFramework} /property:WarningLevel=0";
             var buildResult = RunProcess("dotnet", buildArgs, repoRoot, timeoutMilliseconds: 300_000);
             Assert.True(
                 buildResult.ExitCode == 0,

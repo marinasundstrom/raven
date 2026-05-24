@@ -29,7 +29,7 @@ Files:
 Build the macro plugin first:
 
 ```bash
-dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- macros/FreestandingMacros.rvnproj
+dotnet build macros/FreestandingMacros.rvnproj --property WarningLevel=0
 ```
 
 Then analyze, build, or run the executable sample project:
@@ -39,7 +39,7 @@ dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property 
 ```
 
 ```bash
-dotnet run --framework net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- app/MacroFreestanding.rvnproj --run
+dotnet run --project app/MacroFreestanding.rvnproj --property WarningLevel=0
 ```
 
 Expected output:

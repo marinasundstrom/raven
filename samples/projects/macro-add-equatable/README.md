@@ -23,7 +23,7 @@ The project file includes a `RavenMacro` item that points at the built plugin as
 Build the Raven source:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- MacroAddEquatable.rvnproj
+dotnet build MacroAddEquatable.rvnproj --property WarningLevel=0
 ```
 
 Build the example plugin assembly:

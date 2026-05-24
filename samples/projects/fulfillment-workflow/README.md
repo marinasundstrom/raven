@@ -29,5 +29,5 @@ dotnet run -f net10.0 --project ../../../src/Raven.Compiler --property WarningLe
 ## Run
 
 ```bash
-dotnet run -f net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- FulfillmentWorkflow.rvnproj --run
+dotnet run --project FulfillmentWorkflow.rvnproj --property WarningLevel=0
 ```

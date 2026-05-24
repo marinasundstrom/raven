@@ -18,10 +18,14 @@ Source file:
 
 ## Build and run
 
+This sample requires a .NET SDK that supports `net11.0`. The sample-local
+`global.json` asks `dotnet` to select an installed .NET 11 SDK when you run from
+this folder.
+
 From this folder:
 
 ```bash
-dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --run
+dotnet run --project RuntimeAsyncNet11.rvnproj --property WarningLevel=0
 ```
 
 Runtime-async metadata emission is auto-enabled for `net11.0` targets. You can force behavior with:

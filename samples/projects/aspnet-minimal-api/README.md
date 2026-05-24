@@ -16,7 +16,7 @@ Source file:
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- AspNetMinimalApi.rvnproj --run
+dotnet run --project AspNetMinimalApi.rvnproj --property WarningLevel=0
 ```
 
 This emits output to `bin/` by default for project builds.

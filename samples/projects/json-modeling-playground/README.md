@@ -26,7 +26,7 @@ Source file:
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --framework net10.0 --property WarningLevel=0 -- JsonModelingPlayground.rvnproj
+dotnet build JsonModelingPlayground.rvnproj --property WarningLevel=0
 ```
 
 ## Run
@@ -35,7 +35,7 @@ The compiler copies `Raven.Core.dll` beside the sample executable when invoked
 with `--run`:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --framework net10.0 --property WarningLevel=0 -- JsonModelingPlayground.rvnproj --run
+dotnet run --project JsonModelingPlayground.rvnproj --property WarningLevel=0
 ```
 
 After that, the emitted app can also be run directly:

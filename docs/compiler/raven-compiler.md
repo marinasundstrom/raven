@@ -5,8 +5,7 @@ It compiles one or more `.rvn` source files (with legacy `.rav` compatibility) i
 few switches for inspecting the compiler's output.
 
 It also supports scaffolding a new Raven project in the current directory via `init`.
-
-For temporary C# interop, see the project-system page's MSBuild bridge section (`build/Raven.MSBuild.targets`).
+For `dotnet build` and C# `ProjectReference` integration, see the project-system page's MSBuild integration section.
 
 ## Usage
 
@@ -92,6 +91,10 @@ Important: if you run the compiler via `dotnet run`, run the compiler host on `n
 ```bash
 dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj --run
 ```
+
+If you build or run a `net11.0` `.rvnproj` through MSBuild (`dotnet build` or
+`dotnet run --project`), the selected .NET SDK must support `net11.0`. Use a
+project-local `global.json` when the machine has multiple SDK bands installed.
 
 Sample project:
 

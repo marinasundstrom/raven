@@ -13,7 +13,7 @@ severity entry silently enables an opt-in analyzer.
 Project files can configure analyzer participation when a whole analyzer mode should be
 selected. This is intended for coarse feature selection, not severity control.
 
-Example `.ravenproj`:
+Deprecated legacy `.ravenproj` example:
 
 ```xml
 <Project

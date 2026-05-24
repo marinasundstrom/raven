@@ -38,5 +38,5 @@ While moving this sample to Avalonia, a few issues surfaced that are worth inves
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --framework net10.0 --property WarningLevel=0 -- MockUiBuilderDsl.rvnproj --run
+dotnet run --project MockUiBuilderDsl.rvnproj --property WarningLevel=0
 ```

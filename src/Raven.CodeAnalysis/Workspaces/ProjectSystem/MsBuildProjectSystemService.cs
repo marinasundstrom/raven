@@ -10,15 +10,22 @@ namespace Raven.CodeAnalysis;
 public sealed class MsBuildProjectSystemService : IProjectSystemService
 {
     private readonly RavenProjectConventions _conventions;
+    private readonly bool _resolvePackageReferences;
 
     public MsBuildProjectSystemService()
-        : this(RavenProjectConventions.Default)
+        : this(RavenProjectConventions.Default, resolvePackageReferences: true)
     {
     }
 
     public MsBuildProjectSystemService(RavenProjectConventions conventions)
+        : this(conventions, resolvePackageReferences: true)
+    {
+    }
+
+    public MsBuildProjectSystemService(RavenProjectConventions conventions, bool resolvePackageReferences)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
+        _resolvePackageReferences = resolvePackageReferences;
     }
 
     public bool CanOpenProject(string projectFilePath)
@@ -112,14 +119,17 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             solution = solution.AddMacroReference(projectId, MacroReference.CreateFromFile(resolvedMacroReferencePath, sourceProjectFilePath));
         }
 
-        var packageReferences = NuGetPackageResolver.ResolveReferences(
-            projectFilePath,
-            tfm,
-            evaluation.PackageReferences,
-            evaluation.FrameworkReferences);
+        if (_resolvePackageReferences)
+        {
+            var packageReferences = NuGetPackageResolver.ResolveReferences(
+                projectFilePath,
+                tfm,
+                evaluation.PackageReferences,
+                evaluation.FrameworkReferences);
 
-        foreach (var packageReference in packageReferences)
-            solution = solution.AddMetadataReference(projectId, packageReference);
+            foreach (var packageReference in packageReferences)
+                solution = solution.AddMetadataReference(projectId, packageReference);
+        }
 
         foreach (var referencedProjectPath in evaluation.ProjectReferencePaths)
         {

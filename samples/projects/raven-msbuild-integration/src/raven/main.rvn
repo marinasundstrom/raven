@@ -1,7 +1,3 @@
-import System.Runtime.Versioning.*
-
-[assembly: TargetFramework(".NETCoreApp,Version=v9.0")]
-
 class Greeter {
     static func Message() -> string {
         "Hello from Raven via MSBuild integration"

@@ -12,13 +12,13 @@ Projects:
 ## Build the library
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- library/MarkdownDocs.Library.rvnproj -o bin/library
+dotnet build library/MarkdownDocs.Library.rvnproj --property WarningLevel=0 -o bin/library
 ```
 
 ## Build the consumer
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- consumer/MarkdownDocs.Consumer.rvnproj -o bin/consumer
+dotnet build consumer/MarkdownDocs.Consumer.rvnproj --property WarningLevel=0 -o bin/consumer
 ```
 
 ## Generated documentation

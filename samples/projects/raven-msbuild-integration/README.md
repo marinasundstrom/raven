@@ -1,13 +1,13 @@
-# Raven From C# (Temporary MSBuild Integration)
+# Raven From C# (MSBuild Integration)
 
-This sample shows a temporary integration where a C# project imports a target file that compiles Raven code and places the produced assembly in the C# output.
+This sample shows a C# SDK project referencing a Raven project through ordinary MSBuild `ProjectReference`.
 
 Files:
 
 - `src/raven/RavenGreeter.rvnproj` - Raven project producing `RavenGreeter.dll`
 - `src/raven/main.rvn` - Raven code consumed from C#
-- `src/csharp/Host.csproj` - C# host project importing `build/Raven.MSBuild.targets`
-- `src/csharp/Program.cs` - Loads `RavenGreeter.dll` and invokes `Greeter.Message()` via reflection
+- `src/csharp/Host.csproj` - C# host project with a `ProjectReference` to the Raven project
+- `src/csharp/Program.cs` - Calls `Greeter.Message()` directly
 
 ## Run
 
@@ -25,19 +25,14 @@ Hello from Raven via MSBuild integration
 
 ## How it works
 
-`build/Raven.MSBuild.targets` adds a `BuildRavenProject` target that runs before `ResolveReferences`:
+The repository `Directory.Build.props` wires `.rvnproj` files to `build/Raven.Language.targets`. During the C# build, MSBuild builds the referenced Raven project first and consumes its target path as a normal managed reference.
 
-1. Compiles the configured `.rvnproj` using `Raven.Compiler`
-2. Writes output into `$(IntermediateOutputPath)raven\`
-3. Injects the produced Raven DLL as a `<Reference>` for the C# compilation
-
-This is intentionally a temporary bridge and keeps the Raven workspace/project model unchanged.
-
-Current limitation:
-
-- Direct compile-time consumption of Raven types from C# (`Greeter.Message()` as a typed call) is currently blocked by metadata compatibility (`CS0012` referencing `System.Private.CoreLib`).
-- Runtime loading/invocation works and is what this temporary sample demonstrates.
+- `Raven.Language.targets` defines the Raven language targets needed by the .NET SDK.
+- `CoreCompile` invokes `Raven.Compiler` for the `.rvnproj`.
+- The emitted Raven assembly is copied through the SDK output pipeline and can be used by C# as a compile-time reference.
 
 ## Building Raven project separately
 
-`dotnet run --project ../../../../../src/Raven.Compiler --property WarningLevel=0 -- RavenGreeter.rvnproj`
+```bash
+dotnet build samples/projects/raven-msbuild-integration/src/raven/RavenGreeter.rvnproj --property WarningLevel=0
+```

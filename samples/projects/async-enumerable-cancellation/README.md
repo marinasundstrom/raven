@@ -23,7 +23,7 @@ Source file:
 From this folder:
 
 ```bash
-dotnet run -f net10.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- AsyncEnumerableCancellation.rvnproj --run
+dotnet run --project AsyncEnumerableCancellation.rvnproj --property WarningLevel=0
 ```
 
 Expected output is a short prefix of the sequence followed by `done`, for

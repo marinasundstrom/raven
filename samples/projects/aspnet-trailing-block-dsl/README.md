@@ -37,7 +37,7 @@ app.Routing {
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --framework net10.0 --property WarningLevel=0 -- AspNetTrailingBlockDsl.rvnproj --run
+dotnet run --project AspNetTrailingBlockDsl.rvnproj --property WarningLevel=0
 ```
 
 Then browse to `http://localhost:5000/`.

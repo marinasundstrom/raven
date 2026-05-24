@@ -16,7 +16,7 @@ Source files:
 From this folder:
 
 ```bash
-dotnet run --project ../../../src/Raven.Compiler --property WarningLevel=0 -- NamespaceMembers.rvnproj
+dotnet build NamespaceMembers.rvnproj --property WarningLevel=0
 ```
 
 ## Run

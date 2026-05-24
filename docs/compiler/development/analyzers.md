@@ -138,8 +138,8 @@ do not use descriptor disabled-by-default state or severity options to decide wh
 analyzer runs.
 
 `RAV9029` is off by default. Project files control the analyzer mode, and `.editorconfig`
-controls severity. Legacy `.ravenproj` files can use `ReturnedValueHandlingMode="full"` or
-`EnableReturnedValueAnalyzer="true|false"`. MSBuild-style `.rvnproj` files can use
+controls severity. Deprecated `.ravenproj` files can use `ReturnedValueHandlingMode="full"` or
+`EnableReturnedValueAnalyzer="true|false"` while they remain supported. MSBuild-style `.rvnproj` files can use
 `<RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>` or
 `<RavenEnableReturnedValueAnalyzer>true|false</RavenEnableReturnedValueAnalyzer>`. The only
 non-off mode today is `full`.

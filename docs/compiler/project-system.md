@@ -81,7 +81,7 @@ Minimal example:
 </Project>
 ```
 
-Legacy `.ravenproj` files and legacy Raven-specific XML are still supported for compatibility, but they are no longer the primary project shape.
+Legacy `.ravenproj` files and legacy Raven-specific XML are deprecated. They remain loadable for compatibility, but new projects should use `.rvnproj` and the MSBuild-backed project shape.
 
 ## Generated prelude imports
 
@@ -221,48 +221,76 @@ When invoking the compiler through `dotnet run`, make sure the compiler host its
 dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj --run
 ```
 
+When invoking a `net11.0` `.rvnproj` through `dotnet build` or
+`dotnet run --project`, the selected .NET SDK must also support `net11.0`. Use a
+project-local `global.json` to pin SDK 11 when a machine has multiple SDK bands
+installed.
+
 You can still override behavior explicitly:
 
 - `--runtime-async` to force on.
 - `--no-runtime-async` to force off.
 
-## Temporary C# MSBuild bridge
+## MSBuild build integration
 
-For temporary integration from a C# SDK project, import:
+`.rvnproj` files can build through the normal .NET SDK pipeline when MSBuild is
+wired to Raven's language targets:
 
-- `build/Raven.MSBuild.targets`
+- `build/Raven.MSBuild.props` sets `.rvnproj` `LanguageTargets` to Raven's target file.
+- `build/Raven.Language.targets` imports the common managed build targets and
+  implements Raven's `CoreCompile`.
+- The Raven compile writes the SDK intermediate assembly, copies it to the SDK
+  reference-assembly slot when requested, and lets the normal SDK output pipeline
+  copy files to `bin/<Configuration>/<TargetFramework>/`.
+- MSBuild-resolved `ReferencePath` items are passed to `rvn`; package restore
+  and framework-reference resolution remain owned by the .NET SDK rather than
+  the Raven compiler core.
 
-and set:
+Inside this repository, `Directory.Build.props` wires `.rvnproj` files
+automatically, so sample projects build directly:
 
-- `RavenProjectFile` - path to the Raven project file to compile
-
-Example in a `.csproj`:
-
-```xml
-<PropertyGroup>
-  <RavenProjectFile>..\raven\RavenGreeter.rvnproj</RavenProjectFile>
-</PropertyGroup>
-<Import Project="..\..\..\..\build\Raven.MSBuild.targets" />
+```bash
+dotnet build samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
 ```
 
-Behavior:
+For standalone projects before Raven is packaged as an SDK/NuGet build asset,
+set `LanguageTargets` and, when needed, `RavenCompilerHost` explicitly:
 
-- Before `ResolveReferences`, MSBuild runs Raven compilation for `RavenProjectFile`.
-- Output goes to `$(IntermediateOutputPath)raven\` by default.
-- The produced Raven assembly is added as a `<Reference>` for the C# build.
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <LanguageTargets>/path/to/Raven/build/Raven.Language.targets</LanguageTargets>
+    <RavenCompilerHost>/path/to/Raven/src/Raven.Compiler/bin/Debug/net10.0/rvn.dll</RavenCompilerHost>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>RavenGreeter</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
 
-Current limitation (temporary bridge):
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+```
 
-- Compile-time typed consumption of Raven-defined types from C# may fail with `CS0012` (`System.Private.CoreLib` reference mismatch).
-- Runtime loading/invocation of the produced Raven assembly works.
-- See `samples/projects/raven-msbuild-integration/README.md` for the current reflection-based host example.
+C# and other SDK projects can reference a Raven project with normal
+`ProjectReference` once the referenced `.rvnproj` has Raven language targets:
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\raven\RavenGreeter.rvnproj" />
+</ItemGroup>
+```
+
+The old `build/Raven.MSBuild.targets` bridge remains for compatibility with
+host projects that set `RavenProjectFile`, but new projects should prefer
+building the `.rvnproj` itself and using `ProjectReference`.
 
 ## Workspace and project-system services
 
 `RavenWorkspace` now consumes project loading/saving through host services rather than hardcoding project-file persistence logic in workspace APIs.
 
 - `PersistenceService` delegates project open/save to `IProjectSystemService`.
-- `RavenProjectSystemService` is the compatibility implementation for legacy `.ravenproj`.
+- `RavenProjectSystemService` is the deprecated compatibility implementation for legacy `.ravenproj`.
 - `MsBuildProjectSystemService` opens Raven projects authored as MSBuild-backed `.rvnproj` files.
 - `CompositeProjectSystemService` lets the workspace route between legacy `.ravenproj` files and primary `.rvnproj` projects.
 - `RavenWorkspace.Create(..., projectSystemService: ...)` still allows overriding the project-system implementation explicitly.

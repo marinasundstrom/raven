@@ -6,9 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <RavenProjectFile>../raven/RavenGreeter.rvnproj</RavenProjectFile>
-  </PropertyGroup>
-
-  <Import Project="..\..\..\..\..\build\Raven.MSBuild.targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\raven\RavenGreeter.rvnproj" />
+  </ItemGroup>
 </Project>

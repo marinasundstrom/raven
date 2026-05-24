@@ -41,7 +41,7 @@ When the extension discovers a workspace-built language server, it stages that b
 
 ## F5 compile + debug
 The extension contributes a `Raven` debug type:
-- `Raven: Compile and Debug` compiles the active `.rvn` file, `.rvnproj`, or legacy `.rav`/`.ravenproj` target using `Raven.Compiler`.
+- `Raven: Compile and Debug` compiles the active `.rvn` file or `.rvnproj` target using `Raven.Compiler`. Legacy `.rav` files and deprecated `.ravenproj` projects remain supported for compatibility.
 - Build artifacts are emitted to `${workspaceFolder}/.raven-debug`.
 - After compile succeeds, the extension starts a `coreclr` debug session with `dotnet <compiled-output.dll>`.
 

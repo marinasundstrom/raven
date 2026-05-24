@@ -1,0 +1,75 @@
+<Project>
+  <PropertyGroup>
+    <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == '' and '$(TargetFramework)' == 'net11.0'">net11.0</RavenCompilerFramework>
+    <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == ''">net10.0</RavenCompilerFramework>
+    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == '' and Exists('$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvn.dll')">$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvn.dll</RavenCompilerHost>
+    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\Debug\$(RavenCompilerFramework)\rvn.dll'))</RavenCompilerHost>
+    <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''"></RavenBuildArgs>
+    <RavenTargetFrameworkArgument Condition="'$(TargetFramework)' != ''">--framework &quot;$(TargetFramework)&quot;</RavenTargetFrameworkArgument>
+
+    <DefaultLanguageSourceExtension>.rvn</DefaultLanguageSourceExtension>
+    <Language>Raven</Language>
+    <TargetRuntime>Managed</TargetRuntime>
+    <GenerateAssemblyInfo Condition="'$(GenerateAssemblyInfo)' == ''">false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute Condition="'$(GenerateTargetFrameworkAttribute)' == ''">false</GenerateTargetFrameworkAttribute>
+    <ProduceReferenceAssembly Condition="'$(ProduceReferenceAssembly)' == ''">false</ProduceReferenceAssembly>
+    <EnableDefaultCompileItems Condition="'$(EnableDefaultCompileItems)' == ''">false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems Condition="'$(EnableDefaultEmbeddedResourceItems)' == ''">false</EnableDefaultEmbeddedResourceItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvailableItemName Include="RavenCompile" />
+    <PropertyPageSchema Include="$(CommonXamlResourcesDirectory)CSharp.ProjectItemsSchema.xaml" Condition="'$(CommonXamlResourcesDirectory)' != ''" />
+    <ProjectCapability Include="Managed" />
+    <Compile Remove="**/*.cs" />
+    <EmbeddedResource Remove="**/*.resx" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <RavenCommonTargetsPath Condition="'$(IsCrossTargetingBuild)' == 'true'">$(MSBuildToolsPath)\Microsoft.Common.CrossTargeting.targets</RavenCommonTargetsPath>
+    <RavenCommonTargetsPath Condition="'$(RavenCommonTargetsPath)' == ''">$(MSBuildToolsPath)\Microsoft.Common.targets</RavenCommonTargetsPath>
+  </PropertyGroup>
+
+  <Import Project="$(RavenCommonTargetsPath)" />
+
+  <Target Name="CreateManifestResourceNames" />
+
+  <Target
+    Name="CoreCompile"
+    DependsOnTargets="$(CoreCompileDependsOn)"
+    Inputs="$(MSBuildProjectFullPath);@(RavenCompile);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference)"
+    Outputs="@(IntermediateAssembly)"
+    Condition="'$(IsCrossTargetingBuild)' != 'true'">
+    <Error
+      Condition="!Exists('$(RavenCompilerHost)')"
+      Text="Built Raven compiler host not found at '$(RavenCompilerHost)'. Build Raven.Compiler first or set &lt;RavenCompilerHost&gt;." />
+
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+
+    <ItemGroup>
+      <_RavenReferencePath Include="@(ReferencePath)" Condition="Exists('%(FullPath)')" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <RavenReferenceArguments>@(_RavenReferencePath->'--refs &quot;%(FullPath)&quot;', ' ')</RavenReferenceArguments>
+    </PropertyGroup>
+
+    <Message Importance="High" Text="RavenCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
+    <Exec
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(IntermediateOutputPath)&quot; $(RavenTargetFrameworkArgument) --no-project-restore $(RavenReferenceArguments) $(RavenBuildArgs)" />
+
+    <MakeDir Directories="@(IntermediateRefAssembly->'%(RootDir)%(Directory)')" Condition="'@(IntermediateRefAssembly)' != ''" />
+    <Copy
+      SourceFiles="@(IntermediateAssembly)"
+      DestinationFiles="@(IntermediateRefAssembly)"
+      Condition="'@(IntermediateRefAssembly)' != '' and Exists('@(IntermediateAssembly)')" />
+
+    <ItemGroup>
+      <FileWrites Include="@(IntermediateAssembly)" />
+      <FileWrites Include="@(IntermediateRefAssembly)" Condition="'@(IntermediateRefAssembly)' != ''" />
+      <FileWrites Include="@(IntermediateAssembly->'%(RootDir)%(Directory)%(Filename).pdb')" />
+      <FileWrites Include="$(IntermediateOutputPath)$(TargetName).runtimeconfig.json" />
+      <FileWrites Include="$(IntermediateOutputPath)$(TargetName)$(ExeExtension)" Condition="'$(OutputType)' != 'Library'" />
+    </ItemGroup>
+  </Target>
+</Project>

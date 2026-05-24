@@ -118,6 +118,7 @@ string? overloadLogPath = null;
 OverloadResolutionLog? overloadResolutionLog = null;
 var run = false;
 var publish = false;
+var restoreProjectReferences = true;
 var emitDocs = false;
 string? documentationOutputPath = null;
 var documentationFormat = DocumentationFormat.Markdown;
@@ -222,6 +223,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--no-emit":
             noEmit = true;
+            break;
+        case "--no-project-restore":
+            restoreProjectReferences = false;
             break;
         case "--fix":
             fix = true;
@@ -515,6 +519,19 @@ static string? TryReadProjectTargetFramework(string projectFilePath)
     }
 }
 
+static string? TryReadProjectAssemblyName(string projectFilePath)
+{
+    try
+    {
+        var xdoc = XDocument.Load(projectFilePath);
+        return GetProjectPropertyValue(xdoc, "AssemblyName");
+    }
+    catch
+    {
+        return null;
+    }
+}
+
 static string TryReadProjectConfiguration(string projectFilePath)
 {
     try
@@ -552,6 +569,13 @@ var projectFileInput = sourceFiles.Count == 1 &&
                        IsRavenProjectFile(sourceFiles[0])
     ? sourceFiles[0]
     : null;
+
+if (projectFileInput is not null &&
+    string.Equals(Path.GetExtension(projectFileInput), RavenFileExtensions.LegacyProject, StringComparison.OrdinalIgnoreCase))
+{
+    AnsiConsole.MarkupLine(
+        $"[yellow]Warning: legacy project files (*{RavenFileExtensions.LegacyProject}) are deprecated. Rename to *{RavenFileExtensions.Project} and use the MSBuild-backed project format.[/]");
+}
 
 var projectTargetFramework = projectFileInput is null ? null : TryReadProjectTargetFramework(projectFileInput);
 var projectConfiguration = projectFileInput is null ? RavenProjectConventions.Default.DefaultConfiguration : TryReadProjectConfiguration(projectFileInput);
@@ -681,7 +705,7 @@ if (projectFileInput is not null)
     if (explicitOutputPath)
     {
         outputDirectory = Path.GetFullPath(outputPath!);
-        assemblyName = defaultAssemblyBaseName;
+        assemblyName = TryReadProjectAssemblyName(projectFileInput) ?? defaultAssemblyBaseName;
         outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
     }
     else
@@ -877,7 +901,13 @@ var executionOptions = new CompilerExecutionOptions(
 var optionsResult = CreateCompilationOptions(executionOptions);
 var options = optionsResult.Options;
 overloadResolutionLog = optionsResult.OverloadResolutionLog;
-var workspace = RavenWorkspace.Create(targetFramework: targetFramework);
+var workspace = RavenWorkspace.Create(
+    targetFramework: targetFramework,
+    projectSystemService: restoreProjectReferences
+        ? null
+        : new CompositeProjectSystemService(
+            new RavenProjectSystemService(),
+            new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false)));
 workspace.Services.SyntaxTreeProvider.ParseOptions = new ParseOptions
 {
     DocumentationMode = true,
@@ -2188,7 +2218,7 @@ static void PrintHelp()
     Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
     Console.WriteLine("  -o <path>          Output path.");
     Console.WriteLine("                     For Raven source-file inputs (.rvn, legacy .rav): output assembly path.");
-    Console.WriteLine("                     For Raven project-file inputs (.rvnproj, legacy .ravenproj): output directory path (default: <project-dir>/bin/<Configuration>).");
+    Console.WriteLine("                     For Raven project-file inputs (.rvnproj): output directory path (default: <project-dir>/bin/<Configuration>).");
     Console.WriteLine("  -s [flat|group]    Display the syntax tree (single file only)");
     Console.WriteLine("                     Use 'group' to display syntax lists grouped by property.");
     Console.WriteLine("  -ps                Print the parsing sequence");
