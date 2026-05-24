@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Diagnostics;
@@ -67,6 +68,37 @@ val json = JsonSerializer.Serialize(options)
         var verifier = CreateAnalyzerVerifier<UnusedImportDirectiveAnalyzer>(code);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void DoesNotReportSourceNamespaceImport_WhenNamespaceFunctionOrConstIsUsed()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func Test() -> unit {
+}
+
+public const DefaultCount: int = 3
+""");
+        var mainTree = SyntaxTree.ParseText("""
+import Utilities.*
+
+func Main() -> unit {
+    Test()
+    val count = DefaultCount
+}
+""");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(membersTree, mainTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var diagnostics = new UnusedImportDirectiveAnalyzer()
+            .Analyze(compilation, mainTree)
+            .Where(static diagnostic => diagnostic.Id == UnusedImportDirectiveAnalyzer.DiagnosticId)
+            .ToArray();
+
+        Assert.Empty(diagnostics);
     }
 
     [Fact]

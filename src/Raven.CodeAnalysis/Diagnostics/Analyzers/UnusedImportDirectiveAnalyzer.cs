@@ -29,7 +29,7 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
             return;
 
         var semanticModel = context.Compilation.GetSemanticModel(context.SyntaxTree);
-        if (HasBlockingDiagnostics(context.SyntaxTree, semanticModel, context.CancellationToken))
+        if (HasBlockingSyntaxDiagnostics(context.SyntaxTree, context.CancellationToken))
             return;
 
         AnalyzeImportScope(context, semanticModel, compilationUnit, compilationUnit.Imports);
@@ -58,17 +58,11 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool HasBlockingDiagnostics(
+    private static bool HasBlockingSyntaxDiagnostics(
         SyntaxTree syntaxTree,
-        SemanticModel semanticModel,
         CancellationToken cancellationToken)
-    {
-        if (syntaxTree.GetDiagnostics(cancellationToken).Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
-            return true;
-
-        return semanticModel.GetDocumentDiagnostics(cancellationToken)
+        => syntaxTree.GetDiagnostics(cancellationToken)
             .Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
-    }
 
     private static bool TryGetWildcardNamespaceImport(
         Compilation compilation,
@@ -83,7 +77,7 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
             return false;
 
         importName = namespaceName.ToString();
-        var resolved = ResolveNamespace(compilation.GlobalNamespace, importName);
+        var resolved = compilation.SymbolLookup.GetNamespace(importName);
         if (resolved is null)
             return false;
 
@@ -183,7 +177,7 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
            ReferenceEquals(qualifiedName.Left, name);
 
     private static bool ReferencesImportedNamespaceBySyntax(Compilation compilation, SimpleNameSyntax name, string importedNamespaceName)
-        => ResolveNamespace(compilation.GlobalNamespace, importedNamespaceName + "." + name.Identifier.ValueText) is not null;
+        => compilation.SymbolLookup.GetNamespace(importedNamespaceName + "." + name.Identifier.ValueText) is not null;
 
     private static bool ReferencesImportedNamespace(ISymbol symbol, string importedNamespaceName)
     {
@@ -209,20 +203,4 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
            namespaceName.StartsWith(ancestorName, StringComparison.Ordinal) &&
            namespaceName[ancestorName.Length] == '.';
 
-    private static INamespaceSymbol? ResolveNamespace(INamespaceSymbol root, string metadataName)
-    {
-        INamespaceSymbol? current = root;
-        foreach (var part in metadataName.Split('.', StringSplitOptions.RemoveEmptyEntries))
-        {
-            current = ResolveNamespaceMember(current, part);
-            if (current is null)
-                return null;
-        }
-
-        return current;
-    }
-
-    private static INamespaceSymbol? ResolveNamespaceMember(INamespaceSymbol namespaceSymbol, string name)
-        => namespaceSymbol.LookupNamespace(name)
-           ?? namespaceSymbol.GetMembers(name).OfType<INamespaceSymbol>().FirstOrDefault();
 }
