@@ -123,10 +123,15 @@ internal sealed class CompilationSymbolLookup
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var container in GetSourceExtensionContainers(namespaceSymbol, memberName, kinds))
+        if (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ||
+            _compilation.SourceDeclarationsDeclared ||
+            namespaceSymbol is not SourceNamespaceSymbol)
         {
-            if (seen.Add(container.GetShallowLookupIdentityKey()))
-                builder.Add(container);
+            foreach (var container in GetSourceExtensionContainers(namespaceSymbol, memberName, kinds))
+            {
+                if (seen.Add(container.GetShallowLookupIdentityKey()))
+                    builder.Add(container);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(memberName) &&

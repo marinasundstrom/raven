@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,8 @@ using Raven.LanguageServer;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 
 var repoRoot = FindRepositoryRoot();
+CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 var options = ParseOptions(args);
 if (options.ListScenarios)
 {
@@ -28,6 +31,12 @@ if (options.ListScenarios)
 if (options.StressSuite)
 {
     await RunStressSuiteAsync();
+    return;
+}
+
+if (options.EditScenarioSuite)
+{
+    await RunEditScenarioSuiteAsync();
     return;
 }
 
@@ -856,6 +865,249 @@ async Task RunStressSuiteAsync()
     }
 }
 
+async Task RunEditScenarioSuiteAsync()
+{
+    var scenarios = CreateEditScenarios(repoRoot);
+    Console.WriteLine($"edit-scenario-suite count={scenarios.Count} slowMs={options.SlowThresholdMs:F1}");
+
+    foreach (var scenario in scenarios)
+    {
+        if (!File.Exists(scenario.FilePath))
+        {
+            Console.WriteLine($"edit-scenario skip name={scenario.Name} reason=missing-file file={scenario.FilePath}");
+            continue;
+        }
+
+        await RunEditScenarioAsync(scenario, EditScenarioMode.WarmDocumentDiagnostics);
+        await RunEditScenarioAsync(scenario, EditScenarioMode.ColdHoverThenDiagnostics);
+    }
+}
+
+async Task RunEditScenarioAsync(EditScenario scenario, EditScenarioMode mode)
+{
+    var scenarioText = SourceText.From(File.ReadAllText(scenario.FilePath));
+    var scenarioUri = DocumentUri.FromFileSystemPath(scenario.FilePath);
+    var scenarioWorkspace = RavenWorkspace.Create(targetFramework: "net10.0");
+    var scenarioManager = new WorkspaceManager(scenarioWorkspace, NullLogger<WorkspaceManager>.Instance);
+    scenarioManager.Initialize(new InitializeParams
+    {
+        WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+        {
+            Name = Path.GetFileName(scenario.ProjectRoot),
+            Uri = DocumentUri.FromFileSystemPath(scenario.ProjectRoot)
+        })
+    });
+
+    var scenarioStore = new DocumentStore(scenarioManager, NullLogger<DocumentStore>.Instance);
+    var scenarioHover = new HoverHandler(scenarioStore, NullLogger<HoverHandler>.Instance);
+    _ = scenarioStore.UpsertDocument(scenarioUri, scenarioText);
+
+    var beforeContext = await scenarioStore.GetAnalysisContextAsync(scenarioUri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No analysis context for '{scenario.FilePath}'.");
+    var beforeTreesByPath = GetTreesByPath(beforeContext.Compilation);
+
+    var warmupStopwatch = Stopwatch.StartNew();
+    var warmupDiagnostics = await scenarioStore.TryGetDiagnosticsAsync(
+        scenarioUri,
+        DocumentStore.DiagnosticLane.DocumentCompiler,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    warmupStopwatch.Stop();
+
+    var updatedText = scenarioText;
+    foreach (var replacement in scenario.Replacements)
+    {
+        if (!TryReplaceFirst(updatedText, replacement.OldText, replacement.NewText, out var nextText, out _))
+        {
+            Console.WriteLine(
+                $"edit-scenario error name={scenario.Name} reason=missing-replacement replacement=\"{replacement.Label}\"");
+            return;
+        }
+
+        updatedText = nextText!;
+    }
+
+    var updateSetupBefore = CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath);
+    var updateStopwatch = Stopwatch.StartNew();
+    _ = scenarioStore.UpsertDocument(scenarioUri, updatedText, deferMacroConsumerRefresh: true);
+    updateStopwatch.Stop();
+    var updateSetupDelta = CompilerSetupInstrumentation.Subtract(
+        CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath),
+        updateSetupBefore);
+
+    var analysisStopwatch = Stopwatch.StartNew();
+    var afterContext = await scenarioStore.GetAnalysisContextAsync(scenarioUri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No analysis context after edit for '{scenario.FilePath}'.");
+    analysisStopwatch.Stop();
+
+    var syntaxSetupBefore = CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath);
+    var syntaxStopwatch = Stopwatch.StartNew();
+    var syntaxDiagnostics = await scenarioStore.TryGetDiagnosticsAsync(
+        scenarioUri,
+        DocumentStore.DiagnosticLane.Syntax,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    syntaxStopwatch.Stop();
+    var syntaxSetupDelta = CompilerSetupInstrumentation.Subtract(
+        CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath),
+        syntaxSetupBefore);
+
+    double preHoverDocumentDiagnosticsMs = -1;
+    int preHoverDocumentDiagnosticsCount = -1;
+    int preHoverDocumentDiagnosticsErrors = -1;
+    var preHoverDocumentSetupDelta = default(CompilerSetupInstrumentation.Snapshot);
+    if (mode == EditScenarioMode.WarmDocumentDiagnostics)
+    {
+        var documentSetupBefore = CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath);
+        var documentStopwatch = Stopwatch.StartNew();
+        var documentDiagnostics = await scenarioStore.TryGetDiagnosticsAsync(
+            scenarioUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            CancellationToken.None);
+        documentStopwatch.Stop();
+        preHoverDocumentSetupDelta = CompilerSetupInstrumentation.Subtract(
+            CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath),
+            documentSetupBefore);
+        preHoverDocumentDiagnosticsMs = documentStopwatch.Elapsed.TotalMilliseconds;
+        preHoverDocumentDiagnosticsCount = documentDiagnostics.Diagnostics.Count;
+        preHoverDocumentDiagnosticsErrors = documentDiagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+    }
+
+    var changedOwners = GetChangedExecutableOwners(afterContext.Compilation, afterContext.SyntaxTree);
+    var afterTreesByPath = GetTreesByPath(afterContext.Compilation);
+    var currentPath = Path.GetFullPath(scenario.FilePath);
+    var unchangedTotal = 0;
+    var unchangedReused = 0;
+    foreach (var (path, beforeTree) in beforeTreesByPath)
+    {
+        if (string.Equals(path, currentPath, StringComparison.OrdinalIgnoreCase))
+            continue;
+
+        unchangedTotal++;
+        if (afterTreesByPath.TryGetValue(path, out var afterTree) && ReferenceEquals(beforeTree, afterTree))
+            unchangedReused++;
+    }
+
+    var syntaxErrors = syntaxDiagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+    Console.WriteLine(
+        $"edit-scenario name={scenario.Name} mode={FormatEditScenarioMode(mode)} replacements={scenario.Replacements.Count} " +
+        $"warmupDocumentDiagnostics={warmupStopwatch.Elapsed.TotalMilliseconds:F1}ms warmupCount={warmupDiagnostics.Diagnostics.Count} " +
+        $"update={updateStopwatch.Elapsed.TotalMilliseconds:F1}ms analysis={analysisStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"syntaxDiagnostics={syntaxStopwatch.Elapsed.TotalMilliseconds:F1}ms syntaxCount={syntaxDiagnostics.Diagnostics.Count} syntaxErrors={syntaxErrors} " +
+        $"preHoverDocumentDiagnostics={preHoverDocumentDiagnosticsMs:F1}ms preHoverDocumentCount={preHoverDocumentDiagnosticsCount} preHoverDocumentErrors={preHoverDocumentDiagnosticsErrors} " +
+        $"changedOwners={changedOwners.Count} unchangedTreeReuse={unchangedReused}/{unchangedTotal} " +
+        $"updateSetup=[{CompilerSetupInstrumentation.FormatDelta(updateSetupDelta)}] " +
+        $"syntaxSetup=[{CompilerSetupInstrumentation.FormatDelta(syntaxSetupDelta)}] " +
+        $"preHoverDocumentSetup=[{CompilerSetupInstrumentation.FormatDelta(preHoverDocumentSetupDelta)}]");
+
+    foreach (var changedOwner in changedOwners.Take(6))
+        Console.WriteLine($"edit-scenario changedOwner name={scenario.Name} mode={FormatEditScenarioMode(mode)} {changedOwner}");
+
+    foreach (var hoverTarget in scenario.HoverTargets)
+    {
+        var firstHover = await RunEditScenarioHoverAsync(
+            scenarioStore,
+            scenarioHover,
+            scenarioUri,
+            updatedText,
+            afterContext.Compilation,
+            hoverTarget,
+            "first");
+        var repeatHover = await RunEditScenarioHoverAsync(
+            scenarioStore,
+            scenarioHover,
+            scenarioUri,
+            updatedText,
+            afterContext.Compilation,
+            hoverTarget,
+            "repeat");
+
+        Console.WriteLine(FormatEditScenarioHover(scenario.Name, mode, firstHover));
+        Console.WriteLine(FormatEditScenarioHover(scenario.Name, mode, repeatHover));
+    }
+
+    if (mode == EditScenarioMode.ColdHoverThenDiagnostics)
+    {
+        var postHoverDocumentSetupBefore = CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath);
+        var postHoverDocumentStopwatch = Stopwatch.StartNew();
+        var postHoverDocumentDiagnostics = await scenarioStore.TryGetDiagnosticsAsync(
+            scenarioUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            CancellationToken.None);
+        postHoverDocumentStopwatch.Stop();
+        var postHoverDocumentSetupDelta = CompilerSetupInstrumentation.Subtract(
+            CaptureScenarioSetupSnapshot(scenarioManager, scenarioUri, scenario.FilePath),
+            postHoverDocumentSetupBefore);
+        var postHoverDocumentErrors = postHoverDocumentDiagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
+        Console.WriteLine(
+            $"edit-scenario-post-hover-diagnostics name={scenario.Name} mode={FormatEditScenarioMode(mode)} " +
+            $"documentDiagnostics={postHoverDocumentStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+            $"documentCount={postHoverDocumentDiagnostics.Diagnostics.Count} documentErrors={postHoverDocumentErrors} " +
+            $"documentSetup=[{CompilerSetupInstrumentation.FormatDelta(postHoverDocumentSetupDelta)}]");
+    }
+}
+
+async Task<HoverResult> RunEditScenarioHoverAsync(
+    DocumentStore scenarioStore,
+    HoverHandler scenarioHover,
+    DocumentUri scenarioUri,
+    SourceText scenarioText,
+    Compilation scenarioCompilation,
+    EditHoverTarget target,
+    string label)
+{
+    var offset = scenarioText.ToString().IndexOf(target.SearchText, StringComparison.Ordinal);
+    if (offset < 0)
+        return new HoverResult(target.Label + "." + label, 0, 0, 0, HasHover: false, new InvalidOperationException($"Missing target '{target.SearchText}'."), "<missing>", default, default, default);
+
+    var before = scenarioCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+    var setupBefore = scenarioCompilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+    var position = PositionHelper.ToRange(
+        scenarioText,
+        new TextSpan(offset + Math.Min(1, target.SearchText.Length), 0)).Start;
+    var stopwatch = Stopwatch.StartNew();
+    Hover? hover = null;
+    Exception? exception = null;
+    try
+    {
+        hover = await scenarioHover.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(scenarioUri),
+            Position = position
+        }, CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        exception = ex;
+    }
+
+    stopwatch.Stop();
+    var semanticDelta = SemanticQueryInstrumentation.Subtract(
+        scenarioCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot(),
+        before);
+    var setupDelta = CompilerSetupInstrumentation.Subtract(
+        scenarioCompilation.PerformanceInstrumentation.Setup.CaptureSnapshot(),
+        setupBefore);
+    var hoverLines = hover?.Contents.MarkupContent?.Value.Split('\n') ?? ["<null>"];
+    var firstLine = exception is null
+        ? string.Join(" | ", hoverLines.Take(3))
+        : exception.GetType().Name + ": " + exception.Message;
+
+    return new HoverResult(
+        target.Label + "." + label,
+        position.Line,
+        position.Character,
+        stopwatch.Elapsed.TotalMilliseconds,
+        hover is not null,
+        exception,
+        firstLine,
+        semanticDelta,
+        setupDelta,
+        default);
+}
+
 async Task RunStressScenarioAsync(string tempRoot, int stableFileCount, bool runAnalyzers, bool runInlays)
 {
     var scenarioRoot = Path.Combine(
@@ -1066,6 +1318,23 @@ CompilerSetupInstrumentation.Snapshot CaptureSetupSnapshot()
     return compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
 }
 
+static CompilerSetupInstrumentation.Snapshot CaptureScenarioSetupSnapshot(
+    WorkspaceManager workspaceManager,
+    DocumentUri documentUri,
+    string sourceFilePath)
+{
+    if (!workspaceManager.TryGetCompilation(documentUri, out var compilation) || compilation is null)
+        throw new InvalidOperationException($"No compilation for '{sourceFilePath}'.");
+
+    return compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+}
+
+static Dictionary<string, SyntaxTree> GetTreesByPath(Compilation compilation)
+    => compilation.SyntaxTrees
+        .Where(static tree => !string.IsNullOrWhiteSpace(tree.FilePath))
+        .GroupBy(static tree => Path.GetFullPath(tree.FilePath), StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.OrdinalIgnoreCase);
+
 static IReadOnlyList<object> GetChangedExecutableOwners(Compilation compilation, SyntaxTree syntaxTree)
 {
     var method = typeof(Compilation).GetMethod(
@@ -1106,6 +1375,24 @@ static string FormatHoverResult(HoverResult result)
        $"[{SemanticQueryInstrumentation.FormatDelta(result.SemanticDelta)}] " +
        $"[{CompilerSetupInstrumentation.FormatDelta(result.SetupDelta)}] " +
        $"[{FunctionExpressionParameterInstrumentation.FormatDelta(result.FunctionExpressionParameterDelta)}]";
+
+static string FormatEditScenarioHover(string scenarioName, EditScenarioMode mode, HoverResult result)
+{
+    var marker = result.Exception is not null
+        ? "error"
+        : !result.HasHover
+            ? "null"
+            : "ok";
+    return $"edit-scenario-hover scenario={scenarioName} mode={FormatEditScenarioMode(mode)} marker={marker} {FormatHoverResult(result)}";
+}
+
+static string FormatEditScenarioMode(EditScenarioMode mode)
+    => mode switch
+    {
+        EditScenarioMode.WarmDocumentDiagnostics => "warm-document-diagnostics",
+        EditScenarioMode.ColdHoverThenDiagnostics => "cold-hover-then-diagnostics",
+        _ => mode.ToString()
+    };
 
 static string FormatDiagnostic(OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic diagnostic)
 {
@@ -1177,6 +1464,7 @@ static HeadlessOptions ParseOptions(string[] args)
     var stressSizes = new List<int>();
     var stressIncludeAnalyzers = true;
     var stressIncludeInlays = true;
+    var editScenarioSuite = false;
     var printDiagnostics = false;
 
     for (var i = 0; i < args.Length; i++)
@@ -1287,6 +1575,9 @@ static HeadlessOptions ParseOptions(string[] args)
                 stressSuite = true;
                 stressIncludeInlays = false;
                 break;
+            case "--edit-scenario-suite":
+                editScenarioSuite = true;
+                break;
             case "--print-diagnostics":
                 printDiagnostics = true;
                 break;
@@ -1325,6 +1616,7 @@ static HeadlessOptions ParseOptions(string[] args)
         stressSizes,
         stressIncludeAnalyzers,
         stressIncludeInlays,
+        editScenarioSuite,
         printDiagnostics);
 }
 
@@ -1429,6 +1721,69 @@ static IReadOnlyList<NamedReplayScenario> CreateReplayScenarios(string repoRoot)
     ];
 }
 
+static IReadOnlyList<EditScenario> CreateEditScenarios(string repoRoot)
+{
+    var samplesRoot = Path.Combine(repoRoot, "samples", "projects");
+
+    string Project(string name)
+        => Path.Combine(samplesRoot, name);
+
+    string Source(string projectName, params string[] path)
+        => Path.Combine([Project(projectName), .. path]);
+
+    return
+    [
+        new(
+            "mock-ui-argument-name-remove",
+            "Remove an explicit argument name from a top-level DSL invocation.",
+            Project("mock-ui-builder-dsl"),
+            Source("mock-ui-builder-dsl", "src", "Main.rvn"),
+            [new EditReplacement("Window(title: \"Tasks\")", "Window(\"Tasks\")")],
+            [new("Window(", "Window"), new("Label(\"Inbox\")", "Label"), new("viewModel", "viewModel")]),
+        new(
+            "mock-ui-argument-name-add-combined",
+            "Add explicit argument names to multiple DSL invocations in one edit batch.",
+            Project("mock-ui-builder-dsl"),
+            Source("mock-ui-builder-dsl", "src", "Main.rvn"),
+            [
+                new EditReplacement("Label(\"Inbox\")", "Label(text: \"Inbox\")"),
+                new EditReplacement("Button(\"Add\")", "Button(text: \"Add\")")
+            ],
+            [new("Label(text:", "Label"), new("Button(text:", "Button"), new("viewModel", "viewModel")]),
+        new(
+            "expression-trees-body-edit",
+            "Edit a method body and then query IQueryable extension and lambda hovers.",
+            Project("efcore-expression-trees"),
+            Source("efcore-expression-trees", "src", "main.rvn"),
+            [new EditReplacement("Console.WriteLine(\"Matched users count: ${names.Count.ToString()}\")", "Console.WriteLine(value: \"Matched users count: ${names.Count.ToString()}\")")],
+            [new("OrderBy(", "OrderBy"), new("Select(", "Select"), new("user => user.Name", "lambda-user")]),
+        new(
+            "vehicle-costs-body-edit",
+            "Edit a minimal API route body and then query EF Core extension and lambda hovers.",
+            Project("efcore-vehicle-costs"),
+            Source("efcore-vehicle-costs", "src", "Api", "Main.rvn"),
+            [new EditReplacement("app.MapGet(\"/vehicles\",", "app.MapGet(\"/vehicles/\",")],
+            [new("OrderBy(", "OrderBy"), new("vehicle => vehicle.RegistrationNumber", "lambda-vehicle"), new("Vehicles", "Vehicles")]),
+        new(
+            "fulfillment-named-argument",
+            "Add an explicit argument name inside the result-propagation workflow.",
+            Project("fulfillment-workflow"),
+            Source("fulfillment-workflow", "src", "main.rvn"),
+            [new EditReplacement("PrintPlan(plan)", "PrintPlan(plan: plan)")],
+            [new("PrintPlan(", "PrintPlan"), new("planResult?", "planResult"), new("plan: plan", "plan")]),
+        new(
+            "fulfillment-combined-body-edits",
+            "Apply multiple body edits in the workflow sample to model batched editor changes.",
+            Project("fulfillment-workflow"),
+            Source("fulfillment-workflow", "src", "main.rvn"),
+            [
+                new EditReplacement("PrintPlan(plan)", "PrintPlan(plan: plan)"),
+                new EditReplacement("WriteLine(\"== Raven Fulfillment Workflow ==\")", "WriteLine(value: \"== Raven Fulfillment Workflow ==\")")
+            ],
+            [new("PrintPlan(", "PrintPlan"), new("plan: plan", "plan")])
+    ];
+}
+
 static bool TryParsePosition(string text, out PositionTarget position)
 {
     position = default;
@@ -1524,6 +1879,7 @@ internal sealed record HeadlessOptions(
     IReadOnlyList<int> StressSizes,
     bool StressIncludeAnalyzers,
     bool StressIncludeInlays,
+    bool EditScenarioSuite,
     bool PrintDiagnostics);
 
 internal enum ReplayScenarioOperation
@@ -1540,6 +1896,24 @@ internal sealed record NamedReplayScenario(
     string FilePath,
     ReplayScenarioOperation Operation,
     IReadOnlyList<PositionTarget> HoverPositions);
+
+internal sealed record EditScenario(
+    string Name,
+    string Description,
+    string ProjectRoot,
+    string FilePath,
+    IReadOnlyList<EditReplacement> Replacements,
+    IReadOnlyList<EditHoverTarget> HoverTargets);
+
+internal enum EditScenarioMode
+{
+    WarmDocumentDiagnostics,
+    ColdHoverThenDiagnostics
+}
+
+internal readonly record struct EditHoverTarget(
+    string SearchText,
+    string Label);
 
 internal readonly record struct EditReplacement(
     string OldText,
