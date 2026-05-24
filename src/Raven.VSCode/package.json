@@ -17,7 +17,9 @@
     "onCommand:raven.debug.compileAndDebug",
     "onCommand:raven.build.activeTarget",
     "onCommand:raven.build.clean",
+    "onCommand:raven.toggleInlayHints",
     "onCommand:raven.toggleInferredTypeInlayHints",
+    "onCommand:raven.toggleNameInlayHints",
     "onCommand:raven.showMacroExpansion",
     "onCommand:raven.showCodeActionPreview",
     "onCommand:raven.openDocumentation"
@@ -56,8 +58,16 @@
         "title": "Raven: Clean Build Artifacts"
       },
       {
+        "command": "raven.toggleInlayHints",
+        "title": "Raven: Toggle Inlay Hints"
+      },
+      {
         "command": "raven.toggleInferredTypeInlayHints",
         "title": "Raven: Toggle Inferred Type Inlay Hints"
+      },
+      {
+        "command": "raven.toggleNameInlayHints",
+        "title": "Raven: Toggle Name Inlay Hints"
       },
       {
         "command": "raven.showMacroExpansion",
@@ -264,10 +274,20 @@
           "default": true,
           "description": "When the extension can find src/Raven.LanguageServer/Raven.LanguageServer.csproj in the current workspace or extension ancestors, build it on activation before launching the language server. Ignored when raven.languageServerPath is set."
         },
+        "raven.inlayHints.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Raven inlay hints. When disabled, all Raven inlay hint categories are hidden regardless of their individual settings."
+        },
         "raven.inlayHints.inferredTypes.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show inferred local type annotations and inferred function return type annotations as Raven inlay hints."
+          "description": "Show inferred local type annotations and inferred function return type annotations when Raven inlay hints are enabled."
+        },
+        "raven.inlayHints.names.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show name inlay hints when Raven inlay hints are enabled, including invocation parameter names and deconstruction element names."
         },
         "raven.inlayHints.requestDebounceMilliseconds": {
           "type": "number",

@@ -8,7 +8,7 @@ The Raven language server provides Language Server Protocol (LSP) support for `.
 - **Completions:** Maps the compiler's completion items into LSP responses with snippet ranges for insertion.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
 - **Hover capture annotations:** Hover on lambdas and nested `func` statements includes captured-symbol lists. Hover on captured locals/parameters marks them as captured variables.
-- **Inferred type inlay hints:** Locals, functions, and pattern declarations with omitted type annotations surface inferred `: T` and `-> T` hints. Assignment patterns that deconstruct into existing variables do not receive declaration hints. The hints include source edits so editors can apply the annotation directly, and the VS Code extension exposes `raven.inlayHints.inferredTypes.enabled` plus the `Raven: Toggle Inferred Type Inlay Hints` command.
+- **Inlay hints:** The server provides inferred type annotation hints and invocation parameter-name hints. Both kinds include source edits where the hint can be applied directly.
 - **Framework references:** Loads reference assemblies from the latest installed .NET targeting pack so compilations can bind to standard library types without additional setup.
 
 ## Project layout
@@ -17,6 +17,21 @@ The server code lives in `src/Raven.LanguageServer` and boots from `Program.cs`,
 - `RavenTextDocumentSyncHandler`: Handles open/change/save/close notifications and triggers diagnostics publication.
 - `CompletionHandler`: Uses the compiler `CompletionService` to answer LSP completion requests.
 - `PositionHelper`: Converts between LSP positions/ranges and Raven text spans.
+
+## Inlay hints
+
+Raven currently emits two inlay hint categories:
+
+- **Inferred type annotations:** locals, functions, and pattern declarations with omitted type annotations surface inferred `: T` and `-> T` hints. Assignment patterns that deconstruct into existing variables do not receive declaration hints. Applying the hint inserts the annotation into source.
+- **Names:** positional invocation arguments surface their resolved parameter name before the argument. For example, `StackPanel(8.0)` displays as `StackPanel(spacing: 8.0)` when `8.0` binds to the `spacing` parameter. Positional and nominal deconstruction patterns also surface inferred element names, so `val (left, top) = point` can display as `val (x: left, y: top) = point` when the source tuple or `Deconstruct` shape provides `x` and `y`. Arguments or elements that already use named syntax do not receive duplicate hints. Applying the hint inserts the `name: ` prefix into source.
+
+The VS Code extension exposes a master setting plus per-category settings:
+
+- `raven.inlayHints.enabled`: enables or disables all Raven inlay hints.
+- `raven.inlayHints.inferredTypes.enabled`: enables inferred type annotation hints when the master setting is enabled.
+- `raven.inlayHints.names.enabled`: enables invocation parameter-name and deconstruction element-name hints when the master setting is enabled.
+
+The command palette also exposes `Raven: Toggle Inlay Hints`, `Raven: Toggle Inferred Type Inlay Hints`, and `Raven: Toggle Name Inlay Hints`.
 
 ## Diagnostics publication
 

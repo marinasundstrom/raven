@@ -32,6 +32,10 @@ The extension exposes settings to control language-server resolution and debug c
 - `raven.autoBuildLanguageServerOnActivate` (boolean): When enabled, the extension builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` on activation if it can find the project in the current workspace or extension ancestors. This is intended for Raven source-workspace development and is ignored when `raven.languageServerPath` is set.
 - `raven.compilerProjectPath` (string): Override the path used to locate a prebuilt `rvn.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler host is available.
 - `raven.targetFramework` (string): Optional target framework (for example, `net10.0`) passed to debug compile invocations.
+- `raven.inlayHints.enabled` (boolean): Master switch for Raven inlay hints.
+- `raven.inlayHints.inferredTypes.enabled` (boolean): Show inferred type annotation hints when Raven inlay hints are enabled.
+- `raven.inlayHints.names.enabled` (boolean): Show name hints for positional invocation arguments and deconstruction elements when Raven inlay hints are enabled.
+- `raven.inlayHints.requestDebounceMilliseconds` (number): Delay inlay requests after document edits so typing can settle before semantic inlay work runs.
 
 When the extension discovers a workspace-built language server, it stages that build into an extension-owned directory before launch. The staged copy runs with the repository root as its working directory so repo-relative assets like `Raven.Core.dll` continue to resolve while the workspace build outputs remain free of language-server file locks.
 

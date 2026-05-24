@@ -12,7 +12,7 @@ RunApp(Window(title: "Tasks") {
             Label("Today")
         }
 
-        Label(() => viewModel.Status)
+        Label(binding: () => viewModel.Status)
 
         Button("Add") {
             viewModel.Status = "Clicked Add"

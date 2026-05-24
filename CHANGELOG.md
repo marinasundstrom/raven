@@ -37,6 +37,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added hidden analyzer diagnostic `RAV9031` for unused wildcard namespace imports within
   the lexical scope that declares them, with cleanup support through the redundant-import
   code fix.
+- Added source-applicable invocation parameter-name inlay hints. Positional arguments now
+  display their resolved parameter names, such as `StackPanel(spacing: 8.0)`, while already
+  named arguments are left alone. Positional and nominal deconstruction patterns now also
+  display inferred element names when the tuple or `Deconstruct` shape provides them.
+  Raven inlay hints now have a master VS Code setting plus separate per-kind settings for
+  inferred types and name hints.
 - Fixed editor diagnostic scheduling so open, edit, and save follow-up passes include
   analyzer diagnostics such as unused locals and parameters, while typing uses a throttled
   document-scoped analyzer pass instead of running full-project analyzers on every edit.

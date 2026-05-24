@@ -79,6 +79,130 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_InvocationArguments_ProvidesSourceApplicableParameterNameHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+class StackPanel {
+    init(spacing: double) {
+    }
+}
+
+func Render(spacing: double, title: string) -> unit {
+}
+
+func Main() -> unit {
+    val panel = StackPanel(8.0)
+    Render(8.0, title: "ready")
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var constructorArgumentInsertion = code.IndexOf("8.0)", StringComparison.Ordinal);
+        var methodArgumentInsertion = code.IndexOf("8.0, title", StringComparison.Ordinal);
+        var namedArgumentInsertion = code.IndexOf("\"ready\"", StringComparison.Ordinal);
+
+        var constructorHint = AssertHasHintAtInsertion(sourceText, hints, constructorArgumentInsertion, "spacing:");
+        AssertParameterNameSourceApplicable(sourceText, constructorHint, constructorArgumentInsertion, "spacing: ");
+
+        var methodHint = AssertHasHintAtInsertion(sourceText, hints, methodArgumentInsertion, "spacing:");
+        AssertParameterNameSourceApplicable(sourceText, methodHint, methodArgumentInsertion, "spacing: ");
+
+        hints.ShouldNotContain(hint =>
+            hint.Kind == InlayHintKind.Parameter &&
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(namedArgumentInsertion, 0)).Start);
+    }
+
+    [Fact]
+    public async Task Handle_DeconstructionPatterns_ProvidesSourceApplicableElementNameHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+record class Person(name: string, age: int) {
+}
+
+record class Point(x: int, y: int) {
+}
+
+func Main() -> unit {
+    val point = Point(1, 2)
+    val (left, top) = point
+    val (x: explicitLeft, explicitTop) = point
+
+    val person = Person("Raven", 3)
+    if val Person(personName, personAge) = person {
+    }
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var leftInsertion = code.IndexOf("left, top", StringComparison.Ordinal);
+        var topInsertion = code.IndexOf("top) = point", StringComparison.Ordinal);
+        var explicitLeftInsertion = code.IndexOf("explicitLeft", StringComparison.Ordinal);
+        var explicitTopInsertion = code.IndexOf("explicitTop", StringComparison.Ordinal);
+        var personNameInsertion = code.IndexOf("personName", StringComparison.Ordinal);
+        var personAgeInsertion = code.IndexOf("personAge", StringComparison.Ordinal);
+
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, leftInsertion, "x:"), leftInsertion, "x: ");
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, topInsertion, "y:"), topInsertion, "y: ");
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, explicitTopInsertion, "y:"), explicitTopInsertion, "y: ");
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, personNameInsertion, "name:"), personNameInsertion, "name: ");
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, personAgeInsertion, "age:"), personAgeInsertion, "age: ");
+
+        hints.ShouldNotContain(hint =>
+            hint.Kind == InlayHintKind.Parameter &&
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(explicitLeftInsertion, 0)).Start);
+    }
+
+    [Fact]
     public async Task Handle_DocumentSemanticGateBusyWithoutCachedResult_ReturnsWithoutWaitingAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1369,6 +1493,21 @@ func Main() -> unit {
     private static void AssertSourceApplicable(SourceText sourceText, InlayHint hint, int insertionPosition, string expectedText)
     {
         hint.Kind.ShouldBe(InlayHintKind.Type);
+        hint.TextEdits.ShouldNotBeNull();
+
+        var edit = hint.TextEdits.Single();
+        edit.NewText.ShouldBe(expectedText);
+
+        var expectedRange = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0));
+        edit.Range.Start.Line.ShouldBe(expectedRange.Start.Line);
+        edit.Range.Start.Character.ShouldBe(expectedRange.Start.Character);
+        edit.Range.End.Line.ShouldBe(expectedRange.End.Line);
+        edit.Range.End.Character.ShouldBe(expectedRange.End.Character);
+    }
+
+    private static void AssertParameterNameSourceApplicable(SourceText sourceText, InlayHint hint, int insertionPosition, string expectedText)
+    {
+        hint.Kind.ShouldBe(InlayHintKind.Parameter);
         hint.TextEdits.ShouldNotBeNull();
 
         var edit = hint.TextEdits.Single();

@@ -108,6 +108,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var patternTypeHintsMs = 0d;
         var forTargetTypeHintsMs = 0d;
         var functionParameterTypeHintsMs = 0d;
+        var invocationParameterNameHintsMs = 0d;
+        var deconstructionElementNameHintsMs = 0d;
         var carrierFailureHintsMs = 0d;
         var returnTypeHintsMs = 0d;
         var resultCount = 0;
@@ -210,6 +212,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             functionParameterTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             if (collectionBudget.HasBudgetForAdditionalCategory())
+                AddInvocationParameterNameHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: allowExpensiveBinding, collectionBudget);
+            invocationParameterNameHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            stageStopwatch.Restart();
+            if (collectionBudget.HasBudgetForAdditionalCategory())
+                AddDeconstructionElementNameHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: allowExpensiveBinding, collectionBudget);
+            deconstructionElementNameHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            stageStopwatch.Restart();
+            if (collectionBudget.HasBudgetForAdditionalCategory())
                 AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             returnTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             collectMs = collectStopwatch.Elapsed.TotalMilliseconds;
@@ -274,13 +284,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     new LanguageServerPerformanceInstrumentation.StageTiming("patternTypeHints", patternTypeHintsMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("forTargetTypeHints", forTargetTypeHintsMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("functionParameterTypeHints", functionParameterTypeHintsMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("invocationParameterNameHints", invocationParameterNameHintsMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("deconstructionElementNameHints", deconstructionElementNameHintsMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("carrierFailureHints", carrierFailureHintsMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("returnTypeHints", returnTypeHintsMs)
                 ]);
             if (totalStopwatch.Elapsed.TotalMilliseconds >= SlowInlayHintThresholdMs)
             {
                 _logger.LogInformation(
-                    "Inlay hint request completed for {Uri} in {ElapsedMs:F1}ms: gateWait={GateWaitMs:F1}ms analysisContext={AnalysisContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms collect={CollectMs:F1}ms localTypes={LocalTypesMs:F1}ms patterns={PatternsMs:F1}ms forTargets={ForTargetsMs:F1}ms functionParameters={FunctionParametersMs:F1}ms carrierFailures={CarrierFailuresMs:F1}ms returns={ReturnsMs:F1}ms hints={HintCount} outcome={Outcome}.",
+                    "Inlay hint request completed for {Uri} in {ElapsedMs:F1}ms: gateWait={GateWaitMs:F1}ms analysisContext={AnalysisContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms collect={CollectMs:F1}ms localTypes={LocalTypesMs:F1}ms patterns={PatternsMs:F1}ms forTargets={ForTargetsMs:F1}ms functionParameters={FunctionParametersMs:F1}ms invocationParameterNames={InvocationParameterNamesMs:F1}ms deconstructionElementNames={DeconstructionElementNamesMs:F1}ms carrierFailures={CarrierFailuresMs:F1}ms returns={ReturnsMs:F1}ms hints={HintCount} outcome={Outcome}.",
                     request.TextDocument.Uri,
                     totalStopwatch.Elapsed.TotalMilliseconds,
                     gateWaitMs,
@@ -291,6 +303,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     patternTypeHintsMs,
                     forTargetTypeHintsMs,
                     functionParameterTypeHintsMs,
+                    invocationParameterNameHintsMs,
+                    deconstructionElementNameHintsMs,
                     carrierFailureHintsMs,
                     returnTypeHintsMs,
                     resultCount,
@@ -861,6 +875,316 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
     }
 
+    private static void AddInvocationParameterNameHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        bool allowBinding,
+        InlayHintCollectionBudget budget)
+    {
+        foreach (var invocation in DescendantNodesInSpan<InvocationExpressionSyntax>(root, requestSpan))
+        {
+            if (budget.ShouldStop())
+                return;
+
+            if (invocation.ArgumentList.Arguments.Count == 0)
+                continue;
+
+            if (!TryGetInvocationParameterContext(
+                    semanticModel,
+                    invocation,
+                    allowBinding,
+                    out var method,
+                    out var skipExtensionReceiverParameter))
+            {
+                continue;
+            }
+
+            for (var i = 0; i < invocation.ArgumentList.Arguments.Count; i++)
+            {
+                if (budget.ShouldStop())
+                    return;
+
+                var argument = invocation.ArgumentList.Arguments[i];
+                if (!ShouldOfferParameterNameHint(argument))
+                    continue;
+
+                var insertionPosition = argument.Expression.Span.Start;
+                if (!ContainsPosition(requestSpan, insertionPosition))
+                    continue;
+
+                if (!TryGetParameterForInvocationArgument(method, skipExtensionReceiverParameter, i, out var parameter) ||
+                    !ShouldDisplayParameterName(parameter))
+                {
+                    continue;
+                }
+
+                hints.Add(CreateNameHint(sourceText, insertionPosition, parameter.Name));
+            }
+        }
+    }
+
+    private static bool TryGetInvocationParameterContext(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        bool allowBinding,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? method,
+        out bool skipExtensionReceiverParameter)
+    {
+        method = null;
+        skipExtensionReceiverParameter = false;
+
+        var boundExpression = allowBinding
+            ? semanticModel.GetBoundNode(invocation) as BoundExpression
+            : semanticModel.TryGetCachedBoundNode(invocation) as BoundExpression;
+
+        switch (boundExpression)
+        {
+            case BoundInvocationExpression boundInvocation:
+                method = boundInvocation.Method;
+                skipExtensionReceiverParameter = boundInvocation.Method.IsExtensionMethod && boundInvocation.ExtensionReceiver is not null;
+                return true;
+
+            case BoundObjectCreationExpression objectCreation:
+                method = objectCreation.Constructor;
+                return true;
+
+            case BoundUnionCaseExpression { CaseConstructor: { } caseConstructor }:
+                method = caseConstructor;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool ShouldOfferParameterNameHint(ArgumentSyntax argument)
+    {
+        if (argument.NameColon is not null ||
+            argument.Expression.IsMissing ||
+            argument.DotDotDotToken.Kind != SyntaxKind.None)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryGetParameterForInvocationArgument(
+        IMethodSymbol method,
+        bool skipExtensionReceiverParameter,
+        int argumentIndex,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IParameterSymbol? parameter)
+    {
+        parameter = null;
+
+        var parameterIndex = skipExtensionReceiverParameter
+            ? argumentIndex + 1
+            : argumentIndex;
+
+        if (parameterIndex < method.Parameters.Length)
+        {
+            parameter = method.Parameters[parameterIndex];
+            return true;
+        }
+
+        var lastParameter = method.Parameters.LastOrDefault();
+        if (lastParameter?.IsVarParams == true)
+        {
+            parameter = lastParameter;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool ShouldDisplayParameterName(IParameterSymbol parameter)
+        => !string.IsNullOrWhiteSpace(parameter.Name) &&
+           parameter.Name != "_";
+
+    private static void AddDeconstructionElementNameHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        bool allowBinding,
+        InlayHintCollectionBudget budget)
+    {
+        foreach (var positionalPattern in DescendantNodesInSpan<PositionalPatternSyntax>(root, requestSpan))
+        {
+            if (budget.ShouldStop())
+                return;
+
+            AddPositionalPatternElementNameHints(
+                hints,
+                semanticModel,
+                sourceText,
+                requestSpan,
+                positionalPattern.Elements,
+                positionalPattern,
+                allowBinding);
+        }
+
+        foreach (var nominalPattern in DescendantNodesInSpan<NominalDeconstructionPatternSyntax>(root, requestSpan))
+        {
+            if (budget.ShouldStop())
+                return;
+
+            AddPositionalPatternElementNameHints(
+                hints,
+                semanticModel,
+                sourceText,
+                requestSpan,
+                nominalPattern.ArgumentList.Arguments,
+                nominalPattern,
+                allowBinding);
+        }
+    }
+
+    private static void AddPositionalPatternElementNameHints(
+        List<InlayHint> hints,
+        SemanticModel semanticModel,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
+        PatternSyntax pattern,
+        bool allowBinding)
+    {
+        if (elements.Count == 0)
+            return;
+
+        var boundPattern = allowBinding
+            ? semanticModel.GetBoundNode(pattern) as BoundPattern
+            : semanticModel.TryGetCachedBoundNode(pattern) as BoundPattern;
+
+        switch (boundPattern)
+        {
+            case BoundDeconstructPattern deconstructPattern:
+                AddDeconstructPatternElementNameHints(hints, sourceText, requestSpan, elements, deconstructPattern.DeconstructMethod);
+                break;
+
+            case BoundPositionalPattern positionalPattern:
+                AddTuplePatternElementNameHints(hints, sourceText, requestSpan, elements, positionalPattern.Type);
+                break;
+        }
+    }
+
+    private static void AddDeconstructPatternElementNameHints(
+        List<InlayHint> hints,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
+        IMethodSymbol deconstructMethod)
+    {
+        var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
+        var parameterCount = deconstructMethod.Parameters.Length - parameterOffset;
+        if (parameterCount <= 0)
+            return;
+
+        var matchedParameters = new bool[parameterCount];
+        var nextUnnamedParameter = 0;
+        for (var i = 0; i < elements.Count; i++)
+        {
+            var element = elements[i];
+            if (TryGetPositionalPatternElementName(element, out var explicitName))
+            {
+                var explicitIndex = FindParameterIndex(deconstructMethod.Parameters, parameterOffset, explicitName);
+                if (explicitIndex >= 0)
+                    matchedParameters[explicitIndex] = true;
+
+                continue;
+            }
+
+            while (nextUnnamedParameter < parameterCount && matchedParameters[nextUnnamedParameter])
+                nextUnnamedParameter++;
+
+            if (nextUnnamedParameter >= parameterCount)
+                continue;
+
+            var parameter = deconstructMethod.Parameters[nextUnnamedParameter + parameterOffset];
+            matchedParameters[nextUnnamedParameter] = true;
+            nextUnnamedParameter++;
+
+            AddElementNameHint(hints, sourceText, requestSpan, element, parameter.Name);
+        }
+    }
+
+    private static int GetDeconstructParameterOffset(IMethodSymbol method)
+        => method.IsExtensionMethod ? 1 : 0;
+
+    private static int FindParameterIndex(ImmutableArray<IParameterSymbol> parameters, int parameterOffset, string name)
+    {
+        for (var i = parameterOffset; i < parameters.Length; i++)
+        {
+            if (string.Equals(parameters[i].Name, name, StringComparison.OrdinalIgnoreCase))
+                return i - parameterOffset;
+        }
+
+        return -1;
+    }
+
+    private static void AddTuplePatternElementNameHints(
+        List<InlayHint> hints,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
+        ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol { TupleElements.IsDefaultOrEmpty: false } tupleType)
+            return;
+
+        var count = Math.Min(elements.Count, tupleType.TupleElements.Length);
+        for (var i = 0; i < count; i++)
+        {
+            var element = elements[i];
+            if (element.NameColon is not null)
+                continue;
+
+            AddElementNameHint(hints, sourceText, requestSpan, element, tupleType.TupleElements[i].Name);
+        }
+    }
+
+    private static void AddElementNameHint(
+        List<InlayHint> hints,
+        SourceText sourceText,
+        TextSpan requestSpan,
+        PositionalPatternElementSyntax element,
+        string name)
+    {
+        if (!ShouldDisplayElementName(name))
+            return;
+
+        var insertionPosition = element.Pattern.Span.Start;
+        if (!ContainsPosition(requestSpan, insertionPosition))
+            return;
+
+        hints.Add(CreateNameHint(sourceText, insertionPosition, name));
+    }
+
+    private static bool TryGetPositionalPatternElementName(PositionalPatternElementSyntax element, out string name)
+    {
+        name = element.NameColon?.Name.Identifier.ValueText ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(name);
+    }
+
+    private static bool ShouldDisplayElementName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name == "_")
+            return false;
+
+        if (name.Length > 4 &&
+            name.StartsWith("Item", StringComparison.Ordinal) &&
+            int.TryParse(name.AsSpan(4), out _))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     private static void AddReturnTypeHints(
         List<InlayHint> hints,
         SemanticModel semanticModel,
@@ -1063,6 +1387,27 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             Kind = InlayHintKind.Type,
             PaddingLeft = true,
             PaddingRight = false
+        };
+    }
+
+    private static InlayHint CreateNameHint(
+        SourceText sourceText,
+        int insertionPosition,
+        string name)
+    {
+        var range = PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0));
+        return new InlayHint
+        {
+            Position = range.Start,
+            Label = new StringOrInlayHintLabelParts($"{name}:"),
+            Kind = InlayHintKind.Parameter,
+            PaddingLeft = false,
+            PaddingRight = true,
+            TextEdits = new Container<TextEdit>(new TextEdit
+            {
+                Range = range,
+                NewText = $"{name}: "
+            })
         };
     }
 
