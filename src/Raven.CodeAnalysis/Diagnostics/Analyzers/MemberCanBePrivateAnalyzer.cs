@@ -23,35 +23,29 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.RegisterSyntaxNodeAction(
-            AnalyzeTypeDeclaration,
-            SyntaxKind.ClassDeclaration,
-            SyntaxKind.StructDeclaration);
+        context.RegisterCompilationAction(AnalyzeCompilation);
     }
 
-    private static void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeCompilation(CompilationAnalysisContext context)
     {
-        if (context.Node is not TypeDeclarationSyntax typeDecl)
-            return;
-
-        if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol containingType)
-            return;
-
         var isConsoleApplication = context.Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
-        var candidates = CollectCandidates(typeDecl, context.SemanticModel, isConsoleApplication);
+        var candidates = CollectCandidates(
+            context.Compilation,
+            isConsoleApplication,
+            context.SyntaxTree,
+            context.CancellationToken);
         if (candidates.Count == 0)
             return;
 
-        var candidateSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var candidatesBySymbol = new Dictionary<ISymbol, Candidate>(SymbolEqualityComparer.Default);
         foreach (var candidate in candidates)
-            candidateSymbols.Add(candidate.Symbol.UnderlyingSymbol);
+            candidatesBySymbol[candidate.Symbol.UnderlyingSymbol] = candidate;
 
         var referencedOutside = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         var referencedAnywhere = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         MarkReferences(
             context.Compilation,
-            containingType,
-            candidateSymbols,
+            candidatesBySymbol,
             referencedOutside,
             referencedAnywhere,
             context.CancellationToken);
@@ -73,50 +67,69 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
     }
 
     private static List<Candidate> CollectCandidates(
-        TypeDeclarationSyntax typeDecl,
-        SemanticModel semanticModel,
-        bool isConsoleApplication)
+        Compilation compilation,
+        bool isConsoleApplication,
+        SyntaxTree? targetTree,
+        CancellationToken cancellationToken)
     {
         var candidates = new List<Candidate>();
 
-        foreach (var member in typeDecl.Members)
+        var syntaxTrees = targetTree is null ? compilation.SyntaxTrees : [targetTree];
+        foreach (var tree in syntaxTrees)
         {
-            switch (member)
+            var semanticModel = compilation.GetSemanticModel(tree);
+            var root = tree.GetRoot(cancellationToken);
+
+            foreach (var typeDecl in root.DescendantNodesAndSelf().OfType<TypeDeclarationSyntax>())
             {
-                case MethodDeclarationSyntax methodDecl:
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (typeDecl.Kind is not (SyntaxKind.ClassDeclaration or SyntaxKind.StructDeclaration))
+                    continue;
+
+                if (semanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol containingType)
+                    continue;
+
+                foreach (var member in typeDecl.Members)
+                {
+                    switch (member)
                     {
-                        if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
-                            break;
+                        case MethodDeclarationSyntax methodDecl:
+                            {
+                                if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
+                                    break;
 
-                        if (!CanBePrivate(methodSymbol, isConsoleApplication))
-                            break;
+                                if (!CanBePrivate(methodSymbol, isConsoleApplication))
+                                    break;
 
-                        candidates.Add(new Candidate(methodSymbol, methodDecl.Identifier.GetLocation()));
-                        break;
+                                candidates.Add(new Candidate(methodSymbol, containingType, methodDecl.Identifier.GetLocation()));
+                                break;
+                            }
+                        case EventDeclarationSyntax eventDecl:
+                            {
+                                if (semanticModel.GetDeclaredSymbol(eventDecl) is not IEventSymbol eventSymbol)
+                                    break;
+
+                                if (!CanBePrivate(eventSymbol, isConsoleApplication))
+                                    break;
+
+                                candidates.Add(new Candidate(eventSymbol, containingType, eventDecl.Identifier.GetLocation()));
+                                break;
+                            }
+                        case FieldDeclarationSyntax fieldDecl when fieldDecl.Declaration.Declarators.Count == 1:
+                            {
+                                var declarator = fieldDecl.Declaration.Declarators[0];
+                                if (semanticModel.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol)
+                                    break;
+
+                                if (!CanBePrivate(fieldSymbol, isConsoleApplication))
+                                    break;
+
+                                candidates.Add(new Candidate(fieldSymbol, containingType, declarator.Identifier.GetLocation()));
+                                break;
+                            }
                     }
-                case EventDeclarationSyntax eventDecl:
-                    {
-                        if (semanticModel.GetDeclaredSymbol(eventDecl) is not IEventSymbol eventSymbol)
-                            break;
-
-                        if (!CanBePrivate(eventSymbol, isConsoleApplication))
-                            break;
-
-                        candidates.Add(new Candidate(eventSymbol, eventDecl.Identifier.GetLocation()));
-                        break;
-                    }
-                case FieldDeclarationSyntax fieldDecl when fieldDecl.Declaration.Declarators.Count == 1:
-                    {
-                        var declarator = fieldDecl.Declaration.Declarators[0];
-                        if (semanticModel.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol)
-                            break;
-
-                        if (!CanBePrivate(fieldSymbol, isConsoleApplication))
-                            break;
-
-                        candidates.Add(new Candidate(fieldSymbol, declarator.Identifier.GetLocation()));
-                        break;
-                    }
+                }
             }
         }
 
@@ -208,13 +221,12 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
     private static void MarkReferences(
         Compilation compilation,
-        INamedTypeSymbol containingType,
-        HashSet<ISymbol> candidateSymbols,
+        Dictionary<ISymbol, Candidate> candidatesBySymbol,
         HashSet<ISymbol> referencedOutside,
         HashSet<ISymbol> referencedAnywhere,
         CancellationToken cancellationToken)
     {
-        var candidateNames = candidateSymbols
+        var candidateNames = candidatesBySymbol.Keys
             .Select(static symbol => symbol.Name)
             .ToHashSet(StringComparer.Ordinal);
 
@@ -249,12 +261,12 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                if (referenced is null || !candidateSymbols.Contains(referenced))
+                if (referenced is null || !candidatesBySymbol.TryGetValue(referenced, out var candidate))
                     continue;
 
                 referencedAnywhere.Add(referenced);
 
-                if (!IsInsideContainingType(node, model, containingType))
+                if (!IsInsideContainingType(node, model, candidate.ContainingType))
                     referencedOutside.Add(referenced);
             }
         }
@@ -282,13 +294,15 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
     private readonly struct Candidate
     {
-        public Candidate(ISymbol symbol, Location location)
+        public Candidate(ISymbol symbol, INamedTypeSymbol containingType, Location location)
         {
             Symbol = symbol;
+            ContainingType = containingType;
             Location = location;
         }
 
         public ISymbol Symbol { get; }
+        public INamedTypeSymbol ContainingType { get; }
         public Location Location { get; }
     }
 }

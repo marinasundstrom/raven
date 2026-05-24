@@ -22,22 +22,13 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.RegisterSyntaxNodeAction(
-            AnalyzeTypeDeclaration,
-            SyntaxKind.ClassDeclaration,
-            SyntaxKind.StructDeclaration);
+        context.RegisterCompilationAction(AnalyzeCompilation);
     }
 
-    private static void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeCompilation(CompilationAnalysisContext context)
     {
-        if (context.SemanticModel.GetDocumentDiagnostics(context.CancellationToken).Any(d => d.Severity == DiagnosticSeverity.Error))
-            return;
-
-        if (context.Node is not TypeDeclarationSyntax typeDecl)
-            return;
-
         var includePublic = context.Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
-        var candidates = CollectCandidates(typeDecl, context.SemanticModel, includePublic);
+        var candidates = CollectCandidates(context.Compilation, includePublic, context.SyntaxTree, context.CancellationToken);
         if (candidates.Count == 0)
             return;
 
@@ -61,29 +52,45 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
     }
 
     private static List<Candidate> CollectCandidates(
-        TypeDeclarationSyntax typeDecl,
-        SemanticModel semanticModel,
-        bool includePublic)
+        Compilation compilation,
+        bool includePublic,
+        SyntaxTree? targetTree,
+        CancellationToken cancellationToken)
     {
         var candidates = new List<Candidate>();
 
-        foreach (var member in typeDecl.Members)
+        var syntaxTrees = targetTree is null ? compilation.SyntaxTrees : [targetTree];
+        foreach (var tree in syntaxTrees)
         {
-            if (member is not PropertyDeclarationSyntax propertyDecl)
-                continue;
+            var semanticModel = compilation.GetSemanticModel(tree);
+            var root = tree.GetRoot(cancellationToken);
 
-            if (semanticModel.GetDeclaredSymbol(propertyDecl) is not IPropertySymbol propertySymbol)
-                continue;
-
-            if (propertySymbol.IsImplicitlyDeclared ||
-                propertySymbol.IsIndexer ||
-                (!includePublic && propertySymbol.DeclaredAccessibility == Accessibility.Public) ||
-                AnalyzerContractFacts.IsContractProperty(propertySymbol))
+            foreach (var typeDecl in root.DescendantNodesAndSelf().OfType<TypeDeclarationSyntax>())
             {
-                continue;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            candidates.Add(new Candidate(propertySymbol, propertyDecl.Identifier.GetLocation()));
+                if (typeDecl.Kind is not (SyntaxKind.ClassDeclaration or SyntaxKind.StructDeclaration))
+                    continue;
+
+                foreach (var member in typeDecl.Members)
+                {
+                    if (member is not PropertyDeclarationSyntax propertyDecl)
+                        continue;
+
+                    if (semanticModel.GetDeclaredSymbol(propertyDecl) is not IPropertySymbol propertySymbol)
+                        continue;
+
+                    if (propertySymbol.IsImplicitlyDeclared ||
+                        propertySymbol.IsIndexer ||
+                        (!includePublic && propertySymbol.DeclaredAccessibility == Accessibility.Public) ||
+                        AnalyzerContractFacts.IsContractProperty(propertySymbol))
+                    {
+                        continue;
+                    }
+
+                    candidates.Add(new Candidate(propertySymbol, propertyDecl.Identifier.GetLocation()));
+                }
+            }
         }
 
         return candidates;

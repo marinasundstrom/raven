@@ -12,6 +12,7 @@ namespace Raven.CodeAnalysis.Diagnostics;
 public abstract class DiagnosticAnalyzer
 {
     private bool _initialized;
+    private readonly List<Action<CompilationAnalysisContext>> _compilationActions = new();
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions = new();
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions = new();
 
@@ -31,7 +32,7 @@ public abstract class DiagnosticAnalyzer
         {
             try
             {
-                Initialize(new AnalysisContext(_syntaxTreeActions, _syntaxNodeActions));
+                Initialize(new AnalysisContext(_compilationActions, _syntaxTreeActions, _syntaxNodeActions));
                 _initialized = true;
             }
             catch (OperationCanceledException)
@@ -48,6 +49,28 @@ public abstract class DiagnosticAnalyzer
         var syntaxTrees = syntaxTree is null
             ? compilation.SyntaxTrees
             : [syntaxTree];
+
+        foreach (var action in _compilationActions)
+        {
+            var compilationContext = new CompilationAnalysisContext(
+                compilation,
+                syntaxTree,
+                diagnostics.Add,
+                cancellationToken);
+
+            try
+            {
+                action(compilationContext);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Analyzer failures should not stop compilation.
+            }
+        }
 
         foreach (var tree in syntaxTrees)
         {
@@ -117,15 +140,27 @@ public interface ICompilationOptionsAwareAnalyzer
 /// <summary>Context used to register analysis actions.</summary>
 public sealed class AnalysisContext
 {
+    private readonly List<Action<CompilationAnalysisContext>> _compilationActions;
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions;
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions;
 
     internal AnalysisContext(
+        List<Action<CompilationAnalysisContext>> compilationActions,
         List<Action<SyntaxTreeAnalysisContext>> syntaxTreeActions,
         List<SyntaxNodeActionRegistration> syntaxNodeActions)
     {
+        _compilationActions = compilationActions;
         _syntaxTreeActions = syntaxTreeActions;
         _syntaxNodeActions = syntaxNodeActions;
+    }
+
+    /// <summary>Registers an action executed once for the compilation being analyzed.</summary>
+    public void RegisterCompilationAction(Action<CompilationAnalysisContext> action)
+    {
+        if (action is null)
+            throw new ArgumentNullException(nameof(action));
+
+        _compilationActions.Add(action);
     }
 
     /// <summary>Registers an action executed for each syntax tree in a compilation.</summary>
@@ -152,6 +187,41 @@ public sealed class AnalysisContext
         _syntaxNodeActions.Add(new SyntaxNodeActionRegistration(
             action,
             syntaxKinds.ToHashSet()));
+    }
+}
+
+/// <summary>Context for analyzing a compilation.</summary>
+public readonly struct CompilationAnalysisContext
+{
+    private readonly Action<Diagnostic> _reportDiagnostic;
+
+    internal CompilationAnalysisContext(
+        Compilation compilation,
+        SyntaxTree? syntaxTree,
+        Action<Diagnostic> reportDiagnostic,
+        CancellationToken cancellationToken)
+    {
+        Compilation = compilation;
+        SyntaxTree = syntaxTree;
+        _reportDiagnostic = reportDiagnostic;
+        CancellationToken = cancellationToken;
+    }
+
+    /// <summary>The compilation being analyzed.</summary>
+    public Compilation Compilation { get; }
+
+    /// <summary>
+    /// The syntax tree being analyzed, or <c>null</c> when the analyzer is running for the whole compilation.
+    /// </summary>
+    public SyntaxTree? SyntaxTree { get; }
+
+    /// <summary>Cancellation token for the analysis.</summary>
+    public CancellationToken CancellationToken { get; }
+
+    /// <summary>Reports a diagnostic.</summary>
+    public void ReportDiagnostic(Diagnostic diagnostic)
+    {
+        _reportDiagnostic(diagnostic);
     }
 }
 
