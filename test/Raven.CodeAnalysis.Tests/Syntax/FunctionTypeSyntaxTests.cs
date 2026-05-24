@@ -77,12 +77,14 @@ public class FunctionTypeSyntaxTests
         var root = tree.GetRoot();
         var local = (LocalDeclarationStatementSyntax)((GlobalStatementSyntax)root.Members[0]).Statement!;
         var nullableType = Assert.IsType<NullableTypeSyntax>(local.Declaration.Declarators[0].TypeAnnotation!.Type);
-        var functionType = Assert.IsType<FunctionTypeSyntax>(nullableType.ElementType);
+        var parenthesizedType = Assert.IsType<ParenthesizedTypeSyntax>(nullableType.ElementType);
+        var functionType = Assert.IsType<FunctionTypeSyntax>(parenthesizedType.Type);
 
         Assert.Null(functionType.Parameter);
         Assert.NotNull(functionType.ParameterList);
         Assert.Empty(functionType.ParameterList!.Parameters);
         Assert.Equal("()", functionType.ReturnType.ToString());
+        Assert.Equal("(() -> ())?", nullableType.ToString());
     }
 
     [Fact]

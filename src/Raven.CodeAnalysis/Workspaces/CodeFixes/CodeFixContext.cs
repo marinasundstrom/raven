@@ -1,5 +1,7 @@
 namespace Raven.CodeAnalysis;
 
+using System.Collections.Immutable;
+
 /// <summary>Context supplied to code-fix providers when registering fixes.</summary>
 public readonly struct CodeFixContext
 {
@@ -8,11 +10,13 @@ public readonly struct CodeFixContext
     internal CodeFixContext(
         Document document,
         Diagnostic diagnostic,
+        ImmutableArray<Diagnostic> diagnostics,
         Action<CodeAction> registerCodeFix,
         CancellationToken cancellationToken)
     {
         Document = document ?? throw new ArgumentNullException(nameof(document));
         Diagnostic = diagnostic ?? throw new ArgumentNullException(nameof(diagnostic));
+        Diagnostics = diagnostics.IsDefault ? [diagnostic] : diagnostics;
         _registerCodeFix = registerCodeFix ?? throw new ArgumentNullException(nameof(registerCodeFix));
         CancellationToken = cancellationToken;
     }
@@ -20,6 +24,8 @@ public readonly struct CodeFixContext
     public Document Document { get; }
 
     public Diagnostic Diagnostic { get; }
+
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
 
     public CancellationToken CancellationToken { get; }
 

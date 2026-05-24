@@ -396,6 +396,11 @@
     <Slot Name="Elements" Type="SeparatedList" ElementType="TupleElement" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
+  <Node Name="ParenthesizedType" Inherits="Type">
+    <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
+    <Slot Name="Type" Type="Type" />
+    <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
+  </Node>
   <Node Name="FunctionType" Inherits="Type">
     <Slot Name="Parameter" Type="Type" IsNullable="true" />
     <Slot Name="ParameterList" Type="FunctionTypeParameterList" IsNullable="true" />

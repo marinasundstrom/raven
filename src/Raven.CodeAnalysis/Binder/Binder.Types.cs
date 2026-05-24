@@ -146,6 +146,7 @@ internal abstract partial class Binder
             QualifiedNameSyntax q => BindQualifiedName(q, typeParams, importedScopes, allowBinderLookup),
             PredefinedTypeSyntax p => BindPredefined(p, importedScopes),
             UnitTypeSyntax => BindUnit(),
+            ParenthesizedTypeSyntax p => BindTypeCore(p.Type, typeParams, importedScopes, allowBinderLookup),
             TupleTypeSyntax t => BindTuple(t, typeParams, importedScopes, allowBinderLookup),
             UnionTypeSyntax u => BindUnion(u, typeParams, importedScopes, allowBinderLookup),
             FunctionTypeSyntax f => BindFunction(f, typeParams, importedScopes, allowBinderLookup),

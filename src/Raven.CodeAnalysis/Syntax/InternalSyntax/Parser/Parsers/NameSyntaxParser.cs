@@ -514,7 +514,7 @@ internal class NameSyntaxParser : SyntaxParser
         if (tupleElementCount == 1 && !hasNamedElement && !hasTrailingComma && singleElementType is not null)
         {
             // Single parenthesized types are grouping, e.g. (() -> ())?
-            return singleElementType;
+            return ParenthesizedType(openParenToken, singleElementType, closeParenToken);
         }
 
         if (tupleElementCount == 1)

@@ -35,6 +35,8 @@ Analyzers should be Roslyn-like:
 - Keep analyzer participation separate from diagnostic severity.
 - Preserve compiler ownership of semantic state. Analyzers ask `Raven.CodeAnalysis` for
   semantic facts instead of managing binder or cache internals.
+- Avoid broad diagnostic queries from analyzers and code fixes. Syntax diagnostics can guard
+  malformed source; semantic/compiler diagnostics belong to the compiler diagnostic pipeline.
 
 ## Boundaries
 

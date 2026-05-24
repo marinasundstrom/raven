@@ -181,9 +181,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
                 : [];
         }
 
-        return _workspaceManager.TryGetCodeFixes(request.TextDocument.Uri, out var fixes, cancellationToken: cancellationToken)
-            ? fixes.ToArray()
-            : [];
+        return [];
     }
 
     private static ImmutableArray<CodeDiagnostic> CreateDiagnosticsFromRequest(

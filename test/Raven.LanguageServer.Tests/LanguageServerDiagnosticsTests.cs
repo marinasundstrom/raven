@@ -315,6 +315,56 @@ func Main() -> () {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_ReusesCachedAnalyzerDiagnosticsWhenSemanticGateIsBusyAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    let count = 0
+    count
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        var firstResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+        firstResult.WasSkipped.ShouldBeFalse();
+        firstResult.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            StringComparison.Ordinal)).ShouldBeTrue();
+
+        using var semanticAccess = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        var secondResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        secondResult.WasSkipped.ShouldBeFalse();
+        secondResult.Diagnostics.Select(static diagnostic => diagnostic.Message)
+            .ShouldBe(firstResult.Diagnostics.Select(static diagnostic => diagnostic.Message), ignoreOrder: true);
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_SkipsWhenCompilerDiagnosticsNeedBusySemanticGateAsync()
     {
         Directory.CreateDirectory(_tempRoot);

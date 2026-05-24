@@ -134,6 +134,51 @@ val x = 1
     }
 
     [Fact]
+    public async Task Handle_QuickFix_WithoutRequestDiagnostics_DoesNotComputeProjectDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+missing
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(
+            workspace,
+            NullLogger<WorkspaceManager>.Instance,
+            ImmutableArray.Create<CodeFixProvider>(new NameNotFoundCodeFixProvider()),
+            ImmutableArray<CodeRefactoringProvider>.Empty);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentAsync(uri, code);
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new LspRange(new Position(0, 0), new Position(0, 7)),
+                Context = new CodeActionContext
+                {
+                    Only = new Container<CodeActionKind>(CodeActionKind.QuickFix)
+                }
+            },
+            CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result!.ToArray().ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Handle_RefactorRewrite_ExtensionLambdaSelection_DoesNotBindColdBodiesAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -256,6 +301,19 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
                 "Apply request diagnostic fix",
                 context.Document.Id,
                 new TextChange(context.Diagnostic.Location.SourceSpan, "y")));
+        }
+    }
+
+    private sealed class NameNotFoundCodeFixProvider : CodeFixProvider
+    {
+        public override IEnumerable<string> FixableDiagnosticIds => ["RAV0103"];
+
+        public override void RegisterCodeFixes(CodeFixContext context)
+        {
+            context.RegisterCodeFix(CodeFixAction.CreateTextChange(
+                "Replace missing name",
+                context.Document.Id,
+                new TextChange(context.Diagnostic.Location.SourceSpan, "replacement")));
         }
     }
 }

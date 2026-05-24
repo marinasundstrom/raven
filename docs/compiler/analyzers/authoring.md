@@ -88,6 +88,29 @@ Analyzer code should not depend on binder internals, incremental caches, or lang
 state. If a public semantic API is too expensive or incomplete, fix the compiler API rather
 than bypassing it in the analyzer.
 
+## Diagnostic Queries From Analyzers
+
+Analyzers should not normally ask the compiler or workspace for diagnostics while they are
+running. Diagnostic production is its own compiler pipeline, and broad diagnostic queries can
+force binding, re-enter analyzer execution, or make analyzer results depend on scheduling
+order.
+
+- Do not call `Compilation.GetDiagnostics`, `Compilation.GetDocumentDiagnostics`,
+  `SemanticModel.GetDiagnostics`, `SemanticModel.GetDocumentDiagnostics`, workspace
+  diagnostic APIs, or diagnostic-with-analyzers APIs from ordinary analyzer callbacks.
+- If an analyzer only needs to avoid malformed syntax, use `SyntaxTree.GetDiagnostics()` for
+  parser diagnostics and return early on syntax errors.
+- If an analyzer needs semantic facts, use targeted semantic APIs such as `GetSymbolInfo`,
+  `GetTypeInfo`, `GetDeclaredSymbol`, or `GetOperation` for the node being analyzed.
+- If an analyzer needs to skip files with compiler errors, that should be modeled as
+  analyzer-driver or context behavior, not as each analyzer recursively querying semantic
+  diagnostics.
+- Code fixes should use the diagnostics supplied by `CodeFixContext`. A fix provider must
+  not recompute compiler or analyzer diagnostics to decide which fixes to offer.
+
+This keeps analyzer execution deterministic, cancellation-friendly, and compatible with lazy
+binder-owned semantic state.
+
 ## Operations API
 
 Prefer operations when the analyzer is about semantic expression shape rather than raw syntax.

@@ -68,11 +68,16 @@ See [Syntax Tree API](../api/syntax-tree.md) and
 - `GetSymbolInfo` for references, calls, member access, and overload resolution.
 - `GetTypeInfo` for expression type and converted type.
 - `GetOperation` for operation-tree analysis.
-- `GetDocumentDiagnostics` when an analyzer intentionally skips semantic analysis for files
-  with errors.
 
 Semantic queries may trigger binding. The compiler owns the caches and incremental state;
 analyzers should not reach into binder internals or language-server caches.
+
+Avoid diagnostic-producing APIs from analyzer callbacks. `Compilation.GetDiagnostics`,
+`Compilation.GetDocumentDiagnostics`, `SemanticModel.GetDiagnostics`,
+`SemanticModel.GetDocumentDiagnostics`, and workspace diagnostic APIs can force broad
+semantic diagnostic binding or analyzer execution. Use `SyntaxTree.GetDiagnostics()` only
+as a syntax-error guard, and use targeted semantic APIs for the facts the analyzer actually
+needs.
 
 See [Semantic analysis API](../api/semantic-analysis.md),
 [Symbol resolution](../api/symbol-resolution.md), and

@@ -633,6 +633,7 @@ public class Workspace
             throw new ArgumentNullException(nameof(diagnostics));
 
         var providerList = providers.ToImmutableArray();
+        var diagnosticList = diagnostics.ToImmutableArray();
         if (providerList.Length == 0)
             return ImmutableArray<CodeFix>.Empty;
 
@@ -662,7 +663,7 @@ public class Workspace
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
         var fixes = ImmutableArray.CreateBuilder<CodeFix>();
-        foreach (var diagnostic in diagnostics)
+        foreach (var diagnostic in diagnosticList)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -690,6 +691,7 @@ public class Workspace
                 var context = new CodeFixContext(
                     document,
                     diagnostic,
+                    diagnosticList,
                     actionBucket.Add,
                     cancellationToken);
 

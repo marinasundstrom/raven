@@ -35,7 +35,7 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
 
         var sourceText = context.Document.GetTextAsync(context.CancellationToken).GetAwaiter().GetResult().ToString();
         var removalSpan = GetLineRemovalSpan(sourceText, importDirective.Span);
-        var allRemovalSpans = GetRedundantImportRemovalSpans(context.Document, root, sourceText, context.CancellationToken)
+        var allRemovalSpans = GetRedundantImportRemovalSpans(context.Diagnostics, root, sourceText)
             .Distinct()
             .OrderByDescending(static span => span.Start)
             .ToArray();
@@ -66,14 +66,13 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
     }
 
     private static IEnumerable<TextSpan> GetRedundantImportRemovalSpans(
-        Document document,
+        IEnumerable<Diagnostic> diagnostics,
         SyntaxNode root,
-        string sourceText,
-        CancellationToken cancellationToken)
+        string sourceText)
     {
-        var diagnostics = GetRedundantImportDiagnostics(document, cancellationToken);
         var diagnosticSpans = diagnostics
-            .Where(diagnostic => diagnostic.Location.IsInSource)
+            .Where(IsFixableImportDiagnostic)
+            .Where(diagnostic => IsDiagnosticInTree(diagnostic, root.SyntaxTree))
             .Select(diagnostic => diagnostic.Location.SourceSpan)
             .ToArray();
 
@@ -84,38 +83,26 @@ public sealed class RemoveRedundantImportCodeFixProvider : CodeFixProvider
         }
     }
 
-    private static IEnumerable<Diagnostic> GetRedundantImportDiagnostics(
-        Document document,
-        CancellationToken cancellationToken)
+    private static bool IsDiagnosticInTree(Diagnostic diagnostic, SyntaxTree? syntaxTree)
     {
-        var workspace = document.Solution.Workspace;
-        if (workspace is not null)
-        {
-            return workspace.GetDocumentDiagnosticsWithAnalyzers(
-                    document.Project.Id,
-                    document.Id,
-                    cancellationToken: cancellationToken)
-                .Where(IsFixableImportDiagnostic)
-                .ToArray();
-        }
+        if (!diagnostic.Location.IsInSource)
+            return false;
 
-        var syntaxTree = document.GetSyntaxTreeAsync(cancellationToken).GetAwaiter().GetResult();
         if (syntaxTree is null)
-            return [];
+            return true;
 
-        var semanticModel = document.GetSemanticModelAsync(cancellationToken).GetAwaiter().GetResult();
-        if (semanticModel is null)
-            return [];
+        if (ReferenceEquals(diagnostic.Location.SourceTree, syntaxTree))
+            return true;
 
-        var compilation = semanticModel.Compilation;
-        var compilerDiagnostics = compilation
-            .GetDocumentDiagnostics(syntaxTree, cancellationToken: cancellationToken)
-            .Where(IsFixableImportDiagnostic);
-        var analyzerDiagnostics = new UnusedImportDirectiveAnalyzer()
-            .Analyze(compilation, syntaxTree, cancellationToken)
-            .Where(IsFixableImportDiagnostic);
+        var diagnosticPath = diagnostic.Location.GetLineSpan().Path;
+        var treePath = syntaxTree.FilePath;
+        if (string.IsNullOrWhiteSpace(diagnosticPath) || string.IsNullOrWhiteSpace(treePath))
+            return false;
 
-        return compilerDiagnostics.Concat(analyzerDiagnostics).ToArray();
+        return string.Equals(
+            Path.GetFullPath(diagnosticPath),
+            Path.GetFullPath(treePath),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsFixableImportDiagnostic(Diagnostic diagnostic)

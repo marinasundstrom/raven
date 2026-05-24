@@ -19,6 +19,10 @@ or for generators and analyzers that visit many nodes.
 - Query semantics at the smallest useful node. Prefer one semantic query on the
   declaration, invocation, member access, or type syntax that matters over many
   queries on all descendants.
+- Do not query broad diagnostics from inside analyzers, code fixes, refactorings,
+  or other live-tooling callbacks unless that callback was explicitly created to
+  compute diagnostics. Syntax diagnostics are acceptable as a malformed-source
+  guard; semantic diagnostics can force binding and analyzer execution.
 - Cache results for the duration of the current pass. Metadata symbols,
   frequently used special types, and expensive per-declaration answers should
   usually be computed once.
@@ -37,6 +41,7 @@ or for generators and analyzers that visit many nodes.
 | Calling `Compilation.GetDiagnostics()` to decide whether a node is interesting. | Use syntax filters first; if diagnostics are truly needed, ask for diagnostics at the current analysis boundary once. | Full compilation diagnostics walks syntax trees, binds semantic diagnostics, consults macro and entry-point diagnostics, applies suppression, and sorts results. |
 | Calling `Compilation.GetDiagnostics(tree)` repeatedly for the same tree. | Compute it once per tree and reuse the immutable result, or use `SyntaxTree.GetDiagnostics()` when parser diagnostics are all you need. | Tree diagnostics still bind that tree's semantic model and include compilation-level diagnostics that belong to the tree. |
 | Calling `SemanticModel.GetDiagnostics()` from a per-node callback. | Use targeted `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, or `GetOperation` calls for the node being analyzed. | Semantic diagnostics intentionally complete diagnostic binding for the tree; that is broader than most node-level checks need. |
+| Calling workspace diagnostic APIs from a code-fix provider to discover other diagnostics. | Use the diagnostics supplied by the code-fix context, or let the LSP/workspace diagnostic lane compute diagnostics separately. | Code actions run interactively and should not trigger analyzer or compiler diagnostic recomputation. |
 | Calling `Compilation.Emit(...)` or using emit-only behavior as an analysis shortcut. | Query symbols, operations, diagnostics, or metadata shape directly. | Emit first ensures setup and diagnostics, then runs code generation. It is a build step, not a cheap semantic query. |
 | Calling `GetEntryPoint()` or entry-point diagnostics from general analyzers. | Inspect top-level declarations or method symbols only if your rule is actually about entry-point shape. | Entry-point resolution can require cross-tree program-shape checks that are unrelated to ordinary node analysis. |
 | Calling `SemanticModel.GetOperation(node)` for every statement or expression in a file. | Use syntax to select likely candidates, then call `GetOperation` on the topmost relevant statement or expression. | `GetOperation` may complete diagnostic binding before creating and caching the operation view. It is useful, but it is heavier than syntax and many simple symbol/type queries. |

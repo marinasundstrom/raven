@@ -50,7 +50,8 @@ public class TupleTypeSyntaxTest
         var typeSyntax = local.Declaration.Declarators[0].TypeAnnotation!.Type;
 
         Assert.IsNotType<TupleTypeSyntax>(typeSyntax);
-        Assert.IsType<PredefinedTypeSyntax>(typeSyntax);
+        var parenthesized = Assert.IsType<ParenthesizedTypeSyntax>(typeSyntax);
+        Assert.IsType<PredefinedTypeSyntax>(parenthesized.Type);
         Assert.DoesNotContain(tree.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.SingleElementTupleTypeNotAllowed);
     }
 }

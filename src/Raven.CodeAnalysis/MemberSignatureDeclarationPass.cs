@@ -595,6 +595,12 @@ internal static class MemberSignatureDeclarationPass
         {
             UnitTypeSyntax => compilation.GetSpecialType(SpecialType.System_Unit),
             PredefinedTypeSyntax predefined => ResolvePredefinedSkeletonType(compilation, predefined.Keyword.Kind, fallbackType),
+            ParenthesizedTypeSyntax parenthesized => ResolveSkeletonType(
+                semanticModel,
+                parenthesized.Type,
+                fallbackType,
+                containingType,
+                methodTypeParameters),
             QualifiedNameSyntax qualifiedName => ResolveQualifiedSkeletonType(compilation, qualifiedName, fallbackType),
             IdentifierNameSyntax identifier => ResolveIdentifierSkeletonType(
                 semanticModel,

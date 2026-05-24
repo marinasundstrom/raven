@@ -120,6 +120,7 @@ public sealed class SubstitutionTypeResolver
         {
             NameSyntax n => ResolveName(n, scope, importedScopes),
             PredefinedTypeSyntax p => ResolvePredefined(p, importedScopes),
+            ParenthesizedTypeSyntax p => ResolveCore(p.Type, scope, importedScopes),
             ArrayTypeSyntax a => ResolveArray(a, scope, importedScopes),
             ByRefTypeSyntax br => ResolveByRef(br, scope, importedScopes),
             NullableTypeSyntax n => ResolveNullable(n, scope, importedScopes),
