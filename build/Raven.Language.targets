@@ -2,8 +2,8 @@
   <PropertyGroup>
     <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == '' and '$(TargetFramework)' == 'net11.0'">net11.0</RavenCompilerFramework>
     <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == ''">net10.0</RavenCompilerFramework>
-    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == '' and Exists('$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvn.dll')">$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvn.dll</RavenCompilerHost>
-    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\Debug\$(RavenCompilerFramework)\rvn.dll'))</RavenCompilerHost>
+    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == '' and Exists('$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvnc.dll')">$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvnc.dll</RavenCompilerHost>
+    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\Debug\$(RavenCompilerFramework)\rvnc.dll'))</RavenCompilerHost>
     <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''"></RavenBuildArgs>
     <RavenTargetFrameworkArgument Condition="'$(TargetFramework)' != ''">--framework &quot;$(TargetFramework)&quot;</RavenTargetFrameworkArgument>
 

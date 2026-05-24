@@ -299,12 +299,12 @@
         "raven.sdkPath": {
           "type": "string",
           "default": "",
-          "description": "Optional path to a Raven SDK directory containing bundled tools and assemblies such as Raven.LanguageServer.dll, rvn.dll, and Raven.Core.dll. When set, the extension prefers this SDK for language-server and compiler resolution."
+          "description": "Optional path to a Raven SDK directory containing bundled tools and assemblies such as Raven.LanguageServer.dll, rvn.dll, rvnc.dll, and Raven.Core.dll. When set, the extension prefers this SDK for language-server and compiler resolution."
         },
         "raven.compilerProjectPath": {
           "type": "string",
           "default": "",
-          "description": "Optional path used to locate a built Raven compiler host (rvn.dll) under src/Raven.Compiler/bin/Debug/<tfm>. The extension does not launch Raven.Compiler.csproj via dotnet run."
+          "description": "Optional path used to locate a built Raven compiler driver (rvnc.dll) under src/Raven.Compiler/bin/Debug/<tfm>. The extension does not launch Raven.Compiler.csproj via dotnet run."
         },
         "raven.targetFramework": {
           "type": "string",

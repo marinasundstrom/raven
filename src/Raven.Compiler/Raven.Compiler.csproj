@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>Nullable</WarningsAsErrors>
-    <AssemblyName>rvn</AssemblyName>
+    <AssemblyName>rvnc</AssemblyName>
     <UseRavenCoreReference Condition="'$(UseRavenCoreReference)' == ''">true</UseRavenCoreReference>
   </PropertyGroup>
 
@@ -24,4 +24,5 @@
     <ProjectReference Include="..\Raven.CodeAnalysis.Console\Raven.CodeAnalysis.Console.csproj" />
     <ProjectReference Include="..\RavenDoc\RavenDoc.csproj" />
   </ItemGroup>
+
 </Project>

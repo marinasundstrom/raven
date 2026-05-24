@@ -12,7 +12,7 @@ cd "$SCRIPT_DIR"
 PROJECT_DIR="$REPO_ROOT/src/Raven.Compiler"
 DOTNET_VERSION="${DOTNET_VERSION:-net10.0}"
 BUILD_CONFIG="${BUILD_CONFIG:-Debug}"
-COMPILER_EXC="rvn"
+COMPILER_EXC="rvnc"
 
 usage() {
   cat <<EOF

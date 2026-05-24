@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RavenCompilerProject Condition="'$(RavenCompilerProject)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\Raven.Compiler.csproj'))</RavenCompilerProject>
     <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == ''">net10.0</RavenCompilerFramework>
-    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\Debug\$(RavenCompilerFramework)\rvn.dll'))</RavenCompilerHost>
+    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\Debug\$(RavenCompilerFramework)\rvnc.dll'))</RavenCompilerHost>
     <RavenProjectFile Condition="'$(RavenProjectFile)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)',
       '$(MSBuildProjectName).ravenproj'))</RavenProjectFile>
     <RavenOutputDir Condition="'$(RavenOutputDir)' == ''">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)',

@@ -1,11 +1,11 @@
 ---
 name: raven-debug-compiler
-description: Debug workflow for Raven compiler analysis and emission issues using the Raven.Compiler CLI. Use when investigating parser, binder, semantic model, incremental binding, lowering, emit, or runtime failures from Raven source samples. Covers repro reduction, CLI flags, binder-owned state, analysis-first debugging, and optional IL inspection.
+description: Debug workflow for Raven compiler analysis and emission issues using rvn frontend tooling and the rvnc compiler driver. Use when investigating parser, binder, semantic model, incremental binding, lowering, emit, or runtime failures from Raven source samples. Covers repro reduction, CLI flags, binder-owned state, analysis-first debugging, and optional IL inspection.
 ---
 
 # Raven Compiler Debugging
 
-Use this skill when debugging compiler behavior through the CLI.
+Use this skill when debugging compiler behavior through command-line tooling.
 
 ## Repro Strategy
 
@@ -13,9 +13,17 @@ Use this skill when debugging compiler behavior through the CLI.
 2. Prefer working from the `samples` directory or another minimal repro location.
 3. Separate analysis problems from emit or runtime problems before changing code.
 
-## CLI Entry Point
+## Tool Entry Points
 
-Use `Raven.Compiler`:
+Use `Raven` / `rvn` for frontend workflows such as scaffolding and internal
+debug views:
+
+```bash
+dotnet run --project ../src/Raven --property WarningLevel=0 -- dev bound-tree <file.rav>
+```
+
+Use `Raven.Compiler` / `rvnc` for compiler-driver behavior, especially when
+reproducing MSBuild integration failures:
 
 ```bash
 dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file.rav> -o test.dll
@@ -23,19 +31,19 @@ dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file.ra
 
 ## Useful Flags
 
-- `-s` prints the syntax tree
-- `-d pretty` prints a colorized syntax tree
-- `-bt` prints the bound tree before full lowering
+- `rvn dev syntax` prints the syntax tree
+- `rvn dev dump pretty` prints a colorized syntax tree
+- `rvn dev bound-tree` prints the bound tree before full lowering
 - `--no-emit` stops after analysis
-- `--run` runs the program after a successful compilation
-- `-ps` shows parsing sequence details
+- `rvn dev parse-sequence` shows parsing sequence details
 
-Extra debug switches live in `src/Raven.Compiler/Flags.cs`.
+Keep `rvnc` minimal. It is the compiler driver used by MSBuild and should not
+grow frontend-only debug commands unless the build integration needs them.
 If you change flags, rebuild before running again.
 
 ## Preferred Debug Loop
 
-1. Run with `-d pretty -bt --no-emit` first.
+1. Run with `rvn dev dump pretty <file> --no-emit` and `rvn dev bound-tree <file> --no-emit` first.
 2. If the syntax tree is wrong, investigate lexer or parser behavior.
 3. If syntax is correct but the bound tree is wrong, investigate binding or semantics.
 4. Only enable emit after analysis looks correct.

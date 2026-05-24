@@ -27,10 +27,10 @@ The compiled JavaScript emits to `out/` and is referenced by the extension manif
 
 ## Configuration
 The extension exposes settings to control language-server resolution and debug compilation:
-- `raven.sdkPath` (string): Override the Raven SDK root directory. The extension looks here first for bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, and `Raven.Core.dll`. Use this to test different Raven SDK builds with the same VS Code extension.
+- `raven.sdkPath` (string): Override the Raven SDK root directory. The extension looks here first for bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`. Use this to test different Raven SDK builds with the same VS Code extension.
 - `raven.languageServerPath` (string): Override the resolved `Raven.LanguageServer.dll` path. Use this when working with custom build outputs or packaged bits.
 - `raven.autoBuildLanguageServerOnActivate` (boolean): When enabled, the extension builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` on activation if it can find the project in the current workspace or extension ancestors. This is intended for Raven source-workspace development and is ignored when `raven.languageServerPath` is set.
-- `raven.compilerProjectPath` (string): Override the path used to locate a prebuilt `rvn.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler host is available.
+- `raven.compilerProjectPath` (string): Override the path used to locate a prebuilt `rvnc.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler driver is available.
 - `raven.targetFramework` (string): Optional target framework (for example, `net10.0`) passed to debug compile invocations.
 - `raven.inlayHints.enabled` (boolean): Master switch for Raven inlay hints.
 - `raven.inlayHints.inferredTypes.enabled` (boolean): Show inferred type annotation hints when Raven inlay hints are enabled.
@@ -41,11 +41,11 @@ When the extension discovers a workspace-built language server, it stages that b
 
 ## F5 compile + debug
 The extension contributes a `Raven` debug type:
-- `Raven: Compile and Debug` compiles the active `.rvn` file or `.rvnproj` target using `Raven.Compiler`. Legacy `.rav` files and deprecated `.ravenproj` projects remain supported for compatibility.
+- `Raven: Compile and Debug` compiles the active `.rvn` file or `.rvnproj` target using the `rvnc` compiler driver. Legacy `.rav` files and deprecated `.ravenproj` projects remain supported for compatibility.
 - Build artifacts are emitted to `${workspaceFolder}/.raven-debug`.
 - After compile succeeds, the extension starts a `coreclr` debug session with `dotnet <compiled-output.dll>`.
 
 You can start it by pressing F5 in a Raven file, or by running `Raven: Compile and Debug Active File` from the command palette.
 
 ## Packaging
-When shipping the extension, include a `server/` directory next to `package.json` that contains `Raven.LanguageServer.dll` and its dependencies. Optionally include a `compiler/` directory with `rvn.dll` and related assets. The client searches an explicit SDK path first, then the packaged directories, then workspace build outputs, and finally any user-provided direct assembly overrides.
+When shipping the extension, include a `server/` directory next to `package.json` that contains `Raven.LanguageServer.dll` and its dependencies. Optionally include a `compiler/` directory with `rvnc.dll`, `rvn.dll`, and related assets. The client searches an explicit SDK path first, then the packaged directories, then workspace build outputs, and finally any user-provided direct assembly overrides.

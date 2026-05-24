@@ -9,7 +9,7 @@
    dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file>.rvn -o <file>.dll
    ```
 
-   Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler  --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
+   Use the relative path for nested samples (for example, `dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- async/async-await.rav -o async-await.dll`).
 3. Execute the emitted assembly with `dotnet <file>.dll` (or rely on `build.sh`/`run.sh` for batch work).
 
 Async sample note:
@@ -60,16 +60,31 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 
-### Compiler options
+### Project build workflow
 
-These are the main options available for when debugging the compiler:
+Project samples should build and run through the .NET SDK:
 
-* **Print highlighted syntax** - `-d pretty`
-* **Print tokens as syntax is being parsed** - `-ps`
-* **Print syntax tree** - `-s`
-* **Print binder tree** - `-b`
-* **Print binder tree and bound tree** - `-bt`
-* **Print defined symbols** - `--symbols`
+```bash
+dotnet build samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
+dotnet run --project samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
+```
+
+With `scripts/raven-env.sh` sourced, the equivalent frontend commands are:
+
+```bash
+rvn build samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
+rvn run samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
+rvn clean samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
+```
+
+Use `rvnc` only for direct compiler-driver checks against individual files or
+project files. Use `rvn dev` for compiler debug views:
+
+```bash
+rvn dev syntax samples/cases/quote-summary-linq-result-option.rav
+rvn dev bound-tree samples/cases/quote-summary-linq-result-option.rav
+rvn dev symbols samples/cases/quote-summary-linq-result-option.rav
+```
 
 ## Sample compilation and execution status
 

@@ -32,10 +32,10 @@ Runtime-async metadata emission is auto-enabled for `net11.0` targets. You can f
 
 ```bash
 # Force on
-dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --runtime-async --run
+dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --runtime-async
 
 # Force off
-dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --no-runtime-async --run
+dotnet run -f net11.0 --project ../../../src/Raven.Compiler --property WarningLevel=0 -- RuntimeAsyncNet11.rvnproj --no-runtime-async
 ```
 
 ## Inspect emitted IL

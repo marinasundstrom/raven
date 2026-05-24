@@ -142,18 +142,16 @@ When a `.rvnproj` includes `<FrameworkReference>`:
 
 ## Build vs publish outputs
 
-Raven now separates normal build output from publish-style output:
+Raven project builds use the standard .NET output layout:
 
-- Normal compile (`rvn App.rvnproj`)
+- Normal build (`dotnet build App.rvnproj`)
   - default output directory: `<project-dir>/bin/<Configuration>`
   - emits apphost + `.dll` + `.runtimeconfig.json` for console apps
   - does **not** copy package/runtime dependency sets
-- Publish (`rvn App.rvnproj --publish`)
+- Publish (`dotnet publish App.rvnproj`)
   - default output directory: `<project-dir>/bin/<Configuration>/publish`
   - copies runtime dependencies (NuGet/framework/local assemblies) to output
   - emits runtime artifacts (`.runtimeconfig.json`, apphost)
-
-`--run` uses the normal output directory (`bin/<Configuration>` for `.rvnproj`) and stages runtime dependencies there as needed so the produced program can execute immediately.
 
 Dependency copy details:
 
@@ -189,13 +187,10 @@ Compile a project file:
 dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj
 ```
 
-Publish a project file:
+Use `dotnet build` and `dotnet run --project` for normal application build and
+run workflows.
 
-```bash
-dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj --publish
-```
-
-Use `-o` to override the output directory:
+Use `-o` with `rvnc` to override the output directory:
 
 ```bash
 dotnet run --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj -o path/to/out
@@ -215,10 +210,10 @@ If a `.rvnproj` sets `<TargetFramework>net11.0</TargetFramework>` (or newer), Ra
 - Await expressions emit `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` calls when available.
 - State-machine type synthesis is skipped.
 
-When invoking the compiler through `dotnet run`, make sure the compiler host itself runs as `net11.0`:
+When invoking the compiler driver through `dotnet run`, make sure the compiler host itself runs as `net11.0`:
 
 ```bash
-dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj --run
+dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj
 ```
 
 When invoking a `net11.0` `.rvnproj` through `dotnet build` or
@@ -242,7 +237,7 @@ wired to Raven's language targets:
 - The Raven compile writes the SDK intermediate assembly, copies it to the SDK
   reference-assembly slot when requested, and lets the normal SDK output pipeline
   copy files to `bin/<Configuration>/<TargetFramework>/`.
-- MSBuild-resolved `ReferencePath` items are passed to `rvn`; package restore
+- MSBuild-resolved `ReferencePath` items are passed to `rvnc`; package restore
   and framework-reference resolution remain owned by the .NET SDK rather than
   the Raven compiler core.
 
@@ -260,7 +255,7 @@ set `LanguageTargets` and, when needed, `RavenCompilerHost` explicitly:
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <LanguageTargets>/path/to/Raven/build/Raven.Language.targets</LanguageTargets>
-    <RavenCompilerHost>/path/to/Raven/src/Raven.Compiler/bin/Debug/net10.0/rvn.dll</RavenCompilerHost>
+    <RavenCompilerHost>/path/to/Raven/src/Raven.Compiler/bin/Debug/net10.0/rvnc.dll</RavenCompilerHost>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>RavenGreeter</AssemblyName>
     <OutputType>Library</OutputType>

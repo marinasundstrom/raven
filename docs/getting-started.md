@@ -13,25 +13,36 @@ This guide reflects Raven's current syntax and style used in `samples/cases` and
 scripts/codex-build.sh
 ```
 
+Optional session helpers:
+
+```bash
+source scripts/raven-env.sh
+```
+
+This defines `rvn` and `rvnc` shell functions for the current terminal. Without
+the helpers, use the explicit `dotnet run --project ... --` commands shown
+below.
+
 ## 2. Compile and run a real Raven case sample
 
 ```bash
 dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-case.dll --run
+  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-case.dll
+dotnet /tmp/raven-case.dll
 ```
 
 Helpful debugging flags:
 
-- `-s` print syntax tree
-- `-d pretty` pretty syntax dump
-- `-bt` print binder and bound tree
+- `rvn dev syntax` print syntax tree
+- `rvn dev dump pretty` pretty syntax dump
+- `rvn dev bound-tree` print binder and bound tree
 - `--no-emit` stop after analysis
 
 Example:
 
 ```bash
-dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  samples/cases/quote-summary-linq-result-option.rav -d pretty -bt --no-emit
+dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
+  dev bound-tree samples/cases/quote-summary-linq-result-option.rav
 ```
 
 ## 3. Write your first Raven file
@@ -55,7 +66,8 @@ Compile and run:
 
 ```bash
 dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  hello.rav -o /tmp/hello.dll --run
+  hello.rav -o /tmp/hello.dll
+dotnet /tmp/hello.dll
 ```
 
 ## 4. Current Raven style at a glance
@@ -96,9 +108,16 @@ func Resolve(requests: ShipmentRequest[]) -> Result<ShipmentRequest, string> {
 mkdir hello-raven
 cd hello-raven
 
-dotnet run --project ../src/Raven.Compiler -- init
-dotnet run --project ../src/Raven.Compiler -- *.rvnproj
+dotnet run --project ../src/Raven -- init
+dotnet build *.rvnproj
+dotnet run --project *.rvnproj
 ```
+
+`dotnet build` and `dotnet run --project` are the expected application workflow.
+After sourcing `scripts/raven-env.sh`, `rvn build`, `rvn run`, and `rvn clean`
+provide convenience wrappers over the same SDK commands.
+For `net11.0` projects, add a project-local `global.json` that selects a .NET
+SDK with `net11.0` support.
 
 For more details:
 

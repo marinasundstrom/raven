@@ -782,7 +782,7 @@ function resolveCompilerInvocation(targetFramework) {
         ];
         for (const root of sdkRoots) {
             for (const tfm of preferredTfms) {
-                const tfmCandidate = path.join(root, tfm, 'rvn.dll');
+                const tfmCandidate = path.join(root, tfm, 'rvnc.dll');
                 if (fs.existsSync(tfmCandidate)) {
                     return {
                         executable: 'dotnet',
@@ -791,7 +791,7 @@ function resolveCompilerInvocation(targetFramework) {
                     };
                 }
             }
-            const flatCandidate = path.join(root, 'rvn.dll');
+            const flatCandidate = path.join(root, 'rvnc.dll');
             if (fs.existsSync(flatCandidate)) {
                 return {
                     executable: 'dotnet',
@@ -803,7 +803,7 @@ function resolveCompilerInvocation(targetFramework) {
     }
     for (const root of bundledRoots) {
         for (const tfm of preferredTfms) {
-            const tfmCandidate = path.join(root, tfm, 'rvn.dll');
+            const tfmCandidate = path.join(root, tfm, 'rvnc.dll');
             if (fs.existsSync(tfmCandidate)) {
                 return {
                     executable: 'dotnet',
@@ -812,7 +812,7 @@ function resolveCompilerInvocation(targetFramework) {
                 };
             }
         }
-        const flatCandidate = path.join(root, 'rvn.dll');
+        const flatCandidate = path.join(root, 'rvnc.dll');
         if (fs.existsSync(flatCandidate)) {
             return {
                 executable: 'dotnet',
@@ -827,7 +827,7 @@ function resolveCompilerInvocation(targetFramework) {
     }
     const compilerDirectory = path.dirname(compilerProjectPath);
     for (const tfm of preferredTfms) {
-        const candidate = path.join(compilerDirectory, 'bin', 'Debug', tfm, 'rvn.dll');
+        const candidate = path.join(compilerDirectory, 'bin', 'Debug', tfm, 'rvnc.dll');
         if (fs.existsSync(candidate)) {
             return {
                 executable: 'dotnet',
@@ -1029,7 +1029,7 @@ async function compileForDebug(targetPath) {
     const layout = resolveOutputLayout(targetPath, 'Debug');
     const compilerInvocation = resolveCompilerInvocation(layout.targetFramework);
     if (!compilerInvocation) {
-        throw new Error('Unable to locate a built rvn.dll. Build Raven.Compiler first or point "raven.compilerProjectPath" at a workspace containing src/Raven.Compiler/bin/Debug/<tfm>/rvn.dll.');
+        throw new Error('Unable to locate a built rvnc.dll. Build Raven.Compiler first or point "raven.compilerProjectPath" at a workspace containing src/Raven.Compiler/bin/Debug/<tfm>/rvnc.dll.');
     }
     if (fs.existsSync(layout.outputDirectory)) {
         fs.rmSync(layout.outputDirectory, { recursive: true, force: true });
@@ -1074,7 +1074,7 @@ async function buildTarget(targetPath) {
     const layout = resolveOutputLayout(targetPath, 'Debug');
     const compilerInvocation = resolveCompilerInvocation(layout.targetFramework);
     if (!compilerInvocation) {
-        throw new Error('Unable to locate a built rvn.dll. Build Raven.Compiler first or point "raven.compilerProjectPath" at a workspace containing src/Raven.Compiler/bin/Debug/<tfm>/rvn.dll.');
+        throw new Error('Unable to locate a built rvnc.dll. Build Raven.Compiler first or point "raven.compilerProjectPath" at a workspace containing src/Raven.Compiler/bin/Debug/<tfm>/rvnc.dll.');
     }
     fs.mkdirSync(layout.outputDirectory, { recursive: true });
     const outputArg = layout.targetIsProject ? layout.outputDirectory : layout.outputDllPath;

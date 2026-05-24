@@ -1,6 +1,6 @@
 - name: Overview
   href: index.md
-- name: Raven.Compiler CLI
+- name: Raven Tooling
   href: raven-compiler.md
 - name: Project system
   href: project-system.md

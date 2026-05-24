@@ -1,26 +1,96 @@
-# `rvn` CLI
+# `rvn` and `rvnc`
 
-`rvn` is the command-line entry point for the Raven language.
-It compiles one or more `.rvn` source files (with legacy `.rav` compatibility) into a .NET assembly and exposes a
-few switches for inspecting the compiler's output.
+`rvnc` is the compiler driver used by MSBuild and other build hosts. It keeps to
+compiler inputs and outputs: source/project inputs, references, framework
+selection, and assembly emission.
 
-It also supports scaffolding a new Raven project in the current directory via `init`.
-For `dotnet build` and C# `ProjectReference` integration, see the project-system page's MSBuild integration section.
+`rvn` is the frontend tool. It owns scaffolding and internal development views,
+using the shared compiler workspace setup from `Raven.Compiler.Core`.
+Application builds should use the .NET SDK surface: `dotnet build` and
+`dotnet run --project`.
 
 ## Usage
 
 ```bash
-rvn [options] <source-files>
+rvnc [compiler-options] <source-files|project-file.rvnproj>
+rvn build [project-file.rvnproj] [dotnet-build-options]
+rvn run [project-file.rvnproj] [dotnet-run-options] [-- application-args]
+rvn clean [project-file.rvnproj] [dotnet-clean-options]
+rvn dev <syntax|dump|macros|binders|bound-tree|symbols|quote> [options] <source-files|project-file.rvnproj>
 rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type <console|classlib>] [--force]
 ```
 
-## Options
+For repository development, load local shell helpers after building:
+
+```bash
+source scripts/raven-env.sh
+```
+
+The helpers define `rvn` and `rvnc` for the current terminal session. Set
+`RAVEN_CONFIGURATION` or `RAVEN_FRAMEWORK` before sourcing to use a different
+build output.
+
+## Development Environment Setup
+
+During source development there are several supported ways to run the tools:
+
+1. Direct `dotnet run` invocations. This requires no shell aliases and always
+   builds the selected project before execution:
+
+   ```bash
+   dotnet run -f net10.0 --project src/Raven -- dev syntax path/to/file.rvn
+   dotnet run -f net10.0 --project src/Raven.Compiler -- path/to/file.rvn -o /tmp/app.dll
+   ```
+
+2. Session helpers. Build the tool projects once, then source the helper script:
+
+   ```bash
+   dotnet build src/Raven/Raven.csproj -f net10.0
+   dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
+   source scripts/raven-env.sh
+   rvn dev bound-tree path/to/file.rvn
+   rvnc path/to/file.rvn -o /tmp/app.dll
+   ```
+
+   The script defines shell functions only for the current terminal session. It
+   does not edit `.zshrc`, `.bashrc`, or global shell profiles.
+
+3. Application builds. Use the .NET SDK surface for project-based apps:
+
+   ```bash
+   dotnet build path/to/App.rvnproj
+   dotnet run --project path/to/App.rvnproj
+   ```
+
+   `rvn build`, `rvn run`, and `rvn clean` are convenience commands over that
+   same SDK workflow:
+
+   ```bash
+   rvn build path/to/App.rvnproj
+   rvn run path/to/App.rvnproj
+   rvn clean path/to/App.rvnproj
+   ```
+
+   In this repository, `Directory.Build.props` wires `.rvnproj` projects to the
+   local Raven language targets. External source checkouts can set
+   `LanguageTargets` and `RavenCompilerHost` explicitly until Raven ships as a
+   packaged SDK/build asset.
+
+4. SDK selection. For `net11.0` samples and projects, use a project-local
+   `global.json` that selects an SDK with `net11.0` targeting support. The .NET
+   CLI chooses the highest installed SDK by default, which may still be too old
+   for a future target framework.
+
+The distribution shape should make these repo-relative paths unnecessary:
+package `rvn`, `rvnc`, `Raven.LanguageServer`, Raven MSBuild assets, and
+`Raven.Core` together so projects can build with ordinary `dotnet build` and
+editors can discover the same SDK root.
+
+## `rvnc` Options
 
 - `--framework <tfm>` &ndash; target framework (e.g. `net8.0`)
 - `--refs <path>` &ndash; additional metadata reference (repeatable)
 - `-o <path>` &ndash; output path (`.rvn`/legacy `.rav` inputs: assembly file path; `.rvnproj` inputs: output directory path)
-- `--publish` &ndash; publish-style output (copies runtime dependencies, emits runtime artifacts, and defaults `.rvnproj` output to `<project-dir>/bin/<Configuration>/publish`)
-- `--run` &ndash; execute after successful compile (console apps only); runs from normal output (`bin/<Configuration>` for `.rvnproj`) and stages runtime dependencies there as needed
 - `--runtime-async` &ndash; force .NET 11 runtime-async emission for async methods (`Async` method impl flag + `AsyncHelpers.Await` calls when available)
 - `--no-runtime-async` &ndash; disable runtime-async emission and keep classic awaiter pattern/state-machine lowering
 - `--global-statements` &ndash; enable top-level/global statements (default)
@@ -31,22 +101,38 @@ rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type 
 - `--no-namespace-member-imports` &ndash; disable namespace lookup/completion promotion from `[TopLevel]` containers
 - `--members-public-by-default` &ndash; class/struct members default to `public`
 - `--no-members-public-by-default` &ndash; class/struct members use normal defaults (`private` for class/struct members)
-- `-s` &ndash; display the syntax tree (single file only)
-- `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` writes the source text, `pretty` emits highlighted syntax; append `:no-diagnostics` to skip diagnostic underlines, single file only)
-- `--dump-macros [original|expanded|both][:plain|pretty[:no-diagnostics]]` &ndash; dump original and/or expanded macro source for a single file. Defaults to `both:plain`. Expanded pretty output is colorized, but diagnostic underlines are only available for the original source view.
-- `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
-  compiler, analyzer, and emit diagnostics)
 - `--returned-value-handling <default|full|none|info|warning|error>` &ndash; configure the
   built-in returned-value analyzer (`RAV9029`); project files control analyzer mode, while
   `.editorconfig` controls severity
 - `--force-returned-value-handling` &ndash; shorthand for treating returned values that are not
   handled as errors
-- `-r` &ndash; print the raw source (single file only)
-- `-b` &ndash; print the binder tree (single file only)
-- `-bt` &ndash; print the binder and bound tree (single file only)
-- `-q`, `--quote` &ndash; print parsed syntax as compilable C# `SyntaxFactory` code via RavenQuoter (includes trivia, emits `using` directives, uses static `SyntaxFactory` import, and named arguments)
 - `--no-emit` &ndash; analyze only; skip assembly emission
 - `-h`, `--help` &ndash; show help
+
+## `rvn dev`
+
+`rvn dev` hosts internal debug views outside the compiler binary:
+
+- `rvn dev syntax [flat|group] <input>` &ndash; print syntax tree
+- `rvn dev dump [plain|pretty] <input>` &ndash; dump source syntax view
+- `rvn dev macros [original|expanded|both] <input>` &ndash; dump macro source views
+- `rvn dev binders <input>` &ndash; print binder tree
+- `rvn dev bound-tree [original|lowered|both] <input>` &ndash; print binder and bound tree
+- `rvn dev symbols [list|hierarchy] <input>` &ndash; inspect symbols
+- `rvn dev quote <input>` &ndash; print SyntaxFactory-style tree construction code
+
+## `rvn build`, `rvn run`, and `rvn clean`
+
+These are frontend conveniences over the .NET SDK project workflow:
+
+- `rvn build [project.rvnproj] [dotnet-build-options]` runs `dotnet build`
+- `rvn run [project.rvnproj] [dotnet-run-options] [-- application-args]` runs `dotnet run --project`
+- `rvn clean [project.rvnproj] [dotnet-clean-options]` runs `dotnet clean`
+
+When the project path is omitted, `rvn` uses the single `.rvnproj` file in the
+current directory. The commands do not invoke `rvnc` directly; MSBuild owns
+restore, NuGet/package resolution, project references, and language target
+selection.
 
 ## Init command
 
@@ -70,11 +156,6 @@ Useful init options:
 - `--type <console|classlib>` &ndash; compatibility alias for selecting the scaffold type
 - `--force` &ndash; overwrite scaffold files if they already exist
 
-Creating a `.debug/` directory in the current or parent folder causes the
-compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,
-bound tree, binder tree, and macro original/expanded source snapshots) into that directory. The debug options above will additionally
-write to the console when compiling a single file.
-
 When no framework is specified the compiler defaults to the newest installed
 framework.
 
@@ -86,10 +167,10 @@ When the project target framework is `net11.0` (or newer), Raven auto-enables ru
 - Await sites are emitted as `System.Runtime.CompilerServices.AsyncHelpers.Await(...)` when the compiler host runtime exposes that API.
 - Async state-machine synthesis is skipped in this mode.
 
-Important: if you run the compiler via `dotnet run`, run the compiler host on `net11.0` so `AsyncHelpers` is available:
+Important: if you run the compiler driver via `dotnet run`, run it on `net11.0` so `AsyncHelpers` is available:
 
 ```bash
-dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj --run
+dotnet run -f net11.0 --project src/Raven.Compiler --property WarningLevel=0 -- path/to/App.rvnproj
 ```
 
 If you build or run a `net11.0` `.rvnproj` through MSBuild (`dotnet build` or

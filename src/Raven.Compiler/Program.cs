@@ -21,6 +21,8 @@ using static Raven.AppHostBuilder;
 using static Raven.ConsoleEx;
 
 var stopwatch = Stopwatch.StartNew();
+var invocationName = Path.GetFileNameWithoutExtension(Environment.GetCommandLineArgs().FirstOrDefault() ?? "rvn");
+var isCompilerDriverInvocation = string.Equals(invocationName, "rvnc", StringComparison.OrdinalIgnoreCase);
 
 // Options:
 // --framework <tfm> - target framework
@@ -59,7 +61,8 @@ var stopwatch = Stopwatch.StartNew();
 
 if (args.Length > 0 && string.Equals(args[0], "init", StringComparison.OrdinalIgnoreCase))
 {
-    Environment.ExitCode = RunInitCommand(args);
+    AnsiConsole.MarkupLine("[red]rvnc is the compiler driver and does not scaffold projects. Use 'rvn init'.[/]");
+    Environment.ExitCode = 1;
     return;
 }
 
@@ -412,7 +415,34 @@ if (showHelp || hasInvalidOption)
     else
         Environment.ExitCode = 0;
 
-    PrintHelp();
+    PrintHelp(isCompilerDriverInvocation);
+    return;
+}
+
+if (isCompilerDriverInvocation &&
+    TryGetCompilerDriverRejectedOption(
+        run,
+        publish,
+        fix,
+        format,
+        emitDocs,
+        highlightDiagnostics,
+        showSuggestions,
+        printSyntaxTree,
+        printSyntaxTreeInternal,
+        printRawSyntax,
+        printSyntax,
+        macroSourceDumpTarget,
+        printBinders,
+        printBoundTree,
+        printParseSequence,
+        quote,
+        symbolDumpMode,
+        out var rejectedOption))
+{
+    AnsiConsole.MarkupLine(
+        $"[red]rvnc is the compiler driver and does not support '{Markup.Escape(rejectedOption)}'. Use 'rvn' or 'rvn dev ...' for frontend tooling commands.[/]");
+    Environment.ExitCode = 1;
     return;
 }
 
@@ -2183,9 +2213,49 @@ static IEnumerable<string> GetDotNetRootsForDependencyCopy()
     }
 }
 
-static void PrintHelp()
+static void PrintHelp(bool compilerDriverOnly)
 {
+    if (compilerDriverOnly)
+    {
+        Console.WriteLine("Usage: rvnc [compiler-options] <source-files|project-file.rvnproj>");
+        Console.WriteLine();
+        Console.WriteLine("Compiler options:");
+        Console.WriteLine("  --framework <tfm>  Target framework (e.g. net10.0)");
+        Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
+        Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
+        Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
+        Console.WriteLine("  --output-type <console|classlib>");
+        Console.WriteLine("                     Output kind for the produced assembly.");
+        Console.WriteLine("  --unsafe           Enable unsafe mode (required for pointer declarations/usages)");
+        Console.WriteLine("  --global-statements");
+        Console.WriteLine("                     Enable top-level/global statements (default)");
+        Console.WriteLine("  --no-global-statements");
+        Console.WriteLine("                     Disable top-level/global statements");
+        Console.WriteLine("  --namespace-members");
+        Console.WriteLine("                     Enable namespace-scope function and const declarations (default)");
+        Console.WriteLine("  --no-namespace-members");
+        Console.WriteLine("                     Disable namespace-scope function and const declarations");
+        Console.WriteLine("  --namespace-member-imports");
+        Console.WriteLine("                     Enable namespace imports from [TopLevel] containers (default)");
+        Console.WriteLine("  --no-namespace-member-imports");
+        Console.WriteLine("                     Disable namespace imports from [TopLevel] containers");
+        Console.WriteLine("  --members-public-by-default");
+        Console.WriteLine("                     Members default to public in classes/structs (default)");
+        Console.WriteLine("  --no-members-public-by-default");
+        Console.WriteLine("                     Disable public-by-default and require explicit public");
+        Console.WriteLine("  --runtime-async    Enable runtime-async metadata emission");
+        Console.WriteLine("  --no-runtime-async");
+        Console.WriteLine("                     Disable runtime-async metadata emission (auto-enabled for net11+)");
+        Console.WriteLine("  --no-project-restore");
+        Console.WriteLine("                     Use already resolved references instead of restoring project packages");
+        Console.WriteLine("  -o <path>          Output path.");
+        Console.WriteLine("  --no-emit          Skip emitting the output assembly");
+        Console.WriteLine("  -h, --help         Display help");
+        return;
+    }
+
     Console.WriteLine("Usage: rvn [options] <source-files|project-file.rvnproj>");
+    Console.WriteLine("       rvnc [compiler-options] <source-files|project-file.rvnproj>");
     Console.WriteLine("       rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Options:");
@@ -2274,6 +2344,50 @@ static void PrintHelp()
     Console.WriteLine("  init --force      Overwrite existing scaffold files.");
 }
 
+static bool IsHelp(string value)
+    => value is "-h" or "--help" or "help";
+
+static bool TryGetCompilerDriverRejectedOption(
+    bool run,
+    bool publish,
+    bool fix,
+    bool format,
+    bool emitDocs,
+    bool highlightDiagnostics,
+    bool showSuggestions,
+    bool printSyntaxTree,
+    bool printSyntaxTreeInternal,
+    bool printRawSyntax,
+    bool printSyntax,
+    string? macroSourceDumpTarget,
+    bool printBinders,
+    bool printBoundTree,
+    bool printParseSequence,
+    bool quote,
+    SymbolDumpMode symbolDumpMode,
+    out string option)
+{
+    option = run ? "--run"
+        : publish ? "--publish"
+        : fix ? "--fix"
+        : format ? "--format"
+        : emitDocs ? "--emit-docs"
+        : highlightDiagnostics ? "--highlight"
+        : showSuggestions ? "--suggestions"
+        : printSyntaxTree ? "--syntax-tree"
+        : printSyntaxTreeInternal ? "--syntax-tree--internal"
+        : printRawSyntax || printSyntax ? "--dump"
+        : macroSourceDumpTarget is not null ? "--dump-macros"
+        : printBinders ? "--display-binders"
+        : printBoundTree ? "--bound-tree"
+        : printParseSequence ? "--parse-sequence"
+        : quote ? "--quote"
+        : symbolDumpMode != SymbolDumpMode.None ? "--symbols"
+        : string.Empty;
+
+    return option.Length > 0;
+}
+
 static void RunAssembly(string outputFilePath)
 {
     using var process = Process.Start(new ProcessStartInfo
@@ -2335,179 +2449,6 @@ static string GetGeneratedPreludeSource()
         "    import System.Option.*",
         "}",
         string.Empty);
-
-static int RunInitCommand(string[] args)
-{
-    string? name = null;
-    var framework = TargetFrameworkUtil.GetLatestFramework();
-    var isClassLibrary = false;
-    var force = false;
-    var typeSpecified = false;
-
-    for (var i = 1; i < args.Length; i++)
-    {
-        switch (args[i])
-        {
-            case "-h":
-            case "--help":
-                PrintInitHelp();
-                return 0;
-            case "--name":
-                if (i + 1 >= args.Length)
-                {
-                    AnsiConsole.MarkupLine("[red]Missing value for --name.[/]");
-                    PrintInitHelp();
-                    return 1;
-                }
-
-                name = args[++i];
-                break;
-            case "--framework":
-                if (i + 1 >= args.Length)
-                {
-                    AnsiConsole.MarkupLine("[red]Missing value for --framework.[/]");
-                    PrintInitHelp();
-                    return 1;
-                }
-
-                framework = args[++i];
-                break;
-            case "--type":
-                if (i + 1 >= args.Length)
-                {
-                    AnsiConsole.MarkupLine("[red]Missing value for --type.[/]");
-                    PrintInitHelp();
-                    return 1;
-                }
-
-                var typeValue = args[++i];
-                if (!TryParseInitProjectType(typeValue, out isClassLibrary))
-                {
-                    AnsiConsole.MarkupLine($"[red]Invalid --type '{Markup.Escape(typeValue)}'. Use 'console' or 'classlib'.[/]");
-                    PrintInitHelp();
-                    return 1;
-                }
-
-                typeSpecified = true;
-                break;
-            case "--force":
-                force = true;
-                break;
-            default:
-                if (!args[i].StartsWith('-') && !typeSpecified && TryParseInitProjectType(args[i], out isClassLibrary))
-                {
-                    typeSpecified = true;
-                    break;
-                }
-
-                AnsiConsole.MarkupLine($"[red]Unknown init option '{Markup.Escape(args[i])}'.[/]");
-                PrintInitHelp();
-                return 1;
-        }
-    }
-
-    var cwd = Directory.GetCurrentDirectory();
-    var fallbackName = Path.GetFileName(cwd.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-    var projectName = SanitizeProjectName(string.IsNullOrWhiteSpace(name) ? fallbackName : name!);
-    var projectFilePath = Path.Combine(cwd, $"{projectName}{RavenFileExtensions.Project}");
-    var srcDir = Path.Combine(cwd, "src");
-    var mainSourcePath = Path.Combine(srcDir, $"main{RavenFileExtensions.Raven}");
-    var binDir = Path.Combine(cwd, "bin");
-    var binGitkeep = Path.Combine(binDir, ".gitkeep");
-    if (!force)
-    {
-        var existing = new[] { projectFilePath, mainSourcePath, binGitkeep }.Where(File.Exists).ToArray();
-        if (existing.Length > 0)
-        {
-            AnsiConsole.MarkupLine("[red]Init aborted: one or more scaffold files already exist.[/]");
-            foreach (var file in existing)
-                AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(file)}[/]");
-            AnsiConsole.MarkupLine("[grey]Use --force to overwrite scaffold files.[/]");
-            return 1;
-        }
-    }
-
-    Directory.CreateDirectory(srcDir);
-    Directory.CreateDirectory(binDir);
-
-    var outputType = isClassLibrary ? "Library" : "Exe";
-    var projectXml = $"""
-                      <Project Sdk="Microsoft.NET.Sdk">
-                        <PropertyGroup>
-                          <TargetFramework>{framework}</TargetFramework>
-                          <AssemblyName>{projectName}</AssemblyName>
-                          <OutputType>{outputType}</OutputType>
-                        </PropertyGroup>
-                        <ItemGroup>
-                          <RavenCompile Include="src/**/*{RavenFileExtensions.Raven}" />
-                        </ItemGroup>
-                      </Project>
-                      """;
-    File.WriteAllText(projectFilePath, projectXml + Environment.NewLine);
-
-    var sourceText = """
-                     val message = "Hello from Raven"
-                     System.Console.WriteLine(message)
-                     """;
-    File.WriteAllText(mainSourcePath, sourceText + Environment.NewLine);
-
-    if (!File.Exists(binGitkeep))
-        File.WriteAllText(binGitkeep, string.Empty);
-
-    AnsiConsole.MarkupLine("[green]Raven project scaffold created.[/]");
-    AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(projectFilePath)}[/]");
-    AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(mainSourcePath)}[/]");
-    AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(binGitkeep)}[/]");
-    AnsiConsole.MarkupLine("[grey]Compile with: rvn ./" + Markup.Escape(Path.GetFileName(projectFilePath)) + " -o bin/" + Markup.Escape(projectName) + ".dll[/]");
-
-    return 0;
-}
-
-static void PrintInitHelp()
-{
-    Console.WriteLine("Usage: rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type <console|classlib>] [--force]");
-    Console.WriteLine();
-    Console.WriteLine("Creates a Raven project scaffold in the current directory:");
-    Console.WriteLine("  - <project-name>.rvnproj");
-    Console.WriteLine("  - src/main.rvn");
-    Console.WriteLine("  - bin/.gitkeep");
-    Console.WriteLine();
-    Console.WriteLine("Options:");
-    Console.WriteLine("  console|classlib           Select the scaffold type (default: console).");
-    Console.WriteLine("  --name <project-name>      Override generated project/assembly name.");
-    Console.WriteLine("  --framework <tfm>          Set TargetFramework (default: latest installed).");
-    Console.WriteLine("  --type <console|classlib>  Compatibility alias for selecting the scaffold type.");
-    Console.WriteLine("  --force                    Overwrite scaffold files.");
-}
-
-static bool TryParseInitProjectType(string value, out bool isClassLibrary)
-{
-    if (string.Equals(value, "console", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(value, "app", StringComparison.OrdinalIgnoreCase))
-    {
-        isClassLibrary = false;
-        return true;
-    }
-
-    if (string.Equals(value, "classlib", StringComparison.OrdinalIgnoreCase))
-    {
-        isClassLibrary = true;
-        return true;
-    }
-
-    isClassLibrary = false;
-    return false;
-}
-
-static string SanitizeProjectName(string name)
-{
-    if (string.IsNullOrWhiteSpace(name))
-        return "RavenApp";
-
-    var invalid = Path.GetInvalidFileNameChars();
-    var cleaned = new string(name.Where(ch => !invalid.Contains(ch)).ToArray()).Trim();
-    return string.IsNullOrWhiteSpace(cleaned) ? "RavenApp" : cleaned;
-}
 
 static bool TryParseSyntaxDumpFormat(string[] args, ref int index, out bool printRawSyntax, out bool printSyntax,
     out bool includeDiagnostics)

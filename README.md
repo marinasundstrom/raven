@@ -160,18 +160,61 @@ Compile and run a sample case:
 
 ```bash
 dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
-  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-sample.dll --run
+  samples/cases/quote-summary-linq-result-option.rav -o /tmp/raven-sample.dll
+dotnet /tmp/raven-sample.dll
 ```
 
-Useful debug flags:
+Useful frontend/debug commands:
 
 ```bash
--s            # syntax tree
--d pretty     # pretty syntax dump
--bt           # binder + bound tree
---no-emit     # analysis only
---run         # execute after successful compile
+dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
+  dev syntax samples/cases/quote-summary-linq-result-option.rav
+dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
+  dev bound-tree samples/cases/quote-summary-linq-result-option.rav
 ```
+
+### Developer environment setup
+
+There are three source-workspace setup modes:
+
+1. Run tools through `dotnet run`. This requires no shell setup and is the most explicit form:
+
+   ```bash
+   dotnet run -f net10.0 --project src/Raven -- dev syntax path/to/file.rvn
+   dotnet run -f net10.0 --project src/Raven.Compiler -- path/to/file.rvn -o /tmp/app.dll
+   ```
+
+2. Build once and source session helpers:
+
+   ```bash
+   dotnet build src/Raven/Raven.csproj -f net10.0
+   dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
+   source scripts/raven-env.sh
+   rvn dev syntax path/to/file.rvn
+   rvnc path/to/file.rvn -o /tmp/app.dll
+   ```
+
+   Set `RAVEN_CONFIGURATION` or `RAVEN_FRAMEWORK` before sourcing to select a different build output.
+
+3. Use normal .NET project commands for applications:
+
+   ```bash
+   dotnet build path/to/App.rvnproj
+   dotnet run --project path/to/App.rvnproj
+   ```
+
+   The `rvn` frontend also provides convenience commands over the same SDK
+   workflow:
+
+   ```bash
+   rvn build path/to/App.rvnproj
+   rvn run path/to/App.rvnproj
+   rvn clean path/to/App.rvnproj
+   ```
+
+   When testing `net11.0` projects, use a project-local `global.json` to pin an SDK that supports `net11.0`; the .NET CLI otherwise selects the highest installed SDK.
+
+Distribution goal: package `rvn`, `rvnc`, the language server, Raven build assets, and `Raven.Core` together so users do not need repo-relative paths. Until then, source checkouts use `Directory.Build.props` for in-repo `.rvnproj` builds, and external projects can set `LanguageTargets`/`RavenCompilerHost` explicitly.
 
 ### End-to-end project workflow
 
@@ -184,11 +227,10 @@ cd hello-raven
 # Create a project scaffold (default type: app)
 rvn init
 
-# Build (project files default output to ./bin)
-rvn *.rvnproj
+# Build and run through rvn's SDK-backed frontend commands
+rvn build
+rvn run
 
-# Run the produced assembly
-dotnet bin/Hello.dll
 ```
 
 Create a class library scaffold instead:
@@ -200,7 +242,7 @@ rvn init --type classlib --name MyLibrary
 Project-system and NuGet details:
 
 - [Compiler project system docs](docs/compiler/project-system.md)
-- [NuGet project-file sample](samples/project-files/nuget-demo/README.md)
+- [NuGet project sample](samples/projects/nuget-demo/README.md)
 
 ### Run the compiler manually
 
@@ -217,26 +259,19 @@ Options:
 - `--raven-core <path>` &ndash; reference a specific `Raven.Core.dll`
 - `--emit-core-types-only` &ndash; embed Raven core shims instead of using `Raven.Core.dll`
 - `-o <path>` &ndash; output assembly path
-- `-s` &ndash; display the syntax tree (single file only)
-- `-ps` &ndash; prints the tokens as they are being parsed
-- `-d [plain|pretty[:no-diagnostics]]` &ndash; dump syntax (`plain` for raw text, `pretty` for highlighted syntax; append `:no-diagnostics` to skip underlines, single file only)
 - `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
   compiler, analyzer, and emit diagnostics)
-- `-r` &ndash; print the raw source (single file only)
-- `-b` &ndash; print the binder tree (single file only)
-- `-bt` &ndash; print the binder and bound tree (single file only)
-- `-q`, `--quote` &ndash; print the parsed syntax as compilable C# `SyntaxFactory` code using RavenQuoter defaults (includes trivia, static factory import, and named arguments)
-- `--symbols [list|hierarchy]` &ndash; inspect source symbols (`list` dumps properties, `hierarchy` prints the tree)
+- `--no-emit` &ndash; analyze only
 - `-h`, `--help` &ndash; show help
 
-`rvn` references `Raven.Core.dll` by default. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed shimmed core types instead of referencing the DLL.
+`rvnc` references `Raven.Core.dll` by default. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed shimmed core types instead of referencing the DLL.
 
 Creating a `.debug/` directory in the current or parent folder causes the
 compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,
-bound tree, and binder tree) into that directory. The debug options above will additionally
-write to the console when compiling a single file.
+bound tree, and binder tree) into that directory.
 
-> ⚠️ **When the arguments are omitted**, there is a hardcoded input file, and a hardcoded output file path (`test.dll`).
+Use `rvn dev` for console debug views such as `syntax`, `dump`, `bound-tree`,
+`symbols`, and `quote`.
 
 ### Run the editor
 

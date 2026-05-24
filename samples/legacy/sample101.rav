@@ -7,7 +7,8 @@ import System.Threading.Tasks.*
 * Investigation doc: docs/async-propagate-lowering-plan.md
 * 
 * To compile:
-* dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- sample101.rav -o test.dll --run
+* dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- sample101.rav -o test.dll
+* dotnet test.dll
 *
 * Options for debugging:
 * -d pretty : render highlighted syntax tree

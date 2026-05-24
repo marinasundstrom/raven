@@ -7,7 +7,7 @@
     <AssemblyName>None</AssemblyName>
     <RavenCoreOutputDirectory>$(OutputPath)$(TargetFramework)/</RavenCoreOutputDirectory>
     <TargetPath>$(RavenCoreOutputDirectory)Raven.Core.dll</TargetPath>
-    <RavenCompilerHost>$(MSBuildThisFileDirectory)..\Raven.Compiler\bin\Debug\$(TargetFramework)\rvn.dll</RavenCompilerHost>
+    <RavenCompilerHost>$(MSBuildThisFileDirectory)..\Raven.Compiler\bin\Debug\$(TargetFramework)\rvnc.dll</RavenCompilerHost>
   </PropertyGroup>
 
   <ItemGroup>

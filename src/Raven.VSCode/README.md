@@ -32,10 +32,10 @@ npm run compile
 `code --extensionDevelopmentPath=_my_extension_folder.`
 
 ## Configuration
-- `raven.sdkPath`: optional path to a Raven SDK directory containing bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, and `Raven.Core.dll`. This is the easiest way to test different Raven builds with the same VS Code extension.
+- `raven.sdkPath`: optional path to a Raven SDK directory containing bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`. This is the easiest way to test different Raven builds with the same VS Code extension.
 - `raven.languageServerPath`: override the resolved server assembly path when the defaults do not apply.
 - `raven.autoBuildLanguageServerOnActivate`: when enabled, the extension builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` on activation if it can find that project in the current workspace or extension ancestors. Ignored when `raven.languageServerPath` is set.
-- `raven.compilerProjectPath`: optional fallback override used to locate a prebuilt `rvn.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler host can be found.
+- `raven.compilerProjectPath`: optional fallback override used to locate a prebuilt `rvnc.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler driver can be found.
 - `raven.targetFramework`: optional target framework (for example, `net10.0`) passed to Raven debug compilation.
 
 When the extension launches a language server from a workspace build, it stages that build into an isolated extension-owned directory first, then starts the staged copy with the repository root as its working directory. This avoids file locking on the workspace build outputs while still allowing the language server to discover repo-relative assets such as `Raven.Core.dll`.
