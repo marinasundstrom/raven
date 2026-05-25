@@ -2598,6 +2598,9 @@ public partial class Compilation
             if (refIndex < 0)
                 return null;
 
+            if (TryMapNuGetSharedFrameworkReferenceAssemblyToRuntimePath(normalized, refIndex) is { } sharedFrameworkRuntimePath)
+                return sharedFrameworkRuntimePath;
+
             var libCandidate = normalized[..refIndex] +
                                $"{Path.DirectorySeparatorChar}lib{Path.DirectorySeparatorChar}" +
                                normalized[(refIndex + refSegment.Length)..];
@@ -2622,6 +2625,85 @@ public partial class Compilation
         {
             return null;
         }
+    }
+
+    private static string? TryMapNuGetSharedFrameworkReferenceAssemblyToRuntimePath(string normalizedMetadataAssemblyPath, int refIndex)
+    {
+        var packageVersionDirectory = normalizedMetadataAssemblyPath[..refIndex];
+        var packageDirectory = Path.GetDirectoryName(packageVersionDirectory);
+        if (packageDirectory is null)
+            return null;
+
+        var packageId = Path.GetFileName(packageDirectory);
+        var sharedFrameworkName = packageId.ToLowerInvariant() switch
+        {
+            "microsoft.aspnetcore.app.ref" => "Microsoft.AspNetCore.App",
+            "microsoft.netcore.app.ref" => "Microsoft.NETCore.App",
+            _ => null
+        };
+
+        if (sharedFrameworkName is null)
+            return null;
+
+        var requestedVersion = Path.GetFileName(packageVersionDirectory);
+        var assemblyFileName = Path.GetFileName(normalizedMetadataAssemblyPath);
+        if (string.IsNullOrWhiteSpace(requestedVersion) || string.IsNullOrWhiteSpace(assemblyFileName))
+            return null;
+
+        var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        var sharedRoot = runtimeDirectory is not null
+            ? Directory.GetParent(runtimeDirectory)?.Parent?.FullName
+            : null;
+        if (string.IsNullOrEmpty(sharedRoot))
+            return null;
+
+        var frameworkRoot = Path.Combine(sharedRoot, sharedFrameworkName);
+        if (!Directory.Exists(frameworkRoot))
+            return null;
+
+        var exact = Path.Combine(frameworkRoot, requestedVersion, assemblyFileName);
+        if (File.Exists(exact))
+            return exact;
+
+        var requestedMajor = TryGetMajorVersion(requestedVersion);
+        var candidate = Directory
+            .EnumerateDirectories(frameworkRoot)
+            .Select(path => new
+            {
+                Path = path,
+                Version = Path.GetFileName(path),
+                Major = TryGetMajorVersion(Path.GetFileName(path)),
+                NumericVersion = TryGetNumericVersion(Path.GetFileName(path)),
+                IsPrerelease = Path.GetFileName(path).Contains('-', StringComparison.Ordinal)
+            })
+            .Where(x => requestedMajor is null || x.Major == requestedMajor)
+            .OrderBy(x => x.IsPrerelease)
+            .ThenByDescending(x => x.NumericVersion)
+            .ThenByDescending(x => x.Version, StringComparer.OrdinalIgnoreCase)
+            .Select(x => Path.Combine(x.Path, assemblyFileName))
+            .FirstOrDefault(File.Exists);
+
+        return candidate;
+    }
+
+    private static int? TryGetMajorVersion(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+            return null;
+
+        var dotIndex = version.IndexOf('.');
+        var majorText = dotIndex >= 0 ? version[..dotIndex] : version;
+        return int.TryParse(majorText, out var major) ? major : null;
+    }
+
+    private static Version? TryGetNumericVersion(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+            return null;
+
+        var prereleaseIndex = version.IndexOf('-');
+        var versionText = prereleaseIndex >= 0 ? version[..prereleaseIndex] : version;
+        return Version.TryParse(versionText, out var parsed) ? parsed : null;
     }
 
     private Assembly? MapToRuntimeImplementation(AssemblyName identity)
