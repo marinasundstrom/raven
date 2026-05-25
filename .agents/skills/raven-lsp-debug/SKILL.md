@@ -53,6 +53,11 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 6. Correlate the failing request with syntax, symbol lookup, binding, diagnostics behavior, compiler API caching, and language service code.
 7. Add focused regression coverage if the failure is fixed in code.
 
+When comparing editor behavior with command-line behavior, use the current
+tool split: `rvnc` / `Raven.Compiler` is the compiler driver for one-shot
+compile and project build repros, while `rvn` / `Raven` is for developer
+commands such as syntax, pretty dump, and bound-tree views.
+
 ## Compiler Boundary
 
 - The language server should present compiler answers. It should not own semantic invalidation, symbol inference, overload selection, binder selection, or cache policy.

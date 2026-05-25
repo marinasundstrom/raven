@@ -2,7 +2,8 @@
 
 **Project:** Raven is an experimental .NET compiler inspired by Swift/Rust/F#. Key folders:
 - `src/Raven.CodeAnalysis` for compiler core
-- `src/Raven.Compiler` for the CLI
+- `src/Raven.Compiler` for the `rvnc` compiler driver
+- `src/Raven` for the `rvn` developer/project command tool
 - `test/Raven.CodeAnalysis.Tests` for unit tests
 - `tools/*Generator` for codegen utilities
 - `docs/` for spec and design

@@ -82,9 +82,9 @@ See [Compiler diagnostics](../diagnostics.md) for the full pragma syntax.
 `Raven.Compiler` can override returned-value analyzer behavior for one invocation:
 
 ```bash
-rvn main.rvn --returned-value-handling warning
-rvn main.rvn --returned-value-handling error
-rvn main.rvn --force-returned-value-handling
+rvnc main.rvn --returned-value-handling warning
+rvnc main.rvn --returned-value-handling error
+rvnc main.rvn --force-returned-value-handling
 ```
 
 For `RAV9029`, non-off severity values enable `full` mode for that compiler invocation and

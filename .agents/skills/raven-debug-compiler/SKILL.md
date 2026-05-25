@@ -15,15 +15,16 @@ Use this skill when debugging compiler behavior through command-line tooling.
 
 ## Tool Entry Points
 
-Use `Raven` / `rvn` for frontend workflows such as scaffolding and internal
-debug views:
+Use `Raven` / `rvn` for developer workflows such as scaffolding, project
+commands, and internal debug views. `rvn` is not the compiler driver:
 
 ```bash
 dotnet run --project ../src/Raven --property WarningLevel=0 -- dev bound-tree <file.rav>
 ```
 
-Use `Raven.Compiler` / `rvnc` for compiler-driver behavior, especially when
-reproducing MSBuild integration failures:
+Use `Raven.Compiler` / `rvnc` for compiler-driver behavior. This is the
+compiler used by project builds, sample builds, MSBuild integration, and
+one-shot compile repros:
 
 ```bash
 dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file.rav> -o test.dll
@@ -39,6 +40,8 @@ dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- <file.ra
 
 Keep `rvnc` minimal. It is the compiler driver used by MSBuild and should not
 grow frontend-only debug commands unless the build integration needs them.
+Keep developer-only diagnostics, syntax dumps, and other exploratory commands
+on the `rvn dev ...` side.
 If you change flags, rebuild before running again.
 
 ## Preferred Debug Loop
@@ -46,7 +49,8 @@ If you change flags, rebuild before running again.
 1. Run with `rvn dev dump pretty <file> --no-emit` and `rvn dev bound-tree <file> --no-emit` first.
 2. If the syntax tree is wrong, investigate lexer or parser behavior.
 3. If syntax is correct but the bound tree is wrong, investigate binding or semantics.
-4. Only enable emit after analysis looks correct.
+4. Only enable emit after analysis looks correct, then reproduce compiler
+   behavior with `rvnc` or `dotnet run --project ../src/Raven.Compiler -- ...`.
 5. If emit or runtime still fails, inspect the produced assembly or IL.
 6. Lock the repro with a focused test in `test/Raven.CodeAnalysis.Tests`.
 7. Keep documentation current when the investigation changes or clarifies compiler behavior; if expected behavior should be documented but is missing from `docs/`, consider adding it.

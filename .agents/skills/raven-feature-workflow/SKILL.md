@@ -73,6 +73,14 @@ If temporary emitted-instruction tests are needed during development, keep them 
 4. Run runtime or emission-heavy tests separately if the change affects those paths.
 5. Format touched files with `dotnet format ... --include`.
 
+Use the current tool split when validating behavior:
+- `rvnc` / `Raven.Compiler` is the compiler driver for one-shot compiles,
+  project builds, sample builds, and MSBuild-facing behavior.
+- `rvn` / `Raven` owns developer commands such as `rvn dev syntax`,
+  `rvn dev dump pretty`, and `rvn dev bound-tree`.
+- Do not use `rvn` as evidence that compiler-driver behavior is correct; use
+  `rvnc`, the sample build scripts, or targeted compiler tests for that.
+
 ## Notes
 
 - Keep compiler components immutable.
