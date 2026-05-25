@@ -178,6 +178,17 @@ function getInlayHintRequestDebounceMilliseconds(): number {
   return Math.max(0, Math.min(2000, Math.trunc(configured)));
 }
 
+function areSemanticTokensEnabled(): boolean {
+  return vscode.workspace
+    .getConfiguration('raven')
+    .get<boolean>('semanticTokens.enabled', true);
+}
+
+function isSemanticTokensRequest(method: string): boolean {
+  return method === 'textDocument/semanticTokens/full' ||
+    method === 'textDocument/semanticTokens/range';
+}
+
 function delayUnlessCanceled(milliseconds: number, token: vscode.CancellationToken): Promise<boolean> {
   if (milliseconds <= 0) {
     return Promise.resolve(!token.isCancellationRequested);
@@ -538,6 +549,11 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
         const target = interesting ? formatRequestTarget(param) : '';
         if (interesting) {
           appendLifecycleLog(`Request started: ${method}${target}`);
+        }
+
+        if (isSemanticTokensRequest(method) && !areSemanticTokensEnabled()) {
+          appendLifecycleLog(`Request completed: ${method}${target} in 0ms. semantic tokens disabled by raven.semanticTokens.enabled`);
+          return { data: [] } as Awaited<ReturnType<typeof next>>;
         }
 
         try {

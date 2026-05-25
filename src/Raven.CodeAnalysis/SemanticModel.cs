@@ -34,6 +34,7 @@ public partial class SemanticModel
     private readonly SemaphoreSlim _semanticAccessGate = new(1, 1);
     private bool _isCollectingDiagnostics;
     private int _diagnosticCollectionThreadId;
+    private CancellationToken _diagnosticBindingCancellationToken;
     private bool _declarationsComplete;
     private bool _rootBinderCreated;
     private bool _isEnsuringDeclarations;
@@ -96,6 +97,9 @@ public partial class SemanticModel
     public SyntaxTree SyntaxTree { get; }
 
     internal bool IsCollectingDiagnostics => _isCollectingDiagnostics;
+
+    internal void ThrowIfDiagnosticBindingCancellationRequested()
+        => _diagnosticBindingCancellationToken.ThrowIfCancellationRequested();
 
     internal async ValueTask<IDisposable> EnterSemanticAccessAsync(CancellationToken cancellationToken)
     {
@@ -258,6 +262,8 @@ public partial class SemanticModel
 
             _isCollectingDiagnostics = true;
             _diagnosticCollectionThreadId = currentThreadId;
+            var previousDiagnosticBindingCancellationToken = _diagnosticBindingCancellationToken;
+            _diagnosticBindingCancellationToken = cancellationToken;
 
             try
             {
@@ -346,6 +352,7 @@ public partial class SemanticModel
             }
             finally
             {
+                _diagnosticBindingCancellationToken = previousDiagnosticBindingCancellationToken;
                 _isCollectingDiagnostics = false;
                 _diagnosticCollectionThreadId = 0;
             }

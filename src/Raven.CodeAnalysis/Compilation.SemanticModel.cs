@@ -70,6 +70,18 @@ public partial class Compilation
         return true;
     }
 
+    internal bool TryGetExistingSemanticModel(SyntaxTree syntaxTree, out SemanticModel semanticModel)
+    {
+        if (_generatedSemanticModels.TryGetValue(syntaxTree, out semanticModel!))
+            return true;
+
+        if (_semanticModels.TryGetValue(syntaxTree, out semanticModel!))
+            return true;
+
+        semanticModel = null!;
+        return false;
+    }
+
     internal bool TryGetSemanticModelForDeclarationBinding(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
         EnsureSetup();

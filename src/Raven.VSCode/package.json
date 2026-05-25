@@ -296,6 +296,11 @@
           "maximum": 2000,
           "description": "Delay inlay hint requests briefly after Raven document edits so typing coalesces before semantic inlay work reaches the language server. Set to 0 to disable client-side debouncing."
         },
+        "raven.semanticTokens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Request Raven semantic tokens from the language server. Disable to rely on TextMate syntax highlighting while testing language-server semantic responsiveness."
+        },
         "raven.sdkPath": {
           "type": "string",
           "default": "",

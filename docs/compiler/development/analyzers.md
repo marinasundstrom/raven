@@ -28,9 +28,10 @@ Raven currently provides analyzers for two different contexts:
   library-style outputs, only non-public properties are considered. Properties required
   by a virtual/override or interface contract are excluded.
 - **UnusedMethodAnalyzer** (Raven, `RAV9019`) – reports ordinary
-  methods that are never invoked. In console applications, all ordinary methods are
-  considered (entry points are excluded); in library-style outputs, only non-public methods
-  are considered. Methods required by a virtual/override or interface contract are excluded.
+  methods that are never invoked. In non-library applications, all ordinary methods are
+  considered (entry points are excluded, including async entry points that require a
+  synthesized bridge); in library-style outputs, only non-public methods are considered.
+  Methods required by a virtual/override or interface contract are excluded.
 - **UnusedVariableAnalyzer** (Raven, `RAV9027` / `RAV9030`) – reports unused local
   variables, local pattern bindings, and callable parameters. Parameters on override and
   virtual, override, and interface implementation methods are excluded because the contract
@@ -120,6 +121,9 @@ The `RAV9012` split is intentional:
   `Option<T>` plus `if maybeValue is Some(...)` style flow
 - the separate `Convert if/else to match` refactoring owns control-flow reshaping and can
   be applied independently to pattern-based `if` statements, including non-`Option` code
+
+`RAV9012` reports explicit nullable declaration annotations. It does not report inferred
+target declarations such as `val x = ...`, even when the initializer has a nullable type.
 
 For suggestion payload conventions (`--suggestions`, rewrite property keys, and option
 gating), see `docs/compiler/development/suggestions.md`.

@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>VehicleCostsApi</AssemblyName>
     <OutputType>Exe</OutputType>
-    <RunAnalyzers>false</RunAnalyzers>
+    <RunAnalyzers>true</RunAnalyzers>
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />

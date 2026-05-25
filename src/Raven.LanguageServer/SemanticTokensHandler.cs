@@ -138,43 +138,61 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
-            var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(identifier.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
-            var semanticModel = semanticModelResult.SemanticModel;
-            skippedBusy = semanticModelResult.WasSkipped;
+            var useSemanticModel = identifier is SemanticTokensRangeParams;
+            DocumentStore.DocumentSemanticAccess? semanticModelAccess = null;
+            SemanticModel? semanticModel = null;
+            if (useSemanticModel)
+            {
+                var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(identifier.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
+                semanticModelAccess = semanticModelResult.Access;
+                semanticModel = semanticModelAccess?.SemanticModel;
+                skippedBusy = semanticModelResult.WasSkipped;
+            }
+
             if (skippedBusy)
                 outcome = "SkippedBusy";
+            else if (semanticModel is null)
+                outcome = useSemanticModel ? "SyntaxOnly" : "FullSyntaxOnly";
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
-            stageStopwatch.Restart();
-            var classification = semanticModel is null
-                ? SemanticClassifier.Classify(root, allowBinding: false)
-                : SemanticClassifier.Classify(root, semanticModel, allowBinding: false);
-            classifyMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            effectiveCancellationToken.ThrowIfCancellationRequested();
+            SemanticTokenEntry[] entries;
+            try
+            {
+                stageStopwatch.Restart();
+                var classification = semanticModel is null
+                    ? SemanticClassifier.Classify(root, allowBinding: false)
+                    : SemanticClassifier.Classify(root, semanticModel, allowBinding: false);
+                classifyMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                effectiveCancellationToken.ThrowIfCancellationRequested();
 
-            stageStopwatch.Restart();
-            var declaredTypeTokenTypes = CollectDeclaredTypeTokenTypes(root);
-            var tokenEntries = classification.Tokens
-                .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel, root, declaredTypeTokenTypes, allowBinding: false))
-                .Where(static entry => entry is not null)
-                .Cast<SemanticTokenEntry>()
-                .ToArray();
+                stageStopwatch.Restart();
+                var declaredTypeTokenTypes = CollectDeclaredTypeTokenTypes(root);
+                var tokenEntries = classification.Tokens
+                    .Select(pair => CreateEntry(pair.Key.Span, pair.Value, pair.Key, semanticModel, root, declaredTypeTokenTypes, allowBinding: false))
+                    .Where(static entry => entry is not null)
+                    .Cast<SemanticTokenEntry>()
+                    .ToArray();
 
-            var triviaEntries = classification.Trivia
-                .Select(pair => CreateEntry(pair.Key.Span, pair.Value))
-                .Where(static entry => entry is not null)
-                .Cast<SemanticTokenEntry>()
-                .ToArray();
+                var triviaEntries = classification.Trivia
+                    .Select(pair => CreateEntry(pair.Key.Span, pair.Value))
+                    .Where(static entry => entry is not null)
+                    .Cast<SemanticTokenEntry>()
+                    .ToArray();
 
-            var entries = tokenEntries
-                .Concat(triviaEntries)
-                .OrderBy(static entry => entry.Span.Start)
-                .ThenBy(static entry => entry.Span.Length)
-                .ToArray();
-            materializeMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            CacheTokenEntries(cacheKey.Value, entries);
-            effectiveCancellationToken.ThrowIfCancellationRequested();
+                entries = tokenEntries
+                    .Concat(triviaEntries)
+                    .OrderBy(static entry => entry.Span.Start)
+                    .ThenBy(static entry => entry.Span.Length)
+                    .ToArray();
+                materializeMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                CacheTokenEntries(cacheKey.Value, entries);
+                effectiveCancellationToken.ThrowIfCancellationRequested();
+            }
+            finally
+            {
+                semanticModelAccess?.Dispose();
+            }
 
             stageStopwatch.Restart();
             var pushedEntries = FilterEntriesForRange(entries, requestedRange).ToArray();
@@ -269,18 +287,18 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         _tokenEntryCache[cacheKey] = entries;
     }
 
-    private async Task<(SemanticModel? SemanticModel, bool WasSkipped)> TryGetSemanticModelForSemanticTokensAsync(
+    private async Task<(DocumentStore.DocumentSemanticAccess? Access, bool WasSkipped)> TryGetSemanticModelForSemanticTokensAsync(
         DocumentUri uri,
         CancellationToken cancellationToken)
     {
-        using var access = await _documents.TryEnterDocumentSemanticModelAccessAsync(
+        var access = await _documents.TryEnterExistingDocumentSemanticModelAccessAsync(
             uri,
             cancellationToken,
             "semanticTokens-semanticModel").ConfigureAwait(false);
         if (access is null)
             return (null, true);
 
-        return (access.SemanticModel, false);
+        return (access, false);
     }
 
     private static IEnumerable<SemanticTokenEntry> FilterEntriesForRange(

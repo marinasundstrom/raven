@@ -25,10 +25,10 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private const int DiagnosticsDebounceMilliseconds = 900;
     private const int DocumentCompilerDiagnosticsAfterEditDelayMilliseconds = 1_000;
-    private const int DocumentCompilerDiagnosticsAfterOpenDelayMilliseconds = 6_000;
+    private const int DocumentCompilerDiagnosticsAfterOpenDelayMilliseconds = 1_000;
     private const int RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds = 10_000;
     private const int DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds = 2_000;
-    private const int DocumentAnalyzerDiagnosticsAfterOpenDelayMilliseconds = 12_000;
+    private const int DocumentAnalyzerDiagnosticsAfterOpenDelayMilliseconds = 4_000;
     private const int DiagnosticsRetryDelayMilliseconds = 2_500;
     private const double DidCloseLogThresholdMs = 50;
 

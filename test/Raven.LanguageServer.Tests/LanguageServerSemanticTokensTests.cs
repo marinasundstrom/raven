@@ -304,6 +304,70 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task SemanticTokens_ColdDocument_UsesSyntaxOnlyWithoutMaterializingSemanticModelAsync()
+    {
+        const string code = """
+func Main() -> unit {
+    val number = 42
+    number
+}
+""";
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"raven-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempRoot);
+
+        try
+        {
+            var documentPath = Path.Combine(tempRoot, "src", "main.rvn");
+            Directory.CreateDirectory(Path.GetDirectoryName(documentPath)!);
+            File.WriteAllText(documentPath, code);
+
+            var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+            var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+            manager.Initialize(new InitializeParams
+            {
+                WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+                {
+                    Name = "temp",
+                    Uri = DocumentUri.FromFileSystemPath(tempRoot)
+                })
+            });
+
+            var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+            var uri = DocumentUri.FromFileSystemPath(documentPath);
+            await store.UpsertDocumentAsync(uri, code);
+
+            var existingBefore = await store.TryEnterExistingDocumentSemanticModelAccessAsync(
+                uri,
+                CancellationToken.None,
+                "test");
+            existingBefore.ShouldBeNull();
+
+            var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+            var result = await handler.Handle(new SemanticTokensParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri)
+            }, CancellationToken.None);
+
+            result.ShouldNotBeNull();
+            var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
+            Find(decoded, 0, "func").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 1, "val").Type.ShouldBe(SemanticTokenType.Keyword);
+
+            var existingAfter = await store.TryEnterExistingDocumentSemanticModelAccessAsync(
+                uri,
+                CancellationToken.None,
+                "test");
+            existingAfter.ShouldBeNull();
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task SemanticTokens_StringSyntaxRegexParameter_ClassifiesArgumentAsRegexpAsync()
     {
         const string code = """

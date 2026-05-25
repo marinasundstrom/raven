@@ -38,7 +38,6 @@ class Foo {}
         const string fixedCode = """
 #pragma warning disable-next-line RAV9012
 func Test(obj: Foo?) -> () {
-    #pragma warning disable-next-line RAV9012
     val o = obj
 }
 
@@ -49,7 +48,7 @@ class Foo {}
             code,
             fixedCode,
             [new DiagnosticResult("RAV9012").WithAnySpan()],
-            expectedAppliedFixCount: 2);
+            expectedAppliedFixCount: 1);
 
         verifier.Verify();
     }

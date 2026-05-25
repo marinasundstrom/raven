@@ -34,6 +34,8 @@ internal sealed class OverloadResolver
 
         foreach (var candidate in DistinctCandidates(methods))
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             var candidateStatus = OverloadCandidateStatus.Applicable;
             int? candidateScore = null;
             IMethodSymbol? constructed = null;
@@ -68,7 +70,9 @@ internal sealed class OverloadResolver
                 continue;
             }
 
-            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, canBindLambda, candidateComparisons, out var score))
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
+            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, binder, canBindLambda, candidateComparisons, out var score))
             {
                 candidateStatus = OverloadCandidateStatus.ArgumentMismatch;
                 RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension, candidateComparisons);
@@ -80,8 +84,10 @@ internal sealed class OverloadResolver
             applicableCandidates.Add(new ApplicableOverloadCandidate(method, score, treatAsExtension));
         }
 
-        foreach (var applicableCandidate in PruneApplicableCandidatesByPriority(applicableCandidates))
+        foreach (var applicableCandidate in PruneApplicableCandidatesByPriority(applicableCandidates, binder))
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             var method = applicableCandidate.Method;
             var score = applicableCandidate.Score;
             var treatAsExtension = applicableCandidate.IsExtension;
@@ -129,7 +135,7 @@ internal sealed class OverloadResolver
                 continue;
             }
 
-            if (IsMoreSpecific(method, bestMatch, arguments, receiver, compilation))
+            if (IsMoreSpecific(method, bestMatch, arguments, receiver, compilation, binder))
             {
                 bestMatch = method;
                 ambiguous = null;
@@ -137,7 +143,7 @@ internal sealed class OverloadResolver
                 continue;
             }
 
-            if (IsMoreSpecific(bestMatch, method, arguments, receiver, compilation))
+            if (IsMoreSpecific(bestMatch, method, arguments, receiver, compilation, binder))
                 continue;
 
             if (SymbolEqualityComparer.Default.Equals(bestMatch, method))
@@ -195,7 +201,8 @@ internal sealed class OverloadResolver
     }
 
     private static IReadOnlyList<ApplicableOverloadCandidate> PruneApplicableCandidatesByPriority(
-        IReadOnlyList<ApplicableOverloadCandidate> candidates)
+        IReadOnlyList<ApplicableOverloadCandidate> candidates,
+        Binder? binder)
     {
         if (candidates.Count <= 1)
             return candidates;
@@ -204,6 +211,8 @@ internal sealed class OverloadResolver
 
         foreach (var candidate in candidates)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             var group = GetOverloadPriorityGroup(candidate.Method, candidate.IsExtension);
             var priority = GetOverloadResolutionPriority(candidate.Method);
 
@@ -215,6 +224,8 @@ internal sealed class OverloadResolver
 
         foreach (var candidate in candidates)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             var group = GetOverloadPriorityGroup(candidate.Method, candidate.IsExtension);
             var priority = GetOverloadResolutionPriority(candidate.Method);
 
@@ -224,6 +235,9 @@ internal sealed class OverloadResolver
 
         return pruned;
     }
+
+    private static void ThrowIfDiagnosticBindingCancellationRequested(Binder? binder)
+        => binder?.SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
 
     private static OverloadPriorityGroupKey GetOverloadPriorityGroup(IMethodSymbol method, bool isExtension)
     {
@@ -605,6 +619,8 @@ internal sealed class OverloadResolver
             var finalExplicitArgs = new ITypeSymbol[arity];
             for (int i = 0; i < arity; i++)
             {
+                ThrowIfDiagnosticBindingCancellationRequested(binder);
+
                 var normalized = NormalizeType(explicitTypeArguments[i]);
                 if (normalized.TypeKind == TypeKind.Error)
                     return null;
@@ -632,6 +648,8 @@ internal sealed class OverloadResolver
         // Seed substitutions with the fixed args.
         for (int i = 0; i < arity; i++)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             if (fixedArgs[i] is { } fixedType && fixedType.TypeKind != TypeKind.Error)
                 substitutions[method.TypeParameters[i]] = fixedType;
         }
@@ -655,6 +673,8 @@ internal sealed class OverloadResolver
 
         for (; parameterIndex < parameters.Length; parameterIndex++)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             if (parameterIndex == paramsParameterIndex && mappedArguments[parameterIndex] is null)
             {
                 if (!TryInferFromParamsArguments(compilation, parameters[parameterIndex], paramsArguments, substitutions, method))
@@ -695,6 +715,8 @@ internal sealed class OverloadResolver
         var finalArgs = new ITypeSymbol[arity];
         for (int i = 0; i < arity; i++)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             var tp = method.TypeParameters[i];
 
             if (fixedArgs[i] is { } fixedType)
@@ -758,6 +780,8 @@ internal sealed class OverloadResolver
 
         for (; parameterIndex < parameters.Length; parameterIndex++)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             if (parameterIndex == paramsParameterIndex && mappedArguments[parameterIndex] is null)
             {
                 if (!TryInferFromParamsArguments(compilation, parameters[parameterIndex], paramsArguments, substitutions, method))
@@ -799,6 +823,8 @@ internal sealed class OverloadResolver
         var inferredArguments = new ITypeSymbol[method.TypeParameters.Length];
         for (int i = 0; i < method.TypeParameters.Length; i++)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             var typeParameter = method.TypeParameters[i];
             if (!TryGetInferredTypeArgument(typeParameter, substitutions, out var inferred))
                 return null;
@@ -1591,7 +1617,8 @@ internal sealed class OverloadResolver
         IMethodSymbol current,
         BoundArgument[] arguments,
         BoundExpression? receiver,
-        Compilation compilation)
+        Compilation compilation,
+        Binder? binder)
     {
         bool better = false;
         var candParams = candidate.Parameters;
@@ -1675,6 +1702,8 @@ internal sealed class OverloadResolver
 
         for (int i = 0; i < arguments.Length; i++)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             var candidateParameterIndex = candidateMap[i];
             var currentParameterIndex = currentMap[i];
 
@@ -1870,6 +1899,7 @@ internal sealed class OverloadResolver
         BoundExpression? receiver,
         bool treatAsExtension,
         Compilation compilation,
+        Binder? binder,
         Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
         out int score)
@@ -1886,7 +1916,9 @@ internal sealed class OverloadResolver
                 return false;
             }
 
-            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, RefKind.None, compilation, canBindLambda, comparisonLog, ref score))
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
+            if (!TryEvaluateArgument(parameters[parameterIndex], receiver, RefKind.None, compilation, binder, canBindLambda, comparisonLog, ref score))
                 return false;
 
             parameterIndex++;
@@ -1897,12 +1929,14 @@ internal sealed class OverloadResolver
 
         for (; parameterIndex < parameters.Length; parameterIndex++)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             if (parameterIndex == paramsParameterIndex)
             {
                 var mappedParamsArgument = mappedArguments[parameterIndex];
                 if (mappedParamsArgument is not null)
                 {
-                    if (!TryEvaluateArgument(parameters[parameterIndex], mappedParamsArgument.Value.Expression, mappedParamsArgument.Value.RefKind, compilation, canBindLambda, comparisonLog, ref score))
+                    if (!TryEvaluateArgument(parameters[parameterIndex], mappedParamsArgument.Value.Expression, mappedParamsArgument.Value.RefKind, compilation, binder, canBindLambda, comparisonLog, ref score))
                         return false;
 
                     continue;
@@ -1916,7 +1950,7 @@ internal sealed class OverloadResolver
                     if (singleParamsConversion.IsImplicit)
                     {
                         // Normal-form params binding: a single array-like argument maps directly.
-                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArguments[0].Expression, paramsArguments[0].RefKind, compilation, canBindLambda, comparisonLog, ref score))
+                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArguments[0].Expression, paramsArguments[0].RefKind, compilation, binder, canBindLambda, comparisonLog, ref score))
                             return false;
 
                         // Prefer non-params overloads when both are otherwise equivalent.
@@ -1929,15 +1963,17 @@ internal sealed class OverloadResolver
                 score += 1;
                 foreach (var paramsArgument in paramsArguments)
                 {
+                    ThrowIfDiagnosticBindingCancellationRequested(binder);
+
                     if (paramsArgument.IsSpread)
                     {
-                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArgument.Expression, paramsArgument.RefKind, compilation, canBindLambda, comparisonLog, ref score))
+                        if (!TryEvaluateArgument(parameters[parameterIndex], paramsArgument.Expression, paramsArgument.RefKind, compilation, binder, canBindLambda, comparisonLog, ref score))
                             return false;
 
                         continue;
                     }
 
-                    if (!TryEvaluateParamsElement(parameters[parameterIndex], paramsArgument.Expression, compilation, comparisonLog, ref score))
+                    if (!TryEvaluateParamsElement(parameters[parameterIndex], paramsArgument.Expression, compilation, binder, comparisonLog, ref score))
                         return false;
                 }
 
@@ -1958,7 +1994,7 @@ internal sealed class OverloadResolver
                 continue;
             }
 
-            if (!TryEvaluateArgument(parameters[parameterIndex], mapped.Value.Expression, mapped.Value.RefKind, compilation, canBindLambda, comparisonLog, ref score))
+            if (!TryEvaluateArgument(parameters[parameterIndex], mapped.Value.Expression, mapped.Value.RefKind, compilation, binder, canBindLambda, comparisonLog, ref score))
                 return false;
         }
 
@@ -2093,11 +2129,14 @@ internal sealed class OverloadResolver
         IParameterSymbol paramsParameter,
         BoundExpression argument,
         Compilation compilation,
+        Binder? binder,
         List<OverloadArgumentComparisonLog>? comparisonLog,
         ref int score)
     {
+        ThrowIfDiagnosticBindingCancellationRequested(binder);
+
         if (!TryGetVarParamsElementType(paramsParameter.Type, out var elementType))
-            return TryEvaluateArgument(paramsParameter, argument, RefKind.None, compilation, null, comparisonLog, ref score);
+            return TryEvaluateArgument(paramsParameter, argument, RefKind.None, compilation, binder, null, comparisonLog, ref score);
 
         var argumentType = argument.Type;
         if (argumentType is null || argumentType.SpecialType == SpecialType.System_Void)
@@ -2214,10 +2253,13 @@ internal sealed class OverloadResolver
         BoundExpression argument,
         RefKind argumentRefKind,
         Compilation compilation,
+        Binder? binder,
         Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
         ref int score)
     {
+        ThrowIfDiagnosticBindingCancellationRequested(binder);
+
         var argType = argument.Type;
         var parameterTargetType = parameter.Type is NullableTypeSymbol nullableParameterType
             ? nullableParameterType.UnderlyingType
@@ -2280,7 +2322,7 @@ internal sealed class OverloadResolver
         {
             if (target.TypeKind == TypeKind.Delegate)
             {
-                if (!IsMethodGroupCompatibleWithDelegate(methodGroup, target, compilation))
+                if (!IsMethodGroupCompatibleWithDelegate(methodGroup, target, compilation, binder))
                 {
                     LogComparison(comparisonLog, parameter, target, OverloadArgumentComparisonResult.ConversionFailed, "method group is incompatible with delegate");
                     return false;
@@ -2485,7 +2527,8 @@ internal sealed class OverloadResolver
     private static bool IsMethodGroupCompatibleWithDelegate(
         BoundMethodGroupExpression methodGroup,
         INamedTypeSymbol delegateType,
-        Compilation compilation)
+        Compilation compilation,
+        Binder? binder)
     {
         if (delegateType.TypeKind != TypeKind.Delegate)
             return false;
@@ -2500,6 +2543,8 @@ internal sealed class OverloadResolver
 
         foreach (var candidate in candidates)
         {
+            ThrowIfDiagnosticBindingCancellationRequested(binder);
+
             if (candidate is null)
                 continue;
 
@@ -2516,6 +2561,8 @@ internal sealed class OverloadResolver
 
             for (int i = 0; i < invoke.Parameters.Length; i++)
             {
+                ThrowIfDiagnosticBindingCancellationRequested(binder);
+
                 var invokeParam = invoke.Parameters[i];
                 var methodParam = candidate.Parameters[i];
 

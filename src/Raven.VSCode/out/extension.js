@@ -165,6 +165,15 @@ function getInlayHintRequestDebounceMilliseconds() {
     }
     return Math.max(0, Math.min(2000, Math.trunc(configured)));
 }
+function areSemanticTokensEnabled() {
+    return vscode.workspace
+        .getConfiguration('raven')
+        .get('semanticTokens.enabled', true);
+}
+function isSemanticTokensRequest(method) {
+    return method === 'textDocument/semanticTokens/full' ||
+        method === 'textDocument/semanticTokens/range';
+}
 function delayUnlessCanceled(milliseconds, token) {
     if (milliseconds <= 0) {
         return Promise.resolve(!token.isCancellationRequested);
@@ -471,6 +480,10 @@ function createLanguageClient(context) {
                 const target = interesting ? formatRequestTarget(param) : '';
                 if (interesting) {
                     appendLifecycleLog(`Request started: ${method}${target}`);
+                }
+                if (isSemanticTokensRequest(method) && !areSemanticTokensEnabled()) {
+                    appendLifecycleLog(`Request completed: ${method}${target} in 0ms. semantic tokens disabled by raven.semanticTokens.enabled`);
+                    return { data: [] };
                 }
                 try {
                     const result = await next(type, param, token);

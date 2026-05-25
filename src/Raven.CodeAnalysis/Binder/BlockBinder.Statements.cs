@@ -464,82 +464,95 @@ partial class BlockBinder
         if (TryGetCachedBoundNode(block) is BoundStatement cached)
             return (BoundBlockStatement)cached;
 
+        SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         _scopeDepth++;
         var depth = _scopeDepth;
 
-        EnsureLabelsDeclared(block);
-
-        foreach (var stmt in block.Statements)
+        try
         {
-            if (stmt is not TypeDeclarationStatementSyntax typeDeclarationStatement)
-                continue;
+            EnsureLabelsDeclared(block);
 
-            var symbol = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
-            if (_localTypes.TryGetValue(symbol.Name, out var existing) && existing.Depth == depth)
+            foreach (var stmt in block.Statements)
             {
-                var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
-                    reference.SyntaxTree == typeDeclarationStatement.SyntaxTree &&
-                    reference.Span == typeDeclarationStatement.Declaration.Span);
+                SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
 
-                if (!isSameDeclaration)
-                    _diagnostics.ReportTypeAlreadyDefined(symbol.Name, typeDeclarationStatement.Declaration.Identifier.GetLocation());
-            }
-            else
-            {
-                _localTypes[symbol.Name] = (symbol, depth);
-            }
-        }
-
-        foreach (var stmt in block.Statements)
-        {
-            if (stmt is FunctionStatementSyntax func)
-            {
-                var semanticModel = SemanticModel;
-                if (semanticModel is null)
+                if (stmt is not TypeDeclarationStatementSyntax typeDeclarationStatement)
                     continue;
 
-                var functionBinder = semanticModel.GetBinder(func, this);
-                if (functionBinder is FunctionBinder lfBinder)
+                var symbol = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
+                if (_localTypes.TryGetValue(symbol.Name, out var existing) && existing.Depth == depth)
                 {
-                    var symbol = lfBinder.GetMethodSymbol();
-                    if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
-                        _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
-                    else
-                        _functions[symbol.Name] = symbol;
+                    var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == typeDeclarationStatement.SyntaxTree &&
+                        reference.Span == typeDeclarationStatement.Declaration.Span);
+
+                    if (!isSameDeclaration)
+                        _diagnostics.ReportTypeAlreadyDefined(symbol.Name, typeDeclarationStatement.Declaration.Identifier.GetLocation());
+                }
+                else
+                {
+                    _localTypes[symbol.Name] = (symbol, depth);
                 }
             }
-        }
 
-        var boundStatements = new List<BoundStatement>(block.Statements.Count);
-        foreach (var stmt in block.Statements)
+            foreach (var stmt in block.Statements)
+            {
+                SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
+
+                if (stmt is FunctionStatementSyntax func)
+                {
+                    var semanticModel = SemanticModel;
+                    if (semanticModel is null)
+                        continue;
+
+                    var functionBinder = semanticModel.GetBinder(func, this);
+                    if (functionBinder is FunctionBinder lfBinder)
+                    {
+                        var symbol = lfBinder.GetMethodSymbol();
+                        if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                            _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
+                        else
+                            _functions[symbol.Name] = symbol;
+                    }
+                }
+            }
+
+            var boundStatements = new List<BoundStatement>(block.Statements.Count);
+            foreach (var stmt in block.Statements)
+            {
+                SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
+                var bound = BindStatement(stmt);
+                boundStatements.Add(bound);
+            }
+
+            var localsAtDepth = _localsToDispose
+                .Where(l => l.Depth == depth)
+                .Select(l => l.Local)
+                .ToList();
+
+            if (localsAtDepth.Count > 0)
+                _localsToDispose.RemoveAll(l => l.Depth == depth);
+
+            var blockStmt = new BoundBlockStatement(boundStatements.ToArray(), localsAtDepth.ToImmutableArray());
+            CacheBoundNode(block, blockStmt);
+
+            SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
+            ReportUnreachableStatements(block);
+
+            return blockStmt;
+        }
+        finally
         {
-            var bound = BindStatement(stmt);
-            boundStatements.Add(bound);
+            ClearNonNullSymbolsAtDepth(depth);
+
+            foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+                _locals.Remove(name);
+
+            foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+                _localTypes.Remove(name);
+
+            _scopeDepth--;
         }
-
-        var localsAtDepth = _localsToDispose
-            .Where(l => l.Depth == depth)
-            .Select(l => l.Local)
-            .ToList();
-
-        if (localsAtDepth.Count > 0)
-            _localsToDispose.RemoveAll(l => l.Depth == depth);
-
-        var blockStmt = new BoundBlockStatement(boundStatements.ToArray(), localsAtDepth.ToImmutableArray());
-        CacheBoundNode(block, blockStmt);
-
-        ReportUnreachableStatements(block);
-
-        ClearNonNullSymbolsAtDepth(depth);
-
-        foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
-            _locals.Remove(name);
-
-        foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
-            _localTypes.Remove(name);
-
-        _scopeDepth--;
-        return blockStmt;
     }
 
     public virtual BoundBlockExpression BindBlock(BlockSyntax block, bool allowReturn = true)
@@ -547,106 +560,122 @@ partial class BlockBinder
         if (TryGetCachedBoundNode(block) is BoundExpression cached)
             return (BoundBlockExpression)cached;
 
+        SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         _scopeDepth++;
         var depth = _scopeDepth;
 
         if (!allowReturn)
             _expressionContextDepth++;
 
-        EnsureLabelsDeclared(block);
-
-        foreach (var stmt in block.Statements)
+        try
         {
-            if (stmt is not TypeDeclarationStatementSyntax typeDeclarationStatement)
-                continue;
+            EnsureLabelsDeclared(block);
 
-            var symbol = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
-            if (_localTypes.TryGetValue(symbol.Name, out var existing) && existing.Depth == depth)
+            foreach (var stmt in block.Statements)
             {
-                var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
-                    reference.SyntaxTree == typeDeclarationStatement.SyntaxTree &&
-                    reference.Span == typeDeclarationStatement.Declaration.Span);
+                SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
 
-                if (!isSameDeclaration)
-                    _diagnostics.ReportTypeAlreadyDefined(symbol.Name, typeDeclarationStatement.Declaration.Identifier.GetLocation());
-            }
-            else
-            {
-                _localTypes[symbol.Name] = (symbol, depth);
-            }
-        }
+                if (stmt is not TypeDeclarationStatementSyntax typeDeclarationStatement)
+                    continue;
 
-        foreach (var stmt in block.Statements)
-        {
-            if (stmt is FunctionStatementSyntax func)
-            {
-                var functionBinder = SemanticModel.GetBinder(func, this);
-                if (functionBinder is FunctionBinder lfBinder)
+                var symbol = SemanticModel.EnsureLocalTypeDeclarationBound(typeDeclarationStatement.Declaration, this);
+                if (_localTypes.TryGetValue(symbol.Name, out var existing) && existing.Depth == depth)
                 {
-                    var symbol = lfBinder.GetMethodSymbol();
-                    if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
-                        _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
-                    else
-                        _functions[symbol.Name] = symbol;
+                    var isSameDeclaration = existing.Symbol.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == typeDeclarationStatement.SyntaxTree &&
+                        reference.Span == typeDeclarationStatement.Declaration.Span);
+
+                    if (!isSameDeclaration)
+                        _diagnostics.ReportTypeAlreadyDefined(symbol.Name, typeDeclarationStatement.Declaration.Identifier.GetLocation());
+                }
+                else
+                {
+                    _localTypes[symbol.Name] = (symbol, depth);
                 }
             }
-        }
 
-        var boundStatements = new List<BoundStatement>(block.Statements.Count);
-        var hasDisallowedReturnInExpressionContext = false;
-        foreach (var stmt in block.Statements)
-        {
-            BoundStatement bound;
-            if (!allowReturn && stmt is ReturnStatementSyntax ret)
+            foreach (var stmt in block.Statements)
             {
-                hasDisallowedReturnInExpressionContext = true;
-                _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
-                var expr = ret.Expression is null
-                    ? BoundFactory.UnitExpression()
-                    : BindExpression(ret.Expression);
-                bound = new BoundExpressionStatement(expr);
+                SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
+
+                if (stmt is FunctionStatementSyntax func)
+                {
+                    var functionBinder = SemanticModel.GetBinder(func, this);
+                    if (functionBinder is FunctionBinder lfBinder)
+                    {
+                        var symbol = lfBinder.GetMethodSymbol();
+                        if (_functions.TryGetValue(symbol.Name, out var existing) && HaveSameSignature(existing, symbol))
+                            _diagnostics.ReportFunctionAlreadyDefined(symbol.Name, func.Identifier.GetLocation());
+                        else
+                            _functions[symbol.Name] = symbol;
+                    }
+                }
             }
-            else
+
+            var boundStatements = new List<BoundStatement>(block.Statements.Count);
+            var hasDisallowedReturnInExpressionContext = false;
+            foreach (var stmt in block.Statements)
             {
-                bound = BindStatement(stmt);
-                if (!allowReturn && bound is BoundReturnStatement br)
+                SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
+
+                BoundStatement bound;
+                if (!allowReturn && stmt is ReturnStatementSyntax ret)
                 {
                     hasDisallowedReturnInExpressionContext = true;
                     _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
-                    var expr = br.Expression ?? BoundFactory.UnitExpression();
+                    var expr = ret.Expression is null
+                        ? BoundFactory.UnitExpression()
+                        : BindExpression(ret.Expression);
                     bound = new BoundExpressionStatement(expr);
                 }
+                else
+                {
+                    bound = BindStatement(stmt);
+                    if (!allowReturn && bound is BoundReturnStatement br)
+                    {
+                        hasDisallowedReturnInExpressionContext = true;
+                        _diagnostics.ReportReturnStatementInExpression(stmt.GetLocation());
+                        var expr = br.Expression ?? BoundFactory.UnitExpression();
+                        bound = new BoundExpressionStatement(expr);
+                    }
+                }
+                boundStatements.Add(bound);
             }
-            boundStatements.Add(bound);
+
+            var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
+            var localsAtDepth = _localsToDispose
+                .Where(l => l.Depth == depth)
+                .Select(l => l.Local)
+                .ToList();
+
+            if (localsAtDepth.Count > 0)
+                _localsToDispose.RemoveAll(l => l.Depth == depth);
+
+            var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType, localsAtDepth.ToImmutableArray());
+            CacheBoundNode(block, blockExpr);
+
+            if (allowReturn || !hasDisallowedReturnInExpressionContext)
+            {
+                SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
+                ReportUnreachableStatements(block);
+            }
+
+            return blockExpr;
         }
+        finally
+        {
+            ClearNonNullSymbolsAtDepth(depth);
 
-        var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
-        var localsAtDepth = _localsToDispose
-            .Where(l => l.Depth == depth)
-            .Select(l => l.Local)
-            .ToList();
+            foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+                _locals.Remove(name);
 
-        if (localsAtDepth.Count > 0)
-            _localsToDispose.RemoveAll(l => l.Depth == depth);
+            foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
+                _localTypes.Remove(name);
 
-        var blockExpr = new BoundBlockExpression(boundStatements.ToArray(), unitType, localsAtDepth.ToImmutableArray());
-        CacheBoundNode(block, blockExpr);
-
-        if (allowReturn || !hasDisallowedReturnInExpressionContext)
-            ReportUnreachableStatements(block);
-
-        ClearNonNullSymbolsAtDepth(depth);
-
-        foreach (var name in _locals.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
-            _locals.Remove(name);
-
-        foreach (var name in _localTypes.Where(kvp => kvp.Value.Depth == depth).Select(kvp => kvp.Key).ToList())
-            _localTypes.Remove(name);
-
-        _scopeDepth--;
-        if (!allowReturn)
-            _expressionContextDepth--;
-        return blockExpr;
+            _scopeDepth--;
+            if (!allowReturn)
+                _expressionContextDepth--;
+        }
     }
 
     private void ReportUnreachableStatements(SyntaxNode block)

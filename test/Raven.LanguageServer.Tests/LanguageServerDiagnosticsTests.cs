@@ -315,6 +315,62 @@ func Main() -> () {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_BackgroundDocumentWithAnalyzersLane_SkipsUntilCompilerDiagnosticsAreCachedAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> () {
+    let count = 0
+    count
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        var firstAnalyzerResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: () => false,
+            cancellationToken: CancellationToken.None);
+
+        firstAnalyzerResult.WasSkipped.ShouldBeTrue();
+        firstAnalyzerResult.Diagnostics.ShouldBeEmpty();
+
+        var compilerResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: () => false,
+            cancellationToken: CancellationToken.None);
+        compilerResult.WasSkipped.ShouldBeFalse();
+
+        var secondAnalyzerResult = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            shouldSkipWork: () => false,
+            cancellationToken: CancellationToken.None);
+
+        secondAnalyzerResult.WasSkipped.ShouldBeFalse();
+        secondAnalyzerResult.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            StringComparison.Ordinal)).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_ReusesCachedAnalyzerDiagnosticsWhenSemanticGateIsBusyAsync()
     {
         Directory.CreateDirectory(_tempRoot);

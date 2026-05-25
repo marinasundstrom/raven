@@ -487,6 +487,47 @@ internal sealed class DocumentStore
         return new DocumentSemanticAccess(semanticModel, lease);
     }
 
+    internal async ValueTask<DocumentSemanticAccess?> TryEnterExistingDocumentSemanticModelAccessAsync(
+        DocumentUri uri,
+        CancellationToken cancellationToken,
+        string? purpose = null)
+    {
+        using var compilerLease = await TryEnterCompilerAccessAsync(cancellationToken, purpose ?? "existingSemanticModel", uri).ConfigureAwait(false);
+        if (compilerLease is null)
+            return null;
+
+        var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (context is null)
+            return null;
+
+        if (!context.Value.Compilation.TryGetExistingSemanticModel(context.Value.SyntaxTree, out var semanticModel))
+            return null;
+
+        var stopwatch = Stopwatch.StartNew();
+        var lease = await semanticModel.TryEnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
+        stopwatch.Stop();
+
+        if (lease is null)
+        {
+            _logger.LogDebug(
+                "Skipped existing document semantic gate acquisition for {Purpose} {Uri}: gate busy.",
+                purpose ?? "unknown",
+                uri);
+            return null;
+        }
+
+        if (stopwatch.Elapsed.TotalMilliseconds >= SlowCompilerGateThresholdMs)
+        {
+            _logger.LogInformation(
+                "Slow existing document semantic gate wait for {Purpose} {Uri}: wait={WaitMs:F1}ms.",
+                purpose ?? "unknown",
+                uri,
+                stopwatch.Elapsed.TotalMilliseconds);
+        }
+
+        return new DocumentSemanticAccess(semanticModel, lease);
+    }
+
     public async Task<IReadOnlyList<LspDiagnostic>> GetDiagnosticsAsync(
         DocumentUri uri,
         Func<bool>? shouldSkipWork,
@@ -636,6 +677,7 @@ internal sealed class DocumentStore
                     context.Value.Compilation,
                     syntaxTree,
                     documentDiagnosticsCacheKey,
+                    requireCachedCompilerDiagnostics: useBusySkip && shouldSkipWork is not null,
                     useBusySkip,
                     effectiveCancellationToken).ConfigureAwait(false);
                 if (mappedDiagnostics is null)
@@ -793,11 +835,18 @@ internal sealed class DocumentStore
         Compilation compilation,
         SyntaxTree syntaxTree,
         DocumentDiagnosticsCacheKey cacheKey,
+        bool requireCachedCompilerDiagnostics,
         bool useBusySkip,
         CancellationToken cancellationToken)
     {
         if (_documentWithAnalyzersDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
             return cachedDiagnostics;
+
+        if (requireCachedCompilerDiagnostics &&
+            !_documentCompilerDiagnosticsCache.ContainsKey(cacheKey))
+        {
+            return null;
+        }
 
         var compilerDiagnostics = await GetOrComputeDocumentCompilerDiagnosticsAsync(
             uri,

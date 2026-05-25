@@ -170,6 +170,14 @@ public static class SemanticClassifier
     {
         return node switch
         {
+            TypeDeclarationSyntax => SemanticClassification.Type,
+            UnionDeclarationSyntax => SemanticClassification.Type,
+            CaseDeclarationSyntax => SemanticClassification.Type,
+            DelegateDeclarationSyntax => SemanticClassification.Type,
+            BaseMethodDeclarationSyntax => SemanticClassification.Method,
+            FunctionStatementSyntax => SemanticClassification.Method,
+            PropertyDeclarationSyntax => SemanticClassification.Property,
+            EventDeclarationSyntax => SemanticClassification.Event,
             InvocationExpressionSyntax => SemanticClassification.Method,
             MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,
             MemberBindingExpressionSyntax { Parent: InvocationExpressionSyntax } => SemanticClassification.Method,

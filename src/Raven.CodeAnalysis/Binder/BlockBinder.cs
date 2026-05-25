@@ -1667,6 +1667,7 @@ partial class BlockBinder : Binder
 
     public override BoundStatement BindStatement(StatementSyntax statement)
     {
+        SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         using var _ = EnterExecutionScope();
 
         if (TryGetCachedBoundNode(statement) is BoundStatement cached)
@@ -1992,6 +1993,7 @@ partial class BlockBinder : Binder
 
     public override BoundExpression BindExpression(ExpressionSyntax syntax)
     {
+        SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         using var _ = EnterExecutionScope();
 
         // Collection literals are target-type-sensitive. Reusing a cached node can
