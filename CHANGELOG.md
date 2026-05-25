@@ -72,6 +72,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed VS Code inlay refresh behavior so Raven edits re-request visible hints
   after the existing debounce, and locally superseded inlay requests no longer
   publish an empty hint set that can make hints flicker off.
+- Fixed VS Code project build, run, and debug commands so `.rvnproj` targets use
+  the `rvn build` frontend instead of invoking the `rvnc` compiler driver with
+  publish-only arguments.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused
