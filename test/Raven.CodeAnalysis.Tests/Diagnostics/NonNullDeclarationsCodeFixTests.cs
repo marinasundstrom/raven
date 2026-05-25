@@ -51,25 +51,23 @@ func Test() {
     }
 
     [Fact]
-    public void RegistersOnlyRewriteToUseOptionFix_ForInferredNullableFlow()
+    public void DoesNotRegisterFix_ForInferredNullableFlow()
     {
         var code = """
+import System.*
+
 func Test() {
-    val text = GetName()
+    val text = Console.ReadLine()
     if text != null {
         Console.WriteLine(text)
     }
-}
-
-func GetName() -> string? {
-    return null
 }
 """;
 
         var fixes = GetAvailableCodeFixes(code);
 
         Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Use 'Option<string>'");
-        Assert.Contains(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
+        Assert.DoesNotContain(fixes, fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
     }
 
     [Fact]
@@ -103,31 +101,16 @@ func Test() {
     }
 
     [Fact]
-    public void AppliesRewriteToUseOptionFix_ForInferredNullableFlow()
+    public void DoesNotApplyRewriteToUseOptionFix_ForInferredNullableFlow()
     {
         var code = """
+import System.*
+
 func Test() {
-    val text = GetName()
+    val text = Console.ReadLine()
     if text != null {
         Console.WriteLine(text)
     }
-}
-
-func GetName() -> string? {
-    return null
-}
-""";
-
-        var expected = """
-func Test() {
-    val maybeText: Option<string> = GetName()
-    if maybeText is Some(val text) {
-        Console.WriteLine(text)
-    }
-}
-
-func GetName() -> string? {
-    return null
 }
 """;
 
@@ -135,9 +118,9 @@ func GetName() -> string? {
             code,
             fix => fix.Action.Title == "Rewrite nullable flow to Option pattern matching");
 
-        Assert.Equal(1, result.AppliedFixCount);
-        Assert.Equal("Rewrite nullable flow to Option pattern matching", Assert.Single(result.AppliedFixes).Action.Title);
-        Assert.Equal(Normalize(expected), Normalize(result.UpdatedCode));
+        Assert.Equal(0, result.AppliedFixCount);
+        Assert.Empty(result.AppliedFixes);
+        Assert.Equal(Normalize(code), Normalize(result.UpdatedCode));
     }
 
     [Fact]

@@ -57,6 +57,35 @@ class Program {
     }
 
     [Fact]
+    public void WindowsApplication_AsyncTaskMainWithArgsEntryPoint_IsNotReported()
+    {
+        const string code = """
+import System.Threading.Tasks.*
+
+class VehicleCostsApiApp {
+    static async func Main(args: string[]) -> Task {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "app",
+                new CompilationOptions(OutputKind.WindowsApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        Assert.NotNull(compilation.GetEntryPoint());
+
+        var diagnostics = new UnusedMethodAnalyzer()
+            .Analyze(compilation)
+            .Where(d => d.Id == UnusedMethodAnalyzer.DiagnosticId)
+            .ToArray();
+
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
     public void Library_PublicUnusedMethod_DoesNotReportDiagnostic()
     {
         const string code = """

@@ -56,6 +56,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `import System.Option.*` bring `Ok`, `Error`, `Some`, and `None` into
   unqualified scope even though the PE case types are emitted as standalone
   types.
+- Fixed `RAV9012` so inferred target declarations such as `val x = ...` are not
+  reported just because the initializer has a nullable type.
+- Fixed `RAV9019` so async `Main(args: string[]) -> Task` methods identified as
+  application entry points are not reported as unused when a synthesized entry-point
+  bridge is used.
 - Fixed pattern matching, propagation, and carrier conditional access over
   Raven.Core metadata unions by matching logical case wrappers and constructed
   PE case types by stable metadata identity.

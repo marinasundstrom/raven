@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Diagnostics;
@@ -34,11 +35,11 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeCompilation(CompilationAnalysisContext context)
     {
-        var includePublic = context.Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
-        var entryPoint = context.Compilation.GetEntryPoint()?.UnderlyingSymbol;
+        var includePublic = context.Compilation.Options.OutputKind != OutputKind.DynamicallyLinkedLibrary;
+        var entryPointSymbols = GetEntryPointSymbols(context.Compilation);
         var candidates = CollectCandidates(
             context.Compilation,
-            entryPoint,
+            entryPointSymbols,
             includePublic,
             context.SyntaxTree,
             context.CancellationToken);
@@ -89,7 +90,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
     private static List<Candidate> CollectCandidates(
         Compilation compilation,
-        ISymbol? entryPoint,
+        HashSet<ISymbol> entryPointSymbols,
         bool includePublic,
         SyntaxTree? targetTree,
         CancellationToken cancellationToken)
@@ -117,7 +118,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
                     if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
                         continue;
 
-                    if (!CanReport(methodSymbol, entryPoint, includePublic))
+                    if (!CanReport(methodSymbol, entryPointSymbols, includePublic))
                         continue;
 
                     candidates.Add(new Candidate(methodSymbol, methodDecl.Identifier.GetLocation()));
@@ -128,12 +129,12 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         return candidates;
     }
 
-    private static bool CanReport(IMethodSymbol method, ISymbol? entryPoint, bool includePublic)
+    private static bool CanReport(IMethodSymbol method, HashSet<ISymbol> entryPointSymbols, bool includePublic)
     {
         var symbol = method.UnderlyingSymbol;
 
         if (symbol.IsImplicitlyDeclared ||
-            SymbolEqualityComparer.Default.Equals(symbol, entryPoint) ||
+            entryPointSymbols.Contains(symbol) ||
             (!includePublic && symbol.DeclaredAccessibility == Accessibility.Public) ||
             method.MethodKind != MethodKind.Ordinary ||
             method.IsAbstract ||
@@ -145,6 +146,21 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         }
 
         return true;
+    }
+
+    private static HashSet<ISymbol> GetEntryPointSymbols(Compilation compilation)
+    {
+        var symbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var entryPoint = compilation.GetEntryPoint();
+        if (entryPoint is null)
+            return symbols;
+
+        symbols.Add(entryPoint.UnderlyingSymbol);
+
+        if (entryPoint is SynthesizedEntryPointBridgeMethodSymbol bridge)
+            symbols.Add(bridge.AsyncImplementation.UnderlyingSymbol);
+
+        return symbols;
     }
 
     private static void AnalyzeLocalFunctions(SyntaxNodeAnalysisContext context, SyntaxNode body)

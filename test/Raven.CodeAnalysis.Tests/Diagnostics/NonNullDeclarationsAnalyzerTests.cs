@@ -50,6 +50,24 @@ class C {
     }
 
     [Fact]
+    public void InferredNullableLocal_DoesNotReportDiagnostic()
+    {
+        const string code = """
+import System.*
+
+func Test() {
+    val value = Console.ReadLine()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<NonNullDeclarationsAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void NullableEventHandlerType_DoesNotReportDiagnostic()
     {
         const string code = """
