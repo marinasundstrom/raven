@@ -36,34 +36,136 @@ internal sealed class CompilationSymbolLookup
         return resolved;
     }
 
+    public IEnumerable<INamespaceSymbol> EnumerateGlobalNamespaceRoots()
+    {
+        if (_compilation.SourceGlobalNamespace is not null)
+            yield return _compilation.SourceGlobalNamespace;
+
+        foreach (var assembly in _compilation.ReferencedAssemblySymbols)
+            yield return assembly.GlobalNamespace;
+    }
+
+    public ImmutableArray<ISymbol> GetGlobalMembers(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return ImmutableArray<ISymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var root in EnumerateGlobalNamespaceRoots())
+        {
+            foreach (var member in root.GetMembers(name))
+            {
+                var key = member.GetShallowLookupIdentityKey();
+                if (seen.Add(key))
+                    builder.Add(member);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    public ImmutableArray<ISymbol> GetGlobalMembersSourceFirst(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return ImmutableArray<ISymbol>.Empty;
+
+        var sourceMembers = _compilation.SourceGlobalNamespace?.GetMembers(name) ?? ImmutableArray<ISymbol>.Empty;
+        if (!sourceMembers.IsDefaultOrEmpty)
+            return sourceMembers;
+
+        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var assembly in _compilation.ReferencedAssemblySymbols)
+        {
+            foreach (var member in assembly.GlobalNamespace.GetMembers(name))
+            {
+                var key = member.GetShallowLookupIdentityKey();
+                if (seen.Add(key))
+                    builder.Add(member);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    public ImmutableArray<ISymbol> GetGlobalMembers()
+    {
+        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var root in EnumerateGlobalNamespaceRoots())
+        {
+            foreach (var member in root.GetMembers())
+            {
+                var key = member.GetShallowLookupIdentityKey();
+                if (seen.Add(key))
+                    builder.Add(member);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    public IEnumerable<INamedTypeSymbol> GetAllGlobalTypes()
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var root in EnumerateGlobalNamespaceRoots())
+        {
+            foreach (var type in root.GetAllTypesRecursive())
+            {
+                if (seen.Add(type.GetShallowLookupIdentityKey()))
+                    yield return type;
+            }
+        }
+    }
+
     public INamespaceSymbol? LookupNamespaceSourceFirst(INamespaceSymbol? currentNamespace, string name)
     {
         if (string.IsNullOrWhiteSpace(name))
             return null;
 
+        var candidates = ImmutableArray.CreateBuilder<INamespaceSymbol>();
+
         var sourceCurrent = currentNamespace is SourceNamespaceSymbol sourceNamespace
             ? sourceNamespace.LookupNamespace(name)
             : null;
         if (sourceCurrent is not null)
-            return sourceCurrent;
+            candidates.Add(sourceCurrent);
 
-        var metadataCurrent = currentNamespace is not SourceNamespaceSymbol and not null
-            ? currentNamespace.LookupNamespace(name)
-            : null;
-        if (metadataCurrent is not null)
-            return metadataCurrent;
+        if (currentNamespace is not null)
+        {
+            if (currentNamespace is SourceNamespaceSymbol)
+            {
+                foreach (var metadataNamespace in GetMetadataNamespacesFor(currentNamespace))
+                {
+                    if (metadataNamespace.LookupNamespace(name) is { } child)
+                        candidates.Add(child);
+                }
+            }
+            else if (currentNamespace.LookupNamespace(name) is { } metadataCurrent)
+            {
+                candidates.Add(metadataCurrent);
+            }
+        }
+
+        if (MergeNamespaceCandidates(candidates) is { } scopedNamespace)
+            return scopedNamespace;
 
         var sourceGlobal = _compilation.SourceGlobalNamespace?.LookupNamespace(name);
         if (sourceGlobal is not null)
-            return sourceGlobal;
+            candidates.Add(sourceGlobal);
 
         foreach (var assembly in _compilation.ReferencedAssemblySymbols)
         {
             if (assembly.GlobalNamespace.LookupNamespace(name) is { } metadataNamespace)
-                return metadataNamespace;
+                candidates.Add(metadataNamespace);
         }
 
-        return null;
+        return MergeNamespaceCandidates(candidates);
     }
 
     public ITypeSymbol? LookupTypeSourceFirst(INamespaceSymbol? currentNamespace, string name)
@@ -137,14 +239,44 @@ internal sealed class CompilationSymbolLookup
         if (!string.IsNullOrWhiteSpace(memberName) &&
             kinds.HasFlag(ExtensionMemberKinds.InstanceMethods))
         {
-            foreach (var container in GetMetadataExtensionMethodContainers(namespaceSymbol, memberName!))
+            foreach (var metadataNamespace in GetMetadataNamespacesFor(namespaceSymbol))
             {
-                if (seen.Add(container.GetShallowLookupIdentityKey()))
-                    builder.Add(container);
+                foreach (var container in GetMetadataExtensionMethodContainers(metadataNamespace, memberName!))
+                {
+                    if (seen.Add(container.GetShallowLookupIdentityKey()))
+                        builder.Add(container);
+                }
             }
         }
 
         return builder.ToImmutable();
+    }
+
+    private IEnumerable<INamespaceSymbol> GetMetadataNamespacesFor(INamespaceSymbol namespaceSymbol)
+    {
+        switch (namespaceSymbol)
+        {
+            case PENamespaceSymbol:
+            case MergedNamespaceSymbol:
+                yield return namespaceSymbol;
+                yield break;
+        }
+
+        var metadataName = namespaceSymbol.MetadataName;
+        if (string.IsNullOrEmpty(metadataName))
+        {
+            foreach (var assembly in _compilation.ReferencedAssemblySymbols)
+                yield return assembly.GlobalNamespace;
+
+            yield break;
+        }
+
+        var parts = metadataName.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var assembly in _compilation.ReferencedAssemblySymbols)
+        {
+            if (TryResolve(assembly.GlobalNamespace, parts) is { } metadataNamespace)
+                yield return metadataNamespace;
+        }
     }
 
     private INamespaceSymbol? GetNamespaceUncached(string metadataName)
@@ -153,23 +285,31 @@ internal sealed class CompilationSymbolLookup
         if (namespaceParts.Length == 0)
             return _compilation.GlobalNamespace;
 
+        var namespaces = ImmutableArray.CreateBuilder<INamespaceSymbol>();
+
         var source = TryResolve(_compilation.SourceGlobalNamespace, namespaceParts);
         if (source is not null)
-            return source;
+            namespaces.Add(source);
 
-        var metadataNamespaces = ImmutableArray.CreateBuilder<INamespaceSymbol>();
         foreach (var assembly in _compilation.ReferencedAssemblySymbols)
         {
             var candidate = TryResolve(assembly.GlobalNamespace, namespaceParts);
             if (candidate is not null)
-                metadataNamespaces.Add(candidate);
+                namespaces.Add(candidate);
         }
 
-        return metadataNamespaces.Count switch
+        return MergeNamespaceCandidates(namespaces);
+    }
+
+    private static INamespaceSymbol? MergeNamespaceCandidates(IEnumerable<INamespaceSymbol> namespaces)
+    {
+        var unique = namespaces.Distinct().ToImmutableArray();
+
+        return unique.Length switch
         {
             0 => null,
-            1 => metadataNamespaces[0],
-            _ => new MergedNamespaceSymbol(metadataNamespaces, null!)
+            1 => unique[0],
+            _ => new MergedNamespaceSymbol(unique, null!)
         };
     }
 
@@ -237,9 +377,9 @@ internal sealed class CompilationSymbolLookup
                     CollectSourceExtensionContainers(sourceType, memberName, kinds, builder);
                     break;
 
-                case SourceNamespaceSymbol nestedNamespace:
-                    CollectSourceExtensionContainers(nestedNamespace, memberName, kinds, builder);
-                    break;
+                    // Extension scopes are namespace-specific. A namespace import makes
+                    // extension containers declared in that namespace available, but it
+                    // does not import extension containers from nested namespaces.
             }
         }
     }

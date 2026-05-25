@@ -259,7 +259,23 @@ class BinderFactory
                 ?? ResolveScopedMetadataType(current, name)
                 ?? ResolveTypeFromContainingNamespace(current, name)
                 ?? ResolveTypeFromNamespace(current, name)
-                ?? ResolveTypeFromNamespace(_compilation.GlobalNamespace, name);
+                ?? ResolveTypeFromGlobalRoots(name);
+        }
+
+        ITypeSymbol? ResolveTypeFromGlobalRoots(string name)
+        {
+            var sourceType = ResolveTypeFromNamespace(_compilation.SourceGlobalNamespace, name);
+            if (sourceType is not null)
+                return sourceType;
+
+            foreach (var assembly in _compilation.ReferencedAssemblySymbols)
+            {
+                var metadataType = ResolveTypeFromNamespace(assembly.GlobalNamespace, name);
+                if (metadataType is not null)
+                    return metadataType;
+            }
+
+            return null;
         }
 
         INamedTypeSymbol? ResolveMetadataTypeByName(string name)

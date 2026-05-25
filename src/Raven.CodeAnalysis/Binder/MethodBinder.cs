@@ -48,7 +48,7 @@ class MethodBinder : TypeMemberBinder
         if (parentSymbol != null)
             return parentSymbol;
 
-        return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
+        return Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name).FirstOrDefault();
     }
 
     public override ISymbol? BindDeclaredSymbol(SyntaxNode node)

@@ -250,12 +250,42 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
                 {
                     _members[duplicateIndex] = member;
                 }
+                else if (ShouldReplaceDuplicateMember(_members[duplicateIndex], member))
+                {
+                    _members[duplicateIndex] = member;
+                }
 
                 return;
             }
 
             _members.Add(member);
         }
+    }
+
+    private static bool ShouldReplaceDuplicateMember(ISymbol existing, ISymbol member)
+    {
+        if (existing is IPropertySymbol existingProperty &&
+            member is IPropertySymbol property)
+        {
+            return existingProperty.Type.ContainsErrorType() &&
+                   !property.Type.ContainsErrorType();
+        }
+
+        if (existing is IFieldSymbol existingField &&
+            member is IFieldSymbol field)
+        {
+            return existingField.Type.ContainsErrorType() &&
+                   !field.Type.ContainsErrorType();
+        }
+
+        if (existing is IEventSymbol existingEvent &&
+            member is IEventSymbol @event)
+        {
+            return existingEvent.Type.ContainsErrorType() &&
+                   !@event.Type.ContainsErrorType();
+        }
+
+        return false;
     }
 
     private static bool IsDuplicateMember(ISymbol existing, ISymbol member)

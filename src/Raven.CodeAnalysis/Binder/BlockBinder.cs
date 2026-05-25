@@ -49,6 +49,7 @@ partial class BlockBinder : Binder
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly HashSet<ISymbol> _nonNullSymbols = new(SymbolEqualityComparer.Default);
     private readonly Stack<ITypeSymbol?> _targetTypeStack = new();
+    private readonly InvocationResolver _invocationResolver;
     private readonly BlockDeclarationState _declarationState = new();
     private readonly StatementDeclarationProgress _statementDeclarationProgress = new();
     private readonly HashSet<SyntaxReferenceKey> _localDeclarationUpgradesInProgress = new();
@@ -77,6 +78,7 @@ partial class BlockBinder : Binder
     public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
     {
         _containingSymbol = containingSymbol;
+        _invocationResolver = new InvocationResolver(this);
 
         if (parent is BlockBinder parentBlockBinder)
         {
@@ -327,7 +329,9 @@ partial class BlockBinder : Binder
             ?? (allowInitializerBinding || CanInferLocalTypeFromAvailableInitializerDuringDeclarationSeeding(variableDeclarator)
                 ? TryInferLocalTypeFromAvailableInitializer(variableDeclarator)
                 : null)
-            ?? (allowInitializerBinding && allowBoundInitializerBinding ? TryInferLocalTypeFromBoundInitializer(variableDeclarator) : null);
+            ?? (allowInitializerBinding && allowBoundInitializerBinding
+                ? TryInferLocalTypeFromBoundInitializer(variableDeclarator, ensurePrecedingDeclarations)
+                : null);
         if (type is null && !allowInitializerBinding)
             type = Compilation.ErrorTypeSymbol;
 
@@ -401,7 +405,9 @@ partial class BlockBinder : Binder
         return EnsureTypeValidForStorageLocation(type, initializer.GetLocation());
     }
 
-    private ITypeSymbol? TryInferLocalTypeFromBoundInitializer(VariableDeclaratorSyntax variableDeclarator)
+    private ITypeSymbol? TryInferLocalTypeFromBoundInitializer(
+        VariableDeclaratorSyntax variableDeclarator,
+        bool ensurePrecedingDeclarations = true)
     {
         if (variableDeclarator.TypeAnnotation is not null ||
             variableDeclarator.Initializer?.Value is not { } initializer)
@@ -409,14 +415,15 @@ partial class BlockBinder : Binder
             return null;
         }
 
-        if (!initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any() ||
-            initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any())
+        if (!initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any())
         {
             return null;
         }
 
-        EnsurePrecedingStatementDeclarations(variableDeclarator);
+        if (ensurePrecedingDeclarations)
+            EnsurePrecedingStatementDeclarations(variableDeclarator);
 
+        using var _ = _diagnostics.CreateNonReportingScope();
         var boundInitializer = BindExpression(initializer);
         var type = boundInitializer.Type ?? boundInitializer.GetConvertedType();
         if (type is null || type.TypeKind == TypeKind.Error)
@@ -16067,7 +16074,7 @@ partial class BlockBinder : Binder
                     yield return member;
         }
 
-        foreach (var member in Compilation.GlobalNamespace.GetMembers(name))
+        foreach (var member in Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name))
             if (seen.Add(GetLookupKey(member)))
                 yield return member;
 
@@ -16225,8 +16232,8 @@ partial class BlockBinder : Binder
             }
         }
 
-        // Also include GlobalNamespace as a last fallback
-        foreach (var member in Compilation.GlobalNamespace.GetMembers())
+        // Include source and referenced global roots as a last fallback.
+        foreach (var member in Compilation.SymbolLookup.GetGlobalMembers())
         {
             if (seen.Add(member.Name))
                 yield return member;

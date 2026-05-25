@@ -205,7 +205,8 @@ public sealed class SubstitutionTypeResolver
                 startStates.Add((importedScopes[i], $"imported scope #{i}"));
         }
 
-        startStates.Add((_compilation.GlobalNamespace, "global"));
+        foreach (var root in _compilation.SymbolLookup.EnumerateGlobalNamespaceRoots())
+            startStates.Add((root, root is SourceNamespaceSymbol ? "source global" : "metadata global"));
 
         // Walk segments with limited backtracking across namespace-vs-type at each step.
         var finalCandidates = new List<(INamedTypeSymbol Type, string Origin)>();
@@ -758,11 +759,14 @@ public sealed class SubstitutionTypeResolver
             }
         }
 
-        // 2) Always also try global namespace as fallback
+        // 2) Always also try source and referenced global roots as fallback.
         {
-            var globalFound = ResolveFromRoot(_compilation.GlobalNamespace, parts);
-            if (globalFound is not null)
-                allCandidates.Add((globalFound, "global"));
+            foreach (var root in _compilation.SymbolLookup.EnumerateGlobalNamespaceRoots())
+            {
+                var globalFound = ResolveFromRoot(root, parts);
+                if (globalFound is not null)
+                    allCandidates.Add((globalFound, root is SourceNamespaceSymbol ? "source global" : "metadata global"));
+            }
         }
 
         // De-dupe by symbol equality (important when same type is reachable via multiple roots)

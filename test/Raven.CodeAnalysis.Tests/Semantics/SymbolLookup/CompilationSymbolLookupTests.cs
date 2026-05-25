@@ -75,6 +75,31 @@ namespace Shared {
     }
 
     [Fact]
+    public void NamespaceQualifiedMetadataTypeLookup_SeesTypesAcrossReferencedNamespaceParts()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+func Main() {
+    val year = System.DateTime.Now.Year
+}
+""");
+
+        var compilation = CreateCompilation(sourceTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var systemNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(
+            compilation.SymbolLookup.LookupNamespaceSourceFirst(null, "System"));
+        var dateTime = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.SymbolLookup.LookupTypeSourceFirst(systemNamespace, "DateTime"));
+
+        Assert.Equal("DateTime", dateTime.Name);
+        Assert.Equal("System", dateTime.ContainingNamespace?.ToDisplayString());
+    }
+
+    [Fact]
     public void SourceExtensionLookup_ByName_DoesNotForceSourceDeclarationCompletion()
     {
         var instrumentation = new PerformanceInstrumentation();

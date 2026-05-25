@@ -301,7 +301,9 @@ internal abstract partial class Binder
 
     public virtual ITypeSymbol? LookupType(string name)
     {
-        var type = CurrentNamespace?.LookupType(name);
+        var type = Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+            ? Compilation.SymbolLookup.LookupTypeSourceFirst(CurrentNamespace, name)
+            : CurrentNamespace?.LookupType(name);
         if (type != null)
             return type;
 
@@ -1822,7 +1824,21 @@ internal abstract partial class Binder
         {
             var metadataName = ToMetadataName(qualified);
             if (!string.IsNullOrEmpty(metadataName) && Compilation.GetTypeByMetadataName(metadataName) is { } metadataType)
+            {
+                if (metadataType is INamedTypeSymbol metadataNamed &&
+                    qualified.Right is GenericNameSyntax generic)
+                {
+                    var arity = ComputeGenericArity(generic);
+                    var definition = NormalizeDefinition(metadataNamed);
+                    var typeArguments = ResolveGenericTypeArguments(generic);
+                    if (!ValidateTypeArgumentConstraints(definition, typeArguments, i => GetTypeArgumentLocation(generic.TypeArgumentList.Arguments, generic.GetLocation(), i), definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                        return Compilation.ErrorTypeSymbol;
+
+                    return TryConstructGeneric(definition, typeArguments, arity) ?? definition;
+                }
+
                 return metadataType;
+            }
 
             return left;
         }
@@ -1849,9 +1865,8 @@ internal abstract partial class Binder
         if (parts.Count == 0)
             return null;
 
-        // First, consume namespace segments from the global namespace.
+        // First, consume namespace segments through the compilation lookup service.
         var nsParts = new List<string>();
-        var currentNs = Compilation.GlobalNamespace;
         int typeStartIndex = -1;
 
         for (int i = 0; i < parts.Count; i++)
@@ -1868,11 +1883,13 @@ internal abstract partial class Binder
             if (part is IdentifierNameSyntax id)
             {
                 var text = id.Identifier.ValueText;
-                var nestedNs = currentNs.LookupNamespace(text);
+                var candidateNamespaceName = nsParts.Count == 0
+                    ? text
+                    : string.Concat(string.Join(".", nsParts), ".", text);
+                var nestedNs = Compilation.SymbolLookup.GetNamespace(candidateNamespaceName);
                 if (nestedNs is not null)
                 {
                     nsParts.Add(text);
-                    currentNs = nestedNs;
                     continue;
                 }
 

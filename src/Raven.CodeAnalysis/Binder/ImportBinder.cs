@@ -37,9 +37,7 @@ class ImportBinder : Binder
         if (_aliases.TryGetValue(name, out var aliasSymbols))
             return aliasSymbols.OfType<ITypeSymbol>().FirstOrDefault();
 
-        var declared = !Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
-            ? CurrentNamespace?.LookupType(name)
-            : null;
+        var declared = LookupTypeInScope(CurrentNamespace, name);
         if (declared is not null)
             return declared;
 
@@ -49,9 +47,7 @@ class ImportBinder : Binder
 
         foreach (var ns in _namespaceOrTypeScopeImports)
         {
-            var t = !Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
-                ? ns.LookupType(name)
-                : null;
+            var t = LookupTypeInScope(ns, name);
             if (t != null)
                 return t;
         }
@@ -92,6 +88,20 @@ class ImportBinder : Binder
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<IAliasSymbol>> GetAliases() => _aliases;
 
+    private ITypeSymbol? LookupTypeInScope(INamespaceOrTypeSymbol? scope, string name)
+    {
+        if (scope is null)
+            return null;
+
+        if (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
+            scope is SourceNamespaceSymbol sourceNamespace)
+        {
+            return sourceNamespace.LookupTypeDeclared(name);
+        }
+
+        return scope.LookupType(name);
+    }
+
     public override IEnumerable<ISymbol> LookupSymbols(string name)
     {
         if (_aliases.TryGetValue(name, out var symbols))
@@ -109,9 +119,7 @@ class ImportBinder : Binder
                 if (seen.Add(member))
                     results.Add(member);
 
-            var t = !Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
-                ? ns.LookupType(name)
-                : null;
+            var t = LookupTypeInScope(ns, name);
             if (t != null && seen.Add(t))
                 results.Add(t);
 

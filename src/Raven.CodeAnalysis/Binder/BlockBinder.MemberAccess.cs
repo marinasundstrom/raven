@@ -89,115 +89,260 @@ partial class BlockBinder
     }
 
     private BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
+        => _invocationResolver.BindInvocationOnMethodGroup(methodGroup, syntax);
+
+    private sealed class InvocationResolver
     {
-        // Extract explicit method type arguments at the call site (if any), e.g. `items.CountItems<double>(2)`.
-        // Bind these before argument binding so lambda arguments can be target-typed with the constructed delegate.
-        var explicitTypeArguments = GetExplicitInvocationTypeArguments(syntax);
+        private readonly BlockBinder _binder;
+        private readonly Dictionary<InvocationCandidatePreparationCacheKey, InvocationCandidatePreparation> _candidatePreparationCache = new();
+        private readonly Dictionary<InvocationCacheKey, BoundExpression> _successfulInvocationCache = new();
 
-        var candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(methodGroup.Methods, syntax.ArgumentList.Arguments, methodGroup.Receiver, syntax.TrailingBlock);
-        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(
-            candidatesForArgumentBinding,
-            syntax.ArgumentList.Arguments,
-            out var hasErrors,
-            methodGroup.Receiver,
-            trailingBlock: syntax.TrailingBlock,
-            explicitTypeArguments: explicitTypeArguments);
-
-        if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
+        public InvocationResolver(BlockBinder binder)
         {
-            ReportSuppressedLambdaDiagnostics(boundArguments);
-            if (!HasArgumentBindingErrors(boundArguments) &&
-                !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
-            {
-                _diagnostics.ReportNoOverloadForMethod("method", methodGroup.Methods[0].Name, boundArguments.Length, syntax.GetLocation());
-            }
-
-            var selectedForError = methodGroup.SelectedMethod;
-            var symbol = selectedForError ?? methodGroup.Methods.FirstOrDefault();
-            var returnType = symbol?.ReturnType ?? Compilation.ErrorTypeSymbol;
-
-            return ErrorExpression(
-                returnType,
-                symbol,
-                BoundExpressionReason.ArgumentBindingFailed,
-                AsSymbolCandidates(methodGroup.Methods));
+            _binder = binder;
         }
 
-        var methodName = methodGroup.Methods[0].Name;
-        var selected = methodGroup.SelectedMethod;
-        var extensionReceiver = IsExtensionReceiver(methodGroup.Receiver) ? methodGroup.Receiver : null;
-        var receiverSyntax = GetInvocationReceiverSyntax(syntax) ?? syntax.Expression;
-
-        if (selected is not null)
+        public BoundExpression BindInvocationOnMethodGroup(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
         {
-            var inferred = OverloadResolver.ApplyTypeArgumentInference(selected, extensionReceiver, boundArguments, Compilation, this, explicitTypeArguments);
-            if (inferred is not null)
+            var cacheKey = CreateCacheKey(methodGroup, syntax);
+            if (cacheKey is { } key && _successfulInvocationCache.TryGetValue(key, out var cachedInvocation))
+                return cachedInvocation;
+
+            var preparation = PrepareInvocationCandidates(methodGroup, syntax);
+            var boundArguments = _binder.BindInvocationArgumentsWithCandidateTargetTypes(
+                preparation.CandidatesForArgumentBinding,
+                syntax.ArgumentList.Arguments,
+                out var hasErrors,
+                methodGroup.Receiver,
+                trailingBlock: syntax.TrailingBlock,
+                explicitTypeArguments: preparation.ExplicitTypeArguments);
+
+            if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
             {
-                // If we still have unbound type parameters, skip the fast-path and fall back to full overload resolution.
-                if (selected.IsGenericMethod && selected.TypeParameters.Length > 0)
+                _binder.ReportSuppressedLambdaDiagnostics(boundArguments);
+                if (!HasArgumentBindingErrors(boundArguments) &&
+                    !_binder.HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
                 {
-                    // Continue into normal overload resolution below.
+                    _binder._diagnostics.ReportNoOverloadForMethod("method", preparation.MethodName, boundArguments.Length, syntax.GetLocation());
                 }
-                else if (AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, extensionReceiver, boundArguments))
+
+                var selectedForError = methodGroup.SelectedMethod;
+                var symbol = selectedForError ?? methodGroup.Methods.FirstOrDefault();
+                var returnType = symbol?.ReturnType ?? _binder.Compilation.ErrorTypeSymbol;
+
+                return _binder.ErrorExpression(
+                    returnType,
+                    symbol,
+                    BoundExpressionReason.ArgumentBindingFailed,
+                    AsSymbolCandidates(methodGroup.Methods));
+            }
+
+            var selected = methodGroup.SelectedMethod;
+
+            if (selected is not null)
+            {
+                var inferred = OverloadResolver.ApplyTypeArgumentInference(selected, preparation.ExtensionReceiver, boundArguments, _binder.Compilation, _binder, preparation.ExplicitTypeArguments);
+                if (inferred is not null)
                 {
-                    var converted = ConvertInvocationArguments(
-                        selected,
-                        boundArguments,
-                        extensionReceiver,
-                        receiverSyntax,
-                        out var convertedExtensionReceiver);
-                    ReportObsoleteIfNeeded(selected, syntax.Expression.GetLocation());
-                    return new BoundInvocationExpression(selected, converted, methodGroup.Receiver, convertedExtensionReceiver);
+                    // If we still have unbound type parameters, skip the fast-path and fall back to full overload resolution.
+                    if (selected.IsGenericMethod && selected.TypeParameters.Length > 0)
+                    {
+                        // Continue into normal overload resolution below.
+                    }
+                    else if (AreArgumentsCompatibleWithMethod(selected, boundArguments.Length, preparation.ExtensionReceiver, boundArguments))
+                    {
+                        var converted = _binder.ConvertInvocationArguments(
+                            selected,
+                            boundArguments,
+                            preparation.ExtensionReceiver,
+                            preparation.ReceiverSyntax,
+                            out var convertedExtensionReceiver);
+                        _binder.ReportObsoleteIfNeeded(selected, syntax.Expression.GetLocation());
+                        return CompleteSuccessfulInvocation(
+                            cacheKey,
+                            InvocationResolutionResult.Success(
+                                selected,
+                                converted,
+                                convertedExtensionReceiver,
+                                new BoundInvocationExpression(selected, converted, methodGroup.Receiver, convertedExtensionReceiver)));
+                    }
                 }
             }
-        }
 
-        var resolution = OverloadResolver.ResolveOverload(
-            methodGroup.Methods,
-            boundArguments,
-            Compilation,
-            binder: this,
-            receiver: extensionReceiver,
-            canBindLambda: EnsureLambdaCompatible,
-            callSyntax: syntax,
-            explicitTypeArguments: explicitTypeArguments);
-
-        if (resolution.Success)
-        {
-            var method = resolution.Method!;
-            var convertedArgs = ConvertInvocationArguments(
-                method,
+            var resolution = OverloadResolver.ResolveOverload(
+                methodGroup.Methods,
                 boundArguments,
-                extensionReceiver,
-                receiverSyntax,
-                out var convertedExtensionReceiver);
-            ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
-            return new BoundInvocationExpression(method, convertedArgs, methodGroup.Receiver, convertedExtensionReceiver);
+                _binder.Compilation,
+                binder: _binder,
+                receiver: preparation.ExtensionReceiver,
+                canBindLambda: _binder.EnsureLambdaCompatible,
+                callSyntax: syntax,
+                explicitTypeArguments: preparation.ExplicitTypeArguments);
+
+            if (resolution.Success)
+            {
+                var method = resolution.Method!;
+                var convertedArgs = _binder.ConvertInvocationArguments(
+                    method,
+                    boundArguments,
+                    preparation.ExtensionReceiver,
+                    preparation.ReceiverSyntax,
+                    out var convertedExtensionReceiver);
+                _binder.ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
+                return CompleteSuccessfulInvocation(
+                    cacheKey,
+                    InvocationResolutionResult.Success(
+                        method,
+                        convertedArgs,
+                        convertedExtensionReceiver,
+                        new BoundInvocationExpression(method, convertedArgs, methodGroup.Receiver, convertedExtensionReceiver)));
+            }
+
+            if (resolution.IsAmbiguous)
+            {
+                _binder._diagnostics.ReportCallIsAmbiguous(preparation.MethodName, resolution.AmbiguousCandidates, syntax.GetLocation());
+                return _binder.ErrorExpression(
+                    reason: BoundExpressionReason.Ambiguous,
+                    candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+            }
+
+            if (_binder.LookupType(preparation.MethodName) is INamedTypeSymbol typeFallback)
+            {
+                // Rebind arguments against ctor parameter types so target-typed member bindings (e.g. `.Ok`, `.Human`)
+                // can be resolved even before overload resolution.
+                return _binder.BindConstructorInvocation(typeFallback, syntax, receiverSyntax: syntax.Expression, receiver: null);
+            }
+
+            if (_binder.ReportTypeArgumentConstraintFailureIfPresent(resolution, syntax.GetLocation()))
+                return _binder.ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+
+            _binder.ReportSuppressedLambdaDiagnostics(boundArguments);
+            if (!HasArgumentBindingErrors(boundArguments) &&
+                !_binder.HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
+                _binder._diagnostics.ReportNoOverloadForMethod("method", preparation.MethodName, boundArguments.Length, syntax.GetLocation());
+            return _binder.ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
         }
 
-        if (resolution.IsAmbiguous)
+        private InvocationCandidatePreparation PrepareInvocationCandidates(
+            BoundMethodGroupExpression methodGroup,
+            InvocationExpressionSyntax syntax)
         {
-            _diagnostics.ReportCallIsAmbiguous(methodName, resolution.AmbiguousCandidates, syntax.GetLocation());
-            return ErrorExpression(
-                reason: BoundExpressionReason.Ambiguous,
-                candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
+            var cacheKey = CreateCandidatePreparationCacheKey(methodGroup, syntax);
+            if (cacheKey is { } key && _candidatePreparationCache.TryGetValue(key, out var cachedPreparation))
+                return cachedPreparation;
+
+            // Extract explicit method type arguments at the call site (if any), e.g. `items.CountItems<double>(2)`.
+            // Bind these before argument binding so lambda arguments can be target-typed with the constructed delegate.
+            var explicitTypeArguments = _binder.GetExplicitInvocationTypeArguments(syntax);
+            var candidatesForArgumentBinding = _binder.FilterInvocationCandidatesForArgumentBinding(
+                methodGroup.Methods,
+                syntax.ArgumentList.Arguments,
+                methodGroup.Receiver,
+                syntax.TrailingBlock);
+
+            var preparation = new InvocationCandidatePreparation(
+                methodGroup.Methods[0].Name,
+                candidatesForArgumentBinding,
+                explicitTypeArguments,
+                IsExtensionReceiver(methodGroup.Receiver) ? methodGroup.Receiver : null,
+                GetInvocationReceiverSyntax(syntax) ?? syntax.Expression);
+
+            if (cacheKey is { } newKey)
+                _candidatePreparationCache[newKey] = preparation;
+
+            return preparation;
         }
 
-        if (LookupType(methodName) is INamedTypeSymbol typeFallback)
+        private BoundExpression CompleteSuccessfulInvocation(InvocationCacheKey? cacheKey, InvocationResolutionResult result)
         {
-            // Rebind arguments against ctor parameter types so target-typed member bindings (e.g. `.Ok`, `.Human`)
-            // can be resolved even before overload resolution.
-            return BindConstructorInvocation(typeFallback, syntax, receiverSyntax: syntax.Expression, receiver: null);
+            if (result.Cacheable && cacheKey is { } key)
+                _successfulInvocationCache[key] = result.Expression;
+
+            return result.Expression;
         }
 
-        if (ReportTypeArgumentConstraintFailureIfPresent(resolution, syntax.GetLocation()))
-            return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+        private InvocationCacheKey? CreateCacheKey(BoundMethodGroupExpression methodGroup, InvocationExpressionSyntax syntax)
+        {
+            if (syntax.SyntaxTree is null)
+                return null;
 
-        ReportSuppressedLambdaDiagnostics(boundArguments);
-        if (!HasArgumentBindingErrors(boundArguments) &&
-            !HasExistingArgumentErrors(syntax.ArgumentList.Arguments))
-            _diagnostics.ReportNoOverloadForMethod("method", methodName, boundArguments.Length, syntax.GetLocation());
-        return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
+            return new InvocationCacheKey(
+                syntax.SyntaxTree,
+                syntax.Span.Start,
+                syntax.Span.Length,
+                GetTypeKey(methodGroup.Receiver?.Type),
+                GetTypeKey(_binder._targetTypeStack.Count > 0 ? _binder._targetTypeStack.Peek() : null),
+                GetSymbolKey(methodGroup.SelectedMethod),
+                string.Join("|", methodGroup.Methods.Select(GetSymbolKey)));
+        }
+
+        private InvocationCandidatePreparationCacheKey? CreateCandidatePreparationCacheKey(
+            BoundMethodGroupExpression methodGroup,
+            InvocationExpressionSyntax syntax)
+        {
+            if (syntax.SyntaxTree is null)
+                return null;
+
+            return new InvocationCandidatePreparationCacheKey(
+                syntax.SyntaxTree,
+                syntax.Span.Start,
+                syntax.Span.Length,
+                syntax.ArgumentList.Arguments.Count,
+                syntax.TrailingBlock is not null,
+                GetTypeKey(methodGroup.Receiver?.Type),
+                string.Join("|", methodGroup.Methods.Select(GetSymbolKey)));
+        }
+
+        private static string GetSymbolKey(ISymbol? symbol)
+            => symbol?.GetShallowLookupIdentityKey() ?? string.Empty;
+
+        private static string GetTypeKey(ITypeSymbol? type)
+            => type?.GetShallowLookupIdentityKey() ?? string.Empty;
+
+        private readonly record struct InvocationCacheKey(
+            SyntaxTree SyntaxTree,
+            int SpanStart,
+            int SpanLength,
+            string ReceiverTypeKey,
+            string TargetTypeKey,
+            string SelectedMethodKey,
+            string CandidateMethodsKey);
+
+        private readonly record struct InvocationCandidatePreparationCacheKey(
+            SyntaxTree SyntaxTree,
+            int SpanStart,
+            int SpanLength,
+            int ArgumentCount,
+            bool HasTrailingBlock,
+            string ReceiverTypeKey,
+            string CandidateMethodsKey);
+
+        private readonly record struct InvocationCandidatePreparation(
+            string MethodName,
+            ImmutableArray<IMethodSymbol> CandidatesForArgumentBinding,
+            ImmutableArray<ITypeSymbol> ExplicitTypeArguments,
+            BoundExpression? ExtensionReceiver,
+            SyntaxNode ReceiverSyntax);
+
+        private readonly record struct InvocationResolutionResult(
+            IMethodSymbol? SelectedMethod,
+            BoundExpression[] ConvertedArguments,
+            BoundExpression? ConvertedExtensionReceiver,
+            BoundExpression Expression,
+            bool Cacheable)
+        {
+            public static InvocationResolutionResult Success(
+                IMethodSymbol selectedMethod,
+                BoundExpression[] convertedArguments,
+                BoundExpression? convertedExtensionReceiver,
+                BoundExpression expression)
+                => new(
+                    selectedMethod,
+                    convertedArguments,
+                    convertedExtensionReceiver,
+                    expression,
+                    Cacheable: true);
+        }
     }
 
     private ImmutableArray<ITypeSymbol> GetExplicitInvocationTypeArguments(InvocationExpressionSyntax syntax)

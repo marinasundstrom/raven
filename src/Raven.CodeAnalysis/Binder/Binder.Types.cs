@@ -1086,6 +1086,17 @@ internal abstract partial class Binder
         if (CurrentNamespace is not null && !scopes.Contains(CurrentNamespace, SymbolEqualityComparer.Default))
             scopes.Add(CurrentNamespace);
 
+        if (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+        {
+            foreach (var globalRoot in Compilation.SymbolLookup.EnumerateGlobalNamespaceRoots())
+            {
+                if (!scopes.Contains(globalRoot, SymbolEqualityComparer.Default))
+                    scopes.Add(globalRoot);
+            }
+
+            return scopes;
+        }
+
         // Ensure global namespace is always present once.
         if (!scopes.Contains(Compilation.GlobalNamespace, SymbolEqualityComparer.Default))
             scopes.Add(Compilation.GlobalNamespace);
@@ -1163,7 +1174,7 @@ internal abstract partial class Binder
                         named = named.Where(t => t.Arity == arity.Value).ToArray();
                     if (named.Length == 0)
                     {
-                        var viaLookupType = ns.LookupType(part);
+                        var viaLookupType = LookupTypeInNamespace(ns, part);
                         if (viaLookupType is INamedTypeSymbol lt)
                         {
                             var normalized = NormalizeDefinition(lt);
@@ -1253,6 +1264,13 @@ internal abstract partial class Binder
             => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
                 ? Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName)
                 : Compilation.GetTypeByMetadataName(metadataName);
+
+        ITypeSymbol? LookupTypeInNamespace(INamespaceSymbol namespaceSymbol, string name)
+            => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+                ? namespaceSymbol is SourceNamespaceSymbol sourceNamespace
+                    ? sourceNamespace.LookupTypeDeclared(name)
+                    : namespaceSymbol.GetMembers(name).OfType<ITypeSymbol>().FirstOrDefault()
+                : namespaceSymbol.LookupType(name);
     }
 
     internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)

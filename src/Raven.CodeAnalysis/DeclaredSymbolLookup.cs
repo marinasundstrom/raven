@@ -221,7 +221,7 @@ internal sealed class DeclaredSymbolLookup
         if (node is ParameterSyntax lambdaParameterSyntax &&
             lambdaParameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } functionExpression)
         {
-            var contextualParameterSymbol = _semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameterSyntax);
+            var contextualParameterSymbol = _semanticModel.GetFunctionExpressionParameterSymbolForDeclaredLookup(lambdaParameterSyntax);
             if (contextualParameterSymbol is not null)
                 return contextualParameterSymbol;
         }
@@ -345,7 +345,9 @@ internal sealed class DeclaredSymbolLookup
                 symbol = methodSymbol;
                 return true;
 
-            case FunctionStatementSyntax functionStatement when _semanticModel.TryGetMethodSymbol(functionStatement, out var functionSymbol):
+            case FunctionStatementSyntax functionStatement when
+                _semanticModel.TryGetMethodSymbol(functionStatement, out var functionSymbol) &&
+                functionSymbol is not SourceMethodSymbol { IsSignatureSkeleton: true }:
                 symbol = functionSymbol;
                 return true;
 

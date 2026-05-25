@@ -2020,7 +2020,7 @@ public partial class Compilation
 
     public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1, int? fixedLength = null)
     {
-        var ns = GlobalNamespace.LookupNamespace("System");
+        var ns = SymbolLookup.GetNamespace("System");
         return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank, fixedLength);
     }
 
@@ -2030,7 +2030,7 @@ public partial class Compilation
     }
     public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
     {
-        var systemNamespace = GlobalNamespace.LookupNamespace("System");
+        var systemNamespace = SymbolLookup.GetNamespace("System");
 
         var allTypes = parameterTypes.ToList();
         bool isAction = returnType.SpecialType == SpecialType.System_Void || returnType.SpecialType == SpecialType.System_Unit;
@@ -2059,12 +2059,13 @@ public partial class Compilation
 
     public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)
     {
-        var systemNamespace = GlobalNamespace.LookupNamespace("System");
         var elementArray = elements.ToArray();
+        var arity = elementArray.Length;
+        if (arity == 0)
+            return GetSpecialType(SpecialType.System_Unit);
 
-        var tupleDefinition = systemNamespace?.GetMembers("ValueTuple")
-            .OfType<INamedTypeSymbol>()
-            .FirstOrDefault(t => t.Arity == elementArray.Length);
+        var tupleDefinition = SymbolLookup.GetTypeByMetadataNameMetadataOnly($"System.ValueTuple`{arity}")
+            ?? GetTypeByMetadataName($"System.ValueTuple`{arity}");
 
         if (tupleDefinition is null)
             return ErrorTypeSymbol;

@@ -642,7 +642,9 @@ public sealed class ProjectFileNuGetReferenceTests
             return result;
         }
 
-        IParameterSymbol? QueryParameterFromBinderOwnedState(string label, ParameterSyntax parameter)
+        IParameterSymbol? QueryParameterFromBinderOwnedState(
+            string label,
+            ParameterSyntax parameter)
         {
             var setupBefore = compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
             var before = instrumentation.FunctionExpressionParameters.CaptureSnapshot();
@@ -665,7 +667,16 @@ public sealed class ProjectFileNuGetReferenceTests
             return symbol;
         }
 
-        AssertSymbolName(QueryParameterFromBinderOwnedState("Cold Include GetFunctionExpressionParameterSymbol", includeParameter), "candidate");
+        AssertSymbolName(
+            QueryParameterFromBinderOwnedState(
+                "Cold Include GetFunctionExpressionParameterSymbol",
+                includeParameter),
+            "candidate");
+        AssertSymbolName(
+            QueryParameterFromBinderOwnedState(
+                "Warm Include GetFunctionExpressionParameterSymbol",
+                includeParameter),
+            "candidate");
 
         var sourceTypeLookupSetupBefore = compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
         Assert.Equal(

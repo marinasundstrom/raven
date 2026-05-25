@@ -272,8 +272,23 @@ internal static class MemberSignatureDeclarationPass
     {
         var compilation = semanticModel.Compilation;
 
-        if (compilation.TryGetPropertySymbol(propertyDeclaration, out _))
+        SourcePropertySymbol? existingProperty = null;
+        if (compilation.TryGetPropertySymbol(propertyDeclaration, out var existingSymbol))
+        {
+            if (existingSymbol is not SourcePropertySymbol existingSourceProperty ||
+                !existingSourceProperty.Type.ContainsErrorType())
+            {
+                return;
+            }
+
+            existingProperty = existingSourceProperty;
+        }
+
+        if (existingProperty is not null &&
+            !existingProperty.Type.ContainsErrorType())
+        {
             return;
+        }
 
         if (!TryGetContainingDeclaredType(compilation, propertyDeclaration, out var containingType))
             return;
@@ -292,6 +307,11 @@ internal static class MemberSignatureDeclarationPass
 
         var propertyTypeSyntax = propertyDeclaration.Type.Type;
         var propertyType = ResolveSkeletonType(semanticModel, propertyTypeSyntax, compilation.ErrorTypeSymbol, containingType);
+        if (existingProperty is not null &&
+            propertyType.ContainsErrorType())
+        {
+            return;
+        }
 
         var isStatic = propertyDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
         var defaultAccessibility = compilation.Options.MembersPublicByDefault
@@ -341,6 +361,69 @@ internal static class MemberSignatureDeclarationPass
                 compilation.GetSpecialType(SpecialType.System_Unit),
                 propertyAccessibility));
         compilation.RegisterPropertySymbol(propertyDeclaration, propertySymbol);
+    }
+
+    public static void DeclareFieldSignature(
+        SemanticModel semanticModel,
+        FieldDeclarationSyntax fieldDeclaration)
+    {
+        var compilation = semanticModel.Compilation;
+
+        if (!TryGetContainingDeclaredType(compilation, fieldDeclaration, out var containingType))
+            return;
+
+        if (containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+            return;
+
+        var isStatic = fieldDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
+        var isReadonly = fieldDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.ReadonlyKeyword);
+        var isRequired = fieldDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.RequiredKeyword);
+        var defaultAccessibility = compilation.Options.MembersPublicByDefault
+            ? Accessibility.Public
+            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
+        var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(
+            fieldDeclaration.Modifiers,
+            defaultAccessibility);
+
+        foreach (var declarator in fieldDeclaration.Declaration.Declarators)
+        {
+            if (declarator.Initializer is not null ||
+                declarator.TypeAnnotation?.Type is not { } typeSyntax ||
+                containingType.GetDeclaredMembersWithoutEnsuring(declarator.Identifier.ValueText)
+                    .OfType<IFieldSymbol>()
+                    .Any(field => SymbolDeclarationUtilities.HasDeclaringSpan(field, declarator)))
+            {
+                continue;
+            }
+
+            var fieldType = ResolveSkeletonType(semanticModel, typeSyntax, compilation.ErrorTypeSymbol, containingType);
+            if (fieldType.TypeKind == TypeKind.Error)
+                continue;
+
+            var isMutable = fieldDeclaration.FieldKeyword.Kind switch
+            {
+                SyntaxKind.FieldKeyword => !isReadonly,
+                _ => !isReadonly,
+            };
+
+            var fieldSymbol = new SourceFieldSymbol(
+                declarator.Identifier.ValueText,
+                fieldType,
+                isStatic: isStatic,
+                isMutable: isMutable,
+                isConst: false,
+                constantValue: null!,
+                containingType,
+                containingType,
+                containingType.ContainingNamespace,
+                [declarator.GetLocation()],
+                [declarator.GetReference(), fieldDeclaration.GetReference()],
+                initializer: null,
+                declaredAccessibility: fieldAccessibility);
+
+            if (isRequired)
+                fieldSymbol.MarkAsRequired();
+        }
     }
 
     private static void ReportAsyncAccessorReturnTypeDiagnostics(
@@ -601,7 +684,12 @@ internal static class MemberSignatureDeclarationPass
                 fallbackType,
                 containingType,
                 methodTypeParameters),
-            QualifiedNameSyntax qualifiedName => ResolveQualifiedSkeletonType(compilation, qualifiedName, fallbackType),
+            QualifiedNameSyntax qualifiedName => ResolveQualifiedSkeletonType(
+                semanticModel,
+                qualifiedName,
+                fallbackType,
+                containingType,
+                methodTypeParameters),
             IdentifierNameSyntax identifier => ResolveIdentifierSkeletonType(
                 semanticModel,
                 typeSyntax,
@@ -685,12 +773,46 @@ internal static class MemberSignatureDeclarationPass
     }
 
     private static ITypeSymbol ResolveQualifiedSkeletonType(
-        Compilation compilation,
+        SemanticModel semanticModel,
         QualifiedNameSyntax qualifiedName,
-        ITypeSymbol fallbackType)
-        => TryGetQualifiedMetadataName(qualifiedName, out var metadataName)
-            ? compilation.GetTypeByMetadataName(metadataName) ?? fallbackType
-            : fallbackType;
+        ITypeSymbol fallbackType,
+        INamedTypeSymbol? containingType,
+        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+    {
+        if (!TryGetQualifiedMetadataName(qualifiedName, out var metadataName))
+            return fallbackType;
+
+        var genericName = qualifiedName.Right as GenericNameSyntax;
+        var arity = genericName is not null
+            ? genericName.TypeArgumentList.Arguments.Count
+            : (int?)null;
+        var resolved = ResolveExactImportedSkeletonType(semanticModel.Compilation, metadataName, arity);
+        if (resolved is null)
+            return fallbackType;
+
+        if (genericName is null)
+            return resolved;
+
+        if (resolved is not INamedTypeSymbol namedDefinition ||
+            genericName.TypeArgumentList.Arguments.Count != namedDefinition.Arity)
+        {
+            return fallbackType;
+        }
+
+        var arguments = genericName.TypeArgumentList.Arguments
+            .Select(argument => ResolveSkeletonType(
+                semanticModel,
+                argument.Type,
+                fallbackType,
+                containingType,
+                methodTypeParameters))
+            .ToArray();
+
+        if (arguments.Any(static argument => argument.TypeKind == TypeKind.Error))
+            return fallbackType;
+
+        return namedDefinition.Construct(arguments);
+    }
 
     private static bool TryGetQualifiedMetadataName(
         NameSyntax nameSyntax,
@@ -722,6 +844,12 @@ internal static class MemberSignatureDeclarationPass
         {
             case IdentifierNameSyntax identifier:
                 metadataName = identifier.Identifier.ValueText;
+                return !string.IsNullOrEmpty(metadataName);
+
+            case GenericNameSyntax genericName:
+                metadataName = GetMetadataTypeName(
+                    genericName.Identifier.ValueText,
+                    genericName.TypeArgumentList.Arguments.Count);
                 return !string.IsNullOrEmpty(metadataName);
 
             default:
@@ -758,7 +886,11 @@ internal static class MemberSignatureDeclarationPass
                 return nestedType;
         }
 
-        var namespaceType = containingType?.ContainingNamespace?.LookupType(name);
+        var namespaceType = ResolveTypeInNamespaceForSkeleton(
+            compilation,
+            containingType?.ContainingNamespace,
+            name,
+            arity);
         if (namespaceType is not null)
             return namespaceType;
 
@@ -766,7 +898,7 @@ internal static class MemberSignatureDeclarationPass
         if (importedType is not null)
             return importedType;
 
-        return compilation.GlobalNamespace.LookupType(name) ?? fallbackType;
+        return compilation.SymbolLookup.LookupTypeSourceFirst(null, name) ?? fallbackType;
     }
 
     private static ITypeSymbol? ResolveImportedSkeletonType(
@@ -848,7 +980,7 @@ internal static class MemberSignatureDeclarationPass
         if (ResolveExactImportedSkeletonType(compilation, scopedMetadataName, arity) is { } exactType)
             return exactType;
 
-        if (ResolveSourceNamespace(compilation, scopeName)?.LookupType(name) is { } sourceType &&
+        if (ResolveTypeInNamespaceForSkeleton(compilation, ResolveSourceNamespace(compilation, scopeName), name, arity) is { } sourceType &&
             MatchesArity(sourceType, arity))
         {
             return sourceType;
@@ -873,6 +1005,28 @@ internal static class MemberSignatureDeclarationPass
             ?? compilation.Assembly.GetTypeByMetadataName(metadataName);
 
         return MatchesArity(resolved, arity) ? resolved : null;
+    }
+
+    private static ITypeSymbol? ResolveTypeInNamespaceForSkeleton(
+        Compilation compilation,
+        INamespaceSymbol? namespaceSymbol,
+        string name,
+        int? arity)
+    {
+        if (namespaceSymbol is null)
+            return null;
+
+        var resolved = namespaceSymbol is SourceNamespaceSymbol sourceNamespace
+            ? sourceNamespace.LookupTypeDeclared(name)
+            : namespaceSymbol.LookupType(name);
+
+        if (resolved is not null && MatchesArity(resolved, arity))
+            return resolved;
+
+        return compilation.SymbolLookup.LookupTypeSourceFirst(namespaceSymbol, name) is { } sourceFirst &&
+            MatchesArity(sourceFirst, arity)
+            ? sourceFirst
+            : null;
     }
 
     private static INamespaceSymbol? ResolveSourceNamespace(

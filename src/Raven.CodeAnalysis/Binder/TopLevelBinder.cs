@@ -294,7 +294,7 @@ class TopLevelBinder : BlockBinder
                 return namespaceMember;
         }
 
-        return Compilation.GlobalNamespace.GetMembers(name).FirstOrDefault();
+        return Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name).FirstOrDefault();
     }
 
     public IEnumerable<IParameterSymbol> GetParameters()

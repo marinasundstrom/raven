@@ -22,7 +22,7 @@ class CompilationUnitBinder : Binder
         if (parentType != null)
             return parentType;
 
-        return Compilation.GlobalNamespace.GetMembers(name).OfType<ITypeSymbol>().FirstOrDefault();
+        return Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name).OfType<ITypeSymbol>().FirstOrDefault();
     }
 
     public override ISymbol? LookupSymbol(string name)
@@ -33,7 +33,7 @@ class CompilationUnitBinder : Binder
         foreach (var symbol in base.LookupSymbols(name))
             yield return symbol;
 
-        foreach (var symbol in Compilation.GlobalNamespace.GetMembers(name))
+        foreach (var symbol in Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name))
             yield return symbol;
     }
 }

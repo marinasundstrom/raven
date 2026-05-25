@@ -1538,7 +1538,23 @@ public partial class SemanticModel
                 ?? ResolveScopedMetadataType(current, name)
                 ?? ResolveTypeFromContainingNamespace(current, name)
                 ?? ResolveTypeFromNamespace(current, name)
-                ?? ResolveTypeFromNamespace(Compilation.GlobalNamespace, name);
+                ?? ResolveTypeFromGlobalRoots(name);
+        }
+
+        ITypeSymbol? ResolveTypeFromGlobalRoots(string name)
+        {
+            var sourceType = ResolveTypeFromNamespace(Compilation.SourceGlobalNamespace, name);
+            if (sourceType is not null)
+                return sourceType;
+
+            foreach (var assembly in Compilation.ReferencedAssemblySymbols)
+            {
+                var metadataType = ResolveTypeFromNamespace(assembly.GlobalNamespace, name);
+                if (metadataType is not null)
+                    return metadataType;
+            }
+
+            return null;
         }
 
         INamedTypeSymbol? ResolveMetadataTypeByName(string name)
@@ -2576,21 +2592,34 @@ public partial class SemanticModel
         if (!_typeMemberSignaturesDeclared.TryAdd(declaration, 0))
             return true;
 
-        using var sourceNamespaceLookupSuppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
-        var parentBinder = declaration.Parent is null
-            ? Compilation.GlobalBinder
-            : GetBinderCore(declaration.Parent, null, ensureSourceDeclarations: false);
-        var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
-        var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
-
-        BindNominalTypeDeclaration(declaration, parentBinder, objectType, classBinders);
-        foreach (var (classDecl, classBinder) in classBinders)
-        {
-            RegisterClassMembers(classDecl, classBinder);
-            classBinder.EnsureDefaultConstructor();
-        }
+        DeclareTypeMemberSignatures(declaration);
 
         return true;
+    }
+
+    private void DeclareTypeMemberSignatures(TypeDeclarationSyntax declaration)
+    {
+        foreach (var effectiveMember in GetEffectiveTypeMembers(declaration))
+        {
+            switch (effectiveMember.EffectiveSyntax)
+            {
+                case FieldDeclarationSyntax fieldDeclaration:
+                    MemberSignatureDeclarationPass.DeclareFieldSignature(this, fieldDeclaration);
+                    break;
+
+                case MethodDeclarationSyntax methodDeclaration:
+                    MemberSignatureDeclarationPass.DeclareMethodSignature(this, methodDeclaration);
+                    break;
+
+                case PropertyDeclarationSyntax propertyDeclaration:
+                    MemberSignatureDeclarationPass.DeclarePropertySignature(this, propertyDeclaration);
+                    break;
+
+                case EventDeclarationSyntax eventDeclaration:
+                    MemberSignatureDeclarationPass.DeclareEventSignature(this, eventDeclaration);
+                    break;
+            }
+        }
     }
 
     private static bool IsNominalTypeDeclaration(TypeDeclarationSyntax declaration)

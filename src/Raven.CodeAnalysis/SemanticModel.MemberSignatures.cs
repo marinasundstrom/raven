@@ -17,6 +17,7 @@ public partial class SemanticModel
 
         var root = SyntaxTree.GetRoot();
         EnsureDeclarations();
+        using var sourceNamespaceLookupSuppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
         var compilationUnitBinder = GetBinderForIncrementalSemanticQuery(root);
         BindNamespaceMembers(
             root,
