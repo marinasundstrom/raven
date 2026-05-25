@@ -22,6 +22,8 @@ namespace Raven.LanguageServer;
 internal sealed class InlayHintHandler : IInlayHintsHandler
 {
     private const int MaxUnboundedDocumentLength = 2_000;
+    private const int MaxBroadFullDocumentLength = 1_200;
+    private const int MaxBroadFullDocumentLineCount = 40;
     private const int MaxFocusedInlayRangeLength = 2_500;
     private const int MaxCachedInlayHintEntries = 256;
     private const double LargeRangeInlayBudgetMs = 5_000;
@@ -73,11 +75,11 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return node.FullSpan.IntersectsWith(span);
     }
 
-    internal static bool ShouldAllowExpensiveBindingForInlay(SourceText sourceText, TextSpan requestSpan)
+    internal static bool ShouldAllowExpensiveBindingForInlay(SourceText sourceText, TextSpan requestSpan, LspRange requestRange)
     {
         var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
         var isPreciseRequest = requestSpan.Length == 0;
-        var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
+        var isFullDocumentRequest = IsFullDocumentRequest(sourceText, requestSpan, requestRange);
 
         return !isLargeDocument ||
             isPreciseRequest ||
@@ -85,12 +87,12 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             (!isFullDocumentRequest && requestSpan.Length <= MaxFocusedInlayRangeLength);
     }
 
-    private static bool ShouldIncludeTooltipsForInlay(SourceText sourceText, TextSpan requestSpan)
+    private static bool ShouldIncludeTooltipsForInlay(SourceText sourceText, TextSpan requestSpan, LspRange requestRange)
     {
         if (sourceText.Length > MaxUnboundedDocumentLength)
             return false;
 
-        var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
+        var isFullDocumentRequest = IsFullDocumentRequest(sourceText, requestSpan, requestRange);
         return !isFullDocumentRequest;
     }
 
@@ -132,7 +134,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
             effectiveCancellationToken.ThrowIfCancellationRequested();
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
-            var isFullDocumentRequest = requestSpan.Start <= 0 && requestSpan.End >= sourceText.Length;
+            var isBroadDocumentRequest = IsBroadFullDocumentInlayRequest(sourceText, requestSpan, request.Range);
 
             stageStopwatch.Restart();
             using var semanticAccess = await _documents.TryEnterDocumentSemanticModelAccessAsync(
@@ -172,7 +174,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
             effectiveCancellationToken.ThrowIfCancellationRequested();
             var root = context.Value.SyntaxTree.GetRoot(effectiveCancellationToken);
-            var allowExpensiveBinding = ShouldAllowExpensiveBindingForInlay(sourceText, requestSpan);
+            var allowExpensiveBinding = ShouldAllowExpensiveBindingForInlay(sourceText, requestSpan, request.Range);
             var avoidExpensiveInitializerBinding = isLargeDocument && !allowExpensiveBinding;
             var collectionBudgetMs = allowExpensiveBinding
                 ? double.PositiveInfinity
@@ -184,7 +186,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 Stopwatch.StartNew(),
                 effectiveCancellationToken,
                 collectionBudgetMs,
-                includeTooltips: ShouldIncludeTooltipsForInlay(sourceText, requestSpan));
+                includeTooltips: ShouldIncludeTooltipsForInlay(sourceText, requestSpan, request.Range));
             var collectStopwatch = Stopwatch.StartNew();
             stageStopwatch.Restart();
             AddLocalTypeHints(
@@ -213,12 +215,12 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             forTargetTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             effectiveCancellationToken.ThrowIfCancellationRequested();
             stageStopwatch.Restart();
-            if (collectionBudget.HasBudgetForAdditionalCategory())
-                AddFunctionExpressionParameterTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: true, collectionBudget);
+            if (!isBroadDocumentRequest && collectionBudget.HasBudgetForAdditionalCategory())
+                AddFunctionExpressionParameterTypeHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: allowExpensiveBinding, collectionBudget);
             functionParameterTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             effectiveCancellationToken.ThrowIfCancellationRequested();
             stageStopwatch.Restart();
-            if (collectionBudget.HasBudgetForAdditionalCategory())
+            if (!isBroadDocumentRequest && collectionBudget.HasBudgetForAdditionalCategory())
                 AddInvocationParameterNameHints(hints, semanticModel, root, sourceText, requestSpan, allowBinding: allowExpensiveBinding, collectionBudget);
             invocationParameterNameHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             effectiveCancellationToken.ThrowIfCancellationRequested();
@@ -228,7 +230,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             deconstructionElementNameHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             effectiveCancellationToken.ThrowIfCancellationRequested();
             stageStopwatch.Restart();
-            if (collectionBudget.HasBudgetForAdditionalCategory())
+            if (!isBroadDocumentRequest && collectionBudget.HasBudgetForAdditionalCategory())
                 AddReturnTypeHints(hints, semanticModel, root, sourceText, requestSpan, collectionBudget);
             returnTypeHintsMs = stageStopwatch.Elapsed.TotalMilliseconds;
             collectMs = collectStopwatch.Elapsed.TotalMilliseconds;
@@ -467,7 +469,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             {
                 continue;
             }
-            if (!TryFormatType(semanticModel, declarator, local.Type, out var typeDisplay))
+            if (!TryFormatType(local.Type, out var typeDisplay))
             {
                 continue;
             }
@@ -532,7 +534,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 : semanticModel.TryGetCachedBoundNode(forStatement) as BoundForStatement;
 
             if (boundForStatement is not { Local: { } local } ||
-                !TryFormatType(semanticModel, forStatement, local.Type, out var typeDisplay))
+                !TryFormatType(local.Type, out var typeDisplay))
             {
                 continue;
             }
@@ -578,7 +580,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 : (semanticModel.TryGetCachedBoundNode(designation) as BoundSingleVariableDesignator)?.Local;
 
             if (local is null ||
-                !TryFormatType(semanticModel, designation, local.Type, out var typeDisplay))
+                !TryFormatType(local.Type, out var typeDisplay))
             {
                 continue;
             }
@@ -768,7 +770,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var label = $"↩ {caseName}";
         if (hasPayload)
         {
-            if (!TryFormatType(semanticModel, carrierExpression, payloadType, out var payloadDisplay))
+            if (!TryFormatType(payloadType, out var payloadDisplay))
                 return false;
 
             label = $"↩ {caseName}<{payloadDisplay}>";
@@ -857,7 +859,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
 
         if (parameterType is null ||
-            !TryFormatType(semanticModel, parameter, parameterType, out var typeDisplay))
+            !TryFormatType(parameterType, out var typeDisplay))
         {
             return;
         }
@@ -969,6 +971,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 return true;
 
             default:
+                if (allowBinding &&
+                    semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol resolvedMethod)
+                {
+                    method = resolvedMethod;
+                    skipExtensionReceiverParameter = resolvedMethod.IsExtensionMethod &&
+                        invocation.Expression is MemberAccessExpressionSyntax;
+                    return true;
+                }
+
                 return false;
         }
     }
@@ -1281,7 +1292,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
         if (!TryGetInferredReturnType(semanticModel, body, isAsync, out var inferredReturnType) ||
             inferredReturnType is null ||
-            !TryFormatType(semanticModel, declaration, inferredReturnType, out var typeDisplay))
+            !TryFormatType(inferredReturnType, out var typeDisplay))
         {
             return;
         }
@@ -1329,7 +1340,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
         if (!TryGetFunctionExpressionReturnType(semanticModel, functionExpression, out var returnType) ||
             returnType is null ||
-            !TryFormatType(semanticModel, functionExpression, returnType, out var typeDisplay))
+            !TryFormatType(returnType, out var typeDisplay))
         {
             return;
         }
@@ -1469,7 +1480,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return bestEnd;
     }
 
-    private static bool TryFormatType(SemanticModel semanticModel, SyntaxNode contextNode, ITypeSymbol? type, out string display)
+    private static bool TryFormatType(ITypeSymbol? type, out string display)
     {
         display = string.Empty;
         if (type is null ||
@@ -1483,17 +1494,17 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             ? string.Join(
                 " | ",
                 union.Types
-                    .Select(member => FormatSingleType(semanticModel, contextNode, member))
+                    .Select(FormatSingleType)
                     .OrderBy(static value => value, StringComparer.Ordinal))
-            : FormatSingleType(semanticModel, contextNode, type);
+            : FormatSingleType(type);
 
         return !string.IsNullOrWhiteSpace(display);
     }
 
-    private static string FormatSingleType(SemanticModel semanticModel, SyntaxNode contextNode, ITypeSymbol type)
-        => FormatTypeForInsertion(semanticModel.GetBinder(contextNode), type);
+    private static string FormatSingleType(ITypeSymbol type)
+        => FormatTypeForInsertion(type);
 
-    private static string FormatTypeForInsertion(Binder binder, ITypeSymbol type)
+    private static string FormatTypeForInsertion(ITypeSymbol type)
     {
         if (TryFormatSpecialType(type, out var specialTypeDisplay))
             return specialTypeDisplay;
@@ -1503,7 +1514,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
         if (type.GetNullableUnderlyingType() is { } nullableUnderlying)
         {
-            var underlyingDisplay = FormatTypeForInsertion(binder, nullableUnderlying);
+            var underlyingDisplay = FormatTypeForInsertion(nullableUnderlying);
             if (nullableUnderlying is ITypeUnionSymbol ||
                 IsStandardUnionType(nullableUnderlying) ||
                 nullableUnderlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate })
@@ -1522,7 +1533,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
         if (type is IArrayTypeSymbol arrayType)
         {
-            var elementDisplay = FormatTypeForInsertion(binder, arrayType.ElementType);
+            var elementDisplay = FormatTypeForInsertion(arrayType.ElementType);
             if (arrayType.ElementType is ITypeUnionSymbol ||
                 IsStandardUnionType(arrayType.ElementType) ||
                 arrayType.ElementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate })
@@ -1539,20 +1550,20 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
 
         if (type is IPointerTypeSymbol pointerType)
-            return "*" + FormatTypeForInsertion(binder, pointerType.PointedAtType);
+            return "*" + FormatTypeForInsertion(pointerType.PointedAtType);
 
         if (type is RefTypeSymbol refType)
-            return "&" + FormatTypeForInsertion(binder, refType.ElementType);
+            return "&" + FormatTypeForInsertion(refType.ElementType);
 
         if (type is IAddressTypeSymbol addressType)
-            return "&" + FormatTypeForInsertion(binder, addressType.ReferencedType);
+            return "&" + FormatTypeForInsertion(addressType.ReferencedType);
 
         if (type is ITupleTypeSymbol tupleType)
         {
             var elements = tupleType.TupleElements.Select(element =>
                 string.IsNullOrWhiteSpace(element.Name)
-                    ? FormatTypeForInsertion(binder, element.Type)
-                    : $"{element.Name}: {FormatTypeForInsertion(binder, element.Type)}");
+                    ? FormatTypeForInsertion(element.Type)
+                    : $"{element.Name}: {FormatTypeForInsertion(element.Type)}");
             return "(" + string.Join(", ", elements) + ")";
         }
 
@@ -1560,7 +1571,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return string.Join(
                 " | ",
                 unionType.Types
-                    .Select(member => FormatTypeForInsertion(binder, member))
+                    .Select(FormatTypeForInsertion)
                     .OrderBy(static value => value, StringComparer.Ordinal));
 
         if (IsStandardUnionType(type) &&
@@ -1570,17 +1581,17 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return string.Join(
                 " | ",
                 standardUnion.TypeArguments
-                    .Select(member => FormatTypeForInsertion(binder, member))
+                    .Select(FormatTypeForInsertion)
                     .OrderBy(static value => value, StringComparer.Ordinal));
         }
 
         if (type is INamedTypeSymbol namedType)
-            return FormatNamedTypeForInsertion(binder, namedType);
+            return FormatNamedTypeForInsertion(namedType);
 
         return type.ToDisplayStringKeywordAware(SourceTypeDisplayFormat);
     }
 
-    private static string FormatNamedTypeForInsertion(Binder binder, INamedTypeSymbol type)
+    private static string FormatNamedTypeForInsertion(INamedTypeSymbol type)
     {
         if (type.ContainingType is not null)
             return type.ToDisplayStringKeywordAware(QualifiedSourceTypeDisplayFormat);
@@ -1604,7 +1615,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var arguments = typeArguments
             .Skip(offset)
             .Take(type.Arity)
-            .Select(argument => FormatTypeForInsertion(binder, argument));
+            .Select(FormatTypeForInsertion);
 
         return $"{name}<{string.Join(", ", arguments)}>";
     }
@@ -1948,6 +1959,33 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             (start, end) = (end, start);
 
         return new TextSpan(start, end - start);
+    }
+
+    private static bool IsBroadFullDocumentInlayRequest(SourceText sourceText, TextSpan requestSpan, LspRange requestRange)
+    {
+        if (!IsFullDocumentRequest(sourceText, requestSpan, requestRange))
+            return false;
+
+        return sourceText.Length > MaxBroadFullDocumentLength ||
+            sourceText.GetLineCount() > MaxBroadFullDocumentLineCount;
+    }
+
+    private static bool IsFullDocumentRequest(SourceText sourceText, TextSpan requestSpan, LspRange requestRange)
+    {
+        if (requestSpan.Start > 0)
+            return false;
+
+        if (requestSpan.End >= sourceText.Length)
+            return true;
+
+        var lastLine = Math.Max(0, sourceText.GetLineCount() - 1);
+        if (requestRange.End.Line < lastLine)
+            return false;
+
+        if (requestRange.End.Line > lastLine)
+            return true;
+
+        return requestRange.End.Character >= sourceText.GetLineLength(lastLine);
     }
 
     private static bool ContainsPosition(TextSpan span, int position)

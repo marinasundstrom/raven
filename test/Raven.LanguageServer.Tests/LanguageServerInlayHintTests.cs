@@ -161,7 +161,7 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 class StackPanel {
-    init(spacing: double) {
+    public init(spacing: double) {
     }
 }
 
@@ -1041,6 +1041,125 @@ Accept(async func (context: RequestContext) {
         result.ToArray().ShouldNotContain(hint =>
             hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(contentInsertion, 0)).Start &&
             hint.Label.String == ": string");
+    }
+
+    [Fact]
+    public async Task Handle_LargeFullDocument_DoesNotColdBindFunctionExpressionParameterTypesAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 220).Select(static i => $"// padding {i}"));
+        var code = $$"""
+func SelectValue(callback: (int -> int)) -> int {
+    return callback(41)
+}
+
+func Main() -> unit {
+    val result = SelectValue(value => value + 1)
+}
+
+{{padding}}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var parameterInsertion = code.IndexOf("value =>", StringComparison.Ordinal) + "value".Length;
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var before = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+
+        var fullDocumentResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+        var after = context.Value.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
+        var delta = SemanticQueryInstrumentation.Subtract(after, before);
+
+        fullDocumentResult.ToArray().ShouldNotContain(hint =>
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(parameterInsertion, 0)).Start &&
+            hint.Label.String == ": int");
+        delta.BoundNodeBindFallbacks.ShouldBe(0);
+
+        var preciseResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(parameterInsertion, 0))
+        }, CancellationToken.None);
+
+        AssertHasHintAtInsertion(sourceText, preciseResult.ToArray(), parameterInsertion, ": int");
+    }
+
+    [Fact]
+    public async Task Handle_BroadFullDocument_DefersExpensivePresentationHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 45).Select(static i => $"// padding {i}"));
+        var code = $$"""
+func Build(value: int) {
+    return value + 1
+}
+
+func Main() -> unit {
+    val result = Build(41)
+}
+
+{{padding}}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var argumentInsertion = code.IndexOf("41", StringComparison.Ordinal);
+
+        var broadResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = new LspRange(new Position(0, 0), new Position(sourceText.GetLineCount(), 0))
+        }, CancellationToken.None);
+
+        var broadHints = broadResult.ToArray();
+        broadHints.Select(static hint => hint.Label.String).ShouldNotContain(" -> int");
+        broadHints.ShouldNotContain(hint =>
+            hint.Position == PositionHelper.ToRange(sourceText, new TextSpan(argumentInsertion, 0)).Start &&
+            hint.Label.String == "value:");
+
+        var preciseResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(argumentInsertion, 0))
+        }, CancellationToken.None);
+
+        var preciseHint = AssertHasHintAtInsertion(sourceText, preciseResult.ToArray(), argumentInsertion, "value:");
+        AssertParameterNameSourceApplicable(sourceText, preciseHint, argumentInsertion, "value: ");
     }
 
     [Fact]
