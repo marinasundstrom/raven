@@ -20,6 +20,14 @@ internal sealed class AttributeBinder : BlockBinder
 
     public override ISymbol ContainingSymbol => _owner;
 
+    public override BoundNode GetOrBind(SyntaxNode node)
+    {
+        if (node is AttributeSyntax attribute)
+            return BindAttribute(attribute);
+
+        return base.GetOrBind(node);
+    }
+
     public override SymbolInfo BindSymbol(SyntaxNode node)
     {
         if (node is AttributeSyntax attribute)

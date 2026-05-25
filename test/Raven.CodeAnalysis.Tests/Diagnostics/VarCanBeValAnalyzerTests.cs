@@ -194,4 +194,37 @@ class C {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void VarLocal_WithGenericExtensionLambdaChain_DoesNotRecurseDuringCaptureAnalysis()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var IsActive: bool)
+
+class C {
+    public func Run(users: IQueryable<User>) -> unit {
+        var query = users
+            |> Where(user => user.IsActive)
+            |> Select(user => user.Name)
+    }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(VarCanBeValAnalyzer.DiagnosticId)
+                    .WithLocation(10, 9)
+                    .WithArguments("query")
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

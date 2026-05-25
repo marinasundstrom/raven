@@ -11,7 +11,7 @@ public partial class SemanticModel
 {
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax statement)
     {
-        EnsureDiagnosticBindingCompleted();
+        EnsureControlFlowBindingReady(statement);
 
         var region = new ControlFlowRegion(statement);
         return AnalyzeControlFlowInternal(region, statement);
@@ -19,9 +19,8 @@ public partial class SemanticModel
 
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
-        EnsureDiagnosticBindingCompleted();
-
         var region = new ControlFlowRegion(firstStatement, lastStatement);
+        EnsureControlFlowBindingReady(region.EnclosingBlock ?? firstStatement);
         return AnalyzeControlFlowInternal(region, region.EnclosingBlock ?? firstStatement);
     }
 
@@ -366,7 +365,7 @@ public partial class SemanticModel
 {
     public LabeledStatementSyntax? GetLabelTarget(GotoStatementSyntax gotoStatement)
     {
-        EnsureDiagnosticBindingCompleted();
+        EnsureControlFlowBindingReady(gotoStatement);
 
         if (_gotoTargets.TryGetValue(gotoStatement, out var symbol))
         {
@@ -392,7 +391,7 @@ public partial class SemanticModel
 
     public bool HasExternalGotoToLabel(LabeledStatementSyntax labeledStatement, ControlFlowRegion region)
     {
-        EnsureDiagnosticBindingCompleted();
+        EnsureControlFlowBindingReady(labeledStatement);
 
         if (!_labelDeclarations.TryGetValue(labeledStatement, out var labelSymbol))
             return false;
@@ -412,6 +411,35 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private void EnsureControlFlowBindingReady(SyntaxNode node)
+    {
+        EnsureBindingReadyForSemanticQuery();
+
+        var root = GetControlFlowBindingRoot(node);
+        if (root is CompilationUnitSyntax compilationUnit)
+            EnsureTopLevelCompilationUnitBound(compilationUnit);
+        else
+            _ = TryGetBoundNodeForSemanticQuery(root, out _);
+    }
+
+    private static SyntaxNode GetControlFlowBindingRoot(SyntaxNode node)
+    {
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case BlockStatementSyntax or BlockSyntax:
+                    return current;
+                case GlobalStatementSyntax globalStatement:
+                    return globalStatement.SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit
+                        ? compilationUnit
+                        : globalStatement;
+            }
+        }
+
+        return node;
     }
 }
 

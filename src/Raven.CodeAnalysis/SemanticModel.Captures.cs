@@ -25,7 +25,18 @@ public partial class SemanticModel
     private ImmutableArray<ISymbol> GetCapturedVariablesFromMethodSymbol(IMethodSymbol method)
     {
         if (method is SourceLambdaSymbol sourceLambda)
+        {
+            if (sourceLambda.CapturedVariables.IsDefaultOrEmpty &&
+                TryGetFunctionExpressionSyntax(sourceLambda, out var functionExpression))
+            {
+                return GetCapturedVariables(functionExpression);
+            }
+
             return sourceLambda.CapturedVariables;
+        }
+
+        if (TryGetFunctionExpressionSyntax(method, out var declaringFunctionExpression))
+            return GetCapturedVariables(declaringFunctionExpression);
 
         if (method is SourceMethodSymbol sourceMethod)
             return GetOrComputeFunctionCapturedVariables(sourceMethod);
@@ -43,6 +54,24 @@ public partial class SemanticModel
         }
 
         return ImmutableArray<ISymbol>.Empty;
+    }
+
+    private static bool TryGetFunctionExpressionSyntax(
+        IMethodSymbol method,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FunctionExpressionSyntax? functionExpression)
+    {
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            var syntax = reference.GetSyntax();
+            functionExpression = syntax as FunctionExpressionSyntax
+                ?? syntax?.AncestorsAndSelf().OfType<FunctionExpressionSyntax>().FirstOrDefault();
+
+            if (functionExpression is not null)
+                return true;
+        }
+
+        functionExpression = null;
+        return false;
     }
 
     private ImmutableArray<ISymbol> GetCapturedVariablesFromLocalSymbol(ILocalSymbol local)
@@ -73,21 +102,21 @@ public partial class SemanticModel
             return ImmutableArray<ISymbol>.Empty;
         }
 
-        EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: false);
-
         if (node is FunctionStatementSyntax function &&
             GetDeclaredSymbol(function) is ISymbol functionSymbol)
         {
             return GetCapturedVariables(functionSymbol);
         }
 
-        if (node is FunctionExpressionSyntax lambdaSyntax &&
-            GetBoundNode(lambdaSyntax) is BoundFunctionExpression boundLambda)
+        if (node is FunctionExpressionSyntax lambdaSyntax)
         {
-            return boundLambda.CapturedVariables
-                .Where(static symbol => symbol is not null)
-                .Distinct(SymbolEqualityComparer.Default)
-                .ToImmutableArray();
+            if (TryGetBoundFunctionExpressionForCapture(lambdaSyntax, out var boundLambda))
+            {
+                return boundLambda.CapturedVariables
+                    .Where(static symbol => symbol is not null)
+                    .Distinct(SymbolEqualityComparer.Default)
+                    .ToImmutableArray();
+            }
         }
 
         var symbol = node switch
@@ -102,12 +131,64 @@ public partial class SemanticModel
             : IsCapturedVariable(symbol) ? ImmutableArray.Create(symbol) : ImmutableArray<ISymbol>.Empty;
     }
 
+    private bool TryGetBoundFunctionExpressionForCapture(
+        FunctionExpressionSyntax functionExpression,
+        out BoundFunctionExpression boundFunction)
+    {
+        var ownerRoot = GetInterestBindingRoot(functionExpression, includeExtendedExecutableRoots: true);
+        if (ownerRoot is not null && !ReferenceEquals(ownerRoot, functionExpression))
+        {
+            var boundOwner = BindContextualRootForSemanticQuery(ownerRoot);
+            if (TryFindBoundNodeBySyntax(boundOwner, functionExpression, out var ownerFunctionNode) &&
+                ownerFunctionNode is BoundFunctionExpression ownerFunction)
+            {
+                if (!ownerFunction.CapturedVariables.Any())
+                {
+                    ClearCachedSemanticState(ownerRoot);
+                    boundOwner = BindContextualRootForSemanticQuery(ownerRoot);
+                    if (TryFindBoundNodeBySyntax(boundOwner, functionExpression, out var reboundOwnerFunctionNode) &&
+                        reboundOwnerFunctionNode is BoundFunctionExpression reboundOwnerFunction)
+                    {
+                        ownerFunction = reboundOwnerFunction;
+                    }
+                }
+
+                CacheBoundNode(functionExpression, ownerFunction, GetBinderForIncrementalSemanticQuery(functionExpression));
+                boundFunction = ownerFunction;
+                return true;
+            }
+        }
+
+        var contextualRoot = GetFunctionExpressionRebindRoot(functionExpression);
+        if (!ReferenceEquals(contextualRoot, functionExpression))
+        {
+            var boundRoot = BindContextualRootForSemanticQuery(contextualRoot);
+            if (TryFindBoundNodeBySyntax(boundRoot, functionExpression, out var reboundNode) &&
+                reboundNode is BoundFunctionExpression reboundFunction)
+            {
+                CacheBoundNode(functionExpression, reboundFunction, GetBinderForIncrementalSemanticQuery(functionExpression));
+                boundFunction = reboundFunction;
+                return true;
+            }
+        }
+
+        if (TryGetContextualBoundFunctionExpression(functionExpression, out boundFunction))
+            return true;
+
+        if (GetBoundNode(functionExpression) is BoundFunctionExpression directFunction)
+        {
+            boundFunction = directFunction;
+            return true;
+        }
+
+        boundFunction = null!;
+        return false;
+    }
+
     public bool IsCapturedVariable(ISymbol symbol)
     {
         if (symbol is not ILocalSymbol and not IParameterSymbol and not ITypeSymbol)
             return false;
-
-        EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: false);
 
         var root = SyntaxTree.GetRoot();
         foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())
@@ -161,9 +242,14 @@ public partial class SemanticModel
         }
 
         if (function.Parent is GlobalStatementSyntax globalStatement &&
-            SyntaxTree.GetRoot() is { } root)
+            SyntaxTree.GetRoot() is CompilationUnitSyntax root)
         {
+            EnsureTopLevelCompilationUnitBound(root);
             BindPrecedingGlobalStatementsForScope(root, globalStatement, requireCompleteDeclarations: false);
+        }
+        else
+        {
+            BindPrecedingStatementsForScope(function);
         }
 
         BoundBlockStatement? functionBody = function.Body is not null
@@ -180,6 +266,20 @@ public partial class SemanticModel
             method.SetCapturedVariables(captures);
 
         return captures;
+    }
+
+    private void BindPrecedingStatementsForScope(StatementSyntax owner)
+    {
+        if (owner.Parent is null)
+            return;
+
+        foreach (var sibling in owner.Parent.ChildNodes().OfType<StatementSyntax>())
+        {
+            if (sibling.Span.Start >= owner.Span.Start)
+                break;
+
+            GetBinderForIncrementalSemanticQuery(sibling).EnsureStatementDeclarations(sibling);
+        }
     }
 
     private bool MayFunctionStatementCapture(FunctionStatementSyntax function)

@@ -24,24 +24,36 @@ public partial class SemanticModel
         if (_operationCache.TryGetValue(node, out var cached))
             return cached;
 
-        EnsureDiagnosticBindingCompleted();
+        EnsureBindingReadyForSemanticQuery();
 
         BoundNode? bound = TryGetCachedBoundNode(node);
+
+        if (bound is null && node is PatternSyntax pattern)
+        {
+            BindPatternOwner(pattern);
+            bound = TryGetCachedBoundNode(pattern);
+        }
 
         if (bound is null)
         {
             bound = node switch
             {
-                ExpressionSyntax or StatementSyntax => GetBoundNode(node),
+                ExpressionSyntax or StatementSyntax => TryGetBoundNodeForSemanticQuery(node, out var queryBound)
+                    ? queryBound
+                    : null,
                 _ => null
             };
         }
 
         if (bound is null && node is ArgumentSyntax argument)
-            bound = GetBoundNode(argument.Expression);
+            bound = TryGetBoundNodeForSemanticQuery(argument.Expression, out var argumentBound)
+                ? argumentBound
+                : null;
 
         if (bound is null && node is InterpolatedStringContentSyntax && node.Parent is InterpolatedStringExpressionSyntax parentExpression)
-            bound = GetBoundNode(parentExpression);
+            bound = TryGetBoundNodeForSemanticQuery(parentExpression, out var interpolatedStringBound)
+                ? interpolatedStringBound
+                : null;
 
         if (bound is null)
             return null;

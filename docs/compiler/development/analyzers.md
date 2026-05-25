@@ -141,6 +141,41 @@ remap that level by diagnostic ID. If a built-in analyzer needs a project-file m
 do not use descriptor disabled-by-default state or severity options to decide whether the
 analyzer runs.
 
+## Semantic API usage
+
+Analyzers should use Raven's Roslyn-shaped semantic query APIs for local questions:
+
+- `SemanticModel.GetDeclaredSymbol(...)`
+- `SemanticModel.GetSymbolInfo(...)`
+- `SemanticModel.GetTypeInfo(...)`
+- `SemanticModel.GetOperation(...)`
+- focused Raven semantic helpers such as `SemanticModel.GetMatchExhaustiveness(...)`
+- narrow `Compilation` lookup APIs when a rule explicitly needs compilation-level symbols
+
+These methods may lazily bind compiler-owned semantic state. They are intended to answer the
+requested symbol or type question without forcing full diagnostic collection as a side effect.
+Prefer asking one of these narrow APIs for the syntax node currently being analyzed over walking
+global namespace views or recomputing broad semantic state.
+
+Avoid broad diagnostic APIs from analyzer callbacks, including:
+
+- `Compilation.GetDiagnostics(...)`
+- `SemanticModel.GetDiagnostics(...)`
+- workspace/project/document diagnostic APIs
+- diagnostics-with-analyzers APIs
+
+Those APIs can force broad binding, collect binder diagnostics, or re-enter analyzer execution.
+That is appropriate for compiler and language-server diagnostic pipelines, but it is usually the
+wrong shape inside an analyzer that is already running as part of diagnostic production.
+
+If an analyzer only needs to avoid running on syntactically invalid input, use syntax diagnostics
+from the current tree as a cheap guard. Code fixes should use the diagnostics supplied by
+`CodeFixContext` instead of recomputing diagnostics.
+
+Built-in analyzers may use internal helpers when needed, but they should preserve the same
+boundary: semantic query APIs answer narrow semantic questions; diagnostic APIs produce
+diagnostics.
+
 `RAV9029` is off by default. Project files control the analyzer mode, and `.editorconfig`
 controls severity. Deprecated `.ravenproj` files can use `ReturnedValueHandlingMode="full"` or
 `EnableReturnedValueAnalyzer="true|false"` while they remain supported. MSBuild-style `.rvnproj` files can use

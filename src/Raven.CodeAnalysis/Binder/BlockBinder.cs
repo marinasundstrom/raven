@@ -423,7 +423,7 @@ partial class BlockBinder : Binder
         if (ensurePrecedingDeclarations)
             EnsurePrecedingStatementDeclarations(variableDeclarator);
 
-        using var _ = _diagnostics.CreateNonReportingScope();
+        using var _ = EnterSemanticQueryScope();
         var boundInitializer = BindExpression(initializer);
         var type = boundInitializer.Type ?? boundInitializer.GetConvertedType();
         if (type is null || type.TypeKind == TypeKind.Error)

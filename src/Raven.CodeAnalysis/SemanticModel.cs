@@ -54,6 +54,7 @@ public partial class SemanticModel
     private ConcurrentDictionary<SyntaxNodeMapKey, byte> _nonReportingTypeMappingsByKey => _bindingState.NonReportingTypeMappingsByKey;
     private ConcurrentDictionary<SyntaxNode, BoundNode> _boundNodeCache => _bindingState.BoundNodeCache;
     private ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> _boundNodeCache2 => _bindingState.BoundNodeCacheWithBinder;
+    private ConcurrentDictionary<SyntaxNode, ImmutableArray<Diagnostic>> _boundNodeDiagnostics => _bindingState.BoundNodeDiagnostics;
     private ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> _contextualBoundNodeCache => _bindingState.ContextualBoundNodeCache;
     private ConcurrentDictionary<ContextualBoundNodeCacheKey, (Binder, BoundNode)> _contextualBoundNodeCache2 => _bindingState.ContextualBoundNodeCacheWithBinder;
     private ConcurrentDictionary<SyntaxNode, byte> _nonReportingBoundNodeCache => _bindingState.NonReportingBoundNodeCache;
@@ -63,6 +64,7 @@ public partial class SemanticModel
     private ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> _functionExpressionSymbolCache => _bindingState.FunctionExpressionSymbolCache;
     private ConcurrentDictionary<FunctionExpressionSyntax, ITypeSymbol> _functionExpressionDelegateTypeCache => _bindingState.FunctionExpressionDelegateTypeCache;
     private ConcurrentDictionary<FunctionExpressionSyntax, byte> _functionExpressionSymbolCreationInProgress => _bindingState.FunctionExpressionSymbolCreationInProgress;
+    private ConcurrentDictionary<SyntaxNode, byte> _availableInvocationSymbolInfoInProgress => _bindingState.AvailableInvocationSymbolInfoInProgress;
     private ConcurrentDictionary<SyntaxNode, byte> _functionExpressionParameterLookupInProgress => _bindingState.FunctionExpressionParameterLookupInProgress;
     private ConcurrentDictionary<SyntaxNode, byte> _functionExpressionRebindInProgress => _bindingState.FunctionExpressionRebindInProgress;
     private ConcurrentDictionary<SyntaxNode, byte> _typeMemberSignaturesDeclared => _bindingState.TypeMemberSignaturesDeclared;
@@ -127,6 +129,7 @@ public partial class SemanticModel
         public ConcurrentDictionary<SyntaxNodeMapKey, byte> NonReportingTypeMappingsByKey { get; } = new();
         public ConcurrentDictionary<SyntaxNode, BoundNode> BoundNodeCache { get; } = new();
         public ConcurrentDictionary<SyntaxNode, (Binder, BoundNode)> BoundNodeCacheWithBinder { get; } = new();
+        public ConcurrentDictionary<SyntaxNode, ImmutableArray<Diagnostic>> BoundNodeDiagnostics { get; } = new();
         public ConcurrentDictionary<ContextualBoundNodeCacheKey, BoundNode> ContextualBoundNodeCache { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
         public ConcurrentDictionary<ContextualBoundNodeCacheKey, (Binder, BoundNode)> ContextualBoundNodeCacheWithBinder { get; } = new(ContextualBoundNodeCacheKeyComparer.Instance);
         public ConcurrentDictionary<SyntaxNode, byte> NonReportingBoundNodeCache { get; } = new();
@@ -136,6 +139,7 @@ public partial class SemanticModel
         public ConcurrentDictionary<FunctionExpressionSyntax, IMethodSymbol> FunctionExpressionSymbolCache { get; } = new();
         public ConcurrentDictionary<FunctionExpressionSyntax, ITypeSymbol> FunctionExpressionDelegateTypeCache { get; } = new();
         public ConcurrentDictionary<FunctionExpressionSyntax, byte> FunctionExpressionSymbolCreationInProgress { get; } = new();
+        public ConcurrentDictionary<SyntaxNode, byte> AvailableInvocationSymbolInfoInProgress { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> FunctionExpressionParameterLookupInProgress { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> FunctionExpressionRebindInProgress { get; } = new();
         public ConcurrentDictionary<SyntaxNode, byte> TypeMemberSignaturesDeclared { get; } = new();
@@ -328,8 +332,9 @@ public partial class SemanticModel
                     diagnosticInstrumentation.RecordDocumentationTicks(Stopwatch.GetTimestamp() - phaseStart);
 
                     phaseStart = Stopwatch.GetTimestamp();
-                    diagnosticsBuilder.AddRange(_binderCache.Values
-                        .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable()));
+                    var rootDiagnostics = CollectAllBinderDiagnostics(cancellationToken);
+                    StoreBoundDiagnostics(root, rootDiagnostics);
+                    diagnosticsBuilder.AddRange(rootDiagnostics);
                     diagnosticInstrumentation.RecordCollectTicks(Stopwatch.GetTimestamp() - phaseStart);
                 }
 
@@ -507,8 +512,24 @@ public partial class SemanticModel
 
             switch (node)
             {
-                case FieldDeclarationSyntax or ConstDeclarationSyntax:
-                    BindMemberAttributes((MemberDeclarationSyntax)node, currentBinder);
+                case FieldDeclarationSyntax field:
+                    BindMemberAttributes(field, currentBinder);
+                    if (currentBinder is TypeMemberBinder fieldMemberBinder)
+                    {
+                        fieldMemberBinder.BindFieldDeclaration(field);
+                        CacheBinderForNode(field, fieldMemberBinder);
+                    }
+
+                    return true;
+
+                case ConstDeclarationSyntax constant:
+                    BindMemberAttributes(constant, currentBinder);
+                    if (currentBinder is TypeMemberBinder constMemberBinder)
+                    {
+                        constMemberBinder.BindConstDeclaration(constant);
+                        CacheBinderForNode(constant, constMemberBinder);
+                    }
+
                     return true;
 
                 case PropertyDeclarationSyntax property:
@@ -659,7 +680,6 @@ public partial class SemanticModel
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var beforeCount = diagnosticsBuilder.Count;
                 ClearCachedBinderDiagnostics(owner.Span);
                 ClearCachedBoundNodes(owner.Span);
 
@@ -674,13 +694,13 @@ public partial class SemanticModel
 
                 Traverse(owner, ownerBinder);
 
-                diagnosticsBuilder.AddRange(_binderCache.Values
-                    .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable())
-                    .Where(diagnostic => BelongsToOwner(diagnostic, owner)));
+                var ownerDiagnostics = CollectBinderDiagnosticsForOwner(owner, cancellationToken);
+                StoreBoundDiagnostics(owner, ownerDiagnostics);
+                diagnosticsBuilder.AddRange(ownerDiagnostics);
 
                 StoreSemanticDiagnosticDescriptors(
                     owner,
-                    diagnosticsBuilder.Skip(beforeCount).ToImmutableArray());
+                    ownerDiagnostics);
             }
 
             DocumentationCommentValidator.Analyze(this, root, rootBinder.Diagnostics);
@@ -751,8 +771,12 @@ public partial class SemanticModel
                 .Where(owner => !owner.Ancestors().Any(IsExecutableOwnerForDiagnostics))
                 .ToArray();
 
+            var ownersToBind = outerOwners
+                .Where(owner => !TryGetCachedBoundDiagnostics(owner, out _))
+                .ToArray();
+
             var phaseStart = Stopwatch.GetTimestamp();
-            foreach (var owner in outerOwners)
+            foreach (var owner in ownersToBind)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -763,7 +787,7 @@ public partial class SemanticModel
             diagnosticInstrumentation.RecordClearTicks(Stopwatch.GetTimestamp() - phaseStart);
 
             phaseStart = Stopwatch.GetTimestamp();
-            foreach (var owner in outerOwners)
+            foreach (var owner in ownersToBind)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -782,14 +806,27 @@ public partial class SemanticModel
             diagnosticInstrumentation.RecordTraverseTicks(Stopwatch.GetTimestamp() - phaseStart);
 
             phaseStart = Stopwatch.GetTimestamp();
-            diagnosticsBuilder.AddRange(_binderCache.Values
-                .SelectMany(static binderState => binderState.Diagnostics.AsEnumerable())
-                .Where(diagnostic => allOwners.Any(owner => BelongsToOwner(diagnostic, owner))));
-            diagnosticInstrumentation.RecordCollectTicks(Stopwatch.GetTimestamp() - phaseStart);
-
-            phaseStart = Stopwatch.GetTimestamp();
             DocumentationCommentValidator.Analyze(this, root, rootBinder.Diagnostics);
             diagnosticInstrumentation.RecordDocumentationTicks(Stopwatch.GetTimestamp() - phaseStart);
+
+            phaseStart = Stopwatch.GetTimestamp();
+            var collectedOwnerDiagnostics = CollectBinderDiagnosticsForOwners(ownersToBind, cancellationToken);
+            foreach (var owner in outerOwners)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!TryGetCachedBoundDiagnostics(owner, out var ownerDiagnostics))
+                {
+                    ownerDiagnostics = collectedOwnerDiagnostics.TryGetValue(owner, out var collectedDiagnostics)
+                        ? collectedDiagnostics
+                        : ImmutableArray<Diagnostic>.Empty;
+                    StoreBoundDiagnostics(owner, ownerDiagnostics);
+                }
+
+                diagnosticsBuilder.AddRange(ownerDiagnostics);
+            }
+
+            diagnosticInstrumentation.RecordCollectTicks(Stopwatch.GetTimestamp() - phaseStart);
 
             diagnosticsBuilder.AddRange(rootBinder.Diagnostics.AsEnumerable()
                 .Where(diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, SyntaxTree) &&
@@ -810,6 +847,63 @@ public partial class SemanticModel
             }
         }
 
+        ImmutableArray<Diagnostic> CollectAllBinderDiagnostics(CancellationToken cancellationToken)
+        {
+            var builder = ImmutableArray.CreateBuilder<Diagnostic>();
+            foreach (var binderState in _binderCache.Values)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                builder.AddRange(binderState.Diagnostics.AsEnumerable());
+            }
+
+            return builder.ToImmutable();
+        }
+
+        ImmutableArray<Diagnostic> CollectBinderDiagnosticsForOwner(
+            SyntaxNode owner,
+            CancellationToken cancellationToken)
+        {
+            var diagnosticsByOwner = CollectBinderDiagnosticsForOwners([owner], cancellationToken);
+            return diagnosticsByOwner.TryGetValue(owner, out var diagnostics)
+                ? diagnostics
+                : ImmutableArray<Diagnostic>.Empty;
+        }
+
+        Dictionary<SyntaxNode, ImmutableArray<Diagnostic>> CollectBinderDiagnosticsForOwners(
+            IReadOnlyCollection<SyntaxNode> owners,
+            CancellationToken cancellationToken)
+        {
+            var builders = new Dictionary<SyntaxNode, ImmutableArray<Diagnostic>.Builder>(ReferenceEqualityComparer.Instance);
+            foreach (var owner in owners)
+                builders[owner] = ImmutableArray.CreateBuilder<Diagnostic>();
+
+            if (builders.Count == 0)
+                return new Dictionary<SyntaxNode, ImmutableArray<Diagnostic>>(ReferenceEqualityComparer.Instance);
+
+            foreach (var binderState in _binderCache.Values)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                foreach (var diagnostic in binderState.Diagnostics.AsEnumerable())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    foreach (var owner in owners)
+                    {
+                        if (BelongsToOwner(diagnostic, owner))
+                        {
+                            builders[owner].Add(diagnostic);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var result = new Dictionary<SyntaxNode, ImmutableArray<Diagnostic>>(ReferenceEqualityComparer.Instance);
+            foreach (var (owner, builder) in builders)
+                result[owner] = builder.ToImmutable();
+
+            return result;
+        }
+
         void ClearCachedBoundNodes(Text.TextSpan span)
         {
             var seen = new HashSet<SyntaxNode>(ReferenceEqualityComparer.Instance);
@@ -823,6 +917,8 @@ public partial class SemanticModel
 
             foreach (var node in nodes)
                 RemoveCachedBoundNode(node);
+
+            ClearBoundDiagnostics(span);
         }
 
         Binder GetRootBinderForCompleteDiagnostics(SyntaxNode root)
@@ -998,6 +1094,31 @@ public partial class SemanticModel
                 _ = attributeBinder.BindAttribute(attributeSyntax);
             }
         }
+    }
+
+    private void StoreBoundDiagnostics(SyntaxNode node, ImmutableArray<Diagnostic> diagnostics)
+    {
+        _boundNodeDiagnostics[node] = diagnostics;
+    }
+
+    internal bool TryGetCachedBoundDiagnostics(SyntaxNode node, out ImmutableArray<Diagnostic> diagnostics)
+        => _boundNodeDiagnostics.TryGetValue(node, out diagnostics);
+
+    private void ClearBoundDiagnostics(Text.TextSpan span)
+    {
+        var nodes = _boundNodeDiagnostics.Keys
+            .Where(node =>
+                ReferenceEquals(node.SyntaxTree, SyntaxTree) &&
+                node.Span.IntersectsWith(span))
+            .ToArray();
+
+        foreach (var node in nodes)
+            _boundNodeDiagnostics.TryRemove(node, out _);
+    }
+
+    private void RemoveBoundDiagnostics(SyntaxNode node)
+    {
+        _boundNodeDiagnostics.TryRemove(node, out _);
     }
 
     private static bool ShouldPreserveBinderDiagnosticsDuringExecutableRebind(Binder binderState)
@@ -1561,7 +1682,6 @@ public partial class SemanticModel
         }
         else if (node is StatementSyntax statement)
         {
-            EnsureDiagnosticBindingCompleted();
             info = TryGetBoundNodeForSemanticQuery(statement, out var boundStatementNode) &&
                    boundStatementNode is BoundStatement boundStatement
                 ? boundStatement.GetSymbolInfo()
@@ -2540,52 +2660,64 @@ public partial class SemanticModel
         if (invocation is null)
             return false;
 
-        if (!TryGetAvailableInvocationCandidates(invocation, out var methods) ||
-            methods.IsDefaultOrEmpty)
+        if (!_availableInvocationSymbolInfoInProgress.TryAdd(invocation, 0))
         {
             return false;
         }
 
-        if (methods.Any(static method => method.TypeParameters.Length > 0))
+        try
         {
-            if (TryGetInvocationGenericName(invocation.Expression) is { } genericName)
+            if (!TryGetAvailableInvocationCandidates(invocation, out var methods) ||
+                methods.IsDefaultOrEmpty)
             {
-                var typeArguments = ResolveAvailableTypeArguments(genericName.TypeArgumentList);
-                if (typeArguments.IsDefaultOrEmpty ||
-                    typeArguments.Length != genericName.TypeArgumentList.Arguments.Count)
+                return false;
+            }
+
+            if (methods.Any(static method => method.TypeParameters.Length > 0))
+            {
+                if (TryGetInvocationGenericName(invocation.Expression) is { } genericName)
                 {
-                    return false;
+                    var typeArguments = ResolveAvailableTypeArguments(genericName.TypeArgumentList);
+                    if (typeArguments.IsDefaultOrEmpty ||
+                        typeArguments.Length != genericName.TypeArgumentList.Arguments.Count)
+                    {
+                        return false;
+                    }
+
+                    methods = methods
+                        .Select(method => method.TypeParameters.Length == typeArguments.Length
+                            ? method.Construct(typeArguments.ToArray())
+                            : method)
+                        .ToImmutableArray();
                 }
+                else if (!HasFunctionExpressionArgument(invocation))
+                {
+                    methods = methods
+                        .Select(method => ConstructAvailableGenericInvocationCandidate(method, invocation))
+                        .Where(static method => method.TypeParameters.Length == 0 || !HasUnresolvedMethodTypeParameters(method))
+                        .ToImmutableArray();
+                    if (methods.IsDefaultOrEmpty)
+                        return false;
+                }
+            }
 
-                methods = methods
-                    .Select(method => method.TypeParameters.Length == typeArguments.Length
-                        ? method.Construct(typeArguments.ToArray())
-                        : method)
-                    .ToImmutableArray();
-            }
-            else if (!HasFunctionExpressionArgument(invocation))
-            {
-                methods = methods
-                    .Select(method => ConstructAvailableGenericInvocationCandidate(method, invocation))
-                    .Where(static method => method.TypeParameters.Length == 0 || !HasUnresolvedMethodTypeParameters(method))
-                    .ToImmutableArray();
-                if (methods.IsDefaultOrEmpty)
-                    return false;
-            }
+            var candidates = methods.Cast<ISymbol>().ToImmutableArray();
+            var preferred = methods.Length == 1
+                ? methods[0]
+                : TryChooseAvailablePipeInvocationMethodCandidate(methods, invocation) ??
+                  TryChooseAvailableInvocationMethodCandidate(methods, invocation) ??
+                  TryChooseInvocationMethodCandidate(methods, invocation, InvocationCandidateFallback.None);
+
+            info = preferred is null
+                ? new SymbolInfo(CandidateReason.OverloadResolutionFailure, candidates)
+                : new SymbolInfo(preferred, candidates);
+            CacheAvailableInvocationSymbolInfo(invocation, info);
+            return true;
         }
-
-        var candidates = methods.Cast<ISymbol>().ToImmutableArray();
-        var preferred = methods.Length == 1
-            ? methods[0]
-            : TryChooseAvailablePipeInvocationMethodCandidate(methods, invocation) ??
-              TryChooseAvailableInvocationMethodCandidate(methods, invocation) ??
-              TryChooseInvocationMethodCandidate(methods, invocation, InvocationCandidateFallback.None);
-
-        info = preferred is null
-            ? new SymbolInfo(CandidateReason.OverloadResolutionFailure, candidates)
-            : new SymbolInfo(preferred, candidates);
-        CacheAvailableInvocationSymbolInfo(invocation, info);
-        return true;
+        finally
+        {
+            _availableInvocationSymbolInfoInProgress.TryRemove(invocation, out _);
+        }
     }
 
     private IMethodSymbol? TryChooseAvailablePipeInvocationMethodCandidate(
@@ -7258,6 +7390,9 @@ public partial class SemanticModel
             return false;
         }
 
+        if (_availableInvocationSymbolInfoInProgress.ContainsKey(invocation))
+            return false;
+
         if (!TryGetInvocationMethodSymbol(invocation, out var method) || method is null)
             return false;
 
@@ -7293,6 +7428,20 @@ public partial class SemanticModel
         InvocationExpressionSyntax invocation,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? method)
     {
+        if (TryGetCachedSymbolInfo(invocation, out var cachedInvocationInfo))
+        {
+            method = cachedInvocationInfo.Symbol as IMethodSymbol
+                ?? cachedInvocationInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+            if (method is not null)
+                return true;
+        }
+
+        if (_availableInvocationSymbolInfoInProgress.ContainsKey(invocation))
+        {
+            method = null;
+            return false;
+        }
+
         var invocationInfo = GetSymbolInfo(invocation);
         method = invocationInfo.Symbol as IMethodSymbol
             ?? invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
@@ -10184,9 +10333,8 @@ public partial class SemanticModel
             return TypedConstant.CreatePrimitive(typeInfo.ConvertedType ?? typeInfo.Type, value);
         }
 
-        EnsureDiagnosticBindingCompleted();
-
-        if (GetBoundNode(expression) is not BoundExpression boundExpression)
+        if (!TryGetBoundNodeForSemanticQuery(expression, out var boundNode) ||
+            boundNode is not BoundExpression boundExpression)
             return TypedConstant.CreateError(null);
 
         return CreateTypedConstantCore(boundExpression);

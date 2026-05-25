@@ -1,7 +1,5 @@
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -31,8 +29,6 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
 
-    private readonly ConditionalWeakTable<Compilation, ConcurrentDictionary<SyntaxTree, bool>> _semanticDiagnosticSuppressionCache = new();
-
     public override void Initialize(AnalysisContext context)
     {
         context.RegisterSyntaxNodeAction(
@@ -51,7 +47,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
     private void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context)
     {
-        if (HasBlockingSemanticDiagnostics(context))
+        if (HasBlockingSyntaxDiagnostics(context))
             return;
 
         var bodyRoots = GetBodyRoots(context.Node).ToArray();
@@ -127,7 +123,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
     private void AnalyzeCompilationUnit(SyntaxNodeAnalysisContext context)
     {
-        if (HasBlockingSemanticDiagnostics(context))
+        if (HasBlockingSyntaxDiagnostics(context))
             return;
 
         if (context.Node is not CompilationUnitSyntax compilationUnit)
@@ -145,24 +141,14 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         ReportDiagnostics(context, collector.GetCandidates(), usedSymbols);
     }
 
-    private bool HasBlockingSemanticDiagnostics(SyntaxNodeAnalysisContext context)
+    private static bool HasBlockingSyntaxDiagnostics(SyntaxNodeAnalysisContext context)
     {
         var syntaxTree = context.Node.SyntaxTree;
         if (syntaxTree is null)
             return false;
 
-        var treeCache = _semanticDiagnosticSuppressionCache.GetValue(
-            context.Compilation,
-            static _ => new ConcurrentDictionary<SyntaxTree, bool>());
-
-        if (treeCache.TryGetValue(syntaxTree, out var cached))
-            return cached;
-
-        var hasBlockingDiagnostics = context.SemanticModel.GetDocumentDiagnostics(context.CancellationToken)
+        return syntaxTree.GetDiagnostics(context.CancellationToken)
             .Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
-
-        treeCache.TryAdd(syntaxTree, hasBlockingDiagnostics);
-        return hasBlockingDiagnostics;
     }
 
     private static void ReportDiagnostics(

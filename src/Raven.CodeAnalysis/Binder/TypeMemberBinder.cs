@@ -509,13 +509,6 @@ internal partial class TypeMemberBinder : Binder
         {
             ReportMemberNameMatchesContainingTypeIfNeeded(decl.Identifier.ValueText, decl.Identifier.GetLocation());
 
-            if (_containingType.GetMembers(decl.Identifier.ValueText)
-                .OfType<IFieldSymbol>()
-                .Any(field => IsSameEffectiveDeclaration(field, decl)))
-            {
-                return;
-            }
-
             ITypeSymbol? fieldType = decl.TypeAnnotation is null
                 ? null
                 : ResolveTypeSyntaxForSignature(this, decl.TypeAnnotation.Type, RefKind.None);

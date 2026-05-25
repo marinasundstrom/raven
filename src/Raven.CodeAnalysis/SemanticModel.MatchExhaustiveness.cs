@@ -10,8 +10,6 @@ public partial class SemanticModel
         MatchExpressionSyntax matchExpression,
         MatchExhaustivenessOptions options = default)
     {
-        EnsureDiagnosticBindingCompleted();
-
         var boundMatch = GetBoundNode(matchExpression) as BoundMatchExpression;
         if (boundMatch is null)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);

@@ -48,7 +48,17 @@ The purpose is to let symbol queries such as hover, definition, and rename answe
 
 - `GetDeclaredSymbol` should use declaration tables and member signature state.
 - `GetSymbolInfo` should use transferred descriptors or bind only the relevant local area.
+- `GetTypeInfo`, `GetConstantValue`, and related narrow queries should answer from existing
+  state or targeted binding without collecting diagnostics as a side effect.
+- `GetOperation` and focused analysis helpers such as match exhaustiveness should materialize
+  only the bound state needed for the requested operation or analysis result.
 - Language-server hover should use the normal semantic model API. It should not require a separate symbol-query semantic model path.
+
+Public semantic query APIs are not diagnostic-production APIs. They may lazily bind the state
+needed to answer a symbol, type, constant, or operation question, but binder diagnostics should be
+collected by diagnostic APIs such as `GetDiagnostics`. This keeps analyzers, hover, completion, and
+other consumers from accidentally triggering a complete diagnostic pass while asking a narrow
+question.
 
 ### Complete semantic pass
 

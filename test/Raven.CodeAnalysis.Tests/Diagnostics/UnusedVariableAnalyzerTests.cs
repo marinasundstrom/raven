@@ -487,7 +487,7 @@ class C {
     }
 
     [Fact]
-    public void AnalyzeSingleTree_UsesDocumentDiagnosticsForErrorGuard()
+    public void AnalyzeSingleTree_DoesNotRequestDocumentDiagnosticsForErrorGuard()
     {
         var instrumentation = new PerformanceInstrumentation();
         var targetTree = SyntaxTree.ParseText(
@@ -525,7 +525,67 @@ func Broken() -> unit {
 
         Assert.Single(diagnostics);
         Assert.Equal(0, delta.CompleteCalls);
-        Assert.True(delta.DocumentCalls > 0);
+        Assert.Equal(0, delta.DocumentCalls);
+    }
+
+    [Fact]
+    public void SyntaxError_SuppressesUnusedVariableDiagnosticWithoutDocumentDiagnostics()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        var tree = SyntaxTree.ParseText(
+            """
+class C {
+    public func M() -> unit {
+        val count =
+    }
+}
+""");
+        var compilation = Compilation.Create(
+                "lib",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                    .WithPerformanceInstrumentation(instrumentation))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var before = instrumentation.DiagnosticBinding.CaptureSnapshot();
+        var diagnostics = new UnusedVariableAnalyzer()
+            .Analyze(compilation, tree)
+            .Where(d => d.Id == UnusedVariableAnalyzer.DiagnosticId)
+            .ToArray();
+        var delta = DiagnosticBindingInstrumentation.Subtract(
+            instrumentation.DiagnosticBinding.CaptureSnapshot(),
+            before);
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(0, delta.CompleteCalls);
+        Assert.Equal(0, delta.DocumentCalls);
+    }
+
+    [Fact]
+    public void GenericExtensionLambdaChain_DoesNotRecurseDuringUsageAnalysis()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+import System.Linq.Expressions.*
+
+class User(var Name: string, var IsActive: bool)
+
+class C {
+    public func Run(users: IQueryable<User>) -> unit {
+        val query = users
+            |> Where(user => user.IsActive)
+            |> Select(user => user.Name)
+
+        Consume(query)
+    }
+
+    private func Consume(value: object) -> unit { }
+}
+""";
+
+        Assert.Empty(Analyze(code));
     }
 
     private static Diagnostic[] Analyze(string code)

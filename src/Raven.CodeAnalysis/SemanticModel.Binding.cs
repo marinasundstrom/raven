@@ -65,7 +65,7 @@ public partial class SemanticModel
         if (_attributeCache.TryGetValue(attribute, out var cached))
             return cached;
 
-        EnsureDiagnosticBindingCompleted();
+        EnsureBindingReadyForSemanticQuery();
 
         BoundExpression? boundExpression = TryGetCachedBoundNode(attribute) as BoundExpression;
         var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
@@ -75,8 +75,11 @@ public partial class SemanticModel
         {
             var attributeBinder = binder as AttributeBinder
                 ?? new AttributeBinder(binder.ContainingSymbol, binder);
-            boundExpression = attributeBinder.BindAttribute(attribute);
+            boundExpression = attributeBinder.GetOrBindForSemanticQuery(attribute) as BoundExpression;
         }
+
+        if (boundExpression is null)
+            return null;
 
         var data = AttributeDataFactory.Create(boundExpression, attribute);
 
@@ -6794,6 +6797,8 @@ public partial class SemanticModel
 
     internal void RemoveCachedBoundNode(SyntaxNode node)
     {
+        RemoveBoundDiagnostics(node);
+
         if (_boundNodeCache.TryGetValue(node, out var bound))
             _syntaxCache.TryRemove(bound, out _);
 

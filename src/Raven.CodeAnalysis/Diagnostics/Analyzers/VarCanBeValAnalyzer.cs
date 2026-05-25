@@ -411,12 +411,28 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                 if (IsClosureLocal(node.Identifier.ValueText))
                     return;
 
-                var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
-                if (symbol is ILocalSymbol local)
+                if (TryGetLocalSymbol(node) is { } local)
                     _capturedByClosure.Add(local);
             }
 
             base.VisitIdentifierName(node);
+        }
+
+        private ILocalSymbol? TryGetLocalSymbol(IdentifierNameSyntax node)
+        {
+            if (_semanticModel.TryLookupVisibleValueSymbol(node) is { } visibleSymbol &&
+                visibleSymbol.UnderlyingSymbol is ILocalSymbol visibleLocal)
+            {
+                return visibleLocal;
+            }
+
+            if (_semanticModel.GetBinder(node).LookupSymbol(node.Identifier.ValueText) is { } lookedUpSymbol &&
+                lookedUpSymbol.UnderlyingSymbol is ILocalSymbol lookedUpLocal)
+            {
+                return lookedUpLocal;
+            }
+
+            return _semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol as ILocalSymbol;
         }
 
         // --- write marking -------------------------------------------------------

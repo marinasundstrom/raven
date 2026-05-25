@@ -59,10 +59,10 @@ enum State {
     public void MatchExpression_DuCaseSuggestion_OmitsGenericTypeArguments()
     {
         const string code = """
-val result: Result<int, string> = Ok(42)
+val result: Result<int, string> = .Ok(42)
 
 val text = result match {
-    Ok(val value) => value.ToString()
+    .Ok(val value) => value.ToString()
 }
 
 union Result<T, E> {
