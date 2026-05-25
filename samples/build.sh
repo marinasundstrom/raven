@@ -33,7 +33,7 @@ Filters:
 
 Environment overrides:
   DOTNET_VERSION, BUILD_CONFIG, OUTPUT_DIR, RAVEN_CORE, RAVEN_CODE_ANALYSIS,
-  EXCLUSIONS_FILE, CLEAN_OUTPUT, FORCE_REBUILD
+  EXCLUSIONS_FILE, CLEAN_OUTPUT, FORCE_REBUILD, BUILD_REPORT_TSV, BUILD_REPORT_MD
 EOF
 }
 
@@ -83,6 +83,33 @@ if [[ "$CLEAN_OUTPUT" == "1" && -d "$OUTPUT_DIR" ]]; then
   rm -rf "$OUTPUT_DIR"
 fi
 mkdir -p "$OUTPUT_DIR"
+BUILD_REPORT_TSV="${BUILD_REPORT_TSV:-$OUTPUT_DIR/build-report.tsv}"
+BUILD_REPORT_MD="${BUILD_REPORT_MD:-$OUTPUT_DIR/build-report.md}"
+
+timestamp_ms() {
+  perl -MTime::HiRes=time -e 'printf "%d\n", time() * 1000'
+}
+
+format_duration_ms() {
+  perl -e 'printf "%.3f", $ARGV[0] / 1000' "$1"
+}
+
+extract_compile_duration() {
+  awk '
+    /Build (succeeded|failed).* in / {
+      line = $0
+      sub(/^.* in /, "", line)
+      sub(/\r$/, "", line)
+      print line
+    }
+  ' "$1" | tail -n 1
+}
+
+escape_markdown_cell() {
+  local value="$1"
+  value="${value//|/\\|}"
+  printf '%s' "$value"
+}
 
 tracked_source_file() {
   case "$1" in
@@ -335,6 +362,7 @@ fi
 failures=()
 successes=()
 sample_output_dirs=()
+report_rows=()
 
 if [[ -z "${RAVEN_CORE:-}" || ! -f "$RAVEN_CORE" ]]; then
   echo "Warning: Raven.Core.dll not found; samples will be built without --raven-core"
@@ -369,14 +397,29 @@ for file in "${sample_files[@]}"; do
     cmd+=(--raven-core "$RAVEN_CORE")
   fi
 
-  if "${cmd[@]}"; then
+  compile_log="$(mktemp "${TMPDIR:-/tmp}/raven-sample-build.XXXXXX")"
+  started_ms="$(timestamp_ms)"
+  set +e
+  "${cmd[@]}" 2>&1 | tee "$compile_log"
+  rc=${PIPESTATUS[0]}
+  set -e
+  ended_ms="$(timestamp_ms)"
+  wall_ms=$((ended_ms - started_ms))
+  compiler_duration="$(extract_compile_duration "$compile_log")"
+  rm -f "$compile_log"
+  if [[ -z "$compiler_duration" ]]; then
+    compiler_duration="$(format_duration_ms "$wall_ms")s"
+  fi
+
+  if [[ "$rc" -eq 0 ]]; then
     echo "✅ Compile succeeded: $filename"
     successes+=("$file")
     sample_output_dirs+=("$output_dir")
+    report_rows+=("$file"$'\t'"success"$'\t'"$compiler_duration"$'\t'"$wall_ms"$'\t'"0")
   else
-    rc=$?
     echo "❌ Compile failed ($rc): $filename"
     failures+=("$file (exit $rc)")
+    report_rows+=("$file"$'\t'"failed"$'\t'"$compiler_duration"$'\t'"$wall_ms"$'\t'"$rc")
   fi
   echo
 done
@@ -428,9 +471,84 @@ if (( ${#EXCLUDE_PATTERNS[@]} > 0 )); then
   echo "Excludes:  ${EXCLUSIONS_FILE}"
 fi
 echo "Succeeded: ${#successes[@]}"
-for s in "${successes[@]-}"; do echo "  - $s"; done
+if (( ${#successes[@]} > 0 )); then
+  for s in "${successes[@]}"; do echo "  - $s"; done
+fi
 echo "Failed:    ${#failures[@]}"
-for f in "${failures[@]-}"; do echo "  - $f"; done
+if (( ${#failures[@]} > 0 )); then
+  for f in "${failures[@]}"; do echo "  - $f"; done
+fi
+
+mkdir -p "$(dirname "$BUILD_REPORT_TSV")" "$(dirname "$BUILD_REPORT_MD")"
+{
+  printf 'sample\tstatus\tcompiler_duration\twall_ms\twall_s\texit_code\n'
+  if (( ${#report_rows[@]} > 0 )); then
+    for row in "${report_rows[@]}"; do
+      IFS=$'\t' read -r sample status compiler_duration wall_ms exit_code <<< "$row"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$sample" \
+        "$status" \
+        "$compiler_duration" \
+        "$wall_ms" \
+        "$(format_duration_ms "$wall_ms")" \
+        "$exit_code"
+    done
+  fi
+} > "$BUILD_REPORT_TSV"
+
+{
+  printf '# Sample Build Report\n\n'
+  printf -- '- Framework: `%s`\n' "$DOTNET_VERSION"
+  printf -- '- Configuration: `%s`\n' "$BUILD_CONFIG"
+  printf -- '- Output: `%s`\n\n' "$OUTPUT_DIR"
+  printf '## Slowest Samples\n\n'
+  printf '| Sample | Status | Compiler Time | Wall Time | Exit Code |\n'
+  printf '| --- | --- | ---: | ---: | ---: |\n'
+  if (( ${#report_rows[@]} > 0 )); then
+    while IFS=$'\t' read -r sample status compiler_duration wall_ms exit_code; do
+      [[ -z "${sample:-}" ]] && continue
+      if [[ "$status" == "success" ]]; then
+        status_icon="✅"
+      else
+        status_icon="❌"
+      fi
+
+      printf '| `%s` | %s %s | %s | %ss | %s |\n' \
+        "$(escape_markdown_cell "$sample")" \
+        "$status_icon" \
+        "$status" \
+        "$compiler_duration" \
+        "$(format_duration_ms "$wall_ms")" \
+        "$exit_code"
+    done < <(printf '%s\n' "${report_rows[@]}" | sort -t $'\t' -k4,4nr | head -n 20)
+  fi
+
+  printf '\n## All Samples\n\n'
+  printf '| Sample | Status | Compiler Time | Wall Time | Exit Code |\n'
+  printf '| --- | --- | ---: | ---: | ---: |\n'
+  if (( ${#report_rows[@]} > 0 )); then
+    for row in "${report_rows[@]}"; do
+      IFS=$'\t' read -r sample status compiler_duration wall_ms exit_code <<< "$row"
+      if [[ "$status" == "success" ]]; then
+        status_icon="✅"
+      else
+        status_icon="❌"
+      fi
+
+      printf '| `%s` | %s %s | %s | %ss | %s |\n' \
+        "$(escape_markdown_cell "$sample")" \
+        "$status_icon" \
+        "$status" \
+        "$compiler_duration" \
+        "$(format_duration_ms "$wall_ms")" \
+        "$exit_code"
+    done
+  fi
+} > "$BUILD_REPORT_MD"
+
+echo "Reports:"
+echo "  - $BUILD_REPORT_TSV"
+echo "  - $BUILD_REPORT_MD"
 
 # Exit non-zero if any failed; still compiled all files.
 (( ${#failures[@]} > 0 )) && exit 1 || exit 0

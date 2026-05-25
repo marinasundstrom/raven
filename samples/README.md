@@ -43,6 +43,14 @@ DOTNET_VERSION=net11.0 ./build.sh
 ./run.sh -f net11.0
 ```
 
+`build.sh` writes per-sample compile timing reports after every run:
+
+- `samples/output/<tfm>/build-report.tsv`
+- `samples/output/<tfm>/build-report.md`
+
+Use these reports to spot cold one-shot compile regressions and compare timing
+between feature areas without scraping terminal output.
+
 ## Feature-first sample organization
 
 Feature-based categorization for promoting samples into proper cases:
