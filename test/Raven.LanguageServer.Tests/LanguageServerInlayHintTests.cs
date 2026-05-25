@@ -140,6 +140,62 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_AfterInitializerTypeEdit_UpdatesLocalTypeHintAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string initialCode = """
+func Main() -> unit {
+    val value = 1
+}
+""";
+        const string updatedCode = """
+func Main() -> unit {
+    val value = "Raven"
+}
+""";
+
+        await store.UpsertDocumentAsync(uri, initialCode);
+        var initialSourceText = SourceText.From(initialCode);
+        var initialResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(initialSourceText)
+        }, CancellationToken.None);
+
+        var initialInsertion = initialCode.IndexOf("value", StringComparison.Ordinal) + "value".Length;
+        AssertSourceApplicable(initialSourceText, AssertHasHintAtInsertion(initialSourceText, initialResult.ToArray(), initialInsertion, ": int"), initialInsertion, ": int");
+
+        await store.UpsertDocumentAsync(uri, updatedCode);
+        var updatedSourceText = SourceText.From(updatedCode);
+        var updatedResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(updatedSourceText)
+        }, CancellationToken.None);
+
+        var updatedHints = updatedResult.ToArray();
+        var updatedInsertion = updatedCode.IndexOf("value", StringComparison.Ordinal) + "value".Length;
+        AssertSourceApplicable(updatedSourceText, AssertHasHintAtInsertion(updatedSourceText, updatedHints, updatedInsertion, ": string"), updatedInsertion, ": string");
+        updatedHints.ShouldNotContain(static hint => hint.Label.String == ": int");
+    }
+
+    [Fact]
     public async Task Handle_InvocationArguments_ProvidesSourceApplicableParameterNameHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1124,7 +1180,7 @@ func Main() -> unit {
         var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var documentPath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(documentPath);
-        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 45).Select(static i => $"// padding {i}"));
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 90).Select(static i => $"// padding {i}"));
         var code = $$"""
 func Build(value: int) {
     return value + 1
@@ -1497,6 +1553,84 @@ func Main() -> unit {
         var hints = await GetHintsAtInsertionAsync(handler, uri, sourceText, parameterInsertion);
 
         AssertHasHintAtInsertion(sourceText, hints, parameterInsertion, ": User");
+    }
+
+    [Fact]
+    public async Task Handle_EfCoreExpressionTreesSample_FullDocumentProvidesTargetTypedConstructorParameterHintsAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-expression-trees",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        var hints = result.ToArray();
+        var idInsertion = code.IndexOf(".(1, \"Ana\", 29, true)", StringComparison.Ordinal) + ".(".Length;
+        var nameInsertion = code.IndexOf("\"Ana\"", StringComparison.Ordinal);
+        var ageInsertion = code.IndexOf("29, true", StringComparison.Ordinal);
+        var isActiveInsertion = code.IndexOf("true))", StringComparison.Ordinal);
+
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, idInsertion, "Id:"), idInsertion, "Id: ");
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, nameInsertion, "Name:"), nameInsertion, "Name: ");
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, ageInsertion, "Age:"), ageInsertion, "Age: ");
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, hints, isActiveInsertion, "IsActive:"), isActiveInsertion, "IsActive: ");
+    }
+
+    [Fact]
+    public async Task Handle_EfCoreExpressionTreesSample_PreciseRangeProvidesTargetTypedConstructorParameterHintsAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-expression-trees",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var idInsertion = code.IndexOf(".(1, \"Ana\", 29, true)", StringComparison.Ordinal) + ".(".Length;
+        var idHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, idInsertion);
+
+        AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, idHints, idInsertion, "Id:"), idInsertion, "Id: ");
     }
 
     [Fact]

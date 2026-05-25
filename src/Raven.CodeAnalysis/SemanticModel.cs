@@ -2037,6 +2037,9 @@ public partial class SemanticModel
         return false;
     }
 
+    internal bool TryGetContextualTargetTypeForExpression(ExpressionSyntax expression, out ITypeSymbol? targetType)
+        => TryGetTargetTypeForExpression(expression, out targetType);
+
     private bool TryGetArgumentTargetTypeForExpression(ExpressionSyntax expression, out ITypeSymbol? targetType)
     {
         targetType = null;

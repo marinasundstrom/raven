@@ -22,8 +22,8 @@ namespace Raven.LanguageServer;
 internal sealed class InlayHintHandler : IInlayHintsHandler
 {
     private const int MaxUnboundedDocumentLength = 2_000;
-    private const int MaxBroadFullDocumentLength = 1_200;
-    private const int MaxBroadFullDocumentLineCount = 40;
+    private const int MaxBroadFullDocumentLength = MaxUnboundedDocumentLength;
+    private const int MaxBroadFullDocumentLineCount = 80;
     private const int MaxFocusedInlayRangeLength = 2_500;
     private const int MaxCachedInlayHintEntries = 256;
     private const double LargeRangeInlayBudgetMs = 5_000;
@@ -971,6 +971,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 return true;
 
             default:
+                if (TryGetTargetTypedConstructorParameterContext(
+                        semanticModel,
+                        invocation,
+                        out method))
+                {
+                    return true;
+                }
+
                 if (allowBinding &&
                     semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol resolvedMethod)
                 {
@@ -982,6 +990,59 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
                 return false;
         }
+    }
+
+    private static bool TryGetTargetTypedConstructorParameterContext(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? constructor)
+    {
+        constructor = null;
+
+        if (invocation.Expression is not MemberBindingExpressionSyntax memberBinding ||
+            !IsTargetTypedConstructorBinding(memberBinding) ||
+            !semanticModel.TryGetContextualTargetTypeForExpression(invocation, out var targetType) ||
+            targetType is not INamedTypeSymbol targetNamedType ||
+            targetNamedType.TypeKind == TypeKind.Error)
+        {
+            return false;
+        }
+
+        constructor = ChooseConstructorForArgumentCount(
+            targetNamedType,
+            invocation.ArgumentList.Arguments.Count);
+
+        return constructor is not null;
+    }
+
+    private static bool IsTargetTypedConstructorBinding(MemberBindingExpressionSyntax memberBinding)
+        => memberBinding.Name.IsMissing ||
+           memberBinding.Name.Identifier.IsMissing ||
+           string.IsNullOrEmpty(memberBinding.Name.Identifier.ValueText);
+
+    private static IMethodSymbol? ChooseConstructorForArgumentCount(
+        INamedTypeSymbol type,
+        int argumentCount)
+        => type.Constructors.FirstOrDefault(constructor =>
+               SupportsInvocationArgumentCount(constructor.Parameters, argumentCount))
+           ?? type.Constructors.FirstOrDefault();
+
+    private static bool SupportsInvocationArgumentCount(
+        ImmutableArray<IParameterSymbol> parameters,
+        int argumentCount)
+    {
+        var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
+        if (!hasParamsParameter && argumentCount > parameters.Length)
+            return false;
+
+        var required = parameters.Length;
+        while (required > 0 &&
+               (parameters[required - 1].HasExplicitDefaultValue || parameters[required - 1].IsVarParams))
+        {
+            required--;
+        }
+
+        return argumentCount >= required;
     }
 
     private static bool ShouldOfferParameterNameHint(ArgumentSyntax argument)

@@ -312,10 +312,6 @@ function scheduleImportCompletionTrigger(document) {
         void vscode.commands.executeCommand('editor.action.triggerSuggest');
     }, 125);
 }
-function isInferredTypeHintInsertion(change) {
-    return change.rangeLength === 0 &&
-        (change.text.startsWith(': ') || change.text.startsWith(' -> '));
-}
 async function stopClient(reason) {
     const activeClient = client;
     if (!activeClient) {
@@ -526,10 +522,10 @@ function createLanguageClient(context) {
                     inlayHintRequestVersions.set(key, requestVersion);
                     const shouldContinue = await waitForInlayHintQuietPeriod(document, token);
                     if (!shouldContinue) {
-                        return [];
+                        throw new vscode.CancellationError();
                     }
                     if (inlayHintRequestVersions.get(key) !== requestVersion) {
-                        return [];
+                        throw new vscode.CancellationError();
                     }
                     const hints = await next(document, viewPort, token);
                     if (!hints) {
@@ -1225,8 +1221,8 @@ function activate(context) {
             changedAt: Date.now()
         });
         if (areRavenInlayHintsEnabled() &&
-            areInferredTypeInlayHintsEnabled() &&
-            event.contentChanges.some(isInferredTypeHintInsertion)) {
+            (areInferredTypeInlayHintsEnabled() || areNameInlayHintsEnabled()) &&
+            event.contentChanges.length > 0) {
             scheduleInlayHintRefresh();
         }
         if (shouldTriggerImportCompletionAfterQuietPeriod(event)) {

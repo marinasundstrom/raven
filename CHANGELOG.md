@@ -66,6 +66,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   PE case types by stable metadata identity.
 - Unused parameter, method, and property analyzer diagnostics now skip members
   that are required by virtual/override or interface implementation contracts.
+- Fixed full-document and focused-range inlay hints for small real-world files
+  so target-typed constructor shorthand arguments such as
+  `.(1, "Ana", 29, true)` still show source-applicable parameter names.
+- Fixed VS Code inlay refresh behavior so Raven edits re-request visible hints
+  after the existing debounce, and locally superseded inlay requests no longer
+  publish an empty hint set that can make hints flicker off.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused
