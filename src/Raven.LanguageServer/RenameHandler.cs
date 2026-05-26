@@ -41,13 +41,17 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
     {
         try
         {
-            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "prepareRename").ConfigureAwait(false);
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return null;
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
+                request.TextDocument.Uri,
+                context.Value,
+                cancellationToken,
+                "prepareRename").ConfigureAwait(false);
             var semanticModel = semanticAccess.SemanticModel;
             if (semanticModel is null)
                 return null;
@@ -88,7 +92,6 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
     {
         try
         {
-            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "rename").ConfigureAwait(false);
             if (!RenameService.IsValidIdentifier(request.NewName))
                 return null;
 
@@ -98,6 +101,11 @@ internal sealed class RenameHandler : IRenameHandler, IPrepareRenameHandler
 
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
+                request.TextDocument.Uri,
+                context.Value,
+                cancellationToken,
+                "rename").ConfigureAwait(false);
             var semanticModel = semanticAccess.SemanticModel;
             if (semanticModel is null)
                 return null;

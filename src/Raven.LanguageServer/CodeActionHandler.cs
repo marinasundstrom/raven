@@ -84,7 +84,11 @@ internal sealed class CodeActionHandler : ICodeActionHandler
 
             if (supportsRefactorRewrite)
             {
-                using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "codeAction").ConfigureAwait(false);
+                using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
+                    request.TextDocument.Uri,
+                    context.Value,
+                    cancellationToken,
+                    "codeAction").ConfigureAwait(false);
                 var semanticModel = semanticAccess.SemanticModel;
                 var root = syntaxTree.GetRoot(cancellationToken);
                 if (semanticModel is not null &&

@@ -1200,6 +1200,36 @@ func Main() -> () {
     }
 
     [Fact]
+    public async Task EnterDocumentSemanticModelAccessAsync_WithContext_UsesProvidedSnapshotAsync()
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync("""
+func Main() -> () {
+    val number = 42
+}
+""");
+
+        var firstContext = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        firstContext.ShouldNotBeNull();
+        var expectedModel = firstContext.Value.Compilation.GetSemanticModel(firstContext.Value.SyntaxTree);
+
+        await store.UpsertDocumentAsync(uri, """
+func Main() -> () {
+    val value = 100
+}
+""");
+
+        using var access = await store.EnterDocumentSemanticModelAccessAsync(
+            uri,
+            firstContext.Value,
+            CancellationToken.None,
+            "test");
+
+        access.SemanticModel.ShouldNotBeNull();
+        ReferenceEquals(expectedModel, access.SemanticModel).ShouldBeTrue();
+        ReferenceEquals(firstContext.Value.SyntaxTree, access.SemanticModel!.SyntaxTree).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task EnterDocumentSemanticModelAccessAsync_DoesNotWaitForCompilerGateAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
@@ -1219,7 +1249,7 @@ func Main() -> () {
     }
 
     [Fact]
-    public async Task TryEnterDocumentSemanticModelAccessAsync_SkipsWhenCompilerGateIsBusyAsync()
+    public async Task TryEnterDocumentSemanticModelAccessAsync_DoesNotWaitForCompilerGateAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""
 func Main() -> () {
@@ -1228,6 +1258,24 @@ func Main() -> () {
 """);
 
         using var compilerLease = await store.EnterCompilerAccessAsync(CancellationToken.None, "test", uri);
+
+        var access = await store.TryEnterDocumentSemanticModelAccessAsync(uri, CancellationToken.None, "inlayHint");
+
+        access.ShouldNotBeNull();
+        access.SemanticModel.ShouldNotBeNull();
+        access.Dispose();
+    }
+
+    [Fact]
+    public async Task TryEnterDocumentSemanticModelAccessAsync_SkipsWhenDocumentSemanticGateIsBusyAsync()
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync("""
+func Main() -> () {
+    val number = 42
+}
+""");
+
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
 
         var access = await store.TryEnterDocumentSemanticModelAccessAsync(uri, CancellationToken.None, "inlayHint");
 

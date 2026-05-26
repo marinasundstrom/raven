@@ -100,7 +100,12 @@ internal sealed class CompletionHandler : ICompletionHandler
                 return new CompletionList(importItems, isIncomplete: false);
             }
 
-            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "completion").ConfigureAwait(false);
+            gateWaitStopwatch.Restart();
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
+                request.TextDocument.Uri,
+                context.Value,
+                cancellationToken,
+                "completion").ConfigureAwait(false);
             gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();

@@ -49,8 +49,6 @@ internal sealed class DefinitionHandler : IDefinitionHandler
 
         try
         {
-            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(request.TextDocument.Uri, cancellationToken, "definition").ConfigureAwait(false);
-            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
             var stageStopwatch = Stopwatch.StartNew();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, cancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -59,6 +57,13 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             var document = context.Value.Document;
             var syntaxTree = context.Value.SyntaxTree;
             var sourceText = context.Value.SourceText;
+            gateWaitStopwatch.Restart();
+            using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
+                request.TextDocument.Uri,
+                context.Value,
+                cancellationToken,
+                "definition").ConfigureAwait(false);
+            gateWaitMs = gateWaitStopwatch.Elapsed.TotalMilliseconds;
             stageStopwatch.Restart();
             var semanticModel = semanticAccess.SemanticModel;
             semanticModelMs = stageStopwatch.Elapsed.TotalMilliseconds;

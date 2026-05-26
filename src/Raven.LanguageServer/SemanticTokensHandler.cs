@@ -143,7 +143,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticModel? semanticModel = null;
             if (useSemanticModel)
             {
-                var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(identifier.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
+                var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(
+                    identifier.TextDocument.Uri,
+                    context.Value,
+                    effectiveCancellationToken).ConfigureAwait(false);
                 semanticModelAccess = semanticModelResult.Access;
                 semanticModel = semanticModelAccess?.SemanticModel;
                 skippedBusy = semanticModelResult.WasSkipped;
@@ -289,10 +292,12 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
     private async Task<(DocumentStore.DocumentSemanticAccess? Access, bool WasSkipped)> TryGetSemanticModelForSemanticTokensAsync(
         DocumentUri uri,
+        DocumentStore.DocumentAnalysisContext context,
         CancellationToken cancellationToken)
     {
         var access = await _documents.TryEnterExistingDocumentSemanticModelAccessAsync(
             uri,
+            context,
             cancellationToken,
             "semanticTokens-semanticModel").ConfigureAwait(false);
         if (access is null)

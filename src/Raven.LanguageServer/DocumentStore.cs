@@ -434,6 +434,35 @@ internal sealed class DocumentStore
         if (semanticModel is null)
             return new DocumentSemanticAccess(null, NoopAccessLease.Instance);
 
+        return await EnterDocumentSemanticModelAccessCoreAsync(
+            uri,
+            semanticModel,
+            cancellationToken,
+            purpose).ConfigureAwait(false);
+    }
+
+    internal async ValueTask<DocumentSemanticAccess> EnterDocumentSemanticModelAccessAsync(
+        DocumentUri uri,
+        DocumentAnalysisContext context,
+        CancellationToken cancellationToken,
+        string? purpose = null)
+    {
+        PreemptBackgroundSemanticWork(uri, purpose);
+
+        var semanticModel = GetSemanticModel(context, uri);
+        return await EnterDocumentSemanticModelAccessCoreAsync(
+            uri,
+            semanticModel,
+            cancellationToken,
+            purpose).ConfigureAwait(false);
+    }
+
+    private async ValueTask<DocumentSemanticAccess> EnterDocumentSemanticModelAccessCoreAsync(
+        DocumentUri uri,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        string? purpose)
+    {
         var stopwatch = Stopwatch.StartNew();
         var lease = await semanticModel.EnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
@@ -461,14 +490,37 @@ internal sealed class DocumentStore
         CancellationToken cancellationToken,
         string? purpose = null)
     {
-        using var compilerLease = await TryEnterCompilerAccessAsync(cancellationToken, purpose ?? "semanticModel", uri).ConfigureAwait(false);
-        if (compilerLease is null)
-            return null;
-
         var semanticModel = await GetSemanticModelAsync(uri, cancellationToken).ConfigureAwait(false);
         if (semanticModel is null)
             return null;
 
+        return await TryEnterDocumentSemanticModelAccessCoreAsync(
+            uri,
+            semanticModel,
+            cancellationToken,
+            purpose).ConfigureAwait(false);
+    }
+
+    internal async ValueTask<DocumentSemanticAccess?> TryEnterDocumentSemanticModelAccessAsync(
+        DocumentUri uri,
+        DocumentAnalysisContext context,
+        CancellationToken cancellationToken,
+        string? purpose = null)
+    {
+        var semanticModel = GetSemanticModel(context, uri);
+        return await TryEnterDocumentSemanticModelAccessCoreAsync(
+            uri,
+            semanticModel,
+            cancellationToken,
+            purpose).ConfigureAwait(false);
+    }
+
+    private async ValueTask<DocumentSemanticAccess?> TryEnterDocumentSemanticModelAccessCoreAsync(
+        DocumentUri uri,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        string? purpose)
+    {
         var stopwatch = Stopwatch.StartNew();
         var lease = await semanticModel.TryEnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
@@ -494,15 +546,32 @@ internal sealed class DocumentStore
         return new DocumentSemanticAccess(semanticModel, lease);
     }
 
+    private SemanticModel GetSemanticModel(DocumentAnalysisContext context, DocumentUri uri)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var setupBefore = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+        var semanticModel = context.Compilation.GetSemanticModel(context.SyntaxTree);
+        stopwatch.Stop();
+
+        if (stopwatch.Elapsed.TotalMilliseconds >= SlowSemanticModelMaterializationThresholdMs)
+        {
+            var setupAfter = context.Compilation.PerformanceInstrumentation.Setup.CaptureSnapshot();
+            var setupDelta = CompilerSetupInstrumentation.Subtract(setupAfter, setupBefore);
+            _logger.LogInformation(
+                "Slow semantic model materialization for {Uri}: total={TotalMs:F1}ms setupDelta=[{SetupDelta}].",
+                uri,
+                stopwatch.Elapsed.TotalMilliseconds,
+                CompilerSetupInstrumentation.FormatDelta(setupDelta));
+        }
+
+        return semanticModel;
+    }
+
     internal async ValueTask<DocumentSemanticAccess?> TryEnterExistingDocumentSemanticModelAccessAsync(
         DocumentUri uri,
         CancellationToken cancellationToken,
         string? purpose = null)
     {
-        using var compilerLease = await TryEnterCompilerAccessAsync(cancellationToken, purpose ?? "existingSemanticModel", uri).ConfigureAwait(false);
-        if (compilerLease is null)
-            return null;
-
         var context = await CreateDocumentAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
         if (context is null)
             return null;
@@ -510,6 +579,35 @@ internal sealed class DocumentStore
         if (!context.Value.Compilation.TryGetExistingSemanticModel(context.Value.SyntaxTree, out var semanticModel))
             return null;
 
+        return await TryEnterExistingDocumentSemanticModelAccessCoreAsync(
+            uri,
+            semanticModel,
+            cancellationToken,
+            purpose).ConfigureAwait(false);
+    }
+
+    internal async ValueTask<DocumentSemanticAccess?> TryEnterExistingDocumentSemanticModelAccessAsync(
+        DocumentUri uri,
+        DocumentAnalysisContext context,
+        CancellationToken cancellationToken,
+        string? purpose = null)
+    {
+        if (!context.Compilation.TryGetExistingSemanticModel(context.SyntaxTree, out var semanticModel))
+            return null;
+
+        return await TryEnterExistingDocumentSemanticModelAccessCoreAsync(
+            uri,
+            semanticModel,
+            cancellationToken,
+            purpose).ConfigureAwait(false);
+    }
+
+    private async ValueTask<DocumentSemanticAccess?> TryEnterExistingDocumentSemanticModelAccessCoreAsync(
+        DocumentUri uri,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        string? purpose)
+    {
         var stopwatch = Stopwatch.StartNew();
         var lease = await semanticModel.TryEnterSemanticAccessAsync(cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();

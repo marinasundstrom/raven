@@ -122,15 +122,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         try
         {
             stageStopwatch.Restart();
-            var syntaxContext = await _documents.GetDocumentSyntaxContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
+            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            if (syntaxContext is null)
+            if (context is null)
             {
                 outcome = "NoContext";
                 return new InlayHintContainer();
             }
 
-            var sourceText = syntaxContext.Value.SourceText;
+            var sourceText = context.Value.SourceText;
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
             effectiveCancellationToken.ThrowIfCancellationRequested();
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
@@ -139,6 +139,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             stageStopwatch.Restart();
             using var semanticAccess = await _documents.TryEnterDocumentSemanticModelAccessAsync(
                 request.TextDocument.Uri,
+                context.Value,
                 effectiveCancellationToken,
                 "inlayHint").ConfigureAwait(false);
             gateWaitMs = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -162,13 +163,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (semanticModel is null)
             {
                 outcome = "NoSemanticModel";
-                return new InlayHintContainer();
-            }
-
-            var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
-            if (context is null)
-            {
-                outcome = "NoContext";
                 return new InlayHintContainer();
             }
 
