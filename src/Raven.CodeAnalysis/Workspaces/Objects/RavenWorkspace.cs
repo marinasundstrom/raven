@@ -18,7 +18,8 @@ public sealed class RavenWorkspace : Workspace
         string sdkVersion,
         string defaultTargetFramework,
         MetadataReference[] frameworkReferences,
-        IProjectSystemService? projectSystemService)
+        IProjectSystemService? projectSystemService,
+        IWorkspaceEventSink? workspaceEventSink)
         : base(
             "Raven",
             new HostServices(
@@ -26,7 +27,8 @@ public sealed class RavenWorkspace : Workspace
                 new PersistenceService(),
                 projectSystemService ?? new CompositeProjectSystemService(
                     new RavenProjectSystemService(),
-                    new MsBuildProjectSystemService())))
+                    new MsBuildProjectSystemService()),
+                workspaceEventSink))
     {
         _sdkVersion = sdkVersion;
         _defaultTargetFramework = defaultTargetFramework;
@@ -41,7 +43,8 @@ public sealed class RavenWorkspace : Workspace
     public static RavenWorkspace Create(
         string? sdkVersion = null,
         string? targetFramework = null,
-        IProjectSystemService? projectSystemService = null)
+        IProjectSystemService? projectSystemService = null,
+        IWorkspaceEventSink? workspaceEventSink = null)
     {
         var pattern = sdkVersion;
         if (!string.IsNullOrWhiteSpace(pattern) && pattern.IndexOf('*') < 0 && pattern.IndexOf('?') < 0)
@@ -53,7 +56,7 @@ public sealed class RavenWorkspace : Workspace
         MetadataReference[] refs = paths.Length == 0
             ? [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]
             : paths.Where(File.Exists).Select(MetadataReference.CreateFromFile).ToArray();
-        return new RavenWorkspace(pattern ?? "*", tfm, refs, projectSystemService);
+        return new RavenWorkspace(pattern ?? "*", tfm, refs, projectSystemService, workspaceEventSink);
     }
 
     internal string DefaultTargetFramework => _defaultTargetFramework;

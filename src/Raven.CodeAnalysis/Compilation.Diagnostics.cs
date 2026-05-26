@@ -258,14 +258,11 @@ public partial class Compilation
             Add(diagnostic);
         }
 
-        using (SuppressSourceNamespaceLookupDeclarationCompletion())
+        var model = GetSemanticModel(syntaxTree);
+        foreach (var diagnostic in model.GetDocumentDiagnostics(cancellationToken))
         {
-            var model = GetSemanticModel(syntaxTree);
-            foreach (var diagnostic in model.GetDocumentDiagnostics(cancellationToken))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Add(diagnostic);
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            Add(diagnostic);
         }
 
         return diagnostics.OrderBy(x => x.Location).ToImmutableArray();

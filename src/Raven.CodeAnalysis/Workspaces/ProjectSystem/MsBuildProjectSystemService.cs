@@ -200,6 +200,11 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         UpdateProperty(root, "RavenAllowNamespaceMemberImports", (project.CompilationOptions?.AllowNamespaceMemberImports ?? true).ToString().ToLowerInvariant());
         var compilationOptions = project.CompilationOptions;
         UpdateProperty(root, "RavenRunAnalyzers", (compilationOptions?.RunAnalyzers ?? true).ToString().ToLowerInvariant());
+        if (compilationOptions is not null && !compilationOptions.DisabledAnalyzers.IsEmpty)
+            UpdateProperty(root, "RavenDisabledAnalyzers", AnalyzerOptionUtilities.FormatAnalyzerNameSet(compilationOptions.DisabledAnalyzers));
+        else
+            RemoveProperty(root, "RavenDisabledAnalyzers");
+
         if (compilationOptions?.ReturnedValueHandlingModeConfigured == true)
             UpdateProperty(root, "RavenReturnedValueHandlingMode", ReturnedValueHandlingOptions.ToProjectFileValue(compilationOptions.ReturnedValueHandlingMode));
         else

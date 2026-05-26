@@ -90,6 +90,42 @@ class C {
     }
 
     [Fact]
+    public void GetDocumentDiagnostics_AfterIncrementalQuery_DoesNotReuseSuppressedImportBinder()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func A(value: int) -> int {
+    return value
+}
+""", path: "Members.rvn");
+        var mainTree = SyntaxTree.ParseText("""
+namespace App
+
+import Utilities.*
+
+func Main() -> int {
+    val x = A(42)
+    return x
+}
+""", path: "Main.rvn");
+        var compilation = CreateCompilation([membersTree, mainTree]);
+        var model = compilation.GetSemanticModel(mainTree);
+        var invocation = mainTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.ToString().StartsWith("A(", StringComparison.Ordinal));
+
+        _ = model.GetSymbolInfo(invocation);
+
+        var diagnostics = model.GetDocumentDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic =>
+            diagnostic.Id == "RAV0103" &&
+            diagnostic.GetMessage().Contains("'A' is not in scope", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void GetSymbolInfo_ForStatement_DoesNotTriggerDiagnosticBinding()
     {
         var instrumentation = new PerformanceInstrumentation();

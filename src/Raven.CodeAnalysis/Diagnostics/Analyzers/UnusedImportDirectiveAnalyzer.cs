@@ -44,17 +44,29 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
         SyntaxNode scope,
         IEnumerable<ImportDirectiveSyntax> imports)
     {
-        foreach (var import in imports)
+        var wildcardImports = imports
+            .Select(import => new
+            {
+                Import = import,
+                HasNamespace = TryGetWildcardNamespaceImport(context.Compilation, import, out _, out var importName),
+                ImportName = importName
+            })
+            .Where(static item => item.HasNamespace)
+            .ToArray();
+
+        if (wildcardImports.Length == 0)
+            return;
+
+        var usageFacts = CollectScopeUsageFacts(context.Compilation, semanticModel, scope, context.CancellationToken);
+
+        foreach (var import in wildcardImports)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
-            if (!TryGetWildcardNamespaceImport(context.Compilation, import, out var importedNamespace, out var importName))
+            if (IsNamespaceUsedInScope(context.Compilation, usageFacts, import.ImportName))
                 continue;
 
-            if (IsNamespaceUsedInScope(context.Compilation, semanticModel, scope, import, importedNamespace, importName, context.CancellationToken))
-                continue;
-
-            context.ReportDiagnostic(Diagnostic.Create(Descriptor, import.Name.GetLocation(), importName));
+            context.ReportDiagnostic(Diagnostic.Create(Descriptor, import.Import.Name.GetLocation(), import.ImportName));
         }
     }
 
@@ -85,15 +97,15 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    private static bool IsNamespaceUsedInScope(
+    private static ScopeUsageFacts CollectScopeUsageFacts(
         Compilation compilation,
         SemanticModel semanticModel,
         SyntaxNode scope,
-        ImportDirectiveSyntax import,
-        INamespaceSymbol importedNamespace,
-        string importName,
         CancellationToken cancellationToken)
     {
+        var syntaxReferenceNames = new HashSet<string>(StringComparer.Ordinal);
+        var referencedNamespaceNames = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var qualifiedName in scope.DescendantNodes().OfType<QualifiedNameSyntax>())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -104,16 +116,15 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
                 namespaceDeclaration.Name.DescendantNodesAndSelf().Contains(qualifiedName, ReferenceEqualityComparer.Instance))
                 continue;
 
-            if (GetLeftmostSimpleName(qualifiedName) is { } leftmost &&
-                ReferencesImportedNamespaceBySyntax(compilation, leftmost, importName))
-                return true;
+            if (GetLeftmostSimpleName(qualifiedName) is { } leftmost)
+                syntaxReferenceNames.Add(leftmost.Identifier.ValueText);
         }
 
         foreach (var name in scope.DescendantNodes().OfType<SimpleNameSyntax>())
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!IsReferenceCandidate(name, import))
+            if (!IsReferenceCandidate(name))
                 continue;
 
             ISymbol? symbol;
@@ -128,27 +139,42 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
 
             if (symbol is null)
             {
-                if (ReferencesImportedNamespaceBySyntax(compilation, name, importName))
-                    return true;
+                syntaxReferenceNames.Add(name.Identifier.ValueText);
 
                 continue;
             }
 
-            if (ReferencesImportedNamespace(symbol, importName))
-                return true;
+            AddReferencedNamespaceNames(symbol, referencedNamespaceNames);
 
-            if (IsQualifiedNameLeftmost(name) && ReferencesImportedNamespaceBySyntax(compilation, name, importName))
+            if (IsQualifiedNameLeftmost(name))
+                syntaxReferenceNames.Add(name.Identifier.ValueText);
+        }
+
+        return new ScopeUsageFacts(syntaxReferenceNames, referencedNamespaceNames);
+    }
+
+    private static bool IsNamespaceUsedInScope(
+        Compilation compilation,
+        ScopeUsageFacts usageFacts,
+        string importName)
+    {
+        foreach (var name in usageFacts.SyntaxReferenceNames)
+        {
+            if (ReferencesImportedNamespaceBySyntax(compilation, name, importName))
+                return true;
+        }
+
+        foreach (var namespaceName in usageFacts.ReferencedNamespaceNames)
+        {
+            if (ReferencesImportedNamespace(namespaceName, importName))
                 return true;
         }
 
         return false;
     }
 
-    private static bool IsReferenceCandidate(SimpleNameSyntax name, ImportDirectiveSyntax import)
+    private static bool IsReferenceCandidate(SimpleNameSyntax name)
     {
-        if (ReferenceEquals(name, import.Name) || name.AncestorsAndSelf().Contains(import, ReferenceEqualityComparer.Instance))
-            return false;
-
         if (name.GetAncestor<ImportDirectiveSyntax>() is not null ||
             name.GetAncestor<AliasDirectiveSyntax>() is not null ||
             name.GetAncestor<BaseNamespaceDeclarationSyntax>() is { } namespaceDeclaration &&
@@ -176,31 +202,42 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
         => name.Parent is QualifiedNameSyntax qualifiedName &&
            ReferenceEquals(qualifiedName.Left, name);
 
-    private static bool ReferencesImportedNamespaceBySyntax(Compilation compilation, SimpleNameSyntax name, string importedNamespaceName)
-        => compilation.SymbolLookup.GetNamespace(importedNamespaceName + "." + name.Identifier.ValueText) is not null;
+    private static bool ReferencesImportedNamespaceBySyntax(Compilation compilation, string name, string importedNamespaceName)
+        => compilation.SymbolLookup.GetNamespace(importedNamespaceName + "." + name) is not null;
 
-    private static bool ReferencesImportedNamespace(ISymbol symbol, string importedNamespaceName)
+    private static void AddReferencedNamespaceNames(ISymbol symbol, HashSet<string> referencedNamespaceNames)
     {
         symbol = symbol.UnderlyingSymbol;
 
         if (symbol is INamespaceSymbol namespaceSymbol)
         {
             var namespaceName = namespaceSymbol.ToMetadataName();
-            if (string.IsNullOrEmpty(namespaceName))
-                return false;
-
-            return IsNestedNamespaceName(namespaceName, importedNamespaceName);
+            if (!string.IsNullOrEmpty(namespaceName))
+                referencedNamespaceNames.Add(namespaceName);
+            return;
         }
 
         var containingNamespaceName = symbol.ContainingNamespace?.ToMetadataName();
-        return !string.IsNullOrEmpty(containingNamespaceName) &&
-               (string.Equals(containingNamespaceName, importedNamespaceName, StringComparison.Ordinal) ||
-                IsNestedNamespaceName(containingNamespaceName, importedNamespaceName));
+        if (!string.IsNullOrEmpty(containingNamespaceName))
+            referencedNamespaceNames.Add(containingNamespaceName);
+    }
+
+    private static bool ReferencesImportedNamespace(string namespaceName, string importedNamespaceName)
+    {
+        if (string.IsNullOrEmpty(namespaceName))
+            return false;
+
+        return string.Equals(namespaceName, importedNamespaceName, StringComparison.Ordinal) ||
+               IsNestedNamespaceName(namespaceName, importedNamespaceName);
     }
 
     private static bool IsNestedNamespaceName(string namespaceName, string ancestorName)
         => namespaceName.Length > ancestorName.Length &&
            namespaceName.StartsWith(ancestorName, StringComparison.Ordinal) &&
            namespaceName[ancestorName.Length] == '.';
+
+    private sealed record ScopeUsageFacts(
+        HashSet<string> SyntaxReferenceNames,
+        HashSet<string> ReferencedNamespaceNames);
 
 }

@@ -186,8 +186,8 @@ public sealed class HeadlessEditSimulationTests : IDisposable
             _store = new DocumentStore(_manager, NullLogger<DocumentStore>.Instance);
             _hoverHandler = new HoverHandler(_store, NullLogger<HoverHandler>.Instance);
             _mainUri = DocumentUri.FromFileSystemPath(_mainPath);
-            _store.UpsertDocument(_mainUri, mainText);
-            _store.UpsertDocument(DocumentUri.FromFileSystemPath(_stablePath), StableText);
+            _store.UpsertDocumentAsync(_mainUri, mainText);
+            _store.UpsertDocumentAsync(DocumentUri.FromFileSystemPath(_stablePath), StableText);
         }
 
         public static HeadlessEditSimulation Create(string root, string mainText)

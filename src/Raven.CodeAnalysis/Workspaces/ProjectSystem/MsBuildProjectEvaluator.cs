@@ -120,6 +120,9 @@ internal static class MsBuildProjectEvaluator
         var runAnalyzers = GetBooleanProperty(project, "RunAnalyzers")
             ?? GetBooleanProperty(project, "RavenRunAnalyzers")
             ?? true;
+        var disabledAnalyzers = AnalyzerOptionUtilities.ParseAnalyzerNameSet(
+            GetOptionalProperty(project, "DisabledAnalyzers") ??
+            GetOptionalProperty(project, "RavenDisabledAnalyzers"));
         var returnedValueHandling = GetReturnedValueHandlingProperty(project);
         var membersPublicByDefault = GetBooleanProperty(project, "MembersPublicByDefault")
             ?? GetBooleanProperty(project, "RavenMembersPublicByDefault");
@@ -132,7 +135,8 @@ internal static class MsBuildProjectEvaluator
             .WithAllowGlobalStatements(allowGlobalStatements)
             .WithAllowNamespaceMembers(allowNamespaceMembers)
             .WithAllowNamespaceMemberImports(allowNamespaceMemberImports)
-            .WithRunAnalyzers(runAnalyzers);
+            .WithRunAnalyzers(runAnalyzers)
+            .WithDisabledAnalyzers(disabledAnalyzers);
 
         if (returnedValueHandling is { } returnedValueHandlingMode)
             compilationOptions = compilationOptions.WithReturnedValueHandlingMode(returnedValueHandlingMode);

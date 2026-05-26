@@ -36,8 +36,11 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
         foreach (var candidate in candidates)
             candidateSymbols.Add(candidate.Symbol.UnderlyingSymbol);
 
+        var candidateNames = candidateSymbols
+            .Select(static symbol => symbol.Name)
+            .ToHashSet(StringComparer.Ordinal);
         var referenced = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        MarkReferences(context.Compilation, candidateSymbols, referenced, context.CancellationToken);
+        MarkReferences(context.Compilation, candidateSymbols, candidateNames, referenced, context.CancellationToken);
 
         foreach (var candidate in candidates)
         {
@@ -99,6 +102,7 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
     private static void MarkReferences(
         Compilation compilation,
         HashSet<ISymbol> candidateSymbols,
+        HashSet<string> candidateNames,
         HashSet<ISymbol> referenced,
         CancellationToken cancellationToken)
     {
@@ -110,6 +114,9 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
             foreach (var node in root.DescendantNodesAndSelf())
             {
                 if (node is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax))
+                    continue;
+
+                if (!CanReferenceCandidate(node, candidateNames))
                     continue;
 
                 ISymbol? symbol = null;
@@ -142,6 +149,16 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
             }
         }
     }
+
+    private static bool CanReferenceCandidate(SyntaxNode node, HashSet<string> candidateNames)
+        => node switch
+        {
+            IdentifierNameSyntax identifier => candidateNames.Contains(identifier.Identifier.ValueText),
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => candidateNames.Contains(name.Identifier.ValueText),
+            InvocationExpressionSyntax { Expression: IdentifierNameSyntax identifier } => candidateNames.Contains(identifier.Identifier.ValueText),
+            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } } => candidateNames.Contains(name.Identifier.ValueText),
+            _ => false
+        };
 
     private readonly struct Candidate
     {

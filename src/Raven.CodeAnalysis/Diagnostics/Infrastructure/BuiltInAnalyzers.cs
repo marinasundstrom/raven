@@ -38,6 +38,9 @@ public static class BuiltInAnalyzers
     private static Project AddAnalyzerIfMissing<TAnalyzer>(Project project)
         where TAnalyzer : DiagnosticAnalyzer, new()
     {
+        if (AnalyzerOptionUtilities.IsAnalyzerDisabled(typeof(TAnalyzer), project.CompilationOptions?.DisabledAnalyzers ?? []))
+            return project;
+
         var exists = project.AnalyzerReferences
             .SelectMany(static reference => reference.GetAnalyzers())
             .Any(analyzer => analyzer is TAnalyzer);

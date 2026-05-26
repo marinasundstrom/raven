@@ -98,16 +98,29 @@ internal sealed class DocumentStore
     public Task<Document> UpsertDocumentAsync(DocumentUri uri, string text)
         => UpsertDocumentAsync(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh: false);
 
-    internal Document UpsertDocument(DocumentUri uri, string text, bool deferMacroConsumerRefresh = false)
-        => UpsertDocument(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh);
+    internal Task<Document> UpsertDocumentAsync(DocumentUri uri, string text, bool deferMacroConsumerRefresh = false)
+        => UpsertDocumentAsync(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh);
+
+    internal async Task<Document> UpsertDocumentAsync(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
+        => (await UpsertDocumentWithResultAsync(uri, text, deferMacroConsumerRefresh)).Document;
+
+    internal async Task<WorkspaceManager.DocumentUpsertResult> UpsertDocumentWithResultAsync(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
+        => ApplyUpsertResult(uri, await _workspaceManager.UpsertDocumentWithResultAsync(uri, text, deferMacroConsumerRefresh), deferMacroConsumerRefresh);
 
     internal Document UpsertDocument(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
         => UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh).Document;
 
-    internal WorkspaceManager.DocumentUpsertResult UpsertDocumentWithResult(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
-    {
-        var result = _workspaceManager.UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh);
+    internal Document UpsertDocument(DocumentUri uri, string text, bool deferMacroConsumerRefresh = false)
+        => UpsertDocument(uri, Raven.CodeAnalysis.Text.SourceText.From(text), deferMacroConsumerRefresh);
 
+    internal WorkspaceManager.DocumentUpsertResult UpsertDocumentWithResult(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
+        => ApplyUpsertResult(uri, _workspaceManager.UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh), deferMacroConsumerRefresh);
+
+    private WorkspaceManager.DocumentUpsertResult ApplyUpsertResult(
+        DocumentUri uri,
+        WorkspaceManager.DocumentUpsertResult result,
+        bool deferMacroConsumerRefresh)
+    {
         if (result.TextChanged)
             RemoveCachedDocumentDiagnostics(uri);
 
@@ -119,12 +132,6 @@ internal sealed class DocumentStore
 
         return result;
     }
-
-    internal Task<Document> UpsertDocumentAsync(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
-        => Task.FromResult(UpsertDocument(uri, text, deferMacroConsumerRefresh));
-
-    internal Task<WorkspaceManager.DocumentUpsertResult> UpsertDocumentWithResultAsync(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
-        => Task.FromResult(UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh));
 
     private void SchedulePostEditSemanticWarmup(DocumentUri uri)
     {
@@ -600,6 +607,14 @@ internal sealed class DocumentStore
             if (shouldSkipWork?.Invoke() == true)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
 
+            if (!_workspaceManager.CanPublishSemanticDiagnostics(uri))
+            {
+                _logger.LogDebug(
+                    "Skipped semantic diagnostics for {Uri}: project-backed root has not loaded successfully.",
+                    uri);
+                return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+            }
+
             var useBusySkip = allowBusySkip;
             using var effectiveCancellation = useBusySkip
                 ? CreateBackgroundSemanticWorkCancellation(cancellationToken)
@@ -908,13 +923,10 @@ internal sealed class DocumentStore
             Add(diagnostic);
         }
 
-        using (compilation.SuppressSourceNamespaceLookupDeclarationCompletion())
+        foreach (var diagnostic in semanticModel.GetDocumentDiagnostics(cancellationToken))
         {
-            foreach (var diagnostic in semanticModel.GetDocumentDiagnostics(cancellationToken))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Add(diagnostic);
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            Add(diagnostic);
         }
 
         return diagnostics.OrderBy(static diagnostic => diagnostic.Location).ToImmutableArray();

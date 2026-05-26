@@ -54,6 +54,29 @@ public sealed class ProjectFileMemberAccessibilityOptionTests
     }
 
     [Fact]
+    public void OpenProject_ReadsDisabledAnalyzersAttribute()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(root, "project");
+        Directory.CreateDirectory(projectDir);
+        File.WriteAllText(Path.Combine(projectDir, "main.rvn"), "class C { M() -> unit { return; } }");
+
+        var projectPath = Path.Combine(projectDir, "App.ravenproj");
+        File.WriteAllText(
+            projectPath,
+            """
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" DisabledAnalyzers="UnusedVariableAnalyzer;VarCanBeValAnalyzer" />
+            """);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        Assert.Contains("UnusedVariableAnalyzer", project.CompilationOptions!.DisabledAnalyzers);
+        Assert.Contains("VarCanBeValAnalyzer", project.CompilationOptions.DisabledAnalyzers);
+    }
+
+    [Fact]
     public void OpenProject_ReadsReturnedValueHandlingAttribute()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -139,6 +162,27 @@ public sealed class ProjectFileMemberAccessibilityOptionTests
         var document = XDocument.Load(projectPath);
         var value = (string?)document.Root?.Attribute("RunAnalyzers");
         Assert.Equal("false", value);
+    }
+
+    [Fact]
+    public void SaveProject_WritesDisabledAnalyzersAttribute()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var projectPath = Path.Combine(root, "App.ravenproj");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "App",
+            filePath: projectPath,
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithDisabledAnalyzers(["UnusedVariableAnalyzer"]));
+
+        workspace.SaveProject(projectId, projectPath);
+
+        var document = XDocument.Load(projectPath);
+        var value = (string?)document.Root?.Attribute("DisabledAnalyzers");
+        Assert.Equal("UnusedVariableAnalyzer", value);
     }
 
     [Fact]

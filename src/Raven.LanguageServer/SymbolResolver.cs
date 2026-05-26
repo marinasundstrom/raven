@@ -27,6 +27,9 @@ internal static partial class SymbolResolver
         if (TryResolvePatternCaseAtOffset(semanticModel, root, offset, out var patternCaseResolution))
             return patternCaseResolution;
 
+        if (TryResolveInvocationArgumentNameAtOffset(semanticModel, root, offset, out var argumentNameResolution))
+            return argumentNameResolution;
+
         if (TryResolveExactLocalOrParameterIdentifierAtOffset(semanticModel, root, offset, out var exactLocalOrParameterResolution))
             return exactLocalOrParameterResolution;
 

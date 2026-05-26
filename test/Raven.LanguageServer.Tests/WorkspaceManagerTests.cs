@@ -543,6 +543,51 @@ func Main() -> unit { }
     }
 
     [Fact]
+    public async Task Diagnostics_ProjectOpenFailure_DoesNotPublishSemanticDiagnosticsFromFallbackProjectAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(_tempRoot, "Broken", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(sourcePath, """
+func Main() -> unit {
+    Missing()
+}
+""");
+
+        var projectSystem = new ThrowingProjectSystemService(
+            new MsBuildProjectSystemService(),
+            failingProjectPath: projectPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        _ = await store.UpsertDocumentAsync(uri, File.ReadAllText(sourcePath));
+
+        var result = await store.TryGetDocumentCompilerDiagnosticsAsync(uri, shouldSkipWork: null, CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task ReloadForWatchedFiles_ProjectOpenFailure_RetriesAfterRelevantFileChangeAsync()
     {
         Directory.CreateDirectory(_tempRoot);

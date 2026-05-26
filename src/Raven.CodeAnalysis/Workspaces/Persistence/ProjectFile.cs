@@ -62,6 +62,8 @@ internal static class ProjectFile
             projectElement.Add(new XAttribute("AllowNamespaceMembers", opts.AllowNamespaceMembers));
             projectElement.Add(new XAttribute("AllowNamespaceMemberImports", opts.AllowNamespaceMemberImports));
             projectElement.Add(new XAttribute("RunAnalyzers", opts.RunAnalyzers));
+            if (!opts.DisabledAnalyzers.IsEmpty)
+                projectElement.Add(new XAttribute("DisabledAnalyzers", AnalyzerOptionUtilities.FormatAnalyzerNameSet(opts.DisabledAnalyzers)));
             if (opts.ReturnedValueHandlingModeConfigured)
                 projectElement.Add(new XAttribute("ReturnedValueHandlingMode", ReturnedValueHandlingOptions.ToProjectFileValue(opts.ReturnedValueHandlingMode)));
             if (opts.MembersPublicByDefaultConfigured)
@@ -117,6 +119,8 @@ internal static class ProjectFile
         var allowNamespaceMemberImportsAttr = (string?)root.Attribute("AllowNamespaceMemberImports")
             ?? (string?)root.Attribute("AllowTopLevelMemberImports");
         var runAnalyzersAttr = (string?)root.Attribute("RunAnalyzers");
+        var disabledAnalyzersAttr = (string?)root.Attribute("DisabledAnalyzers")
+            ?? (string?)root.Attribute("RavenDisabledAnalyzers");
         var returnedValueHandlingAttr = (string?)root.Attribute("ReturnedValueHandlingMode")
             ?? (string?)root.Attribute("RavenReturnedValueHandlingMode")
             ?? (string?)root.Attribute("ReturnedValueHandling")
@@ -148,6 +152,8 @@ internal static class ProjectFile
 
         if (runAnalyzersAttr is string ra && bool.TryParse(ra, out var runAnalyzers))
             options = options.WithRunAnalyzers(runAnalyzers);
+
+        options = options.WithDisabledAnalyzers(AnalyzerOptionUtilities.ParseAnalyzerNameSet(disabledAnalyzersAttr));
 
         if (ReturnedValueHandlingOptions.TryParse(returnedValueHandlingAttr, out var returnedValueHandling))
         {

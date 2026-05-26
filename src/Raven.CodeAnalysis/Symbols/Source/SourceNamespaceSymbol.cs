@@ -37,8 +37,13 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 
     private void EnsureSourceDeclarationsComplete()
     {
-        if (ContainingAssembly is SourceAssemblySymbol sourceAssembly &&
-            !sourceAssembly.Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+        if (ContainingAssembly is not SourceAssemblySymbol sourceAssembly)
+            return;
+
+        if (sourceAssembly.Compilation.SourceDeclarationsDeclared)
+            return;
+
+        if (!sourceAssembly.Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
         {
             sourceAssembly.Compilation.EnsureSourceDeclarationsComplete();
         }

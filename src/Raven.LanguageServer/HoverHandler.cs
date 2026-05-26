@@ -1330,13 +1330,14 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.Parent is VariableDeclaratorSyntax declarator &&
                 token == declarator.Identifier)
             {
+                if (SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, declarator, out var declaratorInfo) &&
+                    (declaratorInfo.Symbol ?? declaratorInfo.CandidateSymbols.FirstOrDefault()) is { } declaratorSymbol)
+                {
+                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaratorSymbol, declarator);
+                }
+
                 if (semanticModel.GetDeclaredSymbol(declarator) is { } declaredSymbol)
                     return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaredSymbol, declarator);
-
-                var declaratorInfo = semanticModel.GetSymbolInfo(declarator);
-                var declaratorSymbol = declaratorInfo.Symbol ?? declaratorInfo.CandidateSymbols.FirstOrDefault();
-                if (declaratorSymbol is not null)
-                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaratorSymbol, declarator);
             }
 
             if (token.Parent is ParameterSyntax parameter &&

@@ -11,6 +11,7 @@ namespace Raven.CodeAnalysis.Diagnostics;
 /// <summary>Base class for analyzers that can produce diagnostics for a compilation.</summary>
 public abstract class DiagnosticAnalyzer
 {
+    private readonly object _initializationGate = new();
     private bool _initialized;
     private readonly List<Action<CompilationAnalysisContext>> _compilationActions = new();
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions = new();
@@ -21,19 +22,21 @@ public abstract class DiagnosticAnalyzer
 
     public virtual ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [];
 
-    /// <summary>Runs the analyzer for the specified compilation.</summary>
-    public IEnumerable<Diagnostic> Analyze(Compilation compilation, CancellationToken cancellationToken = default)
-        => Analyze(compilation, syntaxTree: null, cancellationToken);
-
-    /// <summary>Runs the analyzer for the specified syntax tree in the compilation.</summary>
-    public IEnumerable<Diagnostic> Analyze(Compilation compilation, SyntaxTree? syntaxTree, CancellationToken cancellationToken = default)
+    internal bool TryEnsureInitialized()
     {
-        if (!_initialized)
+        if (_initialized)
+            return true;
+
+        lock (_initializationGate)
         {
+            if (_initialized)
+                return true;
+
             try
             {
                 Initialize(new AnalysisContext(_compilationActions, _syntaxTreeActions, _syntaxNodeActions));
                 _initialized = true;
+                return true;
             }
             catch (OperationCanceledException)
             {
@@ -41,9 +44,26 @@ public abstract class DiagnosticAnalyzer
             }
             catch
             {
-                return [];
+                return false;
             }
         }
+    }
+
+    internal IReadOnlyList<Action<CompilationAnalysisContext>> CompilationActions => _compilationActions;
+
+    internal IReadOnlyList<Action<SyntaxTreeAnalysisContext>> SyntaxTreeActions => _syntaxTreeActions;
+
+    internal IReadOnlyList<SyntaxNodeActionRegistration> SyntaxNodeActions => _syntaxNodeActions;
+
+    /// <summary>Runs the analyzer for the specified compilation.</summary>
+    public IEnumerable<Diagnostic> Analyze(Compilation compilation, CancellationToken cancellationToken = default)
+        => Analyze(compilation, syntaxTree: null, cancellationToken);
+
+    /// <summary>Runs the analyzer for the specified syntax tree in the compilation.</summary>
+    public IEnumerable<Diagnostic> Analyze(Compilation compilation, SyntaxTree? syntaxTree, CancellationToken cancellationToken = default)
+    {
+        if (!TryEnsureInitialized())
+            return [];
 
         var diagnostics = new List<Diagnostic>();
         var syntaxTrees = syntaxTree is null
@@ -137,6 +157,24 @@ public interface ICompilationOptionsAwareAnalyzer
     bool ShouldAnalyze(CompilationOptions options);
 }
 
+/// <summary>
+/// Defines the invalidation scope for diagnostics produced by a syntax-node analyzer action.
+/// </summary>
+public enum SyntaxNodeAnalysisScope
+{
+    /// <summary>
+    /// Diagnostics produced by the action may depend on the containing document or semantic state outside the
+    /// analyzed node. This is the safe default and requires rerunning the action when the document changes.
+    /// </summary>
+    Document,
+
+    /// <summary>
+    /// Diagnostics produced by the action depend only on the analyzed node and its stable semantic context.
+    /// The analyzer driver may reuse diagnostics for unchanged nodes across document updates.
+    /// </summary>
+    Node
+}
+
 /// <summary>Context used to register analysis actions.</summary>
 public sealed class AnalysisContext
 {
@@ -177,6 +215,16 @@ public sealed class AnalysisContext
     /// one of the provided <paramref name="syntaxKinds"/>.
     /// </summary>
     public void RegisterSyntaxNodeAction(Action<SyntaxNodeAnalysisContext> action, params SyntaxKind[] syntaxKinds)
+        => RegisterSyntaxNodeAction(action, SyntaxNodeAnalysisScope.Document, syntaxKinds);
+
+    /// <summary>
+    /// Registers an action executed for syntax nodes whose <see cref="SyntaxNode.Kind"/> matches
+    /// one of the provided <paramref name="syntaxKinds"/>, with an explicit invalidation <paramref name="scope"/>.
+    /// </summary>
+    public void RegisterSyntaxNodeAction(
+        Action<SyntaxNodeAnalysisContext> action,
+        SyntaxNodeAnalysisScope scope,
+        params SyntaxKind[] syntaxKinds)
     {
         if (action is null)
             throw new ArgumentNullException(nameof(action));
@@ -184,8 +232,12 @@ public sealed class AnalysisContext
         if (syntaxKinds is null || syntaxKinds.Length == 0)
             throw new ArgumentException("At least one syntax kind must be provided.", nameof(syntaxKinds));
 
+        if (!Enum.IsDefined(scope))
+            throw new ArgumentOutOfRangeException(nameof(scope));
+
         _syntaxNodeActions.Add(new SyntaxNodeActionRegistration(
             action,
+            scope,
             syntaxKinds.ToHashSet()));
     }
 }
@@ -298,4 +350,5 @@ public readonly struct SyntaxNodeAnalysisContext
 
 internal readonly record struct SyntaxNodeActionRegistration(
     Action<SyntaxNodeAnalysisContext> Action,
+    SyntaxNodeAnalysisScope Scope,
     HashSet<SyntaxKind> Kinds);

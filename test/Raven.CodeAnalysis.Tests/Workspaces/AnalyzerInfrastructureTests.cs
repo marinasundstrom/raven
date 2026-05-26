@@ -8,6 +8,14 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public class AnalyzerInfrastructureTests
 {
+    private sealed class CollectingWorkspaceEventSink : IWorkspaceEventSink
+    {
+        public List<WorkspaceEvent> Events { get; } = [];
+
+        public void Report(WorkspaceEvent workspaceEvent)
+            => Events.Add(workspaceEvent);
+    }
+
     private sealed class ReservedPrefixAnalyzer : DiagnosticAnalyzer
     {
         private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
@@ -92,6 +100,26 @@ public class AnalyzerInfrastructureTests
         }
     }
 
+    private sealed class NodeScopedAnalyzer : DiagnosticAnalyzer
+    {
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0004",
+            title: "Node scoped",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Node scoped",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterSyntaxNodeAction(
+                ctx => ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, ctx.Node.GetLocation())),
+                SyntaxNodeAnalysisScope.Node,
+                SyntaxKind.MethodDeclaration);
+        }
+    }
+
     [Fact]
     public void GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics()
     {
@@ -156,6 +184,67 @@ public class AnalyzerInfrastructureTests
     }
 
     [Fact]
+    public void GetDocumentAnalyzerDiagnostics_ReusesAnalyzerDiagnosticsForUnchangedSnapshot()
+    {
+        CountingAnalyzer.AnalyzeCount = 0;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new CountingAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        _ = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+        _ = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+
+        Assert.Equal(1, CountingAnalyzer.AnalyzeCount);
+
+        var updated = workspace.CurrentSolution.WithDocumentText(docId, SourceText.From("val x = 2"));
+        workspace.TryApplyChanges(updated);
+        _ = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+
+        Assert.Equal(2, CountingAnalyzer.AnalyzeCount);
+    }
+
+    [Fact]
+    public void GetDocumentAnalyzerDiagnostics_WithExistingCompilation_ReusesAnalyzerDiagnosticsForUnchangedSnapshot()
+    {
+        CountingAnalyzer.AnalyzeCount = 0;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new CountingAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var document = workspace.CurrentSolution.GetDocument(docId)!;
+        var compilation = workspace.CreateAnalysisCompilation(projectId);
+
+        _ = workspace.GetDocumentAnalyzerDiagnostics(document, compilation);
+        _ = workspace.GetDocumentAnalyzerDiagnostics(document, compilation);
+
+        Assert.Equal(1, CountingAnalyzer.AnalyzeCount);
+    }
+
+    [Fact]
     public void GetDiagnostics_ExternalAnalyzerWithReservedRavPrefix_Throws()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -210,6 +299,40 @@ func F() -> unit { }
     }
 
     [Fact]
+    public void GetDiagnostics_SyntaxNodeActionPlan_ReportsInvalidationScopeCounts()
+    {
+        var eventSink = new CollectingWorkspaceEventSink();
+        var workspace = RavenWorkspace.Create(
+            targetFramework: TestMetadataReferences.TargetFramework,
+            workspaceEventSink: eventSink);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+class C {
+    public func M() -> unit { }
+}
+""";
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new NodeKindAnalyzer()));
+        project = project.AddAnalyzerReference(new AnalyzerReference(new NodeScopedAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        _ = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+
+        var actionPlan = eventSink.Events.Single(e => e.Operation == "documentAnalyzer.actionPlan");
+        actionPlan.Detail.ShouldContain("documentScopedSyntaxNodeActions=1");
+        actionPlan.Detail.ShouldContain("nodeScopedSyntaxNodeActions=1");
+    }
+
+    [Fact]
     public void AddBuiltInAnalyzers_WhenCalledMultipleTimes_DoesNotDuplicateReferences()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -228,5 +351,25 @@ func F() -> unit { }
         var countAfterSecondCall = workspace.CurrentSolution.GetProject(projectId)!.AnalyzerReferences.Count;
 
         Assert.Equal(countAfterFirstCall, countAfterSecondCall);
+    }
+
+    [Fact]
+    public void AddBuiltInAnalyzers_RespectsDisabledAnalyzerNames()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithDisabledAnalyzers(["UnusedVariableAnalyzer"]);
+        var solutionWithProject = workspace.CurrentSolution.AddProject(
+            "Test",
+            compilationOptions: options);
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddBuiltInAnalyzers(enableSuggestions: true);
+
+        var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers()).ToArray();
+        analyzers.ShouldNotContain(static analyzer => analyzer is UnusedVariableAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is VarCanBeValAnalyzer);
     }
 }

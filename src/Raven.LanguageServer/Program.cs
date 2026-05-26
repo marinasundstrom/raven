@@ -32,7 +32,11 @@ internal static class Program
             })
             .WithServices(services =>
             {
-                services.AddSingleton(_ => RavenWorkspace.Create());
+                services.AddSingleton<LanguageServerWorkspaceEventSink>();
+                services.AddSingleton<IWorkspaceEventSink>(static provider =>
+                    provider.GetRequiredService<LanguageServerWorkspaceEventSink>());
+                services.AddSingleton(static provider => RavenWorkspace.Create(
+                    workspaceEventSink: provider.GetRequiredService<IWorkspaceEventSink>()));
                 services.AddSingleton<WorkspaceManager>();
                 services.AddSingleton<DocumentStore>();
                 services.AddSingleton<HoverHandler>();

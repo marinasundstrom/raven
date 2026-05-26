@@ -21,6 +21,7 @@ public class Workspace
     private readonly Dictionary<ProjectId, ProjectCompilationState> _projectCompilations = new();
     private readonly Dictionary<ProjectId, ProjectCompilationState> _analysisProjectCompilations = new();
     private readonly ConcurrentDictionary<ProjectDiagnosticsCacheKey, ImmutableArray<Diagnostic>> _projectDiagnosticsCache = new();
+    private readonly ConcurrentDictionary<DocumentAnalyzerDiagnosticsCacheKey, ImmutableArray<Diagnostic>> _documentAnalyzerDiagnosticsCache = new();
 
     protected Workspace(string kind)
         : this(kind, HostServices.Default)
@@ -82,6 +83,7 @@ public class Workspace
             _analysisProjectCompilations.Remove(id);
 
         RemoveStaleProjectDiagnostics(newSolution);
+        RemoveStaleDocumentAnalyzerDiagnostics(newSolution);
 
         OnWorkspaceChanged(new WorkspaceChangeEventArgs(kind, oldSolution, newSolution, projectId, documentId));
         return true;
@@ -94,6 +96,22 @@ public class Workspace
             var project = solution.GetProject(key.ProjectId);
             if (project is null || project.Version != key.Version)
                 _projectDiagnosticsCache.TryRemove(key, out _);
+        }
+    }
+
+    private void RemoveStaleDocumentAnalyzerDiagnostics(Solution solution)
+    {
+        foreach (var key in _documentAnalyzerDiagnosticsCache.Keys)
+        {
+            var project = solution.GetProject(key.ProjectId);
+            var document = project?.GetDocument(key.DocumentId);
+            if (project is null ||
+                document is null ||
+                project.Version != key.ProjectVersion ||
+                document.Version != key.DocumentVersion)
+            {
+                _documentAnalyzerDiagnosticsCache.TryRemove(key, out _);
+            }
         }
     }
 
@@ -310,6 +328,13 @@ public class Workspace
 
     private readonly record struct ProjectDiagnosticsCacheKey(ProjectId ProjectId, VersionStamp Version);
 
+    private readonly record struct DocumentAnalyzerDiagnosticsCacheKey(
+        ProjectId ProjectId,
+        DocumentId DocumentId,
+        VersionStamp ProjectVersion,
+        VersionStamp DocumentVersion,
+        bool ReportSuppressedDiagnostics);
+
     /// <summary>
     /// Gets diagnostics for the specified project, including analyzer diagnostics.
     /// </summary>
@@ -484,8 +509,27 @@ public class Workspace
         if (project.CompilationOptions?.RunAnalyzers == false)
             return [];
 
+        var cacheKey = new DocumentAnalyzerDiagnosticsCacheKey(
+            projectId,
+            documentId,
+            project.Version,
+            document.Version,
+            analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+        if (_documentAnalyzerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
+        {
+            ReportWorkspaceEvent(
+                "documentAnalyzer.cacheHit",
+                project,
+                syntaxTree,
+                elapsedMilliseconds: 0,
+                $"diagnostics={cachedDiagnostics.Length}");
+            return cachedDiagnostics;
+        }
+
         var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
-        return GetDocumentAnalyzerDiagnostics(project, syntaxTree, compilation, analyzerOptions, cancellationToken);
+        var diagnostics = GetDocumentAnalyzerDiagnostics(project, syntaxTree, compilation, analyzerOptions, cancellationToken);
+        _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
+        return diagnostics;
     }
 
     internal ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(
@@ -512,64 +556,59 @@ public class Workspace
         if (document.Project.CompilationOptions?.RunAnalyzers == false)
             return [];
 
-        return GetDocumentAnalyzerDiagnostics(
+        var cacheKey = new DocumentAnalyzerDiagnosticsCacheKey(
+            document.Project.Id,
+            document.Id,
+            document.Project.Version,
+            document.Version,
+            analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+        if (_documentAnalyzerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
+        {
+            ReportWorkspaceEvent(
+                "documentAnalyzer.cacheHit",
+                document.Project,
+                compilationSyntaxTree,
+                elapsedMilliseconds: 0,
+                $"diagnostics={cachedDiagnostics.Length}");
+            return cachedDiagnostics;
+        }
+
+        var diagnostics = GetDocumentAnalyzerDiagnostics(
             document.Project,
             compilationSyntaxTree,
             compilation,
             analyzerOptions,
             cancellationToken);
+        _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
+        return diagnostics;
     }
 
-    private static ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(
+    private ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(
         Project project,
         SyntaxTree syntaxTree,
         Compilation compilation,
         CompilationWithAnalyzersOptions? analyzerOptions,
         CancellationToken cancellationToken)
-    {
-        var diagnostics = new HashSet<Diagnostic>();
+        => DocumentAnalyzerDriver.Run(
+            project,
+            syntaxTree,
+            compilation,
+            analyzerOptions,
+            Services.WorkspaceEventSink,
+            cancellationToken);
 
-        foreach (var reference in project.AnalyzerReferences)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            foreach (var analyzer in reference.GetAnalyzers())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (!ShouldRunAnalyzer(analyzer, project.CompilationOptions, analyzerOptions))
-                    continue;
-
-                var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
-                IEnumerable<Diagnostic> analyzerDiagnostics;
-                try
-                {
-                    analyzerDiagnostics = analyzer.Analyze(compilation, syntaxTree, cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch
-                {
-                    // Analyzer failures should not stop normal compilation diagnostics.
-                    continue;
-                }
-
-                foreach (var diagnostic in analyzerDiagnostics)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    AnalyzerDiagnosticIdValidator.Validate(analyzer, diagnostic, isInternalAnalyzer);
-
-                    var mapped = compilation.ApplyCompilationOptions(diagnostic, analyzerOptions?.ReportSuppressedDiagnostics ?? false);
-                    if (mapped is not null)
-                        diagnostics.Add(mapped);
-                }
-            }
-        }
-
-        return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
-    }
+    private void ReportWorkspaceEvent(
+        string operation,
+        Project project,
+        SyntaxTree syntaxTree,
+        double elapsedMilliseconds,
+        string detail)
+        => Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+            operation,
+            project.Name,
+            syntaxTree.FilePath,
+            elapsedMilliseconds,
+            detail));
 
     private static bool ShouldRunAnalyzer(
         DiagnosticAnalyzer analyzer,
@@ -578,8 +617,10 @@ public class Workspace
     {
         _ = analyzerOptions;
 
-        return analyzer is not ICompilationOptionsAwareAnalyzer awareAnalyzer ||
-            awareAnalyzer.ShouldAnalyze(compilationOptions ?? new CompilationOptions());
+        var options = compilationOptions ?? new CompilationOptions();
+        return !AnalyzerOptionUtilities.IsAnalyzerDisabled(analyzer.GetType(), options.DisabledAnalyzers) &&
+            (analyzer is not ICompilationOptionsAwareAnalyzer awareAnalyzer ||
+             awareAnalyzer.ShouldAnalyze(options));
     }
 
     public ImmutableArray<Diagnostic> GetDocumentSyntaxDiagnostics(

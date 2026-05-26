@@ -436,7 +436,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             _store = new DocumentStore(_manager, new TestOutputLogger<DocumentStore>(output));
             _hoverHandler = new HoverHandler(_store, new TestOutputLogger<HoverHandler>(output));
             _mainUri = DocumentUri.FromFileSystemPath(_mainPath);
-            _store.UpsertDocument(_mainUri, _mainText);
+            _store.UpsertDocumentAsync(_mainUri, _mainText);
         }
 
         public static HeadlessProjectSimulation Create(string root, int stableFileCount, bool runAnalyzers, ITestOutputHelper output)

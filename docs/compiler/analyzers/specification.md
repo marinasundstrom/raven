@@ -27,6 +27,36 @@ runner. Runners must isolate analyzer failures from normal compiler diagnostics.
 authors must still treat unexpected exceptions as bugs and must not use exceptions for
 ordinary source conditions.
 
+The runner owns traversal and invalidation. A cold document analysis may perform one full
+syntax walk and dispatch every registered syntax-node action from that walk. Incremental
+document analysis should reuse previous analyzer diagnostics when the relevant project and
+document snapshot is unchanged, and should rerun only actions whose registered syntax or
+symbol scope intersects the changed region when that information is available. Analyzers must
+not assume that every callback runs on every edit.
+
+Registered actions define the invalidation unit:
+
+- document-scoped syntax-node actions are invalidated by changed nodes of the registered
+  kinds, changed ancestors, and any document-level semantic state they depend on;
+- node-scoped syntax-node actions are invalidated by changed nodes of the registered kinds
+  and by changed stable semantic context for those nodes;
+- syntax-tree actions are invalidated by any change in that syntax tree;
+- compilation actions are invalidated by project-wide inputs such as references, options,
+  analyzer configuration, document set changes, or source declarations they inspect;
+- future symbol actions should be invalidated by the declaration or reference graph for the
+  targeted symbol kind.
+
+The default syntax-node action scope is document-scoped. An analyzer should opt into
+node-scoped invalidation only when rerunning the action for the changed node is enough to
+preserve correctness. This prevents the workspace cache from treating analyzers such as
+unused-symbol checks as local when their diagnostics depend on references elsewhere in the
+document or project.
+
+Analyzer actions are independent from each other. They share immutable compilation and semantic
+model snapshots, report diagnostics into the driver, and must not communicate through mutable
+analyzer state. The driver may therefore run actions sequentially or concurrently, merge their
+diagnostics afterward, and drop stale action results when a newer snapshot supersedes the run.
+
 Cancellation is cooperative. `OperationCanceledException` must propagate and must not be
 converted into a diagnostic.
 
@@ -58,6 +88,8 @@ Source suppression uses the same pragma warning mechanism as compiler diagnostic
 Analyzer participation is controlled by compilation and project options:
 
 - `RunAnalyzers=false` disables analyzer diagnostics for a project.
+- `DisabledAnalyzers` / `RavenDisabledAnalyzers` disables individual built-in analyzers for
+  a project by analyzer type name or fully qualified analyzer type name.
 - Built-in analyzers may implement `ICompilationOptionsAwareAnalyzer` to skip a whole
   analyzer mode before callbacks run.
 - Analyzer mode should be modeled as a named `CompilationOptions` value, not as diagnostic
@@ -65,6 +97,11 @@ Analyzer participation is controlled by compilation and project options:
 
 An opt-in analyzer must stay off when only `.editorconfig` severity is present. Enabling the
 analyzer and choosing diagnostic severity are separate actions.
+
+Analyzer instances are registration/execution objects, not durable cache containers. They
+should not use mutable static state or mutable instance state for semantic results. Any
+per-run state must be scoped to a callback or to an explicit driver-provided start context
+when such APIs exist.
 
 ## Semantic Contract
 

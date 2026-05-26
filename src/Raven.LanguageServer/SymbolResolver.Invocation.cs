@@ -14,6 +14,204 @@ internal static partial class SymbolResolver
     // - direct call targets
     // - constructor/type projection at call sites
     // - contextual union-case invocations such as Ok(...) / Error(...)
+    private static bool TryResolveInvocationArgumentNameAtOffset(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset,
+        [NotNullWhen(true)] out SymbolResolutionResult? resolution)
+    {
+        resolution = null;
+
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Parent is not IdentifierNameSyntax identifier ||
+                identifier.Parent is not NameColonSyntax nameColon ||
+                nameColon.Parent is not ArgumentSyntax argument ||
+                argument.Parent is not ArgumentListSyntax argumentList ||
+                argumentList.Parent is not InvocationExpressionSyntax invocation ||
+                !HaveEquivalentSpan(nameColon.Name, identifier))
+            {
+                continue;
+            }
+
+            if (!identifier.Identifier.Span.Contains(normalizedOffset) &&
+                identifier.Identifier.Span.End != normalizedOffset)
+            {
+                continue;
+            }
+
+            if (!TryResolveInvocationParameter(
+                    semanticModel,
+                    invocation,
+                    argumentList.Arguments,
+                    argument,
+                    out var parameter))
+            {
+                continue;
+            }
+
+            resolution = new SymbolResolutionResult(
+                SymbolResolutionKind.ParameterDeclaration,
+                parameter,
+                identifier);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveInvocationParameter(
+        SemanticModel semanticModel,
+        InvocationExpressionSyntax invocation,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument,
+        [NotNullWhen(true)] out IParameterSymbol? parameter)
+    {
+        parameter = null;
+
+        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableCandidates) &&
+            TryChooseInvocationMethodForArgument(availableCandidates, invocation, arguments, argument, out var method) &&
+            TryGetInvocationParameter(method, invocation, arguments, argument, out parameter))
+        {
+            return true;
+        }
+
+        if (semanticModel.TryGetInvocationTargetSymbolInfo(invocation, out var targetInfo) &&
+            TryChooseInvocationMethodForArgument(targetInfo, invocation, arguments, argument, out method) &&
+            TryGetInvocationParameter(method, invocation, arguments, argument, out parameter))
+        {
+            return true;
+        }
+
+        var invocationInfo = semanticModel.GetSymbolInfo(invocation);
+        return TryChooseInvocationMethodForArgument(invocationInfo, invocation, arguments, argument, out method) &&
+               TryGetInvocationParameter(method, invocation, arguments, argument, out parameter);
+    }
+
+    private static bool TryChooseInvocationMethodForArgument(
+        SymbolInfo symbolInfo,
+        InvocationExpressionSyntax invocation,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument,
+        [NotNullWhen(true)] out IMethodSymbol? method)
+    {
+        method = null;
+
+        if (symbolInfo.Symbol is IMethodSymbol symbolMethod)
+        {
+            method = symbolMethod;
+            return true;
+        }
+
+        if (symbolInfo.Symbol is INamedTypeSymbol symbolType &&
+            TryChooseConstructorForInvocation(symbolType, invocation, out var constructor))
+        {
+            method = constructor;
+            return true;
+        }
+
+        if (symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+        {
+            if (TryChooseConstructorForInvocation(candidateType, invocation, out constructor))
+            {
+                method = constructor;
+                return true;
+            }
+        }
+
+        var candidateMethods = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+        return TryChooseInvocationMethodForArgument(candidateMethods, invocation, arguments, argument, out method);
+    }
+
+    private static bool TryChooseInvocationMethodForArgument(
+        ImmutableArray<IMethodSymbol> methods,
+        InvocationExpressionSyntax invocation,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument,
+        [NotNullWhen(true)] out IMethodSymbol? method)
+    {
+        method = SemanticModel.TryChooseInvocationMethodCandidate(
+            methods,
+            invocation,
+            SemanticModel.InvocationCandidateFallback.None);
+        if (method is not null)
+            return true;
+
+        IMethodSymbol? matchingMethod = null;
+        foreach (var candidate in methods)
+        {
+            if (!TryGetInvocationParameter(candidate, invocation, arguments, argument, out _))
+                continue;
+
+            if (matchingMethod is not null)
+            {
+                method = null;
+                return false;
+            }
+
+            matchingMethod = candidate;
+        }
+
+        method = matchingMethod;
+        return method is not null;
+    }
+
+    private static bool TryGetInvocationParameter(
+        IMethodSymbol method,
+        InvocationExpressionSyntax invocation,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument,
+        [NotNullWhen(true)] out IParameterSymbol? parameter)
+    {
+        parameter = null;
+
+        var receiverOffset = method.IsExtensionMethod &&
+                             invocation.Expression is MemberAccessExpressionSyntax
+            ? 1
+            : 0;
+
+        if (argument.NameColon?.Name.Identifier.ValueText is { Length: > 0 } argumentName)
+        {
+            parameter = method.Parameters
+                .Skip(receiverOffset)
+                .FirstOrDefault(candidate => string.Equals(
+                    candidate.Name,
+                    argumentName,
+                    StringComparison.OrdinalIgnoreCase));
+            return parameter is not null;
+        }
+
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].Span != argument.Span)
+                continue;
+
+            var parameterIndex = i + receiverOffset;
+            if (parameterIndex >= 0 && parameterIndex < method.Parameters.Length)
+            {
+                parameter = method.Parameters[parameterIndex];
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
     private static bool TryResolveInvocationTargetSymbol(
         SemanticModel semanticModel,
         SyntaxNode node,

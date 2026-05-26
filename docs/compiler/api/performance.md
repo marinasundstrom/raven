@@ -13,6 +13,10 @@ or for generators and analyzers that visit many nodes.
 
 - Start with syntax. Use `SyntaxKind`, node shape, names, modifiers, and trivia
   to reject most candidates before asking semantic questions.
+- Register analyzer actions narrowly and let the workspace/analyzer driver own
+  traversal, caching, and invalidation. A cold pass may walk a document once;
+  after edits the driver should be free to rerun only invalidated syntax or
+  symbol scopes.
 - Reuse the `SemanticModel` supplied by the current analyzer, document, or
   generator context. Raven caches per-tree semantic models, but asking for a
   model is still a semantic boundary and may force compilation setup.
@@ -31,6 +35,9 @@ or for generators and analyzers that visit many nodes.
   already available from symbols or syntax.
 - Thread through `CancellationToken` where the API accepts it. Live tooling
   should be able to abandon stale work quickly.
+- Keep analyzers stateless. Do not store mutable semantic results in analyzer
+  instance fields or static fields; keep per-run state local to callbacks or
+  future explicit start-analysis contexts.
 
 ## Expensive operations and alternatives
 

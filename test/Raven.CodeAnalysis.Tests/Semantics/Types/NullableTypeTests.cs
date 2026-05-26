@@ -244,6 +244,79 @@ class Foo {
     }
 
     [Fact]
+    public void NullableFunctionTypeConditionalInvocation_DoesNotReportInvalidInvocation()
+    {
+        var source = """
+class Foo {
+    func Run() -> unit {
+        val f: (() -> ())? = null
+        f?()
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.InvalidInvocation);
+    }
+
+    [Fact]
+    public void NullableFunctionTypeFieldConditionalInvocation_DoesNotReportInvalidInvocation()
+    {
+        var source = """
+class Foo {
+    private val f: (() -> ())?
+
+    init(f: (() -> ())?) {
+        self.f = f
+    }
+
+    func Run() -> unit {
+        f?()
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.InvalidInvocation);
+    }
+
+    [Fact]
+    public void NullableFunctionTypeFieldConditionalInvocationInsideLambda_DoesNotReportInvalidInvocation()
+    {
+        var source = """
+class Foo {
+    private val f: (() -> ())?
+
+    init(f: (() -> ())?) {
+        self.f = f
+    }
+
+    func Use(callback: () -> ()) -> unit {
+        callback()
+    }
+
+    func Run() -> unit {
+        Use(func () => {
+            f?()
+        })
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.InvalidInvocation);
+    }
+
+    [Fact]
     public void NullableDelegateInvocation_AfterNullCheck_AllowsAccess()
     {
         var source = """

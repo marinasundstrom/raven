@@ -3230,6 +3230,57 @@ class C {
     }
 
     [Fact]
+    public void SymbolResolver_NamedFunctionArgumentHover_ResolvesParameter()
+    {
+        const string code = """
+func StackPanel(spacing: double = 0, content: (() -> ())? = null) -> () {
+}
+
+class C {
+    func Run() -> unit {
+        StackPanel(spacing: 8.0) {
+            Console.WriteLine("Hello")
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        compilation = compilation.AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var identifier = root.DescendantNodes()
+            .OfType<ArgumentSyntax>()
+            .Single(argument => argument.NameColon?.Name.Identifier.ValueText == "spacing")
+            .NameColon!.Name;
+        var hoverOffset = identifier.Identifier.SpanStart + 1;
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+        var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        parameter.Name.ShouldBe("spacing");
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForHover.Invoke(
+            null,
+            [parameter, resolution.Value.Node, semanticModel, root, hoverOffset])!;
+
+        signature.ShouldContain("spacing:");
+        signature.ShouldContain("double");
+        signature.ShouldNotContain("<Error>");
+    }
+
+    [Fact]
     public void SymbolResolver_MemberBindingHover_ResolvesActualMember()
     {
         const string code = """

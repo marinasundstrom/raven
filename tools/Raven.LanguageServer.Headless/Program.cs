@@ -55,7 +55,9 @@ var filePath = scenario?.FilePath ??
 var text = File.ReadAllText(filePath);
 var uri = DocumentUri.FromFileSystemPath(filePath);
 
-var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+var workspace = RavenWorkspace.Create(
+    targetFramework: "net10.0",
+    workspaceEventSink: new HeadlessWorkspaceEventSink());
 var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
 manager.Initialize(new InitializeParams
 {
@@ -134,7 +136,10 @@ if (options.InlayRange is { } inlayRange)
     }
 
     if (options.PrintDiagnostics)
+    {
         await RunDocumentDiagnosticsProbeAsync("after-inlay");
+        await RunDocumentDiagnosticsProbeAsync("after-inlay-with-analyzers", DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
+    }
 
     return;
 }
@@ -306,7 +311,9 @@ async Task RunReplayScenarioAsync(NamedReplayScenario replayScenario)
     }
 }
 
-async Task RunDocumentDiagnosticsProbeAsync(string label)
+async Task RunDocumentDiagnosticsProbeAsync(
+    string label,
+    DocumentStore.DiagnosticLane lane = DocumentStore.DiagnosticLane.DocumentCompiler)
 {
     var setupBefore = CaptureSetupSnapshot();
     var diagnosticBindingBefore = context.Compilation.PerformanceInstrumentation.DiagnosticBinding.CaptureSnapshot();
@@ -314,7 +321,7 @@ async Task RunDocumentDiagnosticsProbeAsync(string label)
     var stopwatch = Stopwatch.StartNew();
     var diagnostics = await store.TryGetDiagnosticsAsync(
         uri,
-        DocumentStore.DiagnosticLane.DocumentCompiler,
+        lane,
         shouldSkipWork: null,
         CancellationToken.None);
     stopwatch.Stop();
@@ -329,6 +336,7 @@ async Task RunDocumentDiagnosticsProbeAsync(string label)
 
     Console.WriteLine(
         $"diagnostics {label}: {stopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"lane={lane} " +
         $"count={diagnostics.Diagnostics.Count} errors={errorCount} " +
         $"setupDelta=[{CompilerSetupInstrumentation.FormatDelta(setupDelta)}] " +
         $"diagnosticBindingDelta=[{DiagnosticBindingInstrumentation.FormatDelta(diagnosticBindingDelta)}] " +
@@ -1988,5 +1996,20 @@ internal sealed class HeadlessConsoleLogger<T> : ILogger<T>
         public void Dispose()
         {
         }
+    }
+}
+
+internal sealed class HeadlessWorkspaceEventSink : IWorkspaceEventSink
+{
+    public void Report(WorkspaceEvent workspaceEvent)
+    {
+        if (workspaceEvent.ElapsedMilliseconds < 50)
+            return;
+
+        Console.WriteLine(
+            $"workspace {workspaceEvent.Operation}: {workspaceEvent.ElapsedMilliseconds:F1}ms " +
+            $"project={workspaceEvent.ProjectName ?? "<none>"} " +
+            $"document={workspaceEvent.DocumentPath ?? "<none>"} " +
+            $"{workspaceEvent.Detail}");
     }
 }

@@ -39,7 +39,13 @@ arguments, and optional properties.
 : Runs once per syntax tree. Use for checks that need file-wide context.
 
 `RegisterSyntaxNodeAction(Action<SyntaxNodeAnalysisContext>, params SyntaxKind[])`
-: Runs for matching syntax nodes. Use for most analyzers.
+: Runs for matching syntax nodes. Use for most analyzers. The action is document-scoped by
+default for safe invalidation.
+
+`RegisterSyntaxNodeAction(Action<SyntaxNodeAnalysisContext>, SyntaxNodeAnalysisScope, params SyntaxKind[])`
+: Runs for matching syntax nodes with an explicit invalidation scope. Use
+`SyntaxNodeAnalysisScope.Node` only for diagnostics that are local to the analyzed node and
+its stable semantic context.
 
 Analyzer runners call registered actions for each compilation or document scope requested by
 the workspace. Analyzer implementations should assume callbacks may run often during typing.
@@ -112,6 +118,8 @@ See [Operations API](../api/operations.md) and
 same options pipeline as compiler diagnostics:
 
 - `RunAnalyzers=false` disables analyzer diagnostics for the project.
+- `DisabledAnalyzers` / `RavenDisabledAnalyzers` disables individual built-in analyzers by
+  analyzer type name or fully qualified type name.
 - `SpecificDiagnosticOptions` maps diagnostic severities and suppression.
 - `ICompilationOptionsAwareAnalyzer.ShouldAnalyze` can skip a whole analyzer before it runs.
 - Analyzer diagnostics are validated so external analyzers cannot use the reserved `RAV`

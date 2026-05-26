@@ -30,9 +30,14 @@ Example MSBuild-style `.rvnproj`:
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
+    <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeValAnalyzer</RavenDisabledAnalyzers>
   </PropertyGroup>
 </Project>
 ```
+
+`RavenDisabledAnalyzers` disables whole built-in analyzers by analyzer type name or fully
+qualified analyzer type name. Values may be separated with `;`, `,`, or whitespace. The
+short unqualified type name is preferred for project files.
 
 Boolean compatibility properties such as `EnableReturnedValueAnalyzer` and
 `RavenEnableReturnedValueAnalyzer` map to the same mode selection. The only non-off

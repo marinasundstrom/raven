@@ -60,6 +60,7 @@ internal sealed class WorkspaceManager
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
     private readonly ConcurrentDictionary<ProjectId, CancellationTokenSource> _pendingMacroConsumerRefreshes = new();
     private readonly Dictionary<string, FailedProjectOpen> _failedProjectOpens = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _semanticDiagnosticsBlockedRoots = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ProjectId, ImmutableDictionary<string, ReportDiagnostic>> _editorConfigDiagnosticOptionsByProject = new();
     private readonly PerformanceInstrumentation _compilerPerformanceInstrumentation = new();
     private ImmutableArray<string> _workspaceRoots = ImmutableArray<string>.Empty;
@@ -100,6 +101,7 @@ internal sealed class WorkspaceManager
         {
             _workspace.OpenSolution(_workspace.CreateSolution());
             _projectsByRoot.Clear();
+            _semanticDiagnosticsBlockedRoots.Clear();
             _editorConfigDiagnosticOptionsByProject.Clear();
             _fallbackProjectId = null;
             _documents.Clear();
@@ -107,10 +109,16 @@ internal sealed class WorkspaceManager
 
             foreach (var root in roots)
             {
-                if (TryOpenProjectsForRoot(root, loadedProjects, out var projectId))
+                if (TryOpenProjectsForRoot(root, loadedProjects, out var projectId, out var semanticDiagnosticsBlocked))
+                {
                     _projectsByRoot[root] = projectId;
+                }
                 else
+                {
                     _projectsByRoot[root] = CreateProjectForRoot(root);
+                    if (semanticDiagnosticsBlocked)
+                        _semanticDiagnosticsBlockedRoots.Add(root);
+                }
             }
 
             if (_projectsByRoot.Count == 0)
@@ -207,8 +215,13 @@ internal sealed class WorkspaceManager
         }
     }
 
-    private bool TryOpenProjectsForRoot(string root, Dictionary<string, ProjectId> loadedProjects, out ProjectId projectId)
+    private bool TryOpenProjectsForRoot(
+        string root,
+        Dictionary<string, ProjectId> loadedProjects,
+        out ProjectId projectId,
+        out bool semanticDiagnosticsBlocked)
     {
+        semanticDiagnosticsBlocked = false;
         var projectSystem = _workspace.Services.ProjectSystemService;
         if (projectSystem is null)
         {
@@ -223,6 +236,7 @@ internal sealed class WorkspaceManager
             projectId = default;
             return false;
         }
+        semanticDiagnosticsBlocked = true;
 
         var stack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var loadedProjectPathsForRoot = new List<string>();
@@ -279,6 +293,7 @@ internal sealed class WorkspaceManager
 
         var primaryProjectPath = SelectPrimaryProjectPath(root, successfullyLoadedCandidates);
         projectId = loadedProjects[NormalizePath(primaryProjectPath)];
+        semanticDiagnosticsBlocked = false;
         _logger.LogInformation(
             "Opened {ProjectCount} Raven project(s) for root '{Root}'. Primary project: '{ProjectFilePath}'.",
             successfullyLoadedCandidates.Length,
@@ -614,6 +629,12 @@ internal sealed class WorkspaceManager
     public Task<Document> UpsertDocumentAsync(DocumentUri uri, string text)
         => UpsertDocumentAsync(uri, SourceText.From(text), deferMacroConsumerRefresh: false);
 
+    internal Task<Document> UpsertDocumentAsync(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
+        => Task.FromResult(UpsertDocument(uri, sourceText, deferMacroConsumerRefresh));
+
+    internal Task<DocumentUpsertResult> UpsertDocumentWithResultAsync(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
+        => Task.FromResult(UpsertDocumentWithResult(uri, sourceText, deferMacroConsumerRefresh));
+
     internal Document UpsertDocument(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
         => UpsertDocumentWithResult(uri, sourceText, deferMacroConsumerRefresh).Document;
 
@@ -712,12 +733,6 @@ internal sealed class WorkspaceManager
                 AddedDocument: true);
         }
     }
-
-    internal Task<Document> UpsertDocumentAsync(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
-        => Task.FromResult(UpsertDocument(uri, sourceText, deferMacroConsumerRefresh));
-
-    internal Task<DocumentUpsertResult> UpsertDocumentWithResultAsync(DocumentUri uri, SourceText sourceText, bool deferMacroConsumerRefresh = false)
-        => Task.FromResult(UpsertDocumentWithResult(uri, sourceText, deferMacroConsumerRefresh));
 
     private static bool HasSameText(Document document, SourceText sourceText)
         => document.GetTextAsync(CancellationToken.None).GetAwaiter().GetResult().ContentEquals(sourceText);
@@ -907,6 +922,19 @@ internal sealed class WorkspaceManager
 
         diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
         return false;
+    }
+
+    internal bool CanPublishSemanticDiagnostics(DocumentUri uri)
+    {
+        var documentPath = uri.GetFileSystemPath();
+        if (string.IsNullOrWhiteSpace(documentPath))
+            return true;
+
+        var normalizedPath = NormalizePath(documentPath);
+        lock (_gate)
+        {
+            return !_semanticDiagnosticsBlockedRoots.Any(root => IsWithinRoot(normalizedPath, root));
+        }
     }
 
     internal bool TryGetDocumentAnalyzerDiagnostics(

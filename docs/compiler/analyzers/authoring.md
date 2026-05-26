@@ -74,6 +74,53 @@ Prefer syntax-node actions when the analyzer can naturally start from a declarat
 statement, expression, or pattern. Avoid scanning the full syntax tree from every registered
 node.
 
+Syntax-node actions are document-scoped by default. This is intentionally conservative:
+many checks start from one node but depend on references, declarations, or semantic facts
+elsewhere in the document. Use the explicit `SyntaxNodeAnalysisScope.Node` overload only when
+the diagnostic is truly local to the analyzed node and its stable semantic context.
+
+The workspace analyzer driver is intentionally Roslyn-like: analyzers register callbacks,
+and the workspace decides when and how to invoke those callbacks. A cold document analysis may
+walk the whole syntax tree once and dispatch all registered node actions from that pass. After
+edits, the driver is expected to reuse cached analyzer results and rerun only the actions whose
+registered syntax or symbol scopes were invalidated by the change. Analyzer authors should
+therefore describe their work through narrow actions instead of building their own whole-file
+or whole-project traversal loops.
+
+## State And Incrementality
+
+Treat analyzer instances as stateless executors. `Initialize` should register actions and
+descriptor metadata; it should not capture mutable semantic state that must survive across
+projects, compilations, documents, or edits.
+
+- Do not store mutable analysis results in static fields.
+- Do not store mutable per-compilation or per-document state on the analyzer instance.
+- Use local variables inside an analysis callback for single-action state.
+- If a future Raven API provides compilation-start, symbol-start, or document-start analysis
+  contexts, use those contexts for explicitly scoped per-run state.
+- Assume callbacks may be invoked independently, in a different order, concurrently, or only
+  for syntax/symbol scopes affected by an edit.
+
+This mirrors the compiler's binder-owned cache direction at the workspace level: the workspace
+owns analyzer scheduling, cache reuse, and invalidation; analyzer callbacks describe what they
+need to inspect and report deterministic diagnostics for the supplied scope.
+
+For invalidation, think of each registered action as an independent unit of work:
+
+- a document-scoped syntax-node action is tied to the registered syntax kinds and the
+  containing document;
+- a node-scoped syntax-node action is tied to the registered syntax kinds and may be reused
+  for unchanged nodes;
+- a syntax-tree action is tied to the whole document;
+- a compilation action is tied to project-wide inputs unless the analyzer only uses the
+  document supplied by the context.
+
+The driver may cache diagnostics per action and scope, rerun only invalidated actions after an
+edit, and merge diagnostics from many actions. Analyzer callbacks should therefore be pure with
+respect to the supplied context: they may read syntax, symbols, options, and semantic facts, and
+they may report diagnostics, but they should not rely on another analyzer or another action
+running before them.
+
 ## Semantic Analysis
 
 Use `SyntaxNodeAnalysisContext.SemanticModel` for semantic facts:
@@ -128,6 +175,9 @@ Analyzer participation and diagnostic severity are separate concerns.
 
 - Project files and compilation options decide whether a whole analyzer mode runs.
 - `.editorconfig` decides the severity of diagnostics that are reported.
+- `RavenDisabledAnalyzers` can disable individual built-in analyzers for a project by
+  analyzer type name. Use this for coarse participation control or performance isolation,
+  not for ordinary diagnostic severity policy.
 
 If a built-in analyzer needs a project-file mode, implement
 `ICompilationOptionsAwareAnalyzer`:

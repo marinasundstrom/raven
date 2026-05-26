@@ -176,6 +176,7 @@ public partial class SemanticModel
         string CacheKind,
         bool IsStructuralCacheable,
         bool SourceDeclarationsDeclared,
+        bool SourceNamespaceLookupSuppressed,
         string ContainingSymbolKey,
         string? ParentBinderType,
         string? ParentContainingSymbolKey);
@@ -3538,7 +3539,7 @@ public partial class SemanticModel
             TryLookupAvailableFunctionDeclarations(
                 invocationIdentifier,
                 invocationIdentifier.Identifier.ValueText,
-                allowSourceDeclarationBinding: false,
+                allowSourceDeclarationBinding: true,
                 out var availableFunctions))
         {
             foreach (var function in availableFunctions)
@@ -12160,6 +12161,13 @@ public partial class SemanticModel
                 return false;
         }
 
+        if (_binderLifecycleSnapshots.TryGetValue(binder, out snapshot) &&
+            snapshot.SourceNamespaceLookupSuppressed &&
+            !Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+        {
+            return false;
+        }
+
         return node switch
         {
             MethodDeclarationSyntax => binder is MethodBinder,
@@ -12309,6 +12317,7 @@ public partial class SemanticModel
             isStructuralCacheable ? "StructuralNode" : "ExactNode",
             isStructuralCacheable,
             Compilation.SourceDeclarationsDeclared,
+            Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed,
             CreateBinderSymbolKey(binder.ContainingSymbol),
             binder.ParentBinder?.GetType().Name,
             binder.ParentBinder is null ? null : CreateBinderSymbolKey(binder.ParentBinder.ContainingSymbol));
