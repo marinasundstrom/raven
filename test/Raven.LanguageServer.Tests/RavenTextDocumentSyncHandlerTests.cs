@@ -341,6 +341,69 @@ func Main() -> unit {
     }
 
     [Fact]
+    public void MergePartialDiagnosticsForPublish_KeepsAnalyzerDiagnosticsVisibleAcrossDocumentVersions()
+    {
+        var previous = ImmutableArray.Create(
+            CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning),
+            CreateDiagnosticWithSource(
+                "CSPELL",
+                "\"Avalonia\": Unknown word.",
+                5,
+                7,
+                5,
+                15,
+                "cSpell",
+                DiagnosticSeverity.Information));
+
+        var currentCompilerDiagnostic = CreateDiagnostic(
+            "RAV0030",
+            "Invalid invocation expression.",
+            10,
+            2,
+            10,
+            5,
+            DiagnosticSeverity.Error);
+
+        var merged = RavenTextDocumentSyncHandler.MergePartialDiagnosticsForPublish(
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [currentCompilerDiagnostic],
+            previous);
+
+        merged.Select(static diagnostic => diagnostic.Code?.String).ShouldBe([
+            "CSPELL",
+            "RAV0030",
+            "RAV9030"
+        ]);
+    }
+
+    [Fact]
+    public void MergePartialDiagnosticsForPublish_OnlyCarriesForwardAnalyzerDiagnostics()
+    {
+        var previous = ImmutableArray.Create(
+            CreateDiagnostic("RAV0103", "Name not found", 1, 4, 1, 6, DiagnosticSeverity.Error),
+            CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning));
+
+        var currentCompilerDiagnostic = CreateDiagnostic(
+            "RAV0030",
+            "Invalid invocation expression.",
+            10,
+            2,
+            10,
+            5,
+            DiagnosticSeverity.Error);
+
+        var merged = RavenTextDocumentSyncHandler.MergePartialDiagnosticsForPublish(
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [currentCompilerDiagnostic],
+            previous);
+
+        merged.Select(static diagnostic => diagnostic.Code?.String).ShouldBe([
+            "RAV0030",
+            "RAV9030"
+        ]);
+    }
+
+    [Fact]
     public void MergePartialDiagnosticsForPublish_DoesNotCarryForwardForAnalyzerLane()
     {
         var previous = ImmutableArray.Create(

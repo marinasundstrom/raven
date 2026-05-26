@@ -10,14 +10,27 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UnusedParameterAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
-    public void Analyzer_RegistersSingleDocumentScopedCompilationUnitAction()
+    public void Analyzer_RegistersOwnerScopedSyntaxActions()
     {
         var analyzer = new UnusedParameterAnalyzer();
 
         Assert.True(analyzer.TryEnsureInitialized());
         var registration = Assert.Single(analyzer.SyntaxNodeActions);
         Assert.Equal(SyntaxNodeAnalysisScope.Document, registration.Scope);
-        Assert.Equal([SyntaxKind.CompilationUnit], registration.Kinds.ToArray());
+        var expectedKinds = new[]
+            {
+                SyntaxKind.MethodDeclaration,
+                SyntaxKind.FunctionStatement,
+                SyntaxKind.ConstructorDeclaration,
+                SyntaxKind.OperatorDeclaration,
+                SyntaxKind.ConversionOperatorDeclaration,
+                SyntaxKind.SimpleFunctionExpression,
+                SyntaxKind.ParenthesizedFunctionExpression
+            }
+            .OrderBy(static kind => (int)kind)
+            .ToArray();
+
+        Assert.Equal(expectedKinds, registration.Kinds.ToArray());
     }
 
     [Fact]
@@ -134,6 +147,60 @@ class UiWindow {
         var diagnostic = Assert.Single(AnalyzeAfterCompilerDiagnostics(code));
 
         Assert.Equal("Parameter 'title' is never used.", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void ConstructorWithUnresolvedBodyExpression_StillReportsDefinitelyUnusedParameter()
+    {
+        const string code = """
+class UiStackPanel {
+}
+
+class UiWindow {
+    private val title: string
+
+    init(content: UiStackPanel, title: string) {
+        Content = content
+        MissingCall()
+    }
+
+    val Content: UiStackPanel
+    val Title: string => title
+}
+""";
+
+        var diagnostic = Assert.Single(AnalyzeAfterCompilerDiagnostics(code));
+        Assert.Equal("Parameter 'title' is never used.", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void ConstructorWithIncompleteSemanticUsage_DoesNotReportOtherParametersAsUnused()
+    {
+        const string code = """
+class UiControl {
+}
+
+class List<T> {
+}
+
+class Orientation {
+}
+
+class UiStackPanel : UiControl {
+    private val children: List<UiControl>
+    private val orientation: Orientation
+    private val spacing: double
+
+    init(children: List<UiControl>, orientation: Orientation, spacing: double) {
+        self.children = children
+        self.orientation = orientation
+        self.spacing = spacing
+        MissingCall()
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeAfterCompilerDiagnostics(code));
     }
 
     [Fact]

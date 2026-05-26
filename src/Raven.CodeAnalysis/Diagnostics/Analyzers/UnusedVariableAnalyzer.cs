@@ -70,13 +70,32 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
 
+        if (_reportLocals)
+        {
+            context.RegisterSyntaxNodeAction(
+                AnalyzeCompilationUnit,
+                SyntaxKind.CompilationUnit);
+        }
+
         context.RegisterSyntaxNodeAction(
-            AnalyzeCompilationUnit,
-            SyntaxKind.CompilationUnit);
+            AnalyzeBodyOwner,
+            SyntaxKind.MethodDeclaration,
+            SyntaxKind.FunctionStatement,
+            SyntaxKind.ConstructorDeclaration,
+            SyntaxKind.OperatorDeclaration,
+            SyntaxKind.ConversionOperatorDeclaration,
+            SyntaxKind.SimpleFunctionExpression,
+            SyntaxKind.ParenthesizedFunctionExpression);
     }
+
+    private void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context)
+        => AnalyzeBodyOwner(context, context.Node);
 
     private void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context, SyntaxNode owner)
     {
+        if (HasBlockingSyntaxDiagnostics(context))
+            return;
+
         var bodyRoots = GetBodyRoots(owner).ToArray();
         var usageRoots = GetUsageRoots(owner).ToArray();
 
@@ -84,6 +103,9 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             return;
 
         var facts = OwnerUsageCollector.Collect(context.SemanticModel, owner, _reportLocals, _reportParameters);
+        if (!facts.IsSemanticallyComplete)
+            return;
+
         var candidates = facts.Candidates.ToArray();
         var usedSymbols = facts.UsedSymbols;
 
@@ -156,22 +178,10 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
                 context.SemanticModel,
                 compilationUnit.Members.OfType<GlobalStatementSyntax>());
 
-            ReportDiagnostics(context, facts.Candidates, facts.UsedSymbols);
+            if (facts.IsSemanticallyComplete)
+                ReportDiagnostics(context, facts.Candidates, facts.UsedSymbols);
         }
-
-        foreach (var owner in compilationUnit.DescendantNodes().Where(IsBodyOwner))
-            AnalyzeBodyOwner(context, owner);
     }
-
-    private static bool IsBodyOwner(SyntaxNode node)
-        => node.Kind is
-            SyntaxKind.MethodDeclaration or
-            SyntaxKind.FunctionStatement or
-            SyntaxKind.ConstructorDeclaration or
-            SyntaxKind.OperatorDeclaration or
-            SyntaxKind.ConversionOperatorDeclaration or
-            SyntaxKind.SimpleFunctionExpression or
-            SyntaxKind.ParenthesizedFunctionExpression;
 
     private static bool HasBlockingSyntaxDiagnostics(SyntaxNodeAnalysisContext context)
     {
@@ -190,7 +200,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
     {
         foreach (var candidate in candidates)
         {
-            if (usedSymbols.Contains(candidate.Symbol) ||
+            if (ContainsSymbol(usedSymbols, candidate.Symbol) ||
                 context.SemanticModel.IsCapturedVariable(candidate.Symbol))
             {
                 continue;
@@ -202,6 +212,9 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
                 candidate.Name));
         }
     }
+
+    private static bool ContainsSymbol(IEnumerable<ISymbol> symbols, ISymbol candidate)
+        => symbols.Any(symbol => SymbolEqualityComparer.Default.Equals(symbol, candidate));
 
     private readonly struct Candidate
     {
@@ -226,6 +239,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         private readonly Dictionary<ISymbol, Candidate> _candidates = new(SymbolEqualityComparer.Default);
         private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
         private int _nestedOwnerDepth;
+        private bool _isSemanticallyComplete = true;
 
         private OwnerUsageCollector(SemanticModel semanticModel, bool collectLocals)
         {
@@ -278,7 +292,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         }
 
         private OwnerUsageFacts ToFacts()
-            => new(_candidates.Values.ToArray(), _usedSymbols);
+            => new(_candidates.Values.ToArray(), _usedSymbols, _isSemanticallyComplete);
 
         public override void DefaultVisit(SyntaxNode node)
         {
@@ -411,10 +425,68 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             if (IsWriteTarget(node))
                 return;
 
-            if (_semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol is { } symbol &&
-                TryGetLocalOrParameter(symbol, out var usedSymbol))
+            var symbolInfo = _semanticModel.GetSymbolInfo(node);
+            if (symbolInfo.Symbol?.UnderlyingSymbol is { } symbol)
             {
-                AddUsedSymbol(usedSymbol);
+                if (symbol is IErrorSymbol)
+                {
+                    MarkIncompleteIfCandidateReference(node);
+                    return;
+                }
+
+                if (TryGetLocalOrParameter(symbol, out var usedSymbol))
+                {
+                    AddUsedSymbol(usedSymbol);
+                    TryMarkEquivalentCandidateByNameAndKind(node, usedSymbol);
+                }
+                else
+                {
+                    TryMarkCandidateByName(node);
+                }
+
+                return;
+            }
+
+            if (symbolInfo.CandidateReason != CandidateReason.None ||
+                symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
+            {
+                MarkIncompleteIfCandidateReference(node);
+            }
+        }
+
+        private void MarkIncompleteIfCandidateReference(SyntaxNode node)
+        {
+            if (node is IdentifierNameSyntax identifier &&
+                _candidates.Values.Any(candidate => string.Equals(candidate.Name, identifier.Identifier.ValueText, StringComparison.Ordinal)))
+            {
+                _isSemanticallyComplete = false;
+            }
+        }
+
+        private void TryMarkCandidateByName(SyntaxNode node)
+        {
+            if (node is not IdentifierNameSyntax identifier)
+                return;
+
+            foreach (var candidate in _candidates.Values)
+            {
+                if (string.Equals(candidate.Name, identifier.Identifier.ValueText, StringComparison.Ordinal))
+                    AddUsedSymbol(candidate.Symbol);
+            }
+        }
+
+        private void TryMarkEquivalentCandidateByNameAndKind(SyntaxNode node, ISymbol usedSymbol)
+        {
+            if (node is not IdentifierNameSyntax identifier)
+                return;
+
+            foreach (var candidate in _candidates.Values)
+            {
+                if (candidate.Symbol.Kind == usedSymbol.Kind &&
+                    string.Equals(candidate.Name, identifier.Identifier.ValueText, StringComparison.Ordinal))
+                {
+                    AddUsedSymbol(candidate.Symbol);
+                }
             }
         }
 
@@ -512,5 +584,6 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
 
     private readonly record struct OwnerUsageFacts(
         IReadOnlyCollection<Candidate> Candidates,
-        HashSet<ISymbol> UsedSymbols);
+        HashSet<ISymbol> UsedSymbols,
+        bool IsSemanticallyComplete);
 }

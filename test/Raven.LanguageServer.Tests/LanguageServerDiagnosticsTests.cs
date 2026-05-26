@@ -237,6 +237,84 @@ class UiWindow {
     }
 
     [Fact]
+    public async Task GetDocumentWithAnalyzersDiagnosticsAsync_AfterConstructorAssignmentEdit_ReportsOnlyActuallyUnusedParameterAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+class UiStackPanel {
+}
+
+class UiWindow {
+    private val title: string
+
+    init(content: UiStackPanel, title: string) {
+        Content = content
+        self.title = title
+    }
+
+    val Content: UiStackPanel
+    val Title: string => title
+}
+
+class UiPanel {
+    private val spacing: double
+
+    init(children: UiStackPanel, spacing: double) {
+        Content = children
+        self.spacing = spacing
+    }
+
+    val Content: UiStackPanel
+}
+""";
+        var updatedCode = code.Replace("        self.title = title\n", string.Empty, StringComparison.Ordinal);
+
+        await store.UpsertDocumentAsync(uri, code);
+        var beforeResult = await store.TryGetDocumentWithAnalyzersDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None);
+
+        beforeResult.WasSkipped.ShouldBeFalse();
+        beforeResult.Diagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId,
+            StringComparison.Ordinal)).ShouldBeFalse();
+
+        await store.UpsertDocumentAsync(uri, updatedCode);
+        var afterResult = await store.TryGetDocumentWithAnalyzersDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None);
+
+        afterResult.WasSkipped.ShouldBeFalse();
+        var parameterDiagnostics = afterResult.Diagnostics
+            .Where(diagnostic => string.Equals(
+                diagnostic.Code?.String,
+                Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId,
+                StringComparison.Ordinal))
+            .Select(static diagnostic => diagnostic.Message)
+            .ToArray();
+
+        parameterDiagnostics.ShouldBe(["Parameter 'title' is never used."]);
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TagsUnusedLocalFunctionAsUnnecessaryAsync()
     {
         Directory.CreateDirectory(_tempRoot);

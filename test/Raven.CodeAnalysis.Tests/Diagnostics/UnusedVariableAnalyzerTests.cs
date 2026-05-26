@@ -10,14 +10,28 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UnusedVariableAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
-    public void Analyzer_RegistersSingleDocumentScopedCompilationUnitAction()
+    public void Analyzer_RegistersGlobalAndOwnerScopedSyntaxActions()
     {
         var analyzer = new UnusedVariableAnalyzer();
 
         Assert.True(analyzer.TryEnsureInitialized());
-        var registration = Assert.Single(analyzer.SyntaxNodeActions);
-        Assert.Equal(SyntaxNodeAnalysisScope.Document, registration.Scope);
-        Assert.Equal([SyntaxKind.CompilationUnit], registration.Kinds.ToArray());
+        Assert.Equal(2, analyzer.SyntaxNodeActions.Count);
+        Assert.All(analyzer.SyntaxNodeActions, registration => Assert.Equal(SyntaxNodeAnalysisScope.Document, registration.Scope));
+        Assert.Contains(analyzer.SyntaxNodeActions, registration => registration.Kinds.SequenceEqual([SyntaxKind.CompilationUnit]));
+        var expectedKinds = new[]
+            {
+                SyntaxKind.MethodDeclaration,
+                SyntaxKind.FunctionStatement,
+                SyntaxKind.ConstructorDeclaration,
+                SyntaxKind.OperatorDeclaration,
+                SyntaxKind.ConversionOperatorDeclaration,
+                SyntaxKind.SimpleFunctionExpression,
+                SyntaxKind.ParenthesizedFunctionExpression
+            }
+            .OrderBy(static kind => (int)kind)
+            .ToArray();
+
+        Assert.Contains(analyzer.SyntaxNodeActions, registration => registration.Kinds.SequenceEqual(expectedKinds));
     }
 
     [Fact]
