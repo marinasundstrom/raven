@@ -75,23 +75,26 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             context.RegisterSyntaxNodeAction(
                 AnalyzeCompilationUnit,
                 SyntaxKind.CompilationUnit);
+
+            context.RegisterSyntaxNodeAction(
+                AnalyzeLocalOwner,
+                SyntaxKind.MethodDeclaration,
+                SyntaxKind.FunctionStatement,
+                SyntaxKind.ConstructorDeclaration,
+                SyntaxKind.OperatorDeclaration,
+                SyntaxKind.ConversionOperatorDeclaration,
+                SyntaxKind.SimpleFunctionExpression,
+                SyntaxKind.ParenthesizedFunctionExpression);
         }
 
-        context.RegisterSyntaxNodeAction(
-            AnalyzeBodyOwner,
-            SyntaxKind.MethodDeclaration,
-            SyntaxKind.FunctionStatement,
-            SyntaxKind.ConstructorDeclaration,
-            SyntaxKind.OperatorDeclaration,
-            SyntaxKind.ConversionOperatorDeclaration,
-            SyntaxKind.SimpleFunctionExpression,
-            SyntaxKind.ParenthesizedFunctionExpression);
+        if (_reportParameters)
+            context.RegisterSymbolAction(AnalyzeMethodSymbol, SymbolKind.Method);
     }
 
-    private void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context)
-        => AnalyzeBodyOwner(context, context.Node);
+    private void AnalyzeLocalOwner(SyntaxNodeAnalysisContext context)
+        => AnalyzeLocalOwner(context, context.Node);
 
-    private void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context, SyntaxNode owner)
+    private void AnalyzeLocalOwner(SyntaxNodeAnalysisContext context, SyntaxNode owner)
     {
         if (HasBlockingSyntaxDiagnostics(context))
             return;
@@ -102,7 +105,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         if (bodyRoots.Length == 0 && usageRoots.Length == 0)
             return;
 
-        var facts = OwnerUsageCollector.Collect(context.SemanticModel, owner, _reportLocals, _reportParameters);
+        var facts = OwnerUsageCollector.Collect(context.SemanticModel, owner, collectLocals: true, collectParameters: false);
         if (!facts.IsSemanticallyComplete)
             return;
 
@@ -112,7 +115,46 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         if (owner is ConstructorDeclarationSyntax { Initializer: not null } constructor)
             MarkConstructorInitializerParameterReferences(candidates, constructor.Initializer, usedSymbols);
 
-        ReportDiagnostics(context, candidates, usedSymbols);
+        ReportDiagnostics(context.ReportDiagnostic, context.SemanticModel, candidates, usedSymbols);
+    }
+
+    private void AnalyzeMethodSymbol(SymbolAnalysisContext context)
+    {
+        if (context.Symbol is not IMethodSymbol method ||
+            AnalyzerContractFacts.IsContractMethod(method))
+        {
+            return;
+        }
+
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+
+            var owner = reference.GetSyntax(context.CancellationToken);
+            var syntaxTree = reference.SyntaxTree;
+            if (syntaxTree is null)
+                continue;
+
+            if (HasBlockingSyntaxDiagnostics(syntaxTree, context.CancellationToken))
+                continue;
+
+            var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
+            var bodyRoots = GetBodyRoots(owner).ToArray();
+            var usageRoots = GetUsageRoots(owner).ToArray();
+            if (bodyRoots.Length == 0 && usageRoots.Length == 0)
+                continue;
+
+            var facts = OwnerUsageCollector.Collect(semanticModel, owner, collectLocals: false, collectParameters: true);
+            if (!facts.IsSemanticallyComplete)
+                continue;
+
+            var candidates = facts.Candidates.ToArray();
+            var usedSymbols = facts.UsedSymbols;
+            if (owner is ConstructorDeclarationSyntax { Initializer: not null } constructor)
+                MarkConstructorInitializerParameterReferences(candidates, constructor.Initializer, usedSymbols);
+
+            ReportDiagnostics(context.ReportDiagnostic, semanticModel, candidates, usedSymbols);
+        }
     }
 
     private static void MarkConstructorInitializerParameterReferences(
@@ -179,7 +221,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
                 compilationUnit.Members.OfType<GlobalStatementSyntax>());
 
             if (facts.IsSemanticallyComplete)
-                ReportDiagnostics(context, facts.Candidates, facts.UsedSymbols);
+                ReportDiagnostics(context.ReportDiagnostic, context.SemanticModel, facts.Candidates, facts.UsedSymbols);
         }
     }
 
@@ -189,24 +231,30 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         if (syntaxTree is null)
             return false;
 
-        return syntaxTree.GetDiagnostics(context.CancellationToken)
+        return HasBlockingSyntaxDiagnostics(syntaxTree, context.CancellationToken);
+    }
+
+    private static bool HasBlockingSyntaxDiagnostics(SyntaxTree syntaxTree, CancellationToken cancellationToken)
+    {
+        return syntaxTree.GetDiagnostics(cancellationToken)
             .Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     private static void ReportDiagnostics(
-        SyntaxNodeAnalysisContext context,
+        Action<Diagnostic> reportDiagnostic,
+        SemanticModel semanticModel,
         IEnumerable<Candidate> candidates,
         HashSet<ISymbol> usedSymbols)
     {
         foreach (var candidate in candidates)
         {
             if (ContainsSymbol(usedSymbols, candidate.Symbol) ||
-                context.SemanticModel.IsCapturedVariable(candidate.Symbol))
+                semanticModel.IsCapturedVariable(candidate.Symbol))
             {
                 continue;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(
+            reportDiagnostic(Diagnostic.Create(
                 candidate.Descriptor,
                 candidate.Location,
                 candidate.Name));

@@ -40,11 +40,14 @@ Registered actions define the invalidation unit:
   kinds, changed ancestors, and any document-level semantic state they depend on;
 - node-scoped syntax-node actions are invalidated by changed nodes of the registered kinds
   and by changed stable semantic context for those nodes;
+- symbol actions are invalidated by changes to declarations of the registered symbol kinds,
+  by declaration-sensitive semantic context, and by reference or operation facts the action
+  explicitly queries;
 - syntax-tree actions are invalidated by any change in that syntax tree;
 - compilation actions are invalidated by project-wide inputs such as references, options,
   analyzer configuration, document set changes, or source declarations they inspect;
-- future symbol actions should be invalidated by the declaration or reference graph for the
-  targeted symbol kind.
+- future operation actions should be invalidated by changed operation roots and by semantic
+  context for those operations.
 
 The default syntax-node action scope is document-scoped. An analyzer should opt into
 node-scoped invalidation only when rerunning the action for the changed node is enough to
@@ -111,6 +114,7 @@ Analyzers consume semantic information through public compiler APIs:
 - `SemanticModel.GetSymbolInfo`
 - `SemanticModel.GetTypeInfo`
 - `SemanticModel.GetOperation`
+- `SymbolAnalysisContext.Symbol`
 - public symbol and operation interfaces
 
 Analyzers must not depend on binder internals, incremental-transfer tables, language-server

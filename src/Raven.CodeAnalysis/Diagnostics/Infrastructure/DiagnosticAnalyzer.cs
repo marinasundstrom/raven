@@ -15,6 +15,7 @@ public abstract class DiagnosticAnalyzer
     private bool _initialized;
     private readonly List<Action<CompilationAnalysisContext>> _compilationActions = new();
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions = new();
+    private readonly List<SymbolActionRegistration> _symbolActions = new();
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions = new();
     private bool _concurrentExecutionEnabled;
 
@@ -38,6 +39,7 @@ public abstract class DiagnosticAnalyzer
                 Initialize(new AnalysisContext(
                     _compilationActions,
                     _syntaxTreeActions,
+                    _symbolActions,
                     _syntaxNodeActions,
                     () => _concurrentExecutionEnabled = true));
                 _initialized = true;
@@ -57,6 +59,8 @@ public abstract class DiagnosticAnalyzer
     internal IReadOnlyList<Action<CompilationAnalysisContext>> CompilationActions => _compilationActions;
 
     internal IReadOnlyList<Action<SyntaxTreeAnalysisContext>> SyntaxTreeActions => _syntaxTreeActions;
+
+    internal IReadOnlyList<SymbolActionRegistration> SymbolActions => _symbolActions;
 
     internal IReadOnlyList<SyntaxNodeActionRegistration> SyntaxNodeActions => _syntaxNodeActions;
 
@@ -118,6 +122,38 @@ public abstract class DiagnosticAnalyzer
                 }
             }
 
+            if (_symbolActions.Count > 0)
+            {
+                var symbolSemanticModel = compilation.GetSemanticModel(tree);
+                foreach (var symbol in AnalyzerSymbolEnumerator.EnumerateSymbols(tree, symbolSemanticModel, GetRegisteredSymbolKinds(), cancellationToken))
+                {
+                    foreach (var registration in _symbolActions)
+                    {
+                        if (!registration.Kinds.Contains(symbol.Kind))
+                            continue;
+
+                        var symbolContext = new SymbolAnalysisContext(
+                            symbol,
+                            compilation,
+                            diagnostics.Add,
+                            cancellationToken);
+
+                        try
+                        {
+                            registration.Action(symbolContext);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch
+                        {
+                            // Analyzer failures should not stop compilation.
+                        }
+                    }
+                }
+            }
+
             if (_syntaxNodeActions.Count == 0)
                 continue;
 
@@ -156,6 +192,11 @@ public abstract class DiagnosticAnalyzer
         }
 
         return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance);
+
+        ImmutableHashSet<SymbolKind> GetRegisteredSymbolKinds()
+            => _symbolActions
+                .SelectMany(static action => action.Kinds)
+                .ToImmutableHashSet();
     }
 }
 
@@ -187,17 +228,20 @@ public sealed class AnalysisContext
 {
     private readonly List<Action<CompilationAnalysisContext>> _compilationActions;
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions;
+    private readonly List<SymbolActionRegistration> _symbolActions;
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions;
     private readonly Action _enableConcurrentExecution;
 
     internal AnalysisContext(
         List<Action<CompilationAnalysisContext>> compilationActions,
         List<Action<SyntaxTreeAnalysisContext>> syntaxTreeActions,
+        List<SymbolActionRegistration> symbolActions,
         List<SyntaxNodeActionRegistration> syntaxNodeActions,
         Action enableConcurrentExecution)
     {
         _compilationActions = compilationActions;
         _syntaxTreeActions = syntaxTreeActions;
+        _symbolActions = symbolActions;
         _syntaxNodeActions = syntaxNodeActions;
         _enableConcurrentExecution = enableConcurrentExecution;
     }
@@ -225,6 +269,23 @@ public sealed class AnalysisContext
             throw new ArgumentNullException(nameof(action));
 
         _syntaxTreeActions.Add(action);
+    }
+
+    /// <summary>Registers an action executed for symbols whose <see cref="ISymbol.Kind"/> matches one of the provided kinds.</summary>
+    public void RegisterSymbolAction(Action<SymbolAnalysisContext> action, params SymbolKind[] symbolKinds)
+    {
+        if (action is null)
+            throw new ArgumentNullException(nameof(action));
+
+        if (symbolKinds is null || symbolKinds.Length == 0)
+            throw new ArgumentException("At least one symbol kind must be provided.", nameof(symbolKinds));
+
+        _symbolActions.Add(new SymbolActionRegistration(
+            action,
+            symbolKinds
+                .Distinct()
+                .OrderBy(static kind => (int)kind)
+                .ToImmutableArray()));
     }
 
     /// <summary>
@@ -286,6 +347,39 @@ public readonly struct CompilationAnalysisContext
     /// The syntax tree being analyzed, or <c>null</c> when the analyzer is running for the whole compilation.
     /// </summary>
     public SyntaxTree? SyntaxTree { get; }
+
+    /// <summary>Cancellation token for the analysis.</summary>
+    public CancellationToken CancellationToken { get; }
+
+    /// <summary>Reports a diagnostic.</summary>
+    public void ReportDiagnostic(Diagnostic diagnostic)
+    {
+        _reportDiagnostic(diagnostic);
+    }
+}
+
+/// <summary>Context for analyzing a declared symbol.</summary>
+public readonly struct SymbolAnalysisContext
+{
+    private readonly Action<Diagnostic> _reportDiagnostic;
+
+    internal SymbolAnalysisContext(
+        ISymbol symbol,
+        Compilation compilation,
+        Action<Diagnostic> reportDiagnostic,
+        CancellationToken cancellationToken)
+    {
+        Symbol = symbol;
+        Compilation = compilation;
+        _reportDiagnostic = reportDiagnostic;
+        CancellationToken = cancellationToken;
+    }
+
+    /// <summary>The symbol being analyzed.</summary>
+    public ISymbol Symbol { get; }
+
+    /// <summary>The compilation containing the symbol.</summary>
+    public Compilation Compilation { get; }
 
     /// <summary>Cancellation token for the analysis.</summary>
     public CancellationToken CancellationToken { get; }
@@ -368,7 +462,72 @@ public readonly struct SyntaxNodeAnalysisContext
     }
 }
 
+internal readonly record struct SymbolActionRegistration(
+    Action<SymbolAnalysisContext> Action,
+    ImmutableArray<SymbolKind> Kinds);
+
 internal readonly record struct SyntaxNodeActionRegistration(
     Action<SyntaxNodeAnalysisContext> Action,
     SyntaxNodeAnalysisScope Scope,
     ImmutableArray<SyntaxKind> Kinds);
+
+internal static class AnalyzerSymbolEnumerator
+{
+    public static IEnumerable<ISymbol> EnumerateSymbols(
+        SyntaxTree syntaxTree,
+        SemanticModel semanticModel,
+        IImmutableSet<SymbolKind> symbolKinds,
+        CancellationToken cancellationToken)
+    {
+        if (symbolKinds.Count == 0)
+            yield break;
+
+        var root = syntaxTree.GetRoot(cancellationToken);
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!CanDeclareRequestedSymbol(node, symbolKinds))
+                continue;
+
+            ISymbol? symbol = null;
+            try
+            {
+                symbol = semanticModel.GetDeclaredSymbol(node);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Analyzer symbol enumeration should skip declarations the semantic model cannot answer yet.
+            }
+
+            if (symbol is null)
+                continue;
+
+            symbol = symbol.UnderlyingSymbol;
+            if (symbolKinds.Contains(symbol.Kind))
+                yield return symbol;
+        }
+    }
+
+    private static bool CanDeclareRequestedSymbol(SyntaxNode node, IImmutableSet<SymbolKind> symbolKinds)
+        => node switch
+        {
+            TypeDeclarationSyntax or DelegateDeclarationSyntax or UnionDeclarationSyntax or EnumDeclarationSyntax
+                => symbolKinds.Contains(SymbolKind.Type),
+            BaseMethodDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax
+                => symbolKinds.Contains(SymbolKind.Method),
+            BasePropertyDeclarationSyntax
+                => symbolKinds.Contains(SymbolKind.Property),
+            EventDeclarationSyntax
+                => symbolKinds.Contains(SymbolKind.Event),
+            VariableDeclaratorSyntax declarator when declarator.Parent?.Parent is FieldDeclarationSyntax or ConstDeclarationSyntax
+                => symbolKinds.Contains(SymbolKind.Field),
+            ParameterSyntax
+                => symbolKinds.Contains(SymbolKind.Parameter),
+            _ => false
+        };
+}

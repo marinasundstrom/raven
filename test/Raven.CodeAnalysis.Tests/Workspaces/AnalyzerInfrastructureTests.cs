@@ -200,6 +200,31 @@ public class AnalyzerInfrastructureTests
         }
     }
 
+    private sealed class MethodSymbolAnalyzer : DiagnosticAnalyzer
+    {
+        public static int AnalyzeCount;
+
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0007",
+            title: "Method symbol",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Method symbol",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.EnableConcurrentExecution();
+
+            context.RegisterSymbolAction(ctx =>
+            {
+                Interlocked.Increment(ref AnalyzeCount);
+                ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, ctx.Symbol.Locations.First()));
+            }, SymbolKind.Method);
+        }
+    }
+
     [Fact]
     public void GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics()
     {
@@ -410,6 +435,48 @@ class C {
         var actionPlan = eventSink.Events.Single(e => e.Operation == "documentAnalyzer.actionPlan");
         actionPlan.Detail.ShouldContain("documentScopedSyntaxNodeActions=1");
         actionPlan.Detail.ShouldContain("nodeScopedSyntaxNodeActions=1");
+    }
+
+    [Fact]
+    public void GetDocumentAnalyzerDiagnostics_SymbolAction_RunsForDeclaredSymbolsInDocument()
+    {
+        MethodSymbolAnalyzer.AnalyzeCount = 0;
+
+        var eventSink = new CollectingWorkspaceEventSink();
+        var workspace = RavenWorkspace.Create(
+            targetFramework: TestMetadataReferences.TargetFramework,
+            workspaceEventSink: eventSink);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+class C {
+    public func M() -> unit { }
+}
+
+func F() -> unit { }
+""";
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new MethodSymbolAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId)
+            .Where(d => d.Descriptor.Id == "AN0007")
+            .ToList();
+
+        diagnostics.Count.ShouldBe(2);
+        MethodSymbolAnalyzer.AnalyzeCount.ShouldBe(2);
+
+        var actionPlan = eventSink.Events.Single(e => e.Operation == "documentAnalyzer.actionPlan");
+        actionPlan.Detail.ShouldContain("symbolActions=1");
+        actionPlan.Detail.ShouldContain("symbolKinds=1");
     }
 
     [Fact]

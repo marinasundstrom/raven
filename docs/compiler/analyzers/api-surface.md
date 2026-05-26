@@ -8,7 +8,7 @@ language requires them.
 
 `DiagnosticAnalyzer`
 : Base class for source analyzers. Implement `Initialize` and register syntax-tree or
-syntax-node callbacks.
+syntax-node, symbol, or future operation callbacks.
 
 `AnalysisContext`
 : Registration surface passed to `DiagnosticAnalyzer.Initialize`.
@@ -19,6 +19,10 @@ syntax-node callbacks.
 
 `SyntaxNodeAnalysisContext`
 : Context for syntax-node callbacks. Provides `Node`, `SemanticModel`, `Compilation`,
+`ReportDiagnostic`, and `CancellationToken`.
+
+`SymbolAnalysisContext`
+: Context for declared-symbol callbacks. Provides `Symbol`, `Compilation`,
 `ReportDiagnostic`, and `CancellationToken`.
 
 `DiagnosticDescriptor`
@@ -50,6 +54,12 @@ default for safe invalidation.
 : Runs for matching syntax nodes with an explicit invalidation scope. Use
 `SyntaxNodeAnalysisScope.Node` only for diagnostics that are local to the analyzed node and
 its stable semantic context.
+
+`RegisterSymbolAction(Action<SymbolAnalysisContext>, params SymbolKind[])`
+: Runs for declared symbols whose `SymbolKind` matches one of the requested kinds. Use this
+  for declaration-owned checks such as parameters, methods, properties, fields, and types.
+  Symbol actions let the workspace use declaration identity as the scheduling and
+  invalidation unit instead of asking each analyzer to rediscover declarations from syntax.
 
 Analyzer runners call registered actions for each compilation or document scope requested by
 the workspace. Analyzer implementations should assume callbacks may run often during typing.
@@ -126,6 +136,11 @@ Common operation interfaces include:
 Use `SemanticModel.GetOperation(node)` to enter the operations model. If an analyzer requires
 a missing operation node or property, add that API and its tests rather than duplicating
 operation logic in analyzer syntax walkers.
+
+Operation-action registration is the intended next analyzer entry point for rules that care
+about semantic expression usage, such as property references, assignments, and invocation
+results. Until operation actions exist, prefer targeted syntax or symbol actions plus
+`SemanticModel.GetOperation(node)` over a whole-file syntax walk.
 
 See [Operations API](../api/operations.md) and
 [Operations implementation status](../api/operations-implementation-status.md).

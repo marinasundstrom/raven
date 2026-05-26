@@ -14,7 +14,8 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<VarCanBeValAnalyzer>(project);
         project = AddAnalyzerIfMissing<MatchExhaustivenessAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferValInsteadOfLetAnalyzer>(project);
-        project = AddAnalyzerIfMissing<AutoPropertyInitializationAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UninitializedPropertyAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UninitializedFieldAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferNewLineBetweenDeclarationsAnalyzer>(project);
         project = AddAnalyzerIfMissing<ThrowStatementUseResultAnalyzer>(project);
         project = AddAnalyzerIfMissing<MemberCanBePrivateAnalyzer>(project);

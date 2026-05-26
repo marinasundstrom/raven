@@ -79,6 +79,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   keeping `UnusedVariableAnalyzer` as a compatibility disable name, and tightened analyzer
   symbol matching so equivalent lazy-bound symbols are compared with Raven symbol equality
   instead of object identity.
+- Renamed the property initialization diagnostic analyzer to
+  `UninitializedPropertyAnalyzer`, generalized its wording from auto-properties to
+  stored properties, and added `UninitializedFieldAnalyzer` for explicit private fields.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused

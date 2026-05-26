@@ -40,6 +40,12 @@ Raven currently provides analyzers for two different contexts:
   `UnusedVariableAnalyzer` remains as a compatibility analyzer name for existing project
   configuration; disabling `UnusedVariableAnalyzer` disables both local and parameter
   checks.
+- **UninitializedPropertyAnalyzer** (Raven, `RAV9006`) – reports stored properties,
+  including explicit auto-accessor and implicit stored-property forms, that are not
+  initialized by a property initializer, constructor, or instance initializer block.
+- **UninitializedFieldAnalyzer** (Raven, `RAV9032`) – reports explicit private fields
+  that are not initialized by a field initializer, constructor, or instance initializer
+  block.
 - **UnusedImportDirectiveAnalyzer** (Raven, `RAV9031`) – reports wildcard namespace
   imports whose declaring compilation-unit or namespace scope does not reference any
   imported type, top-level namespace member, or nested namespace member. Nested namespaces
@@ -69,7 +75,8 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `VarCanBeValAnalyzer`
 - `MatchExhaustivenessAnalyzer`
 - `PreferValInsteadOfLetAnalyzer`
-- `AutoPropertyInitializationAnalyzer`
+- `UninitializedPropertyAnalyzer`
+- `UninitializedFieldAnalyzer`
 - `PreferNewLineBetweenDeclarationsAnalyzer`
 - `UnnecessaryTrailingSeparatorAnalyzer`
 - `ThrowStatementUseResultAnalyzer`

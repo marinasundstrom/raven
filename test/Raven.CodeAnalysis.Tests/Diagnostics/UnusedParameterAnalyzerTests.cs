@@ -10,27 +10,15 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UnusedParameterAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
-    public void Analyzer_RegistersOwnerScopedSyntaxActions()
+    public void Analyzer_RegistersMethodSymbolAction()
     {
         var analyzer = new UnusedParameterAnalyzer();
 
         Assert.True(analyzer.TryEnsureInitialized());
-        var registration = Assert.Single(analyzer.SyntaxNodeActions);
-        Assert.Equal(SyntaxNodeAnalysisScope.Document, registration.Scope);
-        var expectedKinds = new[]
-            {
-                SyntaxKind.MethodDeclaration,
-                SyntaxKind.FunctionStatement,
-                SyntaxKind.ConstructorDeclaration,
-                SyntaxKind.OperatorDeclaration,
-                SyntaxKind.ConversionOperatorDeclaration,
-                SyntaxKind.SimpleFunctionExpression,
-                SyntaxKind.ParenthesizedFunctionExpression
-            }
-            .OrderBy(static kind => (int)kind)
-            .ToArray();
+        Assert.Empty(analyzer.SyntaxNodeActions);
 
-        Assert.Equal(expectedKinds, registration.Kinds.ToArray());
+        var registration = Assert.Single(analyzer.SymbolActions);
+        Assert.Equal([SymbolKind.Method], registration.Kinds.ToArray());
     }
 
     [Fact]
@@ -147,6 +135,37 @@ class UiWindow {
         var diagnostic = Assert.Single(AnalyzeAfterCompilerDiagnostics(code));
 
         Assert.Equal("Parameter 'title' is never used.", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void ConstructorWithOneUnusedParameter_WorkspacePath_ReportsOnlyThatParameter()
+    {
+        const string code = """
+class UiStackPanel {
+}
+
+class UiWindow {
+    private val title: string
+
+    init(content: UiStackPanel, title: string) {
+        Content = content
+    }
+
+    val Content: UiStackPanel
+    val Title: string => title
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedParameterAnalyzer>(
+            code,
+            expectedDiagnostics: [
+                new DiagnosticResult(UnusedParameterAnalyzer.DiagnosticId)
+                    .WithSpan(7, 33, 7, 38)
+                    .WithArguments("title")
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
     }
 
     [Fact]

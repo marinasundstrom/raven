@@ -72,11 +72,19 @@ diagnostics.
 Use the narrowest registration that can answer the question:
 
 - `RegisterSyntaxNodeAction` for checks rooted at specific syntax kinds.
+- `RegisterSymbolAction` for checks rooted at declared symbol identity.
 - `RegisterSyntaxTreeAction` for file-wide checks.
 
 Prefer syntax-node actions when the analyzer can naturally start from a declaration,
 statement, expression, or pattern. Avoid scanning the full syntax tree from every registered
 node.
+
+Prefer symbol actions when the diagnostic belongs to a declaration rather than to the exact
+syntax spelling of the declaration. Examples include unused parameters, unused members,
+visibility suggestions, and declaration-shape rules that should be scheduled by method,
+property, field, type, or other symbol identity. The analyzer callback should inspect the
+provided symbol, ask for its declaring syntax only when needed, and use targeted semantic
+queries for references or operations.
 
 Syntax-node actions are document-scoped by default. This is intentionally conservative:
 many checks start from one node but depend on references, declarations, or semantic facts
@@ -136,6 +144,8 @@ For invalidation, think of each registered action as an independent unit of work
   containing document;
 - a node-scoped syntax-node action is tied to the registered syntax kinds and may be reused
   for unchanged nodes;
+- a symbol action is tied to declarations of the registered symbol kinds and the semantic
+  context needed to analyze those declarations;
 - a syntax-tree action is tied to the whole document;
 - a compilation action is tied to project-wide inputs unless the analyzer only uses the
   document supplied by the context.
@@ -155,6 +165,11 @@ Use `SyntaxNodeAnalysisContext.SemanticModel` for semantic facts:
 - `GetTypeInfo` for expression and conversion types.
 - `GetOperation` when statement or expression shape is easier to reason about through the
   operations API.
+
+Use `SymbolAnalysisContext.Symbol` when the analyzer was registered with
+`RegisterSymbolAction`. If the analyzer needs syntax for that declaration, use the symbol's
+declaring syntax references and then obtain the semantic model for that syntax tree from the
+compilation. Keep this path narrow: a symbol action should not turn into a full-document scan.
 
 Analyzer code should not depend on binder internals, incremental caches, or language-server
 state. If a public semantic API is too expensive or incomplete, fix the compiler API rather
