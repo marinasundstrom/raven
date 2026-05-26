@@ -942,6 +942,7 @@ internal sealed class WorkspaceManager
         Compilation compilation,
         out ImmutableArray<CodeDiagnostic> diagnostics,
         CompilationWithAnalyzersOptions? analyzerOptions = null,
+        bool semanticAccessAlreadyHeld = false,
         CancellationToken cancellationToken = default)
     {
         try
@@ -950,6 +951,7 @@ internal sealed class WorkspaceManager
                 document,
                 compilation,
                 analyzerOptions,
+                semanticAccessAlreadyHeld,
                 cancellationToken);
             return true;
         }

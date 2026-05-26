@@ -694,6 +694,12 @@ async Task RunEditProbeAsync()
     {
         Console.WriteLine("edit fullError " + FormatDiagnostic(diagnostic));
     }
+
+    if (options.PrintDiagnostics)
+    {
+        foreach (var diagnostic in fullDiagnostics.Take(80))
+            Console.WriteLine("edit fullDiagnostic " + FormatDiagnostic(diagnostic));
+    }
 }
 
 void PrintInvocationSymbolInfoDebug(string target, int offset)

@@ -115,6 +115,12 @@ public partial class SemanticModel
         return new SemanticAccessLease(_semanticAccessGate);
     }
 
+    internal IDisposable EnterSemanticAccess(CancellationToken cancellationToken)
+    {
+        _semanticAccessGate.Wait(cancellationToken);
+        return new SemanticAccessLease(_semanticAccessGate);
+    }
+
     internal async ValueTask<IDisposable?> TryEnterSemanticAccessAsync(CancellationToken cancellationToken)
     {
         return await _semanticAccessGate.WaitAsync(0, cancellationToken).ConfigureAwait(false)

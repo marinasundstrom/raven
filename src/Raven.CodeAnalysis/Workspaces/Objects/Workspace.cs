@@ -527,7 +527,13 @@ public class Workspace
         }
 
         var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
-        var diagnostics = GetDocumentAnalyzerDiagnostics(project, syntaxTree, compilation, analyzerOptions, cancellationToken);
+        var diagnostics = GetDocumentAnalyzerDiagnostics(
+            project,
+            syntaxTree,
+            compilation,
+            analyzerOptions,
+            semanticAccessAlreadyHeld: false,
+            cancellationToken);
         _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
         return diagnostics;
     }
@@ -536,6 +542,7 @@ public class Workspace
         Document document,
         Compilation compilation,
         CompilationWithAnalyzersOptions? analyzerOptions = null,
+        bool semanticAccessAlreadyHeld = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -578,6 +585,7 @@ public class Workspace
             compilationSyntaxTree,
             compilation,
             analyzerOptions,
+            semanticAccessAlreadyHeld,
             cancellationToken);
         _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
         return diagnostics;
@@ -588,6 +596,7 @@ public class Workspace
         SyntaxTree syntaxTree,
         Compilation compilation,
         CompilationWithAnalyzersOptions? analyzerOptions,
+        bool semanticAccessAlreadyHeld,
         CancellationToken cancellationToken)
         => DocumentAnalyzerDriver.Run(
             project,
@@ -595,7 +604,8 @@ public class Workspace
             compilation,
             analyzerOptions,
             Services.WorkspaceEventSink,
-            cancellationToken);
+            cancellationToken,
+            semanticAccessAlreadyHeld);
 
     private void ReportWorkspaceEvent(
         string operation,

@@ -113,6 +113,30 @@ class C {
     }
 
     [Fact]
+    public void ConstructorWithOneUnusedParameter_ReportsOnlyThatParameter()
+    {
+        const string code = """
+class UiStackPanel {
+}
+
+class UiWindow {
+    private val title: string
+
+    init(content: UiStackPanel, title: string) {
+        Content = content
+    }
+
+    val Content: UiStackPanel
+    val Title: string => title
+}
+""";
+
+        var diagnostic = Assert.Single(AnalyzeAfterCompilerDiagnostics(code));
+
+        Assert.Equal("Parameter 'title' is never used.", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void ParameterUsedAsForSource_DoesNotReportDiagnostic()
     {
         const string code = """

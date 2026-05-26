@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Reflection;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -45,16 +46,6 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Theory]
-    [InlineData(true, 2, 1)]
-    [InlineData(false, 2, 2)]
-    [InlineData(false, 2, null)]
-    [InlineData(false, null, 1)]
-    public void ShouldClearStaleDiagnostics_WhenPublishedVersionDiffers(bool expected, int? queuedVersion, int? publishedVersion)
-    {
-        RavenTextDocumentSyncHandler.ShouldClearStaleDiagnostics(queuedVersion, publishedVersion).ShouldBe(expected);
-    }
-
-    [Theory]
     [InlineData(true, 1, null, null, null)]
     [InlineData(true, 2, 1, null, null)]
     [InlineData(false, 2, 2, null, null)]
@@ -84,7 +75,10 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         policy.InitialMode.ShouldBe(DocumentStore.DiagnosticLane.Syntax);
         policy.FollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
         policy.FollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.DiagnosticsDelayMilliseconds);
-        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
+        policy.FollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentCompiler);
+        policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds.ShouldNotBeNull();
+        policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds.Value.ShouldBeGreaterThan(policy.FollowUpDiagnosticsDelayMilliseconds.Value);
+        policy.AnalyzerFollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
         policy.DiagnosticsDelayMilliseconds.ShouldBe(0);
     }
 
@@ -300,6 +294,67 @@ func Main() -> unit {
     }
 
     [Fact]
+    public void MergePartialDiagnosticsForPublish_CarriesForwardAnalyzerDiagnosticsOnly()
+    {
+        var analyzerDiagnostic = CreateDiagnostic(
+            "RAV9030",
+            "Parameter 'title' is never used.",
+            26,
+            32,
+            26,
+            37,
+            DiagnosticSeverity.Warning);
+        var externalAnalyzerDiagnostic = CreateDiagnosticWithSource(
+            "CSPELL",
+            "\"Avalonia\": Unknown word.",
+            5,
+            7,
+            5,
+            15,
+            "cSpell",
+            DiagnosticSeverity.Information);
+
+        var previous = ImmutableArray.Create(
+            CreateDiagnostic("RAV0103", "Name not found", 1, 4, 1, 6, DiagnosticSeverity.Error),
+            analyzerDiagnostic,
+            externalAnalyzerDiagnostic);
+
+        var currentCompilerDiagnostic = CreateDiagnostic(
+            "RAV0030",
+            "Invalid invocation expression.",
+            10,
+            2,
+            10,
+            5,
+            DiagnosticSeverity.Error);
+
+        var merged = RavenTextDocumentSyncHandler.MergePartialDiagnosticsForPublish(
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [currentCompilerDiagnostic],
+            previous);
+
+        merged.Select(static diagnostic => diagnostic.Code?.String).ShouldBe([
+            "CSPELL",
+            "RAV0030",
+            "RAV9030"
+        ]);
+    }
+
+    [Fact]
+    public void MergePartialDiagnosticsForPublish_DoesNotCarryForwardForAnalyzerLane()
+    {
+        var previous = ImmutableArray.Create(
+            CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning));
+
+        var merged = RavenTextDocumentSyncHandler.MergePartialDiagnosticsForPublish(
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            [],
+            previous);
+
+        merged.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void SummarizeDiagnosticsForLog_ReturnsNoneForEmpty()
     {
         RavenTextDocumentSyncHandler.SummarizeDiagnosticsForLog([])
@@ -379,6 +434,28 @@ func Main() -> unit {
             Message = message,
             Severity = severity,
             Source = "raven",
+            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                new Position(startLine, startCharacter),
+                new Position(endLine, endCharacter)),
+            Tags = tags.Length == 0 ? null : new Container<DiagnosticTag>(tags)
+        };
+
+    private static Diagnostic CreateDiagnosticWithSource(
+        string code,
+        string message,
+        int startLine,
+        int startCharacter,
+        int endLine,
+        int endCharacter,
+        string source,
+        DiagnosticSeverity severity,
+        params DiagnosticTag[] tags)
+        => new()
+        {
+            Code = code,
+            Message = message,
+            Severity = severity,
+            Source = source,
             Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
                 new Position(startLine, startCharacter),
                 new Position(endLine, endCharacter)),

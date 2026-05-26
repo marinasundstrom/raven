@@ -167,6 +167,76 @@ class C {
     }
 
     [Fact]
+    public async Task GetDiagnosticsAsync_AfterConstructorAssignmentEdit_ReportsOnlyActuallyUnusedParameterAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+class UiStackPanel {
+}
+
+class UiWindow {
+    private val title: string
+
+    init(content: UiStackPanel, title: string) {
+        Content = content
+        self.title = title
+    }
+
+    val Content: UiStackPanel
+    val Title: string => title
+}
+""";
+        var updatedCode = code.Replace("        self.title = title\n", string.Empty, StringComparison.Ordinal);
+
+        await store.UpsertDocumentAsync(uri, code);
+        var beforeDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        beforeDiagnostics.Any(diagnostic => string.Equals(
+            diagnostic.Code?.String,
+            Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId,
+            StringComparison.Ordinal)).ShouldBeFalse();
+
+        await store.UpsertDocumentAsync(uri, updatedCode);
+        var afterDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var parameterDiagnostics = afterDiagnostics
+            .Where(diagnostic => string.Equals(
+                diagnostic.Code?.String,
+                Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId,
+                StringComparison.Ordinal))
+            .Select(static diagnostic => diagnostic.Message)
+            .ToArray();
+
+        parameterDiagnostics.ShouldBe(["Parameter 'title' is never used."]);
+
+        await store.UpsertDocumentAsync(uri, updatedCode);
+        var afterSaveLikeDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var saveLikeParameterDiagnostics = afterSaveLikeDiagnostics
+            .Where(diagnostic => string.Equals(
+                diagnostic.Code?.String,
+                Raven.CodeAnalysis.Diagnostics.UnusedVariableAnalyzer.UnusedParameterDiagnosticId,
+                StringComparison.Ordinal))
+            .Select(static diagnostic => diagnostic.Message)
+            .ToArray();
+
+        saveLikeParameterDiagnostics.ShouldBe(["Parameter 'title' is never used."]);
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_TagsUnusedLocalFunctionAsUnnecessaryAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -259,7 +329,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_ReusesCachedCompilerDiagnosticsWhenSemanticGateIsBusyAsync()
+    public async Task TryGetDiagnosticsAsync_DocumentWithAnalyzersLane_SkipsWhenAnalyzerSemanticGateIsBusyAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -303,15 +373,8 @@ func Main() -> () {
             shouldSkipWork: null,
             cancellationToken: CancellationToken.None);
 
-        analyzerResult.WasSkipped.ShouldBeFalse();
-        analyzerResult.Diagnostics.Any(diagnostic => string.Equals(
-            diagnostic.Code?.String,
-            "RAV0103",
-            StringComparison.Ordinal)).ShouldBeTrue();
-        analyzerResult.Diagnostics.Any(diagnostic => string.Equals(
-            diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
-            StringComparison.Ordinal)).ShouldBeTrue();
+        analyzerResult.WasSkipped.ShouldBeTrue();
+        analyzerResult.Diagnostics.ShouldBeEmpty();
     }
 
     [Fact]

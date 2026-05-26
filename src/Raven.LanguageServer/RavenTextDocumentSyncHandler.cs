@@ -41,6 +41,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<DocumentUri, int> _documentVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, int> _lastPublishedDiagnosticVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
+    private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<Diagnostic>> _lastPublishedDiagnosticPayloads = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _activeDiagnostics = new();
 
@@ -370,6 +371,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
             _lastPublishedDiagnosticVersions.TryRemove(notification.TextDocument.Uri, out _);
             _lastPublishedDiagnostics.TryRemove(notification.TextDocument.Uri, out _);
+            _lastPublishedDiagnosticPayloads.TryRemove(notification.TextDocument.Uri, out _);
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
 
             if (_documentUpdateGates.TryRemove(notification.TextDocument.Uri, out var gate))
@@ -420,7 +422,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
             analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
             diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds,
-            replacePendingDiagnostics: false).ConfigureAwait(false);
+            replacePendingDiagnostics: true).ConfigureAwait(false);
     }
 
     internal static SaveDiagnosticsPolicy GetSaveDiagnosticsPolicy()
@@ -429,9 +431,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             WarmupDelayMilliseconds: 0,
             InitialMode: DocumentStore.DiagnosticLane.Syntax,
             FollowUpDiagnosticsDelayMilliseconds: DocumentCompilerDiagnosticsAfterEditDelayMilliseconds,
-            FollowUpMode: DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
-            AnalyzerFollowUpDiagnosticsDelayMilliseconds: null,
-            AnalyzerFollowUpMode: null,
+            FollowUpMode: DocumentStore.DiagnosticLane.DocumentCompiler,
+            AnalyzerFollowUpDiagnosticsDelayMilliseconds: DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds,
+            AnalyzerFollowUpMode: DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
             DiagnosticsDelayMilliseconds: 0);
 
     internal static SaveDiagnosticsPolicy GetOpenDiagnosticsPolicy()
@@ -485,13 +487,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         int? expectedVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
             ? currentVersion
             : null;
-        if (ShouldClearStaleDiagnostics(expectedVersion, _lastPublishedDiagnosticVersions.TryGetValue(uri, out var lastPublishedVersion) ? lastPublishedVersion : null))
-        {
-            PublishDiagnosticsToClient(uri, [], expectedVersion);
-            _lastPublishedDiagnostics[uri] = ImmutableArray<PublishedDiagnosticValue>.Empty;
-            if (expectedVersion is { } clearedVersion)
-                _lastPublishedDiagnosticVersions[uri] = clearedVersion;
-        }
 
         _logger.LogInformation(
             "Scheduling diagnostics for {Uri} (expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
@@ -728,7 +723,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             }
 
             var diagnostics = result.Diagnostics;
-            var diagnosticValues = CreatePublishedDiagnosticValues(diagnostics);
+            var diagnosticsToPublish = MergePartialDiagnosticsForPublish(
+                lane,
+                diagnostics,
+                _lastPublishedDiagnosticPayloads.TryGetValue(uri, out var lastPayload)
+                    ? lastPayload
+                    : []);
+            var diagnosticValues = CreatePublishedDiagnosticValues(diagnosticsToPublish);
 
             if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
             {
@@ -752,35 +753,36 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     diagnosticValues,
                     expectedVersion))
             {
-                diagnosticsCount = diagnostics.Count;
+                diagnosticsCount = diagnosticsToPublish.Length;
                 if (expectedVersion is { } stableVersion)
                     _lastPublishedDiagnosticVersions[uri] = stableVersion;
 
                 MarkDiagnosticsPublishCompleted(uri, expectedVersion, lane);
-                var diagnosticSummary = SummarizeDiagnosticsForLog(diagnostics);
+                var diagnosticSummary = SummarizeDiagnosticsForLog(diagnosticsToPublish);
                 outcome = PublishDiagnosticsOutcome.SkippedUnchanged;
 
                 _logger.LogInformation(
                     "Skipped diagnostics publish for {Uri}: diagnostic set unchanged (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
                     uri,
                     expectedVersion?.ToString() ?? "<none>",
-                    diagnostics.Count,
+                    diagnosticsToPublish.Length,
                     diagnosticSummary);
                 return Unit.Value;
             }
 
-            PublishDiagnosticsToClient(uri, diagnostics, expectedVersion);
-            diagnosticsCount = diagnostics.Count;
+            PublishDiagnosticsToClient(uri, diagnosticsToPublish, expectedVersion);
+            diagnosticsCount = diagnosticsToPublish.Length;
             _lastPublishedDiagnostics[uri] = diagnosticValues;
+            _lastPublishedDiagnosticPayloads[uri] = diagnosticsToPublish;
             if (expectedVersion is { } completedVersion)
                 _lastPublishedDiagnosticVersions[uri] = completedVersion;
             MarkDiagnosticsPublishCompleted(uri, expectedVersion, lane);
-            var publishedDiagnosticSummary = SummarizeDiagnosticsForLog(diagnostics);
+            var publishedDiagnosticSummary = SummarizeDiagnosticsForLog(diagnosticsToPublish);
             _logger.LogInformation(
                 "Published diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
                 uri,
                 expectedVersion?.ToString() ?? "<none>",
-                diagnostics.Count,
+                diagnosticsToPublish.Length,
                 publishedDiagnosticSummary);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -850,11 +852,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         });
     }
 
-    internal static bool ShouldClearStaleDiagnostics(int? expectedVersion, int? lastPublishedVersion)
-        => expectedVersion is { } expected &&
-           lastPublishedVersion is { } published &&
-           published != expected;
-
     internal static bool ShouldSkipDiagnosticRequest(
         long expectedSession,
         long? latestSession,
@@ -867,6 +864,46 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return expectedVersion is { } expected &&
                latestVersion is { } currentVersion &&
                currentVersion != expected;
+    }
+
+    internal static ImmutableArray<Diagnostic> MergePartialDiagnosticsForPublish(
+        DocumentStore.DiagnosticLane lane,
+        IReadOnlyList<Diagnostic> diagnostics,
+        ImmutableArray<Diagnostic> lastPublishedDiagnostics)
+    {
+        if (lane is DocumentStore.DiagnosticLane.DocumentWithAnalyzers or DocumentStore.DiagnosticLane.ProjectWithAnalyzers ||
+            lastPublishedDiagnostics.IsDefaultOrEmpty)
+        {
+            return diagnostics.ToImmutableArray();
+        }
+
+        var builder = ImmutableArray.CreateBuilder<Diagnostic>(diagnostics.Count + lastPublishedDiagnostics.Length);
+        builder.AddRange(diagnostics);
+        var existing = CreatePublishedDiagnosticValues(builder);
+        foreach (var previous in lastPublishedDiagnostics)
+        {
+            if (!CanCarryForwardAnalyzerDiagnostic(previous))
+                continue;
+
+            var value = PublishedDiagnosticValue.From(previous);
+            if (existing.Contains(value))
+                continue;
+
+            builder.Add(previous);
+        }
+
+        return builder
+            .OrderBy(static diagnostic => PublishedDiagnosticValue.From(diagnostic))
+            .ToImmutableArray();
+    }
+
+    private static bool CanCarryForwardAnalyzerDiagnostic(Diagnostic diagnostic)
+    {
+        if (!string.Equals(diagnostic.Source, "raven", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return diagnostic.Code?.String is { } code &&
+               code.StartsWith("RAV9", StringComparison.Ordinal);
     }
 
     internal static ImmutableArray<PublishedDiagnosticValue> CreatePublishedDiagnosticValues(IReadOnlyList<Diagnostic> diagnostics)

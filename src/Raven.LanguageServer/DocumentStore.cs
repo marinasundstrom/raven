@@ -873,10 +873,19 @@ internal sealed class DocumentStore
         if (compilerDiagnostics is null)
             return null;
 
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        using var semanticLease = await EnterDiagnosticSemanticAccessAsync(
+            semanticModel,
+            useBusySkip,
+            cancellationToken).ConfigureAwait(false);
+        if (semanticLease is null)
+            return null;
+
         if (!_workspaceManager.TryGetDocumentAnalyzerDiagnostics(
             document,
             compilation,
             out var documentAnalyzerDiagnostics,
+            semanticAccessAlreadyHeld: true,
             cancellationToken: cancellationToken))
         {
             return null;

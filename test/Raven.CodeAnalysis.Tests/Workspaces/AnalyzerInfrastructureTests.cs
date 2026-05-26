@@ -106,6 +106,61 @@ public class AnalyzerInfrastructureTests
         }
     }
 
+    private abstract class ConcurrentSyntaxNodeAnalyzerBase : DiagnosticAnalyzer
+    {
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0006",
+            title: "Concurrent syntax node",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Concurrent syntax node",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public static int ActiveActions;
+        public static int MaxActiveActions;
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.EnableConcurrentExecution();
+
+            context.RegisterSyntaxNodeAction(ctx =>
+            {
+                var active = Interlocked.Increment(ref ActiveActions);
+                try
+                {
+                    UpdateMaxActiveActions(active);
+                    _ = ctx.SemanticModel.GetDeclaredSymbol(ctx.Node);
+                    Thread.Sleep(25);
+                    ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, ctx.Node.GetLocation()));
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref ActiveActions);
+                }
+            }, SyntaxKind.CompilationUnit);
+        }
+
+        private static void UpdateMaxActiveActions(int active)
+        {
+            int current;
+            do
+            {
+                current = Volatile.Read(ref MaxActiveActions);
+                if (active <= current)
+                    return;
+            } while (Interlocked.CompareExchange(ref MaxActiveActions, active, current) != current);
+        }
+    }
+
+    private sealed class ConcurrentSyntaxNodeAnalyzerA : ConcurrentSyntaxNodeAnalyzerBase
+    {
+    }
+
+    private sealed class ConcurrentSyntaxNodeAnalyzerB : ConcurrentSyntaxNodeAnalyzerBase
+    {
+    }
+
     private sealed class NodeKindAnalyzer : DiagnosticAnalyzer
     {
         private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
@@ -386,6 +441,37 @@ class C {
         actionPlan.Detail.ShouldContain("analyzers=2");
         actionPlan.Detail.ShouldContain("concurrentAnalyzers=1");
         Assert.Equal(1, ConcurrentCountingAnalyzer.AnalyzeCount);
+    }
+
+    [Fact]
+    public void GetDocumentAnalyzerDiagnostics_SerializesConcurrentSyntaxNodeSemanticActions()
+    {
+        ConcurrentSyntaxNodeAnalyzerBase.ActiveActions = 0;
+        ConcurrentSyntaxNodeAnalyzerBase.MaxActiveActions = 0;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("""
+class C {
+    public func M() -> unit { }
+}
+"""));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new ConcurrentSyntaxNodeAnalyzerA()));
+        project = project.AddAnalyzerReference(new AnalyzerReference(new ConcurrentSyntaxNodeAnalyzerB()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        _ = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+
+        Assert.Equal(1, ConcurrentSyntaxNodeAnalyzerBase.MaxActiveActions);
     }
 
     [Fact]
