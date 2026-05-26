@@ -104,6 +104,65 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_BuildsThroughDotnetBuild_WithRavenCoreRuntimeDependency()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        EnsureRavenCoreBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var sourceDirectory = Path.Combine(projectRoot, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>RavenCoreRuntimeDependency</AssemblyName>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="src/**/*.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                import System.*
+
+                func Main() {
+                    Console.WriteLine("Raven.Core dependency")
+                }
+                """);
+
+            var result = RunProcess("dotnet", $"build \"{projectPath}\" --property WarningLevel=0", projectRoot, timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(result.ExitCode == 0, $"dotnet build failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+
+            var outputDirectory = Path.Combine(projectRoot, "bin", "Debug", "net10.0");
+            var depsPath = Path.Combine(outputDirectory, "RavenCoreRuntimeDependency.deps.json");
+            var corePath = Path.Combine(outputDirectory, "Raven.Core.dll");
+
+            Assert.True(File.Exists(corePath), $"Expected Raven.Core copy-local output at '{corePath}'.");
+            Assert.True(File.Exists(depsPath), $"Expected deps file at '{depsPath}'.");
+
+            var depsJson = File.ReadAllText(depsPath);
+            Assert.Contains("Raven.Core", depsJson);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
     public void CSharpProject_CanReferenceRavenProjectThroughProjectReference()
     {
         var repoRoot = GetRepositoryRoot();
@@ -187,6 +246,22 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
         Assert.True(File.Exists(compilerDllPath), $"Expected compiler output at '{compilerDllPath}'.");
         return compilerDllPath;
+    }
+
+    private static void EnsureRavenCoreBuilt(string repoRoot, string targetFramework)
+    {
+        var ravenCoreDllPath = Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", targetFramework, "Raven.Core.dll");
+        if (File.Exists(ravenCoreDllPath))
+            return;
+
+        var ravenCoreProjectPath = Path.Combine(repoRoot, "src", "Raven.Core", "Raven.Core.csproj");
+        var buildArgs = $"build \"{ravenCoreProjectPath}\" --framework {targetFramework} /property:WarningLevel=0";
+        var buildResult = RunProcess("dotnet", buildArgs, repoRoot, timeoutMilliseconds: 300_000);
+        Assert.True(
+            buildResult.ExitCode == 0,
+            $"Failed to build Raven.Core for sample-project tests.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
+
+        Assert.True(File.Exists(ravenCoreDllPath), $"Expected Raven.Core output at '{ravenCoreDllPath}'.");
     }
 
     private static (int ExitCode, string StdOut, string StdErr) RunCompiler(
