@@ -20,7 +20,11 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Descriptor];
 
     public override void Initialize(AnalysisContext context)
-        => context.RegisterSyntaxTreeAction(AnalyzeSyntaxTree);
+    {
+        context.EnableConcurrentExecution();
+
+        context.RegisterSyntaxTreeAction(AnalyzeSyntaxTree);
+    }
 
     private static void AnalyzeSyntaxTree(SyntaxTreeAnalysisContext context)
     {

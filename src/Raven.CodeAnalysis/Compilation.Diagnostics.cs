@@ -45,7 +45,7 @@ public partial class Compilation
         if (Options.MembersPublicByDefaultConfigured && !Options.MembersPublicByDefault)
             Add(Diagnostic.Create(CompilerDiagnostics.ExplicitPublicAccessibilityRequired, Location.None));
 
-        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+        return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance).ToImmutableArray();
 
         void AddTreeDiagnostics(SyntaxTree syntaxTree)
         {
@@ -155,7 +155,7 @@ public partial class Compilation
         }
 
         diagnostics.RemoveAll(ShouldSuppressAsyncLacksAwait);
-        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+        return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance).ToImmutableArray();
 
         void Add(Diagnostic diagnostic)
         {
@@ -265,7 +265,7 @@ public partial class Compilation
             Add(diagnostic);
         }
 
-        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+        return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance).ToImmutableArray();
 
         void Add(Diagnostic diagnostic)
         {
@@ -297,7 +297,7 @@ public partial class Compilation
                 diagnostics.Add(mapped);
         }
 
-        return diagnostics.OrderBy(x => x.Location).ToImmutableArray();
+        return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance).ToImmutableArray();
     }
 
     internal Diagnostic? ApplyCompilationOptions(

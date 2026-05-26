@@ -29,7 +29,11 @@ public sealed class ExampleAnalyzer : DiagnosticAnalyzer
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Descriptor];
 
     public override void Initialize(AnalysisContext context)
-        => context.RegisterSyntaxNodeAction(AnalyzeIdentifier, SyntaxKind.IdentifierName);
+    {
+        context.EnableConcurrentExecution();
+
+        context.RegisterSyntaxNodeAction(AnalyzeIdentifier, SyntaxKind.IdentifierName);
+    }
 
     private static void AnalyzeIdentifier(SyntaxNodeAnalysisContext context)
     {
@@ -86,6 +90,27 @@ edits, the driver is expected to reuse cached analyzer results and rerun only th
 registered syntax or symbol scopes were invalidated by the change. Analyzer authors should
 therefore describe their work through narrow actions instead of building their own whole-file
 or whole-project traversal loops.
+
+## Concurrent Execution
+
+Call `context.EnableConcurrentExecution()` from `Initialize` when the analyzer can safely run
+at the same time as other analyzers. This mirrors Roslyn's analyzer contract and is expected
+for analyzers that do meaningful semantic work in the language server.
+
+An analyzer that enables concurrent execution must be stateless for each run:
+
+- Do not store mutable analysis results on the analyzer instance.
+- Do not store mutable analysis results in static fields.
+- Use local variables inside callbacks for single-action state.
+- Use local thread-safe collections when future compilation-start or compilation-end style
+  APIs need to aggregate facts across multiple callbacks.
+- Assume callbacks from different analyzers may run concurrently against the same
+  compilation snapshot.
+- Always honor `context.CancellationToken` in long loops.
+
+Raven currently runs concurrent analyzers independently and merges their diagnostics in a
+deterministic order before publishing. Enabling concurrency does not change semantic truth:
+symbols, types, operations, and compiler diagnostics still come from `Raven.CodeAnalysis`.
 
 ## State And Incrementality
 

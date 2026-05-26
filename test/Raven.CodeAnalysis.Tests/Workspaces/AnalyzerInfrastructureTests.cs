@@ -81,6 +81,31 @@ public class AnalyzerInfrastructureTests
         }
     }
 
+    private sealed class ConcurrentCountingAnalyzer : DiagnosticAnalyzer
+    {
+        public static int AnalyzeCount;
+
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0005",
+            title: "Concurrent counted",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Concurrent counted",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.EnableConcurrentExecution();
+
+            context.RegisterSyntaxTreeAction(ctx =>
+            {
+                Interlocked.Increment(ref AnalyzeCount);
+                ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, Location.None));
+            });
+        }
+    }
+
     private sealed class NodeKindAnalyzer : DiagnosticAnalyzer
     {
         private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
@@ -330,6 +355,37 @@ class C {
         var actionPlan = eventSink.Events.Single(e => e.Operation == "documentAnalyzer.actionPlan");
         actionPlan.Detail.ShouldContain("documentScopedSyntaxNodeActions=1");
         actionPlan.Detail.ShouldContain("nodeScopedSyntaxNodeActions=1");
+    }
+
+    [Fact]
+    public void GetDiagnostics_ActionPlan_ReportsConcurrentAnalyzers()
+    {
+        ConcurrentCountingAnalyzer.AnalyzeCount = 0;
+        var eventSink = new CollectingWorkspaceEventSink();
+        var workspace = RavenWorkspace.Create(
+            targetFramework: TestMetadataReferences.TargetFramework,
+            workspaceEventSink: eventSink);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new CountingAnalyzer()));
+        project = project.AddAnalyzerReference(new AnalyzerReference(new ConcurrentCountingAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        _ = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+
+        var actionPlan = eventSink.Events.Single(e => e.Operation == "documentAnalyzer.actionPlan");
+        actionPlan.Detail.ShouldContain("analyzers=2");
+        actionPlan.Detail.ShouldContain("concurrentAnalyzers=1");
+        Assert.Equal(1, ConcurrentCountingAnalyzer.AnalyzeCount);
     }
 
     [Fact]

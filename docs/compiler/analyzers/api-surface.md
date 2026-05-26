@@ -35,6 +35,10 @@ arguments, and optional properties.
 
 ## Registration APIs
 
+`EnableConcurrentExecution()`
+: Allows this analyzer to run concurrently with other analyzers that also opted in. Use this
+  only when analyzer callbacks are stateless for each run and honor cancellation.
+
 `RegisterSyntaxTreeAction(Action<SyntaxTreeAnalysisContext>)`
 : Runs once per syntax tree. Use for checks that need file-wide context.
 

@@ -22,6 +22,8 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
+        context.EnableConcurrentExecution();
+
         context.RegisterCompilationAction(AnalyzeCompilation);
     }
 

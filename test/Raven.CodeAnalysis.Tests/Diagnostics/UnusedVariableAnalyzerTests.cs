@@ -10,6 +10,17 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 public class UnusedVariableAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
+    public void Analyzer_RegistersSingleDocumentScopedCompilationUnitAction()
+    {
+        var analyzer = new UnusedVariableAnalyzer();
+
+        Assert.True(analyzer.TryEnsureInitialized());
+        var registration = Assert.Single(analyzer.SyntaxNodeActions);
+        Assert.Equal(SyntaxNodeAnalysisScope.Document, registration.Scope);
+        Assert.Equal([SyntaxKind.CompilationUnit], registration.Kinds.ToArray());
+    }
+
+    [Fact]
     public void UnusedLocal_ReportsDiagnostic()
     {
         const string code = """

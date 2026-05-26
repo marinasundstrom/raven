@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 
@@ -42,6 +44,7 @@ public class AnalyzerReference
         var analyzerTypes = new Lazy<Type[]>(
             () => assembly.GetTypes()
                 .Where(t => typeof(DiagnosticAnalyzer).IsAssignableFrom(t) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)
+                .OrderBy(static t => t.FullName, StringComparer.Ordinal)
                 .ToArray(),
             LazyThreadSafetyMode.ExecutionAndPublication);
 

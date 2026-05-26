@@ -31,42 +31,26 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.RegisterSyntaxNodeAction(
-            AnalyzeBodyOwner,
-            SyntaxKind.MethodDeclaration,
-            SyntaxKind.FunctionStatement,
-            SyntaxKind.ConstructorDeclaration,
-            SyntaxKind.OperatorDeclaration,
-            SyntaxKind.ConversionOperatorDeclaration,
-            SyntaxKind.SimpleFunctionExpression,
-            SyntaxKind.ParenthesizedFunctionExpression);
+        context.EnableConcurrentExecution();
+
         context.RegisterSyntaxNodeAction(
             AnalyzeCompilationUnit,
             SyntaxKind.CompilationUnit);
     }
 
-    private void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context, SyntaxNode owner)
     {
-        if (HasBlockingSyntaxDiagnostics(context))
-            return;
-
-        var bodyRoots = GetBodyRoots(context.Node).ToArray();
-        var usageRoots = GetUsageRoots(context.Node).ToArray();
+        var bodyRoots = GetBodyRoots(owner).ToArray();
+        var usageRoots = GetUsageRoots(owner).ToArray();
 
         if (bodyRoots.Length == 0 && usageRoots.Length == 0)
             return;
 
-        var collector = new CandidateCollector(context.SemanticModel);
-        collector.CollectParameters(context.Node);
-        foreach (var bodyRoot in bodyRoots)
-            collector.Visit(bodyRoot);
+        var facts = OwnerUsageCollector.Collect(context.SemanticModel, owner);
+        var candidates = facts.Candidates.ToArray();
+        var usedSymbols = facts.UsedSymbols;
 
-        var candidates = collector.GetCandidates().ToArray();
-        var usedSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        foreach (var usageRoot in usageRoots)
-            UnionWith(usedSymbols, GetUsedSymbols(context.SemanticModel, usageRoot));
-
-        if (context.Node is ConstructorDeclarationSyntax { Initializer: not null } constructor)
+        if (owner is ConstructorDeclarationSyntax { Initializer: not null } constructor)
             MarkConstructorInitializerParameterReferences(candidates, constructor.Initializer, usedSymbols);
 
         ReportDiagnostics(context, candidates, usedSymbols);
@@ -129,17 +113,25 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         if (context.Node is not CompilationUnitSyntax compilationUnit)
             return;
 
-        var collector = new CandidateCollector(context.SemanticModel);
-        var usedSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var facts = OwnerUsageCollector.CollectGlobalStatements(
+            context.SemanticModel,
+            compilationUnit.Members.OfType<GlobalStatementSyntax>());
 
-        foreach (var member in compilationUnit.Members.OfType<GlobalStatementSyntax>())
-        {
-            collector.Visit(member.Statement);
-            UnionWith(usedSymbols, GetUsedSymbols(context.SemanticModel, member.Statement));
-        }
+        ReportDiagnostics(context, facts.Candidates, facts.UsedSymbols);
 
-        ReportDiagnostics(context, collector.GetCandidates(), usedSymbols);
+        foreach (var owner in compilationUnit.DescendantNodes().Where(IsBodyOwner))
+            AnalyzeBodyOwner(context, owner);
     }
+
+    private static bool IsBodyOwner(SyntaxNode node)
+        => node.Kind is
+            SyntaxKind.MethodDeclaration or
+            SyntaxKind.FunctionStatement or
+            SyntaxKind.ConstructorDeclaration or
+            SyntaxKind.OperatorDeclaration or
+            SyntaxKind.ConversionOperatorDeclaration or
+            SyntaxKind.SimpleFunctionExpression or
+            SyntaxKind.ParenthesizedFunctionExpression;
 
     private static bool HasBlockingSyntaxDiagnostics(SyntaxNodeAnalysisContext context)
     {
@@ -187,18 +179,40 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         public DiagnosticDescriptor Descriptor { get; }
     }
 
-    private sealed class CandidateCollector : SyntaxWalker
+    private sealed class OwnerUsageCollector : SyntaxWalker
     {
         private readonly SemanticModel _semanticModel;
         private readonly Dictionary<ISymbol, Candidate> _candidates = new(SymbolEqualityComparer.Default);
-        private int _closureDepth;
+        private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
+        private int _nestedOwnerDepth;
 
-        public CandidateCollector(SemanticModel semanticModel)
+        private OwnerUsageCollector(SemanticModel semanticModel)
         {
             _semanticModel = semanticModel;
         }
 
-        public IEnumerable<Candidate> GetCandidates() => _candidates.Values;
+        public static OwnerUsageFacts Collect(SemanticModel semanticModel, SyntaxNode owner)
+        {
+            var collector = new OwnerUsageCollector(semanticModel);
+            collector.CollectParameters(owner);
+
+            foreach (var bodyRoot in GetUsageRoots(owner))
+                collector.Visit(bodyRoot);
+
+            return collector.ToFacts();
+        }
+
+        public static OwnerUsageFacts CollectGlobalStatements(
+            SemanticModel semanticModel,
+            IEnumerable<GlobalStatementSyntax> globalStatements)
+        {
+            var collector = new OwnerUsageCollector(semanticModel);
+
+            foreach (var member in globalStatements)
+                collector.Visit(member.Statement);
+
+            return collector.ToFacts();
+        }
 
         public void CollectParameters(SyntaxNode node)
         {
@@ -215,6 +229,9 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 CollectParameter(parameter);
         }
 
+        private OwnerUsageFacts ToFacts()
+            => new(_candidates.Values.ToArray(), _usedSymbols);
+
         public override void DefaultVisit(SyntaxNode node)
         {
             foreach (var child in node.ChildNodes())
@@ -223,22 +240,22 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
         public override void VisitFunctionStatement(FunctionStatementSyntax node)
         {
-            EnterClosure();
+            EnterNestedOwner();
             VisitMaybe(node.Body);
             VisitMaybe(node.ExpressionBody);
-            ExitClosure();
+            ExitNestedOwner();
         }
 
         public override void VisitFunctionExpression(FunctionExpressionSyntax node)
         {
-            EnterClosure();
+            EnterNestedOwner();
             VisitMaybe(node.ExpressionBody);
-            ExitClosure();
+            ExitNestedOwner();
         }
 
         public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
         {
-            if (!IsInClosure)
+            if (!IsInNestedOwner)
             {
                 foreach (var declarator in node.Declaration.Declarators)
                 {
@@ -260,7 +277,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
         public override void VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
         {
-            if (!IsInClosure &&
+            if (!IsInNestedOwner &&
                 _semanticModel.GetDeclaredSymbol(node) is ILocalSymbol local &&
                 !string.IsNullOrEmpty(local.Name) &&
                 local.Name != "_")
@@ -269,71 +286,6 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             }
 
             base.VisitSingleVariableDesignation(node);
-        }
-
-        private void CollectParameter(ParameterSyntax parameter)
-        {
-            if (_semanticModel.GetDeclaredSymbol(parameter) is not IParameterSymbol parameterSymbol)
-                return;
-
-            if (string.IsNullOrEmpty(parameterSymbol.Name) || parameterSymbol.Name == "_")
-                return;
-
-            if (parameterSymbol.ContainingSymbol is IMethodSymbol method &&
-                AnalyzerContractFacts.IsContractMethod(method))
-            {
-                return;
-            }
-
-            _candidates[parameterSymbol.UnderlyingSymbol] = new Candidate(
-                parameterSymbol.UnderlyingSymbol,
-                parameterSymbol.Name,
-                parameter.Identifier.GetLocation(),
-                ParameterDescriptor);
-        }
-
-        private bool IsInClosure => _closureDepth > 0;
-
-        private void EnterClosure() => _closureDepth++;
-
-        private void ExitClosure() => _closureDepth--;
-
-        private void VisitMaybe(SyntaxNode? node)
-        {
-            if (node is not null)
-                Visit(node);
-        }
-    }
-
-    private static HashSet<ISymbol> GetUsedSymbols(SemanticModel semanticModel, SyntaxNode body)
-    {
-        var collector = new UsageCollector(semanticModel);
-        collector.Visit(body);
-        return collector.GetUsedSymbols();
-    }
-
-    private static void UnionWith(HashSet<ISymbol> target, IEnumerable<ISymbol> source)
-    {
-        foreach (var symbol in source)
-            target.Add(symbol);
-    }
-
-    private sealed class UsageCollector : SyntaxWalker
-    {
-        private readonly SemanticModel _semanticModel;
-        private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
-
-        public UsageCollector(SemanticModel semanticModel)
-        {
-            _semanticModel = semanticModel;
-        }
-
-        public HashSet<ISymbol> GetUsedSymbols() => _usedSymbols;
-
-        public override void DefaultVisit(SyntaxNode node)
-        {
-            foreach (var child in node.ChildNodes())
-                Visit(child);
         }
 
         public override void VisitIdentifierName(IdentifierNameSyntax node)
@@ -368,28 +320,31 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             base.VisitInterpolation(node);
         }
 
+        private void CollectParameter(ParameterSyntax parameter)
+        {
+            if (_semanticModel.GetDeclaredSymbol(parameter) is not IParameterSymbol parameterSymbol)
+                return;
+
+            if (string.IsNullOrEmpty(parameterSymbol.Name) || parameterSymbol.Name == "_")
+                return;
+
+            if (parameterSymbol.ContainingSymbol is IMethodSymbol method &&
+                AnalyzerContractFacts.IsContractMethod(method))
+            {
+                return;
+            }
+
+            _candidates[parameterSymbol.UnderlyingSymbol] = new Candidate(
+                parameterSymbol.UnderlyingSymbol,
+                parameterSymbol.Name,
+                parameter.Identifier.GetLocation(),
+                ParameterDescriptor);
+        }
+
         private void TryMarkUsedLocal(SyntaxNode node)
         {
             if (IsWriteTarget(node))
                 return;
-
-            if (node is IdentifierNameSyntax identifier &&
-                CanReferenceLocal(identifier))
-            {
-                if (_semanticModel.TryLookupVisibleValueSymbol(identifier) is { } visibleSymbol &&
-                    TryGetLocalOrParameter(visibleSymbol, out var visibleUsedSymbol))
-                {
-                    _usedSymbols.Add(visibleUsedSymbol.UnderlyingSymbol);
-                    return;
-                }
-
-                if (_semanticModel.GetBinder(identifier).LookupSymbol(identifier.Identifier.ValueText) is { } lookedUpSymbol &&
-                    TryGetLocalOrParameter(lookedUpSymbol, out var lookedUpUsedSymbol))
-                {
-                    _usedSymbols.Add(lookedUpUsedSymbol.UnderlyingSymbol);
-                    return;
-                }
-            }
 
             if (_semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol is { } symbol &&
                 TryGetLocalOrParameter(symbol, out var usedSymbol))
@@ -407,6 +362,18 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 IParameterSymbol parameter => !string.IsNullOrEmpty(parameter.Name),
                 _ => false
             };
+        }
+
+        private bool IsInNestedOwner => _nestedOwnerDepth > 0;
+
+        private void EnterNestedOwner() => _nestedOwnerDepth++;
+
+        private void ExitNestedOwner() => _nestedOwnerDepth--;
+
+        private void VisitMaybe(SyntaxNode? node)
+        {
+            if (node is not null)
+                Visit(node);
         }
 
         private static bool IsWriteTarget(SyntaxNode node)
@@ -458,4 +425,8 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             };
         }
     }
+
+    private readonly record struct OwnerUsageFacts(
+        IReadOnlyCollection<Candidate> Candidates,
+        HashSet<ISymbol> UsedSymbols);
 }

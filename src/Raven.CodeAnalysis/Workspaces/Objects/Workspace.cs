@@ -399,7 +399,7 @@ public class Workspace
             }
         }
 
-        var result = diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+        var result = diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance).ToImmutableArray();
         if (analyzerOptions is null)
             _projectDiagnosticsCache[cacheKey] = result;
 
@@ -487,7 +487,7 @@ public class Workspace
             }
         }
 
-        return diagnostics.OrderBy(d => d.Location).ToImmutableArray();
+        return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance).ToImmutableArray();
     }
 
     internal ImmutableArray<Diagnostic> GetDocumentAnalyzerDiagnostics(

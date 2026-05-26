@@ -16,6 +16,7 @@ public abstract class DiagnosticAnalyzer
     private readonly List<Action<CompilationAnalysisContext>> _compilationActions = new();
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions = new();
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions = new();
+    private bool _concurrentExecutionEnabled;
 
     /// <summary>Implement to register analysis actions.</summary>
     public abstract void Initialize(AnalysisContext context);
@@ -34,7 +35,11 @@ public abstract class DiagnosticAnalyzer
 
             try
             {
-                Initialize(new AnalysisContext(_compilationActions, _syntaxTreeActions, _syntaxNodeActions));
+                Initialize(new AnalysisContext(
+                    _compilationActions,
+                    _syntaxTreeActions,
+                    _syntaxNodeActions,
+                    () => _concurrentExecutionEnabled = true));
                 _initialized = true;
                 return true;
             }
@@ -54,6 +59,8 @@ public abstract class DiagnosticAnalyzer
     internal IReadOnlyList<Action<SyntaxTreeAnalysisContext>> SyntaxTreeActions => _syntaxTreeActions;
 
     internal IReadOnlyList<SyntaxNodeActionRegistration> SyntaxNodeActions => _syntaxNodeActions;
+
+    internal bool ConcurrentExecutionEnabled => _concurrentExecutionEnabled;
 
     /// <summary>Runs the analyzer for the specified compilation.</summary>
     public IEnumerable<Diagnostic> Analyze(Compilation compilation, CancellationToken cancellationToken = default)
@@ -148,7 +155,7 @@ public abstract class DiagnosticAnalyzer
             }
         }
 
-        return diagnostics;
+        return diagnostics.OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance);
     }
 }
 
@@ -181,16 +188,26 @@ public sealed class AnalysisContext
     private readonly List<Action<CompilationAnalysisContext>> _compilationActions;
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions;
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions;
+    private readonly Action _enableConcurrentExecution;
 
     internal AnalysisContext(
         List<Action<CompilationAnalysisContext>> compilationActions,
         List<Action<SyntaxTreeAnalysisContext>> syntaxTreeActions,
-        List<SyntaxNodeActionRegistration> syntaxNodeActions)
+        List<SyntaxNodeActionRegistration> syntaxNodeActions,
+        Action enableConcurrentExecution)
     {
         _compilationActions = compilationActions;
         _syntaxTreeActions = syntaxTreeActions;
         _syntaxNodeActions = syntaxNodeActions;
+        _enableConcurrentExecution = enableConcurrentExecution;
     }
+
+    /// <summary>
+    /// Allows analyzer actions from this analyzer to run concurrently with other concurrent analyzers.
+    /// Analyzer implementations that enable this must not store mutable per-run state on the analyzer instance.
+    /// </summary>
+    public void EnableConcurrentExecution()
+        => _enableConcurrentExecution();
 
     /// <summary>Registers an action executed once for the compilation being analyzed.</summary>
     public void RegisterCompilationAction(Action<CompilationAnalysisContext> action)
@@ -238,7 +255,10 @@ public sealed class AnalysisContext
         _syntaxNodeActions.Add(new SyntaxNodeActionRegistration(
             action,
             scope,
-            syntaxKinds.ToHashSet()));
+            syntaxKinds
+                .Distinct()
+                .OrderBy(static kind => (int)kind)
+                .ToImmutableArray()));
     }
 }
 
@@ -351,4 +371,4 @@ public readonly struct SyntaxNodeAnalysisContext
 internal readonly record struct SyntaxNodeActionRegistration(
     Action<SyntaxNodeAnalysisContext> Action,
     SyntaxNodeAnalysisScope Scope,
-    HashSet<SyntaxKind> Kinds);
+    ImmutableArray<SyntaxKind> Kinds);

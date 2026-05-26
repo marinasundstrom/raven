@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>MockUiBuilderDsl</AssemblyName>
     <OutputType>Exe</OutputType>
+    <!-- <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeValAnalyzer</RavenDisabledAnalyzers> -->
   </PropertyGroup>
   <ItemGroup>
     <RavenCompile Include="src/**/*.rvn" />

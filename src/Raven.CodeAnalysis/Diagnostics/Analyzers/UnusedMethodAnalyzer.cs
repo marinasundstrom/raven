@@ -24,6 +24,8 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
+        context.EnableConcurrentExecution();
+
         context.RegisterCompilationAction(AnalyzeCompilation);
         context.RegisterSyntaxNodeAction(
             AnalyzeBodyOwner,
