@@ -85,7 +85,7 @@ public class SyntaxTree
 
     public IEnumerable<TextChange> GetChanges(SyntaxTree oldTree)
     {
-        return oldTree.GetText().GetTextChanges(GetText());
+        return GetText().GetTextChanges(oldTree.GetText());
     }
 
     public static SyntaxTree Create(CompilationUnitSyntax compilationUnit, ParseOptions? options = null, Encoding? encoding = null, string? filePath = null)

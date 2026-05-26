@@ -107,6 +107,56 @@ public sealed class IncrementalExecutableOwnerAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_RemovingConstructorAssignment_DoesNotBlockSemanticDiagnosticTransfer()
+    {
+        var previousTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class UiStackPanel {
+            }
+
+            class UiWindow {
+                private val title: string
+
+                init(content: UiStackPanel, title: string) {
+                    Content = content
+                    self.title = title
+                }
+
+                val Content: UiStackPanel
+                val Title: string => title
+            }
+            """));
+        var currentTree = SyntaxTree.ParseText(SourceText.From(
+            """
+            class UiStackPanel {
+            }
+
+            class UiWindow {
+                private val title: string
+
+                init(content: UiStackPanel, title: string) {
+                    Content = content
+                }
+
+                val Content: UiStackPanel
+                val Title: string => title
+            }
+            """));
+        var currentConstructor = currentTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ConstructorDeclarationSyntax>()
+            .Single();
+        var currentDescriptor = new Compilation.ExecutableOwnerDescriptor(currentConstructor.Span, currentConstructor.Kind);
+
+        var result = IncrementalExecutableOwnerAnalyzer.Analyze(previousTree, currentTree);
+
+        result.BlocksSemanticDiagnosticTransfer.ShouldBeFalse();
+        result.ChangedOwners.ShouldContain(currentDescriptor);
+        result.OwnerChanges.TryGetValue(currentDescriptor, out var change).ShouldBeTrue();
+        change.Kind.ShouldBe(Compilation.OwnerRelativeChangeKind.BodyExpression);
+    }
+
+    [Fact]
     public void TransferPolicy_DropsAllOwnerRelativeDescriptors_ForSignatureOrDeclarationChange()
     {
         var previousTree = SyntaxTree.ParseText(SourceText.From(

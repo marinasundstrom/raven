@@ -74,6 +74,20 @@ public class IncrementalSyntaxTreeUpdatesTest
     }
 
     [Fact]
+    public void GetChanges_ReturnsChangesFromOldTreeToCurrentTree()
+    {
+        var sourceText = SourceText.From("val value = 1\n");
+        var changedSourceText = sourceText.Replace(new TextSpan("val value = ".Length, 1), "42");
+        var originalTree = SyntaxTree.ParseText(sourceText);
+        var changedTree = originalTree.WithChangedText(changedSourceText);
+
+        var change = Assert.Single(changedTree.GetChanges(originalTree));
+
+        Assert.Equal(new TextSpan("val value = ".Length, 1), change.Span);
+        Assert.Equal("42", change.NewText);
+    }
+
+    [Fact]
     public void ApplyChangedTextToSyntaxTree()
     {
         var sourceText = SourceText.From(

@@ -435,7 +435,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
             return false;
         }
 
-        bodySpan = body.Span;
+        bodySpan = body.FullSpan;
         return true;
     }
 

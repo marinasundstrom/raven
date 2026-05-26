@@ -694,6 +694,32 @@ public partial class SemanticModel
 
             ownersToBind = ExpandTopLevelOrderSensitiveOwners(root, ownersToBind);
 
+            var missingTransferOwners = new List<SyntaxNode>();
+            foreach (var owner in allOwners)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (ContainsOwner(ownersToBind, owner))
+                    continue;
+
+                if (IsCoveredBy(owner, ownersToBind))
+                    continue;
+
+                if (!TryGetTransferredSemanticDiagnostics(owner, out _))
+                    missingTransferOwners.Add(owner);
+            }
+
+            if (missingTransferOwners.Count > 0)
+            {
+                var candidateOwnersToBind = ownersToBind
+                    .Concat(missingTransferOwners)
+                    .DistinctBy(static owner => owner, ReferenceEqualityComparer.Instance)
+                    .ToArray();
+                ownersToBind = candidateOwnersToBind
+                    .Where(owner => !IsCoveredBy(owner, candidateOwnersToBind))
+                    .ToArray();
+            }
+
             var ownersToBindSet = ownersToBind
                 .Select(static owner => new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind))
                 .ToHashSet();
@@ -705,7 +731,7 @@ public partial class SemanticModel
                 if (ownersToBindSet.Contains(new Compilation.ExecutableOwnerDescriptor(owner.Span, owner.Kind)))
                     continue;
 
-                if (IsCoveredByOwnerToBind(owner))
+                if (IsCoveredBy(owner, ownersToBind))
                     continue;
 
                 if (!TryGetTransferredSemanticDiagnostics(owner, out var diagnostics))
@@ -747,8 +773,11 @@ public partial class SemanticModel
                                      !allOwners.Any(owner => owner.Span.IntersectsWith(diagnostic.Location.SourceSpan))));
             return true;
 
-            bool IsCoveredByOwnerToBind(SyntaxNode owner)
-                => ownersToBind.Any(ownerToBind =>
+            static bool ContainsOwner(IEnumerable<SyntaxNode> owners, SyntaxNode owner)
+                => owners.Contains(owner, ReferenceEqualityComparer.Instance);
+
+            static bool IsCoveredBy(SyntaxNode owner, IEnumerable<SyntaxNode> coveringOwners)
+                => coveringOwners.Any(ownerToBind =>
                     !ReferenceEquals(ownerToBind, owner) &&
                     ownerToBind.Span.Start <= owner.Span.Start &&
                     ownerToBind.Span.End >= owner.Span.End);
