@@ -6875,7 +6875,7 @@ public partial class SemanticModel
 
         ClearCachedSemanticState(interestRoot);
         PrimeContextualFunctionExpressions(interestRoot);
-        _ = GetBoundNode(interestRoot, BoundTreeView.Original);
+        _ = BindContextualRootForSemanticQuery(interestRoot);
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
             !reboundDeclarator.Local.Type.ContainsErrorType())
@@ -6962,7 +6962,7 @@ public partial class SemanticModel
                 EnsureTopLevelFunctionDeclarations(functionExpressionCompilationUnit);
 
             PrimeContextualFunctionExpressions(functionExpressionRoot);
-            var contextualBoundRoot = GetBoundNode(functionExpressionRoot, BoundTreeView.Original);
+            var contextualBoundRoot = BindContextualRootForSemanticQuery(functionExpressionRoot);
 
             if (TryGetLocalFromContextualBoundRoot(contextualBoundRoot, out localSymbol))
                 return true;
@@ -6978,7 +6978,7 @@ public partial class SemanticModel
 
                 ClearCachedSemanticState(functionExpressionRoot);
                 PrimeContextualFunctionExpressions(functionExpressionRoot);
-                contextualBoundRoot = GetBoundNode(functionExpressionRoot, BoundTreeView.Original);
+                contextualBoundRoot = BindContextualRootForSemanticQuery(functionExpressionRoot);
 
                 if (TryGetLocalFromContextualBoundRoot(contextualBoundRoot, out localSymbol))
                     return true;
@@ -7082,7 +7082,7 @@ public partial class SemanticModel
 
         if (allowErrorType && errorLocal is not null)
         {
-            localSymbol = errorLocal;
+            localSymbol = GetCanonicalLocalDeclarationSymbol(variableDeclarator, errorLocal);
             return true;
         }
 
@@ -7120,25 +7120,38 @@ public partial class SemanticModel
         }
 
         ClearCachedSemanticState(interestRoot);
-        var reboundRoot = GetBoundNode(interestRoot, BoundTreeView.Original);
+        var reboundRoot = BindContextualRootForSemanticQuery(interestRoot);
 
         if (TryFindBoundNodeBySyntax(reboundRoot, variableDeclarator, out var reboundNode) &&
             reboundNode is BoundVariableDeclarator contextualDeclarator &&
             (allowErrorType || !contextualDeclarator.Local.Type.ContainsErrorType()))
         {
-            localSymbol = contextualDeclarator.Local;
+            localSymbol = GetCanonicalLocalDeclarationSymbol(variableDeclarator, contextualDeclarator.Local);
             return true;
         }
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
             (allowErrorType || !reboundDeclarator.Local.Type.ContainsErrorType()))
         {
-            localSymbol = reboundDeclarator.Local;
+            localSymbol = GetCanonicalLocalDeclarationSymbol(variableDeclarator, reboundDeclarator.Local);
             return true;
         }
 
         localSymbol = null!;
         return false;
+    }
+
+    private ILocalSymbol GetCanonicalLocalDeclarationSymbol(
+        VariableDeclaratorSyntax variableDeclarator,
+        ILocalSymbol localSymbol)
+    {
+        var binderRoot = GetInterestBindingRoot(variableDeclarator, includeExtendedExecutableRoots: true)
+            ?? (SyntaxNode)variableDeclarator;
+        var binder = GetBinderForIncrementalSemanticQuery(binderRoot);
+        return TryGetNearestBlockBinder(binder, out var blockBinder) &&
+               blockBinder.TryGetDeclaredLocalForSemanticQuery(variableDeclarator, out var declaredLocal)
+            ? declaredLocal
+            : localSymbol;
     }
 
     private void BindPrecedingGlobalStatementsForScope(
@@ -12137,7 +12150,14 @@ public partial class SemanticModel
             _binderLifecycleSnapshots.TryGetValue(binder, out var snapshot) &&
             !snapshot.SourceDeclarationsDeclared)
         {
-            return false;
+            // Executable binders own local, pattern, and statement-derived state. A
+            // semantic query may create one before the source-declaration pass has
+            // completed; once declarations complete, keep that binder and let its
+            // normal binding paths upgrade any error-derived facts. Replacing it here
+            // creates parallel local symbols for the same syntax and makes later
+            // diagnostics look like shadowing or unused-variable noise.
+            if (binder is not BlockBinder)
+                return false;
         }
 
         return node switch

@@ -1392,6 +1392,9 @@ partial class BlockBinder : Binder
     private bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
         => _declarationState.TryGetDeclaredLocal(declaringSyntax, out local);
 
+    internal bool TryGetDeclaredLocalForSemanticQuery(SyntaxNode declaringSyntax, out ILocalSymbol local)
+        => TryGetDeclaredLocal(declaringSyntax, out local);
+
     private static bool TryGetSyntaxReferenceKey(ISymbol symbol, out SyntaxReferenceKey key)
     {
         var reference = symbol.DeclaringSyntaxReferences.FirstOrDefault();
@@ -1447,8 +1450,11 @@ partial class BlockBinder : Binder
         public void AddDeclaredLocal(ILocalSymbol local, SyntaxNode declaringSyntax)
         {
             if (TryGetSyntaxReferenceKey(local, out var key) &&
-                _declaredLocalsBySyntax.ContainsKey(key))
+                _declaredLocalsBySyntax.TryGetValue(key, out var existingLocal))
             {
+                if (!ReferenceEquals(existingLocal, local))
+                    ReplaceDeclaredLocalForSameSyntax(existingLocal, local, declaringSyntax, key);
+
                 return;
             }
 
@@ -1466,6 +1472,59 @@ partial class BlockBinder : Binder
 
             localsByName.Add(new DeclaredLocalEntry(local, scope));
             Version++;
+        }
+
+        private void ReplaceDeclaredLocalForSameSyntax(
+            ILocalSymbol oldLocal,
+            ILocalSymbol newLocal,
+            SyntaxNode declaringSyntax,
+            SyntaxReferenceKey key)
+        {
+            var scope = GetLexicalScopeKey(declaringSyntax);
+            for (var i = _declaredLocals.Count - 1; i >= 0; i--)
+            {
+                if (IsSameDeclaredLocalEntry(_declaredLocals[i], oldLocal, key))
+                    _declaredLocals.RemoveAt(i);
+            }
+
+            _scopesByLocal.Remove(oldLocal);
+            foreach (var existingLocal in _scopesByLocal.Keys.Where(local => IsSameDeclaredLocalEntry(local, oldLocal, key)).ToArray())
+                _scopesByLocal.Remove(existingLocal);
+
+            _scopesByLocal[newLocal] = scope;
+            _declaredLocalsBySyntax[key] = newLocal;
+
+            if (_declaredLocalsByName.TryGetValue(oldLocal.Name, out var oldNameEntries))
+            {
+                for (var i = oldNameEntries.Count - 1; i >= 0; i--)
+                {
+                    if (IsSameDeclaredLocalEntry(oldNameEntries[i].Local, oldLocal, key))
+                        oldNameEntries.RemoveAt(i);
+                }
+            }
+
+            if (!_declaredLocalsByName.TryGetValue(newLocal.Name, out var newNameEntries))
+            {
+                newNameEntries = new List<DeclaredLocalEntry>();
+                _declaredLocalsByName[newLocal.Name] = newNameEntries;
+            }
+
+            _declaredLocals.Add(newLocal);
+            newNameEntries.Add(new DeclaredLocalEntry(newLocal, scope));
+        }
+
+        private static bool IsSameDeclaredLocalEntry(
+            ILocalSymbol local,
+            ILocalSymbol expectedLocal,
+            SyntaxReferenceKey expectedKey)
+        {
+            if (ReferenceEquals(local, expectedLocal) ||
+                SymbolEqualityComparer.Default.Equals(local, expectedLocal))
+            {
+                return true;
+            }
+
+            return TryGetSyntaxReferenceKey(local, out var key) && key.Equals(expectedKey);
         }
 
         public void ReplaceDeclaredLocal(ILocalSymbol oldLocal, ILocalSymbol newLocal, SyntaxNode declaringSyntax)
