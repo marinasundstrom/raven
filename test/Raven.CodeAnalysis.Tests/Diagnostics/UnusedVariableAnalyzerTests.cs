@@ -94,6 +94,24 @@ class Derived : Base {
     }
 
     [Fact]
+    public void ConstructorParametersAssignedToFields_DoNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    private val name: string
+    private val count: int
+
+    init(name: string, count: int) {
+        self.name = name
+        self.count = count
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
     public void OverrideMethodParameter_DoesNotReportDiagnostic()
     {
         const string code = """
@@ -138,6 +156,44 @@ class Transformer : ITransformer {
 class C {
     public func M(value: int) -> int {
         value
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
+    public void ParameterUsedAsForSource_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(items: int[]) -> int {
+        var total = 0
+
+        for item in items {
+            total += item
+        }
+
+        return total
+    }
+}
+""";
+
+        Assert.Empty(AnalyzeParameters(code));
+    }
+
+    [Fact]
+    public void ParameterForwardedToInvocation_DoesNotReportDiagnostic()
+    {
+        const string code = """
+class C {
+    public func M(items: int[]) -> int {
+        return Count(items)
+    }
+
+    private func Count(items: int[]) -> int {
+        return items.Length
     }
 }
 """;

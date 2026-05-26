@@ -25,6 +25,19 @@ The only difference is **triggering**:
 * Compiler: **eager and hierarchical**
 * Tooling: **lazy and local**
 
+Both modes must converge on the same semantic answer. A tooling query may be the
+first path to bind a node, and a later diagnostic pass may reuse that state, or
+the diagnostic pass may bind first and a later query may ask for the same symbol.
+The public query APIs are therefore non-reporting and compiler-owned: callers ask
+for symbols and types, while diagnostic collection remains a separate reporting
+operation.
+
+Symbol identity is semantic, not object identity. Equivalent binding paths can
+return different symbol instances for the same source declaration or metadata
+member, especially as incremental snapshots start reusing declaration descriptors
+and recreating snapshot-owned source symbols. Use `SymbolEqualityComparer.Default`
+when comparing or storing `ISymbol` values.
+
 ---
 
 ## At a glance

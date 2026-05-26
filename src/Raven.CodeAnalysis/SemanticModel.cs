@@ -1298,6 +1298,12 @@ public partial class SemanticModel
             return earlyMemberBindingInfo;
         }
 
+        if (node is IdentifierNameSyntax earlyValueIdentifier &&
+            TryGetVisibleValueIdentifierSymbolInfo(earlyValueIdentifier, out var earlyValueInfo))
+        {
+            return earlyValueInfo;
+        }
+
         if (TryGetCachedSymbolInfo(node, out var symbolInfo))
         {
             if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
@@ -2425,9 +2431,6 @@ public partial class SemanticModel
             return true;
         }
 
-        if (TryGetCachedSymbolInfo(node, out info))
-            return true;
-
         if (node is IdentifierNameSyntax functionParameterReference &&
             TryGetAvailableFunctionExpressionParameterReferenceSymbolInfo(functionParameterReference, out info))
         {
@@ -2451,6 +2454,9 @@ public partial class SemanticModel
             StoreNodeInterestSymbolDescriptor(node, visibleSymbol);
             return true;
         }
+
+        if (TryGetCachedSymbolInfo(node, out info))
+            return true;
 
         if (node is IdentifierNameSyntax syntaxScopedIdentifier &&
             TryResolveAvailableLocalReferenceFromSyntax(syntaxScopedIdentifier, out var syntaxScopedLocal))
@@ -2541,6 +2547,37 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private bool TryGetVisibleValueIdentifierSymbolInfo(IdentifierNameSyntax identifier, out SymbolInfo info)
+    {
+        info = SymbolInfo.None;
+
+        if (!IsValueIdentifierLookupContext(identifier))
+            return false;
+
+        if (TryLookupVisibleValueSymbol(identifier) is not { } visibleSymbol)
+            return false;
+
+        info = new SymbolInfo(visibleSymbol);
+        StoreSymbolMapping(identifier, info);
+        StoreNodeInterestSymbolDescriptor(identifier, visibleSymbol);
+        return true;
+    }
+
+    private static bool IsValueIdentifierLookupContext(IdentifierNameSyntax identifier)
+    {
+        return identifier.Parent switch
+        {
+            MemberAccessExpressionSyntax memberAccess when ReferenceEquals(memberAccess.Name, identifier) => false,
+            QualifiedNameSyntax => false,
+            TypeAnnotationClauseSyntax => false,
+            TypeArgumentSyntax => false,
+            ImportDirectiveSyntax => false,
+            AttributeSyntax => false,
+            NameColonSyntax => false,
+            _ => true,
+        };
     }
 
     private bool TryGetFunctionExpressionParameterReferenceSymbolInfo(

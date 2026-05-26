@@ -82,6 +82,20 @@ See [Syntax Tree API](../api/syntax-tree.md) and
 Semantic queries may trigger binding. The compiler owns the caches and incremental state;
 analyzers should not reach into binder internals or language-server caches.
 
+Semantic queries are intentionally non-reporting: `GetSymbolInfo`, `GetTypeInfo`,
+`GetDeclaredSymbol`, and `GetOperation` may bind narrowly to answer the requested question,
+but they should not publish or cache compiler diagnostics as a side effect. Diagnostic
+collection is a separate compiler pipeline. This separation lets hover, completion, analyzers,
+and code fixes ask semantic questions without poisoning later diagnostics or depending on
+diagnostic scheduling order.
+
+Symbols returned from different semantic queries should be treated as equivalent semantic
+values, not as durable object identities. Lazy binding, operation creation, diagnostic
+binding, and future incremental snapshots may return different `ISymbol` instances for the
+same declaration or metadata member. Use `SymbolEqualityComparer.Default` for symbol
+comparison and for `HashSet<ISymbol>`/`Dictionary<ISymbol, ...>` keys unless a specific API
+documents a narrower comparer.
+
 Avoid diagnostic-producing APIs from analyzer callbacks. `Compilation.GetDiagnostics`,
 `Compilation.GetDocumentDiagnostics`, `SemanticModel.GetDiagnostics`,
 `SemanticModel.GetDocumentDiagnostics`, and workspace diagnostic APIs can force broad

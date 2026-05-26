@@ -32,10 +32,14 @@ Raven currently provides analyzers for two different contexts:
   considered (entry points are excluded, including async entry points that require a
   synthesized bridge); in library-style outputs, only non-public methods are considered.
   Methods required by a virtual/override or interface contract are excluded.
-- **UnusedVariableAnalyzer** (Raven, `RAV9027` / `RAV9030`) – reports unused local
-  variables, local pattern bindings, and callable parameters. Parameters on override and
-  virtual, override, and interface implementation methods are excluded because the contract
-  fixes the signature.
+- **UnusedLocalAnalyzer** (Raven, `RAV9027`) – reports unused local variables and local
+  pattern bindings.
+- **UnusedParameterAnalyzer** (Raven, `RAV9030`) – reports unused callable parameters.
+  Parameters on override and virtual, override, and interface implementation methods are
+  excluded because the contract fixes the signature.
+  `UnusedVariableAnalyzer` remains as a compatibility analyzer name for existing project
+  configuration; disabling `UnusedVariableAnalyzer` disables both local and parameter
+  checks.
 - **UnusedImportDirectiveAnalyzer** (Raven, `RAV9031`) – reports wildcard namespace
   imports whose declaring compilation-unit or namespace scope does not reference any
   imported type, top-level namespace member, or nested namespace member. Nested namespaces
@@ -175,6 +179,13 @@ from the current tree as a cheap guard. Code fixes should use the diagnostics su
 Built-in analyzers may use internal helpers when needed, but they should preserve the same
 boundary: semantic query APIs answer narrow semantic questions; diagnostic APIs produce
 diagnostics.
+
+When an analyzer stores symbols for later matching, always use
+`SymbolEqualityComparer.Default`. Raven's lazy binding and diagnostic binding paths can
+return different symbol instances for the same declaration, especially after another semantic
+query has already materialized part of a binder-owned cache. Analyzer logic must compare
+what the symbol represents, not which object instance was returned first. This applies to
+candidate maps, used-symbol sets, de-duplication, and comparisons against well-known symbols.
 
 `RAV9029` is off by default. Project files control the analyzer mode, and `.editorconfig`
 controls severity. Deprecated `.ravenproj` files can use `ReturnedValueHandlingMode="full"` or

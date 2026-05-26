@@ -160,6 +160,33 @@ Analyzer code should not depend on binder internals, incremental caches, or lang
 state. If a public semantic API is too expensive or incomplete, fix the compiler API rather
 than bypassing it in the analyzer.
 
+Semantic symbols must be compared with `SymbolEqualityComparer.Default`, not by reference
+identity and not by display text. Raven binds lazily and may answer semantic queries from
+different compiler-owned paths: declaration binding, diagnostic binding, operation creation,
+or a later focused semantic query. Those paths can produce different symbol object instances
+that still represent the same source declaration or metadata member.
+
+Use comparer-backed collections whenever an analyzer records candidates and later matches
+references:
+
+```csharp
+var candidates = new Dictionary<ISymbol, Location>(SymbolEqualityComparer.Default);
+var used = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+var declared = context.SemanticModel.GetDeclaredSymbol(declaration);
+if (declared is not null)
+    candidates[declared] = declaration.GetLocation();
+
+var referenced = context.SemanticModel.GetSymbolInfo(identifier).Symbol;
+if (referenced is not null)
+    used.Add(referenced);
+```
+
+Do not write analyzer logic that depends on `object.ReferenceEquals`, default
+`HashSet<ISymbol>`/`Dictionary<ISymbol, ...>` equality, `ToDisplayString()`, or metadata-name
+strings for identity. Strings are useful for presentation and cheap syntax prefilters; they
+are not the semantic identity of a symbol.
+
 ## Diagnostic Queries From Analyzers
 
 Analyzers should not normally ask the compiler or workspace for diagnostics while they are

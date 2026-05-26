@@ -75,6 +75,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed VS Code project build, run, and debug commands so `.rvnproj` targets use
   the `rvn build` frontend instead of invoking the `rvnc` compiler driver with
   publish-only arguments.
+- Split unused local and unused parameter analysis into distinct built-in analyzers while
+  keeping `UnusedVariableAnalyzer` as a compatibility disable name, and tightened analyzer
+  symbol matching so equivalent lazy-bound symbols are compared with Raven symbol equality
+  instead of object identity.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused

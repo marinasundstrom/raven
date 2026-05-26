@@ -426,6 +426,8 @@ class C {
 
         var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers()).ToArray();
         analyzers.ShouldNotContain(static analyzer => analyzer is UnusedVariableAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is UnusedLocalAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is UnusedParameterAnalyzer);
         analyzers.ShouldContain(static analyzer => analyzer is VarCanBeValAnalyzer);
     }
 }

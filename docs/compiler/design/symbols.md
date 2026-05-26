@@ -10,11 +10,20 @@
 
 ## Symbol equality
 
-Symbols are not equal by their instance, but requires the use of `SymbolEqualityComparer` to determine if they represent the same thing.
+Symbols are not equal by their object instance. Use `SymbolEqualityComparer` to
+determine whether two symbols represent the same declaration or metadata member.
 
 ```csharp
 SymbolEqualityComparer.Default.Equals(source, destination)
 ```
+
+This rule is important for analyzers, refactorings, generators, and language
+service features. Raven binds lazily, and the same semantic answer may be
+materialized through declaration binding, diagnostic binding, operation creation,
+or a later focused semantic query. Future incremental compilation work also
+allows snapshot-owned source symbols to be recreated while still representing
+the same declaration. Collections that store symbols should therefore be created
+with `SymbolEqualityComparer.Default`.
 
 ## Alias symbols
 

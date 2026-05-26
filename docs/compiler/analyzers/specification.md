@@ -118,6 +118,16 @@ caches, or other implementation-specific state. If a public API cannot answer th
 question accurately or cheaply enough, improve the compiler API.
 
 Semantic APIs may bind lazily. The compiler owns the binding state and cache policy.
+They are also non-reporting query APIs: asking for a symbol, type, or operation must not make
+the analyzer depend on the compiler diagnostic collection path or publish partial diagnostics
+as a side effect.
+
+Analyzer implementations must compare symbols with `SymbolEqualityComparer.Default`.
+Reference identity is not semantic identity. The same source declaration or metadata member
+can be represented by equivalent symbol instances across lazy binding paths, diagnostic
+binding, operation creation, or future incremental snapshots. Analyzer state such as
+candidate sets, used-symbol sets, and cross-callback maps must therefore use comparer-backed
+collections.
 
 ## Reporting Contract
 

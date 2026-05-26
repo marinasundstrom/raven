@@ -36,8 +36,14 @@ internal static class AnalyzerOptionUtilities
         if (disabledAnalyzers.IsEmpty)
             return false;
 
-        return disabledAnalyzers.Contains(analyzerType.Name) ||
-               disabledAnalyzers.Contains(analyzerType.FullName ?? string.Empty);
+        if (disabledAnalyzers.Contains(analyzerType.Name) ||
+            disabledAnalyzers.Contains(analyzerType.FullName ?? string.Empty))
+        {
+            return true;
+        }
+
+        return analyzerType.Name is nameof(Diagnostics.UnusedLocalAnalyzer) or nameof(Diagnostics.UnusedParameterAnalyzer) &&
+               disabledAnalyzers.Contains(nameof(Diagnostics.UnusedVariableAnalyzer));
     }
 
     private static ImmutableHashSet<string> EmptyAnalyzerNameSet()

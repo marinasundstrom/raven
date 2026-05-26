@@ -24,13 +24,15 @@ for features such as delegates and the entry point.【F:src/Raven.CodeAnalysis/C
 
 `GetSemanticModel` materializes a `SemanticModel` for a specific tree. The
 compilation caches models so repeated calls return the same instance. Models are
-created eagerly when diagnostics or symbol queries require them, ensuring binder
-state is populated before answering questions.【F:src/Raven.CodeAnalysis/Compilation.cs†L82-L123】
+created lazily when diagnostics, symbol queries, type queries, operations, or
+language-service features require them.【F:src/Raven.CodeAnalysis/Compilation.cs†L82-L123】
 
 Each semantic model wires up the binder chain for the tree's root during
-construction. `EnsureDiagnosticsCollected` walks the syntax tree and binds
-expressions and statements on demand so later queries operate on cached bound
-nodes.【F:src/Raven.CodeAnalysis/SemanticModel.cs†L1-L71】
+construction. Binders are the execution units that own derived semantic state for
+their syntax and scope: parameters, locals, labels, pattern variables, bound
+expressions, and binder-produced diagnostics. Public semantic queries may create
+or reuse the responsible binder state for the requested node; diagnostic
+collection uses the same binders but remains a separate reporting pipeline.
 
 ## Diagnostics
 
@@ -49,6 +51,19 @@ node (or using cached results). For declarations, `GetDeclaredSymbol` resolves
 keys from the declaration table and uses the symbol factory to return the
 canonical symbol. `GetTypeInfo` has overloads for expressions and type syntax,
 returning both the inferred and converted types when available.【F:src/Raven.CodeAnalysis/SemanticModel.cs†L47-L143】
+
+These query APIs are non-reporting. They may bind narrowly to answer the
+requested question, and the result may be reused by later queries, but they should
+not publish compiler diagnostics or make analyzer results depend on diagnostic
+collection order. If a query needs semantic meaning, prefer the public semantic
+API that owns that meaning instead of reading binder caches directly.
+
+Do not compare returned symbols by object reference. Lazy binding, diagnostic
+binding, operation creation, metadata loading, and future incremental snapshots
+can return different `ISymbol` instances that represent the same declaration or
+metadata member. Use `SymbolEqualityComparer.Default` for equality, hash sets,
+dictionaries, distinctness, and comparisons with well-known symbols unless a
+specific API documents otherwise.
 
 Closure-aware tooling can query capture data directly from `SemanticModel`:
 

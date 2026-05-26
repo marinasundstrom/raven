@@ -38,6 +38,9 @@ or for generators and analyzers that visit many nodes.
 - Keep analyzers stateless. Do not store mutable semantic results in analyzer
   instance fields or static fields; keep per-run state local to callbacks or
   future explicit start-analysis contexts.
+- Compare symbols with `SymbolEqualityComparer.Default`. Equivalent symbols can
+  be returned as different object instances from lazy binding, diagnostic
+  binding, operations, metadata loading, or later incremental snapshots.
 
 ## Expensive operations and alternatives
 

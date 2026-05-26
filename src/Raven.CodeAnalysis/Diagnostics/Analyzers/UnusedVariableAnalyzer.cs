@@ -6,13 +6,41 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Diagnostics;
 
-public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
+public sealed class UnusedLocalAnalyzer : UnusedVariableAnalyzerBase
+{
+    public const string DiagnosticId = UnusedVariableAnalyzer.DiagnosticId;
+
+    public UnusedLocalAnalyzer()
+        : base(reportLocals: true, reportParameters: false)
+    {
+    }
+}
+
+public sealed class UnusedParameterAnalyzer : UnusedVariableAnalyzerBase
+{
+    public const string DiagnosticId = UnusedVariableAnalyzer.UnusedParameterDiagnosticId;
+
+    public UnusedParameterAnalyzer()
+        : base(reportLocals: false, reportParameters: true)
+    {
+    }
+}
+
+public sealed class UnusedVariableAnalyzer : UnusedVariableAnalyzerBase
 {
     public const string DiagnosticId = "RAV9027";
     public const string UnusedParameterDiagnosticId = "RAV9030";
 
-    private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
-        id: DiagnosticId,
+    public UnusedVariableAnalyzer()
+        : base(reportLocals: true, reportParameters: true)
+    {
+    }
+}
+
+public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
+{
+    protected static readonly DiagnosticDescriptor LocalDescriptor = DiagnosticDescriptor.Create(
+        id: UnusedVariableAnalyzer.DiagnosticId,
         title: "Value is never used",
         description: null,
         helpLinkUri: string.Empty,
@@ -20,14 +48,23 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
 
-    private static readonly DiagnosticDescriptor ParameterDescriptor = DiagnosticDescriptor.Create(
-        id: UnusedParameterDiagnosticId,
+    protected static readonly DiagnosticDescriptor ParameterDescriptor = DiagnosticDescriptor.Create(
+        id: UnusedVariableAnalyzer.UnusedParameterDiagnosticId,
         title: "Parameter is never used",
         description: null,
         helpLinkUri: string.Empty,
         messageFormat: "Parameter '{0}' is never used.",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
+
+    private readonly bool _reportLocals;
+    private readonly bool _reportParameters;
+
+    protected UnusedVariableAnalyzerBase(bool reportLocals, bool reportParameters)
+    {
+        _reportLocals = reportLocals;
+        _reportParameters = reportParameters;
+    }
 
     public override void Initialize(AnalysisContext context)
     {
@@ -38,7 +75,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             SyntaxKind.CompilationUnit);
     }
 
-    private static void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context, SyntaxNode owner)
+    private void AnalyzeBodyOwner(SyntaxNodeAnalysisContext context, SyntaxNode owner)
     {
         var bodyRoots = GetBodyRoots(owner).ToArray();
         var usageRoots = GetUsageRoots(owner).ToArray();
@@ -46,7 +83,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         if (bodyRoots.Length == 0 && usageRoots.Length == 0)
             return;
 
-        var facts = OwnerUsageCollector.Collect(context.SemanticModel, owner);
+        var facts = OwnerUsageCollector.Collect(context.SemanticModel, owner, _reportLocals, _reportParameters);
         var candidates = facts.Candidates.ToArray();
         var usedSymbols = facts.UsedSymbols;
 
@@ -62,7 +99,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> usedSymbols)
     {
         var parametersByName = candidates
-            .Where(candidate => candidate.Descriptor.Id == UnusedParameterDiagnosticId)
+            .Where(candidate => candidate.Descriptor.Id == UnusedVariableAnalyzer.UnusedParameterDiagnosticId)
             .ToDictionary(candidate => candidate.Name, candidate => candidate.Symbol, StringComparer.Ordinal);
 
         if (parametersByName.Count == 0)
@@ -113,11 +150,14 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         if (context.Node is not CompilationUnitSyntax compilationUnit)
             return;
 
-        var facts = OwnerUsageCollector.CollectGlobalStatements(
-            context.SemanticModel,
-            compilationUnit.Members.OfType<GlobalStatementSyntax>());
+        if (_reportLocals)
+        {
+            var facts = OwnerUsageCollector.CollectGlobalStatements(
+                context.SemanticModel,
+                compilationUnit.Members.OfType<GlobalStatementSyntax>());
 
-        ReportDiagnostics(context, facts.Candidates, facts.UsedSymbols);
+            ReportDiagnostics(context, facts.Candidates, facts.UsedSymbols);
+        }
 
         foreach (var owner in compilationUnit.DescendantNodes().Where(IsBodyOwner))
             AnalyzeBodyOwner(context, owner);
@@ -182,19 +222,27 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
     private sealed class OwnerUsageCollector : SyntaxWalker
     {
         private readonly SemanticModel _semanticModel;
+        private readonly bool _collectLocals;
         private readonly Dictionary<ISymbol, Candidate> _candidates = new(SymbolEqualityComparer.Default);
         private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
         private int _nestedOwnerDepth;
 
-        private OwnerUsageCollector(SemanticModel semanticModel)
+        private OwnerUsageCollector(SemanticModel semanticModel, bool collectLocals)
         {
             _semanticModel = semanticModel;
+            _collectLocals = collectLocals;
         }
 
-        public static OwnerUsageFacts Collect(SemanticModel semanticModel, SyntaxNode owner)
+        public static OwnerUsageFacts Collect(
+            SemanticModel semanticModel,
+            SyntaxNode owner,
+            bool collectLocals,
+            bool collectParameters)
         {
-            var collector = new OwnerUsageCollector(semanticModel);
-            collector.CollectParameters(owner);
+            var collector = new OwnerUsageCollector(semanticModel, collectLocals);
+
+            if (collectParameters)
+                collector.CollectParameters(owner);
 
             foreach (var bodyRoot in GetUsageRoots(owner))
                 collector.Visit(bodyRoot);
@@ -206,7 +254,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             SemanticModel semanticModel,
             IEnumerable<GlobalStatementSyntax> globalStatements)
         {
-            var collector = new OwnerUsageCollector(semanticModel);
+            var collector = new OwnerUsageCollector(semanticModel, collectLocals: true);
 
             foreach (var member in globalStatements)
                 collector.Visit(member.Statement);
@@ -255,7 +303,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
         public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
         {
-            if (!IsInNestedOwner)
+            if (_collectLocals && !IsInNestedOwner)
             {
                 foreach (var declarator in node.Declaration.Declarators)
                 {
@@ -268,7 +316,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                     if (string.IsNullOrEmpty(local.Name) || local.Name == "_")
                         continue;
 
-                    _candidates[local.UnderlyingSymbol] = new Candidate(local.UnderlyingSymbol, local.Name, declarator.Identifier.GetLocation(), Descriptor);
+                    AddCandidate(local, local.Name, declarator.Identifier.GetLocation(), LocalDescriptor);
                 }
             }
 
@@ -277,12 +325,13 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
 
         public override void VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
         {
-            if (!IsInNestedOwner &&
+            if (_collectLocals &&
+                !IsInNestedOwner &&
                 _semanticModel.GetDeclaredSymbol(node) is ILocalSymbol local &&
                 !string.IsNullOrEmpty(local.Name) &&
                 local.Name != "_")
             {
-                _candidates[local.UnderlyingSymbol] = new Candidate(local.UnderlyingSymbol, local.Name, node.Identifier.GetLocation(), Descriptor);
+                AddCandidate(local, local.Name, node.Identifier.GetLocation(), LocalDescriptor);
             }
 
             base.VisitSingleVariableDesignation(node);
@@ -294,6 +343,26 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 return;
 
             TryMarkUsedLocal(node);
+        }
+
+        public override void VisitAssignmentStatement(AssignmentStatementSyntax node)
+        {
+            VisitAssignmentTarget(node.Left);
+            Visit(node.Right);
+        }
+
+        public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
+        {
+            VisitAssignmentTarget(node.Left);
+            Visit(node.Right);
+        }
+
+        public override void VisitForStatement(ForStatementSyntax node)
+        {
+            VisitMaybe(node.Target);
+            Visit(node.Expression);
+            VisitMaybe(node.StepExpression);
+            Visit(node.Body);
         }
 
         public override void VisitDeclarationPattern(DeclarationPatternSyntax node)
@@ -334,11 +403,7 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            _candidates[parameterSymbol.UnderlyingSymbol] = new Candidate(
-                parameterSymbol.UnderlyingSymbol,
-                parameterSymbol.Name,
-                parameter.Identifier.GetLocation(),
-                ParameterDescriptor);
+            AddCandidate(parameterSymbol, parameterSymbol.Name, parameter.Identifier.GetLocation(), ParameterDescriptor);
         }
 
         private void TryMarkUsedLocal(SyntaxNode node)
@@ -349,8 +414,21 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
             if (_semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol is { } symbol &&
                 TryGetLocalOrParameter(symbol, out var usedSymbol))
             {
-                _usedSymbols.Add(usedSymbol.UnderlyingSymbol);
+                AddUsedSymbol(usedSymbol);
             }
+        }
+
+        private void AddCandidate(ISymbol symbol, string name, Location location, DiagnosticDescriptor descriptor)
+        {
+            var key = symbol.UnderlyingSymbol;
+            _candidates[key] = new Candidate(key, name, location, descriptor);
+        }
+
+        private void AddUsedSymbol(ISymbol symbol)
+        {
+            // Semantic queries can return different symbol instances for the same declaration
+            // after diagnostics or lazy binding. Keep all usage matching comparer-based.
+            _usedSymbols.Add(symbol.UnderlyingSymbol);
         }
 
         private static bool TryGetLocalOrParameter(ISymbol symbol, out ISymbol usedSymbol)
@@ -374,6 +452,12 @@ public sealed class UnusedVariableAnalyzer : DiagnosticAnalyzer
         {
             if (node is not null)
                 Visit(node);
+        }
+
+        private void VisitAssignmentTarget(ExpressionOrPatternSyntax target)
+        {
+            if (target is MemberAccessExpressionSyntax memberAccess)
+                Visit(memberAccess.Expression);
         }
 
         private static bool IsWriteTarget(SyntaxNode node)
