@@ -19,6 +19,8 @@ public partial class SemanticModel
         if (node is null)
             throw new ArgumentNullException(nameof(node));
 
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
         cancellationToken.ThrowIfCancellationRequested();
 
         if (_operationCache.TryGetValue(node, out var cached))

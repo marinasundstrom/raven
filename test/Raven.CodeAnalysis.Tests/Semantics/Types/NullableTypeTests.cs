@@ -317,6 +317,47 @@ class Foo {
     }
 
     [Fact]
+    public void NullableFunctionTypeConditionalInvocation_SemanticQueriesDoNotPoisonDiagnostics()
+    {
+        var source = """
+class Foo {
+    private val f: (() -> ())?
+
+    init(f: (() -> ())?) {
+        self.f = f
+    }
+
+    func Use(callback: () -> ()) -> unit {
+        callback()
+    }
+
+    func Run() -> unit {
+        f?()
+        Use(func () => {
+            f?()
+        })
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        foreach (var receiverBinding in root.DescendantNodes().OfType<ReceiverBindingExpressionSyntax>())
+        {
+            _ = model.GetSymbolInfo(receiverBinding);
+            _ = model.GetOperation(receiverBinding);
+        }
+
+        var diagnostics = model.GetDocumentDiagnostics();
+
+        Assert.DoesNotContain(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.InvalidInvocation);
+    }
+
+    [Fact]
     public void NullableDelegateInvocation_AfterNullCheck_AllowsAccess()
     {
         var source = """

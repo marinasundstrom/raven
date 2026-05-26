@@ -32,6 +32,10 @@ public partial class SemanticModel
     private readonly object _bindingSetupGate = new();
     private readonly object _expandedRootGate = new();
     private readonly SemaphoreSlim _semanticAccessGate = new(1, 1);
+    // Public semantic APIs are allowed to run while diagnostics are being collected,
+    // but they must keep using non-reporting binding. Diagnostic traversal is the
+    // only path that should add binder diagnostics during a diagnostics pass.
+    private readonly AsyncLocal<int> _semanticQueryBindingDepth = new();
     private bool _isCollectingDiagnostics;
     private int _diagnosticCollectionThreadId;
     private CancellationToken _diagnosticBindingCancellationToken;
@@ -100,6 +104,8 @@ public partial class SemanticModel
 
     internal bool IsCollectingDiagnostics => _isCollectingDiagnostics;
 
+    private bool IsInSemanticQueryBinding => _semanticQueryBindingDepth.Value > 0;
+
     internal void ThrowIfDiagnosticBindingCancellationRequested()
         => _diagnosticBindingCancellationToken.ThrowIfCancellationRequested();
 
@@ -164,6 +170,31 @@ public partial class SemanticModel
         {
             var gate = Interlocked.Exchange(ref _gate, null);
             gate?.Release();
+        }
+    }
+
+    private SemanticQueryBindingLease EnterSemanticQueryBinding()
+    {
+        _semanticQueryBindingDepth.Value++;
+        return new SemanticQueryBindingLease(this);
+    }
+
+    private sealed class SemanticQueryBindingLease : IDisposable
+    {
+        private SemanticModel? _semanticModel;
+
+        public SemanticQueryBindingLease(SemanticModel semanticModel)
+        {
+            _semanticModel = semanticModel;
+        }
+
+        public void Dispose()
+        {
+            var semanticModel = Interlocked.Exchange(ref _semanticModel, null);
+            if (semanticModel is null)
+                return;
+
+            semanticModel._semanticQueryBindingDepth.Value--;
         }
     }
 
@@ -1146,6 +1177,7 @@ public partial class SemanticModel
     /// <returns>The symbol info</returns>
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
 
         if (TryGetPipeInvocationSymbolInfo(node, out var pipeInvocationInfo))
@@ -6667,6 +6699,8 @@ public partial class SemanticModel
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
         if (node is FunctionStatementSyntax functionStatement &&
             TryResolveAvailableFunctionStatementSymbol(functionStatement, out var functionStatementSymbol))
         {
@@ -7299,6 +7333,7 @@ public partial class SemanticModel
     /// <returns>The type info</returns>
     public TypeInfo GetTypeInfo(ExpressionSyntax expr)
     {
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoQuery();
 
         TypeInfo Cache(TypeInfo info)
@@ -10363,6 +10398,8 @@ public partial class SemanticModel
     /// <param name="typeSyntax">The type syntax node.</param>
     public TypeInfo GetTypeInfo(TypeSyntax typeSyntax)
     {
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
         if (typeSyntax is ExpressionSyntax expressionSyntax &&
             !IsExplicitTypeSyntaxContext(typeSyntax))
         {
@@ -10559,7 +10596,7 @@ public partial class SemanticModel
     }
 
     private BoundNode BindNodeWithCurrentDiagnosticMode(Binder binder, SyntaxNode node)
-        => _isCollectingDiagnostics
+        => _isCollectingDiagnostics && !IsInSemanticQueryBinding
             ? binder.GetOrBind(node)
             : binder.GetOrBindForSemanticQuery(node);
 
