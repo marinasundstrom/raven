@@ -99,6 +99,12 @@ registered syntax or symbol scopes were invalidated by the change. Analyzer auth
 therefore describe their work through narrow actions instead of building their own whole-file
 or whole-project traversal loops.
 
+The live-editing ownership and diagnostic-lane contract is documented in
+[Live semantic model](../architecture/live-semantic-model.md). In short,
+analyzer diagnostics are background results: skipped, canceled, or failed
+analysis should leave the previous valid analyzer diagnostics visible until a
+successful newer analyzer pass replaces them.
+
 ## Concurrent Execution
 
 Call `context.EnableConcurrentExecution()` from `Initialize` when the analyzer can safely run

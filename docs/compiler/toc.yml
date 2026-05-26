@@ -42,6 +42,8 @@
       href: architecture/generator-specification.md
     - name: Compilation and binding passes
       href: architecture/compilation-and-binding-passes.md
+    - name: Live semantic model
+      href: architecture/live-semantic-model.md
     - name: Semantic binding
       href: architecture/semantic-binding.md
 - name: Design

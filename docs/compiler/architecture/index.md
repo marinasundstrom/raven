@@ -4,6 +4,11 @@
 
 Build with "Compiler as a service" in mind. Giving the consumer a great experience through a public API.
 
+For the current live-editing architecture direction, see
+[Live semantic model](live-semantic-model.md). That document is the canonical
+guide for binder-owned semantic state, incremental snapshots, analyzer
+diagnostic lanes, and language-server scheduling.
+
 ## Abstract Syntax Tree (AST)
 
 The syntax tree is Immutable. Modification of one node creates a new node, and potentially a new syntax tree. This allows for maximum re-use of nodes. Other than guaranteeing that the current syntax tree is not tampered with, this also allows for versioning of syntax trees. It further enables things like incremental compilation.

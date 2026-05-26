@@ -787,7 +787,10 @@ internal sealed class DocumentStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Diagnostic computation failed for {Uri}.", uri);
-            return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+            // Semantic diagnostic lanes are background work. If they fail, do not
+            // publish an empty diagnostic set and erase the last valid analyzer
+            // diagnostics; let the caller keep/retry the previous result.
+            return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
         }
         finally
         {

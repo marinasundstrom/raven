@@ -60,6 +60,9 @@ commands such as syntax, pretty dump, and bound-tree views.
 
 ## Compiler Boundary
 
+- Use `docs/compiler/architecture/live-semantic-model.md` as the shared reference
+  for how compiler-owned semantic state, analyzer scheduling, diagnostic lanes,
+  and LSP request prioritization should fit together.
 - The language server should present compiler answers. It should not own semantic invalidation, symbol inference, overload selection, binder selection, or cache policy.
 - First verify the Roslyn-shaped compiler APIs: `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, operations, and available public semantic entry points.
 - If those APIs are wrong, slow, or cache-dependent, fix `Raven.CodeAnalysis`. Keep LSP-side semantic inference temporary and remove it once the compiler can answer.
@@ -96,6 +99,10 @@ commands such as syntax, pretty dump, and bound-tree views.
 - When investigating stale or surprising diagnostics, compare compiler diagnostics without source-code analyzers against diagnostics with analyzers enabled. This keeps binder/compiler diagnostics distinct from analyzer diagnostics and avoids chasing analyzer behavior as a binder regression.
 - When isolating analyzer performance, disable expensive built-in analyzers per project with `RavenDisabledAnalyzers` before changing compiler or LSP scheduling. Analyzer names may use the short analyzer type name, for example `UnusedVariableAnalyzer`.
 - For analyzer diagnostic delays, inspect workspace analyzer events as well as LSP request timings. Raven's analyzer driver should behave like a Roslyn-style scheduler: one cold full document walk is acceptable, but analyzers should be registered as narrow stateless actions so later edits can invalidate and rerun only affected syntax or symbol scopes.
+- If analyzer diagnostics disappear while analyzer work is skipped, canceled, or
+  failed, treat that as a diagnostic-lane bug. Background analyzer failures
+  should preserve the previous valid analyzer diagnostics and requeue work
+  instead of publishing an empty diagnostic set.
 - When a code-action request stalls, check whether a code-fix provider recomputed diagnostics or diagnostics-with-analyzers. Code fixes should use the diagnostics supplied by `CodeFixContext`; asking workspace or semantic-model diagnostic APIs from a code action can force broad binding and analyzer execution.
 - If a request is slow because public semantic APIs force broad binding, fix the compiler path. If a request blocks newer interactive work, fix LSP scheduling/cancellation without duplicating compiler semantics.
 - Treat structural edits that change executable ownership, such as wrapping top-level statements in `func Main`, as first-class recovery cases. Verify that changed-owner detection identifies the source-level owner and that later body-only edits can reuse unaffected semantic state.

@@ -35,6 +35,11 @@ The command palette also exposes `Raven: Toggle Inlay Hints`, `Raven: Toggle Inf
 
 ## Diagnostics publication
 
+The language server follows the live semantic-model architecture described in
+[Live semantic model](architecture/live-semantic-model.md): the compiler owns
+semantic truth, while the LSP layer schedules, cancels, and presents versioned
+results.
+
 Diagnostics are versioned by editor document version. Every
 `publishDiagnostics` notification should carry the version it was computed for
 so the client can reject stale results after a later edit.
@@ -58,6 +63,11 @@ editor feedback loop unless they are explicitly surfaced through a separate
 background path. Slow semantic diagnostics should be fixed in the compiler and
 binder pipeline, but they must not leave stale diagnostics visible for an edited
 document.
+
+Skipped, canceled, or failed analyzer/background diagnostic work should be
+treated as not ready, not as an empty diagnostic result. Previously published
+analyzer diagnostics remain visible until a successful analyzer lane for the
+current snapshot replaces them.
 
 ## Prerequisites
 - .NET 9 SDK on your `PATH`.

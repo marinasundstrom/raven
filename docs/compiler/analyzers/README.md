@@ -17,6 +17,9 @@ This section defines the expected behavior and authoring model for Raven analyze
 Related docs:
 
 - [Diagnostics catalog](../diagnostics.md) covers compiler diagnostics and source pragmas.
+- [Live semantic model](../architecture/live-semantic-model.md) covers the
+  compiler/workspace/LSP ownership model for live diagnostics and analyzer
+  scheduling.
 - [Semantic analysis API](../api/semantic-analysis.md) covers semantic queries.
 - [Operations API](../api/operations.md) covers operation trees for expression and statement
   analysis.

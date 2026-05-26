@@ -1,0 +1,184 @@
+# Live semantic model
+
+This document describes the target architecture for Raven's compiler, workspace,
+and language server when code is being edited. It is the shared direction for
+incremental compilation, binder-owned state, analyzer execution, and VS Code
+responsiveness.
+
+The goal is a Roslyn-like editor experience: foreground semantic requests should
+stay responsive, diagnostics should be correct and eventually consistent, and
+the language server should present compiler-owned answers rather than owning
+semantic truth.
+
+## Ownership
+
+`Raven.CodeAnalysis` owns semantic truth.
+
+- `Compilation` snapshots define the semantic generation for a project.
+- `SemanticModel` answers public semantic API questions for a document snapshot.
+- Binders are execution units. A method binder owns method parameters; a block
+  binder owns immediate locals, statement and expression binding state, and
+  binder-produced diagnostics.
+- The workspace owns project/document snapshots, analyzer scheduling, and
+  diagnostic publication coordination.
+- The language server owns LSP scheduling, cancellation, and presentation only.
+
+The language server may cache rendered hover text, inlay labels, completion
+presentation, and semantic-token results per document version. It must not own
+symbol identity, type inference, overload selection, diagnostic truth, or binder
+invalidation policy.
+
+## Semantic Queries
+
+Public semantic APIs should stay Roslyn-shaped:
+
+- `SemanticModel.GetDeclaredSymbol`
+- `SemanticModel.GetSymbolInfo`
+- `SemanticModel.GetTypeInfo`
+- `SemanticModel.GetOperation`
+- diagnostics APIs
+
+These APIs choose internally whether to answer from declaration state, transferred
+incremental descriptors, binder-owned caches, targeted binding, or a complete
+bind. Consumers should not need cache-specific helper APIs to get correct
+answers.
+
+Narrow semantic queries are not diagnostic-production APIs. They may bind the
+state needed to answer the requested symbol, type, constant, or operation, but
+they should not collect full binder diagnostics as a side effect. Full diagnostic
+collection belongs to diagnostic APIs and the diagnostic lanes.
+
+## Binding And Incremental State
+
+Binders are cache-derived from syntax and semantic context. They can keep state
+that they are responsible for because their lifetime is controlled by the
+compilation/semantic-model layer.
+
+Binder reuse is valid only when both the syntax and semantic context are still
+equivalent:
+
+- syntax identity or an accepted incremental match is preserved;
+- parent binder and owner context are equivalent;
+- containing member signatures, imports, options, and referenced assemblies
+  still define the same semantic environment.
+
+When a syntax owner changes, stale binders and their owned diagnostics should be
+discarded. A new binder recreates symbols and diagnostics lazily as queries ask
+for them.
+
+The preferred query path is:
+
+1. declaration tables and member-signature state;
+2. transferred owner-relative semantic descriptors;
+3. targeted binding of the relevant owner, block, statement, expression, or
+   pattern;
+4. complete binding only when the API explicitly requires full semantic state.
+
+## Diagnostics
+
+Diagnostics are produced by distinct owners:
+
+- syntax diagnostics are produced by the parser and syntax tree;
+- compiler diagnostics are produced by binders and compiler validation;
+- analyzer diagnostics are produced by analyzers through the workspace analyzer
+  driver.
+
+The language server publishes diagnostics through lanes:
+
+- syntax diagnostics are fast and foreground-safe;
+- document compiler diagnostics are background semantic work for the active
+  document;
+- project compiler diagnostics are broad compiler work;
+- document/project analyzer diagnostics are broad analyzer work.
+
+Diagnostic results must be tied to a document/project snapshot and editor
+document version. Stale results are dropped. Skipped, canceled, or failed
+background semantic/analyzer work must not publish an empty diagnostic set that
+erases the last valid analyzer diagnostics. The previous result remains visible
+until a newer successful lane result replaces it.
+
+This mirrors the user experience expected from C# tooling: analyzer diagnostics
+may arrive later than syntax/compiler diagnostics, but the Problems list should
+not flicker or permanently lose diagnostics because a background pass was
+canceled or preempted.
+
+## Analyzer Execution
+
+Analyzer execution should remain Roslyn-like:
+
+- analyzers register syntax, symbol, syntax-tree, or compilation actions;
+- analyzer instances are stateless executors;
+- the workspace/analyzer driver owns traversal, caching, cancellation, and
+  invalidation;
+- analyzers use public semantic APIs and `SymbolEqualityComparer.Default`;
+- analyzer callbacks avoid broad diagnostic APIs.
+
+A cold analysis may walk a document once and dispatch all applicable registered
+actions. After an edit, the target shape is to rerun only actions whose syntax or
+symbol scopes were invalidated. Broad analyzers such as unused-member or
+unused-variable checks should be modeled with symbol/operation actions and
+shared cores instead of forcing each callback to rescan a full document.
+
+Analyzer diagnostics should be deterministic for the same snapshot. Concurrent
+execution is allowed when an analyzer opts in and follows the stateless contract.
+The driver merges results in deterministic order before publication.
+
+## Language Server Scheduling
+
+Foreground requests are:
+
+- hover;
+- completion;
+- signature help;
+- definition;
+- references and rename where applicable.
+
+Foreground requests may preempt background semantic work and should not wait
+behind diagnostics, analyzers, full-document inlays, or semantic tokens unless
+they require the exact same compiler-owned state currently being produced.
+
+Background requests are:
+
+- compiler diagnostics;
+- analyzer diagnostics;
+- semantic tokens;
+- broad/full-document inlay hints;
+- project-wide symbol refreshes and outline refreshes.
+
+Background work should use cancellable or try-acquire paths, verify snapshot
+versions before publishing, and requeue skipped work without spinning. Semantic
+tokens and broad inlays may degrade to syntax-only or cached presentation when
+semantic access is busy. Hover and completion should always ask the compiler for
+authoritative semantic answers.
+
+## Lookup Boundaries
+
+Compiler internals should prefer context-aware lookup services instead of
+walking the public merged `GlobalNamespace` view on hot paths.
+
+The merged global namespace is primarily a presentation/API view. Internal
+lookup should normally query source declarations and referenced metadata through
+specialized helpers that understand precedence, imports, namespace-member
+exposure, and metadata loading costs.
+
+Source declarations normally take precedence over metadata declarations in the
+same namespace and with the same identifier. Lookup services should make that
+precedence explicit instead of relying on merged tree traversal.
+
+## Validation
+
+Important validation scenarios:
+
+- one-shot compilation still binds and emits correctly;
+- body-only edits preserve unrelated semantic state;
+- wrapping top-level statements in `func Main` recovers deterministically;
+- cross-file additions update the active project snapshot;
+- lambda and extension-method chains bind in receiver order;
+- analyzer diagnostics remain visible while newer analyzer work is pending;
+- foreground hovers remain responsive while diagnostics/analyzers/semantic tokens
+  are running;
+- repeated hovers after warm-up reuse compiler-owned state.
+
+Use headless language-server scenarios for editor workflows and focused compiler
+tests for binder/semantic-model behavior. Runtime/sample validation remains the
+authority for emitted program behavior.

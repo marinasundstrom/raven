@@ -6,6 +6,10 @@ generators, refactorings, and language-server features. These APIs are safe to
 use, but some calls intentionally widen the amount of compiler work. Use the
 narrowest API that answers the question.
 
+For the live-editing architecture that connects compiler-owned semantic state,
+workspace analyzer scheduling, and language-server request lanes, see
+[Live semantic model](../architecture/live-semantic-model.md).
+
 This is especially important for code that runs repeatedly while the user types,
 or for generators and analyzers that visit many nodes.
 

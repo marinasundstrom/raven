@@ -33,6 +33,9 @@ Walk the feature through every affected layer:
 
 ## Compiler Architecture Direction
 
+- Use `docs/compiler/architecture/live-semantic-model.md` as the canonical
+  direction for live-editing architecture: binder-owned semantic state,
+  incremental snapshots, analyzer diagnostic lanes, and LSP scheduling.
 - Keep public semantic APIs Roslyn-like unless Raven intentionally diverges: callers should ask `GetSymbolInfo`, `GetTypeInfo`, `GetDeclaredSymbol`, diagnostics, operations, etc.
 - Treat binders as execution units. A binder owns the derived semantic state for the syntax/scope it binds, such as method parameters, local declarations, labels, pattern variables, and binder-produced diagnostics.
 - Treat `Compilation`/`SemanticModel` as the semantic service layer. Each edit should produce a stable solution/project/document snapshot, and each semantic request should run against one snapshot instead of mutable shared state.

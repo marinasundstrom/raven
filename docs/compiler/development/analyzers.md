@@ -8,6 +8,9 @@ For the analyzer specification, authoring guidance, API surface, and configurati
 [Analyzers](../analyzers/README.md) and the
 [analyzer specification](../analyzers/specification.md). This page tracks the
 built-in analyzer set and the diagnostics-vs-refactoring boundary.
+The live compiler/workspace/LSP ownership model for analyzer scheduling and
+diagnostic publication is described in
+[Live semantic model](../architecture/live-semantic-model.md).
 
 Raven currently provides analyzers for two different contexts:
 
