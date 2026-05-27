@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -11,6 +12,8 @@ public partial class SemanticModel
 {
     public ImmutableArray<ISymbol> GetCapturedVariables(ISymbol symbol)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         if (symbol is null)
             return ImmutableArray<ISymbol>.Empty;
 
@@ -93,6 +96,8 @@ public partial class SemanticModel
 
     public ImmutableArray<ISymbol> GetCapturedVariables(SyntaxNode node)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         if (node is null)
             return ImmutableArray<ISymbol>.Empty;
 
@@ -187,6 +192,8 @@ public partial class SemanticModel
 
     public bool IsCapturedVariable(ISymbol symbol)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         if (symbol is not ILocalSymbol and not IParameterSymbol and not ITypeSymbol)
             return false;
 

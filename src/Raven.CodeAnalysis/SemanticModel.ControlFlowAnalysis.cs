@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -11,6 +12,8 @@ public partial class SemanticModel
 {
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax statement)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         EnsureControlFlowBindingReady(statement);
 
         var region = new ControlFlowRegion(statement);
@@ -19,6 +22,8 @@ public partial class SemanticModel
 
     public ControlFlowAnalysis AnalyzeControlFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         var region = new ControlFlowRegion(firstStatement, lastStatement);
         EnsureControlFlowBindingReady(region.EnclosingBlock ?? firstStatement);
         return AnalyzeControlFlowInternal(region, region.EnclosingBlock ?? firstStatement);

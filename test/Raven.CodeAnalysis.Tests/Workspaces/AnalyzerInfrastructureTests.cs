@@ -225,6 +225,39 @@ public class AnalyzerInfrastructureTests
         }
     }
 
+    private sealed class BlockingMethodSymbolAnalyzer : DiagnosticAnalyzer
+    {
+        public static readonly ManualResetEventSlim Entered = new(false);
+        public static readonly ManualResetEventSlim Release = new(false);
+
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0008",
+            title: "Blocking method symbol",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Blocking method symbol",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public static void Reset()
+        {
+            Entered.Reset();
+            Release.Reset();
+        }
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.EnableConcurrentExecution();
+
+            context.RegisterSymbolAction(ctx =>
+            {
+                Entered.Set();
+                Release.Wait(ctx.CancellationToken);
+                ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, ctx.Symbol.Locations.First()));
+            }, SymbolKind.Method);
+        }
+    }
+
     [Fact]
     public void GetDiagnostics_IncludesCompilerAndAnalyzerDiagnostics()
     {
@@ -477,6 +510,97 @@ func F() -> unit { }
         var actionPlan = eventSink.Events.Single(e => e.Operation == "documentAnalyzer.actionPlan");
         actionPlan.Detail.ShouldContain("symbolActions=1");
         actionPlan.Detail.ShouldContain("symbolKinds=1");
+        eventSink.Events.Single(e => e.Operation == "documentAnalyzer.symbolEnumeration")
+            .Detail.ShouldContain("symbols=2");
+    }
+
+    [Fact]
+    public async Task GetDocumentAnalyzerDiagnostics_ReleasesSemanticGateBeforeSymbolActionsRun()
+    {
+        BlockingMethodSymbolAnalyzer.Reset();
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+class C {
+    public func M() -> unit { }
+}
+""";
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new BlockingMethodSymbolAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var syntaxTree = compilation.SyntaxTrees.Single();
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+
+        var diagnosticsTask = Task.Run(() => workspace.GetDocumentAnalyzerDiagnostics(projectId, docId));
+
+        try
+        {
+            BlockingMethodSymbolAnalyzer.Entered.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue();
+
+            var lease = await semanticModel.TryEnterSemanticAccessAsync(CancellationToken.None);
+            lease.ShouldNotBeNull();
+            lease.Dispose();
+        }
+        finally
+        {
+            BlockingMethodSymbolAnalyzer.Release.Set();
+        }
+
+        var diagnostics = await diagnosticsTask;
+        diagnostics.Count(diagnostic => diagnostic.Id == "AN0008").ShouldBe(1);
+    }
+
+    [Fact]
+    public void SemanticModel_PublicQueries_AreReentrantUnderSemanticAccess()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+class C {
+    public func M() -> unit {
+        val value = 42
+        _ = value
+    }
+}
+""";
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var syntaxTree = compilation.SyntaxTrees.Single();
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var identifier = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(identifier => identifier.Identifier.ValueText == "value");
+
+        using var lease = semanticModel.EnterSemanticAccess(CancellationToken.None);
+
+        var symbolInfo = semanticModel.GetSymbolInfo(identifier);
+
+        symbolInfo.Symbol.ShouldNotBeNull();
+        symbolInfo.Symbol.Name.ShouldBe("value");
     }
 
     [Fact]

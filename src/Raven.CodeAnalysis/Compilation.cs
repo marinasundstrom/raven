@@ -57,6 +57,7 @@ public partial class Compilation
     private int _semanticModelSetupThreadId;
     private readonly object _declarationGate = new();
     private readonly object _declarationTableGate = new();
+    private bool _sourceTypeDeclarationsDeclared;
     private bool _sourceDeclarationsDeclared;
     private bool _sourceDeclarationsComplete;
     private bool _isDeclaringSourceTypes;

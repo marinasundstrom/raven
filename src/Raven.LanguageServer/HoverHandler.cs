@@ -155,7 +155,8 @@ internal sealed class HoverHandler : IHoverHandler
             }
 
             if (resolution is null &&
-                !IsInvocationTargetIdentifierAtOffset(root, offset))
+                !IsInvocationTargetIdentifierAtOffset(root, offset) &&
+                ShouldRunGenericSymbolResolver(sourceText, root, offset))
             {
                 stageStopwatch.Restart();
                 resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, offset);
@@ -633,6 +634,28 @@ internal sealed class HoverHandler : IHoverHandler
     private static bool IsInvocationTargetIdentifierAtOffset(SyntaxNode root, int offset)
         => FindInvocationTargetIdentifiersAtOffset(root, offset).Any();
 
+    private static bool ShouldRunGenericSymbolResolver(SourceText sourceText, SyntaxNode root, int offset)
+    {
+        if (offset >= 0 && offset < sourceText.Length)
+        {
+            var current = sourceText.GetSubText(new TextSpan(offset, 1))[0];
+            if (char.IsWhiteSpace(current))
+                return false;
+        }
+
+        SyntaxToken token;
+        try
+        {
+            token = root.FindToken(Math.Clamp(offset, 0, root.FullSpan.End));
+        }
+        catch
+        {
+            return false;
+        }
+
+        return token.Kind != SyntaxKind.EndOfFileToken && !token.IsMissing;
+    }
+
     private static IEnumerable<(SimpleNameSyntax Identifier, InvocationExpressionSyntax Invocation)> FindInvocationTargetIdentifiersAtOffset(
         SyntaxNode root,
         int offset)
@@ -720,23 +743,24 @@ internal sealed class HoverHandler : IHoverHandler
         if (TryResolveInvocationMethodFromCachedSymbolInfo(semanticModel, invocation, identifier, out resolution))
             return true;
 
-        if (semanticModel.TryGetInvocationTargetSymbolInfo(invocation, out var targetInfo) &&
-            TryResolveInvocationMethodFromSymbolInfo(
+        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var fastInvocationCandidates) &&
+            TryResolveInvocationMethodFromCandidates(
                 semanticModel,
+                fastInvocationCandidates,
                 invocation,
                 identifier,
-                targetInfo,
                 requireUnambiguousCandidate: true,
                 out resolution))
         {
             return true;
         }
 
-        if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var fastInvocationCandidates) &&
-            TryResolveInvocationMethodFromCandidates(
-                fastInvocationCandidates,
+        if (semanticModel.TryGetInvocationTargetSymbolInfo(invocation, out var targetInfo) &&
+            TryResolveInvocationMethodFromSymbolInfo(
+                semanticModel,
                 invocation,
                 identifier,
+                targetInfo,
                 requireUnambiguousCandidate: true,
                 out resolution))
         {
@@ -770,6 +794,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (!invocationInfo.CandidateSymbols.IsDefaultOrEmpty &&
             TryResolveInvocationMethodFromCandidates(
+                semanticModel,
                 invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray(),
                 invocation,
                 identifier,
@@ -784,6 +809,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (semanticModel.TryGetAvailableInvocationCandidates(invocation, out var availableInvocationCandidates) &&
             TryResolveInvocationMethodFromCandidates(
+                semanticModel,
                 availableInvocationCandidates,
                 invocation,
                 identifier,
@@ -871,6 +897,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty &&
             TryResolveInvocationMethodFromCandidates(
+                semanticModel,
                 symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray(),
                 invocation,
                 identifier,
@@ -907,6 +934,7 @@ internal sealed class HoverHandler : IHoverHandler
             argument.Expression.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any());
 
     private static bool TryResolveInvocationMethodFromCandidates(
+        SemanticModel semanticModel,
         ImmutableArray<IMethodSymbol> candidates,
         InvocationExpressionSyntax invocation,
         SimpleNameSyntax identifier,
@@ -924,6 +952,8 @@ internal sealed class HoverHandler : IHoverHandler
             .ToImmutableArray();
         var candidate = matchingCandidates.Length == 1
             ? matchingCandidates[0]
+            : semanticModel.TryChooseAvailableInvocationMethodCandidate(matchingCandidates, invocation, out var availableCandidate)
+                ? availableCandidate
             : SemanticModel.TryChooseInvocationMethodCandidate(
                 matchingCandidates,
                 invocation,
@@ -1334,12 +1364,6 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.Parent is VariableDeclaratorSyntax declarator &&
                 token == declarator.Identifier)
             {
-                if (SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, declarator, out var declaratorInfo) &&
-                    (declaratorInfo.Symbol ?? declaratorInfo.CandidateSymbols.FirstOrDefault()) is { } declaratorSymbol)
-                {
-                    return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaratorSymbol, declarator);
-                }
-
                 if (semanticModel.GetDeclaredSymbol(declarator) is { } declaredSymbol)
                     return new SymbolResolutionResult(SymbolResolutionKind.Declaration, declaredSymbol, declarator);
             }

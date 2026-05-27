@@ -19,6 +19,7 @@ internal sealed class DocumentAnalyzerDriver
     private readonly CompilationWithAnalyzersOptions? _analyzerOptions;
     private readonly IWorkspaceEventSink? _eventSink;
     private readonly CancellationToken _cancellationToken;
+    private readonly bool _allowBusySkip;
     private readonly bool _semanticAccessAlreadyHeld;
     private readonly List<Diagnostic> _diagnostics = [];
     private readonly HashSet<Diagnostic> _diagnosticSet = [];
@@ -26,6 +27,8 @@ internal sealed class DocumentAnalyzerDriver
     private int _syntaxTraversalNodeVisits;
     private int _syntaxTraversalActionInvocations;
     private int _syntaxTraversalKindCount;
+    private long _symbolEnumerationTicks;
+    private int _symbolEnumerationCount;
 
     private DocumentAnalyzerDriver(
         Project project,
@@ -33,6 +36,7 @@ internal sealed class DocumentAnalyzerDriver
         Compilation compilation,
         CompilationWithAnalyzersOptions? analyzerOptions,
         IWorkspaceEventSink? eventSink,
+        bool allowBusySkip,
         bool semanticAccessAlreadyHeld,
         CancellationToken cancellationToken)
     {
@@ -41,6 +45,7 @@ internal sealed class DocumentAnalyzerDriver
         _compilation = compilation;
         _analyzerOptions = analyzerOptions;
         _eventSink = eventSink;
+        _allowBusySkip = allowBusySkip;
         _semanticAccessAlreadyHeld = semanticAccessAlreadyHeld;
         _cancellationToken = cancellationToken;
     }
@@ -52,6 +57,7 @@ internal sealed class DocumentAnalyzerDriver
         CompilationWithAnalyzersOptions? analyzerOptions,
         IWorkspaceEventSink? eventSink,
         CancellationToken cancellationToken,
+        bool allowBusySkip = false,
         bool semanticAccessAlreadyHeld = false)
     {
         var driver = new DocumentAnalyzerDriver(
@@ -60,6 +66,7 @@ internal sealed class DocumentAnalyzerDriver
             compilation,
             analyzerOptions,
             eventSink,
+            allowBusySkip,
             semanticAccessAlreadyHeld,
             cancellationToken);
 
@@ -77,6 +84,7 @@ internal sealed class DocumentAnalyzerDriver
             RunAnalyzerExecutions(executions);
             MergeDiagnostics(executions);
             ReportSyntaxTraversalStats(executions);
+            ReportSymbolEnumerationStats();
             ReportAnalyzerStats(executions);
 
             ReportWorkspaceEvent(
@@ -164,6 +172,7 @@ internal sealed class DocumentAnalyzerDriver
 
     private void RunCompilationActions(AnalyzerExecution execution)
     {
+        var semanticModel = _compilation.GetSemanticModel(_syntaxTree);
         foreach (var action in execution.CompilationActions)
         {
             _cancellationToken.ThrowIfCancellationRequested();
@@ -177,7 +186,11 @@ internal sealed class DocumentAnalyzerDriver
             try
             {
                 var actionTimestamp = Stopwatch.GetTimestamp();
-                action.Action(context);
+                using (EnterAnalyzerSemanticAccess(semanticModel))
+                {
+                    action.Action(context);
+                }
+
                 action.Stats.CompilationActionTicks += Stopwatch.GetTimestamp() - actionTimestamp;
                 action.Stats.CompilationActionCount++;
             }
@@ -232,6 +245,7 @@ internal sealed class DocumentAnalyzerDriver
 
     private void RunSyntaxTreeActions(AnalyzerExecution execution)
     {
+        var semanticModel = _compilation.GetSemanticModel(_syntaxTree);
         foreach (var action in execution.SyntaxTreeActions)
         {
             _cancellationToken.ThrowIfCancellationRequested();
@@ -245,7 +259,11 @@ internal sealed class DocumentAnalyzerDriver
             try
             {
                 var actionTimestamp = Stopwatch.GetTimestamp();
-                action.Action(syntaxTreeContext);
+                using (EnterAnalyzerSemanticAccess(semanticModel))
+                {
+                    action.Action(syntaxTreeContext);
+                }
+
                 action.Stats.SyntaxTreeActionTicks += Stopwatch.GetTimestamp() - actionTimestamp;
                 action.Stats.SyntaxTreeActionCount++;
             }
@@ -289,6 +307,19 @@ internal sealed class DocumentAnalyzerDriver
     {
         if (executions.Count == 0)
             return;
+
+        if (_allowBusySkip)
+        {
+            foreach (var execution in executions.OrderBy(static execution => execution.Stats.AnalyzerName, StringComparer.Ordinal))
+            {
+                _cancellationToken.ThrowIfCancellationRequested();
+                RunAnalyzerExecutionWithoutSyntaxNodeActions(execution);
+            }
+
+            RunSyntaxNodeActions(executions);
+            RunSymbolActions(executions);
+            return;
+        }
 
         var sequentialExecutions = executions
             .Where(static execution => !execution.Analyzer.ConcurrentExecutionEnabled)
@@ -336,10 +367,6 @@ internal sealed class DocumentAnalyzerDriver
         var root = _syntaxTree.GetRoot(_cancellationToken);
         var semanticModel = _compilation.GetSemanticModel(_syntaxTree);
 
-        using var semanticLease = _semanticAccessAlreadyHeld
-            ? null
-            : semanticModel.EnterSemanticAccess(_cancellationToken);
-
         foreach (var node in root.DescendantNodesAndSelf())
         {
             _cancellationToken.ThrowIfCancellationRequested();
@@ -369,15 +396,22 @@ internal sealed class DocumentAnalyzerDriver
             return;
 
         var semanticModel = _compilation.GetSemanticModel(_syntaxTree);
-        using var semanticLease = _semanticAccessAlreadyHeld
-            ? null
-            : semanticModel.EnterSemanticAccess(_cancellationToken);
+        var enumerationTimestamp = Stopwatch.GetTimestamp();
+        ImmutableArray<ISymbol> symbols;
+        using (EnterAnalyzerSemanticAccess(semanticModel))
+        {
+            symbols = AnalyzerSymbolEnumerator.EnumerateSymbols(
+                    _syntaxTree,
+                    semanticModel,
+                    actionsByKind.Keys.ToImmutableHashSet(),
+                    _cancellationToken)
+                .ToImmutableArray();
+        }
 
-        foreach (var symbol in AnalyzerSymbolEnumerator.EnumerateSymbols(
-            _syntaxTree,
-            semanticModel,
-            actionsByKind.Keys.ToImmutableHashSet(),
-            _cancellationToken))
+        _symbolEnumerationTicks += Stopwatch.GetTimestamp() - enumerationTimestamp;
+        _symbolEnumerationCount += symbols.Length;
+
+        foreach (var symbol in symbols)
         {
             _cancellationToken.ThrowIfCancellationRequested();
 
@@ -457,6 +491,29 @@ internal sealed class DocumentAnalyzerDriver
             $"nodes={_syntaxTraversalNodeVisits}, actionInvocations={_syntaxTraversalActionInvocations}, kinds={_syntaxTraversalKindCount}");
     }
 
+    private void ReportSymbolEnumerationStats()
+    {
+        if (_symbolEnumerationTicks == 0)
+            return;
+
+        ReportWorkspaceEvent(
+            "documentAnalyzer.symbolEnumeration",
+            TicksToMilliseconds(_symbolEnumerationTicks),
+            $"symbols={_symbolEnumerationCount}");
+    }
+
+    private IDisposable? EnterAnalyzerSemanticAccess(SemanticModel semanticModel)
+    {
+        if (_semanticAccessAlreadyHeld)
+            return null;
+
+        if (!_allowBusySkip)
+            return semanticModel.EnterSemanticAccess(_cancellationToken);
+
+        return semanticModel.TryEnterSemanticAccess(_cancellationToken) ??
+            throw new OperationCanceledException("Analyzer semantic access skipped because the semantic gate is busy.");
+    }
+
     private static int GetAnalyzerMaxDegreeOfParallelism(int analyzerCount)
         => Math.Clamp(Environment.ProcessorCount - 1, 1, Math.Max(1, analyzerCount));
 
@@ -505,7 +562,11 @@ internal sealed class DocumentAnalyzerDriver
         try
         {
             var actionTimestamp = Stopwatch.GetTimestamp();
-            action.Action(context);
+            using (EnterAnalyzerSemanticAccess(semanticModel))
+            {
+                action.Action(context);
+            }
+
             action.Stats.SyntaxNodeActionTicks += Stopwatch.GetTimestamp() - actionTimestamp;
             action.Stats.SyntaxNodeActionCount++;
         }

@@ -6885,6 +6885,12 @@ public partial class SemanticModel
         if (Compilation.TryGetDeclaredTypeSymbol(node, out var symbol))
             return symbol;
 
+        if (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
+            TryDeclareAvailableSourceTypeSymbol(node, out symbol))
+        {
+            return symbol;
+        }
+
         // Defensive recovery: in some re-entrant binder flows, declarations may not
         // have been materialized for this semantic model yet.
         EnsureDeclarations();
@@ -6904,6 +6910,76 @@ public partial class SemanticModel
 
     internal SourceNamedTypeSymbol GetDeclaredTypeSymbolForDeclaration(SyntaxNode node)
         => GetDeclaredTypeSymbol(node);
+
+    private bool TryDeclareAvailableSourceTypeSymbol(
+        SyntaxNode node,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out SourceNamedTypeSymbol? symbol)
+    {
+        symbol = null;
+
+        if (Compilation.TryGetDeclaredTypeSymbol(node, out symbol))
+            return true;
+
+        if (!TryGetDeclarationNamespace(node, out var parentNamespace))
+            return false;
+
+        var objectType = Compilation.TryGetMetadataReferenceTypeByMetadataName("System.Object");
+        switch (node)
+        {
+            case TypeDeclarationSyntax typeDeclaration when IsNominalTypeDeclaration(typeDeclaration):
+                symbol = DeclareClassSymbol(typeDeclaration, parentNamespace, objectType);
+                DeclareClassMemberTypes(typeDeclaration, symbol);
+                return true;
+
+            case InterfaceDeclarationSyntax interfaceDeclaration:
+                DeclareInterfaceSymbol(interfaceDeclaration, parentNamespace, objectType);
+                return Compilation.TryGetDeclaredTypeSymbol(interfaceDeclaration, out symbol);
+
+            case ExtensionDeclarationSyntax extensionDeclaration:
+                DeclareExtensionSymbol(extensionDeclaration, parentNamespace, objectType);
+                return Compilation.TryGetDeclaredTypeSymbol(extensionDeclaration, out symbol);
+
+            case EnumDeclarationSyntax enumDeclaration:
+                DeclareEnumSymbol(enumDeclaration, parentNamespace);
+                return Compilation.TryGetDeclaredTypeSymbol(enumDeclaration, out symbol);
+
+            case UnionDeclarationSyntax unionDeclaration:
+                DeclareUnionSymbol(unionDeclaration, parentNamespace);
+                return Compilation.TryGetDeclaredTypeSymbol(unionDeclaration, out symbol);
+
+            case DelegateDeclarationSyntax delegateDeclaration:
+                DeclareDelegateSymbol(delegateDeclaration, parentNamespace);
+                return Compilation.TryGetDeclaredTypeSymbol(delegateDeclaration, out symbol);
+
+            default:
+                symbol = null;
+                return false;
+        }
+    }
+
+    private bool TryGetDeclarationNamespace(SyntaxNode declaration, out INamespaceSymbol parentNamespace)
+    {
+        parentNamespace = Compilation.SourceGlobalNamespace;
+
+        var namespaceName = string.Empty;
+        foreach (var namespaceDeclaration in declaration
+            .Ancestors()
+            .OfType<BaseNamespaceDeclarationSyntax>()
+            .Reverse())
+        {
+            namespaceName = namespaceDeclaration is FileScopedNamespaceDeclarationSyntax ||
+                string.IsNullOrWhiteSpace(namespaceName)
+                    ? namespaceDeclaration.Name.ToString()
+                    : namespaceName + "." + namespaceDeclaration.Name;
+        }
+
+        if (string.IsNullOrWhiteSpace(namespaceName))
+            return true;
+
+        parentNamespace = Compilation.GetOrCreateNamespaceSymbol(namespaceName)
+            ?? Compilation.SourceGlobalNamespace;
+        return true;
+    }
 
     internal void RegisterClassSymbol(TypeDeclarationSyntax node, SourceNamedTypeSymbol symbol)
         => Compilation.RegisterClassSymbol(node, symbol);

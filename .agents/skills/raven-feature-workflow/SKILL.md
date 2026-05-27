@@ -77,7 +77,8 @@ If temporary emitted-instruction tests are needed during development, keep them 
 2. Build only what is necessary.
 3. Run focused tests for the changed feature area.
 4. Run runtime or emission-heavy tests separately if the change affects those paths.
-5. Format touched files with `dotnet format ... --include`.
+5. Format touched files with `dotnet format whitespace ... --include ... --no-restore`.
+   Use `dotnet format style` or `dotnet format analyzers` only when intentionally applying those fixes; analyzer/style formatters can rewrite code beyond whitespace.
 
 Use the current tool split when validating behavior:
 - `rvnc` / `Raven.Compiler` is the compiler driver for one-shot compiles,

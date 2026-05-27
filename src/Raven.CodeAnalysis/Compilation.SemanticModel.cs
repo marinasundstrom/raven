@@ -196,7 +196,6 @@ public partial class Compilation
             return;
 
         PerformanceInstrumentation.Setup.RecordEnsureSourceDeclarationsDeclaredCall();
-
         lock (_declarationGate)
         {
             while (_isDeclaringSourceTypes && _sourceDeclarationThreadId != currentThreadId)
@@ -215,12 +214,54 @@ public partial class Compilation
                 foreach (var model in semanticModels)
                     model.EnsureDeclarations();
 
+                _sourceTypeDeclarationsDeclared = true;
+
                 foreach (var model in semanticModels)
                     model.EnsureMemberSignaturesDeclared();
 
                 EnsureDefaultConstructorsDeclared();
 
                 _sourceDeclarationsDeclared = true;
+            }
+            finally
+            {
+                _sourceDeclarationThreadId = 0;
+                _isDeclaringSourceTypes = false;
+                Monitor.PulseAll(_declarationGate);
+            }
+        }
+    }
+
+    internal void EnsureSourceTypeDeclarationsDeclared()
+    {
+        EnsureSetup();
+
+        if (_sourceTypeDeclarationsDeclared || _sourceDeclarationsDeclared)
+            return;
+
+        var currentThreadId = Environment.CurrentManagedThreadId;
+        if (_isDeclaringSourceTypes && _sourceDeclarationThreadId == currentThreadId)
+            return;
+
+        lock (_declarationGate)
+        {
+            while (_isDeclaringSourceTypes && _sourceDeclarationThreadId != currentThreadId)
+                Monitor.Wait(_declarationGate);
+
+            if (_sourceTypeDeclarationsDeclared || _sourceDeclarationsDeclared || _isDeclaringSourceTypes)
+                return;
+
+            _isDeclaringSourceTypes = true;
+            _sourceDeclarationThreadId = currentThreadId;
+            try
+            {
+                EnsureSemanticModelsCreated();
+                var semanticModels = _semanticModels.Values.ToArray();
+
+                foreach (var model in semanticModels)
+                    model.EnsureDeclarations();
+
+                _sourceTypeDeclarationsDeclared = true;
             }
             finally
             {

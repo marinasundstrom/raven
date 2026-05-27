@@ -123,6 +123,21 @@ Analyzer diagnostics should be deterministic for the same snapshot. Concurrent
 execution is allowed when an analyzer opts in and follows the stateless contract.
 The driver merges results in deterministic order before publication.
 
+Symbol-action analyzers may require a semantic model to enumerate the declared
+symbols in a document. The workspace/analyzer driver materializes the applicable
+symbol set first, releases semantic access, and then dispatches symbol analyzer
+callbacks. This keeps foreground semantic requests from waiting behind
+long-running symbol analyzers while preserving compiler-owned symbol identity
+for the snapshot.
+
+Compilation, syntax-tree, and syntax-node analyzers may call public semantic APIs
+from callbacks. The driver uses short callback-scoped semantic leases for those
+actions, and busy background runs may skip/requeue when the semantic gate is
+already held. Semantic access is reentrant within a semantic model so callbacks
+can safely use public APIs while their callback-scoped lease is active. The
+driver should avoid holding semantic access while it is only walking syntax,
+because syntax traversal itself is not semantic truth.
+
 ## Language Server Scheduling
 
 Foreground requests are:

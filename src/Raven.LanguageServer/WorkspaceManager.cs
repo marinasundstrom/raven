@@ -162,8 +162,10 @@ internal sealed class WorkspaceManager
 
             InitializeCore(_workspaceRoots);
 
+#pragma warning disable VSTHRD103 // Keep reload state restoration synchronous while the workspace lock is held.
             foreach (var openDocument in openDocuments)
                 _ = UpsertDocument(openDocument.Uri, SourceText.From(openDocument.Text));
+#pragma warning restore VSTHRD103
         }
     }
 
@@ -735,7 +737,9 @@ internal sealed class WorkspaceManager
     }
 
     private static bool HasSameText(Document document, SourceText sourceText)
+#pragma warning disable VSTHRD002 // UpsertDocumentWithResult is the synchronous workspace mutation core.
         => document.GetTextAsync(CancellationToken.None).GetAwaiter().GetResult().ContentEquals(sourceText);
+#pragma warning restore VSTHRD002
 
     private static bool TryFindExistingDocument(
         Solution solution,
@@ -942,6 +946,7 @@ internal sealed class WorkspaceManager
         Compilation compilation,
         out ImmutableArray<CodeDiagnostic> diagnostics,
         CompilationWithAnalyzersOptions? analyzerOptions = null,
+        bool allowBusySkip = false,
         bool semanticAccessAlreadyHeld = false,
         CancellationToken cancellationToken = default)
     {
@@ -951,6 +956,7 @@ internal sealed class WorkspaceManager
                 document,
                 compilation,
                 analyzerOptions,
+                allowBusySkip,
                 semanticAccessAlreadyHeld,
                 cancellationToken);
             return true;

@@ -532,6 +532,7 @@ public class Workspace
             syntaxTree,
             compilation,
             analyzerOptions,
+            allowBusySkip: false,
             semanticAccessAlreadyHeld: false,
             cancellationToken);
         _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
@@ -542,6 +543,7 @@ public class Workspace
         Document document,
         Compilation compilation,
         CompilationWithAnalyzersOptions? analyzerOptions = null,
+        bool allowBusySkip = false,
         bool semanticAccessAlreadyHeld = false,
         CancellationToken cancellationToken = default)
     {
@@ -585,6 +587,7 @@ public class Workspace
             compilationSyntaxTree,
             compilation,
             analyzerOptions,
+            allowBusySkip,
             semanticAccessAlreadyHeld,
             cancellationToken);
         _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
@@ -596,6 +599,7 @@ public class Workspace
         SyntaxTree syntaxTree,
         Compilation compilation,
         CompilationWithAnalyzersOptions? analyzerOptions,
+        bool allowBusySkip,
         bool semanticAccessAlreadyHeld,
         CancellationToken cancellationToken)
         => DocumentAnalyzerDriver.Run(
@@ -605,6 +609,7 @@ public class Workspace
             analyzerOptions,
             Services.WorkspaceEventSink,
             cancellationToken,
+            allowBusySkip,
             semanticAccessAlreadyHeld);
 
     private void ReportWorkspaceEvent(

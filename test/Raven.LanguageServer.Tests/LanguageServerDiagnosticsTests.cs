@@ -1,9 +1,12 @@
+using System.Threading;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
 
@@ -19,6 +22,39 @@ public sealed class LanguageServerDiagnosticsTests : IDisposable
 {
     private const string ThisValueIsNotMutableDiagnosticId = "RAV0027";
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-diags-{Guid.NewGuid():N}");
+
+    private sealed class BlockingMethodSymbolAnalyzer : DiagnosticAnalyzer
+    {
+        public static readonly ManualResetEventSlim Entered = new(false);
+        public static readonly ManualResetEventSlim Release = new(false);
+
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "ANLSP001",
+            title: "Blocking method symbol",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Blocking method symbol",
+            category: "Testing",
+            defaultSeverity: CodeDiagnosticSeverity.Info);
+
+        public static void Reset()
+        {
+            Entered.Reset();
+            Release.Reset();
+        }
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.EnableConcurrentExecution();
+
+            context.RegisterSymbolAction(ctx =>
+            {
+                Entered.Set();
+                Release.Wait(ctx.CancellationToken);
+                ctx.ReportDiagnostic(CodeDiagnostic.Create(Descriptor, ctx.Symbol.Locations.First()));
+            }, Raven.CodeAnalysis.SymbolKind.Method);
+        }
+    }
 
     [Fact]
     public void ShouldReport_MatchesEquivalentSyntaxTreesByPath()
@@ -312,6 +348,67 @@ class UiPanel {
             .ToArray();
 
         parameterDiagnostics.ShouldBe(["Parameter 'title' is never used."]);
+    }
+
+    [Fact]
+    public async Task GetDocumentWithAnalyzersDiagnosticsAsync_DoesNotHoldSemanticGateWhileSymbolAnalyzerRunsAsync()
+    {
+        BlockingMethodSymbolAnalyzer.Reset();
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+class C {
+    public func M() -> unit { }
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        manager.TryGetDocument(uri, out var document).ShouldBeTrue();
+        document.ShouldNotBeNull();
+
+        var project = workspace.CurrentSolution.GetProject(document.Project.Id)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new BlockingMethodSymbolAnalyzer()));
+        workspace.TryApplyChanges(project.Solution);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var diagnosticsTask = Task.Run(
+            () => store.TryGetDocumentWithAnalyzersDiagnosticsAsync(
+                uri,
+                shouldSkipWork: null,
+                timeout.Token),
+            timeout.Token);
+
+        try
+        {
+            BlockingMethodSymbolAnalyzer.Entered.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue();
+
+            var semanticAccess = await store.TryEnterExistingDocumentSemanticModelAccessAsync(uri, timeout.Token, "test");
+            semanticAccess.ShouldNotBeNull();
+            semanticAccess.Dispose();
+        }
+        finally
+        {
+            BlockingMethodSymbolAnalyzer.Release.Set();
+        }
+
+        var result = await diagnosticsTask.WaitAsync(timeout.Token);
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Count(diagnostic => string.Equals(diagnostic.Code?.String, "ANLSP001", StringComparison.Ordinal))
+            .ShouldBe(1);
     }
 
     [Fact]

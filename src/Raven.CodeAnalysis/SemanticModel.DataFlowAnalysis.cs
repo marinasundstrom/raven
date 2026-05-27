@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -11,6 +12,8 @@ public partial class SemanticModel
 {
     public DataFlowAnalysis AnalyzeDataFlow(ExpressionSyntax expression)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         var collector = new DataFlowWalker(this);
 
         var assignedBefore = GetAssignedBeforeGlobalStatement(expression);
@@ -23,6 +26,8 @@ public partial class SemanticModel
 
     public DataFlowAnalysis AnalyzeDataFlow(StatementSyntax statement)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         var collector = new DataFlowWalker(this);
         var assignedBefore = GetAssignedBeforeGlobalStatement(statement);
         if (assignedBefore is not null)
@@ -33,6 +38,8 @@ public partial class SemanticModel
 
     public DataFlowAnalysis AnalyzeDataFlow(StatementSyntax firstStatement, StatementSyntax lastStatement)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         if (firstStatement.Parent != lastStatement.Parent || firstStatement.Parent is not BlockStatementSyntax block)
             return new DataFlowAnalysis { Succeeded = false };
 

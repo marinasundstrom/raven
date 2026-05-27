@@ -149,6 +149,251 @@ class C {
     }
 
     [Fact]
+    public void TryGetAvailableInvocationCandidates_UsesAvailableLocalInitializerTypeForReceiver()
+    {
+        var code = """
+class VehicleEntity {
+    func SetStatus(status: string) -> () {
+    }
+}
+
+class C {
+    func Test() {
+        val vehicle = VehicleEntity()
+        vehicle.SetStatus("operational")
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "vehicle.SetStatus");
+        var receiver = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(node => node.Identifier.ValueText == "vehicle");
+
+        instrumentation.BinderReentry.Reset();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableTypeInfo(receiver, out var receiverTypeInfo));
+        Assert.Equal("VehicleEntity", receiverTypeInfo.Type?.Name);
+        var receiverSetupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        Assert.Equal(0, receiverSetupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        var method = Assert.Single(methods);
+        Assert.Equal("SetStatus", method.Name);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsComplete);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void TryGetAvailableInvocationCandidates_UsesCrossFileAvailableLocalInitializerTypeForReceiver()
+    {
+        var domainTree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+class VehicleStatus {
+}
+
+class VehicleEntity {
+    func SetStatus(status: VehicleStatus) -> () {
+    }
+}
+""");
+        var mainTree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+class C {
+    func ToStatus() -> VehicleStatus {
+        return VehicleStatus()
+    }
+
+    func Test() {
+        val vehicle = VehicleEntity()
+        vehicle.SetStatus(ToStatus())
+    }
+}
+""");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation([domainTree, mainTree], options: options);
+        var model = compilation.GetSemanticModel(mainTree);
+        var root = mainTree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "vehicle.SetStatus");
+        var receiver = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(node => node.Identifier.ValueText == "vehicle");
+
+        instrumentation.BinderReentry.Reset();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableTypeInfo(receiver, out var receiverTypeInfo));
+        Assert.Equal("VehicleEntity", receiverTypeInfo.Type?.Name);
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        var method = Assert.Single(methods);
+        Assert.Equal("SetStatus", method.Name);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsComplete);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void TryGetAvailableInvocationCandidates_UsesFunctionExpressionLocalInitializerTypeForSourceReceiver()
+    {
+        var domainTree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+class VehicleStatus {
+}
+
+class VehicleEntity {
+    func SetStatus(status: VehicleStatus) -> () {
+    }
+}
+
+class CreateVehicleRequest {
+    func ToStatus() -> VehicleStatus {
+        return VehicleStatus()
+    }
+}
+""");
+        var mainTree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+class RouteBuilder {
+    func MapPost(pattern: string, handler: CreateVehicleRequest -> ()) -> () {
+    }
+}
+
+class C {
+    func Test(app: RouteBuilder) {
+        app.MapPost("/vehicles", func (request: CreateVehicleRequest) {
+            val vehicle = VehicleEntity()
+            vehicle.SetStatus(request.ToStatus())
+        })
+    }
+}
+""");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation([domainTree, mainTree], options: options);
+        var model = compilation.GetSemanticModel(mainTree);
+        var root = mainTree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "vehicle.SetStatus");
+        var receiver = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(node => node.Identifier.ValueText == "vehicle");
+
+        instrumentation.BinderReentry.Reset();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+
+        Assert.True(model.TryGetAvailableTypeInfo(receiver, out var receiverTypeInfo));
+        Assert.Equal("VehicleEntity", receiverTypeInfo.Type?.Name);
+        var receiverSetupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        Assert.Equal(0, receiverSetupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        var method = Assert.Single(methods);
+        Assert.Equal("SetStatus", method.Name);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsComplete);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
+    public void GetSymbolInfo_ForInvocationWithNamespaceFunctionArgument_DeclaresOnlyNeededFunctionSignature()
+    {
+        var servicesTree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+func GetConnectionString() -> string {
+    return "Host=localhost"
+}
+""");
+        var mainTree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+class Options {
+    func UseConnection(value: string) -> () {
+    }
+
+    func UseConnection(value: int) -> () {
+    }
+}
+
+class C {
+    func Test(options: Options) {
+        options.UseConnection(GetConnectionString())
+    }
+}
+""");
+
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation([servicesTree, mainTree], options: options);
+        var model = compilation.GetSemanticModel(mainTree);
+        var root = mainTree.GetRoot();
+        var memberAccess = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Single(node => node.ToString() == "options.UseConnection");
+
+        instrumentation.BinderReentry.Reset();
+        var setupBefore = instrumentation.Setup.CaptureSnapshot();
+
+        var symbolInfo = model.GetSymbolInfo(memberAccess.Name);
+
+        var setupDelta = CompilerSetupInstrumentation.Subtract(
+            instrumentation.Setup.CaptureSnapshot(),
+            setupBefore);
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        Assert.Equal("UseConnection", method.Name);
+        var parameter = Assert.Single(method.Parameters);
+        Assert.Equal("string", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsDeclaredCalls);
+        Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
+        Assert.False(compilation.SourceDeclarationsComplete);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ForPropagationLocal_UsesAvailableSemanticState()
     {
         var code = """

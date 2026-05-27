@@ -32,6 +32,7 @@ public partial class SemanticModel
     private readonly object _bindingSetupGate = new();
     private readonly object _expandedRootGate = new();
     private readonly SemaphoreSlim _semanticAccessGate = new(1, 1);
+    private readonly AsyncLocal<int> _semanticAccessDepth = new();
     // Public semantic APIs are allowed to run while diagnostics are being collected,
     // but they must keep using non-reporting binding. Diagnostic traversal is the
     // only path that should add binder diagnostics during a diagnostics pass.
@@ -106,26 +107,61 @@ public partial class SemanticModel
 
     private bool IsInSemanticQueryBinding => _semanticQueryBindingDepth.Value > 0;
 
+    private bool HasSemanticAccessForCurrentFlow =>
+        _semanticAccessDepth.Value > 0 ||
+        (_isCollectingDiagnostics && _diagnosticCollectionThreadId == Environment.CurrentManagedThreadId);
+
     internal void ThrowIfDiagnosticBindingCancellationRequested()
         => _diagnosticBindingCancellationToken.ThrowIfCancellationRequested();
 
     internal async ValueTask<IDisposable> EnterSemanticAccessAsync(CancellationToken cancellationToken)
     {
+        if (HasSemanticAccessForCurrentFlow)
+            return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
+
         await _semanticAccessGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        return new SemanticAccessLease(_semanticAccessGate);
+        _semanticAccessDepth.Value++;
+        return new SemanticAccessLease(this, releaseDepth: true, releaseGate: true);
     }
 
     internal IDisposable EnterSemanticAccess(CancellationToken cancellationToken)
     {
+        if (HasSemanticAccessForCurrentFlow)
+            return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
+
         _semanticAccessGate.Wait(cancellationToken);
-        return new SemanticAccessLease(_semanticAccessGate);
+        _semanticAccessDepth.Value++;
+        return new SemanticAccessLease(this, releaseDepth: true, releaseGate: true);
     }
 
     internal async ValueTask<IDisposable?> TryEnterSemanticAccessAsync(CancellationToken cancellationToken)
     {
-        return await _semanticAccessGate.WaitAsync(0, cancellationToken).ConfigureAwait(false)
-            ? new SemanticAccessLease(_semanticAccessGate)
-            : null;
+        if (HasSemanticAccessForCurrentFlow)
+            return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
+
+        if (!await _semanticAccessGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+            return null;
+
+        _semanticAccessDepth.Value++;
+        return new SemanticAccessLease(this, releaseDepth: true, releaseGate: true);
+    }
+
+    internal IDisposable? TryEnterSemanticAccess(CancellationToken cancellationToken)
+    {
+        if (HasSemanticAccessForCurrentFlow)
+            return new SemanticAccessLease(this, releaseDepth: false, releaseGate: false);
+
+        if (!_semanticAccessGate.Wait(0, cancellationToken))
+            return null;
+
+        _semanticAccessDepth.Value++;
+        return new SemanticAccessLease(this, releaseDepth: true, releaseGate: true);
+    }
+
+    internal IDisposable EnterAmbientSemanticAccess()
+    {
+        _semanticAccessDepth.Value++;
+        return new SemanticAccessLease(this, releaseDepth: true, releaseGate: false);
     }
 
     private sealed class SemanticBindingState
@@ -165,17 +201,28 @@ public partial class SemanticModel
 
     private sealed class SemanticAccessLease : IDisposable
     {
-        private SemaphoreSlim? _gate;
+        private SemanticModel? _semanticModel;
+        private readonly bool _releaseDepth;
+        private readonly bool _releaseGate;
 
-        public SemanticAccessLease(SemaphoreSlim gate)
+        public SemanticAccessLease(SemanticModel semanticModel, bool releaseDepth, bool releaseGate)
         {
-            _gate = gate;
+            _semanticModel = semanticModel;
+            _releaseDepth = releaseDepth;
+            _releaseGate = releaseGate;
         }
 
         public void Dispose()
         {
-            var gate = Interlocked.Exchange(ref _gate, null);
-            gate?.Release();
+            var semanticModel = Interlocked.Exchange(ref _semanticModel, null);
+            if (semanticModel is null)
+                return;
+
+            if (_releaseDepth)
+                semanticModel._semanticAccessDepth.Value--;
+
+            if (_releaseGate)
+                semanticModel._semanticAccessGate.Release();
         }
     }
 
@@ -240,6 +287,8 @@ public partial class SemanticModel
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="position"/> is outside the tree bounds.</exception>
     public IEnumerable<CompletionItem> GetCompletions(int position)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         var treeLength = SyntaxTree.GetRoot().FullSpan.End;
         if ((uint)position > (uint)treeLength)
             throw new ArgumentOutOfRangeException(nameof(position));
@@ -258,6 +307,8 @@ public partial class SemanticModel
         int position,
         CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
         var treeLength = SyntaxTree.GetRoot().FullSpan.End;
         if ((uint)position > (uint)treeLength)
             throw new ArgumentOutOfRangeException(nameof(position));
@@ -267,6 +318,8 @@ public partial class SemanticModel
 
     public IImmutableList<Diagnostic> GetDiagnostics(CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
         if (_diagnostics is null)
             EnsureDiagnosticBindingCompleted(requireCompleteDeclarations: true, cancellationToken);
 
@@ -1212,6 +1265,7 @@ public partial class SemanticModel
     /// <returns>The symbol info</returns>
     public SymbolInfo GetSymbolInfo(SyntaxNode node, CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordSymbolInfoQuery();
 
@@ -2300,6 +2354,8 @@ public partial class SemanticModel
 
     public bool TryGetSymbolInfo(SyntaxNode node, out SymbolInfo info, CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
         if (node is IdentifierNameSyntax functionParameterReference &&
             TryGetAvailableFunctionExpressionParameterReferenceSymbolInfo(functionParameterReference, out info))
         {
@@ -2798,7 +2854,7 @@ public partial class SemanticModel
                             : method)
                         .ToImmutableArray();
                 }
-                else if (!HasFunctionExpressionArgument(invocation))
+                else
                 {
                     methods = methods
                         .Select(method => ConstructAvailableGenericInvocationCandidate(method, invocation))
@@ -2892,10 +2948,6 @@ public partial class SemanticModel
         return isAmbiguous ? null : selected;
     }
 
-    private static bool HasFunctionExpressionArgument(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Any(static argument => argument.Expression is FunctionExpressionSyntax) ||
-           invocation.TrailingBlock is not null;
-
     private static bool HasUnresolvedMethodTypeParameters(IMethodSymbol method)
     {
         if (method.TypeParameters.IsDefaultOrEmpty)
@@ -2922,6 +2974,11 @@ public partial class SemanticModel
 
         var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
         TryInferAvailableInvocationArgumentSubstitutions(method, invocation, substitutions);
+        TryInferFunctionArgumentSubstitutions(
+            method,
+            invocation,
+            IsAvailableExtensionReceiverInvocation(method, invocation) ? 1 : 0,
+            substitutions);
 
         if (substitutions.Count == 0)
             return method;
@@ -2936,7 +2993,7 @@ public partial class SemanticModel
                 ? method.TypeArguments[i]
                 : typeParameter;
 
-            if (substitutions.TryGetValue(typeParameter, out var inferred) &&
+            if (TryGetInferredTypeArgument(typeParameter, substitutions, out var inferred) &&
                 inferred.TypeKind != TypeKind.Error)
             {
                 typeArguments[i] = inferred;
@@ -3071,6 +3128,16 @@ public partial class SemanticModel
         };
     }
 
+    internal bool TryChooseAvailableInvocationMethodCandidate(
+        ImmutableArray<IMethodSymbol> methods,
+        InvocationExpressionSyntax invocation,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? method)
+    {
+        method = TryChooseAvailablePipeInvocationMethodCandidate(methods, invocation) ??
+                 TryChooseAvailableInvocationMethodCandidate(methods, invocation);
+        return method is not null;
+    }
+
     private static bool TryGetFastRequiredParameterCount(
         IMethodSymbol method,
         int parameterOffset,
@@ -3190,6 +3257,12 @@ public partial class SemanticModel
         score = 0;
 
         var receiverOffset = IsAvailableExtensionReceiverInvocation(method, invocation) ? 1 : 0;
+        if (receiverOffset == 1 &&
+            !TryScoreAvailableExtensionReceiver(method, invocation, ref score))
+        {
+            return false;
+        }
+
         if (method is PEMethodSymbol peMethod)
         {
             var peParameterCount = peMethod.ParameterCount;
@@ -3279,6 +3352,34 @@ public partial class SemanticModel
         }
 
         return true;
+    }
+
+    private bool TryScoreAvailableExtensionReceiver(
+        IMethodSymbol method,
+        InvocationExpressionSyntax invocation,
+        ref int score)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+
+        var receiverType = TryGetAvailableReceiverType(memberAccess.Expression) ??
+                           TryGetCachedReceiverType(memberAccess.Expression);
+        if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+            return false;
+
+        var handled = false;
+        if (method is PEMethodSymbol peMethod &&
+            TryScoreFastMetadataArgumentConversion(receiverType, peMethod, 0, ref score, out handled))
+        {
+            return true;
+        }
+
+        if (method is PEMethodSymbol && handled)
+            return false;
+
+        return TryGetFastParameterType(method, 0, out var parameterType) &&
+               parameterType is not null &&
+               TryScoreAvailableArgumentConversion(receiverType, parameterType, ref score);
     }
 
     private static bool TryScoreAvailableFunctionExpressionArgument(
@@ -3517,6 +3618,12 @@ public partial class SemanticModel
     /// This method does not bind cold bodies, create operations, or run diagnostics.
     /// </summary>
     internal bool TryGetAvailableInvocationCandidates(InvocationExpressionSyntax invocation, out ImmutableArray<IMethodSymbol> methods)
+        => TryGetAvailableInvocationCandidates(invocation, allowSourceDeclarationBinding: true, out methods);
+
+    private bool TryGetAvailableInvocationCandidates(
+        InvocationExpressionSyntax invocation,
+        bool allowSourceDeclarationBinding,
+        out ImmutableArray<IMethodSymbol> methods)
     {
         if (TryGetAvailablePipeInvocationCandidates(invocation, out methods))
             return true;
@@ -3608,7 +3715,7 @@ public partial class SemanticModel
             TryResolveAvailableTypeExpression(memberAccess.Expression, out var typeExpressionType) &&
             typeExpressionType is not null)
         {
-            foreach (var method in typeExpressionType.GetMembers(memberName.Identifier.ValueText).OfType<IMethodSymbol>())
+            foreach (var method in GetAvailableMethodMembers(typeExpressionType, memberName.Identifier.ValueText))
                 AddIfNotPresent(method);
         }
 
@@ -3619,7 +3726,7 @@ public partial class SemanticModel
                 ?? availableReceiverInfo.CandidateSymbols.Select(GetNamedTypeFromAvailableSymbol).FirstOrDefault(static type => type is not null);
             if (availableReceiverType is not null)
             {
-                foreach (var method in availableReceiverType.GetMembers(availableMemberName.Identifier.ValueText).OfType<IMethodSymbol>())
+                foreach (var method in GetAvailableMethodMembers(availableReceiverType, availableMemberName.Identifier.ValueText))
                     AddIfNotPresent(method);
             }
         }
@@ -3628,7 +3735,7 @@ public partial class SemanticModel
             TryGetAvailableTypeInfo(receiverMemberAccess.Expression, out var receiverTypeInfo) &&
             (receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType)?.GetPlainType() is INamedTypeSymbol receiverType)
         {
-            foreach (var method in receiverType.GetMembers(receiverMemberName.Identifier.ValueText).OfType<IMethodSymbol>())
+            foreach (var method in GetAvailableMethodMembers(receiverType, receiverMemberName.Identifier.ValueText))
                 AddIfNotPresent(method);
         }
 
@@ -3638,12 +3745,24 @@ public partial class SemanticModel
             return true;
         }
 
+        if (invocation.Expression is SimpleNameSyntax constructorName &&
+            TryLookupVisibleValueSymbol(constructorName) is null &&
+            TryResolveAvailableTypeExpression(constructorName, out var constructorType) &&
+            constructorType is not null)
+        {
+            AddAvailableConstructors(constructorType, AddIfNotPresent);
+
+            methods = builder.ToImmutable();
+            if (methods.Length > 0)
+                return true;
+        }
+
         if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
             TryLookupVisibleValueSymbol(invocationIdentifier) is null &&
             TryLookupAvailableFunctionDeclarations(
                 invocationIdentifier,
                 invocationIdentifier.Identifier.ValueText,
-                allowSourceDeclarationBinding: true,
+                allowSourceDeclarationBinding,
                 out var availableFunctions))
         {
             foreach (var function in availableFunctions)
@@ -3790,8 +3909,22 @@ public partial class SemanticModel
                 .Where(method => TryGetFastParameterCount(method, out var parameterCount) &&
                                  parameterCount >= invocation.ArgumentList.Arguments.Count + 1)
                 .Select(method => ConstructAvailableExtensionCandidate(method, receiverType!, invocation))
+                .Select(MaterializeAvailableInvocationCandidate)
                 .Where(method => IsAvailableExtensionReceiverCandidate(method, receiverType!))
                 .ToImmutableArray();
+    }
+
+    private static IMethodSymbol MaterializeAvailableInvocationCandidate(IMethodSymbol method)
+    {
+        _ = method.ReturnType;
+
+        if (TryGetFastParameterCount(method, out var parameterCount))
+        {
+            for (var i = 0; i < parameterCount; i++)
+                _ = TryGetFastParameterType(method, i, out _);
+        }
+
+        return method;
     }
 
     private bool IsAvailableExtensionReceiverCandidate(IMethodSymbol method, ITypeSymbol receiverType)
@@ -3849,7 +3982,7 @@ public partial class SemanticModel
                 ? method.TypeArguments[i]
                 : typeParameter;
 
-            if (substitutions.TryGetValue(typeParameter, out var inferred) &&
+            if (TryGetInferredTypeArgument(typeParameter, substitutions, out var inferred) &&
                 inferred.TypeKind != TypeKind.Error)
             {
                 typeArguments[i] = inferred;
@@ -3864,20 +3997,39 @@ public partial class SemanticModel
         return changed ? method.Construct(typeArguments) : method;
     }
 
+    private static bool TryGetInferredTypeArgument(
+        ITypeParameterSymbol typeParameter,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? inferred)
+    {
+        if (substitutions.TryGetValue(typeParameter, out inferred))
+            return true;
+
+        return TypeSubstitution.TryGetEquivalentTypeParameterSubstitution(typeParameter, substitutions, out inferred);
+    }
+
     private void TryInferFunctionArgumentSubstitutions(
         IMethodSymbol method,
         InvocationExpressionSyntax invocation,
         int parameterOffset,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
+        if (!TryGetFastParameterCount(method, out var parameterCount))
+            return;
+
         for (var argumentIndex = 0; argumentIndex < invocation.ArgumentList.Arguments.Count; argumentIndex++)
         {
             var parameterIndex = argumentIndex + parameterOffset;
-            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+            if (parameterIndex < 0 ||
+                parameterIndex >= parameterCount ||
+                !TryGetFastParameterType(method, parameterIndex, out var rawParameterType) ||
+                rawParameterType is null)
+            {
                 continue;
+            }
 
             var argument = invocation.ArgumentList.Arguments[argumentIndex];
-            var parameterType = SubstituteTypeParameters(method.Parameters[parameterIndex].Type, substitutions);
+            var parameterType = SubstituteTypeParameters(rawParameterType, substitutions);
             if (!TryUnwrapCallableDelegateType(parameterType, out var delegateType) ||
                 delegateType.GetDelegateInvokeMethod() is not { } invokeMethod)
             {
@@ -3926,6 +4078,15 @@ public partial class SemanticModel
                 out var availableMethods))
         {
             methods = availableMethods;
+        }
+        else if (expression is IdentifierNameSyntax sourceIdentifier &&
+                 TryLookupAvailableFunctionDeclarations(
+                     sourceIdentifier,
+                     sourceIdentifier.Identifier.ValueText,
+                     allowSourceDeclarationBinding: true,
+                     out var declaredSourceMethods))
+        {
+            methods = declaredSourceMethods;
         }
         else if (TryResolveAvailableCallableExpression(expression, out var callableSymbol) &&
                  callableSymbol is IMethodSymbol method)
@@ -4073,14 +4234,24 @@ public partial class SemanticModel
         return false;
     }
 
-    private static bool TryGetAvailableMemberValueType(
+    private bool TryGetAvailableMemberValueType(
         ITypeSymbol receiverType,
         string memberName,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
     {
         type = null;
-        var member = LookupAvailableMember(receiverType, memberName);
+        if (receiverType.GetPlainType() is not INamedTypeSymbol namedReceiver)
+            return false;
+
+        var member = LookupAvailableMember(namedReceiver, memberName);
         type = GetTypeFromSymbol(member);
+        if ((type is null || type.TypeKind == TypeKind.Error) &&
+            TryEnsureSourceTypeValueMemberSignatureDeclared(namedReceiver, memberName, out _, out var valueMembers))
+        {
+            member = valueMembers.FirstOrDefault();
+            type = GetTypeFromSymbol(member);
+        }
+
         return type is not null && type.TypeKind != TypeKind.Error;
     }
 
@@ -4399,7 +4570,7 @@ public partial class SemanticModel
         }
 
         if (expression is InvocationExpressionSyntax invocation &&
-            TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates) &&
+            TryGetAvailableInvocationCandidates(invocation, allowSourceDeclarationBinding: false, out var invocationCandidates) &&
             TryGetCommonAvailableInvocationReturnType(invocationCandidates, out var invocationReturnType) &&
             invocationReturnType is not null &&
             invocationReturnType.TypeKind != TypeKind.Error)
@@ -4517,7 +4688,8 @@ public partial class SemanticModel
 
             if (!Compilation.SourceDeclarationsDeclared)
             {
-                foreach (var function in Compilation.GetNamespaceFunctionDeclarations(currentNamespace, name))
+                var declarations = Compilation.GetNamespaceFunctionDeclarations(currentNamespace, name);
+                foreach (var function in declarations)
                     AddFunction(function);
 
                 return;
@@ -4598,8 +4770,14 @@ public partial class SemanticModel
                     ? declarationModel
                     : null;
 
-            if (model?.GetDeclaredSymbol(function) is not IMethodSymbol functionMethod)
+            if (model is null)
                 return false;
+
+            if (!model.TryGetAvailableNamespaceFunctionSymbol(function, out var functionMethod) &&
+                !model.TryResolveAvailableFunctionStatementSymbol(function, out functionMethod))
+            {
+                return false;
+            }
 
             method = functionMethod;
             return true;
@@ -4623,7 +4801,9 @@ public partial class SemanticModel
             .DescendantNodes()
             .OfType<BaseTypeDeclarationSyntax>()
             .Where(declaration => string.Equals(declaration.Identifier.ValueText, name, StringComparison.Ordinal))
-            .Select(declaration => GetDeclaredSymbol(declaration) as INamedTypeSymbol)
+            .Select(declaration => TryDeclareAvailableSourceTypeSymbol(declaration, out var sourceType)
+                ? sourceType
+                : GetDeclaredSymbol(declaration) as INamedTypeSymbol)
             .FirstOrDefault(candidate => candidate is not null && (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
         if (type is not null)
             return true;
@@ -4632,7 +4812,9 @@ public partial class SemanticModel
             .DescendantNodes()
             .OfType<UnionDeclarationSyntax>()
             .Where(declaration => string.Equals(declaration.Identifier.ValueText, name, StringComparison.Ordinal))
-            .Select(declaration => GetDeclaredSymbol(declaration) as INamedTypeSymbol)
+            .Select(declaration => TryDeclareAvailableSourceTypeSymbol(declaration, out var sourceType)
+                ? sourceType
+                : GetDeclaredSymbol(declaration) as INamedTypeSymbol)
             .FirstOrDefault(candidate => candidate is not null && (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
         if (type is not null)
             return true;
@@ -4640,7 +4822,9 @@ public partial class SemanticModel
         if (Compilation.TryGetDeclaredTypeDeclaration(name, arity, out var sourceTypeDeclaration) &&
             Compilation.TryGetSemanticModelForDeclarationBinding(sourceTypeDeclaration.SyntaxTree, out var sourceTypeModel))
         {
-            var sourceType = sourceTypeModel.GetDeclaredTypeSymbolForDeclaration(sourceTypeDeclaration);
+            var sourceType = sourceTypeModel.TryDeclareAvailableSourceTypeSymbol(sourceTypeDeclaration, out var declaredSourceType)
+                ? declaredSourceType
+                : sourceTypeModel.GetDeclaredTypeSymbolForDeclaration(sourceTypeDeclaration);
             if (sourceType.Arity == arity ||
                 (!sourceType.TypeParameters.IsDefault && sourceType.TypeParameters.Length == arity))
             {
@@ -4792,8 +4976,55 @@ public partial class SemanticModel
                 AddAvailableStandardUnionConstructors(type, addIfNotPresent);
         }
 
+        AddAvailableImplicitDefaultConstructor(type);
+
         foreach (var constructor in type.InstanceConstructors)
             addIfNotPresent(constructor);
+    }
+
+    private void AddAvailableImplicitDefaultConstructor(INamedTypeSymbol type)
+    {
+        if (type is not SourceNamedTypeSymbol sourceType ||
+            sourceType is IUnionSymbol ||
+            sourceType.IsStatic ||
+            sourceType.HasPrimaryConstructorSyntax)
+        {
+            return;
+        }
+
+        if (sourceType.GetDeclaredMembersWithoutEnsuring(".ctor").OfType<IMethodSymbol>().Any(static constructor => !constructor.IsStatic))
+            return;
+
+        foreach (var reference in sourceType.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not TypeDeclarationSyntax declaration)
+                continue;
+
+            if (declaration is ClassDeclarationSyntax { ParameterList: not null } ||
+                declaration is RecordDeclarationSyntax { ParameterList: not null } ||
+                declaration.Members.OfType<ConstructorDeclarationSyntax>().Any(static constructor => !HasStaticModifier(constructor.Modifiers)) ||
+                declaration.Members.OfType<ParameterlessConstructorDeclarationSyntax>().Any(static constructor => !HasStaticModifier(constructor.Modifiers)))
+            {
+                return;
+            }
+        }
+
+        var location = sourceType.Locations.FirstOrDefault() ?? Location.None;
+        var syntaxReference = sourceType.DeclaringSyntaxReferences.FirstOrDefault();
+        var references = syntaxReference is null ? Array.Empty<SyntaxReference>() : [syntaxReference];
+
+        _ = new SourceMethodSymbol(
+            ".ctor",
+            Compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            sourceType,
+            sourceType,
+            sourceType.ContainingNamespace?.AsSourceNamespace(),
+            [location],
+            references,
+            isStatic: false,
+            methodKind: MethodKind.Constructor,
+            declaredAccessibility: Accessibility.Public);
     }
 
     private void AddAvailableStandardUnionConstructors(INamedTypeSymbol unionType, Action<IMethodSymbol?> addIfNotPresent)
@@ -4979,6 +5210,12 @@ public partial class SemanticModel
 
     private ITypeSymbol? TryGetAvailableReceiverType(ExpressionSyntax receiver)
     {
+        if (receiver is InvocationExpressionSyntax receiverInvocation &&
+            TryGetAvailableInvocationReceiverReturnType(receiverInvocation, out var invocationReceiverType))
+        {
+            return invocationReceiverType;
+        }
+
         if (TryGetAvailableTypeInfo(receiver, out var receiverTypeInfo))
         {
             var receiverType = receiverTypeInfo.Type ?? receiverTypeInfo.ConvertedType;
@@ -4993,6 +5230,61 @@ public partial class SemanticModel
         }
 
         return null;
+    }
+
+    private bool TryGetAvailableInvocationReceiverReturnType(
+        InvocationExpressionSyntax invocation,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? returnType)
+    {
+        returnType = null;
+
+        if (!TryGetAvailableInvocationCandidates(invocation, out var candidates) ||
+            candidates.IsDefaultOrEmpty)
+        {
+            return false;
+        }
+
+        var resolvedCandidates = candidates
+            .Where(static candidate => !HasUnresolvedMethodTypeParameters(candidate))
+            .ToImmutableArray();
+        var candidateMethods = resolvedCandidates.IsDefaultOrEmpty
+            ? candidates
+            : resolvedCandidates;
+
+        IMethodSymbol? selectedMethod = null;
+        if (TryChooseAvailableInvocationMethodCandidate(candidateMethods, invocation, out var chosenMethod))
+        {
+            selectedMethod = chosenMethod;
+        }
+        else if (TryGetAvailableInvocationSymbolInfo(invocation, out var symbolInfo) &&
+                 symbolInfo.Symbol is IMethodSymbol symbolMethod)
+        {
+            selectedMethod = symbolMethod;
+        }
+
+        if (selectedMethod is not null)
+        {
+            var selectedReturnType = GetInvocationReturnType(selectedMethod);
+            if (IsUsefulAvailableExpressionType(selectedReturnType))
+            {
+                returnType = selectedReturnType;
+                StoreTypeMapping(
+                    invocation,
+                    new TypeInfo(selectedReturnType, selectedReturnType, ComputeConversion(selectedReturnType, selectedReturnType)));
+                StoreSymbolMapping(invocation, new SymbolInfo(selectedMethod, candidates.Cast<ISymbol>().ToImmutableArray()));
+                return true;
+            }
+        }
+
+        if (TryGetBestAvailableInvocationReturnType(invocation, candidates, out returnType) &&
+            returnType is not null &&
+            returnType.TypeKind != TypeKind.Error)
+        {
+            StoreTypeMapping(invocation, new TypeInfo(returnType, returnType, ComputeConversion(returnType, returnType)));
+            return true;
+        }
+
+        return false;
     }
 
     private static ISymbol? LookupAvailableMember(ITypeSymbol receiverType, string memberName)
@@ -5188,7 +5480,19 @@ public partial class SemanticModel
         if (expression is InvocationExpressionSyntax invocation &&
             TryGetAvailableInvocationCandidates(invocation, out var invocationCandidates))
         {
-            if (TryGetCommonAvailableInvocationReturnType(invocationCandidates, out var inferredType) &&
+            if (TryGetBestAvailableInvocationReturnType(invocation, invocationCandidates, out var inferredType) &&
+                inferredType is not null)
+            {
+                var convertedType = inferredType;
+                if (TryGetContextualArgumentConvertedType(expression, inferredType, out var contextualConvertedType))
+                    convertedType = contextualConvertedType;
+
+                typeInfo = new TypeInfo(inferredType, convertedType, ComputeConversion(inferredType, convertedType));
+                StoreTypeMapping(expression, typeInfo);
+                return true;
+            }
+
+            if (TryGetCommonAvailableInvocationReturnType(invocationCandidates, out inferredType) &&
                 inferredType is not null)
             {
                 var convertedType = inferredType;
@@ -5298,6 +5602,21 @@ public partial class SemanticModel
                     StoreSymbolInfo(identifier, localSymbol);
                     return true;
                 }
+
+                if (variableDeclarator.Initializer is not null &&
+                    TryBindLocalDeclarationForStableLocalSymbol(
+                        variableDeclarator,
+                        out localSymbol,
+                        allowErrorType: false,
+                        allowInitializerBinding: true,
+                        allowBindingFallback: true) &&
+                    localSymbol.Type is { TypeKind: not TypeKind.Error } reboundLocalType)
+                {
+                    type = reboundLocalType;
+                    StoreSymbolInfo(identifier, localSymbol);
+                    return true;
+                }
+
             }
         }
 
@@ -5328,6 +5647,14 @@ public partial class SemanticModel
         var member = TryGetAvailableInstanceValueMember(lookupReceiver, memberName);
         var memberType = GetTypeFromSymbol(member);
         if ((member is null || memberType is null || memberType.TypeKind == TypeKind.Error) &&
+            TryEnsureSourceTypeValueMemberSignatureDeclared(namedReceiver, memberName, out var ensuredValueReceiverType, out var valueMembers))
+        {
+            lookupReceiver = ensuredValueReceiverType;
+            member = valueMembers.FirstOrDefault();
+            memberType = GetTypeFromSymbol(member);
+        }
+
+        if ((member is null || memberType is null || memberType.TypeKind == TypeKind.Error) &&
             TryEnsureSourceTypeMemberSignaturesDeclared(namedReceiver, out var ensuredReceiverType))
         {
             lookupReceiver = ensuredReceiverType;
@@ -5354,6 +5681,206 @@ public partial class SemanticModel
         => receiverType is SourceNamedTypeSymbol sourceType
             ? sourceType.GetDeclaredMembersWithoutEnsuring(memberName)
             : receiverType.GetMembers(memberName);
+
+    private ImmutableArray<IMethodSymbol> GetAvailableMethodMembers(INamedTypeSymbol receiverType, string memberName)
+    {
+        var methods = GetAvailableMembers(receiverType, memberName)
+            .OfType<IMethodSymbol>()
+            .ToImmutableArray();
+        if (!methods.IsDefaultOrEmpty)
+            return methods;
+
+        if (TryEnsureSourceTypeMethodSignaturesDeclared(receiverType, memberName, out _, out methods))
+            return methods;
+
+        return TryEnsureSourceTypeMemberSignaturesDeclared(receiverType, out var ensuredReceiverType)
+            ? GetAvailableMembers(ensuredReceiverType, memberName)
+                .OfType<IMethodSymbol>()
+                .ToImmutableArray()
+            : ImmutableArray<IMethodSymbol>.Empty;
+    }
+
+    private bool TryEnsureSourceTypeMethodSignaturesDeclared(
+        INamedTypeSymbol receiverType,
+        string memberName,
+        out INamedTypeSymbol ensuredReceiverType,
+        out ImmutableArray<IMethodSymbol> methods)
+    {
+        ensuredReceiverType = receiverType;
+        methods = ImmutableArray<IMethodSymbol>.Empty;
+
+        var sourceType = receiverType.GetPlainType() as SourceNamedTypeSymbol ??
+            receiverType.ConstructedFrom as SourceNamedTypeSymbol;
+        if (sourceType is null)
+            return false;
+
+        foreach (var reference in sourceType.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not TypeDeclarationSyntax declaration ||
+                declaration.SyntaxTree is null)
+            {
+                continue;
+            }
+
+            var matchingMethods = declaration.Members
+                .OfType<MethodDeclarationSyntax>()
+                .Where(method => GetDeclaredMethodLookupName(method) == memberName)
+                .ToArray();
+            if (matchingMethods.Length == 0)
+                continue;
+
+            var declaringModel = ReferenceEquals(declaration.SyntaxTree, SyntaxTree)
+                ? this
+                : Compilation.GetSemanticModel(declaration.SyntaxTree);
+            declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
+            declaringModel.EnsureDeclarations();
+
+            if (!declaringModel.Compilation.TryGetDeclaredTypeSymbol(declaration, out _) &&
+                sourceType.DeclaringSyntaxReferences.Any(typeReference =>
+                    typeReference.SyntaxTree == declaration.SyntaxTree &&
+                    typeReference.Span == declaration.Span))
+            {
+                declaringModel.RegisterDeclaredTypeSymbol(declaration, sourceType);
+            }
+
+            var directMethods = ImmutableArray.CreateBuilder<IMethodSymbol>();
+            var directMethodKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var method in matchingMethods)
+            {
+                MemberSignatureDeclarationPass.DeclareMethodSignature(declaringModel, method);
+                if (declaringModel.Compilation.TryGetMethodSymbol(method, out var declaredMethod) &&
+                    directMethodKeys.Add(declaredMethod.GetShallowLookupIdentityKey()))
+                {
+                    directMethods.Add(declaredMethod);
+                }
+            }
+
+            if (declaringModel.Compilation.TryGetDeclaredTypeSymbol(declaration, out var declaredType))
+                ensuredReceiverType = ReconstructSourceReceiverType(receiverType, declaredType);
+
+            methods = GetAvailableMembers(ensuredReceiverType, memberName)
+                .OfType<IMethodSymbol>()
+                .ToImmutableArray();
+            if (!methods.IsDefaultOrEmpty)
+                return true;
+
+            if (directMethods.Count > 0)
+            {
+                methods = directMethods.ToImmutable();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryEnsureSourceTypeValueMemberSignatureDeclared(
+        INamedTypeSymbol receiverType,
+        string memberName,
+        out INamedTypeSymbol ensuredReceiverType,
+        out ImmutableArray<ISymbol> members)
+    {
+        ensuredReceiverType = receiverType;
+        members = ImmutableArray<ISymbol>.Empty;
+
+        var sourceType = receiverType.GetPlainType() as SourceNamedTypeSymbol ??
+            receiverType.ConstructedFrom as SourceNamedTypeSymbol;
+        if (sourceType is null)
+            return false;
+
+        foreach (var reference in sourceType.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not TypeDeclarationSyntax declaration ||
+                declaration.SyntaxTree is null)
+            {
+                continue;
+            }
+
+            var matchingMembers = GetEffectiveTypeMembers(declaration)
+                .Select(static member => member.EffectiveSyntax)
+                .Where(member => member switch
+                {
+                    FieldDeclarationSyntax field => field.Declaration.Declarators.Any(declarator =>
+                        string.Equals(declarator.Identifier.ValueText, memberName, StringComparison.Ordinal)),
+                    PropertyDeclarationSyntax property => string.Equals(property.Identifier.ValueText, memberName, StringComparison.Ordinal),
+                    EventDeclarationSyntax @event => string.Equals(@event.Identifier.ValueText, memberName, StringComparison.Ordinal),
+                    _ => false
+                })
+                .ToArray();
+            if (matchingMembers.Length == 0)
+                continue;
+
+            var declaringModel = ReferenceEquals(declaration.SyntaxTree, SyntaxTree)
+                ? this
+                : Compilation.GetSemanticModel(declaration.SyntaxTree);
+            declaringModel.Compilation.EnsureSourceTypeDeclarationsDeclared();
+            declaringModel.EnsureDeclarations();
+
+            if (!declaringModel.Compilation.TryGetDeclaredTypeSymbol(declaration, out _) &&
+                sourceType.DeclaringSyntaxReferences.Any(typeReference =>
+                    typeReference.SyntaxTree == declaration.SyntaxTree &&
+                    typeReference.Span == declaration.Span))
+            {
+                declaringModel.RegisterDeclaredTypeSymbol(declaration, sourceType);
+            }
+
+            var directMembers = ImmutableArray.CreateBuilder<ISymbol>();
+            foreach (var matchingMember in matchingMembers)
+            {
+                switch (matchingMember)
+                {
+                    case FieldDeclarationSyntax fieldDeclaration:
+                        MemberSignatureDeclarationPass.DeclareFieldSignature(declaringModel, fieldDeclaration);
+                        foreach (var declarator in fieldDeclaration.Declaration.Declarators)
+                        {
+                            if (string.Equals(declarator.Identifier.ValueText, memberName, StringComparison.Ordinal))
+                            {
+                                directMembers.AddRange(sourceType
+                                    .GetDeclaredMembersWithoutEnsuring(memberName)
+                                    .OfType<IFieldSymbol>()
+                                    .Where(field => SymbolDeclarationUtilities.HasDeclaringSpan(field, declarator)));
+                            }
+                        }
+
+                        break;
+                    case PropertyDeclarationSyntax propertyDeclaration:
+                        MemberSignatureDeclarationPass.DeclarePropertySignature(declaringModel, propertyDeclaration);
+                        if (declaringModel.Compilation.TryGetPropertySymbol(propertyDeclaration, out var propertySymbol))
+                            directMembers.Add(propertySymbol);
+
+                        break;
+                    case EventDeclarationSyntax eventDeclaration:
+                        MemberSignatureDeclarationPass.DeclareEventSignature(declaringModel, eventDeclaration);
+                        if (declaringModel.Compilation.TryGetEventSymbol(eventDeclaration, out var eventSymbol))
+                            directMembers.Add(eventSymbol);
+
+                        break;
+                }
+            }
+
+            if (declaringModel.Compilation.TryGetDeclaredTypeSymbol(declaration, out var declaredType))
+                ensuredReceiverType = ReconstructSourceReceiverType(receiverType, declaredType);
+
+            members = GetAvailableMembers(ensuredReceiverType, memberName)
+                .Where(static symbol => symbol is IFieldSymbol or IPropertySymbol or IEventSymbol)
+                .ToImmutableArray();
+            if (!members.IsDefaultOrEmpty)
+                return true;
+
+            if (directMembers.Count > 0)
+            {
+                members = directMembers.ToImmutable();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string GetDeclaredMethodLookupName(MethodDeclarationSyntax method)
+        => method.Identifier.Kind == SyntaxKind.SelfKeyword
+            ? "Invoke"
+            : method.Identifier.ValueText;
 
     private bool TryEnsureSourceTypeMemberSignaturesDeclared(
         INamedTypeSymbol receiverType,
@@ -5775,6 +6302,62 @@ public partial class SemanticModel
         };
 
         return type is not null;
+    }
+
+    private bool TryGetBestAvailableInvocationReturnType(
+        InvocationExpressionSyntax invocation,
+        ImmutableArray<IMethodSymbol> invocationCandidates,
+        out ITypeSymbol? returnType)
+    {
+        returnType = null;
+
+        if (invocationCandidates.IsDefaultOrEmpty ||
+            invocation.TrailingBlock is not null ||
+            invocation.ArgumentList.Arguments.Any(static argument => argument.NameColon is not null))
+        {
+            return false;
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        var argumentTypes = new ITypeSymbol?[arguments.Count];
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].Expression is FunctionExpressionSyntax)
+                continue;
+
+            var argumentType = TryGetNonContextualAvailableArgumentType(arguments[i].Expression);
+            if (argumentType is null || argumentType.TypeKind == TypeKind.Error)
+                return false;
+
+            argumentTypes[i] = argumentType;
+        }
+
+        var bestScore = int.MinValue;
+        foreach (var candidate in invocationCandidates)
+        {
+            if (!TryScoreAvailableInvocationCandidate(candidate, invocation, argumentTypes, out var score))
+                continue;
+
+            var candidateReturnType = GetInvocationReturnType(candidate);
+            if (!IsUsefulAvailableExpressionType(candidateReturnType))
+                continue;
+
+            if (score > bestScore)
+            {
+                returnType = candidateReturnType;
+                bestScore = score;
+                continue;
+            }
+
+            if (score == bestScore &&
+                !HaveEquivalentAvailableTypeShape(returnType, candidateReturnType))
+            {
+                returnType = null;
+                return false;
+            }
+        }
+
+        return returnType is not null;
     }
 
     private static bool TryGetCommonAvailableInvocationReturnType(
@@ -6486,6 +7069,7 @@ public partial class SemanticModel
                     info = reboundInfo;
                     return true;
                 }
+
             }
         }
 
@@ -6771,6 +7355,7 @@ public partial class SemanticModel
     /// <returns></returns>
     public ISymbol? GetDeclaredSymbol(SyntaxNode node)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
         if (node is FunctionStatementSyntax functionStatement &&
@@ -6900,6 +7485,32 @@ public partial class SemanticModel
 
         methodSymbol = null;
         return false;
+    }
+
+    private bool TryGetAvailableNamespaceFunctionSymbol(
+        FunctionStatementSyntax functionStatement,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? methodSymbol)
+    {
+        if (Compilation.TryGetMethodSymbol(functionStatement, out methodSymbol) && methodSymbol is not null)
+            return true;
+
+        if (functionStatement.Parent is not GlobalStatementSyntax globalStatement ||
+            !Compilation.IsTopLevelFunctionMember(globalStatement) ||
+            IsFileScopeLocalFunction(globalStatement))
+        {
+            methodSymbol = null;
+            return false;
+        }
+
+        if (!TryGetDeclarationNamespace(functionStatement, out var parentNamespace))
+        {
+            methodSymbol = null;
+            return false;
+        }
+
+        Compilation.EnsureSourceTypeDeclarationsDeclared();
+        DeclareTopLevelFunctionSymbol(functionStatement, parentNamespace);
+        return Compilation.TryGetMethodSymbol(functionStatement, out methodSymbol) && methodSymbol is not null;
     }
 
     private bool TryResolveAvailableAccessorSymbol(AccessorDeclarationSyntax accessorDeclaration, out IMethodSymbol? accessorSymbol)
@@ -7300,6 +7911,8 @@ public partial class SemanticModel
         AttributeSyntax attribute,
         CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
         ArgumentNullException.ThrowIfNull(attribute);
 
         if (!attribute.IsMacroAttribute())
@@ -7327,6 +7940,8 @@ public partial class SemanticModel
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
         ArgumentNullException.ThrowIfNull(expression);
 
         return _freestandingMacroExpansionCache.GetOrAdd(
@@ -7405,6 +8020,7 @@ public partial class SemanticModel
     /// <returns>The type info</returns>
     public TypeInfo GetTypeInfo(ExpressionSyntax expr)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoQuery();
 
@@ -7726,6 +8342,7 @@ public partial class SemanticModel
 
     public bool TryGetTypeInfo(ExpressionSyntax expression, out TypeInfo typeInfo)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         typeInfo = GetTypeInfo(expression);
         return HasTypeInfo(typeInfo);
     }
@@ -8287,6 +8904,12 @@ public partial class SemanticModel
 
         if (type is not INamedTypeSymbol named)
             return false;
+
+        if (named.GetDelegateInvokeMethod() is not null)
+        {
+            delegateType = named;
+            return true;
+        }
 
         var definition = (named.OriginalDefinition as INamedTypeSymbol) ?? named;
         if (definition.Arity != 1)
@@ -9433,7 +10056,7 @@ public partial class SemanticModel
                 break;
         }
 
-        if (scopeNode is BlockStatementSyntax or CompilationUnitSyntax or ArrowExpressionClauseSyntax)
+        if (scopeNode is BlockStatementSyntax or CompilationUnitSyntax or ArrowExpressionClauseSyntax or FunctionExpressionSyntax)
         {
             foreach (var declarator in DescendantNodesExcludingNestedScopes(scopeNode).OfType<VariableDeclaratorSyntax>())
             {
@@ -9529,7 +10152,8 @@ public partial class SemanticModel
         foreach (var child in scopeNode.ChildNodes())
         {
             var isCurrentBlockBody = scopeNode is BlockStatementSyntax && child is BlockSyntax;
-            if (!isCurrentBlockBody && IsNestedExecutableScope(child))
+            var isCurrentFunctionExpressionBody = scopeNode is FunctionExpressionSyntax && child is BlockStatementSyntax;
+            if (!isCurrentBlockBody && !isCurrentFunctionExpressionBody && IsNestedExecutableScope(child))
                 continue;
 
             yield return child;
@@ -10470,6 +11094,7 @@ public partial class SemanticModel
     /// <param name="typeSyntax">The type syntax node.</param>
     public TypeInfo GetTypeInfo(TypeSyntax typeSyntax)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
         if (typeSyntax is ExpressionSyntax expressionSyntax &&
@@ -10536,6 +11161,7 @@ public partial class SemanticModel
 
     public bool TryGetTypeInfo(TypeSyntax typeSyntax, out TypeInfo typeInfo)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         typeInfo = GetTypeInfo(typeSyntax);
         return HasTypeInfo(typeInfo);
     }
@@ -10605,6 +11231,8 @@ public partial class SemanticModel
         bool includePartialMatches = false,
         ExtensionMemberKinds kinds = ExtensionMemberKinds.All)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return ExtensionMemberLookupResult.Empty;
 
@@ -10679,6 +11307,8 @@ public partial class SemanticModel
 
     internal BoundNode GetBoundNode(SyntaxNode node, BoundTreeView view)
     {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
         if (view is BoundTreeView.Both)
             throw new ArgumentOutOfRangeException(nameof(view));
 
@@ -11363,7 +11993,11 @@ public partial class SemanticModel
         => GetBinderLifecycleSnapshotForTesting(GetIncrementalSemanticQueryBinderForTesting(node));
 
     public IParameterSymbol? GetFunctionExpressionParameterSymbol(ParameterSyntax parameterSyntax)
-        => GetFunctionExpressionParameterSymbolCore(parameterSyntax, allowDeclaredSymbolFallback: true);
+    {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+
+        return GetFunctionExpressionParameterSymbolCore(parameterSyntax, allowDeclaredSymbolFallback: true);
+    }
 
     internal IParameterSymbol? GetFunctionExpressionParameterSymbolForDeclaredLookup(ParameterSyntax parameterSyntax)
         => GetFunctionExpressionParameterSymbolCore(parameterSyntax, allowDeclaredSymbolFallback: false);

@@ -46,18 +46,30 @@ internal sealed class DocumentStore
 
     internal sealed class DocumentSemanticAccess : IDisposable
     {
+        private readonly SemanticModel? _semanticModel;
+        private IDisposable? _ambientLease;
         private IDisposable? _lease;
 
         public DocumentSemanticAccess(SemanticModel? semanticModel, IDisposable lease)
         {
-            SemanticModel = semanticModel;
+            _semanticModel = semanticModel;
             _lease = lease;
         }
 
-        public SemanticModel? SemanticModel { get; }
+        public SemanticModel? SemanticModel
+        {
+            get
+            {
+                if (_semanticModel is not null && _ambientLease is null)
+                    _ambientLease = _semanticModel.EnterAmbientSemanticAccess();
+
+                return _semanticModel;
+            }
+        }
 
         public void Dispose()
         {
+            Interlocked.Exchange(ref _ambientLease, null)?.Dispose();
             Interlocked.Exchange(ref _lease, null)?.Dispose();
         }
     }
@@ -974,19 +986,11 @@ internal sealed class DocumentStore
         if (compilerDiagnostics is null)
             return null;
 
-        var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        using var semanticLease = await EnterDiagnosticSemanticAccessAsync(
-            semanticModel,
-            useBusySkip,
-            cancellationToken).ConfigureAwait(false);
-        if (semanticLease is null)
-            return null;
-
         if (!_workspaceManager.TryGetDocumentAnalyzerDiagnostics(
             document,
             compilation,
             out var documentAnalyzerDiagnostics,
-            semanticAccessAlreadyHeld: true,
+            allowBusySkip: useBusySkip,
             cancellationToken: cancellationToken))
         {
             return null;

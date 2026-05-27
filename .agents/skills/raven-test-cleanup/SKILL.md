@@ -97,5 +97,6 @@ Try to resolve stale tests independently by reducing examples, reading the spec,
 2. Fix failures in that target set unless they are clearly unrelated to the cleanup and documented as pre-existing baseline noise.
 3. Run the relevant baseline or isolated suite for the affected area and leave it passing relative to the established baseline.
 4. Use `scripts/test-runtime-isolated.sh` for runtime, emit, execution, metadata loading, or reflection-heavy coverage.
-5. Format touched C# files with `dotnet format ... --include ... --no-restore`.
+5. Format touched C# files with `dotnet format whitespace ... --include ... --no-restore`.
+   Use `dotnet format style` or `dotnet format analyzers` only when intentionally applying those fixes; analyzer/style formatters can rewrite code beyond whitespace.
 6. Summarize which tests were kept, rewritten, repurposed, added, deleted, or moved, which commands were run, and call out any spec questions left unresolved.

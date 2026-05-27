@@ -79,7 +79,8 @@ dotnet build <project path> --property WarningLevel=0
 
 ## Contribution Requirements
 
-- Format touched files with `dotnet format <solution|project> --include <files> --no-restore`.
+- Format touched files with `dotnet format whitespace <solution|project> --include <files> --no-restore`.
+  Use `dotnet format style` or `dotnet format analyzers` only when intentionally applying those fixes; analyzer/style formatters can rewrite code beyond whitespace.
 - Run relevant build and test steps unless the change is docs-only.
 - Update specs, grammar, and docs alongside syntax or semantic changes.
 - Update `CHANGELOG.md` for behavior changes.

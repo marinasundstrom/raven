@@ -12,6 +12,8 @@ public partial class SemanticModel
 {
     public CompilationUnitSyntax GetExpandedRoot(CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
         cancellationToken.ThrowIfCancellationRequested();
         EnsureDiagnosticBindingCompleted();
 
@@ -36,6 +38,8 @@ public partial class SemanticModel
         AttributeSyntax attribute,
         CancellationToken cancellationToken = default)
     {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
         ArgumentNullException.ThrowIfNull(attribute);
         cancellationToken.ThrowIfCancellationRequested();
         EnsureDiagnosticBindingCompleted();
