@@ -488,6 +488,58 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_AfterEdit_ReturnsStickyUnaffectedCachedHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+func Main() -> unit {
+    val a = 1
+    val b = 2
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var initialResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+        var initialHints = initialResult.ToArray();
+        AssertHasHintAtInsertion(sourceText, initialHints, code.IndexOf("a = 1", StringComparison.Ordinal) + 1, ": int");
+        AssertHasHintAtInsertion(sourceText, initialHints, code.IndexOf("b = 2", StringComparison.Ordinal) + 1, ": int");
+
+        var updatedCode = code.Replace("val a = 1", "val a: int = 1", StringComparison.Ordinal);
+        var updatedSourceText = SourceText.From(updatedCode);
+        await store.UpsertDocumentAsync(uri, updatedSourceText);
+
+        var stickyResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(updatedSourceText)
+        }, CancellationToken.None);
+        var stickyHints = stickyResult.ToArray();
+
+        AssertNoHintAtInsertion(updatedSourceText, stickyHints, updatedCode.IndexOf("a: int = 1", StringComparison.Ordinal) + 1);
+        AssertHasHintAtInsertion(updatedSourceText, stickyHints, updatedCode.IndexOf("b = 2", StringComparison.Ordinal) + 1, ": int");
+    }
+
+    [Fact]
     public async Task Handle_RequestedRange_FiltersHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);

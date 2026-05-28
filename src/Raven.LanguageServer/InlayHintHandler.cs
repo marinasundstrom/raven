@@ -33,6 +33,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private readonly DocumentStore _documents;
     private readonly ILogger<InlayHintHandler> _logger;
     private readonly ConcurrentDictionary<InlayHintDocumentCacheKey, ImmutableArray<InlayHint>> _cache = new();
+    private readonly ConcurrentDictionary<string, InlayHintDocumentCacheEntry> _latestDocumentCache = new();
     private readonly LatestDocumentRequestTracker _latestRequests = new();
 
     public InlayHintHandler(DocumentStore documents, ILogger<InlayHintHandler> logger)
@@ -119,6 +120,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var resultCount = 0;
         var outcome = "Completed";
         var cacheHit = false;
+        SourceText? currentSourceText = null;
 
         try
         {
@@ -132,6 +134,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             var sourceText = context.Value.SourceText;
+            currentSourceText = sourceText;
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
             effectiveCancellationToken.ThrowIfCancellationRequested();
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
@@ -143,7 +146,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     request.TextDocument.Uri,
                     TimeSpan.FromMilliseconds(RecentEditFullDocumentInlayDelayMilliseconds)))
             {
-                if (TryGetCachedHints(request, out var cachedHints))
+                if (TryGetCachedHints(request, sourceText, out var cachedHints))
                 {
                     cacheHit = true;
                     outcome = "SkippedRecentEditCached";
@@ -164,7 +167,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             gateWaitMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticAccess is null)
             {
-                if (TryGetCachedHints(request, out var cachedHints))
+                if (TryGetCachedHints(request, sourceText, out var cachedHints))
                 {
                     cacheHit = true;
                     outcome = "SkippedBusyCached";
@@ -252,12 +255,12 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (collectionBudget.IsExpired)
                 outcome = "BudgetExpired";
 
-            CacheHints(request, context.Value.Document.Version, hintArray);
+            CacheHints(request, context.Value.Document.Version, sourceText, hintArray);
             return new InlayHintContainer(hintArray);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            if (TryGetCachedHints(request, out var cachedHints))
+            if (TryGetCachedHints(request, currentSourceText, out var cachedHints))
             {
                 cacheHit = true;
                 outcome = requestState.IsSuperseded
@@ -341,7 +344,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
     }
 
-    private bool TryGetCachedHints(InlayHintParams request, out InlayHint[] hints)
+    private bool TryGetCachedHints(InlayHintParams request, SourceText? currentSourceText, out InlayHint[] hints)
     {
         hints = [];
 
@@ -351,40 +354,59 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return false;
         }
 
-        if (!_cache.TryGetValue(CreateCacheKey(request.TextDocument.Uri, document.Version), out var cachedHints))
-            return false;
+        if (_cache.TryGetValue(CreateCacheKey(request.TextDocument.Uri, document.Version), out var cachedHints))
+        {
+            hints = cachedHints
+                .Where(hint => IsInRange(hint.Position, request.Range))
+                .ToArray();
+            return hints.Length > 0;
+        }
 
-        hints = cachedHints
-            .Where(hint => IsInRange(hint.Position, request.Range))
-            .ToArray();
-        return hints.Length > 0;
+        if (currentSourceText is null ||
+            !_latestDocumentCache.TryGetValue(request.TextDocument.Uri.ToString(), out var latestCache) ||
+            latestCache.Hints.IsDefaultOrEmpty ||
+            latestCache.Version == document.Version)
+        {
+            return false;
+        }
+
+        return TryCreateStickyHints(
+            latestCache.SourceText,
+            currentSourceText,
+            request.Range,
+            latestCache.Hints,
+            out hints);
     }
 
-    private void CacheHints(InlayHintParams request, VersionStamp version, InlayHint[] hints)
+    private void CacheHints(InlayHintParams request, VersionStamp version, SourceText sourceText, InlayHint[] hints)
     {
         if (_cache.Count >= MaxCachedInlayHintEntries)
             _cache.Clear();
 
         var key = CreateCacheKey(request.TextDocument.Uri, version);
-        _cache.AddOrUpdate(
+        var updatedHints = _cache.AddOrUpdate(
             key,
             hints.ToImmutableArray(),
-            (_, existing) => MergeCachedHints(existing, hints));
+            (_, existing) => MergeCachedHints(existing, hints, request.Range));
+
+        _latestDocumentCache[request.TextDocument.Uri.ToString()] = new InlayHintDocumentCacheEntry(
+            version,
+            sourceText,
+            updatedHints);
     }
 
     private static InlayHintDocumentCacheKey CreateCacheKey(DocumentUri uri, VersionStamp version)
         => new(uri.ToString(), version);
 
-    private static ImmutableArray<InlayHint> MergeCachedHints(ImmutableArray<InlayHint> existing, InlayHint[] incoming)
+    private static ImmutableArray<InlayHint> MergeCachedHints(ImmutableArray<InlayHint> existing, InlayHint[] incoming, LspRange requestRange)
     {
         if (existing.IsDefaultOrEmpty)
             return incoming.ToImmutableArray();
 
-        if (incoming.Length == 0)
-            return existing;
-
-        var merged = existing.ToBuilder();
-        var seen = existing
+        var merged = existing
+            .Where(hint => !IsInRange(hint.Position, requestRange))
+            .ToList();
+        var seen = merged
             .Select(static hint => (hint.Position.Line, hint.Position.Character, hint.Label.String))
             .ToHashSet();
 
@@ -394,7 +416,126 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 merged.Add(hint);
         }
 
-        return merged.ToImmutable();
+        return merged.ToImmutableArray();
+    }
+
+    private static bool TryCreateStickyHints(
+        SourceText oldText,
+        SourceText newText,
+        LspRange requestRange,
+        ImmutableArray<InlayHint> oldHints,
+        out InlayHint[] hints)
+    {
+        hints = [];
+
+        var changes = newText.GetTextChanges(oldText);
+        if (changes.Count == 0)
+        {
+            hints = oldHints
+                .Where(hint => IsInRange(hint.Position, requestRange))
+                .ToArray();
+            return hints.Length > 0;
+        }
+
+        if (changes.Count != 1)
+            return false;
+
+        var change = changes[0];
+        var translated = new List<InlayHint>();
+        foreach (var hint in oldHints)
+        {
+            if (!TryTranslateHint(oldText, newText, change, hint, out var translatedHint))
+                continue;
+
+            if (IsInRange(translatedHint.Position, requestRange))
+                translated.Add(translatedHint);
+        }
+
+        hints = translated.ToArray();
+        return hints.Length > 0;
+    }
+
+    private static bool TryTranslateHint(
+        SourceText oldText,
+        SourceText newText,
+        TextChange change,
+        InlayHint hint,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out InlayHint? translatedHint)
+    {
+        translatedHint = null;
+        var oldOffset = PositionHelper.ToOffset(oldText, hint.Position);
+        if (!TryTranslateOffset(change, oldOffset, out var newOffset))
+            return false;
+
+        var newPosition = PositionHelper.ToRange(newText, new TextSpan(newOffset, 0)).Start;
+        var translatedTextEdits = TranslateTextEdits(oldText, newText, change, hint.TextEdits);
+        if (hint.TextEdits is not null && translatedTextEdits is null)
+            return false;
+
+        translatedHint = new InlayHint
+        {
+            Position = newPosition,
+            Label = hint.Label,
+            Kind = hint.Kind,
+            Tooltip = hint.Tooltip,
+            PaddingLeft = hint.PaddingLeft,
+            PaddingRight = hint.PaddingRight,
+            TextEdits = translatedTextEdits,
+            Data = hint.Data
+        };
+        return true;
+    }
+
+    private static Container<TextEdit>? TranslateTextEdits(
+        SourceText oldText,
+        SourceText newText,
+        TextChange change,
+        Container<TextEdit>? textEdits)
+    {
+        if (textEdits is null)
+            return null;
+
+        var translated = new List<TextEdit>();
+        foreach (var textEdit in textEdits)
+        {
+            var oldStart = PositionHelper.ToOffset(oldText, textEdit.Range.Start);
+            var oldEnd = PositionHelper.ToOffset(oldText, textEdit.Range.End);
+            if (!TryTranslateOffset(change, oldStart, out var newStart) ||
+                !TryTranslateOffset(change, oldEnd, out var newEnd))
+            {
+                return null;
+            }
+
+            translated.Add(new TextEdit
+            {
+                Range = PositionHelper.ToRange(newText, TextSpan.FromBounds(newStart, newEnd)),
+                NewText = textEdit.NewText
+            });
+        }
+
+        return new Container<TextEdit>(translated);
+    }
+
+    private static bool TryTranslateOffset(TextChange change, int oldOffset, out int newOffset)
+    {
+        var oldStart = change.Span.Start;
+        var oldEnd = change.Span.End;
+        var delta = change.NewText.Length - change.Span.Length;
+
+        if (oldOffset < oldStart)
+        {
+            newOffset = oldOffset;
+            return true;
+        }
+
+        if (oldOffset > oldEnd)
+        {
+            newOffset = oldOffset + delta;
+            return true;
+        }
+
+        newOffset = 0;
+        return false;
     }
 
     private static bool IsInRange(Position position, LspRange range)
@@ -2047,6 +2188,11 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private readonly record struct InlayHintDocumentCacheKey(
         string Uri,
         VersionStamp Version);
+
+    private readonly record struct InlayHintDocumentCacheEntry(
+        VersionStamp Version,
+        SourceText SourceText,
+        ImmutableArray<InlayHint> Hints);
 
     private readonly struct InlayHintCollectionBudget
     {
