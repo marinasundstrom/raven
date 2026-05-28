@@ -46,7 +46,8 @@ internal sealed class DocumentStore
 
     internal readonly record struct DiagnosticsComputationResult(
         IReadOnlyList<LspDiagnostic> Diagnostics,
-        bool WasSkipped);
+        bool WasSkipped,
+        DiagnosticSnapshotKey? SnapshotKey = null);
 
     internal sealed class DocumentSemanticAccess : IDisposable
     {
@@ -842,11 +843,12 @@ internal sealed class DocumentStore
             if (context is null)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
             var syntaxTree = context.Value.SyntaxTree;
-            var documentDiagnosticsCacheKey = new DocumentDiagnosticsCacheKey(
+            var diagnosticSnapshotKey = new DiagnosticSnapshotKey(
                 uri.ToString(),
                 context.Value.Document.Project.Id,
                 context.Value.Document.Version,
                 context.Value.Document.Project.Version);
+            var documentDiagnosticsCacheKey = new DocumentDiagnosticsCacheKey(diagnosticSnapshotKey);
             syntaxTreeMs = stopwatch.Elapsed.TotalMilliseconds - gateWaitMs;
             if (shouldSkipWork?.Invoke() == true)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: true);
@@ -961,7 +963,7 @@ internal sealed class DocumentStore
                 }
             }
 
-            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false);
+            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false, diagnosticSnapshotKey);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -1228,13 +1230,18 @@ internal sealed class DocumentStore
             var context = await GetDocumentSyntaxContextAsync(uri, cancellationToken).ConfigureAwait(false);
             if (context is null)
                 return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
+            var diagnosticSnapshotKey = new DiagnosticSnapshotKey(
+                uri.ToString(),
+                context.Value.Document.Project.Id,
+                context.Value.Document.Version,
+                context.Value.Document.Project.Version);
 
             var diagnostics = context.Value.SyntaxTree.GetDiagnostics()
                     .Select(MapDiagnostic)
                     .ToArray();
             diagnosticsFetchMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
-            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false);
+            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false, diagnosticSnapshotKey);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -1442,13 +1449,13 @@ internal sealed class DocumentStore
         var uriText = uri.ToString();
         foreach (var key in _documentCompilerDiagnosticsCache.Keys)
         {
-            if (string.Equals(key.Uri, uriText, StringComparison.Ordinal))
+            if (string.Equals(key.SnapshotKey.Uri, uriText, StringComparison.Ordinal))
                 _documentCompilerDiagnosticsCache.TryRemove(key, out _);
         }
 
         foreach (var key in _documentWithAnalyzersDiagnosticsCache.Keys)
         {
-            if (string.Equals(key.Uri, uriText, StringComparison.Ordinal))
+            if (string.Equals(key.SnapshotKey.Uri, uriText, StringComparison.Ordinal))
                 _documentWithAnalyzersDiagnosticsCache.TryRemove(key, out _);
         }
     }
@@ -1457,13 +1464,13 @@ internal sealed class DocumentStore
     {
         foreach (var key in _documentCompilerDiagnosticsCache.Keys)
         {
-            if (key.ProjectId == projectId && key.ProjectVersion != projectVersion)
+            if (key.SnapshotKey.ProjectId == projectId && key.SnapshotKey.ProjectVersion != projectVersion)
                 _documentCompilerDiagnosticsCache.TryRemove(key, out _);
         }
 
         foreach (var key in _documentWithAnalyzersDiagnosticsCache.Keys)
         {
-            if (key.ProjectId == projectId && key.ProjectVersion != projectVersion)
+            if (key.SnapshotKey.ProjectId == projectId && key.SnapshotKey.ProjectVersion != projectVersion)
                 _documentWithAnalyzersDiagnosticsCache.TryRemove(key, out _);
         }
     }
@@ -1526,9 +1533,11 @@ internal sealed class DocumentStore
         }
     }
 
-    private readonly record struct DocumentDiagnosticsCacheKey(
+    internal readonly record struct DiagnosticSnapshotKey(
         string Uri,
         ProjectId ProjectId,
         VersionStamp DocumentVersion,
         VersionStamp ProjectVersion);
+
+    private readonly record struct DocumentDiagnosticsCacheKey(DiagnosticSnapshotKey SnapshotKey);
 }

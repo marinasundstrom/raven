@@ -13,7 +13,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
+using ProjectId = Raven.CodeAnalysis.ProjectId;
 using RavenWorkspace = Raven.CodeAnalysis.RavenWorkspace;
+using SolutionId = Raven.CodeAnalysis.SolutionId;
+using VersionStamp = Raven.CodeAnalysis.VersionStamp;
 
 namespace Raven.Editor.Tests;
 
@@ -383,37 +386,67 @@ func Main() -> unit {
     }
 
     [Fact]
-    public void MergePartialDiagnosticsForPublish_KeepsAnalyzerDiagnosticsVisibleAcrossDocumentVersions()
+    public void GetCarryForwardAnalyzerDiagnosticsForSnapshot_DropsDiagnosticsFromDifferentProjectSnapshot()
     {
         var previous = ImmutableArray.Create(
-            CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning),
-            CreateDiagnosticWithSource(
-                "CSPELL",
-                "\"Avalonia\": Unknown word.",
-                5,
-                7,
-                5,
-                15,
-                "cSpell",
-                DiagnosticSeverity.Information));
+            CreateDiagnostic("RAV9027", "Value 'x' is never used.", 4, 8, 4, 9, DiagnosticSeverity.Warning),
+            CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning));
+        var projectId = ProjectId.CreateNew(SolutionId.CreateNew());
+        var documentVersion = VersionStamp.Create();
+        var previousSnapshot = new DocumentStore.DiagnosticSnapshotKey(
+            "file:///test.rvn",
+            projectId,
+            documentVersion,
+            VersionStamp.Create());
+        var currentSnapshot = new DocumentStore.DiagnosticSnapshotKey(
+            "file:///test.rvn",
+            projectId,
+            documentVersion,
+            previousSnapshot.ProjectVersion.GetNewerVersion());
 
-        var currentCompilerDiagnostic = CreateDiagnostic(
-            "RAV0030",
-            "Invalid invocation expression.",
-            10,
-            2,
-            10,
-            5,
-            DiagnosticSeverity.Error);
+        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForSnapshot(
+            version: 2,
+            currentSnapshot,
+            new RavenTextDocumentSyncHandler.VersionedDiagnostics(2, previousSnapshot, previous));
 
-        var merged = RavenTextDocumentSyncHandler.MergePartialDiagnosticsForPublish(
-            DocumentStore.DiagnosticLane.DocumentCompiler,
-            [currentCompilerDiagnostic],
-            previous);
+        carried.ShouldBeEmpty();
+    }
 
-        merged.Select(static diagnostic => diagnostic.Code?.String).ShouldBe([
-            "CSPELL",
-            "RAV0030",
+    [Fact]
+    public void GetCarryForwardAnalyzerDiagnosticsForSnapshot_KeepsDiagnosticsForSameProjectSnapshot()
+    {
+        var previous = ImmutableArray.Create(
+            CreateDiagnostic("RAV9027", "Value 'x' is never used.", 4, 8, 4, 9, DiagnosticSeverity.Warning),
+            CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning));
+        var snapshot = new DocumentStore.DiagnosticSnapshotKey(
+            "file:///test.rvn",
+            ProjectId.CreateNew(SolutionId.CreateNew()),
+            VersionStamp.Create(),
+            VersionStamp.Create());
+
+        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForSnapshot(
+            version: 2,
+            snapshot,
+            new RavenTextDocumentSyncHandler.VersionedDiagnostics(2, snapshot, previous));
+
+        carried.Select(static diagnostic => diagnostic.Code?.String).ShouldBe([
+            "RAV9027",
+            "RAV9030"
+        ]);
+    }
+
+    [Fact]
+    public void GetCarryForwardAnalyzerDiagnosticsForSnapshot_FallsBackToEditorVersionWhenSnapshotIsUnavailable()
+    {
+        var previous = ImmutableArray.Create(
+            CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning));
+
+        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForSnapshot(
+            version: 2,
+            snapshotKey: null,
+            new RavenTextDocumentSyncHandler.VersionedDiagnostics(2, SnapshotKey: null, previous));
+
+        carried.Select(static diagnostic => diagnostic.Code?.String).ShouldBe([
             "RAV9030"
         ]);
     }
