@@ -105,6 +105,7 @@ internal sealed class DocumentStore
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingPostEditSemanticWarmups = new();
     private readonly ConcurrentDictionary<DocumentUri, PendingDocumentChange> _pendingDocumentChanges = new();
     private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _pendingDocumentChangeGates = new();
+    private readonly ConcurrentDictionary<DocumentUri, long> _recentDocumentChangeTicks = new();
     private CancellationTokenSource _backgroundSemanticWorkPreemption = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
@@ -140,6 +141,7 @@ internal sealed class DocumentStore
         bool deferMacroConsumerRefresh = false)
     {
         _pendingDocumentChanges[uri] = new PendingDocumentChange(text, deferMacroConsumerRefresh);
+        _recentDocumentChangeTicks[uri] = Stopwatch.GetTimestamp();
         RemoveCachedDocumentDiagnostics(uri);
         CancelPostEditSemanticWarmup(uri);
     }
@@ -188,6 +190,15 @@ internal sealed class DocumentStore
         _pendingDocumentChanges.TryRemove(uri, out _);
         if (_pendingDocumentChangeGates.TryRemove(uri, out var gate))
             gate.Dispose();
+    }
+
+    internal bool HasRecentDocumentChange(DocumentUri uri, TimeSpan window)
+    {
+        if (!_recentDocumentChangeTicks.TryGetValue(uri, out var timestamp))
+            return false;
+
+        var elapsed = Stopwatch.GetElapsedTime(timestamp);
+        return elapsed <= window;
     }
 
     private WorkspaceManager.DocumentUpsertResult ApplyUpsertResult(

@@ -26,6 +26,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private const int MaxBroadFullDocumentLineCount = 80;
     private const int MaxFocusedInlayRangeLength = 2_500;
     private const int MaxCachedInlayHintEntries = 256;
+    private const int RecentEditFullDocumentInlayDelayMilliseconds = 2_000;
     private const double LargeRangeInlayBudgetMs = 5_000;
     private const double SlowInlayHintThresholdMs = 150;
 
@@ -134,7 +135,25 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var requestSpan = GetRequestedSpan(sourceText, request.Range);
             effectiveCancellationToken.ThrowIfCancellationRequested();
             var isLargeDocument = sourceText.Length > MaxUnboundedDocumentLength;
+            var isFullDocumentRequest = IsFullDocumentRequest(sourceText, requestSpan, request.Range);
             var isBroadDocumentRequest = IsBroadFullDocumentInlayRequest(sourceText, requestSpan, request.Range);
+
+            if (isFullDocumentRequest &&
+                _documents.HasRecentDocumentChange(
+                    request.TextDocument.Uri,
+                    TimeSpan.FromMilliseconds(RecentEditFullDocumentInlayDelayMilliseconds)))
+            {
+                if (TryGetCachedHints(request, out var cachedHints))
+                {
+                    cacheHit = true;
+                    outcome = "SkippedRecentEditCached";
+                    resultCount = cachedHints.Length;
+                    return new InlayHintContainer(cachedHints);
+                }
+
+                outcome = "SkippedRecentEdit";
+                return new InlayHintContainer();
+            }
 
             stageStopwatch.Restart();
             using var semanticAccess = await _documents.TryEnterDocumentSemanticModelAccessAsync(

@@ -222,6 +222,51 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_FullDocumentAfterPendingEdit_DoesNotForceImmediateInlayBindingAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string initialCode = """
+func Main() -> unit {
+    val value = 1
+}
+""";
+        const string updatedCode = """
+func Main() -> unit {
+    val value = 2
+}
+""";
+
+        await store.UpsertDocumentAsync(uri, initialCode);
+        store.QueuePendingDocumentChange(uri, SourceText.From(updatedCode), deferMacroConsumerRefresh: true);
+        var updatedSourceText = SourceText.From(updatedCode);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(updatedSourceText)
+        }, CancellationToken.None);
+
+        result.ToArray().ShouldBeEmpty();
+        store.TryGetPendingDocumentText(uri, out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Handle_InvocationArguments_ProvidesSourceApplicableParameterNameHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
