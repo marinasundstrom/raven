@@ -58,6 +58,11 @@ Raven currently provides analyzers for two different contexts:
   Assign the returned value to a target, assign it to `_`, return it, or pass it on. The
   analyzer is disabled by default while it uses whole-analyzer mode; enable `full` mode in
   the project file or with the CLI, then control `RAV9029` severity through `.editorconfig`.
+- **DisposableObjectAnalyzer** (Raven, `RAV9033`) – reports disposable objects produced
+  by calls or object creation when they are assigned to an ordinary local or discarded
+  without a matching `use` declaration or direct `Dispose()` call before scope exit. The
+  analyzer intentionally starts with conservative local flow and does not attempt ownership
+  inference through arbitrary calls.
 
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
@@ -89,6 +94,7 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `UnusedMethodAnalyzer`
 - `UnusedImportDirectiveAnalyzer`
 - `UnhandledMemberReturnValueAnalyzer`
+- `DisposableObjectAnalyzer`
 - `PreferDuLinqExtensionsAnalyzer`
 - `PreferIsNullOverEqualityAnalyzer`
 - `ConstructorParameterNamingAnalyzer`

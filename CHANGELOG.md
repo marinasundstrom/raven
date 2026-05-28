@@ -43,6 +43,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added hidden analyzer diagnostic `RAV9031` for unused wildcard namespace imports within
   the lexical scope that declares them, with cleanup support through the redundant-import
   code fix.
+- Added analyzer diagnostic `RAV9033` for disposable objects returned from calls or object
+  creation that are assigned to ordinary locals or discarded without a `use` declaration or
+  direct `Dispose()` call before scope exit.
 - Added source-applicable invocation parameter-name inlay hints. Positional arguments now
   display their resolved parameter names, such as `StackPanel(spacing: 8.0)`, while already
   named arguments are left alone. Positional and nominal deconstruction patterns now also
