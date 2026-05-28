@@ -17,11 +17,11 @@ async func Main(args: string[]) -> Task {
         options.UseNpgsql(GetConnectionString())
     })
 
-    val app = builder.Build()
+    use app = builder.Build()
     app.MapOpenApi()
 
     use scope = app.Services.CreateScope()
-    val seedDb = scope.ServiceProvider.GetRequiredService<VehicleDbContext>()
+    use seedDb = scope.ServiceProvider.GetRequiredService<VehicleDbContext>()
     await VehicleSeedData.SeedAsync(seedDb, CancellationToken.None)
 
     app.MapGet("/", func () => Results.Redirect("/openapi/v1.json"))
