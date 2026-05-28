@@ -77,7 +77,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_InferredLocalsAndReturns_ProvidesSourceApplicableTypeHintsAsync()
+    public async Task Handle_InferredLocalsAndImplicitUnitReturns_ProvidesSourceApplicableTypeHintsAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -97,6 +97,12 @@ func Main() -> unit {
         var documentPath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
+class Calculator {
+    func AddOne(value: int) {
+        return value + 1
+    }
+}
+
 func Add(left: int, right: int) {
     return left + right
 }
@@ -122,13 +128,33 @@ func Main() -> unit {
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
 
         var hints = result.ToArray();
-        hints.Select(static hint => hint.Label.String).ShouldContain(" -> int");
+        hints.Select(static hint => hint.Label.String).ShouldContain(" -> ()");
         hints.Select(static hint => hint.Label.String).ShouldContain(": int");
         hints.Select(static hint => hint.Label.String).ShouldContain(": string");
+        hints.Count(static hint => hint.Label.String == " -> ()").ShouldBe(2);
         hints.Count(static hint => hint.Label.String == ": int").ShouldBe(1);
 
-        var returnHint = hints.Single(static hint => hint.Label.String == " -> int");
-        AssertSourceApplicable(sourceText, returnHint, code.IndexOf(") {", StringComparison.Ordinal) + 1, " -> int");
+        var methodReturnHint = AssertHasHintAtInsertion(
+            sourceText,
+            hints,
+            code.IndexOf("AddOne(value: int)", StringComparison.Ordinal) + "AddOne(value: int)".Length,
+            " -> ()");
+        AssertSourceApplicable(
+            sourceText,
+            methodReturnHint,
+            code.IndexOf("AddOne(value: int)", StringComparison.Ordinal) + "AddOne(value: int)".Length,
+            " -> ()");
+
+        var functionReturnHint = AssertHasHintAtInsertion(
+            sourceText,
+            hints,
+            code.IndexOf("Add(left: int, right: int)", StringComparison.Ordinal) + "Add(left: int, right: int)".Length,
+            " -> ()");
+        AssertSourceApplicable(
+            sourceText,
+            functionReturnHint,
+            code.IndexOf("Add(left: int, right: int)", StringComparison.Ordinal) + "Add(left: int, right: int)".Length,
+            " -> ()");
 
         var answerHint = hints.Single(static hint => hint.Label.String == ": int");
         AssertSourceApplicable(sourceText, answerHint, code.IndexOf("answer", StringComparison.Ordinal) + "answer".Length, ": int");

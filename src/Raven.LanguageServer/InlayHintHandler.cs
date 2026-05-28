@@ -1286,8 +1286,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 method,
                 method.ReturnType,
                 method.ParameterList,
-                method.Body ?? (SyntaxNode?)method.ExpressionBody,
-                IsAsyncDeclaration(method),
                 budget);
         }
 
@@ -1305,8 +1303,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 function,
                 function.ReturnType,
                 function.ParameterList,
-                function.Body ?? (SyntaxNode?)function.ExpressionBody,
-                IsAsyncDeclaration(function),
                 budget);
         }
 
@@ -1331,11 +1327,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SyntaxNode declaration,
         ArrowTypeClauseSyntax? returnType,
         ParameterListSyntax parameterList,
-        SyntaxNode? body,
-        bool isAsync,
         InlayHintCollectionBudget budget)
     {
-        if (HasExplicitReturnType(returnType) || body is null)
+        if (HasExplicitReturnType(returnType))
             return;
 
         var insertionPosition = parameterList.Span.End;
@@ -1345,9 +1339,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (budget.ShouldStop())
             return;
 
-        if (!TryGetInferredReturnType(semanticModel, body, isAsync, out var inferredReturnType) ||
-            inferredReturnType is null ||
-            !TryFormatType(inferredReturnType, out var typeDisplay))
+        if (semanticModel.GetDeclaredSymbol(declaration) is not IMethodSymbol methodSymbol ||
+            methodSymbol.ReturnType is not { } resolvedReturnType ||
+            !TryFormatType(resolvedReturnType, out var typeDisplay))
         {
             return;
         }
@@ -1356,7 +1350,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             sourceText,
             insertionPosition,
             $" -> {typeDisplay}",
-            inferredReturnType,
+            resolvedReturnType,
             semanticModel,
             root,
             declaration,
@@ -1835,16 +1829,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static readonly SymbolDisplayFormat QualifiedSourceTypeDisplayFormat =
         SourceTypeDisplayFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces);
 
-    private static bool TryGetInferredReturnType(
-        SemanticModel semanticModel,
-        SyntaxNode body,
-        bool isAsync,
-        out ITypeSymbol? inferredReturnType)
-    {
-        return TryInferReturnTypeFromAvailableSyntax(semanticModel, body, isAsync, out inferredReturnType) &&
-            IsInlayHintReturnType(inferredReturnType);
-    }
-
     private static bool IsInlayHintReturnType(ITypeSymbol? type)
         => type is not null &&
            type.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void);
@@ -1989,14 +1973,6 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
         return false;
     }
-
-    private static bool IsAsyncDeclaration(SyntaxNode declaration)
-        => declaration switch
-        {
-            MethodDeclarationSyntax method => method.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword),
-            FunctionStatementSyntax function => function.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword),
-            _ => false
-        };
 
     private static bool IsAsyncFunctionExpression(FunctionExpressionSyntax functionExpression)
         => functionExpression switch
