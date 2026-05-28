@@ -367,19 +367,31 @@ public partial class SemanticModel
                 cancellationToken.ThrowIfCancellationRequested();
                 var root = SyntaxTree.GetRoot();
 
+                if (!requireCompleteDeclarations &&
+                    TryCollectTransferredDocumentDiagnostics(root, out var transferredDiagnostics))
+                {
+                    _documentDiagnostics = transferredDiagnostics;
+                    diagnosticInstrumentation.RecordTransferredDocumentHit();
+                    return;
+                }
+
                 var phaseStart = Stopwatch.GetTimestamp();
                 if (requireCompleteDeclarations)
                 {
                     Compilation.EnsureSourceDeclarationsComplete();
+                    EnsureDeclarations();
                 }
                 else
                 {
-                    Compilation.EnsureSourceDeclarationsDeclared();
+                    // Document diagnostics should first try the owner-scoped path.
+                    // Full project declaration is still available as a fallback below,
+                    // but doing it eagerly makes ordinary body edits pay for every file.
                     if (root is CompilationUnitSyntax compilationUnit)
                         EnsureTopLevelFunctionDeclarations(compilationUnit);
+
+                    EnsureDeclarations();
                 }
 
-                EnsureDeclarations();
                 diagnosticInstrumentation.RecordDeclarationTicks(Stopwatch.GetTimestamp() - phaseStart);
 
                 phaseStart = Stopwatch.GetTimestamp();
@@ -397,6 +409,14 @@ public partial class SemanticModel
                 {
                     diagnosticInstrumentation.RecordFullPass();
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (!requireCompleteDeclarations)
+                    {
+                        phaseStart = Stopwatch.GetTimestamp();
+                        Compilation.EnsureSourceDeclarationsDeclared();
+                        EnsureDeclarations();
+                        diagnosticInstrumentation.RecordDeclarationTicks(Stopwatch.GetTimestamp() - phaseStart);
+                    }
+
                     phaseStart = Stopwatch.GetTimestamp();
                     foreach (var binderState in _binderCache.Values)
                     {
@@ -452,6 +472,39 @@ public partial class SemanticModel
                 _isCollectingDiagnostics = false;
                 _diagnosticCollectionThreadId = 0;
             }
+        }
+
+        bool TryCollectTransferredDocumentDiagnostics(
+            SyntaxNode root,
+            out IImmutableList<Diagnostic> diagnostics)
+        {
+            diagnostics = ImmutableArray<Diagnostic>.Empty;
+
+            if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
+                return false;
+
+            var owners = GetExecutableOwnersForDiagnostics(root).ToArray();
+            if (owners.Length == 0)
+                return false;
+
+            var builder = ImmutableArray.CreateBuilder<Diagnostic>();
+            foreach (var owner in owners)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!TryGetTransferredSemanticDiagnostics(owner, out var ownerDiagnostics))
+                    return false;
+
+                builder.AddRange(ownerDiagnostics);
+            }
+
+            if (_declarationsComplete)
+                builder.AddRange(_declarationDiagnostics.AsEnumerable());
+
+            diagnostics = builder
+                .Distinct()
+                .ToImmutableArray();
+            return true;
         }
 
         void Traverse(SyntaxNode node, Binder currentBinder)
@@ -1053,20 +1106,18 @@ public partial class SemanticModel
             SyntaxNode[] allOwners,
             ImmutableArray<Diagnostic>.Builder diagnosticsBuilder)
         {
-            var transferredAny = false;
+            if (allOwners.Length == 0)
+                return false;
+
             foreach (var owner in allOwners)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (TryGetTransferredSemanticDiagnostics(owner, out var diagnostics))
-                {
-                    transferredAny = true;
-                    diagnosticsBuilder.AddRange(diagnostics);
-                }
-            }
+                if (!TryGetTransferredSemanticDiagnostics(owner, out var diagnostics))
+                    return false;
 
-            if (!transferredAny)
-                return false;
+                diagnosticsBuilder.AddRange(diagnostics);
+            }
 
             DocumentationCommentValidator.Analyze(this, root, rootBinder.Diagnostics);
             diagnosticsBuilder.AddRange(rootBinder.Diagnostics.AsEnumerable()
@@ -1183,8 +1234,18 @@ public partial class SemanticModel
         static bool ContainsSpan(Text.TextSpan container, Text.TextSpan span)
             => span.Start >= container.Start && span.End <= container.End;
 
-        static IEnumerable<SyntaxNode> GetExecutableOwnersForDiagnostics(SyntaxNode root)
-            => root.DescendantNodesAndSelf().Where(IsExecutableOwnerForDiagnostics);
+        IEnumerable<SyntaxNode> GetExecutableOwnersForDiagnostics(SyntaxNode root)
+        {
+            if (root is CompilationUnitSyntax compilationUnit &&
+                Compilation.HasRunnableFileScopeCode(compilationUnit))
+            {
+                yield return root;
+                yield break;
+            }
+
+            foreach (var owner in root.DescendantNodesAndSelf().Where(IsExecutableOwnerForDiagnostics))
+                yield return owner;
+        }
 
         static bool IsExecutableOwnerForDiagnostics(SyntaxNode node)
             => node is FunctionExpressionSyntax
@@ -7446,6 +7507,14 @@ public partial class SemanticModel
                 symbol = methodSymbol;
                 return true;
 
+            case ConstructorDeclarationSyntax constructorDeclaration when TryGetMethodSymbol(constructorDeclaration, out var constructorSymbol):
+                symbol = constructorSymbol;
+                return true;
+
+            case ParameterlessConstructorDeclarationSyntax constructorDeclaration when TryGetMethodSymbol(constructorDeclaration, out var constructorSymbol):
+                symbol = constructorSymbol;
+                return true;
+
             case PropertyDeclarationSyntax propertyDeclaration when TryGetPropertySymbol(propertyDeclaration, out var propertySymbol):
                 symbol = propertySymbol;
                 return true;
@@ -12635,7 +12704,7 @@ public partial class SemanticModel
 
         var globals = GetTopLevelGlobalStatements(compilationUnit).ToArray();
         var functionGlobals = GetTopLevelFunctionGlobalStatements(compilationUnit).ToArray();
-        if (globals.Length == 0 && functionGlobals.Length == 0)
+        if (functionGlobals.Length == 0)
             return;
 
         var topLevelBinder = FindTopLevelBinder(GetBinder(compilationUnit))

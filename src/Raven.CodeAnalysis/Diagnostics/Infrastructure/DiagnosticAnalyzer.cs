@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Diagnostics;
@@ -17,6 +18,7 @@ public abstract class DiagnosticAnalyzer
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions = new();
     private readonly List<SymbolActionRegistration> _symbolActions = new();
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions = new();
+    private readonly List<OperationActionRegistration> _operationActions = new();
     private bool _concurrentExecutionEnabled;
 
     /// <summary>Implement to register analysis actions.</summary>
@@ -41,6 +43,7 @@ public abstract class DiagnosticAnalyzer
                     _syntaxTreeActions,
                     _symbolActions,
                     _syntaxNodeActions,
+                    _operationActions,
                     () => _concurrentExecutionEnabled = true));
                 _initialized = true;
                 return true;
@@ -63,6 +66,8 @@ public abstract class DiagnosticAnalyzer
     internal IReadOnlyList<SymbolActionRegistration> SymbolActions => _symbolActions;
 
     internal IReadOnlyList<SyntaxNodeActionRegistration> SyntaxNodeActions => _syntaxNodeActions;
+
+    internal IReadOnlyList<OperationActionRegistration> OperationActions => _operationActions;
 
     internal bool ConcurrentExecutionEnabled => _concurrentExecutionEnabled;
 
@@ -154,22 +159,61 @@ public abstract class DiagnosticAnalyzer
                 }
             }
 
-            if (_syntaxNodeActions.Count == 0)
+            SemanticModel? semanticModel = null;
+
+            if (_syntaxNodeActions.Count > 0)
+            {
+                var root = tree.GetRoot(cancellationToken);
+                semanticModel = compilation.GetSemanticModel(tree);
+
+                foreach (var node in root.DescendantNodesAndSelf())
+                {
+                    for (var i = 0; i < _syntaxNodeActions.Count; i++)
+                    {
+                        var registration = _syntaxNodeActions[i];
+                        if (!registration.Kinds.Contains(node.Kind))
+                            continue;
+
+                        var nodeContext = new SyntaxNodeAnalysisContext(
+                            node,
+                            semanticModel,
+                            compilation,
+                            diagnostics.Add,
+                            cancellationToken);
+
+                        try
+                        {
+                            registration.Action(nodeContext);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch
+                        {
+                            // Analyzer failures should not stop compilation.
+                        }
+                    }
+                }
+            }
+
+            if (_operationActions.Count == 0)
                 continue;
 
-            var root = tree.GetRoot(cancellationToken);
-            var semanticModel = compilation.GetSemanticModel(tree);
-
-            foreach (var node in root.DescendantNodesAndSelf())
+            semanticModel ??= compilation.GetSemanticModel(tree);
+            foreach (var operation in AnalyzerOperationEnumerator.EnumerateOperations(
+                         tree,
+                         semanticModel,
+                         GetRegisteredOperationKinds(),
+                         cancellationToken))
             {
-                for (var i = 0; i < _syntaxNodeActions.Count; i++)
+                foreach (var registration in _operationActions)
                 {
-                    var registration = _syntaxNodeActions[i];
-                    if (!registration.Kinds.Contains(node.Kind))
+                    if (!registration.Kinds.Contains(operation.Kind))
                         continue;
 
-                    var nodeContext = new SyntaxNodeAnalysisContext(
-                        node,
+                    var operationContext = new OperationAnalysisContext(
+                        operation,
                         semanticModel,
                         compilation,
                         diagnostics.Add,
@@ -177,7 +221,7 @@ public abstract class DiagnosticAnalyzer
 
                     try
                     {
-                        registration.Action(nodeContext);
+                        registration.Action(operationContext);
                     }
                     catch (OperationCanceledException)
                     {
@@ -195,6 +239,11 @@ public abstract class DiagnosticAnalyzer
 
         ImmutableHashSet<SymbolKind> GetRegisteredSymbolKinds()
             => _symbolActions
+                .SelectMany(static action => action.Kinds)
+                .ToImmutableHashSet();
+
+        ImmutableHashSet<OperationKind> GetRegisteredOperationKinds()
+            => _operationActions
                 .SelectMany(static action => action.Kinds)
                 .ToImmutableHashSet();
     }
@@ -230,6 +279,7 @@ public sealed class AnalysisContext
     private readonly List<Action<SyntaxTreeAnalysisContext>> _syntaxTreeActions;
     private readonly List<SymbolActionRegistration> _symbolActions;
     private readonly List<SyntaxNodeActionRegistration> _syntaxNodeActions;
+    private readonly List<OperationActionRegistration> _operationActions;
     private readonly Action _enableConcurrentExecution;
 
     internal AnalysisContext(
@@ -237,12 +287,14 @@ public sealed class AnalysisContext
         List<Action<SyntaxTreeAnalysisContext>> syntaxTreeActions,
         List<SymbolActionRegistration> symbolActions,
         List<SyntaxNodeActionRegistration> syntaxNodeActions,
+        List<OperationActionRegistration> operationActions,
         Action enableConcurrentExecution)
     {
         _compilationActions = compilationActions;
         _syntaxTreeActions = syntaxTreeActions;
         _symbolActions = symbolActions;
         _syntaxNodeActions = syntaxNodeActions;
+        _operationActions = operationActions;
         _enableConcurrentExecution = enableConcurrentExecution;
     }
 
@@ -317,6 +369,26 @@ public sealed class AnalysisContext
             action,
             scope,
             syntaxKinds
+                .Distinct()
+                .OrderBy(static kind => (int)kind)
+                .ToImmutableArray()));
+    }
+
+    /// <summary>
+    /// Registers an action executed for semantic operations whose <see cref="IOperation.Kind"/> matches
+    /// one of the provided <paramref name="operationKinds"/>.
+    /// </summary>
+    public void RegisterOperationAction(Action<OperationAnalysisContext> action, params OperationKind[] operationKinds)
+    {
+        if (action is null)
+            throw new ArgumentNullException(nameof(action));
+
+        if (operationKinds is null || operationKinds.Length == 0)
+            throw new ArgumentException("At least one operation kind must be provided.", nameof(operationKinds));
+
+        _operationActions.Add(new OperationActionRegistration(
+            action,
+            operationKinds
                 .Distinct()
                 .OrderBy(static kind => (int)kind)
                 .ToImmutableArray()));
@@ -462,6 +534,47 @@ public readonly struct SyntaxNodeAnalysisContext
     }
 }
 
+/// <summary>Context for analyzing a semantic operation.</summary>
+public readonly struct OperationAnalysisContext
+{
+    private readonly Action<Diagnostic> _reportDiagnostic;
+
+    internal OperationAnalysisContext(
+        IOperation operation,
+        SemanticModel semanticModel,
+        Compilation compilation,
+        Action<Diagnostic> reportDiagnostic,
+        CancellationToken cancellationToken)
+    {
+        Operation = operation;
+        SemanticModel = semanticModel;
+        Compilation = compilation;
+        _reportDiagnostic = reportDiagnostic;
+        CancellationToken = cancellationToken;
+    }
+
+    /// <summary>The operation being analyzed.</summary>
+    public IOperation Operation { get; }
+
+    /// <summary>The semantic model for the current syntax tree.</summary>
+    public SemanticModel SemanticModel { get; }
+
+    /// <summary>The syntax tree being analyzed.</summary>
+    public SyntaxTree SyntaxTree => Operation.Syntax.SyntaxTree!;
+
+    /// <summary>The compilation containing the syntax tree.</summary>
+    public Compilation Compilation { get; }
+
+    /// <summary>Cancellation token for the analysis.</summary>
+    public CancellationToken CancellationToken { get; }
+
+    /// <summary>Reports a diagnostic.</summary>
+    public void ReportDiagnostic(Diagnostic diagnostic)
+    {
+        _reportDiagnostic(diagnostic);
+    }
+}
+
 internal readonly record struct SymbolActionRegistration(
     Action<SymbolAnalysisContext> Action,
     ImmutableArray<SymbolKind> Kinds);
@@ -470,6 +583,10 @@ internal readonly record struct SyntaxNodeActionRegistration(
     Action<SyntaxNodeAnalysisContext> Action,
     SyntaxNodeAnalysisScope Scope,
     ImmutableArray<SyntaxKind> Kinds);
+
+internal readonly record struct OperationActionRegistration(
+    Action<OperationAnalysisContext> Action,
+    ImmutableArray<OperationKind> Kinds);
 
 internal static class AnalyzerSymbolEnumerator
 {
@@ -518,7 +635,7 @@ internal static class AnalyzerSymbolEnumerator
         {
             TypeDeclarationSyntax or DelegateDeclarationSyntax or UnionDeclarationSyntax or EnumDeclarationSyntax
                 => symbolKinds.Contains(SymbolKind.Type),
-            BaseMethodDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax
+            BaseMethodDeclarationSyntax or BaseConstructorDeclarationSyntax or ParameterlessConstructorDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax
                 => symbolKinds.Contains(SymbolKind.Method),
             BasePropertyDeclarationSyntax
                 => symbolKinds.Contains(SymbolKind.Property),
@@ -530,4 +647,104 @@ internal static class AnalyzerSymbolEnumerator
                 => symbolKinds.Contains(SymbolKind.Parameter),
             _ => false
         };
+}
+
+internal static class AnalyzerOperationEnumerator
+{
+    public static IEnumerable<IOperation> EnumerateOperations(
+        SyntaxTree syntaxTree,
+        SemanticModel semanticModel,
+        IImmutableSet<OperationKind> operationKinds,
+        CancellationToken cancellationToken)
+    {
+        if (operationKinds.Count == 0)
+            yield break;
+
+        var root = syntaxTree.GetRoot(cancellationToken);
+        var visited = new HashSet<OperationVisitKey>();
+
+        foreach (var rootSyntax in EnumerateOperationRootSyntaxNodes(root))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            IOperation? operation;
+            try
+            {
+                operation = semanticModel.GetOperation(rootSyntax, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Analyzer operation enumeration should skip nodes the semantic model cannot answer yet.
+                continue;
+            }
+
+            if (operation is null)
+                continue;
+
+            foreach (var descendant in EnumerateOperationDescendants(operation, operationKinds, visited, cancellationToken))
+                yield return descendant;
+        }
+    }
+
+    private static IEnumerable<SyntaxNode> EnumerateOperationRootSyntaxNodes(SyntaxNode root)
+    {
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            if (node is not StatementSyntax and not ExpressionSyntax)
+                continue;
+
+            if (node.Parent is StatementSyntax or ExpressionSyntax)
+                continue;
+
+            yield return node;
+        }
+    }
+
+    private static IEnumerable<IOperation> EnumerateOperationDescendants(
+        IOperation operation,
+        IImmutableSet<OperationKind> operationKinds,
+        HashSet<OperationVisitKey> visited,
+        CancellationToken cancellationToken)
+    {
+        var stack = new Stack<IOperation>();
+        stack.Push(operation);
+
+        while (stack.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var current = stack.Pop();
+            if (!visited.Add(new OperationVisitKey(current.Syntax, current.Kind, current.IsImplicit)))
+                continue;
+
+            if (operationKinds.Contains(current.Kind))
+                yield return current;
+
+            ImmutableArray<IOperation> children;
+            try
+            {
+                children = current.ChildOperations;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                continue;
+            }
+
+            for (var i = children.Length - 1; i >= 0; i--)
+                stack.Push(children[i]);
+        }
+    }
+
+    private readonly record struct OperationVisitKey(
+        SyntaxNode Syntax,
+        OperationKind Kind,
+        bool IsImplicit);
 }

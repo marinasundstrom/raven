@@ -11,6 +11,18 @@ public partial class SemanticModel
     internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out IMethodSymbol symbol)
         => Compilation.TryGetMethodSymbol(node, out symbol!);
 
+    internal void RegisterMethodSymbol(ConstructorDeclarationSyntax node, IMethodSymbol symbol)
+        => Compilation.RegisterMethodSymbol(node, symbol);
+
+    internal bool TryGetMethodSymbol(ConstructorDeclarationSyntax node, out IMethodSymbol symbol)
+        => Compilation.TryGetMethodSymbol(node, out symbol!);
+
+    internal void RegisterMethodSymbol(ParameterlessConstructorDeclarationSyntax node, IMethodSymbol symbol)
+        => Compilation.RegisterMethodSymbol(node, symbol);
+
+    internal bool TryGetMethodSymbol(ParameterlessConstructorDeclarationSyntax node, out IMethodSymbol symbol)
+        => Compilation.TryGetMethodSymbol(node, out symbol!);
+
     internal void RegisterMethodSymbol(FunctionStatementSyntax node, IMethodSymbol symbol)
         => Compilation.RegisterMethodSymbol(node, symbol);
 

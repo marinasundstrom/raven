@@ -82,6 +82,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Renamed the property initialization diagnostic analyzer to
   `UninitializedPropertyAnalyzer`, generalized its wording from auto-properties to
   stored properties, and added `UninitializedFieldAnalyzer` for explicit private fields.
+- Constructor declarations now participate in lightweight member signature declaration,
+  making symbol-based analyzers see constructor parameters deterministically after edits
+  without requiring a prior full body bind.
+- Workspace analyzer diagnostics now log cache hits, misses, stores, cancellations,
+  failures, and per-analyzer execution failures so editor diagnostic latency can be
+  traced without conflating it with foreground semantic requests.
+- Analyzer infrastructure now supports Roslyn-style operation actions through
+  `RegisterOperationAction`, and the document analyzer driver dispatches them from one
+  shared operation traversal. Returned-value and immutable-collection result analyzers
+  now use operation actions instead of syntax callbacks that each queried operations.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused

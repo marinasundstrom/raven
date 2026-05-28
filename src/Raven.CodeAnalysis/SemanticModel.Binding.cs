@@ -2614,6 +2614,14 @@ public partial class SemanticModel
                     MemberSignatureDeclarationPass.DeclareMethodSignature(this, methodDeclaration);
                     break;
 
+                case ConstructorDeclarationSyntax constructorDeclaration:
+                    MemberSignatureDeclarationPass.DeclareConstructorSignature(this, constructorDeclaration);
+                    break;
+
+                case ParameterlessConstructorDeclarationSyntax constructorDeclaration:
+                    MemberSignatureDeclarationPass.DeclareParameterlessConstructorSignature(this, constructorDeclaration);
+                    break;
+
                 case PropertyDeclarationSyntax propertyDeclaration:
                     MemberSignatureDeclarationPass.DeclarePropertySignature(this, propertyDeclaration);
                     break;

@@ -106,7 +106,7 @@ canceled or preempted.
 
 Analyzer execution should remain Roslyn-like:
 
-- analyzers register syntax, symbol, syntax-tree, or compilation actions;
+- analyzers register syntax, symbol, operation, syntax-tree, or compilation actions;
 - analyzer instances are stateless executors;
 - the workspace/analyzer driver owns traversal, caching, cancellation, and
   invalidation;
@@ -129,6 +129,13 @@ symbol set first, releases semantic access, and then dispatches symbol analyzer
 callbacks. This keeps foreground semantic requests from waiting behind
 long-running symbol analyzers while preserving compiler-owned symbol identity
 for the snapshot.
+
+Operation-action analyzers require the operation tree for executable syntax. The
+workspace/analyzer driver should create operation roots through the public
+semantic model, traverse operations once per document snapshot, then dispatch
+matching operation actions in deterministic order. This keeps returned-value,
+assignment, member-reference, and invocation analyzers from each issuing their
+own broad syntax walk plus `GetOperation` query.
 
 Compilation, syntax-tree, and syntax-node analyzers may call public semantic APIs
 from callbacks. The driver uses short callback-scoped semantic leases for those

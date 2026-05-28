@@ -2058,6 +2058,7 @@ internal partial class TypeMemberBinder : Binder
         }
 
         ctorSymbol.SetParameters(parameters);
+        SemanticModel.RegisterMethodSymbol(ctorDecl, ctorSymbol);
 
         var methodBinder = new MethodBinder(ctorSymbol, this);
 
@@ -2096,6 +2097,7 @@ internal partial class TypeMemberBinder : Binder
             initDecl.GetLocation());
 
         var target = ResolveLifecycleInitTargetConstructor(initDecl, isStatic);
+        SemanticModel.RegisterMethodSymbol(initDecl, target);
         return new MethodBinder(target, this);
     }
 

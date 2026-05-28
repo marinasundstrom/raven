@@ -73,6 +73,7 @@ Use the narrowest registration that can answer the question:
 
 - `RegisterSyntaxNodeAction` for checks rooted at specific syntax kinds.
 - `RegisterSymbolAction` for checks rooted at declared symbol identity.
+- `RegisterOperationAction` for checks rooted at semantic operation shape.
 - `RegisterSyntaxTreeAction` for file-wide checks.
 
 Prefer syntax-node actions when the analyzer can naturally start from a declaration,
@@ -85,6 +86,13 @@ visibility suggestions, and declaration-shape rules that should be scheduled by 
 property, field, type, or other symbol identity. The analyzer callback should inspect the
 provided symbol, ask for its declaring syntax only when needed, and use targeted semantic
 queries for references or operations.
+
+Prefer operation actions when the diagnostic belongs to semantic executable behavior rather
+than syntax spelling. Examples include ignored invocation results, property references,
+assignments, awaits, conditional accesses, and conversions. Operation actions let the
+workspace build the operation tree once for the document and dispatch all matching operation
+callbacks from that pass, instead of every analyzer calling `GetOperation` from its own
+syntax callback.
 
 Syntax-node actions are document-scoped by default. This is intentionally conservative:
 many checks start from one node but depend on references, declarations, or semantic facts
@@ -152,6 +160,8 @@ For invalidation, think of each registered action as an independent unit of work
   for unchanged nodes;
 - a symbol action is tied to declarations of the registered symbol kinds and the semantic
   context needed to analyze those declarations;
+- an operation action is tied to semantic operations of the registered operation kinds and
+  the executable owner context needed to create those operations;
 - a syntax-tree action is tied to the whole document;
 - a compilation action is tied to project-wide inputs unless the analyzer only uses the
   document supplied by the context.
@@ -164,7 +174,8 @@ running before them.
 
 ## Semantic Analysis
 
-Use `SyntaxNodeAnalysisContext.SemanticModel` for semantic facts:
+Use `SyntaxNodeAnalysisContext.SemanticModel` or `OperationAnalysisContext.SemanticModel`
+for semantic facts:
 
 - `GetDeclaredSymbol` for declarations.
 - `GetSymbolInfo` for references and invocations.
@@ -176,6 +187,11 @@ Use `SymbolAnalysisContext.Symbol` when the analyzer was registered with
 `RegisterSymbolAction`. If the analyzer needs syntax for that declaration, use the symbol's
 declaring syntax references and then obtain the semantic model for that syntax tree from the
 compilation. Keep this path narrow: a symbol action should not turn into a full-document scan.
+
+Use `OperationAnalysisContext.Operation` when the analyzer was registered with
+`RegisterOperationAction`. The operation is already the semantic unit selected by the
+workspace analyzer driver; prefer inspecting its operation-specific interfaces over walking
+raw syntax and re-querying the same node.
 
 Analyzer code should not depend on binder internals, incremental caches, or language-server
 state. If a public semantic API is too expensive or incomplete, fix the compiler API rather
@@ -241,6 +257,10 @@ than parsing member-access source text manually.
 Operations are intentionally Roslyn-like. If an analyzer needs an operation shape that does
 not exist yet, add the missing operation API and test it before building analyzer logic around
 syntax workarounds.
+
+Use `RegisterOperationAction` when an analyzer naturally starts from operation shape. Use
+`SemanticModel.GetOperation(node)` inside a syntax or symbol action only when the analyzer is
+primarily anchored to that syntax or symbol and needs one targeted operation.
 
 ## Configuration-Aware Analyzers
 

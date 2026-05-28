@@ -161,6 +161,88 @@ internal static class MemberSignatureDeclarationPass
         compilation.RegisterMethodSymbol(methodDeclaration, methodSymbol);
     }
 
+    public static void DeclareConstructorSignature(
+        SemanticModel semanticModel,
+        ConstructorDeclarationSyntax constructorDeclaration)
+    {
+        var compilation = semanticModel.Compilation;
+
+        if (compilation.TryGetMethodSymbol(constructorDeclaration, out _))
+            return;
+
+        if (!TryGetContainingDeclaredType(compilation, constructorDeclaration, out var containingType))
+            return;
+
+        var isStatic = constructorDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
+        var defaultAccessibility = compilation.Options.MembersPublicByDefault
+            ? Accessibility.Public
+            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
+        var constructorAccessibility = isStatic
+            ? Accessibility.Private
+            : AccessibilityUtilities.DetermineAccessibility(constructorDeclaration.Modifiers, defaultAccessibility);
+        var constructorMetadataName = isStatic ? ".cctor" : ".ctor";
+        var constructorKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
+
+        var constructorSymbol = new SourceMethodSymbol(
+            constructorMetadataName,
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            containingType,
+            containingType,
+            containingType.ContainingNamespace,
+            [constructorDeclaration.GetLocation()],
+            [constructorDeclaration.GetReference()],
+            isStatic: isStatic,
+            methodKind: constructorKind,
+            declaredAccessibility: constructorAccessibility);
+
+        var parameters = ImmutableArray.CreateBuilder<SourceParameterSymbol>();
+        foreach (var parameter in constructorDeclaration.ParameterList.Parameters)
+            parameters.Add(CreateSkeletonParameterSymbol(semanticModel, parameter, constructorSymbol, containingType));
+
+        constructorSymbol.SetParameters(parameters.ToImmutable());
+        constructorSymbol.MarkSignatureSkeleton();
+        compilation.RegisterMethodSymbol(constructorDeclaration, constructorSymbol);
+    }
+
+    public static void DeclareParameterlessConstructorSignature(
+        SemanticModel semanticModel,
+        ParameterlessConstructorDeclarationSyntax constructorDeclaration)
+    {
+        var compilation = semanticModel.Compilation;
+
+        if (compilation.TryGetMethodSymbol(constructorDeclaration, out _))
+            return;
+
+        if (!TryGetContainingDeclaredType(compilation, constructorDeclaration, out var containingType))
+            return;
+
+        var isStatic = constructorDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
+        var defaultAccessibility = compilation.Options.MembersPublicByDefault
+            ? Accessibility.Public
+            : AccessibilityUtilities.GetDefaultMemberAccessibility(containingType);
+        var constructorAccessibility = isStatic
+            ? Accessibility.Private
+            : AccessibilityUtilities.DetermineAccessibility(constructorDeclaration.Modifiers, defaultAccessibility);
+        var constructorKind = isStatic ? MethodKind.StaticConstructor : MethodKind.Constructor;
+
+        var constructorSymbol = new SourceMethodSymbol(
+            isStatic ? ".cctor" : ".ctor",
+            compilation.GetSpecialType(SpecialType.System_Unit),
+            ImmutableArray<SourceParameterSymbol>.Empty,
+            containingType,
+            containingType,
+            containingType.ContainingNamespace,
+            [constructorDeclaration.GetLocation()],
+            [constructorDeclaration.GetReference()],
+            isStatic: isStatic,
+            methodKind: constructorKind,
+            declaredAccessibility: constructorAccessibility);
+
+        constructorSymbol.MarkSignatureSkeleton();
+        compilation.RegisterMethodSymbol(constructorDeclaration, constructorSymbol);
+    }
+
     private static void InitializeExtensionMethodTypeParameters(
         SourceMethodSymbol methodSymbol,
         SourceNamedTypeSymbol containingType,

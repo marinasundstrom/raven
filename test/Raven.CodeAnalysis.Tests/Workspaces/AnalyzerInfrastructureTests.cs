@@ -1,6 +1,7 @@
 using System.Threading;
 
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -222,6 +223,72 @@ public class AnalyzerInfrastructureTests
                 Interlocked.Increment(ref AnalyzeCount);
                 ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, ctx.Symbol.Locations.First()));
             }, SymbolKind.Method);
+        }
+    }
+
+    private sealed class InvocationOperationAnalyzer : DiagnosticAnalyzer
+    {
+        public static int AnalyzeCount;
+
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0009",
+            title: "Invocation operation",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Invocation operation",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.EnableConcurrentExecution();
+
+            context.RegisterOperationAction(ctx =>
+            {
+                Interlocked.Increment(ref AnalyzeCount);
+                ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, ctx.Operation.Syntax.GetLocation()));
+            }, OperationKind.Invocation);
+        }
+    }
+
+    private abstract class OrderedOperationAnalyzer : DiagnosticAnalyzer
+    {
+        private readonly DiagnosticDescriptor _descriptor;
+
+        protected OrderedOperationAnalyzer(string diagnosticId)
+        {
+            _descriptor = DiagnosticDescriptor.Create(
+                id: diagnosticId,
+                title: "Ordered operation",
+                description: null,
+                helpLinkUri: string.Empty,
+                messageFormat: "Ordered operation",
+                category: "Testing",
+                defaultSeverity: DiagnosticSeverity.Info);
+        }
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterOperationAction(ctx =>
+            {
+                ctx.ReportDiagnostic(Diagnostic.Create(_descriptor, ctx.Operation.Syntax.GetLocation()));
+            }, OperationKind.Invocation);
+        }
+    }
+
+    private sealed class AOperationAnalyzer : OrderedOperationAnalyzer
+    {
+        public AOperationAnalyzer()
+            : base("AN0010")
+        {
+        }
+    }
+
+    private sealed class ZOperationAnalyzer : OrderedOperationAnalyzer
+    {
+        public ZOperationAnalyzer()
+            : base("AN0011")
+        {
         }
     }
 
@@ -512,6 +579,85 @@ func F() -> unit { }
         actionPlan.Detail.ShouldContain("symbolKinds=1");
         eventSink.Events.Single(e => e.Operation == "documentAnalyzer.symbolEnumeration")
             .Detail.ShouldContain("symbols=2");
+    }
+
+    [Fact]
+    public void GetDocumentAnalyzerDiagnostics_OperationAction_RunsForOperationsInDocument()
+    {
+        InvocationOperationAnalyzer.AnalyzeCount = 0;
+
+        var eventSink = new CollectingWorkspaceEventSink();
+        var workspace = RavenWorkspace.Create(
+            targetFramework: TestMetadataReferences.TargetFramework,
+            workspaceEventSink: eventSink);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var code = """
+func A() -> unit { }
+func B() -> unit { }
+
+func F() -> unit {
+    A()
+    B()
+}
+""";
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From(code));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new InvocationOperationAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId)
+            .Where(d => d.Descriptor.Id == "AN0009")
+            .ToList();
+
+        diagnostics.Count.ShouldBe(2);
+        InvocationOperationAnalyzer.AnalyzeCount.ShouldBe(2);
+
+        var actionPlan = eventSink.Events.Single(e => e.Operation == "documentAnalyzer.actionPlan");
+        actionPlan.Detail.ShouldContain("operationActions=1");
+        actionPlan.Detail.ShouldContain("operationKinds=1");
+        eventSink.Events.Single(e => e.Operation == "documentAnalyzer.operationTraversal")
+            .Detail.ShouldContain("operations=2");
+    }
+
+    [Fact]
+    public void GetDocumentAnalyzerDiagnostics_OperationActions_UseDeterministicAnalyzerOrder()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("""
+func A() -> unit { }
+
+func F() -> unit {
+    A()
+}
+"""));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new ZOperationAnalyzer()));
+        project = project.AddAnalyzerReference(new AnalyzerReference(new AOperationAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId)
+            .Where(d => d.Descriptor.Id is "AN0010" or "AN0011")
+            .ToList();
+
+        diagnostics.Select(static diagnostic => diagnostic.Descriptor.Id)
+            .ShouldBe(["AN0010", "AN0011"]);
     }
 
     [Fact]

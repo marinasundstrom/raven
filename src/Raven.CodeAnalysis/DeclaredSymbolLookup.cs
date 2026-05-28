@@ -134,6 +134,18 @@ internal sealed class DeclaredSymbolLookup
             return declaredMethod;
         }
 
+        if (node is ConstructorDeclarationSyntax constructorDeclaration &&
+            _semanticModel.TryGetMethodSymbol(constructorDeclaration, out var declaredConstructor))
+        {
+            return declaredConstructor;
+        }
+
+        if (node is ParameterlessConstructorDeclarationSyntax parameterlessConstructorDeclaration &&
+            _semanticModel.TryGetMethodSymbol(parameterlessConstructorDeclaration, out var declaredParameterlessConstructor))
+        {
+            return declaredParameterlessConstructor;
+        }
+
         if (node is PropertyDeclarationSyntax declaredPropertyDeclaration &&
             _semanticModel.TryGetPropertySymbol(declaredPropertyDeclaration, out var declaredProperty))
         {
@@ -329,33 +341,46 @@ internal sealed class DeclaredSymbolLookup
     {
         switch (node)
         {
-            case CaseDeclarationSyntax caseClause when _semanticModel.TryGetUnionCaseSymbol(caseClause, out var caseSymbol):
+            case CaseDeclarationSyntax caseClause when
+                _semanticModel.TryGetUnionCaseSymbol(caseClause, out var caseSymbol) &&
+                IsCurrentDeclarationSymbol(caseClause, caseSymbol):
                 symbol = caseSymbol;
                 return true;
 
-            case TypeDeclarationSyntax typeDeclaration when _semanticModel.TryGetClassSymbol(typeDeclaration, out var typeSymbol):
+            case TypeDeclarationSyntax typeDeclaration when
+                _semanticModel.TryGetClassSymbol(typeDeclaration, out var typeSymbol) &&
+                IsCurrentDeclarationSymbol(typeDeclaration, typeSymbol):
                 symbol = typeSymbol;
                 return true;
 
-            case UnionDeclarationSyntax unionDeclaration when _semanticModel.TryGetUnionSymbol(unionDeclaration, out var unionSymbol):
+            case UnionDeclarationSyntax unionDeclaration when
+                _semanticModel.TryGetUnionSymbol(unionDeclaration, out var unionSymbol) &&
+                IsCurrentDeclarationSymbol(unionDeclaration, unionSymbol):
                 symbol = unionSymbol;
                 return true;
 
-            case MethodDeclarationSyntax methodDeclaration when _semanticModel.TryGetMethodSymbol(methodDeclaration, out var methodSymbol):
+            case MethodDeclarationSyntax methodDeclaration when
+                _semanticModel.TryGetMethodSymbol(methodDeclaration, out var methodSymbol) &&
+                IsCurrentDeclarationSymbol(methodDeclaration, methodSymbol):
                 symbol = methodSymbol;
                 return true;
 
             case FunctionStatementSyntax functionStatement when
                 _semanticModel.TryGetMethodSymbol(functionStatement, out var functionSymbol) &&
+                IsCurrentDeclarationSymbol(functionStatement, functionSymbol) &&
                 functionSymbol is not SourceMethodSymbol { IsSignatureSkeleton: true }:
                 symbol = functionSymbol;
                 return true;
 
-            case PropertyDeclarationSyntax propertyDeclaration when _semanticModel.TryGetPropertySymbol(propertyDeclaration, out var propertySymbol):
+            case PropertyDeclarationSyntax propertyDeclaration when
+                _semanticModel.TryGetPropertySymbol(propertyDeclaration, out var propertySymbol) &&
+                IsCurrentDeclarationSymbol(propertyDeclaration, propertySymbol):
                 symbol = propertySymbol;
                 return true;
 
-            case EventDeclarationSyntax eventDeclaration when _semanticModel.TryGetEventSymbol(eventDeclaration, out var eventSymbol):
+            case EventDeclarationSyntax eventDeclaration when
+                _semanticModel.TryGetEventSymbol(eventDeclaration, out var eventSymbol) &&
+                IsCurrentDeclarationSymbol(eventDeclaration, eventSymbol):
                 symbol = eventSymbol;
                 return true;
 
@@ -476,13 +501,20 @@ internal sealed class DeclaredSymbolLookup
         if (exact is not null)
             return exact;
 
-        return containingType
-            .GetMembers(methodDeclaration.Identifier.ValueText)
-            .OfType<IMethodSymbol>()
-            .OrderBy(static method => method is SourceMethodSymbol { IsSignatureSkeleton: true } ? 1 : 0)
-            .FirstOrDefault(method =>
-                method.Parameters.Length == parameterCount &&
-                method.Arity == arity);
+        return null;
+    }
+
+    private static bool IsCurrentDeclarationSymbol(SyntaxNode declaration, ISymbol? symbol)
+    {
+        if (symbol?.UnderlyingSymbol is not SourceSymbol sourceSymbol ||
+            sourceSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+        {
+            return true;
+        }
+
+        return sourceSymbol.DeclaringSyntaxReferences.Any(reference =>
+            reference.SyntaxTree == declaration.SyntaxTree &&
+            reference.Span == declaration.Span);
     }
 
     private static bool TryGetLambdaParameterIndex(

@@ -35,7 +35,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 
     public override string MetadataName => IsGlobalNamespace ? "" : ToMetadataName();
 
-    private void EnsureSourceDeclarationsComplete()
+    private void EnsureSourceDeclarationsDeclared()
     {
         if (ContainingAssembly is not SourceAssemblySymbol sourceAssembly)
             return;
@@ -45,7 +45,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 
         if (!sourceAssembly.Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
         {
-            sourceAssembly.Compilation.EnsureSourceDeclarationsComplete();
+            sourceAssembly.Compilation.EnsureSourceDeclarationsDeclared();
         }
     }
 
@@ -75,7 +75,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 
     public ITypeSymbol? LookupType(string name)
     {
-        EnsureSourceDeclarationsComplete();
+        EnsureSourceDeclarationsDeclared();
         return LookupTypeDeclared(name);
     }
 

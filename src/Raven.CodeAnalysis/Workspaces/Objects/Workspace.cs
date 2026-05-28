@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -526,16 +527,55 @@ public class Workspace
             return cachedDiagnostics;
         }
 
-        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
-        var diagnostics = GetDocumentAnalyzerDiagnostics(
+        var cacheMissTimestamp = Stopwatch.GetTimestamp();
+        ReportWorkspaceEvent(
+            "documentAnalyzer.cacheMiss",
             project,
             syntaxTree,
-            compilation,
-            analyzerOptions,
-            allowBusySkip: false,
-            semanticAccessAlreadyHeld: false,
-            cancellationToken);
+            elapsedMilliseconds: 0,
+            $"projectVersion={project.Version}, documentVersion={document.Version}, allowBusySkip=false");
+
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
+        ImmutableArray<Diagnostic> diagnostics;
+        try
+        {
+            diagnostics = GetDocumentAnalyzerDiagnostics(
+                project,
+                syntaxTree,
+                compilation,
+                analyzerOptions,
+                allowBusySkip: false,
+                semanticAccessAlreadyHeld: false,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            ReportWorkspaceEvent(
+                "documentAnalyzer.canceled",
+                project,
+                syntaxTree,
+                Stopwatch.GetElapsedTime(cacheMissTimestamp).TotalMilliseconds,
+                "allowBusySkip=false");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportWorkspaceEvent(
+                "documentAnalyzer.failure",
+                project,
+                syntaxTree,
+                Stopwatch.GetElapsedTime(cacheMissTimestamp).TotalMilliseconds,
+                $"allowBusySkip=false, exception={ex.GetType().Name}");
+            throw;
+        }
+
         _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
+        ReportWorkspaceEvent(
+            "documentAnalyzer.cacheStore",
+            project,
+            syntaxTree,
+            Stopwatch.GetElapsedTime(cacheMissTimestamp).TotalMilliseconds,
+            $"diagnostics={diagnostics.Length}, allowBusySkip=false");
         return diagnostics;
     }
 
@@ -582,15 +622,54 @@ public class Workspace
             return cachedDiagnostics;
         }
 
-        var diagnostics = GetDocumentAnalyzerDiagnostics(
+        var cacheMissTimestamp = Stopwatch.GetTimestamp();
+        ReportWorkspaceEvent(
+            "documentAnalyzer.cacheMiss",
             document.Project,
             compilationSyntaxTree,
-            compilation,
-            analyzerOptions,
-            allowBusySkip,
-            semanticAccessAlreadyHeld,
-            cancellationToken);
+            elapsedMilliseconds: 0,
+            $"projectVersion={document.Project.Version}, documentVersion={document.Version}, allowBusySkip={allowBusySkip}");
+
+        ImmutableArray<Diagnostic> diagnostics;
+        try
+        {
+            diagnostics = GetDocumentAnalyzerDiagnostics(
+                document.Project,
+                compilationSyntaxTree,
+                compilation,
+                analyzerOptions,
+                allowBusySkip,
+                semanticAccessAlreadyHeld,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            ReportWorkspaceEvent(
+                "documentAnalyzer.canceled",
+                document.Project,
+                compilationSyntaxTree,
+                Stopwatch.GetElapsedTime(cacheMissTimestamp).TotalMilliseconds,
+                $"allowBusySkip={allowBusySkip}");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ReportWorkspaceEvent(
+                "documentAnalyzer.failure",
+                document.Project,
+                compilationSyntaxTree,
+                Stopwatch.GetElapsedTime(cacheMissTimestamp).TotalMilliseconds,
+                $"allowBusySkip={allowBusySkip}, exception={ex.GetType().Name}");
+            throw;
+        }
+
         _documentAnalyzerDiagnosticsCache[cacheKey] = diagnostics;
+        ReportWorkspaceEvent(
+            "documentAnalyzer.cacheStore",
+            document.Project,
+            compilationSyntaxTree,
+            Stopwatch.GetElapsedTime(cacheMissTimestamp).TotalMilliseconds,
+            $"diagnostics={diagnostics.Length}, allowBusySkip={allowBusySkip}");
         return diagnostics;
     }
 

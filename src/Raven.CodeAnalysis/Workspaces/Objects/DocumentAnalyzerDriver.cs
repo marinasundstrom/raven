@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -29,6 +30,10 @@ internal sealed class DocumentAnalyzerDriver
     private int _syntaxTraversalKindCount;
     private long _symbolEnumerationTicks;
     private int _symbolEnumerationCount;
+    private long _operationTraversalTicks;
+    private int _operationTraversalCount;
+    private int _operationActionInvocations;
+    private int _operationKindCount;
 
     private DocumentAnalyzerDriver(
         Project project,
@@ -84,6 +89,7 @@ internal sealed class DocumentAnalyzerDriver
             RunAnalyzerExecutions(executions);
             MergeDiagnostics(executions);
             ReportSyntaxTraversalStats(executions);
+            ReportOperationTraversalStats();
             ReportSymbolEnumerationStats();
             ReportAnalyzerStats(executions);
 
@@ -153,6 +159,7 @@ internal sealed class DocumentAnalyzerDriver
         CollectSyntaxTreeActions(analyzer, execution, ReportDiagnostic, stats);
         CollectSymbolActions(analyzer, execution, ReportDiagnostic, stats);
         CollectSyntaxNodeActions(analyzer, execution, ReportDiagnostic, stats);
+        CollectOperationActions(analyzer, execution, ReportDiagnostic, stats);
 
         return execution;
     }
@@ -202,6 +209,7 @@ internal sealed class DocumentAnalyzerDriver
             {
                 // Analyzer failures should not stop normal compilation diagnostics.
                 action.Stats.CompilationActionCount++;
+                action.Stats.Failures++;
             }
         }
     }
@@ -275,6 +283,7 @@ internal sealed class DocumentAnalyzerDriver
             {
                 // Analyzer failures should not stop normal compilation diagnostics.
                 action.Stats.SyntaxTreeActionCount++;
+                action.Stats.Failures++;
             }
         }
     }
@@ -303,6 +312,30 @@ internal sealed class DocumentAnalyzerDriver
         }
     }
 
+    private void CollectOperationActions(
+        DiagnosticAnalyzer analyzer,
+        AnalyzerExecution execution,
+        Action<Diagnostic> reportDiagnostic,
+        DocumentAnalyzerStats stats)
+    {
+        foreach (var registration in analyzer.OperationActions)
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+
+            var action = new DocumentOperationAnalyzerAction(registration.Action, reportDiagnostic, stats);
+            foreach (var kind in registration.Kinds)
+            {
+                if (!execution.OperationActionsByKind.TryGetValue(kind, out var actions))
+                {
+                    actions = [];
+                    execution.OperationActionsByKind[kind] = actions;
+                }
+
+                actions.Add(action);
+            }
+        }
+    }
+
     private void RunAnalyzerExecutions(IReadOnlyList<AnalyzerExecution> executions)
     {
         if (executions.Count == 0)
@@ -317,6 +350,7 @@ internal sealed class DocumentAnalyzerDriver
             }
 
             RunSyntaxNodeActions(executions);
+            RunOperationActions(executions);
             RunSymbolActions(executions);
             return;
         }
@@ -346,6 +380,7 @@ internal sealed class DocumentAnalyzerDriver
         }
 
         RunSyntaxNodeActions(executions);
+        RunOperationActions(executions);
         RunSymbolActions(executions);
     }
 
@@ -426,6 +461,45 @@ internal sealed class DocumentAnalyzerDriver
         }
     }
 
+    private void RunOperationActions(IReadOnlyList<AnalyzerExecution> executions)
+    {
+        var actionsByKind = CollectOperationActionsByKind(executions);
+        if (actionsByKind.Count == 0)
+            return;
+
+        var semanticModel = _compilation.GetSemanticModel(_syntaxTree);
+        var traversalTimestamp = Stopwatch.GetTimestamp();
+        ImmutableArray<IOperation> operations;
+        using (EnterAnalyzerSemanticAccess(semanticModel))
+        {
+            operations = AnalyzerOperationEnumerator.EnumerateOperations(
+                    _syntaxTree,
+                    semanticModel,
+                    actionsByKind.Keys.ToImmutableHashSet(),
+                    _cancellationToken)
+                .ToImmutableArray();
+        }
+
+        _operationTraversalTicks += Stopwatch.GetTimestamp() - traversalTimestamp;
+        _operationTraversalCount += operations.Length;
+        _operationKindCount = actionsByKind.Count;
+
+        foreach (var operation in operations)
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+
+            if (!actionsByKind.TryGetValue(operation.Kind, out var actions))
+                continue;
+
+            foreach (var action in actions)
+            {
+                _cancellationToken.ThrowIfCancellationRequested();
+                _operationActionInvocations++;
+                RunOperationAction(operation, semanticModel, action);
+            }
+        }
+    }
+
     private static Dictionary<SymbolKind, List<DocumentSymbolAnalyzerAction>> CollectSymbolActionsByKind(
         IReadOnlyList<AnalyzerExecution> executions)
     {
@@ -454,6 +528,27 @@ internal sealed class DocumentAnalyzerDriver
         foreach (var execution in executions.OrderBy(static execution => execution.Stats.AnalyzerName, StringComparer.Ordinal))
         {
             foreach (var (kind, actions) in execution.SyntaxNodeActionsByKind.OrderBy(static pair => pair.Key))
+            {
+                if (!actionsByKind.TryGetValue(kind, out var mergedActions))
+                {
+                    mergedActions = [];
+                    actionsByKind[kind] = mergedActions;
+                }
+
+                mergedActions.AddRange(actions);
+            }
+        }
+
+        return actionsByKind;
+    }
+
+    private static Dictionary<OperationKind, List<DocumentOperationAnalyzerAction>> CollectOperationActionsByKind(
+        IReadOnlyList<AnalyzerExecution> executions)
+    {
+        var actionsByKind = new Dictionary<OperationKind, List<DocumentOperationAnalyzerAction>>();
+        foreach (var execution in executions.OrderBy(static execution => execution.Stats.AnalyzerName, StringComparer.Ordinal))
+        {
+            foreach (var (kind, actions) in execution.OperationActionsByKind.OrderBy(static pair => pair.Key))
             {
                 if (!actionsByKind.TryGetValue(kind, out var mergedActions))
                 {
@@ -502,6 +597,17 @@ internal sealed class DocumentAnalyzerDriver
             $"symbols={_symbolEnumerationCount}");
     }
 
+    private void ReportOperationTraversalStats()
+    {
+        if (_operationTraversalTicks == 0)
+            return;
+
+        ReportWorkspaceEvent(
+            "documentAnalyzer.operationTraversal",
+            TicksToMilliseconds(_operationTraversalTicks),
+            $"operations={_operationTraversalCount}, actionInvocations={_operationActionInvocations}, kinds={_operationKindCount}");
+    }
+
     private IDisposable? EnterAnalyzerSemanticAccess(SemanticModel semanticModel)
     {
         if (_semanticAccessAlreadyHeld)
@@ -539,12 +645,19 @@ internal sealed class DocumentAnalyzerDriver
             .SelectMany(static execution => execution.SyntaxNodeActionsByKind.Keys)
             .Distinct()
             .Count();
+        var operationActionCount = executions
+            .SelectMany(static execution => execution.OperationActionsByKind.Values)
+            .Sum(static actions => actions.Count);
+        var operationKindCount = executions
+            .SelectMany(static execution => execution.OperationActionsByKind.Keys)
+            .Distinct()
+            .Count();
         var concurrentAnalyzerCount = executions.Count(static execution => execution.Analyzer.ConcurrentExecutionEnabled);
 
         ReportWorkspaceEvent(
             "documentAnalyzer.actionPlan",
             elapsedMilliseconds: 0,
-            $"analyzers={executions.Count}, concurrentAnalyzers={concurrentAnalyzerCount}, compilationActions={compilationActionCount}, syntaxTreeActions={syntaxTreeActionCount}, symbolActions={symbolActionCount}, symbolKinds={symbolKindCount}, syntaxNodeActions={syntaxNodeActionCount}, documentScopedSyntaxNodeActions={documentScopedSyntaxNodeActionCount}, nodeScopedSyntaxNodeActions={nodeScopedSyntaxNodeActionCount}, syntaxNodeKinds={syntaxNodeKindCount}, maxDegreeOfParallelism={GetAnalyzerMaxDegreeOfParallelism(concurrentAnalyzerCount)}");
+            $"analyzers={executions.Count}, concurrentAnalyzers={concurrentAnalyzerCount}, compilationActions={compilationActionCount}, syntaxTreeActions={syntaxTreeActionCount}, symbolActions={symbolActionCount}, symbolKinds={symbolKindCount}, syntaxNodeActions={syntaxNodeActionCount}, documentScopedSyntaxNodeActions={documentScopedSyntaxNodeActionCount}, nodeScopedSyntaxNodeActions={nodeScopedSyntaxNodeActionCount}, syntaxNodeKinds={syntaxNodeKindCount}, operationActions={operationActionCount}, operationKinds={operationKindCount}, maxDegreeOfParallelism={GetAnalyzerMaxDegreeOfParallelism(concurrentAnalyzerCount)}");
     }
 
     private void RunSyntaxNodeAction(
@@ -578,6 +691,7 @@ internal sealed class DocumentAnalyzerDriver
         {
             // Analyzer failures should not stop normal compilation diagnostics.
             action.Stats.SyntaxNodeActionCount++;
+            action.Stats.Failures++;
         }
     }
 
@@ -606,6 +720,38 @@ internal sealed class DocumentAnalyzerDriver
         {
             // Analyzer failures should not stop normal compilation diagnostics.
             action.Stats.SymbolActionCount++;
+            action.Stats.Failures++;
+        }
+    }
+
+    private void RunOperationAction(
+        IOperation operation,
+        SemanticModel semanticModel,
+        DocumentOperationAnalyzerAction action)
+    {
+        var context = new OperationAnalysisContext(
+            operation,
+            semanticModel,
+            _compilation,
+            action.ReportDiagnostic,
+            _cancellationToken);
+
+        try
+        {
+            var actionTimestamp = Stopwatch.GetTimestamp();
+            action.Action(context);
+            action.Stats.OperationActionTicks += Stopwatch.GetTimestamp() - actionTimestamp;
+            action.Stats.OperationActionCount++;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Analyzer failures should not stop normal compilation diagnostics.
+            action.Stats.OperationActionCount++;
+            action.Stats.Failures++;
         }
     }
 
@@ -616,7 +762,7 @@ internal sealed class DocumentAnalyzerDriver
             ReportWorkspaceEvent(
                 "documentAnalyzer.analyzer",
                 stats.TotalMilliseconds,
-                $"{stats.AnalyzerName}: concurrent={stats.ConcurrentExecutionEnabled}, initMs={TicksToMilliseconds(stats.InitializationTicks):F1}, compilationActions={stats.CompilationActionCount}, compilationMs={TicksToMilliseconds(stats.CompilationActionTicks):F1}, syntaxTreeActions={stats.SyntaxTreeActionCount}, syntaxTreeMs={TicksToMilliseconds(stats.SyntaxTreeActionTicks):F1}, symbolActions={stats.SymbolActionCount}, symbolMs={TicksToMilliseconds(stats.SymbolActionTicks):F1}, syntaxNodeActions={stats.SyntaxNodeActionCount}, syntaxNodeMs={TicksToMilliseconds(stats.SyntaxNodeActionTicks):F1}, diagnostics={stats.Diagnostics}");
+                $"{stats.AnalyzerName}: concurrent={stats.ConcurrentExecutionEnabled}, initMs={TicksToMilliseconds(stats.InitializationTicks):F1}, compilationActions={stats.CompilationActionCount}, compilationMs={TicksToMilliseconds(stats.CompilationActionTicks):F1}, syntaxTreeActions={stats.SyntaxTreeActionCount}, syntaxTreeMs={TicksToMilliseconds(stats.SyntaxTreeActionTicks):F1}, symbolActions={stats.SymbolActionCount}, symbolMs={TicksToMilliseconds(stats.SymbolActionTicks):F1}, syntaxNodeActions={stats.SyntaxNodeActionCount}, syntaxNodeMs={TicksToMilliseconds(stats.SyntaxNodeActionTicks):F1}, operationActions={stats.OperationActionCount}, operationMs={TicksToMilliseconds(stats.OperationActionTicks):F1}, diagnostics={stats.Diagnostics}, failures={stats.Failures}");
         }
     }
 
@@ -668,6 +814,7 @@ internal sealed class DocumentAnalyzerDriver
         public List<DocumentSyntaxTreeAnalyzerAction> SyntaxTreeActions { get; } = [];
         public Dictionary<SymbolKind, List<DocumentSymbolAnalyzerAction>> SymbolActionsByKind { get; } = [];
         public Dictionary<SyntaxKind, List<DocumentSyntaxNodeAnalyzerAction>> SyntaxNodeActionsByKind { get; } = [];
+        public Dictionary<OperationKind, List<DocumentOperationAnalyzerAction>> OperationActionsByKind { get; } = [];
     }
 
     private readonly record struct DocumentCompilationAnalyzerAction(
@@ -691,6 +838,11 @@ internal sealed class DocumentAnalyzerDriver
         Action<Diagnostic> ReportDiagnostic,
         DocumentAnalyzerStats Stats);
 
+    private readonly record struct DocumentOperationAnalyzerAction(
+        Action<OperationAnalysisContext> Action,
+        Action<Diagnostic> ReportDiagnostic,
+        DocumentAnalyzerStats Stats);
+
     private sealed class DocumentAnalyzerStats
     {
         public DocumentAnalyzerStats(string analyzerName)
@@ -704,11 +856,14 @@ internal sealed class DocumentAnalyzerDriver
         public long SyntaxTreeActionTicks;
         public long SymbolActionTicks;
         public long SyntaxNodeActionTicks;
+        public long OperationActionTicks;
         public int CompilationActionCount;
         public int SyntaxTreeActionCount;
         public int SymbolActionCount;
         public int SyntaxNodeActionCount;
+        public int OperationActionCount;
         public int Diagnostics;
+        public int Failures;
         public bool ConcurrentExecutionEnabled;
 
         public double TotalMilliseconds => TicksToMilliseconds(
@@ -716,6 +871,7 @@ internal sealed class DocumentAnalyzerDriver
             CompilationActionTicks +
             SyntaxTreeActionTicks +
             SymbolActionTicks +
-            SyntaxNodeActionTicks);
+            SyntaxNodeActionTicks +
+            OperationActionTicks);
     }
 }

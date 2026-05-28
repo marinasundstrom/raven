@@ -38,15 +38,13 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
         defaultSeverity: DiagnosticSeverity.Warning);
 
     public override void Initialize(AnalysisContext context)
-        => context.RegisterSyntaxNodeAction(AnalyzeExpressionStatement, SyntaxKind.ExpressionStatement);
+        => context.RegisterOperationAction(AnalyzeExpressionStatement, OperationKind.ExpressionStatement);
 
-    private static void AnalyzeExpressionStatement(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeExpressionStatement(OperationAnalysisContext context)
     {
-        if (context.Node is not ExpressionStatementSyntax expressionStatement)
-            return;
-
-        if (context.SemanticModel.GetOperation(expressionStatement) is not IExpressionStatementOperation
+        if (context.Operation is not IExpressionStatementOperation
             {
+                Syntax: ExpressionStatementSyntax expressionStatement,
                 Operation: IInvocationOperation invocationOperation
             })
         {

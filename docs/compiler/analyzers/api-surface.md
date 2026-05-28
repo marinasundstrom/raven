@@ -7,8 +7,8 @@ language requires them.
 ## Core Types
 
 `DiagnosticAnalyzer`
-: Base class for source analyzers. Implement `Initialize` and register syntax-tree or
-syntax-node, symbol, or future operation callbacks.
+: Base class for source analyzers. Implement `Initialize` and register syntax-tree,
+syntax-node, symbol, operation, or compilation callbacks.
 
 `AnalysisContext`
 : Registration surface passed to `DiagnosticAnalyzer.Initialize`.
@@ -24,6 +24,10 @@ syntax-node, symbol, or future operation callbacks.
 `SymbolAnalysisContext`
 : Context for declared-symbol callbacks. Provides `Symbol`, `Compilation`,
 `ReportDiagnostic`, and `CancellationToken`.
+
+`OperationAnalysisContext`
+: Context for semantic-operation callbacks. Provides `Operation`, `SemanticModel`,
+`SyntaxTree`, `Compilation`, `ReportDiagnostic`, and `CancellationToken`.
 
 `DiagnosticDescriptor`
 : Stable descriptor for a diagnostic ID, title, message format, category, and default
@@ -60,6 +64,13 @@ its stable semantic context.
   for declaration-owned checks such as parameters, methods, properties, fields, and types.
   Symbol actions let the workspace use declaration identity as the scheduling and
   invalidation unit instead of asking each analyzer to rediscover declarations from syntax.
+
+`RegisterOperationAction(Action<OperationAnalysisContext>, params OperationKind[])`
+: Runs for semantic operations whose `OperationKind` matches one of the requested kinds. Use
+  this for executable-behavior checks such as ignored invocation results, property
+  references, assignments, awaits, conditional accesses, and conversions. Operation actions
+  let the workspace build and traverse operation trees once for a document and dispatch all
+  matching analyzer callbacks from that shared pass.
 
 Analyzer runners call registered actions for each compilation or document scope requested by
 the workspace. Analyzer implementations should assume callbacks may run often during typing.
@@ -133,14 +144,11 @@ Common operation interfaces include:
 - `IConversionOperation`
 - `IAwaitOperation`
 
-Use `SemanticModel.GetOperation(node)` to enter the operations model. If an analyzer requires
-a missing operation node or property, add that API and its tests rather than duplicating
-operation logic in analyzer syntax walkers.
-
-Operation-action registration is the intended next analyzer entry point for rules that care
-about semantic expression usage, such as property references, assignments, and invocation
-results. Until operation actions exist, prefer targeted syntax or symbol actions plus
-`SemanticModel.GetOperation(node)` over a whole-file syntax walk.
+Use `RegisterOperationAction` to enter the operations model when the analyzer is naturally
+about operation shape. Use `SemanticModel.GetOperation(node)` inside syntax or symbol actions
+when those actions are still the correct scheduling unit and only need one targeted
+operation. If an analyzer requires a missing operation node or property, add that API and its
+tests rather than duplicating operation logic in analyzer syntax walkers.
 
 See [Operations API](../api/operations.md) and
 [Operations implementation status](../api/operations-implementation-status.md).

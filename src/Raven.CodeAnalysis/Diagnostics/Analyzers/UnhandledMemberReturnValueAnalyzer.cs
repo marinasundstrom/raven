@@ -20,31 +20,31 @@ public sealed class UnhandledMemberReturnValueAnalyzer : DiagnosticAnalyzer, ICo
         defaultSeverity: DiagnosticSeverity.Warning);
 
     public override void Initialize(AnalysisContext context)
-        => context.RegisterSyntaxNodeAction(AnalyzeExpressionStatement, SyntaxKind.ExpressionStatement);
+        => context.RegisterOperationAction(AnalyzeExpressionStatement, OperationKind.ExpressionStatement);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Descriptor];
 
     public bool ShouldAnalyze(CompilationOptions options)
         => options.ReturnedValueHandlingMode == ReturnedValueHandlingMode.Full;
 
-    private static void AnalyzeExpressionStatement(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeExpressionStatement(OperationAnalysisContext context)
     {
         if (context.Compilation.Options.ReturnedValueHandlingMode != ReturnedValueHandlingMode.Full)
             return;
 
-        if (context.Node is not ExpressionStatementSyntax expressionStatement)
-            return;
-
-        if (IsImplicitValueReturnTarget(expressionStatement, context.SemanticModel))
-            return;
-
-        if (context.SemanticModel.GetOperation(expressionStatement) is not IExpressionStatementOperation statement ||
-            statement.Operation is null)
+        if (context.Operation is not IExpressionStatementOperation
+            {
+                Syntax: ExpressionStatementSyntax expressionStatement,
+                Operation: { } operation
+            } statement)
         {
             return;
         }
 
-        if (!TryGetUnhandledMemberReturnValue(statement.Operation, out var memberName, out var resultType))
+        if (IsImplicitValueReturnTarget(expressionStatement, context.SemanticModel))
+            return;
+
+        if (!TryGetUnhandledMemberReturnValue(operation, out var memberName, out var resultType))
             return;
 
         if (!ReturnsValue(resultType))
