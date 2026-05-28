@@ -22,6 +22,7 @@ public class Workspace
     private readonly Dictionary<ProjectId, ProjectCompilationState> _projectCompilations = new();
     private readonly Dictionary<ProjectId, ProjectCompilationState> _analysisProjectCompilations = new();
     private readonly ConcurrentDictionary<ProjectDiagnosticsCacheKey, ImmutableArray<Diagnostic>> _projectDiagnosticsCache = new();
+    private readonly ConcurrentDictionary<ProjectAnalyzerDiagnosticsCacheKey, ImmutableArray<Diagnostic>> _projectAnalyzerDiagnosticsCache = new();
     private readonly ConcurrentDictionary<DocumentAnalyzerDiagnosticsCacheKey, ImmutableArray<Diagnostic>> _documentAnalyzerDiagnosticsCache = new();
 
     protected Workspace(string kind)
@@ -84,6 +85,7 @@ public class Workspace
             _analysisProjectCompilations.Remove(id);
 
         RemoveStaleProjectDiagnostics(newSolution);
+        RemoveStaleProjectAnalyzerDiagnostics(newSolution);
         RemoveStaleDocumentAnalyzerDiagnostics(newSolution);
 
         OnWorkspaceChanged(new WorkspaceChangeEventArgs(kind, oldSolution, newSolution, projectId, documentId));
@@ -97,6 +99,16 @@ public class Workspace
             var project = solution.GetProject(key.ProjectId);
             if (project is null || project.Version != key.Version)
                 _projectDiagnosticsCache.TryRemove(key, out _);
+        }
+    }
+
+    private void RemoveStaleProjectAnalyzerDiagnostics(Solution solution)
+    {
+        foreach (var key in _projectAnalyzerDiagnosticsCache.Keys)
+        {
+            var project = solution.GetProject(key.ProjectId);
+            if (project is null || project.Version != key.Version)
+                _projectAnalyzerDiagnosticsCache.TryRemove(key, out _);
         }
     }
 
@@ -329,6 +341,11 @@ public class Workspace
 
     private readonly record struct ProjectDiagnosticsCacheKey(ProjectId ProjectId, VersionStamp Version);
 
+    private readonly record struct ProjectAnalyzerDiagnosticsCacheKey(
+        ProjectId ProjectId,
+        VersionStamp Version,
+        bool ReportSuppressedDiagnostics);
+
     private readonly record struct DocumentAnalyzerDiagnosticsCacheKey(
         ProjectId ProjectId,
         DocumentId DocumentId,
@@ -405,6 +422,179 @@ public class Workspace
             _projectDiagnosticsCache[cacheKey] = result;
 
         return result;
+    }
+
+    internal ImmutableArray<Diagnostic> GetProjectAnalyzerDiagnostics(
+        ProjectId projectId,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        var cacheKey = new ProjectAnalyzerDiagnosticsCacheKey(
+            projectId,
+            project.Version,
+            analyzerOptions?.ReportSuppressedDiagnostics ?? false);
+        if (_projectAnalyzerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
+        {
+            Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+                "projectAnalyzer.cacheHit",
+                project.Name,
+                project.FilePath,
+                0,
+                $"diagnostics={cachedDiagnostics.Length}"));
+            return cachedDiagnostics;
+        }
+
+        var timestamp = Stopwatch.GetTimestamp();
+        Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+            "projectAnalyzer.cacheMiss",
+            project.Name,
+            project.FilePath,
+            0,
+            $"projectVersion={project.Version}"));
+
+        var diagnostics = new HashSet<Diagnostic>();
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
+        AddDiagnostics(
+            diagnostics,
+            compilation.GetDiagnostics(analyzerOptions, cancellationToken),
+            cancellationToken);
+
+        if (project.CompilationOptions?.RunAnalyzers != false)
+        {
+            RunProjectCompilationAnalyzerActions(
+                project,
+                compilation,
+                diagnostics,
+                analyzerOptions,
+                cancellationToken);
+
+            foreach (var document in project.Documents.OrderBy(static document => document.FilePath, StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                AddDiagnostics(
+                    diagnostics,
+                    GetDocumentAnalyzerDiagnostics(
+                        document,
+                        compilation,
+                        analyzerOptions,
+                        allowBusySkip: false,
+                        semanticAccessAlreadyHeld: false,
+                        cancellationToken),
+                    cancellationToken);
+            }
+        }
+
+        var result = diagnostics
+            .OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance)
+            .ToImmutableArray();
+        _projectAnalyzerDiagnosticsCache[cacheKey] = result;
+
+        Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+            "projectAnalyzer.cacheStore",
+            project.Name,
+            project.FilePath,
+            Stopwatch.GetElapsedTime(timestamp).TotalMilliseconds,
+            $"diagnostics={result.Length}"));
+
+        return result;
+    }
+
+    private void RunProjectCompilationAnalyzerActions(
+        Project project,
+        Compilation compilation,
+        HashSet<Diagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        foreach (var reference in project.AnalyzerReferences)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var analyzer in reference.GetAnalyzers().OrderBy(static analyzer => analyzer.GetType().FullName, StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!ShouldRunAnalyzer(analyzer, project.CompilationOptions, analyzerOptions) ||
+                    !analyzer.TryEnsureInitialized() ||
+                    analyzer.CompilationActions.Count == 0)
+                {
+                    continue;
+                }
+
+                var analyzerTimestamp = Stopwatch.GetTimestamp();
+                var analyzerName = analyzer.GetType().FullName ?? analyzer.GetType().Name;
+                var isInternalAnalyzer = AnalyzerDiagnosticIdValidator.IsInternalAnalyzer(analyzer);
+                var analyzerDiagnostics = new HashSet<Diagnostic>();
+
+                void ReportDiagnostic(Diagnostic diagnostic)
+                {
+                    AnalyzerDiagnosticIdValidator.Validate(analyzer, diagnostic, isInternalAnalyzer);
+
+                    var mapped = compilation.ApplyCompilationOptions(
+                        diagnostic,
+                        analyzerOptions?.ReportSuppressedDiagnostics ?? false,
+                        cancellationToken);
+                    if (mapped is not null)
+                        analyzerDiagnostics.Add(mapped);
+                }
+
+                try
+                {
+                    foreach (var action in analyzer.CompilationActions)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        action(new CompilationAnalysisContext(
+                            compilation,
+                            syntaxTree: null,
+                            ReportDiagnostic,
+                            cancellationToken));
+                    }
+
+                    AddDiagnostics(diagnostics, analyzerDiagnostics, cancellationToken);
+                    Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+                        "projectAnalyzer.compilationAction",
+                        project.Name,
+                        project.FilePath,
+                        Stopwatch.GetElapsedTime(analyzerTimestamp).TotalMilliseconds,
+                        $"analyzer={analyzerName}, diagnostics={analyzerDiagnostics.Count}, outcome=completed"));
+                }
+                catch (OperationCanceledException)
+                {
+                    Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+                        "projectAnalyzer.compilationAction",
+                        project.Name,
+                        project.FilePath,
+                        Stopwatch.GetElapsedTime(analyzerTimestamp).TotalMilliseconds,
+                        $"analyzer={analyzerName}, diagnostics={analyzerDiagnostics.Count}, outcome=canceled"));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+                        "projectAnalyzer.compilationAction",
+                        project.Name,
+                        project.FilePath,
+                        Stopwatch.GetElapsedTime(analyzerTimestamp).TotalMilliseconds,
+                        $"analyzer={analyzerName}, diagnostics={analyzerDiagnostics.Count}, outcome=failed, exception={ex.GetType().Name}"));
+                }
+            }
+        }
+    }
+
+    private static void AddDiagnostics(
+        HashSet<Diagnostic> diagnostics,
+        IEnumerable<Diagnostic> source,
+        CancellationToken cancellationToken)
+    {
+        foreach (var diagnostic in source)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            diagnostics.Add(diagnostic);
+        }
     }
 
     public ImmutableArray<Diagnostic> GetDocumentDiagnostics(

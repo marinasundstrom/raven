@@ -44,6 +44,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<Diagnostic>> _lastPublishedAnalyzerDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _activeDiagnostics = new();
+    private readonly ConcurrentDictionary<PendingDiagnosticsRetryKey, byte> _pendingDiagnosticsRetries = new();
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
@@ -842,13 +843,59 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         DocumentStore.DiagnosticLane lane,
         int delayMilliseconds)
     {
+        if (expectedVersion is { } stableVersion)
+        {
+            var retryKey = new PendingDiagnosticsRetryKey(uri, expectedSession, stableVersion, lane);
+            if (!_pendingDiagnosticsRetries.TryAdd(retryKey, 0))
+            {
+                _logger.LogDebug(
+                    "Skipped diagnostics retry scheduling for {Uri}: retry already pending (expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                    uri,
+                    expectedSession,
+                    stableVersion,
+                    lane);
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(delayMilliseconds).ConfigureAwait(false);
+                    if (ShouldSkipRequest(uri, expectedSession, expectedVersion) ||
+                        IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, lane))
+                    {
+                        return;
+                    }
+
+                    using var retryCancellation = new CancellationTokenSource();
+                    await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedSession, expectedVersion, lane).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Deferred diagnostics retry failed for {Uri}.", uri);
+                }
+                finally
+                {
+                    _pendingDiagnosticsRetries.TryRemove(retryKey, out _);
+                }
+            }, CancellationToken.None);
+            return;
+        }
+
         _ = Task.Run(async () =>
         {
             try
             {
                 await Task.Delay(delayMilliseconds).ConfigureAwait(false);
-                if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                if (ShouldSkipRequest(uri, expectedSession, expectedVersion) ||
+                    IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, lane))
+                {
                     return;
+                }
 
                 using var retryCancellation = new CancellationTokenSource();
                 await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedSession, expectedVersion, lane).ConfigureAwait(false);
@@ -1075,10 +1122,22 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             if (key.Uri == uri)
                 _activeDiagnostics.TryRemove(key, out _);
         }
+
+        foreach (var key in _pendingDiagnosticsRetries.Keys)
+        {
+            if (key.Uri == uri)
+                _pendingDiagnosticsRetries.TryRemove(key, out _);
+        }
     }
 
     private readonly record struct CompletedDiagnosticsKey(
         DocumentUri Uri,
+        int Version,
+        DocumentStore.DiagnosticLane Lane);
+
+    private readonly record struct PendingDiagnosticsRetryKey(
+        DocumentUri Uri,
+        long Session,
         int Version,
         DocumentStore.DiagnosticLane Lane);
 

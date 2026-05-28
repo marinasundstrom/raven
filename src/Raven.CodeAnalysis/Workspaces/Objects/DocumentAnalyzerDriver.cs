@@ -22,6 +22,7 @@ internal sealed class DocumentAnalyzerDriver
     private readonly CancellationToken _cancellationToken;
     private readonly bool _allowBusySkip;
     private readonly bool _semanticAccessAlreadyHeld;
+    private readonly bool _includeCompilationActions;
     private readonly List<Diagnostic> _diagnostics = [];
     private readonly HashSet<Diagnostic> _diagnosticSet = [];
     private long _syntaxTraversalTicks;
@@ -43,6 +44,7 @@ internal sealed class DocumentAnalyzerDriver
         IWorkspaceEventSink? eventSink,
         bool allowBusySkip,
         bool semanticAccessAlreadyHeld,
+        bool includeCompilationActions,
         CancellationToken cancellationToken)
     {
         _project = project;
@@ -52,6 +54,7 @@ internal sealed class DocumentAnalyzerDriver
         _eventSink = eventSink;
         _allowBusySkip = allowBusySkip;
         _semanticAccessAlreadyHeld = semanticAccessAlreadyHeld;
+        _includeCompilationActions = includeCompilationActions;
         _cancellationToken = cancellationToken;
     }
 
@@ -63,7 +66,8 @@ internal sealed class DocumentAnalyzerDriver
         IWorkspaceEventSink? eventSink,
         CancellationToken cancellationToken,
         bool allowBusySkip = false,
-        bool semanticAccessAlreadyHeld = false)
+        bool semanticAccessAlreadyHeld = false,
+        bool includeCompilationActions = false)
     {
         var driver = new DocumentAnalyzerDriver(
             project,
@@ -73,6 +77,7 @@ internal sealed class DocumentAnalyzerDriver
             eventSink,
             allowBusySkip,
             semanticAccessAlreadyHeld,
+            includeCompilationActions,
             cancellationToken);
 
         return driver.RunCore();
@@ -386,7 +391,9 @@ internal sealed class DocumentAnalyzerDriver
 
     private void RunAnalyzerExecutionWithoutSyntaxNodeActions(AnalyzerExecution execution)
     {
-        RunCompilationActions(execution);
+        if (_includeCompilationActions)
+            RunCompilationActions(execution);
+
         RunSyntaxTreeActions(execution);
     }
 

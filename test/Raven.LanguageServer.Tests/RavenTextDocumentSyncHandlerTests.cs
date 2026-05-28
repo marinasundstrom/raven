@@ -134,9 +134,10 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
             new[]
             {
                 DocumentStore.DiagnosticLane.DocumentCompiler,
-                DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
                 DocumentStore.DiagnosticLane.DocumentWithAnalyzers
             }.Contains(policy.FollowUpMode.Value).ShouldBeTrue();
+            policy.FollowUpMode.Value.ShouldNotBe(DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
+            policy.AnalyzerFollowUpMode.ShouldBe(DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
         }
     }
 

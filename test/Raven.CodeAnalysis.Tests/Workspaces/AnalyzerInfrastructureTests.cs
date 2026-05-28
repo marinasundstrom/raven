@@ -82,6 +82,29 @@ public class AnalyzerInfrastructureTests
         }
     }
 
+    private sealed class CompilationCountingAnalyzer : DiagnosticAnalyzer
+    {
+        public static int AnalyzeCount;
+
+        private static readonly DiagnosticDescriptor Descriptor = DiagnosticDescriptor.Create(
+            id: "AN0012",
+            title: "Compilation counted",
+            description: null,
+            helpLinkUri: string.Empty,
+            messageFormat: "Compilation counted",
+            category: "Testing",
+            defaultSeverity: DiagnosticSeverity.Info);
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.RegisterCompilationAction(ctx =>
+            {
+                Interlocked.Increment(ref AnalyzeCount);
+                ctx.ReportDiagnostic(Diagnostic.Create(Descriptor, Location.None));
+            });
+        }
+    }
+
     private sealed class ConcurrentCountingAnalyzer : DiagnosticAnalyzer
     {
         public static int AnalyzeCount;
@@ -446,6 +469,87 @@ public class AnalyzerInfrastructureTests
         _ = workspace.GetDocumentAnalyzerDiagnostics(document, compilation);
         _ = workspace.GetDocumentAnalyzerDiagnostics(document, compilation);
 
+        Assert.Equal(1, CountingAnalyzer.AnalyzeCount);
+    }
+
+    [Fact]
+    public void GetDocumentAnalyzerDiagnostics_DoesNotRunCompilationActions()
+    {
+        CompilationCountingAnalyzer.AnalyzeCount = 0;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new CompilationCountingAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+
+        diagnostics.ShouldNotContain(static diagnostic => diagnostic.Descriptor.Id == "AN0012");
+        Assert.Equal(0, CompilationCountingAnalyzer.AnalyzeCount);
+    }
+
+    [Fact]
+    public void GetProjectAnalyzerDiagnostics_RunsCompilationActionsOnceAndReusesResult()
+    {
+        CompilationCountingAnalyzer.AnalyzeCount = 0;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new CompilationCountingAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var diagnostics = workspace.GetProjectAnalyzerDiagnostics(projectId);
+        _ = workspace.GetProjectAnalyzerDiagnostics(projectId);
+
+        diagnostics.ShouldContain(static diagnostic => diagnostic.Descriptor.Id == "AN0012");
+        Assert.Equal(1, CompilationCountingAnalyzer.AnalyzeCount);
+    }
+
+    [Fact]
+    public void GetProjectAnalyzerDiagnostics_AggregatesCachedDocumentAnalyzerDiagnostics()
+    {
+        CountingAnalyzer.AnalyzeCount = 0;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
+        var projectId = solutionWithProject.Projects.Single().Id;
+        workspace.TryApplyChanges(solutionWithProject);
+
+        var docId = DocumentId.CreateNew(projectId);
+        var solution = workspace.CurrentSolution.AddDocument(docId, "test.rvn", SourceText.From("val x = 1"));
+        workspace.TryApplyChanges(solution);
+
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project = project.AddAnalyzerReference(new AnalyzerReference(new CountingAnalyzer()));
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        workspace.TryApplyChanges(project.Solution);
+
+        var documentDiagnostics = workspace.GetDocumentAnalyzerDiagnostics(projectId, docId);
+        var projectDiagnostics = workspace.GetProjectAnalyzerDiagnostics(projectId);
+
+        documentDiagnostics.ShouldContain(static diagnostic => diagnostic.Descriptor.Id == "AN0003");
+        projectDiagnostics.ShouldContain(static diagnostic => diagnostic.Descriptor.Id == "AN0003");
         Assert.Equal(1, CountingAnalyzer.AnalyzeCount);
     }
 

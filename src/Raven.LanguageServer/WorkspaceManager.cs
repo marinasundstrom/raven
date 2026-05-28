@@ -868,6 +868,25 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    internal bool TryGetProjectAnalyzerDiagnostics(
+        DocumentUri uri,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_documents.TryGetValue(uri, out var ownedDocument))
+        {
+            return TryGetProjectAnalyzerDiagnostics(
+                ownedDocument.ProjectId,
+                out diagnostics,
+                analyzerOptions,
+                cancellationToken);
+        }
+
+        diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+        return false;
+    }
+
     public bool TryGetDocumentDiagnostics(
         DocumentUri uri,
         out ImmutableArray<CodeDiagnostic> diagnostics,
@@ -1002,6 +1021,24 @@ internal sealed class WorkspaceManager
         try
         {
             diagnostics = _workspace.GetDiagnostics(projectId, analyzerOptions, cancellationToken);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            diagnostics = ImmutableArray<CodeDiagnostic>.Empty;
+            return false;
+        }
+    }
+
+    private bool TryGetProjectAnalyzerDiagnostics(
+        ProjectId projectId,
+        out ImmutableArray<CodeDiagnostic> diagnostics,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            diagnostics = _workspace.GetProjectAnalyzerDiagnostics(projectId, analyzerOptions, cancellationToken);
             return true;
         }
         catch (ArgumentException)

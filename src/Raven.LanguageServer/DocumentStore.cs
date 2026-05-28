@@ -819,7 +819,7 @@ internal sealed class DocumentStore
             }
             else
             {
-                if (!_workspaceManager.TryGetDiagnostics(uri, out var projectDiagnosticsWithAnalyzers, cancellationToken: effectiveCancellationToken))
+                if (!_workspaceManager.TryGetProjectAnalyzerDiagnostics(uri, out var projectDiagnosticsWithAnalyzers, cancellationToken: effectiveCancellationToken))
                     return new DiagnosticsComputationResult(Array.Empty<LspDiagnostic>(), WasSkipped: false);
 
                 diagnosticsForProject = projectDiagnosticsWithAnalyzers;

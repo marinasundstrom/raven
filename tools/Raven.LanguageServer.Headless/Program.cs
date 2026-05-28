@@ -40,6 +40,12 @@ if (options.EditScenarioSuite)
     return;
 }
 
+if (options.EditImpactSuite)
+{
+    await RunEditImpactSuiteAsync();
+    return;
+}
+
 var scenario = options.ScenarioName is { Length: > 0 }
     ? ResolveReplayScenario(repoRoot, options.ScenarioName)
     : null;
@@ -897,6 +903,239 @@ async Task RunEditScenarioSuiteAsync()
     }
 }
 
+async Task RunEditImpactSuiteAsync()
+{
+    var scenarios = CreateEditScenarios(repoRoot);
+    if (options.EditImpactScenarios.Count > 0)
+    {
+        var selected = new HashSet<string>(options.EditImpactScenarios, StringComparer.OrdinalIgnoreCase);
+        scenarios = scenarios
+            .Where(scenario => selected.Contains(scenario.Name))
+            .ToArray();
+    }
+
+    var modes = new[]
+    {
+        new EditImpactMode("compiler", RunAnalyzers: false, RunInlays: false),
+        new EditImpactMode("compiler+analyzers", RunAnalyzers: true, RunInlays: false),
+        new EditImpactMode("compiler+inlays", RunAnalyzers: false, RunInlays: true),
+        new EditImpactMode("compiler+analyzers+inlays", RunAnalyzers: true, RunInlays: true)
+    };
+
+    Console.WriteLine(
+        $"edit-impact-suite scenarios={scenarios.Count} modes={modes.Length} " +
+        $"inlayLines={options.EditImpactInlayLineCount} slowMs={options.SlowThresholdMs:F1}");
+
+    foreach (var scenario in scenarios)
+    {
+        if (!File.Exists(scenario.FilePath))
+        {
+            Console.WriteLine($"edit-impact skip scenario={scenario.Name} reason=missing-file file={scenario.FilePath}");
+            continue;
+        }
+
+        foreach (var mode in modes)
+            await RunEditImpactScenarioAsync(scenario, mode);
+    }
+}
+
+async Task RunEditImpactScenarioAsync(EditScenario scenario, EditImpactMode mode)
+{
+    var scenarioText = SourceText.From(File.ReadAllText(scenario.FilePath));
+    var scenarioUri = DocumentUri.FromFileSystemPath(scenario.FilePath);
+    var scenarioWorkspace = RavenWorkspace.Create(
+        targetFramework: "net10.0",
+        workspaceEventSink: new HeadlessWorkspaceEventSink());
+    var scenarioManager = new WorkspaceManager(scenarioWorkspace, NullLogger<WorkspaceManager>.Instance);
+    scenarioManager.Initialize(new InitializeParams
+    {
+        WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+        {
+            Name = Path.GetFileName(scenario.ProjectRoot),
+            Uri = DocumentUri.FromFileSystemPath(scenario.ProjectRoot)
+        })
+    });
+
+    var scenarioStore = new DocumentStore(scenarioManager, NullLogger<DocumentStore>.Instance);
+    var scenarioHover = new HoverHandler(scenarioStore, NullLogger<HoverHandler>.Instance);
+    var scenarioInlay = new InlayHintHandler(scenarioStore, NullLogger<InlayHintHandler>.Instance);
+    _ = scenarioStore.UpsertDocument(scenarioUri, scenarioText);
+
+    var initialContextStopwatch = Stopwatch.StartNew();
+    var initialContext = await scenarioStore.GetAnalysisContextAsync(scenarioUri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No analysis context for '{scenario.FilePath}'.");
+    initialContextStopwatch.Stop();
+
+    var initialDocumentCompiler = await MeasureDiagnosticsAsync(
+        scenarioStore,
+        scenarioUri,
+        DocumentStore.DiagnosticLane.DocumentCompiler);
+
+    MeasuredDiagnostics? initialDocumentAnalyzers = null;
+    MeasuredDiagnostics? initialProjectAnalyzers = null;
+    if (mode.RunAnalyzers)
+    {
+        initialDocumentAnalyzers = await MeasureDiagnosticsAsync(
+            scenarioStore,
+            scenarioUri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
+        initialProjectAnalyzers = await MeasureDiagnosticsAsync(
+            scenarioStore,
+            scenarioUri,
+            DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
+    }
+
+    MeasuredInlays? initialInlays = null;
+    if (mode.RunInlays)
+        initialInlays = await MeasureInlaysAsync(scenarioInlay, scenarioUri, initialContext.SourceText);
+
+    var warmHover = scenario.HoverTargets.Count > 0
+        ? await RunEditScenarioHoverAsync(
+            scenarioStore,
+            scenarioHover,
+            scenarioUri,
+            scenarioText,
+            initialContext.Compilation,
+            scenario.HoverTargets[0],
+            "warm")
+        : default;
+
+    var updatedText = scenarioText;
+    foreach (var replacement in scenario.Replacements)
+    {
+        if (!TryReplaceFirst(updatedText, replacement.OldText, replacement.NewText, out var nextText, out _))
+        {
+            Console.WriteLine(
+                $"edit-impact skip scenario={scenario.Name} mode={mode.Name} reason=missing-replacement replacement=\"{replacement.Label}\"");
+            return;
+        }
+
+        updatedText = nextText!;
+    }
+
+    var updateStopwatch = Stopwatch.StartNew();
+    _ = scenarioStore.UpsertDocument(scenarioUri, updatedText, deferMacroConsumerRefresh: true);
+    updateStopwatch.Stop();
+
+    var afterContextStopwatch = Stopwatch.StartNew();
+    var afterContext = await scenarioStore.GetAnalysisContextAsync(scenarioUri, CancellationToken.None)
+        ?? throw new InvalidOperationException($"No analysis context after edit for '{scenario.FilePath}'.");
+    afterContextStopwatch.Stop();
+
+    var firstHover = scenario.HoverTargets.Count > 0
+        ? await RunEditScenarioHoverAsync(
+            scenarioStore,
+            scenarioHover,
+            scenarioUri,
+            updatedText,
+            afterContext.Compilation,
+            scenario.HoverTargets[0],
+            "first")
+        : default;
+    var repeatHover = scenario.HoverTargets.Count > 0
+        ? await RunEditScenarioHoverAsync(
+            scenarioStore,
+            scenarioHover,
+            scenarioUri,
+            updatedText,
+            afterContext.Compilation,
+            scenario.HoverTargets[0],
+            "repeat")
+        : default;
+
+    var afterDocumentCompiler = await MeasureDiagnosticsAsync(
+        scenarioStore,
+        scenarioUri,
+        DocumentStore.DiagnosticLane.DocumentCompiler);
+
+    MeasuredDiagnostics? afterDocumentAnalyzers = null;
+    MeasuredDiagnostics? afterProjectAnalyzers = null;
+    if (mode.RunAnalyzers)
+    {
+        afterDocumentAnalyzers = await MeasureDiagnosticsAsync(
+            scenarioStore,
+            scenarioUri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers);
+        afterProjectAnalyzers = await MeasureDiagnosticsAsync(
+            scenarioStore,
+            scenarioUri,
+            DocumentStore.DiagnosticLane.ProjectWithAnalyzers);
+    }
+
+    MeasuredInlays? afterInlays = null;
+    if (mode.RunInlays)
+        afterInlays = await MeasureInlaysAsync(scenarioInlay, scenarioUri, afterContext.SourceText);
+
+    var changedOwners = GetChangedExecutableOwners(afterContext.Compilation, afterContext.SyntaxTree);
+    var initialHoverText = warmHover is { HasHover: true }
+        ? $"{warmHover.ElapsedMs:F1}ms"
+        : "<none>";
+    var firstHoverText = firstHover is { HasHover: true }
+        ? $"{firstHover.ElapsedMs:F1}ms"
+        : "<none>";
+    var repeatHoverText = repeatHover is { HasHover: true }
+        ? $"{repeatHover.ElapsedMs:F1}ms"
+        : "<none>";
+
+    Console.WriteLine(
+        $"edit-impact scenario={scenario.Name} mode={mode.Name} " +
+        $"initialContext={initialContextStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"initialCompiler={FormatMeasuredDiagnostics(initialDocumentCompiler)} " +
+        $"initialDocumentAnalyzers={FormatMeasuredDiagnostics(initialDocumentAnalyzers)} " +
+        $"initialProjectAnalyzers={FormatMeasuredDiagnostics(initialProjectAnalyzers)} " +
+        $"initialInlays={FormatMeasuredInlays(initialInlays)} " +
+        $"warmHover={initialHoverText} update={updateStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"afterContext={afterContextStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
+        $"firstHover={firstHoverText} repeatHover={repeatHoverText} " +
+        $"afterCompiler={FormatMeasuredDiagnostics(afterDocumentCompiler)} " +
+        $"afterDocumentAnalyzers={FormatMeasuredDiagnostics(afterDocumentAnalyzers)} " +
+        $"afterProjectAnalyzers={FormatMeasuredDiagnostics(afterProjectAnalyzers)} " +
+        $"afterInlays={FormatMeasuredInlays(afterInlays)} " +
+        $"changedOwners={changedOwners.Count} " +
+        $"firstSemantic=[{SemanticQueryInstrumentation.FormatDelta(firstHover?.SemanticDelta ?? default)}] " +
+        $"repeatSemantic=[{SemanticQueryInstrumentation.FormatDelta(repeatHover?.SemanticDelta ?? default)}]");
+}
+
+async Task<MeasuredDiagnostics> MeasureDiagnosticsAsync(
+    DocumentStore scenarioStore,
+    DocumentUri scenarioUri,
+    DocumentStore.DiagnosticLane lane)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var diagnostics = await scenarioStore.TryGetDiagnosticsAsync(
+        scenarioUri,
+        lane,
+        shouldSkipWork: null,
+        CancellationToken.None);
+    stopwatch.Stop();
+    return new MeasuredDiagnostics(
+        stopwatch.Elapsed.TotalMilliseconds,
+        diagnostics.Diagnostics.Count,
+        diagnostics.Diagnostics.Count(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error),
+        diagnostics.WasSkipped);
+}
+
+async Task<MeasuredInlays> MeasureInlaysAsync(
+    InlayHintHandler scenarioInlay,
+    DocumentUri scenarioUri,
+    SourceText scenarioText)
+{
+    var lineCount = Math.Max(1, scenarioText.GetLineCount());
+    var endLine = Math.Min(lineCount - 1, Math.Max(0, options.EditImpactInlayLineCount - 1));
+    var stopwatch = Stopwatch.StartNew();
+    var result = await scenarioInlay.Handle(new InlayHintParams
+    {
+        TextDocument = new TextDocumentIdentifier(scenarioUri),
+        Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range
+        {
+            Start = new Position(0, 0),
+            End = new Position(endLine, 0)
+        }
+    }, CancellationToken.None);
+    stopwatch.Stop();
+    return new MeasuredInlays(stopwatch.Elapsed.TotalMilliseconds, result?.Count() ?? 0);
+}
+
 async Task RunEditScenarioAsync(EditScenario scenario, EditScenarioMode mode)
 {
     var scenarioText = SourceText.From(File.ReadAllText(scenario.FilePath));
@@ -1408,6 +1647,16 @@ static string FormatEditScenarioMode(EditScenarioMode mode)
         _ => mode.ToString()
     };
 
+static string FormatMeasuredDiagnostics(MeasuredDiagnostics? measurement)
+    => measurement is null
+        ? "off"
+        : $"{measurement.ElapsedMs:F1}ms/count={measurement.Count}/errors={measurement.Errors}/skipped={measurement.WasSkipped}";
+
+static string FormatMeasuredInlays(MeasuredInlays? measurement)
+    => measurement is null
+        ? "off"
+        : $"{measurement.ElapsedMs:F1}ms/count={measurement.Count}";
+
 static string FormatDiagnostic(OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic diagnostic)
 {
     var code = diagnostic.Code?.ToString() ?? "<no-code>";
@@ -1479,6 +1728,9 @@ static HeadlessOptions ParseOptions(string[] args)
     var stressIncludeAnalyzers = true;
     var stressIncludeInlays = true;
     var editScenarioSuite = false;
+    var editImpactSuite = false;
+    var editImpactScenarios = new List<string>();
+    var editImpactInlayLineCount = 120;
     var printDiagnostics = false;
 
     for (var i = 0; i < args.Length; i++)
@@ -1592,6 +1844,19 @@ static HeadlessOptions ParseOptions(string[] args)
             case "--edit-scenario-suite":
                 editScenarioSuite = true;
                 break;
+            case "--edit-impact-suite":
+                editImpactSuite = true;
+                break;
+            case "--edit-impact-scenario" when i + 1 < args.Length:
+                editImpactSuite = true;
+                editImpactScenarios.Add(args[i + 1]);
+                i++;
+                break;
+            case "--edit-impact-inlay-lines" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedEditImpactInlayLineCount):
+                editImpactSuite = true;
+                editImpactInlayLineCount = Math.Max(1, parsedEditImpactInlayLineCount);
+                i++;
+                break;
             case "--print-diagnostics":
                 printDiagnostics = true;
                 break;
@@ -1631,6 +1896,9 @@ static HeadlessOptions ParseOptions(string[] args)
         stressIncludeAnalyzers,
         stressIncludeInlays,
         editScenarioSuite,
+        editImpactSuite,
+        editImpactScenarios,
+        editImpactInlayLineCount,
         printDiagnostics);
 }
 
@@ -1747,6 +2015,27 @@ static IReadOnlyList<EditScenario> CreateEditScenarios(string repoRoot)
 
     return
     [
+        new(
+            "hello-world-local-call-edit",
+            "Small project edit over a namespace-imported function call and local initializer.",
+            Project("hello-world"),
+            Source("hello-world", "src", "main.rvn"),
+            [new EditReplacement("A(42)", "A(43)")],
+            [new("Test()", "Test"), new("A(43)", "A")]),
+        new(
+            "top-level-members-call-edit",
+            "Small project edit over imported namespace members and top-level constants.",
+            Project("top-level-members"),
+            Source("top-level-members", "src", "Main.rvn"),
+            [new EditReplacement("DefaultCount)", "DefaultCount + 1)")],
+            [new("PrintSummary(", "PrintSummary"), new("DecorateTopic(", "DecorateTopic"), new("DefaultTopic", "DefaultTopic")]),
+        new(
+            "aspnet-minimal-route-edit",
+            "Small-to-medium single-file edit over minimal API route and delegate binding.",
+            Project("aspnet-minimal-api"),
+            Source("aspnet-minimal-api", "src", "main.rvn"),
+            [new EditReplacement("app.MapGet(\"/ping\",", "app.MapGet(\"/ping/\",")],
+            [new("MapGet(\"/ping/\"", "MapGet"), new("func (name: string)", "lambda-name")]),
         new(
             "mock-ui-argument-name-remove",
             "Remove an explicit argument name from a top-level DSL invocation.",
@@ -1894,6 +2183,9 @@ internal sealed record HeadlessOptions(
     bool StressIncludeAnalyzers,
     bool StressIncludeInlays,
     bool EditScenarioSuite,
+    bool EditImpactSuite,
+    IReadOnlyList<string> EditImpactScenarios,
+    int EditImpactInlayLineCount,
     bool PrintDiagnostics);
 
 internal enum ReplayScenarioOperation
@@ -1924,6 +2216,11 @@ internal enum EditScenarioMode
     WarmDocumentDiagnostics,
     ColdHoverThenDiagnostics
 }
+
+internal readonly record struct EditImpactMode(
+    string Name,
+    bool RunAnalyzers,
+    bool RunInlays);
 
 internal readonly record struct EditHoverTarget(
     string SearchText,
@@ -1966,6 +2263,16 @@ internal sealed record HoverResult(
     SemanticQueryInstrumentation.Snapshot SemanticDelta,
     CompilerSetupInstrumentation.Snapshot SetupDelta,
     FunctionExpressionParameterInstrumentation.Snapshot FunctionExpressionParameterDelta);
+
+internal sealed record MeasuredDiagnostics(
+    double ElapsedMs,
+    int Count,
+    int Errors,
+    bool WasSkipped);
+
+internal sealed record MeasuredInlays(
+    double ElapsedMs,
+    int Count);
 
 internal sealed class HeadlessConsoleLogger<T> : ILogger<T>
 {
