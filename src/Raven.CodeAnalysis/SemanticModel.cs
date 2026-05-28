@@ -492,6 +492,9 @@ public partial class SemanticModel
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                if (Compilation.IsChangedExecutableOwner(owner))
+                    return false;
+
                 if (!TryGetTransferredSemanticDiagnostics(owner, out var ownerDiagnostics))
                     return false;
 
@@ -521,6 +524,17 @@ public partial class SemanticModel
                 if (globalFunctionBinder is not null)
                 {
                     BindFunctionBody(globalFunction, globalFunctionBinder);
+                    return;
+                }
+            }
+
+            if (node is FunctionStatementSyntax functionStatement)
+            {
+                var functionBinder = currentBinder as FunctionBinder
+                    ?? GetBinderForDiagnostics(functionStatement, currentBinder) as FunctionBinder;
+                if (functionBinder is not null)
+                {
+                    BindFunctionBody(functionStatement, functionBinder);
                     return;
                 }
             }
@@ -592,6 +606,17 @@ public partial class SemanticModel
                     childBinder.GetOrBind(global.Statement);
                     BindStatementAttributeSyntaxes(global, childBinder);
                     continue;
+                }
+
+                if (child is FunctionStatementSyntax childFunctionStatement)
+                {
+                    var functionBinder = childBinder as FunctionBinder
+                        ?? GetBinderForDiagnostics(childFunctionStatement, childBinder) as FunctionBinder;
+                    if (functionBinder is not null)
+                    {
+                        BindFunctionBody(childFunctionStatement, functionBinder);
+                        continue;
+                    }
                 }
 
                 if (TryTraverseTypeMemberDeclaration(child, childBinder))
@@ -1249,13 +1274,14 @@ public partial class SemanticModel
 
         static bool IsExecutableOwnerForDiagnostics(SyntaxNode node)
             => node is FunctionExpressionSyntax
+                or FunctionStatementSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
                 or ParameterlessConstructorDeclarationSyntax
                 or AccessorDeclarationSyntax
                 or PropertyDeclarationSyntax
                 or EventDeclarationSyntax
-                or GlobalStatementSyntax;
+                or GlobalStatementSyntax { Statement: not FunctionStatementSyntax };
 
         void BindStatementAttributeSyntaxes(SyntaxNode statementNode, Binder parentBinder)
         {
@@ -7560,8 +7586,12 @@ public partial class SemanticModel
         FunctionStatementSyntax functionStatement,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? methodSymbol)
     {
-        if (Compilation.TryGetMethodSymbol(functionStatement, out methodSymbol) && methodSymbol is not null)
+        if (Compilation.TryGetMethodSymbol(functionStatement, out methodSymbol) &&
+            methodSymbol is not null &&
+            methodSymbol is not SourceMethodSymbol { IsSignatureSkeleton: true })
+        {
             return true;
+        }
 
         if (functionStatement.Parent is not GlobalStatementSyntax globalStatement ||
             !Compilation.IsTopLevelFunctionMember(globalStatement) ||
@@ -11105,6 +11135,7 @@ public partial class SemanticModel
 
         owner = node.AncestorsAndSelf().FirstOrDefault(static current =>
             current is FunctionExpressionSyntax
+                or FunctionStatementSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
                 or ParameterlessConstructorDeclarationSyntax

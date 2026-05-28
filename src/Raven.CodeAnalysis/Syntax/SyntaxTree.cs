@@ -332,6 +332,11 @@ public class SyntaxTree
             return null;
         }
 
+        if (newNode.IsMissing)
+        {
+            return null;
+        }
+
         return newNode;
     }
 }

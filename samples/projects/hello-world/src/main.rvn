@@ -4,5 +4,8 @@ func Main() {
     Test()
     val x = A(42)
     Test()
-    A(42)
+    A(x)
+
+    use test = Test2()
+    test.Dispose()
 }

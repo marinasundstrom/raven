@@ -1567,6 +1567,7 @@ public partial class Compilation
     {
         var owner = node.AncestorsAndSelf().FirstOrDefault(static current =>
             current is FunctionExpressionSyntax
+                or FunctionStatementSyntax
                 or BaseMethodDeclarationSyntax
                 or BaseConstructorDeclarationSyntax
                 or ParameterlessConstructorDeclarationSyntax

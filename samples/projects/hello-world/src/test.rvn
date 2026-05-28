@@ -7,5 +7,9 @@ func Test() {
 }
 
 func A(x: int) -> int {
-    42
+    42 + x
+}
+
+func Test2() -> IDisposable {
+    return default
 }

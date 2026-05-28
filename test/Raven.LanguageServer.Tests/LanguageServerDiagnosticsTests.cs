@@ -273,6 +273,88 @@ class UiWindow {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_AfterNamespaceFunctionInvocationEdit_ReportsNoOverloadAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var sourceRoot = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceRoot);
+
+        var mainPath = Path.Combine(sourceRoot, "main.rvn");
+        var testPath = Path.Combine(sourceRoot, "test.rvn");
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        const string validMain = """
+import Utilities.*
+
+func Main() {
+    val x = A(42)
+    A(x)
+}
+""";
+        const string invalidMain = """
+import Utilities.*
+
+func Main() {
+    val x = A(42)
+    A()
+}
+""";
+        const string utilities = """
+namespace Utilities
+
+public func A(x: int) -> int {
+    return 42 + x
+}
+""";
+
+        await store.UpsertDocumentAsync(testUri, utilities);
+        await store.UpsertDocumentAsync(mainUri, validMain);
+
+        var initialDiagnostics = await store.TryGetDiagnosticsAsync(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        initialDiagnostics.WasSkipped.ShouldBeFalse();
+        initialDiagnostics.Diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV1501", StringComparison.Ordinal));
+
+        await store.UpsertDocumentAsync(mainUri, invalidMain);
+
+        var updatedDiagnostics = await store.TryGetDiagnosticsAsync(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        updatedDiagnostics.WasSkipped.ShouldBeFalse();
+        var updatedDiagnosticSummary = string.Join(
+            Environment.NewLine,
+            updatedDiagnostics.Diagnostics.Select(static diagnostic =>
+                $"{diagnostic.Code?.String}: {diagnostic.Message}"));
+        updatedDiagnostics.Diagnostics.Any(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV1501", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("A", StringComparison.Ordinal))
+            .ShouldBeTrue(updatedDiagnosticSummary);
+    }
+
+    [Fact]
     public async Task GetDocumentWithAnalyzersDiagnosticsAsync_AfterConstructorAssignmentEdit_ReportsOnlyActuallyUnusedParameterAsync()
     {
         Directory.CreateDirectory(_tempRoot);

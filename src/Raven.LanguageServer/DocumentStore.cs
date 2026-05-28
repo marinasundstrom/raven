@@ -1109,31 +1109,11 @@ internal sealed class DocumentStore
         CompilationWithAnalyzersOptions? analyzerOptions,
         CancellationToken cancellationToken)
     {
-        var diagnostics = new List<CodeDiagnostic>();
-
-        foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Add(diagnostic);
-        }
-
-        foreach (var diagnostic in semanticModel.GetDocumentDiagnostics(cancellationToken))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Add(diagnostic);
-        }
-
-        return diagnostics.OrderBy(static diagnostic => diagnostic.Location).ToImmutableArray();
-
-        void Add(CodeDiagnostic diagnostic)
-        {
-            var mapped = compilation.ApplyCompilationOptions(
-                diagnostic,
-                analyzerOptions?.ReportSuppressedDiagnostics ?? false,
-                cancellationToken);
-            if (mapped is not null)
-                diagnostics.Add(mapped);
-        }
+        _ = semanticModel;
+        return compilation
+            .GetDocumentDiagnostics(syntaxTree, analyzerOptions, cancellationToken)
+            .OrderBy(static diagnostic => diagnostic.Location)
+            .ToImmutableArray();
     }
 
     private void PreemptBackgroundSemanticWork(DocumentUri uri, string? purpose)

@@ -2033,6 +2033,93 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_DocumentDiagnostics_ForImportedNamespaceFunctionArityEdit_RebindsChangedOwner()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialMainSource = """
+            import Utilities.*
+
+            func Main() {
+                val x = A(42)
+                A(x)
+            }
+            """;
+
+        const string updatedMainSource = """
+            import Utilities.*
+
+            func Main() {
+                val x = A(42)
+                A()
+            }
+            """;
+
+        project = project.AddDocument(
+            "main.rav",
+            SourceText.From(initialMainSource),
+            "/tmp/main.rav").Project;
+        project = project.AddDocument(
+            "test.rav",
+            SourceText.From(
+                """
+                namespace Utilities
+
+                public func A(x: int) -> int {
+                    return 42 + x
+                }
+                """),
+            "/tmp/test.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialMainTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/main.rav");
+        initialCompilation.GetDocumentDiagnostics(initialMainTree, analyzerOptions: null)
+            .ShouldNotContain(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+
+        var mainDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/main.rav");
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            mainDocument.Id,
+            SourceText.From(updatedMainSource)));
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedMainTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/main.rav");
+        updatedCompilation.GetChangedExecutableOwnerDescriptorsForTesting(updatedMainTree).ShouldNotBeEmpty();
+        var updatedMainRoot = updatedMainTree.GetRoot();
+        var updatedFunction = updatedMainRoot.DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var updatedExpressionStatement = updatedMainRoot
+            .DescendantNodes()
+            .OfType<ExpressionStatementSyntax>()
+            .Single();
+        var updatedInvocation = updatedExpressionStatement.Expression.ShouldBeAssignableTo<InvocationExpressionSyntax>();
+        updatedInvocation.ArgumentList.Arguments.Count.ShouldBe(0);
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedMainTree);
+        updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedFunction).ShouldBeTrue();
+        updatedModel.GetIncrementalSemanticQueryBinderForTesting(updatedFunction).ShouldBeAssignableTo<FunctionBinder>();
+        var fullDiagnostics = updatedCompilation.GetDiagnostics(updatedMainTree, analyzerOptions: null);
+        var boundStatement = updatedModel.GetBoundNode(updatedExpressionStatement).ShouldBeAssignableTo<BoundExpressionStatement>();
+        var expressionError = boundStatement.Expression.ShouldBeAssignableTo<BoundErrorExpression>();
+        expressionError.Reason.ShouldBe(BoundExpressionReason.OverloadResolutionFailed);
+        fullDiagnostics.ShouldContain(diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod &&
+            diagnostic.GetMessage().Contains("A", StringComparison.Ordinal));
+        var diagnostics = updatedCompilation.GetDocumentDiagnostics(updatedMainTree, analyzerOptions: null);
+
+        diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod &&
+            diagnostic.GetMessage().Contains("A", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void WorkspaceCompilation_ReusedSourceMethodAttributes_MapStaleDeclarationReferenceToCurrentTree()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

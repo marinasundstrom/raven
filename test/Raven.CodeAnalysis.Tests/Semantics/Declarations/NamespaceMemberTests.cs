@@ -198,6 +198,106 @@ func Run() -> int {
     }
 
     [Fact]
+    public void NamespaceWildcardImport_MultiFileGlobalFunctionWithWrongArity_ReportsNoOverload()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func A(x: int) -> int {
+    return 42 + x
+}
+""");
+        var mainTree = SyntaxTree.ParseText("""
+import Utilities.*
+
+func Main() {
+    A()
+}
+""");
+        var compilation = CreateCompilation([membersTree, mainTree]);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(mainTree),
+            static diagnostic => diagnostic.Id == CompilerDiagnostics.NoOverloadForMethod.Id);
+
+        Assert.Contains("A", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NamespaceWildcardImport_MultiFileGlobalFunctionWithWrongArity_DocumentDiagnostics_ReportNoOverload()
+    {
+        var membersTree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func A(x: int) -> int {
+    return 42 + x
+}
+""");
+        var mainTree = SyntaxTree.ParseText("""
+import Utilities.*
+
+func Main() {
+    val x = A(42)
+    A()
+}
+""");
+        var compilation = CreateCompilation([membersTree, mainTree]);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDocumentDiagnostics(mainTree),
+            static diagnostic => diagnostic.Id == CompilerDiagnostics.NoOverloadForMethod.Id);
+
+        Assert.Contains("A", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NamespaceFunctionOverloads_WithDifferentSignatures_AreAllowed()
+    {
+        var tree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func A(x: int) -> int {
+    return x
+}
+
+public func A(x: string) -> string {
+    return x
+}
+
+func Main() {
+    _ = A(1)
+    _ = A("one")
+}
+""");
+        var compilation = CreateCompilation(tree);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(tree), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void NamespaceFunctionOverloads_WithSameSignature_ReportDuplicateFunction()
+    {
+        var tree = SyntaxTree.ParseText("""
+namespace Utilities
+
+public func A(x: int) -> int {
+    return x
+}
+
+public func A(value: int) -> int {
+    return value
+}
+""");
+        var compilation = CreateCompilation(tree);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(tree),
+            static diagnostic => diagnostic.Id == CompilerDiagnostics.FunctionAlreadyDefined.Id);
+
+        Assert.Contains("A", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NamespaceWildcardImport_MultiFileGlobalFunction_ColdSymbolQuery_ResolvesSourceMembers()
     {
         var membersTree = SyntaxTree.ParseText("""

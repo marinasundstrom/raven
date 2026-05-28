@@ -2,6 +2,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -58,6 +59,28 @@ public class ArgumentAndParameterListTests
         );
 
         Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ArgumentList_IncrementalDeleteLastArgument_ReparsesEmptyArgumentList()
+    {
+        const string source = """
+            func Main() {
+                A(x)
+            }
+            """;
+        var text = SourceText.From(source);
+        var tree = SyntaxTree.ParseText(text);
+        var xPosition = source.IndexOf("x", StringComparison.Ordinal);
+
+        var updatedTree = tree.WithChangedText(text.WithChange(new TextChange(new TextSpan(xPosition, 1), string.Empty)));
+        var invocation = updatedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        Assert.Empty(invocation.ArgumentList.Arguments);
+        Assert.Equal("A()", invocation.ToString());
     }
 
     [Fact]
