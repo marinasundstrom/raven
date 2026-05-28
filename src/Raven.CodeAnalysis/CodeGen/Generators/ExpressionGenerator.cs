@@ -1115,7 +1115,9 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, runtimeClosureCtor);
         ILGenerator.Emit(OpCodes.Stloc, closureLocal);
 
-        var capturedSymbols = lambdaExpression.CapturedVariables.ToArray();
+        var capturedSymbols = lambdaExpression.CapturedVariables
+            .Where(captured => !IsDeclaredByLambda(captured, lambdaExpression))
+            .ToArray();
         for (var i = 0; i < capturedSymbols.Length; i++)
         {
             var captured = capturedSymbols[i];
@@ -1132,6 +1134,40 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, closureLocal);
         ILGenerator.Emit(OpCodes.Ldftn, runtimeLambdaMethod);
         ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
+    }
+
+    private static bool IsDeclaredByLambda(ISymbol? symbol, BoundFunctionExpression lambdaExpression)
+    {
+        if (symbol is null)
+            return false;
+
+        foreach (var parameter in lambdaExpression.Parameters)
+        {
+            if (SymbolEqualityComparer.Default.Equals(symbol, parameter) ||
+                HaveSameDeclaration(symbol, parameter))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HaveSameDeclaration(ISymbol left, ISymbol right)
+    {
+        foreach (var leftReference in left.DeclaringSyntaxReferences)
+        {
+            foreach (var rightReference in right.DeclaringSyntaxReferences)
+            {
+                if (leftReference.SyntaxTree == rightReference.SyntaxTree &&
+                    leftReference.Span == rightReference.Span)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private void EmitCapturedValue(ISymbol symbol)
@@ -7475,7 +7511,7 @@ internal partial class ExpressionGenerator : Generator
             else
             {
                 var callOpCode = target.ContainingType!.IsValueType
-                    ? (target.IsVirtual || isInterfaceCall ? OpCodes.Callvirt : OpCodes.Call)
+                    ? OpCodes.Call
                     : IsBaseReceiver(receiver) ? OpCodes.Call
                     : OpCodes.Callvirt;
 

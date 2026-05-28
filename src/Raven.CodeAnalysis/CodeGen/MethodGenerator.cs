@@ -793,7 +793,12 @@ internal class MethodGenerator
         if (lambda.Symbol is SourceLambdaSymbol sourceLambda && sourceLambda.IsIterator)
         {
             var block = ConvertToBlockStatement(sourceLambda, lambda.Body);
-            rewrittenBody = IteratorLowerer.Rewrite(sourceLambda, block);
+            if (closure is not null)
+            {
+                closureSelfType = closure.Symbol;
+            }
+
+            rewrittenBody = IteratorLowerer.Rewrite(sourceLambda, block, closureSelfType);
         }
         else if (!Compilation.Options.UseRuntimeAsync &&
                  lambda.Symbol is SourceLambdaSymbol sourceAsyncLambda &&

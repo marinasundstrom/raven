@@ -179,8 +179,12 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         if (stateMachine is null)
             throw new ArgumentNullException(nameof(stateMachine));
 
-        if (_iteratorStateMachine is not null && !ReferenceEquals(_iteratorStateMachine, stateMachine))
+        if (_iteratorStateMachine is not null &&
+            !ReferenceEquals(_iteratorStateMachine, stateMachine) &&
+            !SymbolEqualityComparer.Default.Equals(_iteratorStateMachine.IteratorMethod, stateMachine.IteratorMethod))
+        {
             throw new InvalidOperationException("Iterator state machine already assigned.");
+        }
 
         _iteratorStateMachine = stateMachine;
     }

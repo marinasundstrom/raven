@@ -20,7 +20,8 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         IMethodSymbol iteratorMethod,
         string name,
         IteratorMethodKind iteratorKind,
-        ITypeSymbol elementType)
+        ITypeSymbol elementType,
+        ITypeSymbol? selfType = null)
         : base(
             name,
             compilation.GetSpecialType(SpecialType.System_Object),
@@ -48,8 +49,13 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
         CurrentField = CreateField("_current", elementType);
 
-        if (!iteratorMethod.IsStatic)
-            ThisField = CreateField("_this", iteratorMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object));
+        if (!iteratorMethod.IsStatic && iteratorMethod is not SourceLambdaSymbol)
+        {
+            var thisType = selfType ??
+                           iteratorMethod.ContainingType ??
+                           compilation.GetSpecialType(SpecialType.System_Object);
+            ThisField = CreateField("_this", thisType);
+        }
 
         _enumeratorCancellationParameter = AsyncIteratorCancellationUtilities.GetEffectiveEnumeratorCancellationParameter(
             compilation,

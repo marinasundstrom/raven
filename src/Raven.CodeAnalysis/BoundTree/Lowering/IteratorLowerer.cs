@@ -70,7 +70,7 @@ internal static class IteratorLowerer
         return RewriteIteratorMethodBody(compilation, method, iteratorType);
     }
 
-    public static BoundBlockStatement Rewrite(SourceLambdaSymbol lambda, BoundBlockStatement block)
+    public static BoundBlockStatement Rewrite(SourceLambdaSymbol lambda, BoundBlockStatement block, ITypeSymbol? selfType = null)
     {
         if (lambda is null)
             throw new ArgumentNullException(nameof(lambda));
@@ -85,9 +85,12 @@ internal static class IteratorLowerer
 
         lambda.MarkIterator(signature.Kind, signature.ElementType);
 
-        if (lambda.IteratorStateMachine is null)
+        if (lambda.IteratorStateMachine is null ||
+            (selfType is not null &&
+             lambda.IteratorStateMachine.ThisField is { } thisField &&
+             !SymbolEqualityComparer.Default.Equals(thisField.Type, selfType)))
         {
-            var stateMachine = compilation.CreateIteratorStateMachine(lambda, signature.Kind, signature.ElementType);
+            var stateMachine = compilation.CreateIteratorStateMachine(lambda, signature.Kind, signature.ElementType, selfType);
             lambda.SetIteratorStateMachine(stateMachine);
         }
 

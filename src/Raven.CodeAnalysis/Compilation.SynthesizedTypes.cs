@@ -84,13 +84,21 @@ public partial class Compilation
     internal IEnumerable<SynthesizedAsyncStateMachineTypeSymbol> GetSynthesizedAsyncStateMachineTypes()
         => _synthesizedAsyncStateMachines.Values;
 
-    internal SynthesizedIteratorTypeSymbol CreateIteratorStateMachine(IMethodSymbol method, IteratorMethodKind iteratorKind, ITypeSymbol elementType)
+    internal SynthesizedIteratorTypeSymbol CreateIteratorStateMachine(
+        IMethodSymbol method,
+        IteratorMethodKind iteratorKind,
+        ITypeSymbol elementType,
+        ITypeSymbol? selfType = null)
     {
-        if (_synthesizedIterators.TryGetValue(method, out var existing))
+        if (_synthesizedIterators.TryGetValue(method, out var existing) &&
+            HasCompatibleIteratorSelfType(existing, selfType))
+        {
             return existing;
+        }
 
         existing = _synthesizedIterators.Values
-            .FirstOrDefault(machine => SymbolEqualityComparer.Default.Equals(machine.IteratorMethod, method));
+            .FirstOrDefault(machine => SymbolEqualityComparer.Default.Equals(machine.IteratorMethod, method) &&
+                                       HasCompatibleIteratorSelfType(machine, selfType));
 
         if (existing is not null)
         {
@@ -103,7 +111,8 @@ public partial class Compilation
         {
             existing = _synthesizedIterators.Values
                 .FirstOrDefault(machine => machine.IteratorMethod.DeclaringSyntaxReferences
-                    .Any(reference => reference.SyntaxTree == syntaxReference.SyntaxTree && reference.Span == syntaxReference.Span));
+                    .Any(reference => reference.SyntaxTree == syntaxReference.SyntaxTree && reference.Span == syntaxReference.Span) &&
+                    HasCompatibleIteratorSelfType(machine, selfType));
 
             if (existing is not null)
             {
@@ -113,13 +122,18 @@ public partial class Compilation
         }
 
         var name = $"<>c__Iterator{_synthesizedIteratorOrdinal++}";
-        var stateMachine = new SynthesizedIteratorTypeSymbol(this, method, name, iteratorKind, elementType);
+        var stateMachine = new SynthesizedIteratorTypeSymbol(this, method, name, iteratorKind, elementType, selfType);
         _synthesizedIterators[method] = stateMachine;
         return stateMachine;
     }
 
     internal IEnumerable<SynthesizedIteratorTypeSymbol> GetSynthesizedIteratorTypes()
         => _synthesizedIterators.Values;
+
+    private static bool HasCompatibleIteratorSelfType(SynthesizedIteratorTypeSymbol iterator, ITypeSymbol? selfType)
+        => selfType is null ||
+           iterator.ThisField is null ||
+           SymbolEqualityComparer.Default.Equals(iterator.ThisField.Type, selfType);
 
     private INamedTypeSymbol GetOrAddSynthesizedDelegate(
         ImmutableArray<ITypeSymbol> parameterTypes,
