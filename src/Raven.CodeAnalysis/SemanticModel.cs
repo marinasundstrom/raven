@@ -8163,10 +8163,11 @@ public partial class SemanticModel
             defaultTargetType.TypeKind != TypeKind.Error)
         {
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordTypeInfoSymbolHit();
+            var defaultValueType = defaultTargetType.GetDefaultValueType();
             return Cache(new TypeInfo(
-                defaultTargetType,
-                defaultTargetType,
-                ComputeConversion(defaultTargetType, defaultTargetType)));
+                defaultValueType,
+                defaultValueType,
+                ComputeConversion(defaultValueType, defaultValueType)));
         }
 
         var symbolInfo = GetSymbolInfo(expr);

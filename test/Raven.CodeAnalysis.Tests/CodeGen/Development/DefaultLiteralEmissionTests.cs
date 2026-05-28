@@ -87,12 +87,12 @@ class C {
     }
 
     [Fact]
-    public void DefaultLiteral_ReferenceTypeConstraint_UsesLdnull()
+    public void DefaultLiteral_ReferenceTypeConstraint_WithNullForgiving_UsesLdnull()
     {
         const string code = """
 class C {
     func RunClass<T : class>() -> T {
-        return default
+        return default!
     }
 }
 """;
@@ -204,12 +204,12 @@ class C {
     }
 
     [Fact]
-    public void DefaultExpression_ReferenceTypeConstraint_UsesLdnull()
+    public void DefaultExpression_ReferenceTypeConstraint_WithNullForgiving_UsesLdnull()
     {
         const string code = """
 class C {
     func RunClass<T : class>() -> T {
-        return default(T)
+        return default(T)!
     }
 }
 """;

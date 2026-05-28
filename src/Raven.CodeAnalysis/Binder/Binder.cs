@@ -173,6 +173,42 @@ internal abstract partial class Binder
         ReportExplicitConversionHint(fromType, toType, location);
     }
 
+    protected void ReportCannotAssignExpressionToType(BoundExpression expression, ITypeSymbol toType, Location location)
+    {
+        if (IsNullValueExpression(expression) && !toType.IsNullable)
+        {
+            var toArg = toType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportCannotAssignNullToType(toArg, location);
+            return;
+        }
+
+        ReportCannotAssignFromTypeToType(expression.Type!, toType, location);
+    }
+
+    protected void ReportCannotConvertExpressionToType(BoundExpression expression, ITypeSymbol toType, Location location)
+    {
+        if (IsNullValueExpression(expression) && !toType.IsNullable)
+        {
+            var toArg = toType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportCannotAssignNullToType(toArg, location);
+            return;
+        }
+
+        ReportCannotConvertFromTypeToType(
+            expression.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            toType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            location);
+    }
+
+    private static bool IsNullValueExpression(BoundExpression expression)
+        => expression switch
+        {
+            BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral } => true,
+            BoundDefaultValueExpression { Type.IsNullable: true } => true,
+            BoundParenthesizedExpression parenthesized => IsNullValueExpression(parenthesized.Expression),
+            _ => false,
+        };
+
     protected internal bool IsSymbolAccessible(ISymbol symbol)
     {
         if (symbol is null)

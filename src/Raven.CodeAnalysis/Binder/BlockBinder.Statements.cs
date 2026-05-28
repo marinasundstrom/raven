@@ -2009,10 +2009,7 @@ partial class BlockBinder
 
                         if (!IsAssignable(targetType, expr.Type, out var conversion))
                         {
-                            ReportCannotConvertFromTypeToType(
-                                expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                expressionSyntax!.GetLocation());
+                            ReportCannotConvertExpressionToType(expr, targetType, expressionSyntax!.GetLocation());
                         }
                         else
                         {
@@ -2052,10 +2049,7 @@ partial class BlockBinder
 
                 if (!IsAssignable(propertyType, expr.Type, out var conversion))
                 {
-                    ReportCannotConvertFromTypeToType(
-                        expr.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                        expressionSyntax!.GetLocation());
+                    ReportCannotConvertExpressionToType(expr, propertyType, expressionSyntax!.GetLocation());
                 }
                 else
                 {

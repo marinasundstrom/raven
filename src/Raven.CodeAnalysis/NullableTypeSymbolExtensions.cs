@@ -24,6 +24,26 @@ public static class NullableTypeSymbolExtensions
         return new NullableTypeSymbol(typeSymbol, null, null, null, []);
     }
 
+    internal static ITypeSymbol GetDefaultValueType(this ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol.IsNullable ||
+            typeSymbol.TypeKind is TypeKind.Error or TypeKind.Null)
+        {
+            return typeSymbol;
+        }
+
+        if (typeSymbol is ITypeParameterSymbol typeParameter)
+        {
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0
+                ? typeSymbol.MakeNullable()
+                : typeSymbol;
+        }
+
+        return typeSymbol.IsValueType
+            ? typeSymbol
+            : typeSymbol.MakeNullable();
+    }
+
     public static ITypeSymbol? StripNullable(this ITypeSymbol typeSymbol)
     {
         if (!typeSymbol.IsNullable)

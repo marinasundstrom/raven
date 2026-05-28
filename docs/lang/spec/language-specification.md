@@ -893,9 +893,14 @@ annotation, a return type, or an argument position—to supply the type. When no
 target type is available, the compiler reports `RAV2011` because the literal
 cannot be inferred.
 
+For reference types and reference-constrained type parameters, `default`
+produces `null`. That value can flow to nullable targets, but a non-nullable
+target requires an explicit nullable suppression (`!`) and reports `RAV0403`.
+
 ```raven
 val zero = default(int)
-val emptyText: string = default
+val emptyText: string? = default
+val requiredText: string = default!
 ```
 
 ### String literals

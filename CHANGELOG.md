@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed target-typed `default` for reference types so it is treated as a
+  nullable null value. Returning or assigning it to a non-nullable reference now
+  requires `default!` and reports the existing null-assignment diagnostic when
+  omitted.
 - Added first-class MSBuild language targets for `.rvnproj` builds. Raven projects
   now build through `dotnet build`, produce SDK-style outputs, and can be consumed
   from C# projects through normal `ProjectReference` when wired to

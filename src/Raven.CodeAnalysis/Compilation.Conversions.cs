@@ -1415,6 +1415,12 @@ public partial class Compilation
         if (source.IsValueType || destination.IsValueType)
             return false;
 
+        if (source is NullableTypeSymbol { UnderlyingType.IsValueType: false } &&
+            destination is not NullableTypeSymbol)
+        {
+            return false;
+        }
+
         if (source.MetadataIdentityEquals(destination))
             return false;
 

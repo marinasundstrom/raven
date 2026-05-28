@@ -323,7 +323,9 @@ if needs_rebuild \
   "$REPO_ROOT/src/Raven.CodeAnalysis.Console" \
   "$REPO_ROOT/src/RavenDoc"
 then
-  dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION" -p:UseRavenCoreReference=false
+  dotnet build "$PROJECT_DIR" -c "$BUILD_CONFIG" -f "$DOTNET_VERSION" \
+    -p:UseRavenCoreReference=false \
+    -p:ProduceReferenceAssembly=true
 fi
 
 # TestDep is currently net10.0-only, so build it with its declared framework.

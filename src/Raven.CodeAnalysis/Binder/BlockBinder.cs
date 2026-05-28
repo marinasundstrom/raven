@@ -831,7 +831,7 @@ partial class BlockBinder : Binder
                 }
                 else
                 {
-                    ReportCannotAssignFromTypeToType(boundInitializer.Type!, type, initializer.Value.GetLocation());
+                    ReportCannotAssignExpressionToType(boundInitializer, type, initializer.Value.GetLocation());
                     boundInitializer = new BoundErrorExpression(type, null, BoundExpressionReason.TypeMismatch);
                 }
             }
@@ -1968,7 +1968,7 @@ partial class BlockBinder : Binder
             {
                 if (!IsAssignable(annotatedType, boundInitializer.Type!, out var conversion))
                 {
-                    ReportCannotAssignFromTypeToType(boundInitializer.Type!, annotatedType, initializer.Value.GetLocation());
+                    ReportCannotAssignExpressionToType(boundInitializer, annotatedType, initializer.Value.GetLocation());
                     boundInitializer = new BoundErrorExpression(annotatedType, null, BoundExpressionReason.TypeMismatch);
                 }
                 else
@@ -2132,7 +2132,8 @@ partial class BlockBinder : Binder
             or IdentifierNameSyntax
             or DefaultExpressionSyntax
             or MatchExpressionSyntax
-            or IfExpressionSyntax;
+            or IfExpressionSyntax
+            || syntax is PostfixOperatorExpressionSyntax { OperatorToken.Kind: SyntaxKind.ExclamationToken };
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
@@ -2576,7 +2577,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindSuppressNullableWarningExpression(PostfixOperatorExpressionSyntax postfixUnary)
     {
-        var operand = BindExpression(postfixUnary.Expression);
+        var operand = BindNullableSuppressionOperand(postfixUnary);
 
         if (operand is BoundErrorExpression || operand.Type is null)
             return operand;
@@ -2597,6 +2598,19 @@ partial class BlockBinder : Binder
             operand,
             unwrappedType,
             new Conversion(isImplicit: false, isIdentity: true, isLifted: true));
+    }
+
+    private BoundExpression BindNullableSuppressionOperand(PostfixOperatorExpressionSyntax postfixUnary)
+    {
+        if (postfixUnary.Expression is DefaultExpressionSyntax defaultExpression &&
+            defaultExpression.Type is null &&
+            GetTargetType(postfixUnary) is { } targetType &&
+            targetType.TypeKind != TypeKind.Error)
+        {
+            return BindExpressionWithTargetType(defaultExpression, targetType.GetDefaultValueType());
+        }
+
+        return BindExpression(postfixUnary.Expression);
     }
 
     private BoundExpression BindIndexExpression(IndexExpressionSyntax indexExpression)
@@ -7739,7 +7753,7 @@ partial class BlockBinder : Binder
             var type = ResolveTypeSyntaxOrError(explicitType);
             type = EnsureTypeAccessible(type, explicitType.GetLocation());
 
-            return new BoundDefaultValueExpression(type);
+            return new BoundDefaultValueExpression(type.GetDefaultValueType());
         }
 
         var targetType = GetTargetType(syntax);
@@ -7753,7 +7767,7 @@ partial class BlockBinder : Binder
         if (targetType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
-        return new BoundDefaultValueExpression(targetType);
+        return new BoundDefaultValueExpression(targetType.GetDefaultValueType());
     }
 
     private BoundExpression BindUnitExpression(UnitExpressionSyntax syntax)
@@ -16459,9 +16473,9 @@ partial class BlockBinder : Binder
 
                         if (!expressionBinder.IsAssignable(targetType, converted.Type, out var conversion))
                         {
-                            expressionBinder.Diagnostics.ReportCannotConvertFromTypeToType(
-                                converted.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                                targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            expressionBinder.ReportCannotConvertExpressionToType(
+                                converted,
+                                targetType,
                                 function.ExpressionBody.Expression.GetLocation());
                         }
                         else
