@@ -33,6 +33,49 @@ class C {
     }
 
     [Fact]
+    public void TransientSemanticModel_DoesNotReportDuplicateSourceTypeDiagnostics()
+    {
+        var tree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+class VehicleDbContext {
+}
+""");
+
+        var compilation = CreateCompilation(tree);
+        _ = compilation.GetSemanticModel(tree);
+        compilation.EnsureSourceDeclarationsComplete();
+
+        var transientModel = compilation.CreateTransientSemanticModel(tree);
+        var diagnostics = transientModel.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV0600");
+    }
+
+    [Fact]
+    public void TransientSemanticModel_PreservesRealDuplicateSourceTypeDiagnostics()
+    {
+        var tree = SyntaxTree.ParseText("""
+namespace Samples.VehicleCosts
+
+class VehicleDbContext {
+}
+
+class VehicleDbContext {
+}
+""");
+
+        var compilation = CreateCompilation(tree);
+        _ = compilation.GetSemanticModel(tree);
+        compilation.EnsureSourceDeclarationsComplete();
+
+        var transientModel = compilation.CreateTransientSemanticModel(tree);
+        var diagnostics = transientModel.GetDiagnostics();
+
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RAV0600");
+    }
+
+    [Fact]
     public void RepeatedCachedNodeLookup_DoesNotRebindContextualRoot()
     {
         var code = """

@@ -410,6 +410,18 @@ public partial class SemanticModel
         INamespaceSymbol parentNamespace,
         INamedTypeSymbol? objectType)
     {
+        var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+        if (TryReuseDeclaredTypeSymbol(
+            classDecl,
+            classDecl.Identifier.ValueText,
+            supportsPartial: true,
+            isPartial,
+            classDecl.Identifier.GetLocation(),
+            out var alreadyDeclaredType))
+        {
+            return alreadyDeclaredType;
+        }
+
         ReportInvalidTypeModifiers(classDecl, isNestedType: false, _declarationDiagnostics);
         ReportRedundantPublicTypeModifierIfNeeded(classDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
         ReportRedundantTypeModifiers(classDecl, _declarationDiagnostics);
@@ -426,7 +438,6 @@ public partial class SemanticModel
         var isAbstract = isStatic || classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword) || hasSealedModifier;
         var isSealedHierarchy = hasSealedModifier && !isStatic;
         var isSealed = isStatic || (!isSealedHierarchy && !classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !isAbstract);
-        var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         var hasPermitsClause = GetPermitsClause(classDecl) is not null;
 
         if (hasPermitsClause && !hasSealedModifier)
@@ -526,6 +537,49 @@ public partial class SemanticModel
 
         return classSymbol;
     }
+
+    private bool TryReuseDeclaredTypeSymbol(
+        SyntaxNode declaration,
+        string name,
+        bool supportsPartial,
+        bool isPartial,
+        Location diagnosticLocation,
+        [NotNullWhen(true)] out SourceNamedTypeSymbol? symbol)
+    {
+        symbol = null;
+
+        if (!Compilation.TryGetDeclaredTypeSymbol(declaration, out var declaredType))
+            return false;
+
+        symbol = declaredType;
+
+        if (IsPrimaryDeclaration(declaredType, declaration))
+            return true;
+
+        if (supportsPartial && (declaredType.HasPartialModifier || isPartial))
+        {
+            if (declaredType.HasPartialModifier && declaredType.HasNonPartialDeclaration)
+            {
+                _declarationDiagnostics.ReportPartialTypeDeclarationMissingPartial(
+                    name,
+                    diagnosticLocation);
+            }
+
+            return true;
+        }
+
+        _declarationDiagnostics.ReportTypeAlreadyDefined(name, diagnosticLocation);
+        return true;
+    }
+
+    private static bool IsPrimaryDeclaration(SourceNamedTypeSymbol symbol, SyntaxNode declaration)
+        => symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is { } primaryDeclaration &&
+           IsSameDeclarationSyntax(primaryDeclaration, declaration);
+
+    private static bool IsSameDeclarationSyntax(SyntaxNode left, SyntaxNode right)
+        => left.SyntaxTree == right.SyntaxTree &&
+           left.Span == right.Span &&
+           left.Kind == right.Kind;
 
     private void ReportPartialTypeCompatibility(
         SourceNamedTypeSymbol existingType,
@@ -744,6 +798,19 @@ public partial class SemanticModel
             {
                 case TypeDeclarationSyntax nestedClass when nestedClass is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax:
                     {
+                        var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        if (TryReuseDeclaredTypeSymbol(
+                            nestedClass,
+                            nestedClass.Identifier.ValueText,
+                            supportsPartial: true,
+                            nestedPartial,
+                            nestedClass.Identifier.GetLocation(),
+                            out var alreadyDeclaredNestedType))
+                        {
+                            DeclareClassMemberTypes(nestedClass, alreadyDeclaredNestedType);
+                            break;
+                        }
+
                         ReportInvalidTypeModifiers(nestedClass, isNestedType: true, _declarationDiagnostics);
                         ReportRedundantPublicTypeModifierIfNeeded(nestedClass, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
                         ReportRedundantTypeModifiers(nestedClass, _declarationDiagnostics);
@@ -757,7 +824,6 @@ public partial class SemanticModel
                         var nestedAbstract = nestedStatic || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword) || nestedHasSealedModifier;
                         var nestedIsSealedHierarchy = nestedHasSealedModifier && !nestedStatic;
                         var nestedSealed = nestedStatic || (!nestedIsSealedHierarchy && !nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.OpenKeyword) && !nestedAbstract);
-                        var nestedPartial = nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                         var nestedRecord = nestedClass is RecordDeclarationSyntax || nestedClass.Modifiers.Any(m => m.Kind == SyntaxKind.RecordKeyword);
                         var nestedHasPermitsClause = GetPermitsClause(nestedClass) is not null;
                         var nestedFileScoped = HasFileScopeModifier(nestedClass.Modifiers);
@@ -858,6 +924,19 @@ public partial class SemanticModel
 
                 case InterfaceDeclarationSyntax nestedInterface:
                     {
+                        var nestedPartial = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        if (TryReuseDeclaredTypeSymbol(
+                            nestedInterface,
+                            nestedInterface.Identifier.ValueText,
+                            supportsPartial: true,
+                            nestedPartial,
+                            nestedInterface.Identifier.GetLocation(),
+                            out var alreadyDeclaredNestedInterface))
+                        {
+                            DeclareClassMemberTypes(nestedInterface, alreadyDeclaredNestedInterface);
+                            break;
+                        }
+
                         ReportInvalidTypeModifiers(nestedInterface, isNestedType: true, _declarationDiagnostics);
                         ReportRedundantPublicTypeModifierIfNeeded(nestedInterface, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
 
@@ -869,7 +948,6 @@ public partial class SemanticModel
                                 nestedInterface.Identifier.GetLocation());
                         }
 
-                        var nestedPartial = nestedInterface.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
                         var nestedFileScoped = HasFileScopeModifier(nestedInterface.Modifiers);
                         var nestedAccessibility = AccessibilityUtilities.DetermineAccessibility(
                             nestedInterface.Modifiers,
@@ -943,6 +1021,17 @@ public partial class SemanticModel
 
                 case EnumDeclarationSyntax enumDecl:
                     {
+                        if (TryReuseDeclaredTypeSymbol(
+                            enumDecl,
+                            enumDecl.Identifier.ValueText,
+                            supportsPartial: false,
+                            isPartial: false,
+                            enumDecl.Identifier.GetLocation(),
+                            out _))
+                        {
+                            break;
+                        }
+
                         ReportInvalidTypeModifiers(enumDecl, isNestedType: true, _declarationDiagnostics);
                         ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
 
@@ -971,6 +1060,18 @@ public partial class SemanticModel
 
                 case UnionDeclarationSyntax nestedUnion:
                     {
+                        var nestedUnionPartial = nestedUnion.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+                        if (TryReuseDeclaredTypeSymbol(
+                            nestedUnion,
+                            nestedUnion.Identifier.ValueText,
+                            supportsPartial: true,
+                            nestedUnionPartial,
+                            nestedUnion.Identifier.GetLocation(),
+                            out _))
+                        {
+                            break;
+                        }
+
                         ReportInvalidTypeModifiers(nestedUnion, isNestedType: true, _declarationDiagnostics);
                         ReportRedundantPublicTypeModifierIfNeeded(nestedUnion, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
                         var nestedUnionTypeKind = GetUnionTypeKind(nestedUnion);
@@ -1000,6 +1101,17 @@ public partial class SemanticModel
 
                 case DelegateDeclarationSyntax delegateDecl:
                     {
+                        if (TryReuseDeclaredTypeSymbol(
+                            delegateDecl,
+                            delegateDecl.Identifier.ValueText,
+                            supportsPartial: false,
+                            isPartial: false,
+                            delegateDecl.Identifier.GetLocation(),
+                            out _))
+                        {
+                            break;
+                        }
+
                         ReportInvalidTypeModifiers(delegateDecl, isNestedType: true, _declarationDiagnostics);
                         ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: parentType.TypeKind == TypeKind.Interface, _declarationDiagnostics);
 
@@ -1035,6 +1147,17 @@ public partial class SemanticModel
 
     private void DeclareDelegateSymbol(DelegateDeclarationSyntax delegateDecl, INamespaceSymbol parentNamespace)
     {
+        if (TryReuseDeclaredTypeSymbol(
+            delegateDecl,
+            delegateDecl.Identifier.ValueText,
+            supportsPartial: false,
+            isPartial: false,
+            delegateDecl.Identifier.GetLocation(),
+            out _))
+        {
+            return;
+        }
+
         ReportInvalidTypeModifiers(delegateDecl, isNestedType: false, _declarationDiagnostics);
         ReportRedundantPublicTypeModifierIfNeeded(delegateDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
@@ -1074,6 +1197,19 @@ public partial class SemanticModel
 
     private void DeclareInterfaceSymbol(InterfaceDeclarationSyntax interfaceDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
     {
+        var isPartial = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+        if (TryReuseDeclaredTypeSymbol(
+            interfaceDecl,
+            interfaceDecl.Identifier.ValueText,
+            supportsPartial: true,
+            isPartial,
+            interfaceDecl.Identifier.GetLocation(),
+            out var alreadyDeclaredInterface))
+        {
+            DeclareClassMemberTypes(interfaceDecl, alreadyDeclaredInterface);
+            return;
+        }
+
         ReportInvalidTypeModifiers(interfaceDecl, isNestedType: false, _declarationDiagnostics);
         ReportRedundantPublicTypeModifierIfNeeded(interfaceDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
@@ -1091,7 +1227,6 @@ public partial class SemanticModel
             interfaceDecl.TypeParameterList?.Parameters.Count ?? 0,
             _declarationDiagnostics);
 
-        var isPartial = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         var isFileScoped = HasFileScopeModifier(interfaceDecl.Modifiers);
         var interfaceAccessibility = AccessibilityUtilities.DetermineAccessibility(
             interfaceDecl.Modifiers,
@@ -1182,6 +1317,17 @@ public partial class SemanticModel
             ? MangleUnnamedExtensionName(extensionDecl)
             : extensionDecl.Identifier.ValueText;
 
+        if (TryReuseDeclaredTypeSymbol(
+            extensionDecl,
+            extensionName,
+            supportsPartial: false,
+            isPartial: false,
+            extensionDecl.GetLocation(),
+            out _))
+        {
+            return;
+        }
+
         ReportExternalTypeRedeclaration(
             parentNamespace,
             extensionName,
@@ -1215,6 +1361,17 @@ public partial class SemanticModel
 
     private void DeclareEnumSymbol(EnumDeclarationSyntax enumDecl, INamespaceSymbol parentNamespace)
     {
+        if (TryReuseDeclaredTypeSymbol(
+            enumDecl,
+            enumDecl.Identifier.ValueText,
+            supportsPartial: false,
+            isPartial: false,
+            enumDecl.Identifier.GetLocation(),
+            out _))
+        {
+            return;
+        }
+
         ReportInvalidTypeModifiers(enumDecl, isNestedType: false, _declarationDiagnostics);
         ReportRedundantPublicTypeModifierIfNeeded(enumDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
@@ -1249,6 +1406,18 @@ public partial class SemanticModel
 
     private void DeclareUnionSymbol(UnionDeclarationSyntax unionDecl, INamespaceSymbol parentNamespace)
     {
+        var isPartial = unionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
+        if (TryReuseDeclaredTypeSymbol(
+            unionDecl,
+            unionDecl.Identifier.ValueText,
+            supportsPartial: true,
+            isPartial,
+            unionDecl.Identifier.GetLocation(),
+            out _))
+        {
+            return;
+        }
+
         ReportInvalidTypeModifiers(unionDecl, isNestedType: false, _declarationDiagnostics);
         ReportRedundantPublicTypeModifierIfNeeded(unionDecl, publicIsDefault: Compilation.Options.MembersPublicByDefault, _declarationDiagnostics);
 
@@ -1261,7 +1430,6 @@ public partial class SemanticModel
             unionDecl.Identifier,
             unionDecl.TypeParameterList?.Parameters.Count ?? 0,
             _declarationDiagnostics);
-        var isPartial = unionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         var isFileScoped = HasFileScopeModifier(unionDecl.Modifiers);
         var unionAccessibility = AccessibilityUtilities.DetermineAccessibility(
             unionDecl.Modifiers,
