@@ -117,6 +117,47 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
+    public void DocumentCommitDebounce_LeavesTimeToTypeBeforeUpdatingWorkspaceSnapshot()
+    {
+        RavenTextDocumentSyncHandler.DocumentCommitDebounceMilliseconds.ShouldBe(600);
+    }
+
+    [Fact]
+    public async Task PendingDocumentChange_IsCommittedWhenSemanticContextIsRequestedAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+
+        await store.UpsertDocumentWithResultAsync(uri, SourceText.From("func Main() -> int => 1"));
+        store.QueuePendingDocumentChange(uri, SourceText.From("func Main() -> int => 2"), deferMacroConsumerRefresh: true);
+
+        store.TryGetPendingDocumentText(uri, out var pendingText).ShouldBeTrue();
+        pendingText!.ToString().ShouldContain("2");
+
+        store.TryGetDocument(uri, out var document).ShouldBeTrue();
+        var textBeforeFlush = await document!.GetTextAsync();
+        textBeforeFlush.ToString().ShouldContain("1");
+
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+
+        context.ShouldNotBeNull();
+        context.Value.SourceText.ToString().ShouldContain("2");
+        store.TryGetPendingDocumentText(uri, out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public void ActiveEditorDiagnosticsPolicies_UseSyntaxFirstThenDeferredFollowUp()
     {
         var policies = new[]

@@ -665,6 +665,7 @@ internal sealed class HoverHandler : IHoverHandler
                                   identifierAtOffset.Identifier.Span.Contains(offset)
             ? identifierAtOffset
             : null;
+        var seen = new HashSet<(SyntaxKind IdentifierKind, TextSpan IdentifierSpan, TextSpan InvocationSpan)>();
 
         foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
         {
@@ -708,6 +709,9 @@ internal sealed class HoverHandler : IHoverHandler
             };
 
             if (invocation is null || !HaveEquivalentSpan(GetInvocationTargetIdentifier(invocation), identifier))
+                continue;
+
+            if (!seen.Add((identifier.Kind, identifier.Span, invocation.Span)))
                 continue;
 
             yield return (identifier, invocation);
@@ -780,6 +784,13 @@ internal sealed class HoverHandler : IHoverHandler
                     identifier);
                 return true;
             }
+        }
+
+        if (invocationInfo.Symbol is null &&
+            invocationInfo.CandidateSymbols.IsDefaultOrEmpty &&
+            invocation.Expression is MemberAccessExpressionSyntax or MemberBindingExpressionSyntax)
+        {
+            return false;
         }
 
         if (invocationInfo.Symbol is INamedTypeSymbol invocationType &&

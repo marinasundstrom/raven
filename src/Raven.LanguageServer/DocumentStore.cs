@@ -40,6 +40,10 @@ internal sealed class DocumentStore
         SyntaxTree SyntaxTree,
         Raven.CodeAnalysis.Text.SourceText SourceText);
 
+    private readonly record struct PendingDocumentChange(
+        Raven.CodeAnalysis.Text.SourceText Text,
+        bool DeferMacroConsumerRefresh);
+
     internal readonly record struct DiagnosticsComputationResult(
         IReadOnlyList<LspDiagnostic> Diagnostics,
         bool WasSkipped);
@@ -99,6 +103,8 @@ internal sealed class DocumentStore
     private readonly ConcurrentDictionary<DocumentDiagnosticsCacheKey, ImmutableArray<LspDiagnostic>> _documentCompilerDiagnosticsCache = new();
     private readonly ConcurrentDictionary<DocumentDiagnosticsCacheKey, ImmutableArray<LspDiagnostic>> _documentWithAnalyzersDiagnosticsCache = new();
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingPostEditSemanticWarmups = new();
+    private readonly ConcurrentDictionary<DocumentUri, PendingDocumentChange> _pendingDocumentChanges = new();
+    private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _pendingDocumentChangeGates = new();
     private CancellationTokenSource _backgroundSemanticWorkPreemption = new();
 
     public DocumentStore(WorkspaceManager workspaceManager, ILogger<DocumentStore> logger)
@@ -127,6 +133,62 @@ internal sealed class DocumentStore
 
     internal WorkspaceManager.DocumentUpsertResult UpsertDocumentWithResult(DocumentUri uri, Raven.CodeAnalysis.Text.SourceText text, bool deferMacroConsumerRefresh = false)
         => ApplyUpsertResult(uri, _workspaceManager.UpsertDocumentWithResult(uri, text, deferMacroConsumerRefresh), deferMacroConsumerRefresh);
+
+    internal void QueuePendingDocumentChange(
+        DocumentUri uri,
+        Raven.CodeAnalysis.Text.SourceText text,
+        bool deferMacroConsumerRefresh = false)
+    {
+        _pendingDocumentChanges[uri] = new PendingDocumentChange(text, deferMacroConsumerRefresh);
+        RemoveCachedDocumentDiagnostics(uri);
+        CancelPostEditSemanticWarmup(uri);
+    }
+
+    internal bool TryGetPendingDocumentText(
+        DocumentUri uri,
+        [NotNullWhen(true)] out Raven.CodeAnalysis.Text.SourceText? text)
+    {
+        if (_pendingDocumentChanges.TryGetValue(uri, out var pending))
+        {
+            text = pending.Text;
+            return true;
+        }
+
+        text = null;
+        return false;
+    }
+
+    internal async Task<WorkspaceManager.DocumentUpsertResult?> FlushPendingDocumentChangeAsync(
+        DocumentUri uri,
+        CancellationToken cancellationToken)
+    {
+        if (!_pendingDocumentChanges.ContainsKey(uri))
+            return null;
+
+        var gate = _pendingDocumentChangeGates.GetOrAdd(uri, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_pendingDocumentChanges.TryRemove(uri, out var pending))
+                return null;
+
+            return await UpsertDocumentWithResultAsync(
+                uri,
+                pending.Text,
+                pending.DeferMacroConsumerRefresh).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    internal void DiscardPendingDocumentChange(DocumentUri uri)
+    {
+        _pendingDocumentChanges.TryRemove(uri, out _);
+        if (_pendingDocumentChangeGates.TryRemove(uri, out var gate))
+            gate.Dispose();
+    }
 
     private WorkspaceManager.DocumentUpsertResult ApplyUpsertResult(
         DocumentUri uri,
@@ -287,6 +349,8 @@ internal sealed class DocumentStore
 
     internal async Task<DocumentSyntaxContext?> GetDocumentSyntaxContextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
+        await FlushPendingDocumentChangeAsync(uri, cancellationToken).ConfigureAwait(false);
+
         if (!TryGetDocument(uri, out var document) || document is null)
             return null;
 
@@ -325,6 +389,8 @@ internal sealed class DocumentStore
 
     private async Task<DocumentAnalysisContext?> CreateDocumentAnalysisContextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
+        await FlushPendingDocumentChangeAsync(uri, cancellationToken).ConfigureAwait(false);
+
         var stopwatch = Stopwatch.StartNew();
         double compilationLookupMs = 0;
         double syntaxTreeMs = 0;
@@ -374,6 +440,7 @@ internal sealed class DocumentStore
 
     public bool RemoveDocument(DocumentUri uri)
     {
+        DiscardPendingDocumentChange(uri);
         RemoveCachedDocumentDiagnostics(uri);
         return _workspaceManager.RemoveDocument(uri);
     }

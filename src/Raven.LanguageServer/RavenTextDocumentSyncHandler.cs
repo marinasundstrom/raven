@@ -30,6 +30,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private const int DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds = 2_000;
     private const int DocumentAnalyzerDiagnosticsAfterOpenDelayMilliseconds = 4_000;
     private const int DiagnosticsRetryDelayMilliseconds = 2_500;
+    internal const int DocumentCommitDebounceMilliseconds = 600;
     private const double DidCloseLogThresholdMs = 50;
 
     private readonly DocumentStore _documents;
@@ -45,6 +46,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _activeDiagnostics = new();
     private readonly ConcurrentDictionary<PendingDiagnosticsRetryKey, byte> _pendingDiagnosticsRetries = new();
+    private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDocumentCommits = new();
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
@@ -66,6 +68,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         try
         {
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
+            CancelPendingDocumentCommit(notification.TextDocument.Uri);
+            _documents.DiscardPendingDocumentChange(notification.TextDocument.Uri);
             var upsertResult = await _documents.UpsertDocumentWithResultAsync(
                 notification.TextDocument.Uri,
                 SourceText.From(notification.TextDocument.Text ?? string.Empty)).ConfigureAwait(false);
@@ -176,12 +180,16 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             applyChangesMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             stageStopwatch.Restart();
-            var upsertResult = await _documents.UpsertDocumentWithResultAsync(
-                notification.TextDocument.Uri,
-                updatedText,
-                deferMacroConsumerRefresh: true).ConfigureAwait(false);
-            if (upsertResult.TextChanged)
+            var textChanged = !currentText.ContentEquals(updatedText);
+            if (textChanged)
+            {
+                _documents.QueuePendingDocumentChange(
+                    notification.TextDocument.Uri,
+                    updatedText,
+                    deferMacroConsumerRefresh: true);
                 ClearCompletedDiagnostics(notification.TextDocument.Uri);
+                CancelPendingDiagnostics(notification.TextDocument.Uri);
+            }
 
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
@@ -191,13 +199,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 notification.TextDocument.Version,
                 "didChange");
             _logger.LogInformation(
-                "DidChange applied for {Uri} (version={Version}, changeCount={ChangeCount}, previousLength={PreviousLength}, updatedLength={UpdatedLength}, projectChanged={ProjectChanged}).",
+                "DidChange queued for {Uri} (version={Version}, changeCount={ChangeCount}, previousLength={PreviousLength}, updatedLength={UpdatedLength}, textChanged={TextChanged}).",
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version?.ToString() ?? "<none>",
                 contentChanges.Length,
                 currentText.Length,
                 updatedText.Length,
-                upsertResult.ProjectChanged);
+                textChanged);
             _logger.LogDebug(
                 "DidChange {Uri} version={Version} changes={ChangeCount} currentLength={CurrentLength} updatedLength={UpdatedLength}.",
                 notification.TextDocument.Uri,
@@ -205,22 +213,16 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 contentChanges.Length,
                 currentText.Length,
                 updatedText.Length);
-            var policy = GetEditDiagnosticsPolicy();
             stageStopwatch.Restart();
-            var result = await ScheduleDiagnosticsPublishAsync(
-                notification.TextDocument.Uri,
-                includeWarmup: policy.IncludeWarmup,
-                warmupDelayMilliseconds: policy.WarmupDelayMilliseconds,
-                initialDiagnosticsMode: policy.InitialMode,
-                followUpDiagnosticsDelayMilliseconds: shouldScheduleStructuralDiagnostics
-                    ? DocumentCompilerDiagnosticsAfterEditDelayMilliseconds
-                    : policy.FollowUpDiagnosticsDelayMilliseconds,
-                followUpDiagnosticsMode: policy.FollowUpMode,
-                analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
-                analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
-                diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
+            if (textChanged)
+            {
+                ScheduleDebouncedDocumentCommit(
+                    notification.TextDocument.Uri,
+                    notification.TextDocument.Version,
+                    shouldScheduleStructuralDiagnostics);
+            }
             scheduleMs = stageStopwatch.Elapsed.TotalMilliseconds;
-            return result;
+            return Unit.Value;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -252,6 +254,127 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
     }
 
+    private void ScheduleDebouncedDocumentCommit(
+        DocumentUri uri,
+        int? expectedVersion,
+        bool shouldScheduleStructuralDiagnostics)
+    {
+        var source = new CancellationTokenSource();
+        var token = source.Token;
+        var expectedSession = GetOrCreateDocumentSession(uri);
+        var current = _pendingDocumentCommits.AddOrUpdate(
+            uri,
+            source,
+            (_, previous) =>
+            {
+                try
+                {
+                    previous.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+
+                return source;
+            });
+
+        if (!ReferenceEquals(current, source))
+        {
+            source.Dispose();
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(DocumentCommitDebounceMilliseconds, token).ConfigureAwait(false);
+                if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                    return;
+
+                await CommitPendingDocumentChangeAndScheduleDiagnosticsAsync(
+                    uri,
+                    expectedSession,
+                    expectedVersion,
+                    shouldScheduleStructuralDiagnostics,
+                    token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Debounced document commit canceled for {Uri}.", uri);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Debounced document commit failed for {Uri}.", uri);
+            }
+            finally
+            {
+                if (_pendingDocumentCommits.TryGetValue(uri, out var active) && ReferenceEquals(active, source))
+                    _pendingDocumentCommits.TryRemove(uri, out _);
+
+                try
+                {
+                    source.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task CommitPendingDocumentChangeAndScheduleDiagnosticsAsync(
+        DocumentUri uri,
+        long expectedSession,
+        int? expectedVersion,
+        bool shouldScheduleStructuralDiagnostics,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        WorkspaceManager.DocumentUpsertResult? upsertResult = null;
+
+        try
+        {
+            upsertResult = await _documents.FlushPendingDocumentChangeAsync(uri, cancellationToken).ConfigureAwait(false);
+            if (upsertResult is { TextChanged: true })
+                ClearCompletedDiagnostics(uri);
+
+            if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                return;
+
+            if (upsertResult is { ProjectChanged: true })
+            {
+                ScheduleRelatedOpenDocumentCompilerDiagnostics(
+                    uri,
+                    RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds);
+            }
+
+            var policy = GetEditDiagnosticsPolicy();
+            await ScheduleDiagnosticsPublishAsync(
+                uri,
+                includeWarmup: policy.IncludeWarmup,
+                warmupDelayMilliseconds: policy.WarmupDelayMilliseconds,
+                initialDiagnosticsMode: policy.InitialMode,
+                followUpDiagnosticsDelayMilliseconds: shouldScheduleStructuralDiagnostics
+                    ? DocumentCompilerDiagnosticsAfterEditDelayMilliseconds
+                    : policy.FollowUpDiagnosticsDelayMilliseconds,
+                followUpDiagnosticsMode: policy.FollowUpMode,
+                analyzerFollowUpDiagnosticsDelayMilliseconds: policy.AnalyzerFollowUpDiagnosticsDelayMilliseconds,
+                analyzerFollowUpDiagnosticsMode: policy.AnalyzerFollowUpMode,
+                diagnosticsDelayMilliseconds: policy.DiagnosticsDelayMilliseconds).ConfigureAwait(false);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "commitPendingDocumentChange",
+                uri,
+                expectedVersion,
+                stopwatch.Elapsed.TotalMilliseconds,
+                detail: $"{uri} version={expectedVersion} textChanged={upsertResult?.TextChanged.ToString() ?? "<flushed>"} projectChanged={upsertResult?.ProjectChanged.ToString() ?? "<unknown>"}");
+        }
+    }
+
     private bool IsStaleChange(DocumentUri uri, int? incomingVersion)
     {
         if (incomingVersion is not { } version ||
@@ -271,6 +394,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private async Task<SourceText> GetCurrentDocumentTextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
+        if (_documents.TryGetPendingDocumentText(uri, out var pendingText))
+            return pendingText;
+
         if (!_documents.TryGetDocument(uri, out var document))
             return SourceText.From(string.Empty);
 
@@ -368,6 +494,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             _logger.LogInformation("DidClose started for {Uri}.", notification.TextDocument.Uri);
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
+            CancelPendingDocumentCommit(notification.TextDocument.Uri);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
             _lastPublishedDiagnosticVersions.TryRemove(notification.TextDocument.Uri, out _);
@@ -380,6 +507,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
             PublishDiagnosticsToClient(notification.TextDocument.Uri, [], version: null);
 
+            _documents.DiscardPendingDocumentChange(notification.TextDocument.Uri);
             _documents.RemoveDocument(notification.TextDocument.Uri);
             _logger.LogInformation("DidClose cleanup completed for {Uri}.", notification.TextDocument.Uri);
         }
@@ -412,6 +540,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidSaveTextDocumentParams notification, CancellationToken cancellationToken)
     {
         _logger.LogDebug("DidSave {Uri}.", notification.TextDocument.Uri);
+        CancelPendingDocumentCommit(notification.TextDocument.Uri);
+        var upsertResult = await _documents.FlushPendingDocumentChangeAsync(
+            notification.TextDocument.Uri,
+            cancellationToken).ConfigureAwait(false);
+        if (upsertResult is { TextChanged: true })
+            ClearCompletedDiagnostics(notification.TextDocument.Uri);
+
         var policy = GetSaveDiagnosticsPolicy();
         return await ScheduleDiagnosticsPublishAsync(
             notification.TextDocument.Uri,
@@ -670,6 +805,28 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             try
             {
                 pending.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    private void CancelPendingDocumentCommit(DocumentUri uri)
+    {
+        if (_pendingDocumentCommits.TryRemove(uri, out var pending))
+        {
+            try
+            {
+                pending.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            try
+            {
+                pending.Dispose();
             }
             catch (ObjectDisposedException)
             {
