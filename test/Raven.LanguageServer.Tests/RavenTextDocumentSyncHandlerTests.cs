@@ -386,7 +386,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public void GetCarryForwardAnalyzerDiagnosticsForSnapshot_DropsDiagnosticsFromDifferentProjectSnapshot()
+    public void GetCarryForwardAnalyzerDiagnosticsForPresentation_KeepsDiagnosticsFromPreviousProjectSnapshot()
     {
         var previous = ImmutableArray.Create(
             CreateDiagnostic("RAV9027", "Value 'x' is never used.", 4, 8, 4, 9, DiagnosticSeverity.Warning),
@@ -404,16 +404,19 @@ func Main() -> unit {
             documentVersion,
             previousSnapshot.ProjectVersion.GetNewerVersion());
 
-        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForSnapshot(
+        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForPresentation(
             version: 2,
             currentSnapshot,
             new RavenTextDocumentSyncHandler.VersionedDiagnostics(2, previousSnapshot, previous));
 
-        carried.ShouldBeEmpty();
+        carried.Select(static diagnostic => diagnostic.Code?.String).ShouldBe([
+            "RAV9027",
+            "RAV9030"
+        ]);
     }
 
     [Fact]
-    public void GetCarryForwardAnalyzerDiagnosticsForSnapshot_KeepsDiagnosticsForSameProjectSnapshot()
+    public void GetCarryForwardAnalyzerDiagnosticsForPresentation_KeepsDiagnosticsForSameProjectSnapshot()
     {
         var previous = ImmutableArray.Create(
             CreateDiagnostic("RAV9027", "Value 'x' is never used.", 4, 8, 4, 9, DiagnosticSeverity.Warning),
@@ -424,7 +427,7 @@ func Main() -> unit {
             VersionStamp.Create(),
             VersionStamp.Create());
 
-        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForSnapshot(
+        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForPresentation(
             version: 2,
             snapshot,
             new RavenTextDocumentSyncHandler.VersionedDiagnostics(2, snapshot, previous));
@@ -436,12 +439,12 @@ func Main() -> unit {
     }
 
     [Fact]
-    public void GetCarryForwardAnalyzerDiagnosticsForSnapshot_FallsBackToEditorVersionWhenSnapshotIsUnavailable()
+    public void GetCarryForwardAnalyzerDiagnosticsForPresentation_FallsBackToEditorVersionWhenSnapshotIsUnavailable()
     {
         var previous = ImmutableArray.Create(
             CreateDiagnostic("RAV9030", "Parameter 'title' is never used.", 26, 32, 26, 37, DiagnosticSeverity.Warning));
 
-        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForSnapshot(
+        var carried = RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForPresentation(
             version: 2,
             snapshotKey: null,
             new RavenTextDocumentSyncHandler.VersionedDiagnostics(2, SnapshotKey: null, previous));

@@ -1000,7 +1000,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         DocumentStore.DiagnosticSnapshotKey? snapshotKey)
     {
         return _lastPublishedAnalyzerDiagnostics.TryGetValue(uri, out var previous)
-            ? GetCarryForwardAnalyzerDiagnosticsForSnapshot(version, snapshotKey, previous)
+            ? GetCarryForwardAnalyzerDiagnosticsForPresentation(version, snapshotKey, previous)
             : [];
     }
 
@@ -1145,13 +1145,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                code.StartsWith("RAV9", StringComparison.Ordinal);
     }
 
-    internal static ImmutableArray<Diagnostic> GetCarryForwardAnalyzerDiagnosticsForSnapshot(
+    internal static ImmutableArray<Diagnostic> GetCarryForwardAnalyzerDiagnosticsForPresentation(
         int? version,
         DocumentStore.DiagnosticSnapshotKey? snapshotKey,
         VersionedDiagnostics previous)
     {
-        if (snapshotKey is { } currentSnapshot)
-            return previous.SnapshotKey == currentSnapshot ? previous.Diagnostics : [];
+        if (snapshotKey is not null && previous.SnapshotKey is not null)
+            return previous.Diagnostics;
 
         if (previous.SnapshotKey is not null)
             return [];
