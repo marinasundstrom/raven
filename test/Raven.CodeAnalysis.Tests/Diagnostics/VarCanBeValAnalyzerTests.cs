@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Diagnostics;
@@ -226,5 +227,79 @@ class C {
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void OwnerWithoutVarLocals_SkipsSemanticSymbolLookup()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        const string code = """
+class C {
+    public func M() -> unit {
+        val count = 0
+        Print(count)
+    }
+
+    private func Print(value: int) -> unit {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "lib",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                    .WithPerformanceInstrumentation(instrumentation))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+        var diagnostics = new VarCanBeValAnalyzer()
+            .Analyze(compilation)
+            .Where(d => d.Id == VarCanBeValAnalyzer.DiagnosticId)
+            .ToArray();
+        var delta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            before);
+
+        Assert.Empty(diagnostics);
+        Assert.Equal(0, delta.SymbolInfoQueries);
+    }
+
+    [Fact]
+    public void NonCandidateAssignments_AreSkippedBeforeSemanticSymbolLookup()
+    {
+        var instrumentation = new PerformanceInstrumentation();
+        const string code = """
+class C {
+    private var field: int = 0
+
+    public func M() -> unit {
+        var count = 0
+        self.field = 1
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "lib",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                    .WithPerformanceInstrumentation(instrumentation))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var before = instrumentation.SemanticQuery.CaptureSnapshot();
+        var diagnostics = new VarCanBeValAnalyzer()
+            .Analyze(compilation)
+            .Where(d => d.Id == VarCanBeValAnalyzer.DiagnosticId)
+            .ToArray();
+        var delta = SemanticQueryInstrumentation.Subtract(
+            instrumentation.SemanticQuery.CaptureSnapshot(),
+            before);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("count", diagnostic.GetMessageArgs().Single());
+        Assert.Equal(0, delta.SymbolInfoQueries);
     }
 }

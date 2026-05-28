@@ -285,6 +285,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         private readonly SemanticModel _semanticModel;
         private readonly bool _collectLocals;
         private readonly Dictionary<ISymbol, Candidate> _candidates = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<string> _candidateNames = new(StringComparer.Ordinal);
         private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
         private int _nestedOwnerDepth;
         private bool _isSemanticallyComplete = true;
@@ -366,23 +367,17 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
         {
             if (_collectLocals && !IsInNestedOwner)
-            {
-                foreach (var declarator in node.Declaration.Declarators)
-                {
-                    if (declarator.Initializer?.Value is FunctionExpressionSyntax)
-                        continue;
-
-                    if (_semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
-                        continue;
-
-                    if (string.IsNullOrEmpty(local.Name) || local.Name == "_")
-                        continue;
-
-                    AddCandidate(local, local.Name, declarator.Identifier.GetLocation(), LocalDescriptor);
-                }
-            }
+                AddLocalDeclarationCandidates(node.Declaration);
 
             base.VisitLocalDeclarationStatement(node);
+        }
+
+        public override void VisitUseDeclarationStatement(UseDeclarationStatementSyntax node)
+        {
+            if (_collectLocals && !IsInNestedOwner)
+                AddLocalDeclarationCandidates(node.Declaration);
+
+            base.VisitUseDeclarationStatement(node);
         }
 
         public override void VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
@@ -468,8 +463,31 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             AddCandidate(parameterSymbol, parameterSymbol.Name, parameter.Identifier.GetLocation(), ParameterDescriptor);
         }
 
+        private void AddLocalDeclarationCandidates(VariableDeclarationSyntax declaration)
+        {
+            foreach (var declarator in declaration.Declarators)
+            {
+                if (declarator.Initializer?.Value is FunctionExpressionSyntax)
+                    continue;
+
+                if (_semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
+                    continue;
+
+                if (string.IsNullOrEmpty(local.Name) || local.Name == "_")
+                    continue;
+
+                AddCandidate(local, local.Name, declarator.Identifier.GetLocation(), LocalDescriptor);
+            }
+        }
+
         private void TryMarkUsedLocal(SyntaxNode node)
         {
+            if (node is IdentifierNameSyntax identifier &&
+                !_candidateNames.Contains(identifier.Identifier.ValueText))
+            {
+                return;
+            }
+
             if (IsWriteTarget(node))
                 return;
 
@@ -542,6 +560,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         {
             var key = symbol.UnderlyingSymbol;
             _candidates[key] = new Candidate(key, name, location, descriptor);
+            _candidateNames.Add(name);
         }
 
         private void AddUsedSymbol(ISymbol symbol)

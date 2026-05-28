@@ -25,6 +25,8 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
+        context.EnableConcurrentExecution();
+
         context.RegisterSyntaxNodeAction(
             AnalyzeBodyOwner,
             SyntaxKind.MethodDeclaration,
@@ -46,6 +48,9 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         if (body is null)
             return;
 
+        if (!ContainsVarDeclaration(body))
+            return;
+
         ReportCandidates(context, body);
     }
 
@@ -53,6 +58,13 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
     {
         if (context.Node is not CompilationUnitSyntax compilationUnit)
             return;
+
+        if (!compilationUnit.Members
+                .OfType<GlobalStatementSyntax>()
+                .Any(static global => ContainsVarDeclaration(global.Statement)))
+        {
+            return;
+        }
 
         var collector = new VarRebindingCollector(context.SemanticModel);
 
@@ -101,6 +113,14 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    private static bool ContainsVarDeclaration(SyntaxNode node)
+        => node.DescendantNodesAndSelf()
+            .OfType<LocalDeclarationStatementSyntax>()
+            .Any(IsVarDeclaration);
+
+    private static bool IsVarDeclaration(LocalDeclarationStatementSyntax node)
+        => node.Declaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
+
     private sealed class VarRebindingCollector : SyntaxWalker
     {
         private readonly SemanticModel _semanticModel;
@@ -113,6 +133,8 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         private readonly HashSet<ILocalSymbol> _capturedByClosure =
             new(SymbolEqualityComparer.Default);
+
+        private readonly HashSet<string> _candidateNames = new(StringComparer.Ordinal);
 
         private readonly Stack<HashSet<string>> _closureLocalNames = new();
 
@@ -253,6 +275,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                     {
                         var name = local.Name;
                         _varLocals[local] = new VarCandidate(local, name, node.Declaration.BindingKeyword);
+                        _candidateNames.Add(name);
                     }
                 }
             }
@@ -411,6 +434,9 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                 if (IsClosureLocal(node.Identifier.ValueText))
                     return;
 
+                if (!_candidateNames.Contains(node.Identifier.ValueText))
+                    return;
+
                 if (TryGetLocalSymbol(node) is { } local)
                     _capturedByClosure.Add(local);
             }
@@ -439,14 +465,40 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
 
         private void MarkWritten(ExpressionOrPatternSyntax left)
         {
+            if (!ContainsCandidateName(left))
+                return;
+
             foreach (var assignedLocal in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, left))
                 _writtenAfterDeclaration.Add(assignedLocal);
         }
 
         private void MarkWrittenFromExpression(ExpressionSyntax expression)
         {
+            if (!ContainsCandidateName(expression))
+                return;
+
             foreach (var assignedLocal in DataFlowAnalysisHelpers.GetAssignedLocals(_semanticModel, expression))
                 _writtenAfterDeclaration.Add(assignedLocal);
+        }
+
+        private bool ContainsCandidateName(SyntaxNode node)
+        {
+            if (_candidateNames.Count == 0)
+                return false;
+
+            foreach (var identifier in node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            {
+                if (_candidateNames.Contains(identifier.Identifier.ValueText))
+                    return true;
+            }
+
+            foreach (var designation in node.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
+            {
+                if (_candidateNames.Contains(designation.Identifier.ValueText))
+                    return true;
+            }
+
+            return false;
         }
 
         private static bool IsIncrementOrDecrement(SyntaxToken operatorToken)
@@ -477,13 +529,8 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                 : null;
         }
 
-        private bool IsVarDeclaration(LocalDeclarationStatementSyntax node)
-        {
-            if (node.Declaration.BindingKeyword.Kind == SyntaxKind.VarKeyword)
-                return true;
-
-            return false;
-        }
+        private static bool IsVarDeclaration(LocalDeclarationStatementSyntax node)
+            => VarCanBeValAnalyzer.IsVarDeclaration(node);
 
         private static IEnumerable<string> GetFunctionExpressionParameterNames(FunctionExpressionSyntax node)
             => node switch
