@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed member completion after `nameof(...)` so the receiver is treated as
+  `string` instead of using the named symbol's type.
 - Fixed target-typed `default` for reference types so it is treated as a
   nullable null value. Returning or assigning it to a non-nullable reference now
   requires `default!` and reports the existing null-assignment diagnostic when

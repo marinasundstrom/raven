@@ -834,7 +834,13 @@ public static class CompletionProvider
                 symbol = visibleSymbol;
             }
 
-            var type = GetTypeFromSymbol(symbol);
+            var type = expression is NameOfExpressionSyntax
+                ? model.GetTypeInfo(expression).Type
+                : null;
+            if (type is not null && type.TypeKind != TypeKind.Error)
+                return (symbol, type);
+
+            type = GetTypeFromSymbol(symbol);
             if (type is not null && type.TypeKind != TypeKind.Error)
                 return (symbol, type);
 
