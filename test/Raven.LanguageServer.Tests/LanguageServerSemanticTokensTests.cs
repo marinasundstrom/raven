@@ -79,8 +79,6 @@ class Customer(name: string, age: int? = null) {
 
             var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
 
-            Find(decoded, 0, "import").Type.ShouldBe(SemanticTokenType.Keyword);
-
             var customerDeclaration = Find(decoded, 2, "Customer");
             customerDeclaration.Type.ShouldBe(SemanticTokenType.Class);
             customerDeclaration.Modifiers.ShouldContain(SemanticTokenModifier.Declaration);
@@ -98,12 +96,8 @@ class Customer(name: string, age: int? = null) {
             nameProperty.Type.ShouldBe(SemanticTokenType.Property);
             nameProperty.Modifiers.ShouldContain(SemanticTokenModifier.Declaration);
 
-            Find(decoded, 7, "is").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 8, "as").Type.ShouldBe(SemanticTokenType.Keyword);
-
-            Find(decoded, 10, "\"n/a\"").Type.ShouldBe(SemanticTokenType.String);
-
-            decoded.Any(token => token.Type == SemanticTokenType.Operator && token.Line == 10).ShouldBeTrue();
+            decoded.Any(token => LexicalTokenTypes.Contains(token.Type))
+                .ShouldBeFalse();
         }
         finally
         {
@@ -113,7 +107,7 @@ class Customer(name: string, age: int? = null) {
     }
 
     [Fact]
-    public async Task SemanticTokens_ClassifyBaseExpressionKeywordAsync()
+    public async Task SemanticTokens_ClassifyBaseExpressionMemberAsync()
     {
         const string code = """
 open class App {
@@ -175,7 +169,6 @@ class Derived : App {
 
             var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
 
-            Find(decoded, 8, "base").Type.ShouldBe(SemanticTokenType.Keyword);
             Find(decoded, 8, "Run").Type.ShouldBe(SemanticTokenType.Method);
         }
         finally
@@ -293,8 +286,7 @@ func Main() -> unit {
             result.ShouldNotBeNull();
 
             var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
-            Find(decoded, 0, "func").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 1, "val").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 1, "number").Type.ShouldBe(SemanticTokenType.Variable);
         }
         finally
         {
@@ -351,8 +343,7 @@ func Main() -> unit {
 
             result.ShouldNotBeNull();
             var decoded = Decode(code, result.Data, SemanticTokensHandler.Legend);
-            Find(decoded, 0, "func").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 1, "val").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 1, "number").Type.ShouldBe(SemanticTokenType.Variable);
 
             var existingAfter = await store.TryEnterExistingDocumentSemanticModelAccessAsync(
                 uri,
@@ -534,11 +525,10 @@ func LoadInboundBatch() -> Result<InboundBatch, FulfillmentError> {
 
             var decoded = Decode(updatedCode, updatedResult.Data, SemanticTokensHandler.Legend);
 
-            Find(decoded, 4, "if").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 4, "is").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 5, "if").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 5, "is").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 10, "if").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 4, "dtoResult").Type.ShouldBe(SemanticTokenType.Variable);
+            Find(decoded, 4, "Ok").Type.ShouldBe(SemanticTokenType.Type);
+            Find(decoded, 5, "value").Type.ShouldBe(SemanticTokenType.Variable);
+            Find(decoded, 10, "dtoResult").Type.ShouldBe(SemanticTokenType.Variable);
             decoded.Any(token => token.Text == "}" && token.Line is 7 or 8 or 13).ShouldBeFalse();
         }
         finally
@@ -663,12 +653,10 @@ func Get() -> (int, string) {
 
             var decoded = Decode(updatedCode, updatedResult.Data, SemanticTokensHandler.Legend);
 
-            Find(decoded, 23, "val").Type.ShouldBe(SemanticTokenType.Keyword);
             Find(decoded, 23, "no").Type.ShouldBe(SemanticTokenType.Variable);
             Find(decoded, 23, "Get").Type.ShouldBe(SemanticTokenType.Method);
             Find(decoded, 25, "WriteLine").Type.ShouldBe(SemanticTokenType.Method);
             Find(decoded, 25, "no").Type.ShouldBe(SemanticTokenType.Variable);
-            Find(decoded, 27, "func").Type.ShouldBe(SemanticTokenType.Keyword);
             Find(decoded, 27, "Get").Type.ShouldBe(SemanticTokenType.Method);
         }
         finally
@@ -847,9 +835,7 @@ func Main() -> string {
             Find(decoded, 17, "store").Type.ShouldBe(SemanticTokenType.Variable);
             Find(decoded, 17, "Find").Type.ShouldBe(SemanticTokenType.Method);
             Find(decoded, 17, "id").Type.ShouldBe(SemanticTokenType.Parameter);
-            decoded.Any(token => token.Type == SemanticTokenType.Operator && token.Line == 15 && token.Text == "{").ShouldBeTrue();
-            decoded.Any(token => token.Type == SemanticTokenType.Operator && token.Line == 16 && token.Text == "{").ShouldBeTrue();
-            decoded.Any(token => token.Type == SemanticTokenType.Operator && token.Line == 19 && token.Text == "}").ShouldBeTrue();
+            decoded.Any(token => token.Type == SemanticTokenType.Operator).ShouldBeFalse();
         }
         finally
         {
@@ -864,6 +850,15 @@ func Main() -> string {
         token.ShouldNotBeNull();
         return token!;
     }
+
+    private static readonly SemanticTokenType[] LexicalTokenTypes =
+    [
+        SemanticTokenType.Keyword,
+        SemanticTokenType.String,
+        SemanticTokenType.Number,
+        SemanticTokenType.Operator,
+        SemanticTokenType.Comment
+    ];
 
     private static ImmutableArray<DecodedToken> Decode(
         string code,

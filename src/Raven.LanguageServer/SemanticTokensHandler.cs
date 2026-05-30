@@ -373,12 +373,6 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     private static SemanticTokenType? MapTokenType(SemanticClassification classification)
         => classification switch
         {
-            SemanticClassification.Keyword => SemanticTokenType.Keyword,
-            SemanticClassification.NumericLiteral => SemanticTokenType.Number,
-            SemanticClassification.StringLiteral => SemanticTokenType.String,
-            SemanticClassification.Operator => SemanticTokenType.Operator,
-            SemanticClassification.Interpolation => SemanticTokenType.Operator,
-            SemanticClassification.Comment => SemanticTokenType.Comment,
             SemanticClassification.Namespace => SemanticTokenType.Namespace,
             SemanticClassification.Type => SemanticTokenType.Type,
             SemanticClassification.Method => SemanticTokenType.Method,
@@ -388,7 +382,6 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticClassification.Property => SemanticTokenType.Property,
             SemanticClassification.Field => SemanticTokenType.Variable,
             SemanticClassification.Event => SemanticTokenType.Event,
-            SemanticClassification.NullableAnnotation => SemanticTokenType.Operator,
             _ => (SemanticTokenType?)null
         };
 

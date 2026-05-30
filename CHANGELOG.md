@@ -101,6 +101,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `RegisterOperationAction`, and the document analyzer driver dispatches them from one
   shared operation traversal. Returned-value and immutable-collection result analyzers
   now use operation actions instead of syntax callbacks that each queried operations.
+- Language-server semantic tokens now focus on semantic symbol classifications and
+  regex string specialization, leaving keywords, literals, comments, and operators to
+  the VS Code TextMate grammar. The grammar now covers ordinary attributes,
+  documentation comments, character literals, labels, constructor-like calls, dot
+  punctuation, and missing Raven keywords such as `goto`, `yield`, `fixed`, and `new`.
 
 ### Changed
 - Unused local value diagnostics now say `Value '<name>' is never used.` while unused

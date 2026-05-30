@@ -3,6 +3,7 @@
     "name": "Raven",
     "scopeName": "source.raven",
     "fileTypes": [
+        "rvn",
         "rav"
     ],
     "patterns": [
@@ -11,6 +12,9 @@
         },
         {
             "include": "#macroAttributes"
+        },
+        {
+            "include": "#attributes"
         },
         {
             "include": "#freestandingMacros"
@@ -29,6 +33,9 @@
         },
         {
             "include": "#functionDecl"
+        },
+        {
+            "include": "#constructorCall"
         },
         {
             "include": "#functionCall"
@@ -66,6 +73,49 @@
                     "patterns": [
                         {
                             "name": "entity.name.annotation.macro.raven",
+                            "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
+                        },
+                        {
+                            "include": "#strings"
+                        },
+                        {
+                            "include": "#numbers"
+                        },
+                        {
+                            "include": "#operators"
+                        },
+                        {
+                            "include": "#punctuation"
+                        },
+                        {
+                            "include": "#keywords"
+                        },
+                        {
+                            "include": "#types"
+                        }
+                    ]
+                }
+            ]
+        },
+        "attributes": {
+            "patterns": [
+                {
+                    "name": "meta.annotation.raven",
+                    "begin": "(\\[)(?=\\s*(?:(?:assembly|module|field|event|method|param(?:eter)?|property|return|type)\\s*:\\s*)?[A-Z_])",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "punctuation.section.brackets.begin.raven"
+                        }
+                    },
+                    "end": "(\\])",
+                    "endCaptures": {
+                        "1": {
+                            "name": "punctuation.section.brackets.end.raven"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "name": "entity.name.annotation.raven",
                             "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
                         },
                         {
@@ -138,6 +188,10 @@
                     "match": "^\\s*#.*$"
                 },
                 {
+                    "name": "comment.line.documentation.raven",
+                    "match": "///.*$"
+                },
+                {
                     "name": "comment.line.double-slash.raven",
                     "match": "//.*$"
                 },
@@ -150,6 +204,26 @@
         },
         "strings": {
             "patterns": [
+                {
+                    "name": "string.quoted.single.raven",
+                    "begin": "'",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.begin.raven"
+                        }
+                    },
+                    "end": "'",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.end.raven"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#stringEscapes"
+                        }
+                    ]
+                },
                 {
                     "name": "string.quoted.double.block.raven",
                     "begin": "\"\"\"(?=(?:.|\\n)*?\"\"\"(u8|ascii)\\b)",
@@ -323,10 +397,10 @@
                 },
                 {
                     "name": "keyword.other.using.raven",
-                    "match": "\\b(import)\\b"
+                    "match": "\\b(import|global)\\b"
                 },
                 {
-                    "name": "storage.type.namespace.raven",
+                    "name": "keyword.declaration.namespace.raven storage.type.namespace.raven",
                     "match": "\\b(namespace)\\b"
                 },
                 {
@@ -334,47 +408,47 @@
                     "match": "\\b(alias)\\b"
                 },
                 {
-                    "name": "storage.type.class.raven",
+                    "name": "keyword.declaration.class.raven storage.type.class.raven",
                     "match": "\\b(class)\\b"
                 },
                 {
-                    "name": "storage.type.record.raven",
+                    "name": "keyword.declaration.record.raven storage.type.record.raven",
                     "match": "\\b(record)\\b"
                 },
                 {
-                    "name": "storage.type.struct.raven",
+                    "name": "keyword.declaration.struct.raven storage.type.struct.raven",
                     "match": "\\b(struct)\\b"
                 },
                 {
-                    "name": "storage.type.union.raven",
+                    "name": "keyword.declaration.union.raven storage.type.union.raven",
                     "match": "\\b(union)\\b"
                 },
                 {
-                    "name": "storage.type.enum.raven",
+                    "name": "keyword.declaration.enum.raven storage.type.enum.raven",
                     "match": "\\b(enum)\\b"
                 },
                 {
-                    "name": "storage.type.interface.raven",
+                    "name": "keyword.declaration.interface.raven storage.type.interface.raven",
                     "match": "\\b(interface)\\b"
                 },
                 {
-                    "name": "storage.type.delegate.raven",
+                    "name": "keyword.declaration.delegate.raven storage.type.delegate.raven",
                     "match": "\\b(delegate)\\b"
                 },
                 {
-                    "name": "storage.type.extension.raven",
+                    "name": "keyword.declaration.extension.raven storage.type.extension.raven",
                     "match": "\\b(extension)\\b"
                 },
                 {
-                    "name": "storage.type.trait.raven",
+                    "name": "keyword.declaration.trait.raven storage.type.trait.raven",
                     "match": "\\b(trait)\\b"
                 },
                 {
-                    "name": "storage.type.function.raven",
+                    "name": "keyword.declaration.function.raven storage.type.function.raven",
                     "match": "\\b(func)\\b"
                 },
                 {
-                    "name": "storage.type.case.raven",
+                    "name": "keyword.declaration.case.raven storage.type.case.raven",
                     "match": "\\b(case)\\b"
                 },
                 {
@@ -382,7 +456,7 @@
                     "match": "\\b(func)(\\s+)(implicit|explicit)\\b",
                     "captures": {
                         "1": {
-                            "name": "storage.type.function.raven"
+                            "name": "keyword.declaration.function.raven storage.type.function.raven"
                         },
                         "3": {
                             "name": "keyword.other.conversion.raven"
@@ -390,23 +464,23 @@
                     }
                 },
                 {
-                    "name": "storage.type.field.raven",
+                    "name": "keyword.declaration.field.raven storage.type.field.raven",
                     "match": "\\b(field)\\b"
                 },
                 {
-                    "name": "variable.language.self.raven",
+                    "name": "keyword.language.self.raven variable.language.self.raven",
                     "match": "\\b(self)\\b"
                 },
                 {
-                    "name": "variable.language.base.raven",
+                    "name": "keyword.language.base.raven variable.language.base.raven",
                     "match": "\\b(base)\\b"
                 },
                 {
-                    "name": "storage.type.event.raven",
+                    "name": "keyword.declaration.event.raven storage.type.event.raven",
                     "match": "\\b(event)\\b"
                 },
                 {
-                    "name": "storage.type.operator.raven",
+                    "name": "keyword.declaration.operator.raven storage.type.operator.raven",
                     "match": "\\b(operator)\\b"
                 },
                 {
@@ -414,31 +488,31 @@
                     "match": "\\b(get|set|init|add|remove)\\b(?=\\s*(?:;|=>|\\{))"
                 },
                 {
-                    "name": "storage.type.variable.readonly.raven",
+                    "name": "keyword.declaration.variable.readonly.raven storage.type.variable.readonly.raven",
                     "match": "\\b(val|let)\\b"
                 },
                 {
-                    "name": "storage.type.variable.raven",
+                    "name": "keyword.declaration.variable.raven storage.type.variable.raven",
                     "match": "\\b(var)\\b"
                 },
                 {
-                    "name": "storage.modifier.const.raven",
+                    "name": "keyword.declaration.const.raven storage.modifier.const.raven",
                     "match": "\\b(const)\\b"
                 },
                 {
-                    "name": "storage.modifier.resource.raven",
-                    "match": "\\b(use)\\b"
+                    "name": "keyword.declaration.resource.raven storage.modifier.resource.raven",
+                    "match": "\\b(use|fixed)\\b"
                 },
                 {
-                    "name": "storage.modifier.parameter.params.raven",
+                    "name": "keyword.modifier.parameter.params.raven storage.modifier.parameter.params.raven",
                     "match": "\\b(params)\\b"
                 },
                 {
-                    "name": "storage.modifier.access.raven",
+                    "name": "keyword.modifier.access.raven storage.modifier.access.raven",
                     "match": "\\b(public|internal|protected|private|fileprivate)\\b"
                 },
                 {
-                    "name": "storage.modifier.raven",
+                    "name": "keyword.modifier.raven storage.modifier.raven",
                     "match": "\\b(static|abstract|virtual|override|final|sealed|new|open|partial|readonly|required|async|extern|unsafe)\\b"
                 },
                 {
@@ -446,7 +520,7 @@
                     "match": "(<\\s*|,\\s*)(in|out)\\b(?=\\s+[A-Za-z_][A-Za-z0-9_]*\\b)",
                     "captures": {
                         "2": {
-                            "name": "storage.modifier.variance.raven"
+                            "name": "keyword.modifier.variance.raven storage.modifier.variance.raven"
                         }
                     }
                 },
@@ -464,7 +538,7 @@
                 },
                 {
                     "name": "keyword.control.flow.raven",
-                    "match": "\\b(return|throw|break|continue)\\b"
+                    "match": "\\b(return|yield|throw|goto|break|continue)\\b"
                 },
                 {
                     "name": "keyword.control.async.raven",
@@ -476,7 +550,7 @@
                 },
                 {
                     "name": "keyword.other.expression.raven",
-                    "match": "\\b(typeof|nameof|sizeof|default)\\b"
+                    "match": "\\b(new|typeof|nameof|sizeof|default)\\b"
                 },
                 {
                     "name": "keyword.operator.word.raven",
@@ -503,15 +577,15 @@
                     "match": "\\b(notnull|unmanaged|permits)\\b"
                 },
                 {
-                    "name": "constant.language.boolean.true.raven",
+                    "name": "keyword.constant.true.raven constant.language.boolean.true.raven",
                     "match": "\\btrue\\b"
                 },
                 {
-                    "name": "constant.language.boolean.false.raven",
+                    "name": "keyword.constant.false.raven constant.language.boolean.false.raven",
                     "match": "\\bfalse\\b"
                 },
                 {
-                    "name": "constant.language.null.raven",
+                    "name": "keyword.constant.null.raven constant.language.null.raven",
                     "match": "\\bnull\\b"
                 }
             ]
@@ -523,7 +597,7 @@
                     "match": "\\b(namespace)\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\b",
                     "captures": {
                         "1": {
-                            "name": "storage.type.namespace.raven"
+                            "name": "keyword.declaration.namespace.raven storage.type.namespace.raven"
                         },
                         "2": {
                             "name": "entity.name.namespace.raven"
@@ -547,17 +621,17 @@
                     "match": "\\b(record)(?:\\s+(class|struct))?\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
                     "captures": {
                         "1": {
-                            "name": "storage.type.record.raven"
+                            "name": "keyword.declaration.record.raven storage.type.record.raven"
                         },
                         "2": {
                             "patterns": [
                                 {
                                     "match": "\\bclass\\b",
-                                    "name": "storage.type.class.raven"
+                                    "name": "keyword.declaration.class.raven storage.type.class.raven"
                                 },
                                 {
                                     "match": "\\bstruct\\b",
-                                    "name": "storage.type.struct.raven"
+                                    "name": "keyword.declaration.struct.raven storage.type.struct.raven"
                                 }
                             ]
                         },
@@ -574,35 +648,35 @@
                             "patterns": [
                                 {
                                     "match": "\\bclass\\b",
-                                    "name": "storage.type.class.raven"
+                                    "name": "keyword.declaration.class.raven storage.type.class.raven"
                                 },
                                 {
                                     "match": "\\bstruct\\b",
-                                    "name": "storage.type.struct.raven"
+                                    "name": "keyword.declaration.struct.raven storage.type.struct.raven"
                                 },
                                 {
                                     "match": "\\bunion\\b",
-                                    "name": "storage.type.union.raven"
+                                    "name": "keyword.declaration.union.raven storage.type.union.raven"
                                 },
                                 {
                                     "match": "\\benum\\b",
-                                    "name": "storage.type.enum.raven"
+                                    "name": "keyword.declaration.enum.raven storage.type.enum.raven"
                                 },
                                 {
                                     "match": "\\binterface\\b",
-                                    "name": "storage.type.interface.raven"
+                                    "name": "keyword.declaration.interface.raven storage.type.interface.raven"
                                 },
                                 {
                                     "match": "\\bdelegate\\b",
-                                    "name": "storage.type.delegate.raven"
+                                    "name": "keyword.declaration.delegate.raven storage.type.delegate.raven"
                                 },
                                 {
                                     "match": "\\bextension\\b",
-                                    "name": "storage.type.extension.raven"
+                                    "name": "keyword.declaration.extension.raven storage.type.extension.raven"
                                 },
                                 {
                                     "match": "\\btrait\\b",
-                                    "name": "storage.type.trait.raven"
+                                    "name": "keyword.declaration.trait.raven storage.type.trait.raven"
                                 }
                             ]
                         },
@@ -619,24 +693,33 @@
                             "patterns": [
                                 {
                                     "match": "\\b(val|let)\\b",
-                                    "name": "storage.type.variable.readonly.raven"
+                                    "name": "keyword.declaration.variable.readonly.raven storage.type.variable.readonly.raven"
                                 },
                                 {
                                     "match": "\\bvar\\b",
-                                    "name": "storage.type.variable.raven"
+                                    "name": "keyword.declaration.variable.raven storage.type.variable.raven"
                                 },
                                 {
                                     "match": "\\bconst\\b",
-                                    "name": "storage.modifier.const.raven"
+                                    "name": "keyword.declaration.const.raven storage.modifier.const.raven"
                                 },
                                 {
                                     "match": "\\buse\\b",
-                                    "name": "storage.modifier.resource.raven"
+                                    "name": "keyword.declaration.resource.raven storage.modifier.resource.raven"
                                 }
                             ]
                         },
                         "2": {
                             "name": "variable.other.definition.raven"
+                        }
+                    }
+                },
+                {
+                    "name": "meta.label.declaration.raven",
+                    "match": "^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*:",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.label.raven"
                         }
                     }
                 }
@@ -655,6 +738,10 @@
                 {
                     "name": "punctuation.separator.comma.raven",
                     "match": ","
+                },
+                {
+                    "name": "punctuation.accessor.dot.raven",
+                    "match": "\\."
                 },
                 {
                     "name": "punctuation.terminator.statement.raven",
@@ -719,6 +806,19 @@
                     "captures": {
                         "1": {
                             "name": "entity.name.function.constructor.raven"
+                        }
+                    }
+                }
+            ]
+        },
+        "constructorCall": {
+            "patterns": [
+                {
+                    "name": "meta.constructor-call.raven",
+                    "match": "\\b([A-Z][A-Za-z0-9_]*)(?=\\s*(?:<[^\\n<>]*>\\s*)?\\()",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.type.raven"
                         }
                     }
                 }

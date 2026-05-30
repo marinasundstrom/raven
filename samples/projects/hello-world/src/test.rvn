@@ -11,5 +11,5 @@ func A(x: int) -> int {
 }
 
 func Test2() -> IDisposable {
-    return default
+    return default!
 }
