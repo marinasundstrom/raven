@@ -7,8 +7,19 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Tests.Workspaces;
 
-public sealed class IncrementalBinderLifecycleTests
+public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 {
+    private static readonly PrinterOptions s_treeDumpOptions = new()
+    {
+        IncludeNames = true,
+        IncludeTokens = true,
+        IncludeTrivia = true,
+        IncludeSpans = true,
+        IncludeLocations = false,
+        Colorize = false,
+        ExpandListsAsProperties = true
+    };
+
     [Fact]
     public void LocalSymbolQueriesBeforeDiagnostics_DoNotLeaveActiveExecutionLocals()
     {
@@ -355,6 +366,79 @@ public sealed class IncrementalBinderLifecycleTests
             .ShouldBeSameAs(updatedFirstLocal);
         updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
         updatedModel.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_RepeatedSameDocumentEdits_KeepSyntaxAndSemanticQueriesCurrent()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var source = SourceText.From(
+            """
+            class Edited {
+                func Stable(value: int) -> int {
+                    val copy = value
+                    return copy
+                }
+            }
+            """);
+
+        project = project.AddDocument("edited.rav", source, "/tmp/edited.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var initialModel = initialCompilation.GetSemanticModel(initialTree);
+        var initialRoot = initialTree.GetRoot();
+        var initialCopyReference = GetIdentifier(initialRoot.DescendantNodes().OfType<ReturnStatementSyntax>().Single(), "copy");
+        initialModel.GetSymbolInfo(initialCopyReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("copy");
+        initialModel.GetDocumentDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(static diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
+        initialModel.RootBinderCreated.ShouldBeFalse();
+
+        source = ApplyAndAssertStep(
+            workspace,
+            projectId,
+            source.Replace(
+                source.ToString().IndexOf("return copy", StringComparison.Ordinal),
+                "return copy".Length,
+                "return copy + 1"),
+            stepLabel: "edit 1",
+            referenceName: "copy",
+            expectedSymbolName: "copy",
+            expectedType: "int");
+
+        source = ApplyAndAssertStep(
+            workspace,
+            projectId,
+            SourceText.From(source.ToString()
+                .Replace("func Stable(value: int) -> int", "func Stable(value: string) -> string", StringComparison.Ordinal)
+                .Replace("return copy + 1", "return copy", StringComparison.Ordinal)),
+            stepLabel: "edit 2",
+            referenceName: "copy",
+            expectedSymbolName: "copy",
+            expectedType: "string");
+
+        _ = ApplyAndAssertStep(
+            workspace,
+            projectId,
+            SourceText.From(source.ToString()
+                .Replace("val copy = value", "val copy = value\n        val final = copy", StringComparison.Ordinal)
+                .Replace("return copy", "return final", StringComparison.Ordinal)),
+            stepLabel: "edit 3",
+            referenceName: "final",
+            expectedSymbolName: "final",
+            expectedType: "string");
     }
 
     [Fact]
@@ -1597,6 +1681,65 @@ public sealed class IncrementalBinderLifecycleTests
         updatedLifecycle.ParentContainingSymbolKey.ShouldNotBe(initialLifecycle.ParentContainingSymbolKey);
         updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
         updatedModel.RootBinderCreated.ShouldBeFalse();
+    }
+
+    private SourceText ApplyAndAssertStep(
+        RavenWorkspace workspace,
+        ProjectId projectId,
+        SourceText source,
+        string stepLabel,
+        string referenceName,
+        string expectedSymbolName,
+        string expectedType)
+    {
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(document.Id, source);
+        workspace.TryApplyChanges(updatedSolution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        var root = tree.GetRoot();
+        var expectedTree = SyntaxTree.ParseText(source, tree.Options, tree.FilePath);
+
+        output.WriteLine($"==== {stepLabel} source ====");
+        output.WriteLine(source.ToString());
+        output.WriteLine($"==== {stepLabel} workspace syntax tree ====");
+        output.WriteLine(root.GetSyntaxTreeRepresentation(s_treeDumpOptions));
+
+        root.ToFullString().ShouldBe(source.ToString());
+        root.NormalizeWhitespace().ToFullString().ShouldBe(expectedTree.GetRoot().NormalizeWhitespace().ToFullString());
+
+        var model = compilation.GetSemanticModel(tree);
+        var returnStatement = root.DescendantNodes().OfType<ReturnStatementSyntax>().Single();
+        var reference = GetIdentifier(returnStatement, referenceName);
+        var symbol = model.GetSymbolInfo(reference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        symbol.Name.ShouldBe(expectedSymbolName);
+        symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(expectedType);
+
+        var diagnostics = model.GetDocumentDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(static diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ToArray();
+        diagnostics.ShouldBeEmpty(string.Join(Environment.NewLine, diagnostics));
+
+        var coldTree = SyntaxTree.ParseText(source, tree.Options, tree.FilePath);
+        var coldCompilation = Compilation.Create(
+            "cold",
+            [coldTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var coldModel = coldCompilation.GetSemanticModel(coldTree);
+        var coldReference = GetIdentifier(
+            coldTree.GetRoot().DescendantNodes().OfType<ReturnStatementSyntax>().Single(),
+            referenceName);
+        var coldSymbol = coldModel.GetSymbolInfo(coldReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+
+        coldSymbol.Name.ShouldBe(symbol.Name);
+        coldSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(
+            symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        model.RootBinderCreated.ShouldBeFalse();
+
+        return source;
     }
 
     private static IdentifierNameSyntax GetIdentifier(SyntaxNode node, string name)

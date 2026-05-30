@@ -3,11 +3,23 @@ using System;
 using Raven.CodeAnalysis.Text;
 
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
-public class IncrementalSyntaxTreeUpdatesTest
+public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
 {
+    private static readonly PrinterOptions s_treeDumpOptions = new()
+    {
+        IncludeNames = true,
+        IncludeTokens = true,
+        IncludeTrivia = true,
+        IncludeSpans = true,
+        IncludeLocations = false,
+        Colorize = false,
+        ExpandListsAsProperties = true
+    };
+
     private static void AssertIncrementalParse(SourceText original, SourceText updated)
     {
         var originalTree = SyntaxTree.ParseText(original);
@@ -18,6 +30,22 @@ public class IncrementalSyntaxTreeUpdatesTest
         var normalizedActual = incrementalTree.GetRoot().NormalizeWhitespace().ToFullString();
 
         Assert.Equal(normalizedExpected, normalizedActual);
+    }
+
+    private void AssertIncrementalStepMatchesFullParse(SyntaxTree previousTree, SourceText updated, string label, out SyntaxTree incrementalTree)
+    {
+        incrementalTree = previousTree.WithChangedText(updated);
+        var expectedTree = SyntaxTree.ParseText(updated, previousTree.Options, previousTree.FilePath);
+
+        output.WriteLine($"==== {label} source ====");
+        output.WriteLine(updated.ToString());
+        output.WriteLine($"==== {label} incremental tree ====");
+        output.WriteLine(incrementalTree.GetRoot().GetSyntaxTreeRepresentation(s_treeDumpOptions));
+
+        Assert.Equal(updated.ToString(), incrementalTree.GetRoot().ToFullString());
+        Assert.Equal(
+            expectedTree.GetRoot().NormalizeWhitespace().ToFullString(),
+            incrementalTree.GetRoot().NormalizeWhitespace().ToFullString());
     }
 
     [Fact]
@@ -281,5 +309,37 @@ public class IncrementalSyntaxTreeUpdatesTest
             new TextChange(new TextSpan(insertionPosition, 0), "\n    return 2;"));
 
         AssertIncrementalParse(sourceText, changedSourceText);
+    }
+
+    [Fact]
+    public void SequentialSameDocumentEdits_OutputActualTreeAfterEachIncrementalChange()
+    {
+        var text = SourceText.From(
+            """
+            func Main() -> unit {
+                val first = 1
+                val second = first + 1
+                System.Console.WriteLine(second)
+            }
+            """);
+        var tree = SyntaxTree.ParseText(text, path: "/tmp/live.rav");
+
+        var firstEdit = text.Replace(
+            text.ToString().IndexOf("first + 1", StringComparison.Ordinal),
+            "first + 1".Length,
+            "first + 2");
+        AssertIncrementalStepMatchesFullParse(tree, firstEdit, "edit 1", out tree);
+
+        var secondEdit = firstEdit.Replace(
+            firstEdit.ToString().IndexOf("System.Console.WriteLine(second)", StringComparison.Ordinal),
+            "System.Console.WriteLine(second)".Length,
+            "System.Console.WriteLine(first)");
+        AssertIncrementalStepMatchesFullParse(tree, secondEdit, "edit 2", out tree);
+
+        var thirdEdit = secondEdit.Replace(
+            secondEdit.ToString().IndexOf("val second = first + 2", StringComparison.Ordinal),
+            "val second = first + 2".Length,
+            "val second = first + 3\n    val third = second + first");
+        AssertIncrementalStepMatchesFullParse(tree, thirdEdit, "edit 3", out tree);
     }
 }
