@@ -517,12 +517,15 @@ public partial class SemanticModel
             if (node is TypeSyntax)
                 return;
 
+            BindDeclarationAttributes(node, currentBinder);
+
             if (node is GlobalStatementSyntax { Statement: FunctionStatementSyntax globalFunction })
             {
                 var globalFunctionBinder = currentBinder as FunctionBinder
                     ?? GetBinderForDiagnostics(globalFunction, currentBinder) as FunctionBinder;
                 if (globalFunctionBinder is not null)
                 {
+                    BindDeclarationAttributes(globalFunction, globalFunctionBinder);
                     BindFunctionBody(globalFunction, globalFunctionBinder);
                     return;
                 }
@@ -770,6 +773,136 @@ public partial class SemanticModel
                 }
             }
         }
+
+        void BindDeclarationAttributes(SyntaxNode declaration, Binder currentBinder)
+        {
+            var attributeLists = GetDeclarationAttributeLists(declaration);
+            if (attributeLists.Count == 0)
+                return;
+
+            var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
+            foreach (var attributeList in attributeLists)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var attributeListBinder = GetBinderForDiagnostics(attributeList, currentBinder);
+                var owner = ResolveAttributeOwner(declaration, attributeList, currentBinder, attributeListBinder);
+                var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(owner);
+
+                foreach (var attribute in attributeList.Attributes)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (attribute.IsMacroAttribute())
+                    {
+                        _ = GetMacroExpansion(attribute);
+                        continue;
+                    }
+
+                    var attributeBinder = GetBinderForDiagnostics(attribute, attributeListBinder) as AttributeBinder
+                        ?? new AttributeBinder(owner, attributeListBinder);
+                    RemoveCachedBoundNode(attribute);
+                    var boundAttribute = attributeBinder.BindAttribute(attribute);
+                    var data = AttributeDataFactory.Create(boundAttribute, attribute);
+
+                    if (data is not null)
+                    {
+                        AttributeUsageHelper.TryValidateAttribute(
+                            Compilation,
+                            attributeBinder,
+                            owner,
+                            attribute,
+                            data,
+                            defaultTarget,
+                            seenAttributes);
+                    }
+                }
+            }
+        }
+
+        static IReadOnlyList<AttributeListSyntax> GetDeclarationAttributeLists(SyntaxNode declaration)
+            => declaration switch
+            {
+                CompilationUnitSyntax compilationUnit => compilationUnit.AttributeLists,
+                BaseTypeDeclarationSyntax typeDeclaration => typeDeclaration.AttributeLists,
+                DelegateDeclarationSyntax delegateDeclaration => delegateDeclaration.AttributeLists,
+                EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
+                MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
+                FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
+                ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,
+                ParameterlessConstructorDeclarationSyntax initDeclaration => initDeclaration.AttributeLists,
+                InitializerBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.AttributeLists,
+                FinallyDeclarationSyntax finallyDeclaration => finallyDeclaration.AttributeLists,
+                PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.AttributeLists,
+                IndexerDeclarationSyntax indexerDeclaration => indexerDeclaration.AttributeLists,
+                EventDeclarationSyntax eventDeclaration => eventDeclaration.AttributeLists,
+                AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.AttributeLists,
+                FieldDeclarationSyntax fieldDeclaration => fieldDeclaration.AttributeLists,
+                ConstDeclarationSyntax constDeclaration => constDeclaration.AttributeLists,
+                ParameterSyntax parameter => parameter.AttributeLists,
+                ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists,
+                _ => []
+            };
+
+        ISymbol ResolveAttributeOwner(
+            SyntaxNode declaration,
+            AttributeListSyntax attributeList,
+            Binder currentBinder,
+            Binder attributeListBinder)
+        {
+            if (declaration is CompilationUnitSyntax)
+            {
+                if (HasExplicitAttributeTarget(attributeList, "module"))
+                    return Compilation.Module;
+
+                return Compilation.Assembly;
+            }
+
+            if (declaration is PropertyDeclarationSyntax &&
+                HasExplicitAttributeTarget(attributeList, "field") &&
+                currentBinder.BindDeclaredSymbol(declaration) is SourcePropertySymbol { BackingField: { } backingField })
+            {
+                return backingField;
+            }
+
+            if (declaration is EventDeclarationSyntax &&
+                HasExplicitAttributeTarget(attributeList, "field") &&
+                currentBinder.BindDeclaredSymbol(declaration) is SourceEventSymbol { BackingField: { } eventBackingField })
+            {
+                return eventBackingField;
+            }
+
+            if (declaration is FieldDeclarationSyntax fieldDeclaration)
+            {
+                var declarator = fieldDeclaration.Declaration.Declarators.FirstOrDefault();
+                if (declarator is not null &&
+                    currentBinder.BindDeclaredSymbol(declarator) is { } field)
+                {
+                    return field;
+                }
+            }
+
+            if (declaration is ConstDeclarationSyntax constDeclaration)
+            {
+                var declarator = constDeclaration.Declaration.Declarators.FirstOrDefault();
+                if (declarator is not null &&
+                    currentBinder.BindDeclaredSymbol(declarator) is { } constant)
+                {
+                    return constant;
+                }
+            }
+
+            return currentBinder.BindDeclaredSymbol(declaration)
+                ?? attributeListBinder.ContainingSymbol
+                ?? currentBinder.ContainingSymbol
+                ?? Compilation.Assembly;
+        }
+
+        static bool HasExplicitAttributeTarget(AttributeListSyntax attributeList, string targetName)
+            => string.Equals(
+                attributeList.Target?.Identifier.ValueText,
+                targetName,
+                StringComparison.OrdinalIgnoreCase);
 
         Binder GetBinderForDiagnostics(SyntaxNode node, Binder parentBinder)
             => requireCompleteDeclarations

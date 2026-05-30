@@ -208,23 +208,7 @@ delegate Callback()
     {
         const string source = """
 import System.*
-
-class WithProperty
-{
-    static func Value() -> int { return 42 }
-}
-
-class MyAttribute : Attribute
-{
-    init() { }
-
-    var Value: int {
-        get
-        set
-    }
-}
-
-[My(Value: WithProperty.Value())]
+[Obsolete(Environment.GetEnvironmentVariable("RAVEN_ATTRIBUTE_TEST"))]
 class C { }
 """;
 
