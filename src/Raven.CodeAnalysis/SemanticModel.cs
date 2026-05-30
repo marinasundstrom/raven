@@ -451,6 +451,7 @@ public partial class SemanticModel
 
                 cancellationToken.ThrowIfCancellationRequested();
                 phaseStart = Stopwatch.GetTimestamp();
+                AnalyzeIndexerDeclarationDiagnostics(root, diagnosticsBuilder);
                 diagnosticsBuilder.AddRange(_declarationDiagnostics.AsEnumerable());
                 var diagnostics = diagnosticsBuilder
                     .Distinct()
@@ -518,6 +519,8 @@ public partial class SemanticModel
                 return;
 
             BindDeclarationAttributes(node, currentBinder);
+            if (node is TypeDeclarationSyntax typeDeclaration)
+                ValidatePrimaryConstructorParameters(typeDeclaration, currentBinder);
 
             if (node is GlobalStatementSyntax { Statement: FunctionStatementSyntax globalFunction })
             {
@@ -526,6 +529,7 @@ public partial class SemanticModel
                 if (globalFunctionBinder is not null)
                 {
                     BindDeclarationAttributes(globalFunction, globalFunctionBinder);
+                    ValidateFunctionParameters(globalFunction, globalFunctionBinder);
                     BindFunctionBody(globalFunction, globalFunctionBinder);
                     return;
                 }
@@ -537,6 +541,7 @@ public partial class SemanticModel
                     ?? GetBinderForDiagnostics(functionStatement, currentBinder) as FunctionBinder;
                 if (functionBinder is not null)
                 {
+                    ValidateFunctionParameters(functionStatement, functionBinder);
                     BindFunctionBody(functionStatement, functionBinder);
                     return;
                 }
@@ -600,6 +605,7 @@ public partial class SemanticModel
                             ?? GetBinderForDiagnostics(function, childBinder) as FunctionBinder;
                         if (functionBinder is not null)
                         {
+                            ValidateFunctionParameters(function, functionBinder);
                             BindFunctionBody(function, functionBinder);
                             continue;
                         }
@@ -617,6 +623,7 @@ public partial class SemanticModel
                         ?? GetBinderForDiagnostics(childFunctionStatement, childBinder) as FunctionBinder;
                     if (functionBinder is not null)
                     {
+                        ValidateFunctionParameters(childFunctionStatement, functionBinder);
                         BindFunctionBody(childFunctionStatement, functionBinder);
                         continue;
                     }
@@ -672,7 +679,7 @@ public partial class SemanticModel
 
         bool TryTraverseTypeMemberDeclaration(SyntaxNode node, Binder currentBinder)
         {
-            if (currentBinder is not TypeMemberBinder)
+            if (currentBinder is not TypeMemberBinder and not TypeDeclarationBinder)
                 return false;
 
             if (node is MemberDeclarationSyntax originalMember &&
@@ -684,9 +691,88 @@ public partial class SemanticModel
 
             switch (node)
             {
+                case MethodDeclarationSyntax method:
+                    BindMemberAttributes(method, currentBinder);
+                    if (GetDeclarationMemberBinder(currentBinder) is { } methodMemberBinder)
+                    {
+                        var methodBinder = methodMemberBinder.BindMethodDeclaration(method);
+                        CacheBinderForNode(method, methodBinder);
+                        if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
+                            RegisterMethodSymbol(method, methodSymbol);
+                        TraverseMethodLikeBody(method, methodBinder);
+                    }
+
+                    return true;
+
+                case OperatorDeclarationSyntax operatorDeclaration:
+                    BindMemberAttributes(operatorDeclaration, currentBinder);
+                    if (GetDeclarationMemberBinder(currentBinder) is { } operatorMemberBinder)
+                    {
+                        var methodBinder = operatorMemberBinder.BindOperatorDeclaration(operatorDeclaration);
+                        CacheBinderForNode(operatorDeclaration, methodBinder);
+                        TraverseMethodLikeBody(operatorDeclaration, methodBinder);
+                    }
+
+                    return true;
+
+                case ConversionOperatorDeclarationSyntax conversion:
+                    BindMemberAttributes(conversion, currentBinder);
+                    if (GetDeclarationMemberBinder(currentBinder) is { } conversionMemberBinder)
+                    {
+                        var methodBinder = conversionMemberBinder.BindConversionOperatorDeclaration(conversion);
+                        CacheBinderForNode(conversion, methodBinder);
+                        TraverseMethodLikeBody(conversion, methodBinder);
+                    }
+
+                    return true;
+
+                case ConstructorDeclarationSyntax constructor:
+                    BindMemberAttributes(constructor, currentBinder);
+                    if (GetDeclarationMemberBinder(currentBinder) is { } constructorMemberBinder)
+                    {
+                        var methodBinder = constructorMemberBinder.BindConstructorDeclaration(constructor);
+                        CacheBinderForNode(constructor, methodBinder);
+                        TraverseMethodLikeBody(constructor, methodBinder);
+                    }
+
+                    return true;
+
+                case ParameterlessConstructorDeclarationSyntax init:
+                    BindMemberAttributes(init, currentBinder);
+                    if (GetDeclarationMemberBinder(currentBinder) is { } initMemberBinder)
+                    {
+                        var methodBinder = initMemberBinder.BindInitDeclaration(init);
+                        CacheBinderForNode(init, methodBinder);
+                        TraverseParameterlessConstructorBody(init, methodBinder);
+                    }
+
+                    return true;
+
+                case InitializerBlockDeclarationSyntax initializer:
+                    BindMemberAttributes(initializer, currentBinder);
+                    if (GetDeclarationMemberBinder(currentBinder) is { } initializerMemberBinder)
+                    {
+                        var methodBinder = initializerMemberBinder.BindInitBlockDeclaration(initializer);
+                        CacheBinderForNode(initializer, methodBinder);
+                        TraverseInitializerBlockBody(initializer, methodBinder);
+                    }
+
+                    return true;
+
+                case FinallyDeclarationSyntax finalizer:
+                    BindMemberAttributes(finalizer, currentBinder);
+                    if (GetDeclarationMemberBinder(currentBinder) is { } finalizerMemberBinder)
+                    {
+                        var methodBinder = finalizerMemberBinder.BindFinallyDeclaration(finalizer);
+                        CacheBinderForNode(finalizer, methodBinder);
+                        TraverseFinalizerBody(finalizer, methodBinder);
+                    }
+
+                    return true;
+
                 case FieldDeclarationSyntax field:
                     BindMemberAttributes(field, currentBinder);
-                    if (currentBinder is TypeMemberBinder fieldMemberBinder)
+                    if (GetDeclarationMemberBinder(currentBinder) is { } fieldMemberBinder)
                     {
                         fieldMemberBinder.BindFieldDeclaration(field);
                         CacheBinderForNode(field, fieldMemberBinder);
@@ -696,7 +782,7 @@ public partial class SemanticModel
 
                 case ConstDeclarationSyntax constant:
                     BindMemberAttributes(constant, currentBinder);
-                    if (currentBinder is TypeMemberBinder constMemberBinder)
+                    if (GetDeclarationMemberBinder(currentBinder) is { } constMemberBinder)
                     {
                         constMemberBinder.BindConstDeclaration(constant);
                         CacheBinderForNode(constant, constMemberBinder);
@@ -706,7 +792,8 @@ public partial class SemanticModel
 
                 case PropertyDeclarationSyntax property:
                     BindMemberAttributes(property, currentBinder);
-                    var propertyBinder = GetBinderForDiagnostics(property, currentBinder);
+                    var propertyBinder = GetDeclarationMemberBinder(currentBinder)
+                        ?? GetBinderForDiagnostics(property, currentBinder);
                     if (propertyBinder is TypeMemberBinder propertyMemberBinder)
                     {
                         var accessorBinders = propertyMemberBinder.BindPropertyDeclaration(property);
@@ -720,9 +807,11 @@ public partial class SemanticModel
 
                 case IndexerDeclarationSyntax indexer:
                     BindMemberAttributes(indexer, currentBinder);
-                    var indexerBinder = GetBinderForDiagnostics(indexer, currentBinder);
+                    var indexerBinder = GetDeclarationMemberBinder(currentBinder)
+                        ?? GetBinderForDiagnostics(indexer, currentBinder);
                     if (indexerBinder is TypeMemberBinder indexerMemberBinder)
                     {
+                        ValidateRegularParameters(indexer.ParameterList.Parameters, indexerMemberBinder.Diagnostics);
                         var accessorBinders = indexerMemberBinder.BindIndexerDeclaration(indexer);
                         CacheBinderForNode(indexer, indexerMemberBinder);
                         foreach (var (accessor, accessorBinder) in accessorBinders)
@@ -740,6 +829,154 @@ public partial class SemanticModel
 
                 default:
                     return false;
+            }
+        }
+
+        TypeMemberBinder? GetDeclarationMemberBinder(Binder currentBinder)
+            => currentBinder switch
+            {
+                MethodBinder { ParentBinder: TypeMemberBinder parentMemberBinder } => parentMemberBinder,
+                TypeMemberBinder typeMemberBinder => typeMemberBinder,
+                TypeDeclarationBinder { ContainingSymbol: INamedTypeSymbol containingType } => new TypeMemberBinder(currentBinder, containingType),
+                _ => null
+            };
+
+        void TraverseMethodLikeBody(BaseMethodDeclarationSyntax method, MethodBinder methodBinder)
+        {
+            if (method.Body is { } body)
+            {
+                Traverse(body, GetBinderForDiagnostics(body, methodBinder));
+                return;
+            }
+
+            if (method.ExpressionBody is { } expressionBody)
+                Traverse(expressionBody, GetBinderForDiagnostics(expressionBody, methodBinder));
+        }
+
+        void TraverseParameterlessConstructorBody(ParameterlessConstructorDeclarationSyntax init, MethodBinder methodBinder)
+        {
+            if (init.Body is { } body)
+            {
+                Traverse(body, GetBinderForDiagnostics(body, methodBinder));
+                return;
+            }
+
+            if (init.ExpressionBody is { } expressionBody)
+                Traverse(expressionBody, GetBinderForDiagnostics(expressionBody, methodBinder));
+        }
+
+        void TraverseInitializerBlockBody(InitializerBlockDeclarationSyntax initializer, MethodBinder methodBinder)
+            => Traverse(initializer.Body, GetBinderForDiagnostics(initializer.Body, methodBinder));
+
+        void TraverseFinalizerBody(FinallyDeclarationSyntax finalizer, MethodBinder methodBinder)
+            => Traverse(finalizer.Body, GetBinderForDiagnostics(finalizer.Body, methodBinder));
+
+        void ValidatePrimaryConstructorParameters(TypeDeclarationSyntax typeDeclaration, Binder currentBinder)
+        {
+            if (typeDeclaration.ParameterList is not { } parameterList)
+                return;
+
+            foreach (var parameter in parameterList.Parameters)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (parameter.TypeAnnotation is null)
+                {
+                    currentBinder.Diagnostics.ReportParameterTypeAnnotationRequired(
+                        parameter.Identifier.ValueText,
+                        parameter.Identifier.GetLocation());
+                }
+            }
+        }
+
+        void ValidateFunctionParameters(FunctionStatementSyntax function, FunctionBinder functionBinder)
+            => ValidateRegularParameters(function.ParameterList.Parameters, functionBinder.Diagnostics);
+
+        void ValidateRegularParameters(IEnumerable<ParameterSyntax> parameters, DiagnosticBag diagnostics)
+        {
+            foreach (var parameter in parameters)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (parameter.TypeAnnotation is null)
+                {
+                    diagnostics.ReportParameterTypeAnnotationRequired(
+                        parameter.Identifier.ValueText,
+                        parameter.Identifier.GetLocation());
+                }
+
+                if (parameter.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                {
+                    diagnostics.ReportParameterBindingKeywordNotAllowed(
+                        parameter.BindingKeyword.Text,
+                        parameter.Identifier.ValueText,
+                        parameter.BindingKeyword.GetLocation());
+                }
+            }
+        }
+
+        void AnalyzeIndexerDeclarationDiagnostics(
+            SyntaxNode root,
+            ImmutableArray<Diagnostic>.Builder diagnosticsBuilder)
+        {
+            foreach (var indexer in root.DescendantNodes().OfType<IndexerDeclarationSyntax>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                foreach (var parameter in indexer.ParameterList.Parameters)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (parameter.TypeAnnotation is null)
+                    {
+                        diagnosticsBuilder.Add(Diagnostic.Create(
+                            CompilerDiagnostics.ParameterTypeAnnotationRequired,
+                            parameter.Identifier.GetLocation(),
+                            parameter.Identifier.ValueText));
+                    }
+
+                    if (parameter.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                    {
+                        diagnosticsBuilder.Add(Diagnostic.Create(
+                            CompilerDiagnostics.ParameterBindingKeywordNotAllowed,
+                            parameter.BindingKeyword.GetLocation(),
+                            parameter.BindingKeyword.Text,
+                            parameter.Identifier.ValueText));
+                    }
+                }
+
+                var hasAsyncGetter = indexer.AccessorList?.Accessors.Any(static accessor =>
+                    accessor.Kind == SyntaxKind.GetAccessorDeclaration &&
+                    accessor.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword)) == true;
+                if (!hasAsyncGetter)
+                    continue;
+
+                var propertyTypeSyntax = indexer.Type.Type;
+                var typeBinder = GetBinderForIncrementalSemanticQuery(propertyTypeSyntax);
+                var propertyType = typeBinder.BindTypeSyntaxAndReport(propertyTypeSyntax);
+                if (AsyncReturnTypeUtilities.IsValidAsyncReturnType(propertyType, allowErrorType: false))
+                    continue;
+
+                if (propertyType.TypeKind == TypeKind.Error &&
+                    propertyTypeSyntax is IdentifierNameSyntax identifierName)
+                {
+                    diagnosticsBuilder.Add(Diagnostic.Create(
+                        CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext,
+                        propertyTypeSyntax.GetLocation(),
+                        identifierName.Identifier.ValueText));
+                }
+
+                var display = propertyType.TypeKind == TypeKind.Error
+                    ? propertyTypeSyntax.ToString()
+                    : propertyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                var suggestedReturnType = AsyncReturnTypeUtilities.GetSuggestedAsyncReturnTypeDisplay(
+                    Compilation,
+                    propertyType);
+                diagnosticsBuilder.Add(Diagnostic.Create(
+                    CompilerDiagnostics.AsyncReturnTypeMustBeTaskLike,
+                    propertyTypeSyntax.GetLocation(),
+                    display,
+                    suggestedReturnType));
             }
         }
 
@@ -7782,6 +8019,29 @@ public partial class SemanticModel
         => _declarationDiagnostics.ReportAsyncReturnTypeMustBeTaskLike(
             returnType,
             suggestedReturnType,
+            location);
+
+    internal void ReportDeclarationParameterTypeAnnotationRequired(
+        string parameterName,
+        Location location)
+        => _declarationDiagnostics.ReportParameterTypeAnnotationRequired(
+            parameterName,
+            location);
+
+    internal void ReportDeclarationParameterBindingKeywordNotAllowed(
+        string keyword,
+        string parameterName,
+        Location location)
+        => _declarationDiagnostics.ReportParameterBindingKeywordNotAllowed(
+            keyword,
+            parameterName,
+            location);
+
+    internal void ReportDeclarationNameDoesNotExist(
+        string name,
+        Location location)
+        => _declarationDiagnostics.ReportTheNameDoesNotExistInTheCurrentContext(
+            name,
             location);
 
     private void StoreSymbolInfo(SyntaxNode node, ISymbol symbol)

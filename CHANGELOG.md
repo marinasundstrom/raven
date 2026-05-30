@@ -7,6 +7,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed attribute diagnostics so `GetDiagnostics()` reports invalid attribute
   targets, duplicate attributes, and non-constant attribute arguments during the
   diagnostic pass instead of depending on prior `GetAttributes()` queries.
+- Fixed semantic diagnostics so method-like members, primary constructor
+  parameters, indexer parameters, indexer async getters, and constructor
+  initializers are reported during `GetDiagnostics()` even when symbol
+  declarations were already cached.
+- Fixed macro-expanded local declarations so documentation-comment lookup uses
+  the declarator syntax node instead of a token-only span, avoiding crashes when
+  inspecting expanded documents.
 - Fixed member completion after `nameof(...)` so the receiver is treated as
   `string` instead of using the named symbol's type.
 - Fixed target-typed `default` for reference types so it is treated as a

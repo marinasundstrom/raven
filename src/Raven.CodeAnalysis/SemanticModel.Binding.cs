@@ -2794,6 +2794,10 @@ public partial class SemanticModel
                     MemberSignatureDeclarationPass.DeclarePropertySignature(this, propertyDeclaration);
                     break;
 
+                case IndexerDeclarationSyntax indexerDeclaration:
+                    MemberSignatureDeclarationPass.DeclareIndexerSignature(this, indexerDeclaration);
+                    break;
+
                 case EventDeclarationSyntax eventDeclaration:
                     MemberSignatureDeclarationPass.DeclareEventSignature(this, eventDeclaration);
                     break;

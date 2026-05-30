@@ -445,6 +445,62 @@ internal static class MemberSignatureDeclarationPass
         compilation.RegisterPropertySymbol(propertyDeclaration, propertySymbol);
     }
 
+    public static void DeclareIndexerSignature(
+        SemanticModel semanticModel,
+        IndexerDeclarationSyntax indexerDeclaration)
+    {
+        var compilation = semanticModel.Compilation;
+
+        if (!TryGetContainingDeclaredType(compilation, indexerDeclaration, out var containingType))
+            return;
+
+        // Extension and explicit-interface indexers need receiver/interface state
+        // from the full binder before their symbols are reliable.
+        if (containingType is SourceNamedTypeSymbol { IsExtensionDeclaration: true } ||
+            indexerDeclaration.ExplicitInterfaceSpecifier is not null ||
+            indexerDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.PartialKeyword))
+        {
+            return;
+        }
+
+        if (!HasExplicitPropertyTypeAnnotation(indexerDeclaration))
+            return;
+
+        foreach (var parameter in indexerDeclaration.ParameterList.Parameters)
+        {
+            if (parameter.TypeAnnotation is null)
+            {
+                semanticModel.ReportDeclarationParameterTypeAnnotationRequired(
+                    parameter.Identifier.ValueText,
+                    parameter.Identifier.GetLocation());
+            }
+
+            if (parameter.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+            {
+                semanticModel.ReportDeclarationParameterBindingKeywordNotAllowed(
+                    parameter.BindingKeyword.Text,
+                    parameter.Identifier.ValueText,
+                    parameter.BindingKeyword.GetLocation());
+            }
+        }
+
+        var propertyTypeSyntax = indexerDeclaration.Type.Type;
+        var propertyType = ResolveSkeletonType(semanticModel, propertyTypeSyntax, compilation.ErrorTypeSymbol, containingType);
+        if (propertyType.TypeKind == TypeKind.Error &&
+            propertyTypeSyntax is IdentifierNameSyntax identifierName)
+        {
+            semanticModel.ReportDeclarationNameDoesNotExist(
+                identifierName.Identifier.ValueText,
+                propertyTypeSyntax.GetLocation());
+        }
+
+        ReportAsyncAccessorReturnTypeDiagnostics(
+            semanticModel,
+            indexerDeclaration.AccessorList?.Accessors,
+            propertyType,
+            propertyTypeSyntax);
+    }
+
     public static void DeclareFieldSignature(
         SemanticModel semanticModel,
         FieldDeclarationSyntax fieldDeclaration)
@@ -712,6 +768,18 @@ internal static class MemberSignatureDeclarationPass
             return false;
 
         return propertyDeclaration.Type.Type switch
+        {
+            IdentifierNameSyntax { Identifier.IsMissing: true } => false,
+            _ => true
+        };
+    }
+
+    private static bool HasExplicitPropertyTypeAnnotation(IndexerDeclarationSyntax indexerDeclaration)
+    {
+        if (indexerDeclaration.Type.ColonToken.IsMissing)
+            return false;
+
+        return indexerDeclaration.Type.Type switch
         {
             IdentifierNameSyntax { Identifier.IsMissing: true } => false,
             _ => true

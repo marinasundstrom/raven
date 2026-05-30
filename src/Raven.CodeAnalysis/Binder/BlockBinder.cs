@@ -1341,9 +1341,7 @@ partial class BlockBinder : Binder
         var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
             ? variableDeclarator.Identifier.GetLocation()
             : declaringSyntax.GetLocation();
-        var syntaxReference = declaringSyntax is VariableDeclaratorSyntax variableDeclaratorReference
-            ? new SyntaxReference(variableDeclaratorReference.SyntaxTree, variableDeclaratorReference.Identifier.Span)
-            : declaringSyntax.GetReference();
+        var syntaxReference = declaringSyntax.GetReference();
 
         var symbol = new SourceLocalSymbol(
             name,
