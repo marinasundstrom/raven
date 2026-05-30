@@ -58,9 +58,9 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
     ) -> () {
         writer.WriteStartObject()
 
-        for property in value.Properties {
-            writer.WritePropertyName(property.Key)
-            JsonSerializer.Serialize(writer, property.Value, options)
+        for val (key, value) in value.Properties {
+            writer.WritePropertyName(key)
+            JsonSerializer.Serialize(writer, value, options)
         }
 
         writer.WriteEndObject()
