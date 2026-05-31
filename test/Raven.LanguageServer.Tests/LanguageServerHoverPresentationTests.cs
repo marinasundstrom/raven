@@ -1711,6 +1711,47 @@ union Either<T1, T2>(T1 | T2)
     }
 
     [Fact]
+    public void LocalHover_WithGenericConstructorInitializer_UsesExplicitTypeArguments()
+    {
+        const string code = """
+import System.Collections.Generic.*
+
+class JsonValue {
+}
+
+class Reader {
+    func Read() -> unit {
+        val values = List<JsonValue>()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var localDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.Text == "values");
+        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [localSymbol, localDeclarator, semanticModel])!;
+        signature.ShouldBe("val values: List<JsonValue>");
+    }
+
+    [Fact]
     public void ProtectedMethodHover_UsesProtectedKeyword()
     {
         const string code = """

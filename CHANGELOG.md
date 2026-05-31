@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed local symbol queries so inferred generic constructor initializers such as
+  `val values = List<JsonValue>()` return the constructed type instead of an
+  incomplete `List<>` symbol.
 - Fixed `self.` completion inside instance members and instance extension
   members, restored partial property/event definition-implementation merging,
   and re-enabled fast semantic coverage for positional pattern assignments.

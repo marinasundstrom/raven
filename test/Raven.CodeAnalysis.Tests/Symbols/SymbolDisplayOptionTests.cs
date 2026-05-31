@@ -91,6 +91,36 @@ class Sample {
     }
 
     [Fact]
+    public void LocalDeclaredSymbol_GenericConstructorInitializerUsesConstructedType()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+class JsonValue {
+}
+
+class Reader {
+    func Read() -> unit {
+        val values = List<JsonValue>()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "values");
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+
+        Assert.Equal("List<JsonValue>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void TypeInfo_GenericNameSyntaxUsesTypeArguments()
     {
         const string source = """

@@ -299,7 +299,7 @@ partial class BlockBinder : Binder
 
         if (TryGetDeclaredLocal(variableDeclarator, out var existingDeclaredLocal))
         {
-            if (!existingDeclaredLocal.Type.ContainsErrorType() || !allowInitializerBinding)
+            if (IsCompleteLocalDeclarationType(existingDeclaredLocal.Type) || !allowInitializerBinding)
             {
                 RegisterLocalForCurrentLookup(name, existingDeclaredLocal);
                 return existingDeclaredLocal;
@@ -308,7 +308,7 @@ partial class BlockBinder : Binder
 
         if (TryGetSameLocalFromCurrentLookup(name, variableDeclarator, out var sameLocal))
         {
-            if (!sameLocal.Type.ContainsErrorType() || !allowInitializerBinding)
+            if (IsCompleteLocalDeclarationType(sameLocal.Type) || !allowInitializerBinding)
             {
                 RegisterLocalForCurrentLookup(name, sameLocal);
                 OnLocalDeclared(sameLocal, variableDeclarator);
@@ -326,6 +326,9 @@ partial class BlockBinder : Binder
         var isMutable = declaration.BindingKeyword.Kind == SyntaxKind.VarKeyword;
         var isConst = declaration.BindingKeyword.Kind == SyntaxKind.ConstKeyword;
         var type = TryResolveLocalDeclaredTypeShallow(variableDeclarator)
+            ?? (allowInitializerBinding
+                ? TryInferLocalTypeFromExplicitGenericConstructorInitializer(variableDeclarator)
+                : null)
             ?? (allowInitializerBinding || CanInferLocalTypeFromAvailableInitializerDuringDeclarationSeeding(variableDeclarator)
                 ? TryInferLocalTypeFromAvailableInitializer(variableDeclarator)
                 : null)
@@ -339,8 +342,7 @@ partial class BlockBinder : Binder
             return null;
 
         if (existingDeclaredLocal is not null &&
-            existingDeclaredLocal.Type.ContainsErrorType() &&
-            !type.ContainsErrorType())
+            ShouldUpgradeLocalDeclarationType(existingDeclaredLocal.Type, type))
         {
             var upgradedLocal = CreateLocalSymbol(
                 variableDeclarator,
@@ -363,6 +365,33 @@ partial class BlockBinder : Binder
 
         return !initializer.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any() &&
             !initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any();
+    }
+
+    private ITypeSymbol? TryInferLocalTypeFromExplicitGenericConstructorInitializer(VariableDeclaratorSyntax variableDeclarator)
+    {
+        if (variableDeclarator.TypeAnnotation is not null ||
+            variableDeclarator.Initializer?.Value is not InvocationExpressionSyntax
+            {
+                Expression: GenericNameSyntax genericName,
+                TrailingBlock: null
+            } invocation ||
+            invocation.ArgumentList.Arguments.Count != 0)
+        {
+            return null;
+        }
+
+        if (LookupSymbols(genericName.Identifier.ValueText).OfType<IMethodSymbol>().Any())
+            return null;
+
+        var result = BindTypeSyntax(genericName);
+        if (!result.Success || result.ResolvedType is not { } type)
+            return null;
+
+        if (type.TypeKind == TypeKind.Error || IsIncompleteGenericLocalType(type))
+            return null;
+
+        type = EnsureTypeAccessible(type, genericName.GetLocation());
+        return EnsureTypeValidForStorageLocation(type, genericName.GetLocation());
     }
 
     private ITypeSymbol? TryResolveLocalDeclaredTypeShallow(VariableDeclaratorSyntax variableDeclarator)
@@ -664,7 +693,7 @@ partial class BlockBinder : Binder
             name,
             allowDeclaredOnly: declarationOnly &&
                 existingDeclaredLocal is not null &&
-                !existingDeclaredLocal.Type.ContainsErrorType() &&
+                IsCompleteLocalDeclarationType(existingDeclaredLocal.Type) &&
                 !SemanticModel.IsCollectingDiagnostics,
             allowCurrentLookupOnly: declarationOnly,
             out var existingDeclarator))
@@ -904,8 +933,7 @@ partial class BlockBinder : Binder
 
         ILocalSymbol localSymbol;
         if (existingDeclaredLocal is not null &&
-            existingDeclaredLocal.Type.TypeKind == TypeKind.Error &&
-            type.TypeKind != TypeKind.Error)
+            ShouldUpgradeLocalDeclarationType(existingDeclaredLocal.Type, type))
         {
             localSymbol = isFunctionValueAlias && functionValueTargetMethod is not null
                 ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod, recordDeclaration: false)
@@ -945,7 +973,7 @@ partial class BlockBinder : Binder
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
             TryGetDeclaredLocal(variableDeclarator, out var cachedDeclaredLocal) &&
             SymbolEqualityComparer.Default.Equals(cachedDeclarator.Local, cachedDeclaredLocal) &&
-            !cachedDeclarator.Local.Type.ContainsErrorType())
+            IsCompleteLocalDeclarationType(cachedDeclarator.Local.Type))
         {
             RegisterLocalForCurrentLookup(name, cachedDeclarator.Local);
             declarator = cachedDeclarator;
@@ -961,7 +989,7 @@ partial class BlockBinder : Binder
 
         if (allowCurrentLookupOnly &&
             TryGetSameLocalFromCurrentLookup(name, variableDeclarator, out var sameLocal) &&
-            !sameLocal.Type.ContainsErrorType())
+            IsCompleteLocalDeclarationType(sameLocal.Type))
         {
             RegisterLocalForCurrentLookup(name, sameLocal);
             declarator = new BoundVariableDeclarator(sameLocal, null);
@@ -1092,6 +1120,20 @@ partial class BlockBinder : Binder
             reference.SyntaxTree == variableDeclarator.SyntaxTree &&
             (reference.Span == variableDeclarator.Span ||
              reference.Span == variableDeclarator.Identifier.Span));
+
+    private static bool IsCompleteLocalDeclarationType(ITypeSymbol type)
+        => !type.ContainsErrorType() && !IsIncompleteGenericLocalType(type);
+
+    private static bool ShouldUpgradeLocalDeclarationType(ITypeSymbol existingType, ITypeSymbol replacementType)
+        => !replacementType.ContainsErrorType() &&
+           !IsIncompleteGenericLocalType(replacementType) &&
+           (existingType.ContainsErrorType() || IsIncompleteGenericLocalType(existingType));
+
+    private static bool IsIncompleteGenericLocalType(ITypeSymbol type)
+        => type is INamedTypeSymbol { Arity: > 0 } namedType &&
+           (namedType.IsUnboundGenericType ||
+            namedType.TypeArguments.IsDefaultOrEmpty ||
+            namedType.TypeArguments.Length < namedType.TypeParameters.Length);
 
     private static BoundAddressOfExpression? TryGetFixedAddressInitializer(BoundExpression? expression)
     {

@@ -8228,7 +8228,7 @@ public partial class SemanticModel
         }
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
-            !cachedDeclarator.Local.Type.ContainsErrorType())
+            IsCompleteLocalDeclarationType(cachedDeclarator.Local.Type))
         {
             localSymbol = cachedDeclarator.Local;
             return true;
@@ -8255,7 +8255,7 @@ public partial class SemanticModel
         _ = BindContextualRootForSemanticQuery(interestRoot);
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
-            !reboundDeclarator.Local.Type.ContainsErrorType())
+            IsCompleteLocalDeclarationType(reboundDeclarator.Local.Type))
         {
             localSymbol = reboundDeclarator.Local;
             return true;
@@ -8281,7 +8281,7 @@ public partial class SemanticModel
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator cachedDeclarator &&
             (allowErrorType || !cachedDeclarator.Local.Type.ContainsErrorType()))
         {
-            if (!cachedDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding)
+            if (CanReturnLocalDeclarationSymbol(cachedDeclarator.Local.Type, allowErrorType, allowInitializerBinding))
             {
                 localSymbol = cachedDeclarator.Local;
                 return true;
@@ -8321,6 +8321,12 @@ public partial class SemanticModel
                 if (availableLocal is not null &&
                     (allowErrorType || !availableLocal.Type.ContainsErrorType()))
                 {
+                    if (!CanReturnLocalDeclarationSymbol(availableLocal.Type, allowErrorType, allowInitializerBinding))
+                    {
+                        localSymbol = null;
+                        return false;
+                    }
+
                     localSymbol = availableLocal;
                     return true;
                 }
@@ -8347,7 +8353,7 @@ public partial class SemanticModel
             if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator functionExpressionDeclarator &&
                 (allowErrorType || !functionExpressionDeclarator.Local.Type.ContainsErrorType()))
             {
-                if (!functionExpressionDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding)
+                if (CanReturnLocalDeclarationSymbol(functionExpressionDeclarator.Local.Type, allowErrorType, allowInitializerBinding))
                 {
                     localSymbol = functionExpressionDeclarator.Local;
                     return true;
@@ -8362,7 +8368,7 @@ public partial class SemanticModel
 
                 if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundFunctionExpressionDeclarator &&
                     (allowErrorType || !reboundFunctionExpressionDeclarator.Local.Type.ContainsErrorType()) &&
-                    (!reboundFunctionExpressionDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding))
+                    CanReturnLocalDeclarationSymbol(reboundFunctionExpressionDeclarator.Local.Type, allowErrorType, allowInitializerBinding))
                 {
                     localSymbol = reboundFunctionExpressionDeclarator.Local;
                     return true;
@@ -8374,7 +8380,7 @@ public partial class SemanticModel
                 if (TryFindBoundNodeBySyntax(boundRoot, variableDeclarator, out var boundNode) &&
                     boundNode is BoundVariableDeclarator contextualDeclarator &&
                     (allowErrorType || !contextualDeclarator.Local.Type.ContainsErrorType()) &&
-                    (!contextualDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding))
+                    CanReturnLocalDeclarationSymbol(contextualDeclarator.Local.Type, allowErrorType, allowInitializerBinding))
                 {
                     contextualLocal = contextualDeclarator.Local;
                     return true;
@@ -8395,25 +8401,12 @@ public partial class SemanticModel
             if (shallowLocal is not null &&
                 (allowErrorType || !shallowLocal.Type.ContainsErrorType()))
             {
-                if (!shallowLocal.Type.ContainsErrorType() || !allowInitializerBinding)
+                if (CanReturnLocalDeclarationSymbol(shallowLocal.Type, allowErrorType, allowInitializerBinding))
                 {
                     localSymbol = shallowLocal;
                     return true;
                 }
             }
-        }
-
-        var requiresInitializerOwnerBinding =
-            allowInitializerBinding &&
-            allowBindingFallback &&
-            variableDeclarator.TypeAnnotation is null &&
-            variableDeclarator.Initializer is not null;
-
-        if (requiresInitializerOwnerBinding &&
-            TryRebindLocalDeclarationFromInterestRoot(variableDeclarator, allowErrorType: false, out var ownerBoundLocal))
-        {
-            localSymbol = ownerBoundLocal;
-            return true;
         }
 
         if (!allowInitializerBinding || !allowBindingFallback)
@@ -8427,7 +8420,7 @@ public partial class SemanticModel
         if (declaredSymbol is ILocalSymbol declaredLocal &&
             (allowErrorType || !declaredLocal.Type.ContainsErrorType()))
         {
-            if (!declaredLocal.Type.ContainsErrorType() || !allowInitializerBinding)
+            if (CanReturnLocalDeclarationSymbol(declaredLocal.Type, allowErrorType, allowInitializerBinding))
             {
                 localSymbol = declaredLocal;
                 return true;
@@ -8439,7 +8432,7 @@ public partial class SemanticModel
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
             !reboundDeclarator.Local.Type.ContainsErrorType())
         {
-            if (!reboundDeclarator.Local.Type.ContainsErrorType() || !allowInitializerBinding)
+            if (CanReturnLocalDeclarationSymbol(reboundDeclarator.Local.Type, allowErrorType, allowInitializerBinding))
             {
                 localSymbol = reboundDeclarator.Local;
                 return true;
@@ -8501,14 +8494,14 @@ public partial class SemanticModel
 
         if (TryFindBoundNodeBySyntax(reboundRoot, variableDeclarator, out var reboundNode) &&
             reboundNode is BoundVariableDeclarator contextualDeclarator &&
-            (allowErrorType || !contextualDeclarator.Local.Type.ContainsErrorType()))
+            CanReturnLocalDeclarationSymbol(contextualDeclarator.Local.Type, allowErrorType, allowInitializerBinding: true))
         {
             localSymbol = GetCanonicalLocalDeclarationSymbol(variableDeclarator, contextualDeclarator.Local);
             return true;
         }
 
         if (TryGetCachedBoundNode(variableDeclarator) is BoundVariableDeclarator reboundDeclarator &&
-            (allowErrorType || !reboundDeclarator.Local.Type.ContainsErrorType()))
+            CanReturnLocalDeclarationSymbol(reboundDeclarator.Local.Type, allowErrorType, allowInitializerBinding: true))
         {
             localSymbol = GetCanonicalLocalDeclarationSymbol(variableDeclarator, reboundDeclarator.Local);
             return true;
@@ -8526,10 +8519,28 @@ public partial class SemanticModel
             ?? (SyntaxNode)variableDeclarator;
         var binder = GetBinderForIncrementalSemanticQuery(binderRoot);
         return TryGetNearestBlockBinder(binder, out var blockBinder) &&
-               blockBinder.TryGetDeclaredLocalForSemanticQuery(variableDeclarator, out var declaredLocal)
+               blockBinder.TryGetDeclaredLocalForSemanticQuery(variableDeclarator, out var declaredLocal) &&
+               (IsCompleteLocalDeclarationType(declaredLocal.Type) || !IsCompleteLocalDeclarationType(localSymbol.Type))
             ? declaredLocal
             : localSymbol;
     }
+
+    private static bool CanReturnLocalDeclarationSymbol(
+        ITypeSymbol type,
+        bool allowErrorType,
+        bool allowInitializerBinding)
+        => !allowInitializerBinding
+            ? allowErrorType || !type.ContainsErrorType()
+            : IsCompleteLocalDeclarationType(type);
+
+    private static bool IsCompleteLocalDeclarationType(ITypeSymbol type)
+        => !type.ContainsErrorType() && !IsIncompleteGenericLocalType(type);
+
+    private static bool IsIncompleteGenericLocalType(ITypeSymbol type)
+        => type is INamedTypeSymbol { Arity: > 0 } namedType &&
+           (namedType.IsUnboundGenericType ||
+            namedType.TypeArguments.IsDefaultOrEmpty ||
+            namedType.TypeArguments.Length < namedType.TypeParameters.Length);
 
     private void BindPrecedingGlobalStatementsForScope(
         SyntaxNode root,
