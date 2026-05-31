@@ -505,6 +505,62 @@ func Main() -> unit { }
     }
 
     [Fact]
+    public async Task DocumentCompilerDiagnostics_UseDeclarationNullableDisposableInitializer_ReportsOnLocalNameAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var filePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(filePath, """
+import System.*
+
+func Test2() -> IDisposable? {
+    return null
+}
+
+func test() {
+    use test = Test2()
+}
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        _ = await store.UpsertDocumentAsync(uri, File.ReadAllText(filePath));
+
+        var result = await store.TryGetDocumentCompilerDiagnosticsAsync(uri, shouldSkipWork: null, CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        var diagnostic = result.Diagnostics.Single(diagnostic =>
+            diagnostic.Code?.String == "RAV1503");
+        diagnostic.Range.Start.Line.ShouldBe(7);
+        diagnostic.Range.Start.Character.ShouldBe(8);
+        diagnostic.Range.End.Line.ShouldBe(7);
+        diagnostic.Range.End.Character.ShouldBe(12);
+        diagnostic.Message.ShouldContain("IDisposable?");
+        diagnostic.Message.ShouldContain("IDisposable");
+    }
+
+    [Fact]
     public void Initialize_ProjectOpenFailure_IsNotRetriedUntilFilesChange()
     {
         Directory.CreateDirectory(_tempRoot);

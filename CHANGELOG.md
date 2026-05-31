@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed `use` declarations so nullable disposable targets such as
+  `IDisposable?` are rejected and invalid resources are not registered for
+  disposal.
 - Fixed semantic symbol info for callable instance members so hovering or
   analyzing the invoked name in `callback()` returns the member symbol instead
   of the delegate `Invoke` method.

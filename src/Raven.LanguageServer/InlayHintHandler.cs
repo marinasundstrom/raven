@@ -623,6 +623,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             {
                 continue;
             }
+
             if (!TryFormatType(local.Type, out var typeDisplay))
             {
                 continue;

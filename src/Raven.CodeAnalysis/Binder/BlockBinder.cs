@@ -909,19 +909,18 @@ partial class BlockBinder : Binder
             var expectedTargetDisplay = UseDisposalUtilities.GetExpectedUseTargetDisplay(Compilation, preferAsyncDispose);
 
             var initializerSupportsDispose = initializerValueType is not null &&
-                initializerValueType.TypeKind != TypeKind.Error &&
-                UseDisposalUtilities.SupportsUseDisposal(Compilation, initializerValueType, preferAsyncDispose);
+                IsValidUseDeclarationTarget(initializerValueType, preferAsyncDispose);
 
             if (!initializerSupportsDispose && initializerValueType is not null && initializerValueType.TypeKind != TypeKind.Error)
             {
                 ReportCannotConvertFromTypeToType(
                     initializerValueType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     expectedTargetDisplay,
-                    initializer?.Value.GetLocation() ?? variableDeclarator.Identifier.GetLocation());
+                    variableDeclarator.Identifier.GetLocation());
                 shouldDispose = false;
             }
             else if (type.TypeKind != TypeKind.Error &&
-                     !UseDisposalUtilities.SupportsUseDisposal(Compilation, type, preferAsyncDispose))
+                     !IsValidUseDeclarationTarget(type, preferAsyncDispose))
             {
                 ReportCannotConvertFromTypeToType(
                     type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -1406,6 +1405,10 @@ partial class BlockBinder : Binder
     private void RegisterLocalForCurrentLookup(string name, ILocalSymbol local)
         => _locals[name] = (local, _scopeDepth);
 
+    private bool IsValidUseDeclarationTarget(ITypeSymbol type, bool preferAsync)
+        => !type.IsNullable &&
+           UseDisposalUtilities.SupportsUseDisposal(Compilation, type, preferAsync);
+
     protected virtual void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
         => _declarationState.AddDeclaredLocal(local, declaringSyntax);
 
@@ -1818,8 +1821,12 @@ partial class BlockBinder : Binder
                 {
                     RegisterLocalForCurrentLookup(declarator.Local.Name, declarator.Local);
 
-                    if (localDeclaration.IsUsing)
+                    if (localDeclaration.IsUsing &&
+                        declarator.FixedAddressInitializer is null &&
+                        IsValidUseDeclarationTarget(declarator.Local.Type, PrefersAsyncUseDisposal()))
+                    {
                         RegisterLocalToDisposeForCurrentScope(declarator.Local);
+                    }
                 }
                 break;
 
