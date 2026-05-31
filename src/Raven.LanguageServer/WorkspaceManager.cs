@@ -58,6 +58,7 @@ internal sealed class WorkspaceManager
     private readonly ImmutableArray<CodeRefactoringProvider> _builtInCodeRefactoringProviders;
     private readonly Dictionary<string, ProjectId> _projectsByRoot = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<DocumentUri, OwnedDocument> _documents = new();
+    private readonly ConcurrentDictionary<DocumentUri, byte> _openDocumentUris = new();
     private readonly ConcurrentDictionary<ProjectId, CancellationTokenSource> _pendingMacroConsumerRefreshes = new();
     private readonly Dictionary<string, FailedProjectOpen> _failedProjectOpens = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _semanticDiagnosticsBlockedRoots = new(StringComparer.OrdinalIgnoreCase);
@@ -105,6 +106,7 @@ internal sealed class WorkspaceManager
             _editorConfigDiagnosticOptionsByProject.Clear();
             _fallbackProjectId = null;
             _documents.Clear();
+            _openDocumentUris.Clear();
             var loadedProjects = new Dictionary<string, ProjectId>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var root in roots)
@@ -126,7 +128,7 @@ internal sealed class WorkspaceManager
         }
     }
 
-    public async Task ReloadForWatchedFilesAsync(IEnumerable<FileEvent> changes)
+    public Task<IReadOnlyList<DocumentUri>> ReloadForWatchedFilesAsync(IEnumerable<FileEvent> changes)
     {
         ArgumentNullException.ThrowIfNull(changes);
 
@@ -135,14 +137,28 @@ internal sealed class WorkspaceManager
             .ToArray();
 
         if (relevantChanges.Length == 0 || _workspaceRoots.Length == 0)
-            return;
+            return Task.FromResult<IReadOnlyList<DocumentUri>>([]);
 
         lock (_gate)
         {
+            var affectedProjectIds = new HashSet<ProjectId>();
+            var requiresWorkspaceReload = false;
+            foreach (var change in relevantChanges)
+            {
+                if (!TryApplyKnownSourceFileChange(change, affectedProjectIds))
+                    requiresWorkspaceReload = true;
+            }
+
+            if (!requiresWorkspaceReload)
+                return Task.FromResult(GetOpenDocumentUrisForProjects(affectedProjectIds));
+
             _failedProjectOpens.Clear();
             var openDocuments = new List<ReloadDocumentState>();
             foreach (var pair in _documents)
             {
+                if (!_openDocumentUris.ContainsKey(pair.Key))
+                    continue;
+
                 var document = _workspace.CurrentSolution.GetDocument(pair.Value.DocumentId);
                 if (document is null)
                     continue;
@@ -159,6 +175,8 @@ internal sealed class WorkspaceManager
             foreach (var openDocument in openDocuments)
                 _ = UpsertDocument(openDocument.Uri, SourceText.From(openDocument.Text));
 #pragma warning restore VSTHRD103
+
+            return Task.FromResult<IReadOnlyList<DocumentUri>>(openDocuments.Select(static document => document.Uri).ToArray());
         }
     }
 
@@ -226,7 +244,7 @@ internal sealed class WorkspaceManager
                 return [];
 
             _workspace.TryApplyChanges(solution);
-            return _documents.Keys.ToArray();
+            return _openDocumentUris.Keys.ToArray();
         }
     }
 
@@ -601,9 +619,176 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    private bool TryApplyKnownSourceFileChange(FileEvent change, ISet<ProjectId> affectedProjectIds)
+    {
+        var path = change.Uri?.GetFileSystemPath();
+        if (string.IsNullOrWhiteSpace(path))
+            return true;
+
+        var normalizedPath = NormalizePath(path);
+        if (!RavenFileExtensions.HasRavenExtension(normalizedPath))
+            return false;
+
+        if (change.Type == FileChangeType.Changed &&
+            IsOpenDocumentPath(normalizedPath))
+        {
+            return true;
+        }
+
+        if (change.Type == FileChangeType.Changed)
+            return TryApplyKnownSourceFileTextChange(normalizedPath, affectedProjectIds);
+
+        if (change.Type == FileChangeType.Deleted)
+            return TryApplyKnownSourceFileDelete(normalizedPath, affectedProjectIds);
+
+        if (change.Type == FileChangeType.Created)
+            return TryApplyKnownSourceFileCreate(normalizedPath, affectedProjectIds);
+
+        return false;
+    }
+
+    private bool TryApplyKnownSourceFileCreate(string normalizedPath, ISet<ProjectId> affectedProjectIds)
+    {
+        if (!File.Exists(normalizedPath))
+            return true;
+
+        if (!TryFindProjectIncludingSourceFile(normalizedPath, out var projectId))
+            return false;
+
+        var sourceText = SourceText.From(File.ReadAllText(normalizedPath));
+        var solution = _workspace.CurrentSolution;
+        var documentId = DocumentId.CreateNew(projectId);
+
+        if (TryFindExistingDocument(
+            solution,
+            normalizedPath,
+            out var existingDocument,
+            out var existingProjectId))
+        {
+            sourceText = IsOpenDocumentPath(normalizedPath) ? existingDocument.Text : sourceText;
+            if (existingProjectId == projectId)
+            {
+                documentId = existingDocument.Id;
+                if (!HasSameText(existingDocument, sourceText))
+                    solution = solution.WithDocumentText(existingDocument.Id, sourceText);
+            }
+            else
+            {
+                solution = solution.RemoveDocument(existingDocument.Id);
+                solution = solution.AddDocument(
+                    documentId,
+                    Path.GetFileName(normalizedPath),
+                    sourceText,
+                    normalizedPath);
+                affectedProjectIds.Add(existingProjectId);
+            }
+        }
+        else
+        {
+            solution = solution.AddDocument(
+                documentId,
+                Path.GetFileName(normalizedPath),
+                sourceText,
+                normalizedPath);
+        }
+
+        _workspace.TryApplyChanges(solution);
+        var addedDocument = _workspace.CurrentSolution.GetDocument(documentId);
+        if (addedDocument is not null)
+        {
+            UpdateTrackedDocumentForPath(
+                normalizedPath,
+                documentId,
+                projectId,
+                addedDocument.Version,
+                isProjectDocument: true);
+        }
+
+        affectedProjectIds.Add(projectId);
+        RefreshMacroConsumersForProject(projectId, defer: false);
+        return true;
+    }
+
+    private bool TryApplyKnownSourceFileTextChange(string normalizedPath, ISet<ProjectId> affectedProjectIds)
+    {
+        if (!File.Exists(normalizedPath))
+            return TryApplyKnownSourceFileDelete(normalizedPath, affectedProjectIds);
+
+        if (!TryFindExistingDocument(
+            _workspace.CurrentSolution,
+            normalizedPath,
+            out var document,
+            out var ownerProjectId))
+        {
+            return false;
+        }
+
+        var sourceText = SourceText.From(File.ReadAllText(normalizedPath));
+        if (HasSameText(document, sourceText))
+            return true;
+
+        var solution = _workspace.CurrentSolution.WithDocumentText(document.Id, sourceText);
+        _workspace.TryApplyChanges(solution);
+        UpdateTrackedDocumentVersion(document.Id, ownerProjectId);
+        affectedProjectIds.Add(ownerProjectId);
+        RefreshMacroConsumersForProject(ownerProjectId, defer: false);
+        return true;
+    }
+
+    private bool TryFindProjectIncludingSourceFile(string normalizedPath, out ProjectId projectId)
+    {
+        foreach (var project in _workspace.CurrentSolution.Projects)
+        {
+            if (string.IsNullOrWhiteSpace(project.FilePath) || !File.Exists(project.FilePath))
+                continue;
+
+            try
+            {
+                var evaluation = MsBuildProjectEvaluator.Evaluate(project.FilePath, RavenProjectConventions.Default, project.TargetFramework);
+                if (evaluation.Documents.Any(document =>
+                    !string.IsNullOrWhiteSpace(document.FilePath) &&
+                    string.Equals(NormalizePath(document.FilePath), normalizedPath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    projectId = project.Id;
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(
+                    ex,
+                    "Failed to evaluate project '{ProjectFilePath}' while handling created source file '{SourceFilePath}'.",
+                    project.FilePath,
+                    normalizedPath);
+            }
+        }
+
+        projectId = default;
+        return false;
+    }
+
+    private bool TryApplyKnownSourceFileDelete(string normalizedPath, ISet<ProjectId> affectedProjectIds)
+    {
+        if (!TryFindExistingDocument(
+            _workspace.CurrentSolution,
+            normalizedPath,
+            out var document,
+            out var ownerProjectId))
+        {
+            return true;
+        }
+
+        var solution = _workspace.CurrentSolution.RemoveDocument(document.Id);
+        _workspace.TryApplyChanges(solution);
+        RemoveTrackedDocuments(document.Id, normalizedPath);
+        affectedProjectIds.Add(ownerProjectId);
+        RefreshMacroConsumersForProject(ownerProjectId, defer: false);
+        return true;
+    }
+
     private bool IsOpenDocumentPath(string normalizedPath)
     {
-        foreach (var uri in _documents.Keys)
+        foreach (var uri in _openDocumentUris.Keys)
         {
             var openPath = uri.GetFileSystemPath();
             if (!string.IsNullOrWhiteSpace(openPath) &&
@@ -672,6 +857,8 @@ internal sealed class WorkspaceManager
     {
         var filePath = uri.GetFileSystemPath();
         var name = Path.GetFileName(filePath) ?? filePath ?? $"document{RavenFileExtensions.Raven}";
+
+        _openDocumentUris[uri] = 0;
 
         lock (_gate)
         {
@@ -809,6 +996,87 @@ internal sealed class WorkspaceManager
         return false;
     }
 
+    private static bool TryFindExistingDocument(
+        Solution solution,
+        string normalizedFilePath,
+        out Document document,
+        out ProjectId ownerProjectId)
+    {
+        foreach (var project in solution.Projects)
+        {
+            var match = project.Documents.FirstOrDefault(doc =>
+                !string.IsNullOrWhiteSpace(doc.FilePath) &&
+                string.Equals(NormalizePath(doc.FilePath), normalizedFilePath, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                document = match;
+                ownerProjectId = project.Id;
+                return true;
+            }
+        }
+
+        document = null!;
+        ownerProjectId = default;
+        return false;
+    }
+
+    private void UpdateTrackedDocumentVersion(DocumentId documentId, ProjectId ownerProjectId)
+    {
+        var updatedDocument = _workspace.CurrentSolution.GetDocument(documentId);
+        if (updatedDocument is null)
+            return;
+
+        foreach (var pair in _documents.ToArray())
+        {
+            if (pair.Value.DocumentId == documentId)
+            {
+                _documents[pair.Key] = new OwnedDocument(
+                    documentId,
+                    ownerProjectId,
+                    updatedDocument.Version,
+                    IsProjectDocument: pair.Value.IsProjectDocument);
+            }
+        }
+    }
+
+    private void UpdateTrackedDocumentForPath(
+        string normalizedPath,
+        DocumentId documentId,
+        ProjectId ownerProjectId,
+        VersionStamp version,
+        bool isProjectDocument)
+    {
+        foreach (var pair in _documents.ToArray())
+        {
+            var openPath = pair.Key.GetFileSystemPath();
+            if (pair.Value.DocumentId == documentId ||
+                (!string.IsNullOrWhiteSpace(openPath) &&
+                 string.Equals(NormalizePath(openPath), normalizedPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                _documents[pair.Key] = new OwnedDocument(
+                    documentId,
+                    ownerProjectId,
+                    version,
+                    IsProjectDocument: isProjectDocument);
+            }
+        }
+    }
+
+    private void RemoveTrackedDocuments(DocumentId documentId, string normalizedPath)
+    {
+        foreach (var pair in _documents.ToArray())
+        {
+            var openPath = pair.Key.GetFileSystemPath();
+            if (pair.Value.DocumentId == documentId ||
+                (!string.IsNullOrWhiteSpace(openPath) &&
+                 string.Equals(NormalizePath(openPath), normalizedPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                _documents.TryRemove(pair.Key, out _);
+                _openDocumentUris.TryRemove(pair.Key, out _);
+            }
+        }
+    }
+
     public bool TryGetDocument(DocumentUri uri, out Document? document)
     {
         if (TryResolveOwnedDocument(uri, out var ownedDocument))
@@ -828,13 +1096,25 @@ internal sealed class WorkspaceManager
             if (!TryResolveOwnedDocument(uri, out var ownedDocument))
                 return [];
 
-            return _documents
-                .Where(pair =>
-                    pair.Value.ProjectId == ownedDocument.ProjectId &&
-                    (!excludeSelf || pair.Key != uri))
-                .Select(static pair => pair.Key)
+            return _openDocumentUris.Keys
+                .Where(openUri =>
+                    (!excludeSelf || openUri != uri) &&
+                    _documents.TryGetValue(openUri, out var openDocument) &&
+                    openDocument.ProjectId == ownedDocument.ProjectId)
                 .ToArray();
         }
+    }
+
+    private IReadOnlyList<DocumentUri> GetOpenDocumentUrisForProjects(IReadOnlySet<ProjectId> projectIds)
+    {
+        if (projectIds.Count == 0)
+            return [];
+
+        return _openDocumentUris.Keys
+            .Where(uri =>
+                _documents.TryGetValue(uri, out var openDocument) &&
+                projectIds.Contains(openDocument.ProjectId))
+            .ToArray();
     }
 
     public bool TryGetDocumentContext(DocumentUri uri, out Document? document, out Compilation? compilation)
@@ -1229,6 +1509,8 @@ internal sealed class WorkspaceManager
 
     public bool RemoveDocument(DocumentUri uri)
     {
+        _openDocumentUris.TryRemove(uri, out _);
+
         if (!_documents.TryRemove(uri, out var ownedDocument))
             return false;
 

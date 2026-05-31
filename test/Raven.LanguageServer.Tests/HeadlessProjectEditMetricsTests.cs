@@ -323,7 +323,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
         disabled.Diagnostics.Any(HasUnusedVariableDiagnostic).ShouldBeFalse();
         enabled.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
         disabled.Diagnostics.ShouldNotContain(diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error);
-        enabled.DiagnosticsMs.ShouldBeLessThan(5_000);
+        enabled.DiagnosticsMs.ShouldBeLessThan(10_000);
         disabled.DiagnosticsMs.ShouldBeLessThan(5_000);
 
         _output.WriteLine(

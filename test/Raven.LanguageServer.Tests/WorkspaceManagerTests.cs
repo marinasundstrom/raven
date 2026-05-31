@@ -678,6 +678,275 @@ func Main() -> unit { }
     }
 
     [Fact]
+    public async Task ReloadForWatchedFiles_ClosedSourceChange_UpdatesKnownDocumentWithoutReloadAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(sourcePath, """
+val value = 1
+""");
+
+        var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        manager.TryGetDocument(uri, out var initialDocument).ShouldBeTrue();
+        var initialText = await initialDocument!.GetTextAsync();
+        initialText.ToString().ShouldBe("""
+val value = 1
+""");
+
+        WriteRavenFile(sourcePath, """
+val value = 2
+""");
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = uri,
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        manager.TryGetDocument(uri, out var document).ShouldBeTrue();
+        var text = await document!.GetTextAsync();
+        text.ToString().ShouldBe("""
+val value = 2
+""");
+    }
+
+    [Fact]
+    public async Task ReloadForWatchedFiles_ClosedSourceDelete_RemovesKnownDocumentWithoutReloadAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(sourcePath, """
+val value = 1
+""");
+
+        var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        manager.TryGetDocument(uri, out _).ShouldBeTrue();
+
+        File.Delete(sourcePath);
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = uri,
+                Type = FileChangeType.Deleted
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        manager.TryGetDocument(uri, out _).ShouldBeFalse();
+        manager.GetProjectsSnapshot()
+            .Single()
+            .Documents
+            .Any(document =>
+                !string.IsNullOrWhiteSpace(document.FilePath) &&
+                string.Equals(Path.GetFullPath(document.FilePath), sourcePath, StringComparison.OrdinalIgnoreCase))
+            .ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ReloadForWatchedFiles_SourceCreateInsideProjectGlob_AddsDocumentWithoutReloadAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var mainPath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(mainPath, """
+val value = 1
+""");
+
+        var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        _ = await manager.UpsertDocumentAsync(mainUri, File.ReadAllText(mainPath));
+
+        var sourcePath = Path.Combine(_tempRoot, "src", "created.rvn");
+        WriteRavenFile(sourcePath, """
+func Created() -> int => 2
+""");
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+
+        var openDocumentsToRefresh = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = uri,
+                Type = FileChangeType.Created
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        openDocumentsToRefresh.ShouldBe([mainUri]);
+        manager.TryGetDocument(uri, out var document).ShouldBeTrue();
+        var text = await document!.GetTextAsync();
+        text.ToString().ShouldBe("""
+func Created() -> int => 2
+""");
+    }
+
+    [Fact]
+    public async Task ReloadForWatchedFiles_OpenSourceCreateInsideProjectGlob_BecomesProjectBackedAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), """
+val value = 1
+""");
+
+        var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var sourcePath = Path.Combine(_tempRoot, "src", "created.rvn");
+        WriteRavenFile(sourcePath, """
+func Created() -> int => 2
+""");
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(sourcePath));
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = uri,
+                Type = FileChangeType.Created
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        manager.RemoveDocument(uri).ShouldBeTrue();
+        manager.TryGetDocument(uri, out var document).ShouldBeTrue();
+        document!.FilePath.ShouldBe(sourcePath);
+    }
+
+    [Fact]
+    public async Task ReloadForWatchedFiles_SourceCreateOutsideProjectGlob_ReloadsWorkspaceAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), """
+val value = 1
+""");
+
+        var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var sourcePath = Path.Combine(_tempRoot, "outside.rvn");
+        WriteRavenFile(sourcePath, """
+func Outside() -> int => 2
+""");
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(sourcePath),
+                Type = FileChangeType.Created
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(2);
+    }
+
+    [Fact]
     public void ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges_UpdatesProjectOptionsWithoutReload()
     {
         Directory.CreateDirectory(_tempRoot);

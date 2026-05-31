@@ -38,11 +38,14 @@ internal sealed class DidChangeWatchedFilesHandler : DidChangeWatchedFilesHandle
     {
         try
         {
-            var openDocumentsToRefresh = _workspaceManager.ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges(request.Changes);
-            if (openDocumentsToRefresh.Count > 0)
-                await PublishDiagnosticsForOpenDocumentsAsync(openDocumentsToRefresh, cancellationToken).ConfigureAwait(false);
+            var openDocumentsToRefresh = new HashSet<LspDocumentUri>(
+                await _workspaceManager.ReloadForWatchedFilesAsync(request.Changes).ConfigureAwait(false));
 
-            await _workspaceManager.ReloadForWatchedFilesAsync(request.Changes);
+            foreach (var uri in _workspaceManager.ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges(request.Changes))
+                openDocumentsToRefresh.Add(uri);
+
+            if (openDocumentsToRefresh.Count > 0)
+                await PublishDiagnosticsForOpenDocumentsAsync(openDocumentsToRefresh.ToArray(), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

@@ -10,6 +10,13 @@ stay responsive, diagnostics should be correct and eventually consistent, and
 the language server should present compiler-owned answers rather than owning
 semantic truth.
 
+For VS Code this should feel like the C# extension: saving a document, adding a
+source file, or deleting a source file should update the live project snapshot
+without a full workspace reset when the affected project can be identified.
+Broader project-system changes such as references, package restore inputs, and
+target-framework changes may refresh more state, but should still invalidate an
+affected project graph rather than rebuilding unrelated projects by default.
+
 ## Ownership
 
 `Raven.CodeAnalysis` owns semantic truth.
@@ -217,11 +224,14 @@ cheap:
   complete while hot paths become cheaper.
 - Watched-file handling should invalidate selectively. Saving an open source
   document must not reset the workspace because the text-document snapshot is
-  already authoritative. Project files, project references, NuGet/package
-  references, assembly references, `.editorconfig`, and closed-file create/delete
-  events may require broader project-graph or option invalidation, but those
-  paths should update the affected project state instead of rebuilding every
-  semantic cache by default.
+  already authoritative. Closed source-file changes and deletes should update
+  known documents in the current solution without reopening projects. Source
+  creates should re-evaluate only candidate project membership and add the
+  document to the affected project when possible. Project files, project
+  references, NuGet/package references, assembly references, `.editorconfig`,
+  and unmatched source-file create events may require broader project-graph or
+  option invalidation, but those paths should update the affected project state
+  instead of rebuilding every semantic cache by default.
 - Declaration-binder recovery is still explicit for several declaration syntax
   forms. Over time this should converge on one declaration-owner recovery path
   instead of per-declaration fallbacks.
