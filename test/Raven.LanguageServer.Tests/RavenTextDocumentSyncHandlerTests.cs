@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Reflection;
@@ -123,6 +124,268 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     public void DocumentCommitDebounce_LeavesTimeToTypeBeforeUpdatingWorkspaceSnapshot()
     {
         RavenTextDocumentSyncHandler.DocumentCommitDebounceMilliseconds.ShouldBe(600);
+    }
+
+    [Fact]
+    public void RelatedDocumentCompilerDiagnosticsAfterEdit_UsesInteractiveDelay()
+    {
+        RavenTextDocumentSyncHandler.RelatedDocumentCompilerDiagnosticsAfterEditDelayMilliseconds
+            .ShouldBeLessThan(RavenTextDocumentSyncHandler.RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds);
+    }
+
+    [Fact]
+    public void HasAdvertisedInlayHintRefreshSupport_ReadsClientRefreshSupport()
+    {
+        RavenTextDocumentSyncHandler.HasAdvertisedInlayHintRefreshSupport(null).ShouldBeFalse();
+        RavenTextDocumentSyncHandler.HasAdvertisedInlayHintRefreshSupport(new ClientCapabilities()).ShouldBeFalse();
+        RavenTextDocumentSyncHandler.HasAdvertisedInlayHintRefreshSupport(new ClientCapabilities
+        {
+            Workspace = new WorkspaceClientCapabilities
+            {
+                InlayHint = new InlayHintWorkspaceClientCapabilities
+                {
+                    RefreshSupport = true
+                }
+            }
+        }).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task RelatedDocumentCompilerDiagnosticsAfterEdit_ReplacesExistingPendingPublishAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var sourceRoot = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceRoot);
+        var projectPath = Path.Combine(_tempRoot, "App.rvnproj");
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <RavenCompile Include="src/**/*.rvn" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var mainPath = Path.Combine(sourceRoot, "main.rvn");
+        var testPath = Path.Combine(sourceRoot, "test.rvn");
+        await File.WriteAllTextAsync(mainPath, """
+            import Utilities.*
+
+            func Main() -> unit {
+                use test = Test2()
+            }
+            """);
+        await File.WriteAllTextAsync(testPath, """
+            namespace Utilities
+
+            func Test2() -> IDisposable? {
+                return null
+            }
+            """);
+
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentWithResultAsync(mainUri, SourceText.From(await File.ReadAllTextAsync(mainPath)));
+        _ = await store.UpsertDocumentWithResultAsync(testUri, SourceText.From(await File.ReadAllTextAsync(testPath)));
+        var handler = new RavenTextDocumentSyncHandler(
+            store,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+
+        GetDocumentVersions(handler)[mainUri] = 1;
+        var scheduleRelatedDiagnostics = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "ScheduleRelatedOpenDocumentCompilerDiagnostics",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        scheduleRelatedDiagnostics.ShouldNotBeNull();
+
+        scheduleRelatedDiagnostics!.Invoke(handler, [testUri, 60_000, false, "test"]);
+        var pendingDiagnostics = GetPendingDiagnostics(handler);
+        pendingDiagnostics.TryGetValue(mainUri, out var first).ShouldBeTrue();
+        first!.Id.ShouldBe(1);
+        first.Reason.ShouldBe("test");
+        first.ExpectedSession.ShouldBe(1);
+        first.ExpectedVersion.ShouldBe(1);
+
+        scheduleRelatedDiagnostics.Invoke(handler, [testUri, 60_000, true, "test"]);
+        pendingDiagnostics.TryGetValue(mainUri, out var second).ShouldBeTrue();
+
+        second.ShouldNotBeSameAs(first);
+        second!.Id.ShouldBe(2);
+        second.Reason.ShouldBe("test");
+        second.ExpectedSession.ShouldBe(1);
+        second.ExpectedVersion.ShouldBe(1);
+        first.Cancellation.IsCancellationRequested.ShouldBeTrue();
+        second!.Cancellation.Cancel();
+    }
+
+    [Fact]
+    public async Task RelatedDocumentCompilerDiagnosticsAfterEdit_WhenEditWasAlreadyFlushed_StillSchedulesRelatedDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var sourceRoot = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceRoot);
+        var projectPath = Path.Combine(_tempRoot, "App.rvnproj");
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <RavenCompile Include="src/**/*.rvn" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var mainPath = Path.Combine(sourceRoot, "main.rvn");
+        var testPath = Path.Combine(sourceRoot, "test.rvn");
+        await File.WriteAllTextAsync(mainPath, """
+            import Utilities.*
+
+            func Main() -> unit {
+                use test = Test2()
+            }
+            """);
+        await File.WriteAllTextAsync(testPath, """
+            namespace Utilities
+
+            func Test2() -> IDisposable? {
+                return null
+            }
+            """);
+
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentWithResultAsync(mainUri, SourceText.From(await File.ReadAllTextAsync(mainPath)));
+        _ = await store.UpsertDocumentWithResultAsync(testUri, SourceText.From(await File.ReadAllTextAsync(testPath)));
+
+        var updatedTestText = SourceText.From("""
+            namespace Utilities
+
+            func Test2() -> IDisposable {
+                return default!
+            }
+            """);
+        store.QueuePendingDocumentChange(testUri, updatedTestText, deferMacroConsumerRefresh: true);
+        var context = await store.GetAnalysisContextAsync(testUri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        store.TryGetPendingDocumentText(testUri, out _).ShouldBeFalse();
+
+        var handler = new RavenTextDocumentSyncHandler(
+            store,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+
+        GetDocumentSessions(handler)[mainUri] = 1;
+        GetDocumentSessions(handler)[testUri] = 1;
+        GetDocumentVersions(handler)[mainUri] = 1;
+        GetDocumentVersions(handler)[testUri] = 2;
+
+        var commitPendingChange = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "CommitPendingDocumentChangeAndScheduleDiagnosticsAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        commitPendingChange.ShouldNotBeNull();
+
+        var task = (Task)commitPendingChange!.Invoke(
+            handler,
+            [testUri, 1L, 2, false, CancellationToken.None])!;
+        await task;
+
+        var pendingDiagnostics = GetPendingDiagnostics(handler);
+        pendingDiagnostics.TryGetValue(mainUri, out var relatedRequest).ShouldBeTrue();
+        relatedRequest!.Reason.ShouldBe("relatedProjectEdit");
+        relatedRequest.ExpectedSession.ShouldBe(1);
+        relatedRequest.ExpectedVersion.ShouldBe(1);
+
+        foreach (var request in pendingDiagnostics.Values)
+            request.Cancellation.Cancel();
+    }
+
+    [Fact]
+    public async Task PublishDiagnostics_WhenSameVersionLaneIsActive_RequeuesInsteadOfDroppingAsync()
+    {
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        GetDocumentSessions(handler)[uri] = 1;
+        GetDocumentVersions(handler)[uri] = 1;
+
+        var tryStartDiagnosticsPublish = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "TryStartDiagnosticsPublish",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        tryStartDiagnosticsPublish.ShouldNotBeNull();
+        var publishDiagnostics = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "PublishDiagnosticsAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        publishDiagnostics.ShouldNotBeNull();
+
+        ((bool)tryStartDiagnosticsPublish!.Invoke(
+            handler,
+            [uri, 1, DocumentStore.DiagnosticLane.DocumentCompiler])!).ShouldBeTrue();
+
+        var publishTask = (Task)publishDiagnostics!.Invoke(
+            handler,
+            [uri, CancellationToken.None, 1L, 1, DocumentStore.DiagnosticLane.DocumentCompiler, 42L])!;
+        await publishTask;
+
+        GetPendingDiagnosticsRetryCount(handler).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task PublishDiagnostics_ActiveRetryKeepsRetryPendingWhenPublishIsStillActiveAsync()
+    {
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        GetDocumentSessions(handler)[uri] = 1;
+        GetDocumentVersions(handler)[uri] = 1;
+
+        var tryStartDiagnosticsPublish = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "TryStartDiagnosticsPublish",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        tryStartDiagnosticsPublish.ShouldNotBeNull();
+        var requeueDiagnosticsPublish = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "RequeueDiagnosticsPublish",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        requeueDiagnosticsPublish.ShouldNotBeNull();
+
+        ((bool)tryStartDiagnosticsPublish!.Invoke(
+            handler,
+            [uri, 1, DocumentStore.DiagnosticLane.DocumentCompiler])!).ShouldBeTrue();
+
+        requeueDiagnosticsPublish!.Invoke(
+            handler,
+            [uri, 1L, 1, DocumentStore.DiagnosticLane.DocumentCompiler, 1, true, 42L]);
+        await Task.Delay(100);
+
+        GetPendingDiagnosticsRetryCount(handler).ShouldBe(1);
     }
 
     [Fact]
@@ -602,6 +865,45 @@ func Main() -> unit {
                 new Position(endLine, endCharacter)),
             Tags = tags.Length == 0 ? null : new Container<DiagnosticTag>(tags)
         };
+
+    private static ConcurrentDictionary<DocumentUri, int> GetDocumentVersions(RavenTextDocumentSyncHandler handler)
+    {
+        var field = typeof(RavenTextDocumentSyncHandler).GetField(
+            "_documentVersions",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        field.ShouldNotBeNull();
+        return (ConcurrentDictionary<DocumentUri, int>)field!.GetValue(handler)!;
+    }
+
+    private static ConcurrentDictionary<DocumentUri, long> GetDocumentSessions(RavenTextDocumentSyncHandler handler)
+    {
+        var field = typeof(RavenTextDocumentSyncHandler).GetField(
+            "_documentSessions",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        field.ShouldNotBeNull();
+        return (ConcurrentDictionary<DocumentUri, long>)field!.GetValue(handler)!;
+    }
+
+    private static ConcurrentDictionary<DocumentUri, RavenTextDocumentSyncHandler.PendingDiagnosticsRequest> GetPendingDiagnostics(
+        RavenTextDocumentSyncHandler handler)
+    {
+        var field = typeof(RavenTextDocumentSyncHandler).GetField(
+            "_pendingDiagnostics",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        field.ShouldNotBeNull();
+        return (ConcurrentDictionary<DocumentUri, RavenTextDocumentSyncHandler.PendingDiagnosticsRequest>)field!.GetValue(handler)!;
+    }
+
+    private static int GetPendingDiagnosticsRetryCount(RavenTextDocumentSyncHandler handler)
+    {
+        var field = typeof(RavenTextDocumentSyncHandler).GetField(
+            "_pendingDiagnosticsRetries",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        field.ShouldNotBeNull();
+        var countProperty = field!.GetValue(handler)!.GetType().GetProperty("Count");
+        countProperty.ShouldNotBeNull();
+        return (int)countProperty!.GetValue(field.GetValue(handler)!)!;
+    }
 
     public void Dispose()
     {

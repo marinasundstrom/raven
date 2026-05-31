@@ -255,7 +255,24 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (collectionBudget.IsExpired)
                 outcome = "BudgetExpired";
 
-            CacheHints(request, context.Value.Document.Version, sourceText, hintArray);
+            if (_documents.TryGetDocument(request.TextDocument.Uri, out var latestDocument) &&
+                IsStaleSnapshot(context.Value.Document, latestDocument))
+            {
+                var latestSourceText = await latestDocument.GetTextAsync(effectiveCancellationToken).ConfigureAwait(false);
+                if (TryGetCachedHints(request, latestSourceText, out var cachedHints))
+                {
+                    cacheHit = true;
+                    outcome = "StaleSnapshotCached";
+                    resultCount = cachedHints.Length;
+                    return new InlayHintContainer(cachedHints);
+                }
+
+                outcome = "StaleSnapshot";
+                resultCount = 0;
+                return new InlayHintContainer();
+            }
+
+            CacheHints(request, context.Value.Document, sourceText, hintArray);
             return new InlayHintContainer(hintArray);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -354,7 +371,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return false;
         }
 
-        if (_cache.TryGetValue(CreateCacheKey(request.TextDocument.Uri, document.Version), out var cachedHints))
+        if (_cache.TryGetValue(CreateCacheKey(document), out var cachedHints))
         {
             hints = cachedHints
                 .Where(hint => IsInRange(hint.Position, request.Range))
@@ -365,7 +382,10 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (currentSourceText is null ||
             !_latestDocumentCache.TryGetValue(request.TextDocument.Uri.ToString(), out var latestCache) ||
             latestCache.Hints.IsDefaultOrEmpty ||
-            latestCache.Version == document.Version)
+            latestCache.DocumentVersion == document.Version &&
+            latestCache.ProjectVersion == document.Project.Version ||
+            latestCache.ProjectVersion != document.Project.Version &&
+            latestCache.SourceText.ContentEquals(currentSourceText))
         {
             return false;
         }
@@ -378,25 +398,26 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             out hints);
     }
 
-    private void CacheHints(InlayHintParams request, VersionStamp version, SourceText sourceText, InlayHint[] hints)
+    private void CacheHints(InlayHintParams request, Document document, SourceText sourceText, InlayHint[] hints)
     {
         if (_cache.Count >= MaxCachedInlayHintEntries)
             _cache.Clear();
 
-        var key = CreateCacheKey(request.TextDocument.Uri, version);
+        var key = CreateCacheKey(document);
         var updatedHints = _cache.AddOrUpdate(
             key,
             hints.ToImmutableArray(),
             (_, existing) => MergeCachedHints(existing, hints, request.Range));
 
         _latestDocumentCache[request.TextDocument.Uri.ToString()] = new InlayHintDocumentCacheEntry(
-            version,
+            document.Version,
+            document.Project.Version,
             sourceText,
             updatedHints);
     }
 
-    private static InlayHintDocumentCacheKey CreateCacheKey(DocumentUri uri, VersionStamp version)
-        => new(uri.ToString(), version);
+    private static InlayHintDocumentCacheKey CreateCacheKey(Document document)
+        => new(document.FilePath ?? document.Name, document.Version, document.Project.Version);
 
     private static ImmutableArray<InlayHint> MergeCachedHints(ImmutableArray<InlayHint> existing, InlayHint[] incoming, LspRange requestRange)
     {
@@ -2186,12 +2207,19 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     internal static string CreateRequestTrackerKey(InlayHintParams request)
         => request.TextDocument.Uri.ToString();
 
+    internal static bool IsStaleSnapshot(Document snapshotDocument, Document? latestDocument)
+        => latestDocument is null ||
+           snapshotDocument.Version != latestDocument.Version ||
+           snapshotDocument.Project.Version != latestDocument.Project.Version;
+
     private readonly record struct InlayHintDocumentCacheKey(
         string Uri,
-        VersionStamp Version);
+        VersionStamp DocumentVersion,
+        VersionStamp ProjectVersion);
 
     private readonly record struct InlayHintDocumentCacheEntry(
-        VersionStamp Version,
+        VersionStamp DocumentVersion,
+        VersionStamp ProjectVersion,
         SourceText SourceText,
         ImmutableArray<InlayHint> Hints);
 

@@ -12,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 
 using Raven.CodeAnalysis.Text;
 
@@ -26,9 +27,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private const int DiagnosticsDebounceMilliseconds = 900;
     private const int DocumentCompilerDiagnosticsAfterEditDelayMilliseconds = 1_000;
     private const int DocumentCompilerDiagnosticsAfterOpenDelayMilliseconds = 1_000;
-    private const int RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds = 10_000;
+    internal const int RelatedDocumentCompilerDiagnosticsAfterEditDelayMilliseconds = DocumentCompilerDiagnosticsAfterEditDelayMilliseconds;
+    internal const int RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds = 10_000;
     private const int DocumentAnalyzerDiagnosticsAfterEditDelayMilliseconds = 2_000;
     private const int DocumentAnalyzerDiagnosticsAfterOpenDelayMilliseconds = 4_000;
+    private const int ActiveDiagnosticsRetryDelayMilliseconds = 250;
     private const int DiagnosticsRetryDelayMilliseconds = 2_500;
     internal const int DocumentCommitDebounceMilliseconds = 600;
     private const double DidCloseLogThresholdMs = 50;
@@ -36,7 +39,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly DocumentStore _documents;
     private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
-    private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDiagnostics = new();
+    private readonly ConcurrentDictionary<DocumentUri, PendingDiagnosticsRequest> _pendingDiagnostics = new();
     private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _documentUpdateGates = new();
     private readonly ConcurrentDictionary<DocumentUri, long> _documentSessions = new();
     private readonly ConcurrentDictionary<DocumentUri, int> _documentVersions = new();
@@ -47,6 +50,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _activeDiagnostics = new();
     private readonly ConcurrentDictionary<PendingDiagnosticsRetryKey, byte> _pendingDiagnosticsRetries = new();
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDocumentCommits = new();
+    private long _nextDiagnosticsScheduleId;
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
     {
@@ -91,6 +95,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             var policy = GetOpenDiagnosticsPolicy();
             var result = await ScheduleDiagnosticsPublishAsync(
                 notification.TextDocument.Uri,
+                reason: "didOpen",
                 includeWarmup: policy.IncludeWarmup,
                 warmupDelayMilliseconds: policy.WarmupDelayMilliseconds,
                 initialDiagnosticsMode: policy.InitialMode,
@@ -103,7 +108,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             {
                 ScheduleRelatedOpenDocumentCompilerDiagnostics(
                     notification.TextDocument.Uri,
-                    RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds);
+                    RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds,
+                    replacePendingDiagnostics: false,
+                    reason: "relatedProjectOpen");
             }
 
             stopwatch.Stop();
@@ -128,21 +135,36 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private void ScheduleRelatedOpenDocumentCompilerDiagnostics(
         DocumentUri changedUri,
-        int diagnosticsDelayMilliseconds)
+        int diagnosticsDelayMilliseconds,
+        bool replacePendingDiagnostics,
+        string reason)
     {
+        var scheduledRelatedDiagnostics = false;
         foreach (var uri in _documents.GetOpenDocumentUrisInSameProject(changedUri, excludeSelf: true))
         {
             if (!_documentVersions.ContainsKey(uri))
                 continue;
 
+            scheduledRelatedDiagnostics = true;
             ClearCompletedDiagnostics(uri);
+            _logger.LogInformation(
+                "Scheduling related diagnostics for {Uri} because {ChangedUri} changed (reason={Reason}, delay={DelayMs}ms, replacePending={ReplacePending}).",
+                uri,
+                changedUri,
+                reason,
+                diagnosticsDelayMilliseconds,
+                replacePendingDiagnostics);
             _ = ScheduleDiagnosticsPublishAsync(
                 uri,
+                reason: reason,
                 includeWarmup: false,
                 initialDiagnosticsMode: DocumentStore.DiagnosticLane.DocumentCompiler,
                 diagnosticsDelayMilliseconds: diagnosticsDelayMilliseconds,
-                replacePendingDiagnostics: false);
+                replacePendingDiagnostics: replacePendingDiagnostics);
         }
+
+        if (scheduledRelatedDiagnostics)
+            RequestInlayHintRefresh(changedUri, reason);
     }
 
     public override Task<Unit> Handle(DidChangeTextDocumentParams notification, CancellationToken cancellationToken)
@@ -342,16 +364,19 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
                 return;
 
-            if (upsertResult is { ProjectChanged: true })
+            if (upsertResult is null or { ProjectChanged: true })
             {
                 ScheduleRelatedOpenDocumentCompilerDiagnostics(
                     uri,
-                    RelatedDocumentCompilerDiagnosticsAfterOpenDelayMilliseconds);
+                    RelatedDocumentCompilerDiagnosticsAfterEditDelayMilliseconds,
+                    replacePendingDiagnostics: true,
+                    reason: "relatedProjectEdit");
             }
 
             var policy = GetEditDiagnosticsPolicy();
             await ScheduleDiagnosticsPublishAsync(
                 uri,
+                reason: "didChangeCommit",
                 includeWarmup: policy.IncludeWarmup,
                 warmupDelayMilliseconds: policy.WarmupDelayMilliseconds,
                 initialDiagnosticsMode: policy.InitialMode,
@@ -550,6 +575,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         var policy = GetSaveDiagnosticsPolicy();
         return await ScheduleDiagnosticsPublishAsync(
             notification.TextDocument.Uri,
+            reason: "didSave",
             includeWarmup: policy.IncludeWarmup,
             warmupDelayMilliseconds: 0,
             initialDiagnosticsMode: policy.InitialMode,
@@ -607,6 +633,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private Task<Unit> ScheduleDiagnosticsPublishAsync(
         DocumentUri uri,
+        string reason,
         bool includeWarmup = true,
         int warmupDelayMilliseconds = 0,
         DocumentStore.DiagnosticLane initialDiagnosticsMode = DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
@@ -623,46 +650,140 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         int? expectedVersion = _documentVersions.TryGetValue(uri, out var currentVersion)
             ? currentVersion
             : null;
+        var scheduleId = Interlocked.Increment(ref _nextDiagnosticsScheduleId);
+        var request = new PendingDiagnosticsRequest(
+            scheduleId,
+            source,
+            expectedSession,
+            expectedVersion,
+            reason);
 
         _logger.LogInformation(
-            "Scheduling diagnostics for {Uri} (expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
+            "Diagnostics schedule #{ScheduleId} queued for {Uri} (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, initialLane={InitialLane}, followUpLane={FollowUpLane}, analyzerLane={AnalyzerLane}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms, followUpDelay={FollowUpDelayMs}, analyzerDelay={AnalyzerDelayMs}, replacePending={ReplacePending}).",
+            scheduleId,
             uri,
+            reason,
+            expectedSession,
             expectedVersion?.ToString() ?? "<none>",
+            initialDiagnosticsMode,
+            followUpDiagnosticsMode?.ToString() ?? "<none>",
+            analyzerFollowUpDiagnosticsMode?.ToString() ?? "<none>",
             warmupDelayMilliseconds,
-            diagnosticsDelayMilliseconds);
-        CancellationTokenSource current;
+            diagnosticsDelayMilliseconds,
+            followUpDiagnosticsDelayMilliseconds?.ToString() ?? "<none>",
+            analyzerFollowUpDiagnosticsDelayMilliseconds?.ToString() ?? "<none>",
+            replacePendingDiagnostics);
+        RecordDiagnosticsScheduleEvent(
+            "diagnosticsScheduleQueued",
+            uri,
+            scheduleId,
+            expectedSession,
+            expectedVersion,
+            reason,
+            $"initialLane={initialDiagnosticsMode} followUpLane={followUpDiagnosticsMode?.ToString() ?? "<none>"} analyzerLane={analyzerFollowUpDiagnosticsMode?.ToString() ?? "<none>"} diagnosticsDelay={diagnosticsDelayMilliseconds} followUpDelay={followUpDiagnosticsDelayMilliseconds?.ToString() ?? "<none>"} analyzerDelay={analyzerFollowUpDiagnosticsDelayMilliseconds?.ToString() ?? "<none>"} replacePending={replacePendingDiagnostics}");
+        PendingDiagnosticsRequest current;
         if (replacePendingDiagnostics)
         {
-            current = _pendingDiagnostics.AddOrUpdate(
-                uri,
-                source,
-                (_, previous) =>
+            while (true)
+            {
+                if (!_pendingDiagnostics.TryGetValue(uri, out var previous))
                 {
-                    try
+                    if (_pendingDiagnostics.TryAdd(uri, request))
                     {
-                        previous.Cancel();
-                    }
-                    catch (ObjectDisposedException)
-                    {
+                        current = request;
+                        break;
                     }
 
-                    return source;
-                });
+                    continue;
+                }
+
+                if (!_pendingDiagnostics.TryUpdate(uri, request, previous))
+                    continue;
+
+                _logger.LogInformation(
+                    "Diagnostics schedule #{ScheduleId} replaced pending schedule #{PreviousScheduleId} for {Uri} (reason={Reason}, previousReason={PreviousReason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, previousSession={PreviousSession}, previousVersion={PreviousVersion}).",
+                    scheduleId,
+                    previous.Id,
+                    uri,
+                    reason,
+                    previous.Reason,
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>",
+                    previous.ExpectedSession,
+                    previous.ExpectedVersion?.ToString() ?? "<none>");
+                RecordDiagnosticsScheduleEvent(
+                    "diagnosticsScheduleReplaced",
+                    uri,
+                    scheduleId,
+                    expectedSession,
+                    expectedVersion,
+                    reason,
+                    $"previousSchedule={previous.Id} previousReason={previous.Reason} previousSession={previous.ExpectedSession} previousVersion={previous.ExpectedVersion?.ToString() ?? "<none>"}");
+
+                try
+                {
+                    previous.Cancellation.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+
+                current = request;
+                break;
+            }
         }
-        else if (!_pendingDiagnostics.TryAdd(uri, source))
+        else if (!_pendingDiagnostics.TryAdd(uri, request))
         {
             source.Dispose();
-            _logger.LogDebug(
-                "Skipped diagnostics scheduling for {Uri}: existing diagnostics are already pending.",
-                uri);
+            if (_pendingDiagnostics.TryGetValue(uri, out var existing))
+            {
+                _logger.LogInformation(
+                    "Diagnostics schedule #{ScheduleId} skipped for {Uri}: schedule #{ExistingScheduleId} is already pending (reason={Reason}, existingReason={ExistingReason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, existingSession={ExistingSession}, existingVersion={ExistingVersion}).",
+                    scheduleId,
+                    uri,
+                    existing.Id,
+                    reason,
+                    existing.Reason,
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>",
+                    existing.ExpectedSession,
+                    existing.ExpectedVersion?.ToString() ?? "<none>");
+                RecordDiagnosticsScheduleEvent(
+                    "diagnosticsScheduleSkipped",
+                    uri,
+                    scheduleId,
+                    expectedSession,
+                    expectedVersion,
+                    reason,
+                    $"existingSchedule={existing.Id} existingReason={existing.Reason} existingSession={existing.ExpectedSession} existingVersion={existing.ExpectedVersion?.ToString() ?? "<none>"}");
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Diagnostics schedule #{ScheduleId} skipped for {Uri}: another schedule is already pending (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}).",
+                    scheduleId,
+                    uri,
+                    reason,
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>");
+                RecordDiagnosticsScheduleEvent(
+                    "diagnosticsScheduleSkipped",
+                    uri,
+                    scheduleId,
+                    expectedSession,
+                    expectedVersion,
+                    reason,
+                    "existingSchedule=<unknown>");
+            }
+
             return Task.FromResult(Unit.Value);
         }
         else
         {
-            current = source;
+            current = request;
         }
 
-        if (!ReferenceEquals(current, source))
+        if (!ReferenceEquals(current, request))
         {
             source.Dispose();
             return Task.FromResult(Unit.Value);
@@ -678,11 +799,30 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                         await Task.Delay(warmupDelayMilliseconds, token).ConfigureAwait(false);
 
                     if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                    {
+                        _logger.LogInformation(
+                            "Diagnostics schedule #{ScheduleId} skipped before warmup for {Uri}: stale request (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}).",
+                            scheduleId,
+                            uri,
+                            reason,
+                            expectedSession,
+                            expectedVersion?.ToString() ?? "<none>");
+                        RecordDiagnosticsScheduleEvent(
+                            "diagnosticsScheduleStale",
+                            uri,
+                            scheduleId,
+                            expectedSession,
+                            expectedVersion,
+                            reason,
+                            "stage=beforeWarmup");
                         return;
+                    }
 
                     _logger.LogInformation(
-                        "Starting analysis warmup for {Uri} (expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
+                        "Diagnostics schedule #{ScheduleId} starting analysis warmup for {Uri} (reason={Reason}, expectedVersion={ExpectedVersion}, warmupDelay={WarmupDelayMs}ms, diagnosticsDelay={DiagnosticsDelayMs}ms).",
+                        scheduleId,
                         uri,
+                        reason,
                         expectedVersion?.ToString() ?? "<none>",
                         warmupDelayMilliseconds,
                         diagnosticsDelayMilliseconds);
@@ -691,8 +831,10 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                         shouldSkipWork: () => token.IsCancellationRequested || ShouldSkipRequest(uri, expectedSession, expectedVersion),
                         token).ConfigureAwait(false);
                     _logger.LogInformation(
-                        "Completed analysis warmup for {Uri} (expectedVersion={ExpectedVersion}).",
+                        "Diagnostics schedule #{ScheduleId} completed analysis warmup for {Uri} (reason={Reason}, expectedVersion={ExpectedVersion}).",
+                        scheduleId,
                         uri,
+                        reason,
                         expectedVersion?.ToString() ?? "<none>");
 
                     var remainingDiagnosticsDelay = diagnosticsDelayMilliseconds - warmupDelayMilliseconds;
@@ -705,9 +847,27 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 }
 
                 if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                {
+                    _logger.LogInformation(
+                        "Diagnostics schedule #{ScheduleId} skipped before initial publish for {Uri}: stale request (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                        scheduleId,
+                        uri,
+                        reason,
+                        expectedSession,
+                        expectedVersion?.ToString() ?? "<none>",
+                        initialDiagnosticsMode);
+                    RecordDiagnosticsScheduleEvent(
+                        "diagnosticsScheduleStale",
+                        uri,
+                        scheduleId,
+                        expectedSession,
+                        expectedVersion,
+                        reason,
+                        $"stage=beforeInitialPublish lane={initialDiagnosticsMode}");
                     return;
+                }
 
-                await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, initialDiagnosticsMode).ConfigureAwait(false);
+                await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, initialDiagnosticsMode, scheduleId).ConfigureAwait(false);
 
                 var followUpMode = followUpDiagnosticsMode ?? DocumentStore.DiagnosticLane.ProjectWithAnalyzers;
                 if (followUpDiagnosticsDelayMilliseconds is { } followUpDelay &&
@@ -716,9 +876,27 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     await Task.Delay(followUpDelay, token).ConfigureAwait(false);
 
                     if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                    {
+                        _logger.LogInformation(
+                            "Diagnostics schedule #{ScheduleId} skipped before follow-up publish for {Uri}: stale request (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                            scheduleId,
+                            uri,
+                            reason,
+                            expectedSession,
+                            expectedVersion?.ToString() ?? "<none>",
+                            followUpMode);
+                        RecordDiagnosticsScheduleEvent(
+                            "diagnosticsScheduleStale",
+                            uri,
+                            scheduleId,
+                            expectedSession,
+                            expectedVersion,
+                            reason,
+                            $"stage=beforeFollowUpPublish lane={followUpMode}");
                         return;
+                    }
 
-                    await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, followUpMode).ConfigureAwait(false);
+                    await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, followUpMode, scheduleId).ConfigureAwait(false);
                 }
 
                 var analyzerFollowUpMode = analyzerFollowUpDiagnosticsMode ?? followUpMode;
@@ -729,22 +907,60 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     await Task.Delay(analyzerFollowUpDelay, token).ConfigureAwait(false);
 
                     if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
+                    {
+                        _logger.LogInformation(
+                            "Diagnostics schedule #{ScheduleId} skipped before analyzer publish for {Uri}: stale request (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                            scheduleId,
+                            uri,
+                            reason,
+                            expectedSession,
+                            expectedVersion?.ToString() ?? "<none>",
+                            analyzerFollowUpMode);
+                        RecordDiagnosticsScheduleEvent(
+                            "diagnosticsScheduleStale",
+                            uri,
+                            scheduleId,
+                            expectedSession,
+                            expectedVersion,
+                            reason,
+                            $"stage=beforeAnalyzerPublish lane={analyzerFollowUpMode}");
                         return;
+                    }
 
-                    await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, analyzerFollowUpMode).ConfigureAwait(false);
+                    await PublishDiagnosticsAsync(uri, token, expectedSession, expectedVersion, analyzerFollowUpMode, scheduleId).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
             {
-                _logger.LogDebug("Debounced diagnostics publish canceled for {Uri}.", uri);
+                _logger.LogInformation(
+                    "Diagnostics schedule #{ScheduleId} canceled for {Uri} (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}).",
+                    scheduleId,
+                    uri,
+                    reason,
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>");
+                RecordDiagnosticsScheduleEvent(
+                    "diagnosticsScheduleCanceled",
+                    uri,
+                    scheduleId,
+                    expectedSession,
+                    expectedVersion,
+                    reason);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Debounced diagnostics publish failed for {Uri}.", uri);
+                _logger.LogError(
+                    ex,
+                    "Diagnostics schedule #{ScheduleId} failed for {Uri} (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}).",
+                    scheduleId,
+                    uri,
+                    reason,
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>");
             }
             finally
             {
-                if (_pendingDiagnostics.TryGetValue(uri, out var active) && ReferenceEquals(active, source))
+                if (_pendingDiagnostics.TryGetValue(uri, out var active) && ReferenceEquals(active, request))
                     _pendingDiagnostics.TryRemove(uri, out _);
 
                 try
@@ -804,11 +1020,27 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             try
             {
-                pending.Cancel();
+                pending.Cancellation.Cancel();
             }
             catch (ObjectDisposedException)
             {
             }
+
+            _logger.LogInformation(
+                "Diagnostics schedule #{ScheduleId} canceled for {Uri}: pending diagnostics were cleared (reason={Reason}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}).",
+                pending.Id,
+                uri,
+                pending.Reason,
+                pending.ExpectedSession,
+                pending.ExpectedVersion?.ToString() ?? "<none>");
+            RecordDiagnosticsScheduleEvent(
+                "diagnosticsScheduleCanceled",
+                uri,
+                pending.Id,
+                pending.ExpectedSession,
+                pending.ExpectedVersion,
+                pending.Reason,
+                "source=clearPending");
         }
     }
 
@@ -839,7 +1071,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         CancellationToken cancellationToken,
         long expectedSession,
         int? expectedVersion = null,
-        DocumentStore.DiagnosticLane lane = DocumentStore.DiagnosticLane.ProjectWithAnalyzers)
+        DocumentStore.DiagnosticLane lane = DocumentStore.DiagnosticLane.ProjectWithAnalyzers,
+        long? scheduleId = null)
     {
         var stopwatch = Stopwatch.StartNew();
         int diagnosticsCount = 0;
@@ -851,22 +1084,59 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
             {
                 outcome = PublishDiagnosticsOutcome.SkippedVersionMismatch;
+                _logger.LogInformation(
+                    "Diagnostics publish skipped for {Uri}: request is stale (schedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                    uri,
+                    FormatOptionalId(scheduleId),
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>",
+                    lane);
                 return Unit.Value;
             }
 
             if (IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, lane))
             {
                 outcome = PublishDiagnosticsOutcome.SkippedAlreadyCompleted;
+                _logger.LogInformation(
+                    "Diagnostics publish skipped for {Uri}: already completed (schedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                    uri,
+                    FormatOptionalId(scheduleId),
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>",
+                    lane);
                 return Unit.Value;
             }
 
             if (!TryStartDiagnosticsPublish(uri, expectedVersion, lane))
             {
-                outcome = PublishDiagnosticsOutcome.SkippedAlreadyPending;
+                outcome = PublishDiagnosticsOutcome.SkippedRequeued;
+                _logger.LogInformation(
+                    "Diagnostics publish requeued for {Uri}: same version and lane are already active (schedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}, retryDelay={RetryDelayMs}ms).",
+                    uri,
+                    FormatOptionalId(scheduleId),
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>",
+                    lane,
+                    ActiveDiagnosticsRetryDelayMilliseconds);
+                RequeueDiagnosticsPublish(
+                    uri,
+                    expectedSession,
+                    expectedVersion,
+                    lane,
+                    ActiveDiagnosticsRetryDelayMilliseconds,
+                    ignoreCompleted: true,
+                    originScheduleId: scheduleId);
                 return Unit.Value;
             }
 
             publishStarted = true;
+            _logger.LogInformation(
+                "Diagnostics publish started for {Uri} (schedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                uri,
+                FormatOptionalId(scheduleId),
+                expectedSession,
+                expectedVersion?.ToString() ?? "<none>",
+                lane);
 
             var result = await _documents.TryGetDiagnosticsAsync(
                 uri,
@@ -876,7 +1146,21 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             if (result.WasSkipped)
             {
                 outcome = PublishDiagnosticsOutcome.SkippedRequeued;
-                RequeueDiagnosticsPublish(uri, expectedSession, expectedVersion, lane, DiagnosticsRetryDelayMilliseconds);
+                _logger.LogInformation(
+                    "Diagnostics publish requeued for {Uri}: diagnostics computation was skipped (schedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}, retryDelay={RetryDelayMs}ms).",
+                    uri,
+                    FormatOptionalId(scheduleId),
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>",
+                    lane,
+                    DiagnosticsRetryDelayMilliseconds);
+                RequeueDiagnosticsPublish(
+                    uri,
+                    expectedSession,
+                    expectedVersion,
+                    lane,
+                    DiagnosticsRetryDelayMilliseconds,
+                    originScheduleId: scheduleId);
                 return Unit.Value;
             }
 
@@ -895,10 +1179,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             {
                 outcome = PublishDiagnosticsOutcome.SkippedVersionMismatch;
                 _logger.LogInformation(
-                    "Skipped diagnostics publish for {Uri}: request is stale (expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}).",
+                    "Skipped diagnostics publish for {Uri}: request is stale (schedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}, computedCount={Count}, summary={Summary}).",
                     uri,
+                    FormatOptionalId(scheduleId),
                     expectedSession,
-                    expectedVersion?.ToString() ?? "<none>");
+                    expectedVersion?.ToString() ?? "<none>",
+                    lane,
+                    diagnosticsToPublish.Length,
+                    SummarizeDiagnosticsForLog(diagnosticsToPublish));
                 return Unit.Value;
             }
 
@@ -920,9 +1208,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 outcome = PublishDiagnosticsOutcome.SkippedUnchanged;
 
                 _logger.LogInformation(
-                    "Skipped diagnostics publish for {Uri}: diagnostic set unchanged (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
+                    "Skipped diagnostics publish for {Uri}: diagnostic set unchanged (schedule={ScheduleId}, expectedVersion={ExpectedVersion}, lane={Lane}, count={Count}, summary={Summary}).",
                     uri,
+                    FormatOptionalId(scheduleId),
                     expectedVersion?.ToString() ?? "<none>",
+                    lane,
                     diagnosticsToPublish.Length,
                     diagnosticSummary);
                 return Unit.Value;
@@ -937,9 +1227,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             MarkDiagnosticsPublishCompleted(uri, expectedVersion, lane);
             var publishedDiagnosticSummary = SummarizeDiagnosticsForLog(diagnosticsToPublish);
             _logger.LogInformation(
-                "Published diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
+                "Published diagnostics for {Uri} (schedule={ScheduleId}, expectedVersion={ExpectedVersion}, lane={Lane}, count={Count}, summary={Summary}).",
                 uri,
+                FormatOptionalId(scheduleId),
                 expectedVersion?.ToString() ?? "<none>",
+                lane,
                 diagnosticsToPublish.Length,
                 publishedDiagnosticSummary);
         }
@@ -963,7 +1255,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 expectedVersion,
                 stopwatch.Elapsed.TotalMilliseconds,
                 resultCount: diagnosticsCount,
-                detail: $"{uri} version={expectedVersion} lane={lane} outcome={outcome}");
+                detail: $"{uri} schedule={FormatOptionalId(scheduleId)} version={expectedVersion} lane={lane} outcome={outcome}");
         }
 
         return Unit.Value;
@@ -1009,7 +1301,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         long expectedSession,
         int? expectedVersion,
         DocumentStore.DiagnosticLane lane,
-        int delayMilliseconds)
+        int delayMilliseconds,
+        bool ignoreCompleted = false,
+        long? originScheduleId = null)
     {
         if (expectedVersion is { } stableVersion)
         {
@@ -1025,19 +1319,60 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 return;
             }
 
+            _logger.LogInformation(
+                "Diagnostics retry scheduled for {Uri} (originSchedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}, delay={DelayMs}ms, ignoreCompleted={IgnoreCompleted}).",
+                uri,
+                FormatOptionalId(originScheduleId),
+                expectedSession,
+                stableVersion,
+                lane,
+                delayMilliseconds,
+                ignoreCompleted);
+            RecordDiagnosticsRetryEvent(
+                "diagnosticsRetryScheduled",
+                uri,
+                originScheduleId,
+                expectedSession,
+                stableVersion,
+                lane,
+                $"delay={delayMilliseconds} ignoreCompleted={ignoreCompleted}");
+
             _ = Task.Run(async () =>
             {
+                var retryKeyRemovedBeforePublish = false;
                 try
                 {
                     await Task.Delay(delayMilliseconds).ConfigureAwait(false);
                     if (ShouldSkipRequest(uri, expectedSession, expectedVersion) ||
-                        IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, lane))
+                        (!ignoreCompleted && IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, lane)))
                     {
+                        _logger.LogInformation(
+                            "Diagnostics retry skipped for {Uri} (originSchedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}, ignoreCompleted={IgnoreCompleted}).",
+                            uri,
+                            FormatOptionalId(originScheduleId),
+                            expectedSession,
+                            expectedVersion?.ToString() ?? "<none>",
+                            lane,
+                            ignoreCompleted);
+                        RecordDiagnosticsRetryEvent(
+                            "diagnosticsRetrySkipped",
+                            uri,
+                            originScheduleId,
+                            expectedSession,
+                            expectedVersion,
+                            lane,
+                            $"ignoreCompleted={ignoreCompleted}");
                         return;
                     }
 
+                    if (ignoreCompleted)
+                        ClearCompletedDiagnostics(uri, expectedVersion, lane);
+
+                    _pendingDiagnosticsRetries.TryRemove(retryKey, out _);
+                    retryKeyRemovedBeforePublish = true;
+
                     using var retryCancellation = new CancellationTokenSource();
-                    await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedSession, expectedVersion, lane).ConfigureAwait(false);
+                    await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedSession, expectedVersion, lane, originScheduleId).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -1048,11 +1383,30 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 }
                 finally
                 {
-                    _pendingDiagnosticsRetries.TryRemove(retryKey, out _);
+                    if (!retryKeyRemovedBeforePublish)
+                        _pendingDiagnosticsRetries.TryRemove(retryKey, out _);
                 }
             }, CancellationToken.None);
             return;
         }
+
+        _logger.LogInformation(
+            "Diagnostics retry scheduled for {Uri} (originSchedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}, delay={DelayMs}ms, ignoreCompleted={IgnoreCompleted}).",
+            uri,
+            FormatOptionalId(originScheduleId),
+            expectedSession,
+            expectedVersion?.ToString() ?? "<none>",
+            lane,
+            delayMilliseconds,
+            ignoreCompleted);
+        RecordDiagnosticsRetryEvent(
+            "diagnosticsRetryScheduled",
+            uri,
+            originScheduleId,
+            expectedSession,
+            expectedVersion,
+            lane,
+            $"delay={delayMilliseconds} ignoreCompleted={ignoreCompleted}");
 
         _ = Task.Run(async () =>
         {
@@ -1060,13 +1414,32 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             {
                 await Task.Delay(delayMilliseconds).ConfigureAwait(false);
                 if (ShouldSkipRequest(uri, expectedSession, expectedVersion) ||
-                    IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, lane))
+                    (!ignoreCompleted && IsDiagnosticsPublishAlreadyCompleted(uri, expectedVersion, lane)))
                 {
+                    _logger.LogInformation(
+                        "Diagnostics retry skipped for {Uri} (originSchedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}, ignoreCompleted={IgnoreCompleted}).",
+                        uri,
+                        FormatOptionalId(originScheduleId),
+                        expectedSession,
+                        expectedVersion?.ToString() ?? "<none>",
+                        lane,
+                        ignoreCompleted);
+                    RecordDiagnosticsRetryEvent(
+                        "diagnosticsRetrySkipped",
+                        uri,
+                        originScheduleId,
+                        expectedSession,
+                        expectedVersion,
+                        lane,
+                        $"ignoreCompleted={ignoreCompleted}");
                     return;
                 }
 
+                if (ignoreCompleted)
+                    ClearCompletedDiagnostics(uri, expectedVersion, lane);
+
                 using var retryCancellation = new CancellationTokenSource();
-                await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedSession, expectedVersion, lane).ConfigureAwait(false);
+                await PublishDiagnosticsAsync(uri, retryCancellation.Token, expectedSession, expectedVersion, lane, originScheduleId).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1103,6 +1476,68 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         return expectedVersion is { } expected &&
                latestVersion is { } currentVersion &&
                currentVersion != expected;
+    }
+
+    private void RequestInlayHintRefresh(DocumentUri changedUri, string reason)
+    {
+        if (_languageServer is null)
+        {
+            RecordInlayHintRefreshEvent(
+                "inlayHintRefreshSkipped",
+                changedUri,
+                reason,
+                advertisedRefreshSupport: false,
+                "languageServer=<null>");
+            return;
+        }
+
+        var advertisedRefreshSupport = HasAdvertisedInlayHintRefreshSupport(_languageServer.ClientSettings?.Capabilities);
+        RecordInlayHintRefreshEvent(
+            "inlayHintRefreshRequested",
+            changedUri,
+            reason,
+            advertisedRefreshSupport,
+            "stage=beforeSend");
+        try
+        {
+            _languageServer.Workspace.SendInlayHintRefresh(new InlayHintRefreshParams());
+            RecordInlayHintRefreshEvent(
+                "inlayHintRefreshSent",
+                changedUri,
+                reason,
+                advertisedRefreshSupport);
+            _logger.LogInformation(
+                "Requested inlay hint refresh because {ChangedUri} changed (reason={Reason}, advertisedRefreshSupport={RefreshSupport}).",
+                changedUri,
+                reason,
+                advertisedRefreshSupport);
+        }
+        catch (Exception ex)
+        {
+            RecordInlayHintRefreshEvent(
+                "inlayHintRefreshFailed",
+                changedUri,
+                reason,
+                advertisedRefreshSupport,
+                $"exception={ex.GetType().Name}");
+            _logger.LogInformation(
+                ex,
+                "Failed to request inlay hint refresh because {ChangedUri} changed (reason={Reason}, advertisedRefreshSupport={RefreshSupport}).",
+                changedUri,
+                reason,
+                advertisedRefreshSupport);
+        }
+    }
+
+    internal static bool HasAdvertisedInlayHintRefreshSupport(ClientCapabilities? capabilities)
+    {
+        if (capabilities?.Workspace is not { } workspace ||
+            !workspace.InlayHint.IsSupported)
+        {
+            return false;
+        }
+
+        return workspace.InlayHint.Value.RefreshSupport;
     }
 
     internal static ImmutableArray<Diagnostic> MergePartialDiagnosticsForPublish(
@@ -1165,6 +1600,67 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             .OrderBy(static diagnostic => diagnostic)
             .ToImmutableArray();
 
+    private static void RecordDiagnosticsScheduleEvent(
+        string operation,
+        DocumentUri uri,
+        long scheduleId,
+        long expectedSession,
+        int? expectedVersion,
+        string reason,
+        string? extraDetail = null)
+    {
+        var detail = $"{uri} schedule={scheduleId} reason={reason} expectedSession={expectedSession} version={expectedVersion?.ToString() ?? "<none>"}";
+        if (!string.IsNullOrWhiteSpace(extraDetail))
+            detail = $"{detail} {extraDetail}";
+
+        LanguageServerPerformanceInstrumentation.RecordOperation(
+            operation,
+            uri,
+            expectedVersion,
+            0,
+            detail: detail);
+    }
+
+    private static void RecordDiagnosticsRetryEvent(
+        string operation,
+        DocumentUri uri,
+        long? originScheduleId,
+        long expectedSession,
+        int? expectedVersion,
+        DocumentStore.DiagnosticLane lane,
+        string? extraDetail = null)
+    {
+        var detail = $"{uri} originSchedule={FormatOptionalId(originScheduleId)} expectedSession={expectedSession} version={expectedVersion?.ToString() ?? "<none>"} lane={lane}";
+        if (!string.IsNullOrWhiteSpace(extraDetail))
+            detail = $"{detail} {extraDetail}";
+
+        LanguageServerPerformanceInstrumentation.RecordOperation(
+            operation,
+            uri,
+            expectedVersion,
+            0,
+            detail: detail);
+    }
+
+    private static void RecordInlayHintRefreshEvent(
+        string operation,
+        DocumentUri uri,
+        string reason,
+        bool advertisedRefreshSupport,
+        string? extraDetail = null)
+    {
+        var detail = $"{uri} reason={reason} advertisedRefreshSupport={advertisedRefreshSupport}";
+        if (!string.IsNullOrWhiteSpace(extraDetail))
+            detail = $"{detail} {extraDetail}";
+
+        LanguageServerPerformanceInstrumentation.RecordOperation(
+            operation,
+            uri,
+            version: null,
+            0,
+            detail: detail);
+    }
+
     internal static bool ShouldPublishDiagnostics(
         bool hasLastPublishedDiagnostics,
         ImmutableArray<PublishedDiagnosticValue> lastPublishedDiagnostics,
@@ -1201,6 +1697,9 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         var code = diagnostic.Code?.String;
         return string.IsNullOrWhiteSpace(code) ? "<no-code>" : code;
     }
+
+    private static string FormatOptionalId(long? id)
+        => id?.ToString() ?? "<none>";
 
     internal static string GetPublishDiagnosticsOperationName(
         DocumentStore.DiagnosticLane lane,
@@ -1312,6 +1811,15 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
     }
 
+    private void ClearCompletedDiagnostics(
+        DocumentUri uri,
+        int? version,
+        DocumentStore.DiagnosticLane lane)
+    {
+        if (version is { } stableVersion)
+            _completedDiagnostics.TryRemove(new CompletedDiagnosticsKey(uri, stableVersion, lane), out _);
+    }
+
     private readonly record struct CompletedDiagnosticsKey(
         DocumentUri Uri,
         int Version,
@@ -1322,6 +1830,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         long Session,
         int Version,
         DocumentStore.DiagnosticLane Lane);
+
+    internal sealed record PendingDiagnosticsRequest(
+        long Id,
+        CancellationTokenSource Cancellation,
+        long ExpectedSession,
+        int? ExpectedVersion,
+        string Reason);
 
     internal readonly record struct VersionedDiagnostics(
         int? Version,

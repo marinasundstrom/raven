@@ -561,6 +561,159 @@ func test() {
     }
 
     [Fact]
+    public async Task DocumentCompilerDiagnostics_AfterCrossFileReturnTypeEdit_ClearsStaleUseDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var mainPath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var utilitiesPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        WriteRavenFile(mainPath, """
+import Utilities.*
+
+func Main() -> unit {
+    use test = Test2()
+    test.Dispose()
+}
+""");
+        WriteRavenFile(utilitiesPath, """
+namespace Utilities
+
+func Test2() -> IDisposable? {
+    return null
+}
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var utilitiesUri = DocumentUri.FromFileSystemPath(utilitiesPath);
+        _ = await store.UpsertDocumentAsync(mainUri, File.ReadAllText(mainPath));
+        _ = await store.UpsertDocumentAsync(utilitiesUri, File.ReadAllText(utilitiesPath));
+
+        var before = await store.TryGetDocumentCompilerDiagnosticsAsync(mainUri, shouldSkipWork: null, CancellationToken.None);
+        before.Diagnostics.Select(static diagnostic => diagnostic.Code?.String)
+            .ShouldContain("RAV1503");
+
+        var updatedUtilitiesText = SourceText.From("""
+namespace Utilities
+
+func Test2() -> IDisposable {
+    return default!
+}
+""");
+        _ = await store.UpsertDocumentAsync(utilitiesUri, updatedUtilitiesText);
+
+        var after = await store.TryGetDocumentCompilerDiagnosticsAsync(mainUri, shouldSkipWork: null, CancellationToken.None);
+        after.WasSkipped.ShouldBeFalse();
+        after.Diagnostics.Select(static diagnostic => diagnostic.Code?.String)
+            .ShouldNotContain("RAV1503");
+        after.Diagnostics.Select(static diagnostic => diagnostic.Code?.String)
+            .ShouldNotContain("RAV0402");
+    }
+
+    public static IEnumerable<object[]> UseDeclarationTargetShapeCases()
+    {
+        yield return ["IDisposable", "return default!", "", false, false];
+        yield return ["IDisposable?", "return null", "", true, true];
+        yield return ["Resource", "return Resource()", DisposableResourceDeclaration, false, false];
+        yield return ["Resource?", "return null", DisposableResourceDeclaration, true, true];
+        yield return ["int", "return 0", "", true, false];
+    }
+
+    [Theory]
+    [MemberData(nameof(UseDeclarationTargetShapeCases))]
+    public async Task DocumentCompilerDiagnostics_UseDeclarationTargetShape_MatchesNullabilityAndDisposableRulesAsync(
+        string returnType,
+        string returnStatement,
+        string additionalDeclarations,
+        bool expectUseTargetDiagnostic,
+        bool expectNullAccessDiagnostic)
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+
+        var mainPath = Path.Combine(_tempRoot, "src", "main.rvn");
+        var utilitiesPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        WriteRavenFile(mainPath, """
+import Utilities.*
+
+func Main() -> unit {
+    use test = Test2()
+    test.Dispose()
+}
+""");
+        WriteRavenFile(utilitiesPath, $$"""
+namespace Utilities
+
+{{additionalDeclarations}}
+
+func Test2() -> {{returnType}} {
+    {{returnStatement}}
+}
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var utilitiesUri = DocumentUri.FromFileSystemPath(utilitiesPath);
+        _ = await store.UpsertDocumentAsync(mainUri, File.ReadAllText(mainPath));
+        _ = await store.UpsertDocumentAsync(utilitiesUri, File.ReadAllText(utilitiesPath));
+
+        var result = await store.TryGetDocumentCompilerDiagnosticsAsync(mainUri, shouldSkipWork: null, CancellationToken.None);
+        var diagnosticIds = result.Diagnostics.Select(static diagnostic => diagnostic.Code?.String).ToArray();
+
+        diagnosticIds.Contains("RAV1503").ShouldBe(expectUseTargetDiagnostic);
+        diagnosticIds.Contains("RAV0402").ShouldBe(expectNullAccessDiagnostic);
+    }
+
+    private const string DisposableResourceDeclaration =
+        """
+        class Resource : IDisposable {
+            public init() {}
+            public func Dispose() -> unit {}
+        }
+        """;
+
+    [Fact]
     public void Initialize_ProjectOpenFailure_IsNotRetriedUntilFilesChange()
     {
         Directory.CreateDirectory(_tempRoot);

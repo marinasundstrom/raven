@@ -7761,7 +7761,7 @@ public partial class SemanticModel
             !ReferenceEquals(contextualRoot, invocation))
         {
             ClearCachedSemanticState(contextualRoot);
-            var reboundRoot = GetBoundNode(contextualRoot, BoundTreeView.Original);
+            var reboundRoot = BindContextualRootForSemanticQuery(contextualRoot);
             if (TryFindBoundNodeBySyntax(reboundRoot, invocation, out var reboundNode) &&
                 reboundNode is BoundExpression reboundExpression)
             {

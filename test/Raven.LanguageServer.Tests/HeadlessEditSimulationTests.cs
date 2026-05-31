@@ -99,6 +99,54 @@ public sealed class HeadlessEditSimulationTests : IDisposable
         secondHover.SemanticDelta.BoundNodeBindFallbacks.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task CrossFileReturnTypeEdit_ClearsNullableUseDeclarationDiagnosticsAsync()
+    {
+        await using var simulation = HeadlessEditSimulation.Create(
+            _tempRoot,
+            """
+            import Utilities.*
+
+            func Main() -> unit {
+                use test = Test2()
+                test.Dispose()
+            }
+            """);
+
+        await simulation.UpsertAdditionalDocumentAsync(
+            "test.rvn",
+            """
+            namespace Utilities
+
+            func Test2() -> IDisposable? {
+                return null
+            }
+            """);
+
+        var nullableDiagnostics = await simulation.GetDocumentCompilerDiagnosticsAsync();
+        nullableDiagnostics.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV1503", StringComparison.Ordinal) &&
+            diagnostic.Range.Start.Line == 3 &&
+            diagnostic.Range.Start.Character == 8).ShouldBeTrue();
+        nullableDiagnostics.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0402", StringComparison.Ordinal)).ShouldBeTrue();
+
+        await simulation.UpsertAdditionalDocumentAsync(
+            "test.rvn",
+            """
+            namespace Utilities
+
+            func Test2() -> IDisposable {
+                return default!
+            }
+            """);
+
+        var nonNullableDiagnostics = await simulation.GetDocumentCompilerDiagnosticsAsync();
+        nonNullableDiagnostics.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV1503", StringComparison.Ordinal) ||
+            string.Equals(diagnostic.Code?.String, "RAV0402", StringComparison.Ordinal)).ShouldBeFalse();
+    }
+
     private const string InitialMainText =
         """
         class Runner {

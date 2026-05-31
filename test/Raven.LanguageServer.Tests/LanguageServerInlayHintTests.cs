@@ -222,6 +222,110 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_AfterCrossFileTypeEdit_DoesNotReturnStaleCachedHintAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var sourceRoot = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceRoot);
+        await File.WriteAllTextAsync(Path.Combine(_tempRoot, "App.rvnproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <RavenCompile Include="src/**/*.rvn" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var mainPath = Path.Combine(sourceRoot, "main.rvn");
+        var utilitiesPath = Path.Combine(sourceRoot, "test.rvn");
+        const string mainCode = """
+import Utilities.*
+
+func Main() -> unit {
+    val test = Test2()
+}
+""";
+        const string initialUtilitiesCode = """
+namespace Utilities
+
+func Test2() -> IDisposable? {
+    return null
+}
+""";
+        const string updatedUtilitiesCode = """
+namespace Utilities
+
+func Test2() -> IDisposable {
+    return default!
+}
+""";
+
+        await File.WriteAllTextAsync(mainPath, mainCode);
+        await File.WriteAllTextAsync(utilitiesPath, initialUtilitiesCode);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var utilitiesUri = DocumentUri.FromFileSystemPath(utilitiesPath);
+        await store.UpsertDocumentAsync(mainUri, mainCode);
+        await store.UpsertDocumentAsync(utilitiesUri, initialUtilitiesCode);
+        var sourceText = SourceText.From(mainCode);
+        var request = new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(mainUri),
+            Range = FullDocumentRange(sourceText)
+        };
+
+        var initialResult = await handler.Handle(request, CancellationToken.None);
+        var initialContext = await store.GetAnalysisContextAsync(mainUri, CancellationToken.None);
+        initialContext.ShouldNotBeNull();
+        var insertion = mainCode.IndexOf("test =", StringComparison.Ordinal) + "test".Length;
+        AssertSourceApplicable(
+            sourceText,
+            AssertHasHintAtInsertion(sourceText, initialResult.ToArray(), insertion, ": IDisposable?"),
+            insertion,
+            ": IDisposable?");
+
+        await store.UpsertDocumentAsync(utilitiesUri, updatedUtilitiesCode);
+        var tryGetCachedHints = typeof(InlayHintHandler).GetMethod(
+            "TryGetCachedHints",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        tryGetCachedHints.ShouldNotBeNull();
+        object?[] arguments = [request, sourceText, null];
+
+        var cacheHit = (bool)tryGetCachedHints!.Invoke(handler, arguments)!;
+
+        cacheHit.ShouldBeFalse();
+        store.TryGetDocument(mainUri, out var currentMainDocument).ShouldBeTrue();
+        InlayHintHandler.IsStaleSnapshot(initialContext.Value.Document, currentMainDocument)
+            .ShouldBeTrue();
+        InlayHintHandler.IsStaleSnapshot(currentMainDocument!, currentMainDocument)
+            .ShouldBeFalse();
+
+        var updatedResult = await handler.Handle(request, CancellationToken.None);
+        var updatedHints = updatedResult.ToArray();
+        AssertSourceApplicable(
+            sourceText,
+            AssertHasHintAtInsertion(sourceText, updatedHints, insertion, ": IDisposable"),
+            insertion,
+            ": IDisposable");
+        updatedHints.Select(static hint => hint.Label.String).ShouldNotContain(": IDisposable?");
+    }
+
+    [Fact]
     public async Task Handle_FullDocumentAfterPendingEdit_DoesNotForceImmediateInlayBindingAsync()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -1754,6 +1858,42 @@ func Main() -> unit {
         var idHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, idInsertion);
 
         AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, idHints, idInsertion, "Id:"), idInsertion, "Id: ");
+    }
+
+    [Fact]
+    public async Task Handle_TopLevelInvocationWithFunctionArgument_DoesNotFailWhenRefreshingParameterHintsAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "aspnet-trailing-block-dsl");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "aspnet-trailing-block-dsl",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
     }
 
     [Fact]

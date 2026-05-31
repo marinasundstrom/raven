@@ -7,6 +7,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed `use` declarations so nullable disposable targets such as
   `IDisposable?` are rejected and invalid resources are not registered for
   disposal.
+- Fixed inlay hint refreshes for top-level invocations with function arguments
+  so the refreshed request does not fail while rebinding global statements.
 - Fixed semantic symbol info for callable instance members so hovering or
   analyzing the invoked name in `callback()` returns the member symbol instead
   of the delegate `Invoke` method.
