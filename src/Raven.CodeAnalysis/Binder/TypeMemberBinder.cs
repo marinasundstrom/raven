@@ -2745,6 +2745,14 @@ internal partial class TypeMemberBinder : Binder
         if (isExtensionMember)
             eventSymbol.MarkDeclaredInExtension(receiverType);
 
+        if (isPartial)
+        {
+            if (isPartialImplementationSyntax)
+                eventSymbol.MarkAsPartialImplementation();
+            else if (isPartialDefinitionSyntax)
+                eventSymbol.MarkAsPartialDefinition();
+        }
+
         if (!isExtensionContainer &&
             _containingType.TypeKind != TypeKind.Interface)
         {
@@ -3113,10 +3121,6 @@ internal partial class TypeMemberBinder : Binder
                 return binders;
             }
 
-            if (isPartialImplementationSyntax)
-                eventSymbol.MarkAsPartialImplementation();
-            else if (isPartialDefinitionSyntax)
-                eventSymbol.MarkAsPartialDefinition();
         }
 
         return binders;
@@ -3154,6 +3158,7 @@ internal partial class TypeMemberBinder : Binder
             eventDecl.GetLocation(),
             eventDecl.GetReference(),
             preferAsPrimary: isImplementationSyntax && !existingPartial.HasPartialImplementation);
+        SemanticModel.RegisterEventSymbol(eventDecl, existingPartial);
 
         MergePartialAccessor(existingPartial.AddMethod as SourceMethodSymbol, addMethod, preferAsPrimary: isImplementationSyntax);
         MergePartialAccessor(existingPartial.RemoveMethod as SourceMethodSymbol, removeMethod, preferAsPrimary: isImplementationSyntax);

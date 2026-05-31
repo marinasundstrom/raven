@@ -233,4 +233,42 @@ public extension PublicExt for int {
         Assert.Equal(Accessibility.Public, methodSymbol.DeclaredAccessibility);
     }
 
+    [Fact]
+    public void StaticExtensionMethod_SelfExpression_ProducesDiagnostic()
+    {
+        const string source = """
+extension IntStatics for int {
+    static func Identity() -> int {
+        return self
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.SelfNotAvailableInStaticContext);
+    }
+
+    [Fact]
+    public void StaticExtensionProperty_SelfExpression_ProducesDiagnostic()
+    {
+        const string source = """
+extension IntStatics for int {
+    static Identity: int {
+        get => self
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.SelfNotAvailableInStaticContext);
+    }
+
 }

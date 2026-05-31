@@ -46,6 +46,40 @@ public static class CompletionProvider
             return binder.IsSymbolAccessible(symbol);
         }
 
+        bool CanAccessPrivateSelfMembers()
+        {
+            for (Binder? current = binder; current is not null; current = current.ParentBinder)
+            {
+                if (current.ContainingSymbol is IMethodSymbol method)
+                {
+                    if (method.IsExtensionMethod)
+                        return false;
+
+                    if (!method.IsStatic)
+                        return true;
+
+                    if (method is not ILambdaSymbol)
+                        return false;
+                }
+            }
+
+            return token.GetAncestor<BaseMethodDeclarationSyntax>() is not null ||
+                token.GetAncestor<ConstructorDeclarationSyntax>() is not null;
+        }
+
+        bool IsAccessibleOnSelf(ISymbol symbol, ITypeSymbol selfType)
+        {
+            if (IsAccessible(symbol))
+                return true;
+
+            if (!CanAccessPrivateSelfMembers())
+                return false;
+
+            return symbol.DeclaredAccessibility == Accessibility.Private &&
+                symbol.ContainingType is { } containingType &&
+                SymbolEqualityComparer.Default.Equals(containingType, selfType);
+        }
+
         static string SafeToDisplayString(ISymbol symbol)
         {
             try
@@ -58,16 +92,28 @@ public static class CompletionProvider
             }
         }
 
-        INamedTypeSymbol? GetSelfType()
+        ITypeSymbol? GetSelfType()
         {
+            static ITypeSymbol? GetMethodSelfType(IMethodSymbol method)
+            {
+                if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)
+                    return method.Parameters[0].Type;
+
+                if (!method.IsStatic)
+                    return method.ContainingType;
+
+                return null;
+            }
+
             for (Binder? current = binder; current is not null; current = current.ParentBinder)
             {
                 if (current.ContainingSymbol is IMethodSymbol method)
                 {
-                    if (!method.IsStatic)
-                        return method.ContainingType;
+                    if (GetMethodSelfType(method) is { } methodSelfType)
+                        return methodSelfType;
 
-                    return null;
+                    if (method is not ILambdaSymbol)
+                        return null;
                 }
             }
 
@@ -75,15 +121,9 @@ public static class CompletionProvider
                 ?? token.GetAncestor<ConstructorDeclarationSyntax>();
             if (containingMethodSyntax is not null &&
                 model.GetDeclaredSymbol(containingMethodSyntax) is IMethodSymbol declaredMethod &&
-                !declaredMethod.IsStatic)
+                GetMethodSelfType(declaredMethod) is { } declaredMethodSelfType)
             {
-                return declaredMethod.ContainingType;
-            }
-
-            if (token.GetAncestor<TypeDeclarationSyntax>() is { } containingTypeSyntax &&
-                model.GetDeclaredSymbol(containingTypeSyntax) is INamedTypeSymbol containingType)
-            {
-                return containingType;
+                return declaredMethodSelfType;
             }
 
             return null;
@@ -1931,6 +1971,19 @@ public static class CompletionProvider
                 {
                     members = GetNamespaceCompletionMembers(ns);
                 }
+                else if (conditionalAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
+                {
+                    var completionType = GetCarrierConditionalAccessLookupType(currentSelfType) ?? currentSelfType.GetPlainType();
+                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false)
+                        .Where(member => IsAccessibleOnSelf(member, completionType));
+                    instanceTypeForExtensions = completionType switch
+                    {
+                        INamedTypeSymbol named => named,
+                        IArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
+                        _ => null
+                    };
+                }
                 else if (TryGetTypeAccessSymbol(symbol, type) is { } typeAccessSymbol)
                 {
                     members = GetTypeAccessMembers(typeAccessSymbol);
@@ -1947,12 +2000,6 @@ public static class CompletionProvider
                         _ => null
                     };
                 }
-                else if (conditionalAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
-                {
-                    members = currentSelfType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
-                    instanceTypeForExtensions = currentSelfType;
-                }
-
                 if (members is not null)
                 {
                     var hasNameAtCaret = !memberBinding.Name.Identifier.IsMissing &&
@@ -2054,6 +2101,19 @@ public static class CompletionProvider
                     // Namespace or namespace alias: list its public members
                     members = GetNamespaceCompletionMembers(ns);
                 }
+                else if (memberAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
+                {
+                    var completionType = currentSelfType.GetPlainType();
+                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false)
+                        .Where(member => IsAccessibleOnSelf(member, completionType));
+                    instanceTypeForExtensions = completionType switch
+                    {
+                        INamedTypeSymbol named => named,
+                        IArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
+                        _ => null
+                    };
+                }
                 else if (TryGetTypeAccessSymbol(symbol, type) is { } typeAccessSymbol)
                 {
                     // Accessing a type-like receiver (named type or constrained type parameter):
@@ -2072,12 +2132,6 @@ public static class CompletionProvider
                         _ => null
                     };
                 }
-                else if (memberAccess.Expression is SelfExpressionSyntax && GetSelfType() is { } currentSelfType)
-                {
-                    members = currentSelfType.GetMembers().Where(m => !m.IsStatic && IsAccessible(m));
-                    instanceTypeForExtensions = currentSelfType;
-                }
-
                 if (members is not null)
                 {
                     var hasNameAtCaret = !memberAccess.Name.Identifier.IsMissing &&

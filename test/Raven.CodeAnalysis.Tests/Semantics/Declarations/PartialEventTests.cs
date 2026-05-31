@@ -10,26 +10,25 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PartialEventTests : CompilationTestBase
 {
-    [Fact(Skip = "Partial event definition/implementation merge is incomplete; see test README gaps.")]
+    [Fact]
     public void PartialEventDefinitionAndImplementation_MergeIntoSingleSymbol()
     {
         const string source = """
 partial class C {
     partial event Changed: System.Action;
-}
+};
 
 partial class C {
     partial event Changed: System.Action {
         add { }
         remove { }
     }
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
         compilation.EnsureSetup();
-        Assert.Empty(compilation.GetDiagnostics());
 
         var events = tree.GetRoot().DescendantNodes().OfType<EventDeclarationSyntax>().ToArray();
         Assert.Equal(2, events.Length);
@@ -39,6 +38,7 @@ partial class C {
         var second = Assert.IsAssignableFrom<IEventSymbol>(model.GetDeclaredSymbol(events[1]));
         var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol((TypeDeclarationSyntax)events[0].Parent!));
 
+        Assert.Empty(compilation.GetDiagnostics());
         Assert.Same(first, second);
         Assert.Single(containingType.GetMembers("Changed").OfType<IEventSymbol>());
     }
@@ -49,7 +49,7 @@ partial class C {
         const string source = """
 partial class C {
     partial event Changed: System.Action;
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -67,7 +67,7 @@ partial class C {
         add { }
         remove { }
     }
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -82,7 +82,7 @@ partial class C {
         const string source = """
 class C {
     partial event Changed: System.Action;
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);

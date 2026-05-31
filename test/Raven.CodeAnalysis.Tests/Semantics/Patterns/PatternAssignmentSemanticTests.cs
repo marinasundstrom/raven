@@ -14,9 +14,6 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PatternAssignmentSemanticTests : DiagnosticTestBase
 {
-    private const string PositionalPatternAssignmentSemanticSkipReason =
-        "Positional pattern assignment semantic coverage is currently unstable and tracked separately.";
-
     [Fact]
     public void LetPositionalPatternAssignment_BindsLocals()
     {
@@ -1228,7 +1225,7 @@ var head = 0
         verifier.Verify();
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void PositionalPatternAssignment_WithExistingLocals_ReusesBindings()
     {
         const string source = """
@@ -1238,17 +1235,40 @@ var second = 0
 first + second
 """;
 
-        var verifier = CreateVerifier(
-            source,
-            [
-                new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id)
-                    .WithSpan(3, 1, 3, 16)
-            ]);
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
 
-        verifier.Verify();
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var firstLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "first")));
+        var secondLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+            model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "second")));
+
+        var assignment = root
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single(statement => statement.Left is PositionalPatternSyntax);
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[0]).Designator);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(
+            Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[1]).Designator);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(firstDesignator.Local, firstLocal));
+        Assert.True(SymbolEqualityComparer.Default.Equals(secondDesignator.Local, secondLocal));
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void PositionalPatternAssignment_ToImmutableLocal_ReportsDiagnostic()
     {
         const string source = """
@@ -1260,14 +1280,14 @@ var second = 0
         var verifier = CreateVerifier(
             source,
             [
-                new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id)
-                    .WithSpan(3, 1, 3, 16)
+                new DiagnosticResult(CompilerDiagnostics.ThisValueIsNotMutable.Id)
+                    .WithAnySpan()
             ]);
 
         verifier.Verify();
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void PositionalPatternAssignment_WithExistingLocals_TypeMismatch_ReportsDiagnostic()
     {
         const string source = """
@@ -1279,14 +1299,24 @@ var second = 0
         var verifier = CreateVerifier(
             source,
             [
-                new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id)
-                    .WithSpan(3, 1, 3, 16),
+                new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id)
+                    .WithAnySpan()
+                    .WithArguments("double", "int"),
+                new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id)
+                    .WithAnySpan()
+                    .WithArguments("double", "int"),
+                new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id)
+                    .WithAnySpan()
+                    .WithArguments("double", "int"),
+                new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id)
+                    .WithAnySpan()
+                    .WithArguments("double", "int"),
             ]);
 
         verifier.Verify();
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void PositionalPatternAssignment_AfterMultilineInitializer_ParsesCorrectly()
     {
         const string source = """
@@ -1298,17 +1328,14 @@ var second = 0
 first + second
 """;
 
-        var verifier = CreateVerifier(
-            source,
-            [
-                new DiagnosticResult(CompilerDiagnostics.IdentifierExpected.Id)
-                    .WithSpan(5, 1, 5, 16)
-            ]);
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
 
-        verifier.Verify();
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void VarPositionalPatternAssignment_WithTypedDesignation_UsesDeclaredTypes()
     {
         const string source = """
@@ -1326,7 +1353,7 @@ var (first: double, second, _) = (1, 2, 3)
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .First();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
@@ -1353,7 +1380,7 @@ var (first: double, second, _) = (1, 2, 3)
         Assert.IsType<BoundDiscardPattern>(tuplePattern.Elements[2]);
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void MixedPositionalPatternAssignment_BindsNestedPatterns()
     {
         const string source = """
@@ -1361,20 +1388,43 @@ var (first: double, second, _) = (1, 2, 3)
 second = 4.5
 """;
 
-        var verifier = CreateVerifier(
-            source,
-            [
-                new DiagnosticResult(CompilerDiagnostics.ConsecutiveStatementsMustBeSeparatedBySemicolon.Id)
-                    .WithAnySpan(),
-                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
-                    .WithArguments("second")
-                    .WithAnySpan()
-            ]);
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
 
-        verifier.Verify();
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+
+        var assignment = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<AssignmentStatementSyntax>()
+            .Single(statement => statement.Left is PositionalPatternSyntax);
+
+        var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));
+        var patternAssignment = Assert.IsType<BoundPatternAssignmentExpression>(boundAssignment.Expression);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
+
+        var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
+        var doubleType = result.Compilation.GetSpecialType(SpecialType.System_Double);
+
+        var firstPattern = Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[0]);
+        var firstDesignator = Assert.IsType<BoundSingleVariableDesignator>(firstPattern.Designator);
+        Assert.Equal("first", firstDesignator.Local.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(firstDesignator.Local.Type, intType));
+        Assert.False(firstDesignator.Local.IsMutable);
+
+        var secondPattern = Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[1]);
+        var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(secondPattern.Designator);
+        Assert.Equal("second", secondDesignator.Local.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(secondDesignator.Local.Type, doubleType));
+        Assert.True(secondDesignator.Local.IsMutable);
+
+        Assert.IsType<BoundDiscardPattern>(tuplePattern.Elements[2]);
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void PositionalPatternAssignment_NonTupleRight_ReportsDiagnostic()
     {
         const string source = """
@@ -1392,7 +1442,7 @@ val (first, second, _) = 1
         verifier.Verify();
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void PositionalPatternAssignment_ArityMismatch_ReportsDiagnostic()
     {
         const string source = """
@@ -1448,14 +1498,14 @@ val result: int[4] = [...values, 3]
         verifier.Verify();
     }
 
-    [Fact(Skip = PositionalPatternAssignmentSemanticSkipReason)]
+    [Fact]
     public void PositionalPatternAssignment_UsesExtensionDeconstruct()
     {
         const string source = """
 class Widget {}
 
 extension WidgetExtensions for Widget {
-    func Deconstruct(out var first: int, out var second: string) -> unit {
+    func Deconstruct(out first: int, out second: string) -> unit {
         first = 1
         second = "ok"
     }
@@ -1476,7 +1526,7 @@ val (first, second) = widget
 
         var assignment = tree.GetRoot()
             .DescendantNodes()
-            .OfType<AssignmentStatementSyntax>()
+            .OfType<PatternDeclarationAssignmentStatementSyntax>()
             .Last();
 
         var boundAssignment = Assert.IsType<BoundAssignmentStatement>(model.GetBoundNode(assignment));

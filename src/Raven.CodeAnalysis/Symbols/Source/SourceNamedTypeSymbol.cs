@@ -406,7 +406,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     internal void RemoveMember(ISymbol member)
     {
         lock (_membersGate)
-            _members.Remove(member);
+        {
+            var index = _members.FindIndex(existing => ReferenceEquals(existing, member));
+            if (index >= 0)
+                _members.RemoveAt(index);
+        }
     }
 
     internal void SetInterfaces(IEnumerable<INamedTypeSymbol> interfaces)

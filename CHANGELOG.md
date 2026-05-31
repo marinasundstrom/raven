@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed `self.` completion inside instance members and instance extension
+  members, restored partial property/event definition-implementation merging,
+  and re-enabled fast semantic coverage for positional pattern assignments.
 - Fixed attribute diagnostics so `GetDiagnostics()` reports invalid attribute
   targets, duplicate attributes, and non-constant attribute arguments during the
   diagnostic pass instead of depending on prior `GetAttributes()` queries.

@@ -848,7 +848,7 @@ Container.
     {
         var code = """
 class Counter {
-    private value: int;
+    private val value: int = 0;
 
     public func Increment(delta: int) -> int {
         sel
@@ -877,7 +877,7 @@ class Counter {
     {
         var code = """
 class Counter {
-    private value: int;
+    private val value: int = 0;
 
     public func Increment(delta: int) -> int {
         /*caret*/
@@ -907,7 +907,7 @@ class Counter {
     {
         var code = """
 class Counter {
-    private value: int;
+    private val value: int = 0;
 
     public init(value: int) {
         /*caret*/
@@ -932,15 +932,51 @@ class Counter {
         Assert.Contains(items, i => i.DisplayText == "self");
     }
 
-    [Fact(Skip = "Self member-access completion currently returns no items; tracked separately.")]
+    [Fact]
     public void GetCompletions_OnSelfMemberAccess_ReturnsInstanceMembers()
     {
         var code = """
 class Counter {
-    private value: int;
+    private val value: int = 0;
 
     public func Increment(delta: int) -> int {
-        return self./*caret*/value
+        return self./*caret*/Increment(delta)
+    }
+}
+""";
+
+        var position = code.IndexOf("/*caret*/", StringComparison.Ordinal);
+        code = code.Replace("/*caret*/", string.Empty, StringComparison.Ordinal);
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        compilation.EnsureSetup();
+
+        var service = new CompletionService();
+        var completion = service.GetCompletionsWithMetrics(compilation, syntaxTree, position);
+        Assert.False(completion.UsedFallback, completion.FailureType);
+        var items = completion.Items;
+
+        Assert.Contains(items, i => i.DisplayText == "Increment");
+    }
+
+    [Fact]
+    public void GetCompletions_OnSelfMemberAccess_InInstanceExtension_ReturnsReceiverMembers()
+    {
+        var code = """
+class Counter {
+    public func Increment() -> int {
+        return 1
+    }
+}
+
+extension CounterExtensions for Counter {
+    public func Touch() -> int {
+        return self./*caret*/Increment()
     }
 }
 """;
@@ -959,7 +995,7 @@ class Counter {
         var service = new CompletionService();
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, i => i.DisplayText == "value");
+        Assert.Contains(items, i => i.DisplayText == "Increment");
     }
 
     [Fact]

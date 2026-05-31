@@ -16,6 +16,10 @@ Runtime, reflection, generated IL, process, NuGet, MSBuild, and sample-project c
 
 All ad hoc `dotnet test` commands should use `/property:WarningLevel=0`.
 
+The full baseline can take around 20 minutes on a typical local machine. Treat it as the broad safety gate, not the first tool for every edit: start with the smallest matching feature suite or test-class filter, then broaden to the baseline when the change affects shared compiler behavior or before handing off stabilization work. Part of the cleanup goal is to keep refactoring and reorganizing tests so selective runs become more accurate, faster, and easier to choose.
+
+The full sample build is also a smoke gate, not a default inner-loop command: `FORCE_REBUILD=1 samples/build.sh` can take roughly 5-6 minutes because it recompiles Raven.Core/compiler dependencies and every sample, while `samples/run.sh` usually finishes in seconds once the sample DLLs are built. Prefer targeted sample filters when validating one language area, then run the full sample build/run pass for compiler/runtime stabilization.
+
 ## Coverage Gaps
 
 A skipped test is not covered by the baseline. Keep skipped tests visible and either restore them as fast syntax/semantic coverage, move them into isolated runtime coverage, or delete/replace them when they are stale.
@@ -24,10 +28,7 @@ Current explicit gaps:
 
 | Area | Gap | Preferred cleanup |
 |---|---|---|
-| Completion | `self.` member-access completion returns no members | Fix completion/semantic lookup and keep as baseline coverage |
 | Reference assembly diagnostics | file-scoped code and missing-main diagnostics require reference assemblies in some environments | Make the harness provide stable references or rewrite as compiler-only diagnostics |
-| Partial properties/events | definition/implementation merge still reports duplicate/missing counterpart diagnostics | Finish merge/declared-symbol registration so both parts collapse to one member symbol |
-| Positional pattern assignment | skipped semantic coverage for tuple/nominal deconstruction assignments | Restore as fast semantics when current syntax and binding behavior are clear |
 | Language server coverage | request/hover/workspace integration tests can run for minutes under the baseline runner | Split fast request/mapper/semantic presentation tests from workspace integration tests, then guard the latter separately before restoring them to a default gate |
 | Runtime CodeGen | stale runtime/reflection/emitted-shape classes are excluded from `scripts/test-runtime-isolated.sh`: `AsyncEntryPointBridgeTests`, `AsyncPropagateCodeGenTests`, `AsyncTryAwaitCodeGenTests`, `ByRefCodeGenTests`, `ExpressionBodyCodeGenTests`, `FunctionExpressionCodeGenTests`, `GenericInvocationCodeGenTests`, `MacroCodeGenTests`, `MemberBindingCodeGenTests`, `PdbSequencePointTests`, `PrimaryConstructorParameterCodeGenTests`, `ProjectFileNuGetReferenceTests`, `PropertyTests`, `RuntimeAsyncCodeGenTests`, `RuntimeSymbolResolverTests`, `TrailingBlockCodeGenTests`, `TryExpressionCodeGenTests`, `TypeOfExpressionCodeGenTests`, `TypeResolutionPrecedenceTests`, `UnionCodeGenTests` | Reintroduce only focused runtime behavior checks; avoid emitted instruction/lowered shape assertions |
 | Project/CLI runtime | `MsBuildSampleProjectCompilationTests` can trip the runtime hang guard through `rvn`/MSBuild sample compilation | Replace with a bounded CLI smoke test or rely on `FORCE_REBUILD=1 samples/build.sh` for sample coverage |

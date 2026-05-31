@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class PartialPropertyTests : CompilationTestBase
 {
-    [Fact(Skip = "Partial property definition/implementation merge is incomplete; see test README gaps.")]
+    [Fact]
     public void PartialPropertyDefinitionAndImplementation_MergeIntoSingleSymbol()
     {
         const string source = """
@@ -19,14 +19,14 @@ partial class C {
         get;
         set;
     }
-}
+};
 
 partial class C {
     partial var Name: string {
         get => field;
         set => field = value;
     }
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -55,7 +55,7 @@ partial class C {
         get;
         set;
     }
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -73,7 +73,7 @@ partial class C {
         get => field;
         set => field = value;
     }
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -91,7 +91,7 @@ class C {
         get;
         set;
     }
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
@@ -109,11 +109,11 @@ partial class C {
         get;
         set;
     }
-}
+};
 
 partial class C {
     partial var Name: string = ""
-}
+};
 """;
 
         var tree = SyntaxTree.ParseText(source);
