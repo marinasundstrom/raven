@@ -452,12 +452,6 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                 return visibleLocal;
             }
 
-            if (_semanticModel.GetBinder(node).LookupSymbol(node.Identifier.ValueText) is { } lookedUpSymbol &&
-                lookedUpSymbol.UnderlyingSymbol is ILocalSymbol lookedUpLocal)
-            {
-                return lookedUpLocal;
-            }
-
             return _semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol as ILocalSymbol;
         }
 

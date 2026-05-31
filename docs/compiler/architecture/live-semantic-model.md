@@ -199,6 +199,26 @@ Source declarations normally take precedence over metadata declarations in the
 same namespace and with the same identifier. Lookup services should make that
 precedence explicit instead of relying on merged tree traversal.
 
+## Current Gaps
+
+The following areas still need cleanup before the editor loop is fully live and
+cheap:
+
+- Project compiler diagnostics still use broad compilation diagnostics. Keep
+  that lane background-only and cancellable; foreground editor requests should
+  not wait behind it.
+- Document compiler diagnostics can still force declaration completion or a
+  wider bind when owner state is missing. That is valid for correctness, but
+  owner recovery should keep moving toward declaration-scoped binders and
+  binder-owned diagnostics.
+- Hover over metadata-heavy or generic symbols can still spend most of its time
+  in direct invocation or generic symbol resolution. Headless runs should track
+  these slow paths separately from correctness fixes so the compiler API remains
+  complete while hot paths become cheaper.
+- Declaration-binder recovery is still explicit for several declaration syntax
+  forms. Over time this should converge on one declaration-owner recovery path
+  instead of per-declaration fallbacks.
+
 ## Validation
 
 Important validation scenarios:

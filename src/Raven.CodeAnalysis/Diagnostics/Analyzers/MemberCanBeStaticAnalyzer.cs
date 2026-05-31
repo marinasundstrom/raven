@@ -112,9 +112,6 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         {
             if (semanticModel.TryLookupVisibleValueSymbol(identifier) is { } visibleSymbol)
                 return visibleSymbol.UnderlyingSymbol;
-
-            if (semanticModel.GetBinder(identifier).LookupSymbol(identifier.Identifier.ValueText) is { } lookedUpSymbol)
-                return lookedUpSymbol.UnderlyingSymbol;
         }
 
         return semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol;

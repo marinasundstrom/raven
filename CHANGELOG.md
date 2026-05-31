@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed semantic symbol info for callable instance members so hovering or
+  analyzing the invoked name in `callback()` returns the member symbol instead
+  of the delegate `Invoke` method.
 - Fixed document compiler diagnostics so attributes on union declarations are
   validated against the union type instead of synthesized helper methods after
   editor semantic warm-up.

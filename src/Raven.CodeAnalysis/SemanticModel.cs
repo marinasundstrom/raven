@@ -1994,21 +1994,29 @@ public partial class SemanticModel
         {
             if (TryBindInterestRegion(invokedCall, out var regionBoundInvocation))
             {
-                var regionInfo = regionBoundInvocation.GetSymbolInfo();
-                if (regionInfo.Symbol is not null || !regionInfo.CandidateSymbols.IsDefaultOrEmpty)
+                if (TryGetInvokedExpressionSymbolInfo(regionBoundInvocation, invokedName, out var invokedExpressionInfo))
+                {
+                    info = invokedExpressionInfo;
+                }
+                else if (regionBoundInvocation.GetSymbolInfo() is { } regionInfo &&
+                    (regionInfo.Symbol is not null || !regionInfo.CandidateSymbols.IsDefaultOrEmpty))
                 {
                     info = regionInfo;
                 }
                 else
                 {
                     var boundInvocation = GetBoundNode(invokedCall);
-                    info = boundInvocation.GetSymbolInfo();
+                    info = TryGetInvokedExpressionSymbolInfo(boundInvocation, invokedName, out var boundInvokedExpressionInfo)
+                        ? boundInvokedExpressionInfo
+                        : boundInvocation.GetSymbolInfo();
                 }
             }
             else
             {
                 var boundInvocation = GetBoundNode(invokedCall);
-                var boundInvocationInfo = boundInvocation.GetSymbolInfo();
+                var boundInvocationInfo = TryGetInvokedExpressionSymbolInfo(boundInvocation, invokedName, out var boundInvokedExpressionInfo)
+                    ? boundInvokedExpressionInfo
+                    : boundInvocation.GetSymbolInfo();
 
                 if (boundInvocationInfo.Symbol is not null || !boundInvocationInfo.CandidateSymbols.IsDefaultOrEmpty)
                 {
@@ -2367,7 +2375,17 @@ public partial class SemanticModel
             return false;
         }
 
-        return TryGetInvocationTargetSymbolInfo(invocation, out info, cancellationToken);
+        if (!TryGetInvocationTargetSymbolInfo(invocation, out info, cancellationToken))
+            return false;
+
+        if (TryGetInvokedName(node, invocation) is { } invokedName &&
+            info.Symbol is IMethodSymbol { Name: "Invoke" } &&
+            TryGetInvokedExpressionSymbolInfo(GetBoundNode(invocation), invokedName, out var invokedExpressionInfo))
+        {
+            info = invokedExpressionInfo;
+        }
+
+        return true;
     }
 
     internal bool TryGetInvocationTargetSymbolInfo(
@@ -4172,6 +4190,22 @@ public partial class SemanticModel
             _ => null
         };
 
+    private static SimpleNameSyntax? TryGetInvokedName(SyntaxNode node, InvocationExpressionSyntax invocation)
+        => node switch
+        {
+            SimpleNameSyntax simpleName
+                when IsSameSyntaxNode(invocation.Expression, simpleName) => simpleName,
+            SimpleNameSyntax simpleName
+                when simpleName.Parent is MemberAccessExpressionSyntax memberAccess &&
+                     IsSameSyntaxNode(memberAccess.Name, simpleName) &&
+                     IsSameSyntaxNode(invocation.Expression, memberAccess) => simpleName,
+            SimpleNameSyntax simpleName
+                when simpleName.Parent is MemberBindingExpressionSyntax memberBinding &&
+                     IsSameSyntaxNode(memberBinding.Name, simpleName) &&
+                     IsSameSyntaxNode(invocation.Expression, memberBinding) => simpleName,
+            _ => null
+        };
+
     private void CacheAvailableInvocationSymbolInfo(InvocationExpressionSyntax invocation, SymbolInfo info)
         => CacheInvocationTargetSymbolInfo(invocation, info);
 
@@ -5780,6 +5814,44 @@ public partial class SemanticModel
             ? new SymbolInfo(selected, members)
             : new SymbolInfo(CandidateReason.MemberGroup, members);
         return ProjectBackingFieldSymbolsToAssociatedProperty(node, info);
+    }
+
+    private bool TryGetInvokedExpressionSymbolInfo(
+        BoundNode boundInvocationRoot,
+        SimpleNameSyntax invokedName,
+        out SymbolInfo info)
+    {
+        info = default;
+
+        if (boundInvocationRoot is BoundInvocationExpression { Receiver: { } receiver } &&
+            receiver.GetSymbolInfo() is { } receiverInfo &&
+            HasSymbolInfo(receiverInfo) &&
+            receiverInfo.Symbol is { } receiverSymbol &&
+            string.Equals(receiverSymbol.Name, invokedName.Identifier.ValueText, StringComparison.Ordinal))
+        {
+            info = receiverInfo;
+            return true;
+        }
+
+        if (!TryFindBoundNodeBySyntax(boundInvocationRoot, invokedName, out var boundInvokedNode) ||
+            boundInvokedNode is not BoundExpression boundInvokedExpression)
+        {
+            return false;
+        }
+
+        var invokedInfo = boundInvokedExpression.GetSymbolInfo();
+        if (!HasSymbolInfo(invokedInfo))
+            return false;
+
+        var symbol = invokedInfo.Symbol;
+        if (symbol is not null &&
+            !string.Equals(symbol.Name, invokedName.Identifier.ValueText, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        info = invokedInfo;
+        return true;
     }
 
     private static INamedTypeSymbol? GetNamedTypeFromAvailableSymbol(ISymbol? symbol)
@@ -13525,6 +13597,22 @@ public partial class SemanticModel
                 _ => new ClassDeclarationBinder(typeParentBinder, typeSymbol, typeDeclaration)
             };
         }
+        else if (node is InterfaceDeclarationSyntax interfaceDeclaration &&
+            actualParentBinder is not TypeDeclarationBinder)
+        {
+            var typeParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
+            var interfaceSymbol = GetDeclaredTypeSymbol(interfaceDeclaration);
+            newBinder = new InterfaceDeclarationBinder(typeParentBinder, interfaceSymbol, interfaceDeclaration);
+        }
+        else if (node is ExtensionDeclarationSyntax extensionDeclaration &&
+            actualParentBinder is not TypeDeclarationBinder)
+        {
+            var typeParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
+            var extensionSymbol = GetDeclaredTypeSymbol(extensionDeclaration);
+            newBinder = new ExtensionDeclarationBinder(typeParentBinder, extensionSymbol, extensionDeclaration);
+        }
         else if (node is UnionDeclarationSyntax unionDeclaration &&
             actualParentBinder is not TypeDeclarationBinder)
         {
@@ -13532,6 +13620,22 @@ public partial class SemanticModel
                 (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
             var unionSymbol = GetDeclaredTypeSymbol(unionDeclaration);
             newBinder = new UnionDeclarationBinder(typeParentBinder, unionSymbol, unionDeclaration);
+        }
+        else if (node is EnumDeclarationSyntax enumDeclaration &&
+            actualParentBinder is not TypeDeclarationBinder)
+        {
+            var typeParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
+            var enumSymbol = GetDeclaredTypeSymbol(enumDeclaration);
+            newBinder = new EnumDeclarationBinder(typeParentBinder, enumSymbol, enumDeclaration);
+        }
+        else if (node is DelegateDeclarationSyntax delegateDeclaration &&
+            actualParentBinder is not TypeDeclarationBinder)
+        {
+            var typeParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
+            var delegateSymbol = GetDeclaredTypeSymbol(delegateDeclaration);
+            newBinder = new DelegateDeclarationBinder(typeParentBinder, delegateSymbol, delegateDeclaration);
         }
         else if (node is MethodDeclarationSyntax methodDeclaration &&
             TryCreateMethodDeclarationBinder(methodDeclaration, actualParentBinder, out var methodDeclarationBinder))
@@ -13806,7 +13910,11 @@ public partial class SemanticModel
             CompilationUnitSyntax or
             BaseNamespaceDeclarationSyntax or
             TypeDeclarationSyntax or
+            InterfaceDeclarationSyntax or
+            ExtensionDeclarationSyntax or
             UnionDeclarationSyntax or
+            EnumDeclarationSyntax or
+            DelegateDeclarationSyntax or
             MethodDeclarationSyntax or
             ConstructorDeclarationSyntax or
             OperatorDeclarationSyntax or
@@ -13815,8 +13923,7 @@ public partial class SemanticModel
             AccessorDeclarationSyntax or
             PropertyDeclarationSyntax or
             EventDeclarationSyntax or
-            IndexerDeclarationSyntax or
-            ExtensionDeclarationSyntax;
+            IndexerDeclarationSyntax;
     }
 
     private bool TryGetBinderParentAnchor(SyntaxNode node, out SyntaxNode anchor)

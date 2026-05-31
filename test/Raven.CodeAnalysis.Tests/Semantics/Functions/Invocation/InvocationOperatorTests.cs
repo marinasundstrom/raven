@@ -60,6 +60,41 @@ val result = callable(2)
     }
 
     [Fact]
+    public void GetSymbolInfo_UnqualifiedCallableInstanceMemberInvocation_ReturnsInstanceMember()
+    {
+        var source = """
+class Handler {
+    private val callback: () -> ()
+
+    init(callback: () -> ()) {
+        self.callback = callback
+    }
+
+    func Handle() -> () {
+        callback()
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var callbackIdentifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier =>
+                identifier.Identifier.ValueText == "callback" &&
+                identifier.Parent is InvocationExpressionSyntax);
+
+        var symbol = model.GetSymbolInfo(callbackIdentifier).Symbol;
+
+        Assert.NotNull(symbol);
+        Assert.False(symbol.IsStatic);
+        Assert.Equal("callback", symbol.Name);
+        Assert.Equal("Handler", symbol.ContainingType?.Name);
+    }
+
+    [Fact]
     public void InvocationOperator_Modifiers_AreTrackedOnSymbols()
     {
         var source = """
