@@ -2063,6 +2063,58 @@ union Status {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_UnionAttributeAfterInlayHints_DoesNotUseSynthesizedMethodOwnerAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.Text.Json.Serialization.*
+
+[JsonConverter(typeof(JsonConverterFactory))]
+union JsonValue(string | double | bool | JsonValue[])
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var result = await store.TryGetDiagnosticsAsync(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        result.WasSkipped.ShouldBeFalse();
+        result.Diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0502", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("target 'method'", StringComparison.Ordinal))
+            .ShouldBeFalse();
+        result.Diagnostics
+            .Where(static diagnostic => diagnostic.Severity == LspDiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Code?.String}: {diagnostic.Message}")
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_TestCaseSample_AfterInlayHints_DoesNotReportSelfShadowingDiagnosticsAsync()
     {
         var sampleRoot = Path.Combine(

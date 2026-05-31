@@ -204,6 +204,56 @@ delegate Callback()
     }
 
     [Fact]
+    public void TypeTargetedAttribute_OnUnion_IsNotAppliedToSynthesizedMethods()
+    {
+        const string source = """
+import System.*
+
+[AttributeUsage(.Class)]
+class TypeOnlyAttribute : Attribute {
+}
+
+[TypeOnly]
+union JsonValue(string | double | bool | JsonValue[])
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var unionDeclaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+
+        var attribute = Assert.Single(unionSymbol.GetAttributes());
+        Assert.Equal("TypeOnlyAttribute", attribute.AttributeClass?.Name);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == CompilerDiagnostics.AttributeNotValidForTarget.Id);
+    }
+
+    [Fact]
+    public void JsonConverterAttribute_OnParenthesizedUnion_IsATypeAttribute()
+    {
+        const string source = """
+import System.Text.Json.Serialization.*
+
+[JsonConverter(typeof(JsonConverterFactory))]
+union JsonValue(string | double | bool | JsonValue[])
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var unionDeclaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+
+        var attribute = Assert.Single(unionSymbol.GetAttributes());
+        Assert.Equal("JsonConverterAttribute", attribute.AttributeClass?.Name);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == CompilerDiagnostics.AttributeNotValidForTarget.Id);
+    }
+
+    [Fact]
     public void AttributeArgumentMustBeConstant_ReportsDiagnostic()
     {
         const string source = """

@@ -97,6 +97,18 @@ background semantic/analyzer work must not publish an empty diagnostic set that
 erases the last valid analyzer diagnostics. The previous result remains visible
 until a newer successful lane result replaces it.
 
+The compiler diagnostic lane must also be deterministic for a single snapshot.
+Diagnostic traversal may use incremental binders, transferred owner diagnostics,
+or cached declaration state, but it must not derive diagnostics from an
+incomplete owner context. Attribute binding is a representative case: an
+attribute written on a type declaration must be validated against that declared
+type even if the declaration also synthesizes members such as union helpers,
+accessors, or `ToString`. If an incremental binder for the declaration is missing
+or stale, the semantic model should recover the declaration owner from compiler
+declaration state rather than falling back to the parent binder's containing
+symbol. False diagnostics from an invalid cached owner are worse than delayed
+diagnostics because they make the editor disagree with a one-shot compilation.
+
 This mirrors the user experience expected from C# tooling: analyzer diagnostics
 may arrive later than syntax/compiler diagnostics, but the Problems list should
 not flicker or permanently lose diagnostics because a background pass was

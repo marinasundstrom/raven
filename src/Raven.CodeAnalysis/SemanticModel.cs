@@ -1125,6 +1125,12 @@ public partial class SemanticModel
                 return Compilation.Assembly;
             }
 
+            if (declaration is BaseTypeDeclarationSyntax or InterfaceDeclarationSyntax or ExtensionDeclarationSyntax or
+                UnionDeclarationSyntax or EnumDeclarationSyntax or DelegateDeclarationSyntax)
+            {
+                return GetDeclaredTypeSymbol(declaration);
+            }
+
             if (declaration is PropertyDeclarationSyntax &&
                 HasExplicitAttributeTarget(attributeList, "field") &&
                 currentBinder.BindDeclaredSymbol(declaration) is SourcePropertySymbol { BackingField: { } backingField })
@@ -13518,6 +13524,14 @@ public partial class SemanticModel
                 InterfaceDeclarationSyntax interfaceDeclaration => new InterfaceDeclarationBinder(typeParentBinder, typeSymbol, interfaceDeclaration),
                 _ => new ClassDeclarationBinder(typeParentBinder, typeSymbol, typeDeclaration)
             };
+        }
+        else if (node is UnionDeclarationSyntax unionDeclaration &&
+            actualParentBinder is not TypeDeclarationBinder)
+        {
+            var typeParentBinder = actualParentBinder ??
+                (node.Parent is not null ? GetBinderCore(node.Parent, null, ensureSourceDeclarations) : Compilation.GlobalBinder);
+            var unionSymbol = GetDeclaredTypeSymbol(unionDeclaration);
+            newBinder = new UnionDeclarationBinder(typeParentBinder, unionSymbol, unionDeclaration);
         }
         else if (node is MethodDeclarationSyntax methodDeclaration &&
             TryCreateMethodDeclarationBinder(methodDeclaration, actualParentBinder, out var methodDeclarationBinder))

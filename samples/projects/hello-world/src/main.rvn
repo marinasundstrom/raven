@@ -2,7 +2,7 @@ import Utilities.*
 
 func Main() {
     Test()
-    val x = A(42)
+    let x = A(42)
     Test()
     A(x)
 

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed document compiler diagnostics so attributes on union declarations are
+  validated against the union type instead of synthesized helper methods after
+  editor semantic warm-up.
 - Fixed local symbol queries so inferred generic constructor initializers such as
   `val values = List<JsonValue>()` return the constructed type instead of an
   incomplete `List<>` symbol.
