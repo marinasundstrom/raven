@@ -233,6 +233,15 @@ public partial class Compilation
             }
         }
 
+        if (sourceUnionCase is not null &&
+            sourceUnionForCase is not null &&
+            destinationUnion is not null &&
+            SymbolEqualityComparer.Default.Equals(sourceUnionForCase.OriginalDefinition, destinationUnion.OriginalDefinition) &&
+            !ConcreteTypeArgumentsAreCompatible(sourceUnionForCase, (ITypeSymbol)destinationUnion))
+        {
+            return Conversion.None;
+        }
+
         if (destinationUnion is not null &&
             (sourceUnionCase is null || sourceUnionForCase is null))
         {
@@ -728,31 +737,7 @@ public partial class Compilation
         // Ok<int> → Result<(),string> (int ≠ () in the same position).
         bool ConcreteTypeArgumentsAreCompatible(ITypeSymbol sourceUnion, ITypeSymbol destUnion)
         {
-            if (sourceUnion is not INamedTypeSymbol sn || destUnion is not INamedTypeSymbol dn)
-                return true;
-
-            var sa = sn.TypeArguments;
-            var da = dn.TypeArguments;
-
-            if (sa.Length != da.Length)
-                return false;
-
-            for (var i = 0; i < sa.Length; i++)
-            {
-                if (sa[i] is ITypeParameterSymbol || da[i] is ITypeParameterSymbol)
-                    continue;
-
-                if (SymbolEqualityComparer.Default.Equals(sa[i], da[i]))
-                    continue;
-
-                // Allow implicit widening across concrete case payloads (e.g.
-                // InvalidOperationException -> Exception) while still rejecting
-                // incompatible shapes like int -> unit.
-                var argConversion = ClassifyConversion(sa[i], da[i], includeUserDefined: false);
-                if (!(argConversion.Exists && argConversion.IsImplicit))
-                    return false;
-            }
-            return true;
+            return TypeArgumentsAreCompatible(sourceUnion, destUnion);
         }
 
         static ITypeSymbol? ResolveSourceUnionForCase(ITypeSymbol sourceType, IUnionCaseTypeSymbol? sourceCase)
@@ -1332,9 +1317,6 @@ public partial class Compilation
         if (destination is not INamedTypeSymbol destinationNamed)
             return null;
 
-        if (destinationNamed.TryGetUnionCarrierConstructor(source, out var constructor))
-            return EnsureConstructedConstructor(constructor, destinationNamed);
-
         var sourceCase = source.TryGetUnionCase();
         var sourceDefinition = source.OriginalDefinition ?? source;
         var sourceCaseDefinition = (sourceCase as ITypeSymbol)?.OriginalDefinition ?? sourceCase as ITypeSymbol;
@@ -1349,11 +1331,15 @@ public partial class Compilation
                 return EnsureConstructedConstructor(candidate, destinationNamed);
 
             var parameterDefinition = parameterType.OriginalDefinition ?? parameterType;
-            if (SymbolEqualityComparer.Default.Equals(parameterDefinition, sourceDefinition))
+            if (SymbolEqualityComparer.Default.Equals(parameterDefinition, sourceDefinition) &&
+                TypeArgumentsAreCompatible(source, parameterType))
+            {
                 return EnsureConstructedConstructor(candidate, destinationNamed);
+            }
 
             if (sourceCaseDefinition is not null &&
-                SymbolEqualityComparer.Default.Equals(parameterDefinition, sourceCaseDefinition))
+                SymbolEqualityComparer.Default.Equals(parameterDefinition, sourceCaseDefinition) &&
+                TypeArgumentsAreCompatible(source, parameterType))
             {
                 return EnsureConstructedConstructor(candidate, destinationNamed);
             }
@@ -1385,6 +1371,35 @@ public partial class Compilation
 
             return new SubstitutedMethodSymbol(constructorSymbol, constructedType);
         }
+    }
+
+    private static bool TypeArgumentsAreCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)
+    {
+        if (sourceType is not INamedTypeSymbol sourceNamed ||
+            destinationType is not INamedTypeSymbol destinationNamed)
+        {
+            return true;
+        }
+
+        var sourceArguments = sourceNamed.TypeArguments;
+        var destinationArguments = destinationNamed.TypeArguments;
+
+        if (sourceArguments.Length != destinationArguments.Length)
+            return false;
+
+        for (var i = 0; i < sourceArguments.Length; i++)
+        {
+            if (sourceArguments[i] is ITypeParameterSymbol ||
+                destinationArguments[i] is ITypeParameterSymbol)
+            {
+                continue;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(sourceArguments[i], destinationArguments[i]))
+                return false;
+        }
+
+        return true;
     }
 
     private static IMethodSymbol? FindUnionTryGetValueMethod(INamedTypeSymbol unionType, ITypeSymbol memberType)

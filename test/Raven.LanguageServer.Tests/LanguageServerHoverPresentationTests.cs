@@ -488,7 +488,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union class Union<Left, Right>");
+        signature.ShouldBe("union class Union<Left, Right>: IUnion");
     }
 
     [Fact]

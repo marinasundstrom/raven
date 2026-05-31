@@ -377,7 +377,7 @@ internal abstract partial class Binder
                 }
 
                 // Then a type in that namespace.
-                var t = ns!.LookupType(name) as INamedTypeSymbol;
+                var t = LookupNamespaceType(ns!, name, part.TypeArguments);
                 if (t is null)
                     return false;
 
@@ -393,6 +393,14 @@ internal abstract partial class Binder
 
             // Nested type chain.
             var nested = currentType.GetTypeMembers(name);
+            if (part.TypeArguments is not null)
+            {
+                var arity = part.TypeArguments.Arguments.Count;
+                nested = nested
+                    .Where(type => NormalizeDefinition(type).Arity == arity)
+                    .ToImmutableArray();
+            }
+
             if (nested.Length != 1)
                 return false;
 
@@ -428,6 +436,25 @@ internal abstract partial class Binder
                 return args;
 
             return Construct(definition, args.ResolvedTypeArguments);
+        }
+
+        INamedTypeSymbol? LookupNamespaceType(INamespaceSymbol namespaceSymbol, string name, TypeArgumentListSyntax? typeArguments)
+        {
+            var arity = typeArguments?.Arguments.Count ?? 0;
+            var namedType = SelectByArity(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity)
+                ?? namespaceSymbol.LookupType(name) as INamedTypeSymbol;
+
+            if (namedType is not null)
+                return namedType;
+
+            if (typeArguments is null)
+                return null;
+
+            var namespaceName = namespaceSymbol.ToMetadataName();
+            if (string.IsNullOrWhiteSpace(namespaceName))
+                return null;
+
+            return Compilation.GetTypeByMetadataName(namespaceName + "." + name + "`" + arity) as INamedTypeSymbol;
         }
 
         static NamePart[] FlattenMemberAccess(MemberAccessExpressionSyntax node)

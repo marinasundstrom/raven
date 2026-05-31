@@ -401,7 +401,8 @@ public partial class SemanticModel
                 diagnosticInstrumentation.RecordBinderSelectionTicks(Stopwatch.GetTimestamp() - phaseStart);
 
                 var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
-                if (TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder, diagnosticInstrumentation))
+                if (!requireCompleteDeclarations &&
+                    TryCollectIncrementalDiagnostics(root, binder, diagnosticsBuilder, diagnosticInstrumentation))
                 {
                     diagnosticInstrumentation.RecordIncrementalPass();
                 }
@@ -605,6 +606,7 @@ public partial class SemanticModel
                             ?? GetBinderForDiagnostics(function, childBinder) as FunctionBinder;
                         if (functionBinder is not null)
                         {
+                            BindDeclarationAttributes(function, functionBinder);
                             ValidateFunctionParameters(function, functionBinder);
                             BindFunctionBody(function, functionBinder);
                             continue;
@@ -623,6 +625,7 @@ public partial class SemanticModel
                         ?? GetBinderForDiagnostics(childFunctionStatement, childBinder) as FunctionBinder;
                     if (functionBinder is not null)
                     {
+                        BindDeclarationAttributes(childFunctionStatement, functionBinder);
                         ValidateFunctionParameters(childFunctionStatement, functionBinder);
                         BindFunctionBody(childFunctionStatement, functionBinder);
                         continue;
@@ -890,7 +893,26 @@ public partial class SemanticModel
         }
 
         void ValidateFunctionParameters(FunctionStatementSyntax function, FunctionBinder functionBinder)
-            => ValidateRegularParameters(function.ParameterList.Parameters, functionBinder.Diagnostics);
+        {
+            ValidateRegularParameters(function.ParameterList.Parameters, functionBinder.Diagnostics);
+
+            _ = functionBinder.GetMethodSymbol();
+            var methodBinder = functionBinder.GetMethodBodyBinder();
+            foreach (var parameter in function.ParameterList.Parameters)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (parameter.TypeAnnotation?.Type is not { } typeSyntax)
+                    continue;
+
+                var boundTypeSyntax = ParameterSyntaxUtilities.GetRefKind(parameter).IsByRef &&
+                    typeSyntax is ByRefTypeSyntax byRefType
+                        ? byRefType.ElementType
+                        : typeSyntax;
+                var parameterType = methodBinder.BindTypeSyntaxAndReport(boundTypeSyntax);
+                _ = methodBinder.EnsureTypeValidForStorageLocation(parameterType, boundTypeSyntax.GetLocation());
+            }
+        }
 
         void ValidateRegularParameters(IEnumerable<ParameterSyntax> parameters, DiagnosticBag diagnostics)
         {
@@ -911,6 +933,14 @@ public partial class SemanticModel
                         parameter.BindingKeyword.Text,
                         parameter.Identifier.ValueText,
                         parameter.BindingKeyword.GetLocation());
+                }
+
+                if (parameter.ParamsKeyword.Kind == SyntaxKind.ParamsKeyword &&
+                    parameter.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken)
+                {
+                    diagnostics.ReportVarParamsMarkersAreMutuallyExclusive(
+                        parameter.Identifier.ValueText,
+                        parameter.GetLocation());
                 }
             }
         }
@@ -1700,6 +1730,7 @@ public partial class SemanticModel
 
     private static bool ShouldPreserveBinderDiagnosticsDuringExecutableRebind(Binder binderState)
         => binderState is TypeMemberBinder
+            or TypeDeclarationBinder
             or FunctionBinder
             or ImportBinder
             or CompilationUnitBinder
@@ -2339,27 +2370,27 @@ public partial class SemanticModel
         CancellationToken cancellationToken = default)
     {
         if (TryGetPipeInvocationSymbolInfo(invocation, out info) &&
-            HasSymbolInfo(info))
+            HasInvocationTargetSymbolInfo(info))
         {
             CacheInvocationTargetSymbolInfo(invocation, info);
             return true;
         }
 
         if (TryGetAvailableInvocationSymbolInfo(invocation, out info) &&
-            HasSymbolInfo(info))
+            HasInvocationTargetSymbolInfo(info))
         {
             CacheInvocationTargetSymbolInfo(invocation, info);
             return true;
         }
 
         if (TryGetCachedSymbolInfo(invocation, out info) &&
-            HasSymbolInfo(info))
+            HasInvocationTargetSymbolInfo(info))
         {
             return true;
         }
 
         if (TryGetCachedSymbolInfo(invocation.Expression, out info) &&
-            HasSymbolInfo(info))
+            HasInvocationTargetSymbolInfo(info))
         {
             CacheInvocationTargetSymbolInfo(invocation, info);
             return true;
@@ -2368,7 +2399,7 @@ public partial class SemanticModel
         if (TryBindInterestRegion(invocation, out var regionBoundInvocation))
         {
             info = regionBoundInvocation.GetSymbolInfo();
-            if (HasSymbolInfo(info))
+            if (HasInvocationTargetSymbolInfo(info))
             {
                 CacheInvocationTargetSymbolInfo(invocation, info);
                 return true;
@@ -2379,7 +2410,7 @@ public partial class SemanticModel
             semanticQueryBoundNode is BoundExpression semanticQueryBoundExpression)
         {
             info = semanticQueryBoundExpression.GetSymbolInfo();
-            if (HasSymbolInfo(info))
+            if (HasInvocationTargetSymbolInfo(info))
             {
                 CacheInvocationTargetSymbolInfo(invocation, info);
                 return true;
@@ -2387,22 +2418,29 @@ public partial class SemanticModel
         }
 
         if (TryRebindInvocationAfterRefreshingFunctionArguments(invocation, out info) &&
-            HasSymbolInfo(info))
+            HasInvocationTargetSymbolInfo(info))
         {
             CacheInvocationTargetSymbolInfo(invocation, info);
             return true;
         }
 
         if (TryResolveInvocationOperatorFromReceiver(invocation, out info) &&
-            HasSymbolInfo(info))
+            HasInvocationTargetSymbolInfo(info))
         {
             CacheInvocationTargetSymbolInfo(invocation, info);
             return true;
         }
 
         if (TryBindExactSymbol(invocation, out info) &&
-            HasSymbolInfo(info))
+            HasInvocationTargetSymbolInfo(info))
         {
+            CacheInvocationTargetSymbolInfo(invocation, info);
+            return true;
+        }
+
+        if (GetBoundNode(invocation) is BoundInvocationExpression boundInvocation)
+        {
+            info = new SymbolInfo(boundInvocation.Method);
             CacheInvocationTargetSymbolInfo(invocation, info);
             return true;
         }
@@ -2547,13 +2585,7 @@ public partial class SemanticModel
     {
         info = SymbolInfo.None;
 
-        var normalizedTargetType = targetType.UnwrapLiteralType() ?? targetType;
-        normalizedTargetType = normalizedTargetType.GetPlainType();
-
-        if (normalizedTargetType is not INamedTypeSymbol targetNamedType)
-            return false;
-
-        if (!targetNamedType.TryFindUnionCaseType(memberName, out var caseType))
+        if (!TryGetTargetTypedUnionCaseType(targetType, memberName, out var caseType))
             return false;
 
         var constructor = memberBinding.Parent is InvocationExpressionSyntax invocation &&
@@ -2565,6 +2597,20 @@ public partial class SemanticModel
             ? new SymbolInfo(constructor)
             : new SymbolInfo(caseType);
         return true;
+    }
+
+    private static bool TryGetTargetTypedUnionCaseType(
+        ITypeSymbol targetType,
+        string memberName,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out INamedTypeSymbol? caseType)
+    {
+        caseType = null;
+
+        var normalizedTargetType = targetType.UnwrapLiteralType() ?? targetType;
+        normalizedTargetType = normalizedTargetType.GetPlainType();
+
+        return normalizedTargetType is INamedTypeSymbol targetNamedType &&
+               targetNamedType.TryFindUnionCaseType(memberName, out caseType);
     }
 
     private static IMethodSymbol? ChooseUnionCaseConstructor(
@@ -2690,6 +2736,14 @@ public partial class SemanticModel
         if (typeSymbol is null)
             return null;
 
+        return TryGetCommonConstructorArgumentType(typeSymbol, arguments, argument);
+    }
+
+    private static ITypeSymbol? TryGetCommonConstructorArgumentType(
+        INamedTypeSymbol typeSymbol,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument)
+    {
         ITypeSymbol? commonType = null;
         var hasCommonType = false;
 
@@ -2722,6 +2776,70 @@ public partial class SemanticModel
             return null;
 
         return GetParameterForArgument(method, arguments, argument)?.Type;
+    }
+
+    private bool TryGetAvailableTargetTypeForUnionCaseInvocation(
+        InvocationExpressionSyntax invocation,
+        out ITypeSymbol? targetType)
+    {
+        targetType = null;
+
+        if (invocation.Parent is ArgumentSyntax argument &&
+            IsSameSyntaxNode(argument.Expression, invocation) &&
+            argument.Parent is ArgumentListSyntax argumentList &&
+            argumentList.Parent is InvocationExpressionSyntax containingInvocation)
+        {
+            targetType = TryGetCommonConstructorArgumentTypeFromAvailableConstructor(
+                containingInvocation,
+                argumentList.Arguments,
+                argument);
+            return targetType is not null && targetType.TypeKind != TypeKind.Error;
+        }
+
+        if (invocation.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax variableDeclarator } &&
+            variableDeclarator.TypeAnnotation?.Type is { } annotationType)
+        {
+            targetType = GetTypeInfo(annotationType).Type;
+            return targetType is not null && targetType.TypeKind != TypeKind.Error;
+        }
+
+        return false;
+    }
+
+    private ITypeSymbol? TryGetCommonConstructorArgumentTypeFromAvailableConstructor(
+        InvocationExpressionSyntax invocation,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ArgumentSyntax argument)
+    {
+        INamedTypeSymbol? typeSymbol = null;
+        if (invocation.Expression is TypeSyntax typeSyntax &&
+            GetTypeInfo(typeSyntax).Type is INamedTypeSymbol directType)
+        {
+            typeSymbol = directType;
+        }
+        else if (invocation.Expression is IdentifierNameSyntax identifier &&
+                 TryLookupAvailableNamedType(identifier.Identifier.ValueText, 0, out var availableType) &&
+                 availableType is not null)
+        {
+            typeSymbol = availableType;
+        }
+        else if (invocation.Expression is GenericNameSyntax genericName)
+        {
+            var typeArguments = ResolveAvailableTypeArguments(genericName.TypeArgumentList);
+            if (!typeArguments.IsDefault &&
+                TryLookupAvailableNamedType(genericName.Identifier.ValueText, typeArguments.Length, out var availableGenericType) &&
+                availableGenericType is not null)
+            {
+                typeSymbol = availableGenericType.TypeParameters.Length == typeArguments.Length
+                    ? availableGenericType.Construct(typeArguments.ToArray()) as INamedTypeSymbol
+                    : availableGenericType;
+            }
+        }
+
+        if (typeSymbol is null)
+            return null;
+
+        return TryGetCommonConstructorArgumentType(typeSymbol, arguments, argument);
     }
 
     private bool TryGetWithAssignmentMemberSymbolInfo(WithAssignmentSyntax assignment, out SymbolInfo info)
@@ -4214,6 +4332,19 @@ public partial class SemanticModel
                 return true;
         }
 
+        if (invocation.Expression is SimpleNameSyntax targetTypedCaseName &&
+            TryLookupVisibleValueSymbol(targetTypedCaseName) is null &&
+            TryGetAvailableTargetTypeForUnionCaseInvocation(invocation, out var targetType) &&
+            targetType is not null &&
+            TryGetTargetTypedUnionCaseType(targetType, targetTypedCaseName.Identifier.ValueText, out var caseType))
+        {
+            AddIfNotPresent(ChooseUnionCaseConstructor(caseType, invocation.ArgumentList.Arguments.Count));
+
+            methods = builder.ToImmutable();
+            if (methods.Length > 0)
+                return true;
+        }
+
         if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
             TryLookupVisibleValueSymbol(invocationIdentifier) is null &&
             TryLookupAvailableFunctionDeclarations(
@@ -4282,6 +4413,13 @@ public partial class SemanticModel
         }
 
         if (builder.Count == 0 &&
+            TryResolveAvailableTypeExpression(invocation.Expression, out var constructorExpressionType) &&
+            constructorExpressionType?.GetPlainType() is INamedTypeSymbol expressionConstructorType)
+        {
+            AddAvailableConstructors(expressionConstructorType, AddIfNotPresent);
+        }
+
+        if (builder.Count == 0 &&
             TryGetAvailableTypeInfo(invocation.Expression, out var typeInfo) &&
             (typeInfo.Type ?? typeInfo.ConvertedType)?.GetPlainType() is INamedTypeSymbol expressionType)
         {
@@ -4289,7 +4427,6 @@ public partial class SemanticModel
                 AddIfNotPresent(invokeMethod);
 
             AddInvokeCandidatesFromType(expressionType, AddIfNotPresent);
-            AddAvailableConstructors(expressionType, AddIfNotPresent);
         }
 
         methods = builder.ToImmutable();
@@ -5338,23 +5475,48 @@ public partial class SemanticModel
                 continue;
             }
 
-            var importedTypeName = importName;
-            var lastDot = importedTypeName.LastIndexOf('.');
-            var simpleImportedName = lastDot >= 0
-                ? importedTypeName[(lastDot + 1)..]
-                : importedTypeName;
+            var importedTypeName = GetImportedMetadataTypeName(importDirective.Name, arity);
+            var simpleImportedName = GetImportedSimpleTypeName(importDirective.Name);
             if (!string.Equals(simpleImportedName, name, StringComparison.Ordinal))
                 continue;
 
-            type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(arity > 0
-                ? importedTypeName + "`" + arity
-                : importedTypeName);
+            type = Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(importedTypeName);
             if (type is not null)
                 return true;
         }
 
         type = null;
         return false;
+
+        static string GetImportedSimpleTypeName(NameSyntax importNameSyntax)
+            => importNameSyntax switch
+            {
+                IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+                GenericNameSyntax generic => generic.Identifier.ValueText,
+                QualifiedNameSyntax qualified => GetImportedSimpleTypeName(qualified.Right),
+                _ => importNameSyntax.ToString()
+            };
+
+        static string GetImportedMetadataTypeName(NameSyntax importNameSyntax, int requestedArity)
+        {
+            var text = importNameSyntax.ToString().Replace(" ", string.Empty, StringComparison.Ordinal);
+            return importNameSyntax switch
+            {
+                GenericNameSyntax generic => GetMetadataTypeName(generic.Identifier.ValueText, GetImportGenericArity(generic, requestedArity)),
+                QualifiedNameSyntax { Right: GenericNameSyntax generic } qualified =>
+                    qualified.Left + "." + GetMetadataTypeName(generic.Identifier.ValueText, GetImportGenericArity(generic, requestedArity)),
+                _ => requestedArity > 0 ? text + "`" + requestedArity : text
+            };
+        }
+
+        static int GetImportGenericArity(GenericNameSyntax generic, int requestedArity)
+        {
+            var argumentCount = generic.TypeArgumentList.Arguments.Count;
+            if (argumentCount > 0)
+                return argumentCount;
+
+            return Math.Max(requestedArity, generic.TypeArgumentList.Arguments.SeparatorCount + 1);
+        }
     }
 
     private ImmutableArray<ITypeSymbol> ResolveAvailableTypeArguments(TypeArgumentListSyntax typeArgumentList)
@@ -7127,6 +7289,11 @@ public partial class SemanticModel
     private static bool HasSymbolInfo(SymbolInfo info)
         => info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
 
+    private static bool HasInvocationTargetSymbolInfo(SymbolInfo info)
+        => info.Symbol is IMethodSymbol ||
+           (!info.CandidateSymbols.IsDefaultOrEmpty &&
+            info.CandidateSymbols.Any(static symbol => symbol is IMethodSymbol));
+
     private bool TryGetCachedNodeInterestSymbolInfo(SyntaxNode node, out SymbolInfo info)
     {
         if (Compilation.TryGetNodeInterestSymbolDescriptor(node, out var cachedDescriptor) &&
@@ -8385,6 +8552,20 @@ public partial class SemanticModel
             else
                 binder.EnsureStatementDeclarations(global.Statement);
         }
+    }
+
+    internal void EnsurePrecedingGlobalStatementsBoundForSemanticQuery(SyntaxNode contextNode)
+    {
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+        using var semanticQueryBinding = EnterSemanticQueryBinding();
+
+        if (contextNode.AncestorsAndSelf().OfType<GlobalStatementSyntax>().FirstOrDefault() is not { } globalOwner ||
+            contextNode.SyntaxTree.GetRoot() is not CompilationUnitSyntax root)
+        {
+            return;
+        }
+
+        BindPrecedingGlobalStatementsForScope(root, globalOwner, requireCompleteDeclarations: true);
     }
 
     private void PrimeContextualFunctionExpressions(SyntaxNode root)
@@ -10298,6 +10479,7 @@ public partial class SemanticModel
         out ILocalSymbol? localSymbol,
         bool allowErrorType = false)
     {
+        Compilation.EnsureSourceDeclarationsDeclared();
         EnsureDeclarations();
 
         var declaredSymbol = GetBinderForIncrementalSemanticQuery(designation).BindDeclaredSymbol(designation);
@@ -10775,7 +10957,7 @@ public partial class SemanticModel
             containingSymbol,
             containingType,
             containingNamespace,
-            [parameterSyntax.GetLocation()],
+            [parameterSyntax.Identifier.GetLocation()],
             [parameterSyntax.GetReference()],
             refKind,
             hasExplicitDefaultValue: false,

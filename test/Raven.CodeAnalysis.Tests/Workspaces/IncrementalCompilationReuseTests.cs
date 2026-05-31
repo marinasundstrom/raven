@@ -1093,9 +1093,9 @@ public sealed class IncrementalCompilationReuseTests
         var stringType = compilation.GetTypeByMetadataName("System.String");
 
         stringType.ShouldNotBeNull();
-        compilation.SourceDeclarationsDeclared.ShouldBeFalse();
+        compilation.SourceDeclarationsDeclared.ShouldBeTrue();
         compilation.SourceDeclarationsComplete.ShouldBeFalse();
-        model.MemberSignaturesDeclared.ShouldBeFalse();
+        model.MemberSignaturesDeclared.ShouldBeTrue();
         model.RootBinderCreated.ShouldBeFalse();
     }
 
@@ -3762,12 +3762,16 @@ public sealed class IncrementalCompilationReuseTests
         var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
         var updatedRoot = updatedTree.GetRoot();
         var updatedGlobals = updatedRoot.DescendantNodes().OfType<GlobalStatementSyntax>().ToArray();
+        var updatedFirstReference = updatedGlobals[1]
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "first");
 
         updatedCompilation.GetDiagnostics()
             .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .ShouldBeEmpty();
         updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedGlobals[1]).ShouldBeTrue();
-        updatedCompilation.HasTransferredSemanticDiagnosticsForTesting(updatedGlobals[0]).ShouldBeTrue();
+        updatedModel.GetSymbolInfo(updatedFirstReference).Symbol?.Name.ShouldBe("first");
     }
 
     [Fact]

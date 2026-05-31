@@ -281,6 +281,13 @@ public partial class SemanticModel
 
         var isAsync = functionStatement.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword);
         var isExtern = functionStatement.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.ExternKeyword);
+        if (isExtern && (functionStatement.Body is not null || functionStatement.ExpressionBody is not null))
+        {
+            _declarationDiagnostics.ReportExternMemberCannotHaveBody(
+                functionStatement.Identifier.ValueText,
+                functionStatement.Identifier.GetLocation());
+        }
+
         ITypeSymbol returnType = isAsync
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
@@ -1604,6 +1611,14 @@ public partial class SemanticModel
         if (!allowSourceDeclarationCompletion)
             EnsureDeclarations();
 
+        BindAliases(EnumerateGlobalAliasDirectives());
+        BindAliases(cu.Aliases);
+
+        if (fileScopedNamespace is not null)
+        {
+            BindAliases(fileScopedNamespace.Aliases);
+        }
+
         BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: allowSourceDeclarationCompletion);
 
         foreach (var baseName in deferredWildcardImports)
@@ -1638,14 +1653,6 @@ public partial class SemanticModel
             {
                 namespaceBinder.Diagnostics.ReportInvalidImportTarget(constantImport.GetLocation());
             }
-        }
-
-        BindAliases(EnumerateGlobalAliasDirectives());
-        BindAliases(cu.Aliases);
-
-        if (fileScopedNamespace is not null)
-        {
-            BindAliases(fileScopedNamespace.Aliases);
         }
 
         foreach (var diagnostic in namespaceBinder.Diagnostics.AsEnumerable())
@@ -2145,7 +2152,8 @@ public partial class SemanticModel
             .Where(static function => function.Identifier.ValueText == "Main")
             .ToArray();
 
-        if (topLevelMainFunctions.Length > 0)
+        var hasTopLevelMainFunction = topLevelMainFunctions.Length > 0;
+        if (hasTopLevelMainFunction)
         {
             foreach (var statement in bindableGlobals)
             {
@@ -2155,12 +2163,12 @@ public partial class SemanticModel
 
         var supportsTopLevelProgram = Compilation.Options.OutputKind == OutputKind.ConsoleApplication;
 
-        var shouldCreateTopLevelProgram = bindableGlobals.Count > 0
+        var shouldCreateTopLevelProgram = !hasTopLevelMainFunction && (bindableGlobals.Count > 0
             || (supportsTopLevelProgram
                 && bindableGlobals.Count == 0
                 && !hasNonGlobalMembers
                 && !hadDisabledGlobalStatements
-                && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu));
+                && ShouldCreateImplicitTopLevelProgramForCompilationUnit(cu)));
         var hasExecutableFileScopedCode = bindableGlobals.Any(static g => g.Statement is not FunctionStatementSyntax);
 
         if (fileScopedNamespace != null)

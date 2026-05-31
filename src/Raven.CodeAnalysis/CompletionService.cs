@@ -377,39 +377,7 @@ public class CompletionService
 
         compilation.EnsureSetup();
 
-        List<INamespaceSymbol>? namespaces = null;
-        if (LookupQualifiedMember(compilation, compilation.SourceGlobalNamespace, name, arity) is { } sourceMember)
-        {
-            if (sourceMember is not INamespaceSymbol sourceNamespace)
-                return sourceMember;
-
-            namespaces = [sourceNamespace];
-        }
-
-        foreach (var referencedAssembly in compilation.ReferencedAssemblySymbols)
-        {
-            var member = LookupQualifiedMember(compilation, referencedAssembly.GlobalNamespace, name, arity);
-            if (member is null)
-                continue;
-
-            if (member is not INamespaceSymbol namespaceMember)
-            {
-                if (namespaces is null)
-                    return member;
-
-                continue;
-            }
-
-            namespaces ??= [];
-            namespaces.Add(namespaceMember);
-        }
-
-        return namespaces?.Count switch
-        {
-            null or 0 => null,
-            1 => namespaces[0],
-            _ => new MergedNamespaceSymbol(namespaces, null!)
-        };
+        return LookupQualifiedMember(compilation, compilation.GlobalNamespace, name, arity);
     }
 
     private static INamespaceOrTypeSymbol? LookupQualifiedMember(

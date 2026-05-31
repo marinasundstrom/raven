@@ -18,7 +18,7 @@ import System.*
 import System.Console.*
 import System.Reactive.*
 
-static func Main() -> unit {
+func Main() -> unit {
     val observer = Observer.Create<int>((value: int) => {
         WriteLine(value)
     })
@@ -122,7 +122,7 @@ import System.*
 import System.Console.*
 import System.Reactive.*
 
-static func Main() -> unit {
+func Main() -> unit {
     val observer = Observer.Create<int>(value => {
         WriteLine(value)
     })
@@ -162,7 +162,7 @@ import System.*
 import System.Console.*
 import System.Reactive.*
 
-static func Main() -> unit {
+func Main() -> unit {
     val observer = Observer.Create<int>(value => {
         WriteLine(value)
     })
@@ -219,7 +219,7 @@ func Seed(db: AppDbContext) {
     db.Users.Add(.(2, "Bob", 17, true))
 }
 
-static func Main() -> unit {
+func Main() -> unit {
     val db = AppDbContext()
     Seed(db)
     val minAge = 21

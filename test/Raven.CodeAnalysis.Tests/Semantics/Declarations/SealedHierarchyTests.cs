@@ -399,7 +399,7 @@ class Add : Expr {}
     }
 
     [Fact]
-    public void SealedHierarchy_MatchExpression_FullyCoveredCatchAll_IsCurrentlyNotRedundant()
+    public void SealedHierarchy_MatchExpression_FullyCoveredCatchAll_IsRedundant()
     {
         var source = """
 import System.*
@@ -421,7 +421,7 @@ class Add : Expr {}
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2100");
-        Assert.DoesNotContain(diagnostics, d => d.Descriptor.Id == "RAV2103");
+        Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV2103");
     }
 
     [Fact]

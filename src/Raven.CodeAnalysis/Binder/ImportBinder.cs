@@ -41,7 +41,7 @@ class ImportBinder : Binder
         if (declared is not null)
             return declared;
 
-        var type = _typeImports.FirstOrDefault(x => x.Name == name);
+        var type = _typeImports.FirstOrDefault(x => IsImportedTypeName(x, name));
         if (type is not null)
             return type;
 
@@ -152,7 +152,7 @@ class ImportBinder : Binder
 
         // Types explicitly imported
         foreach (var type in _typeImports)
-            if (type.Name == name && seen.Add(type))
+            if (IsImportedTypeName(type, name) && seen.Add(type))
                 results.Add(type);
 
         if (results.Count > 0)
@@ -189,6 +189,25 @@ class ImportBinder : Binder
         }
 
         yield break;
+    }
+
+    private static bool IsImportedTypeName(ITypeSymbol type, string name)
+    {
+        if (string.Equals(type.Name, name, StringComparison.Ordinal))
+            return true;
+
+        if (type is INamedTypeSymbol named)
+        {
+            var metadataName = named.MetadataName;
+            var tickIndex = metadataName.IndexOf('`');
+            if (tickIndex > 0 &&
+                string.Equals(metadataName[..tickIndex], name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal static bool IsImportableTypeScopeMember(ISymbol member)

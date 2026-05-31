@@ -19,7 +19,7 @@ func Evaluate(expr: Expr) {
 """;
 
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
@@ -39,7 +39,7 @@ class Box {
 """;
 
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
@@ -59,7 +59,7 @@ func Main() {
 """;
 
         var tree = SyntaxTree.ParseText(source, path: "file.rvn");
-        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = CreateCompilation(tree);
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);

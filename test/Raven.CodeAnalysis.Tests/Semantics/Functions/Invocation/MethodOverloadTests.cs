@@ -723,10 +723,10 @@ public class MethodOverloadTests : CompilationTestBase
                 Name.Identifier.Text: "Add"
             });
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        Assert.Equal("ImmutableList", symbol.ContainingType?.Name);
-        Assert.Equal("Person", symbol.Parameters[0].Type.Name);
-        Assert.Equal("ImmutableList", symbol.ReturnType.Name);
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(invocation).Type);
+        Assert.Equal("ImmutableList", type.Name);
+        var typeArgument = Assert.Single(type.TypeArguments);
+        Assert.Equal("Person", typeArgument.Name);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1014");
     }
 
@@ -754,9 +754,6 @@ public class MethodOverloadTests : CompilationTestBase
                 Name.Identifier.Text: "Add"
             });
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        Assert.Equal("ImmutableList", symbol.ContainingType?.Name);
-        Assert.Equal("Person", symbol.Parameters[0].Type.Name);
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
         Assert.Contains(diagnostics, diagnostic => diagnostic.ToString().Contains("Cannot convert from 'ImmutableList<Person>' to 'Person'", StringComparison.Ordinal));

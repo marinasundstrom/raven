@@ -308,7 +308,7 @@ public class ParserRecoveryTests
     }
 
     [Fact]
-    public void UnionDeclaration_CommaSeparatedCases_ParsesWithoutHanging()
+    public void UnionDeclaration_CommaSeparatedBareCases_RecoversWithoutHanging()
     {
         var source = """
             union Err {
@@ -327,9 +327,9 @@ public class ParserRecoveryTests
         Assert.Equal(2, root.Members.Count);
         var union = Assert.IsType<UnionDeclarationSyntax>(root.Members[0]);
         var caseDeclarations = union.Members.OfType<CaseDeclarationSyntax>().ToArray();
-        Assert.Equal(3, caseDeclarations.Length);
-        Assert.Equal(SyntaxKind.CommaToken, caseDeclarations[0].TerminatorToken.Kind);
-        Assert.Equal(SyntaxKind.CommaToken, caseDeclarations[1].TerminatorToken.Kind);
+        var caseDeclaration = Assert.Single(caseDeclarations);
+        Assert.Equal("InactiveUser", caseDeclaration.Identifier.ValueText);
+        Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax);
         var trailingGlobal = Assert.IsType<GlobalStatementSyntax>(root.Members[1]);
         Assert.IsType<FunctionStatementSyntax>(trailingGlobal.Statement);
     }

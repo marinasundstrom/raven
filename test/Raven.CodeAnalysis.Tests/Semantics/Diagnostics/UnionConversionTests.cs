@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -251,11 +252,23 @@ func build(x: Ok<int>) -> Result<(), string> {
 }
 """ + ResultUnionDecl;
 
-        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
 
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+        var model = compilation.GetSemanticModel(tree);
+        var returnExpression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ReturnStatementSyntax>()
+            .Single()
+            .Expression!;
+        var expressionType = model.GetTypeInfo(returnExpression).Type;
+        var returnType = ((IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single())!).ReturnType;
+        var conversion = compilation.ClassifyConversion(expressionType!, returnType);
+
+        Assert.False(conversion.Exists);
     }
 
     [Fact]
@@ -265,7 +278,7 @@ func build(x: Ok<int>) -> Result<(), string> {
 import System.*
 
 func build() -> Result<string, Exception> {
-    return Error(InvalidOperationException("x"))
+    return .Error(InvalidOperationException("x"))
 }
 """ + ResultUnionDecl;
 
@@ -283,7 +296,7 @@ func build() -> Result<string, Exception> {
 import System.*
 
 func build() -> Result<string, InvalidOperationException> {
-    return Error(Exception("x"))
+    return .Error(Exception("x"))
 }
 """ + ResultUnionDecl;
 

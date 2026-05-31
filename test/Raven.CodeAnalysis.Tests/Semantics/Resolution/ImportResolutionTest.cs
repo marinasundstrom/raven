@@ -144,7 +144,7 @@ public class ImportResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
-    public void ImportOpenGenericFunc_MakesTypeAvailable()
+    public void ImportOpenGenericFunc_DoesNotMakeTypeAvailable()
     {
         string testCode =
             """
@@ -153,7 +153,11 @@ public class ImportResolutionTest : DiagnosticTestBase
             Func<int, string>
             """;
 
-        var verifier = CreateVerifier(testCode);
+        var verifier = CreateVerifier(
+            testCode,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id).WithSpan(3, 1, 3, 18).WithArguments("Func")
+            ]);
 
         verifier.Verify();
     }

@@ -1053,6 +1053,9 @@ public partial class Compilation
             if (!bindableGlobals.Any())
                 continue;
 
+            if (HasTopLevelMainFunction(compilationUnit))
+                continue;
+
             if (SyntaxTreeWithFileScopedCode is null)
                 SyntaxTreeWithFileScopedCode = tree;
 
@@ -1081,13 +1084,22 @@ public partial class Compilation
                 continue;
 
             var bindableGlobals = GetBindableGlobalStatements(compilationUnit);
-            if (bindableGlobals.Any() || HasNonGlobalMembers(compilationUnit))
+            if (bindableGlobals.Any() ||
+                HasTopLevelMainFunction(compilationUnit) ||
+                HasNonGlobalMembers(compilationUnit))
                 continue;
 
             SyntaxTreeWithFileScopedCode ??= tree;
             GetOrCreateTopLevelProgram(compilationUnit, SourceGlobalNamespace, bindableGlobals);
             break;
         }
+
+        static bool HasTopLevelMainFunction(CompilationUnitSyntax compilationUnit)
+            => compilationUnit.DescendantNodes()
+                .OfType<GlobalStatementSyntax>()
+                .Any(static global =>
+                    IsTopLevelFunctionMember(global) &&
+                    global.Statement is FunctionStatementSyntax { Identifier.ValueText: "Main" });
     }
 
     internal (SynthesizedProgramClassSymbol Program, SynthesizedMainMethodSymbol Main, SynthesizedMainAsyncMethodSymbol? Async)

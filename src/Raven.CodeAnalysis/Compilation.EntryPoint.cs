@@ -58,15 +58,27 @@ public partial class Compilation
 
             var uniqueCandidates = new Dictionary<string, IMethodSymbol>(StringComparer.Ordinal);
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
-
-            foreach (var method in SourceGlobalNamespace
+            var allSourceMembers = SourceGlobalNamespace
                 .GetAllMembersRecursive()
-                .OfType<IMethodSymbol>())
+                .ToArray();
+            var hasTopLevelMainFunction = allSourceMembers
+                .OfType<IMethodSymbol>()
+                .Any(static method =>
+                    method.Name == EntryPointSignature.EntryPointName &&
+                    method is not SynthesizedMainMethodSymbol &&
+                    method.DeclaringSyntaxReferences.Any(static reference =>
+                        reference.GetSyntax() is FunctionStatementSyntax { Parent: GlobalStatementSyntax global } &&
+                        IsTopLevelFunctionMember(global)));
+
+            foreach (var method in allSourceMembers.OfType<IMethodSymbol>())
             {
                 if (method.Name != EntryPointSignature.EntryPointName)
                     continue;
 
                 if (method is SynthesizedMainMethodSymbol synthesizedMain && !synthesizedMain.ContainsExecutableCode)
+                    continue;
+
+                if (hasTopLevelMainFunction && method is SynthesizedMainMethodSymbol)
                     continue;
 
                 var hasValidReturn = EntryPointSignature.HasValidReturnType(method.ReturnType, this);
@@ -84,7 +96,7 @@ public partial class Compilation
                     continue;
                 }
 
-                var key = method.ToDisplayString(SymbolDisplayFormat.RavenSymbolKeyFormat);
+                var key = method.GetShallowLookupIdentityKey();
                 if (!uniqueCandidates.ContainsKey(key))
                     uniqueCandidates.Add(key, method);
             }

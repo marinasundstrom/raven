@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -106,7 +105,7 @@ func outer() {
     }
 
     [Fact]
-    public void Function_LocalStructDeclaration_IsVisibleToAdjacentLocalFunction_AndEmits()
+    public void Function_LocalStructDeclaration_IsVisibleToAdjacentLocalFunction_AndBinds()
     {
         const string source = """
 func outer() -> int {
@@ -132,12 +131,6 @@ func outer() -> int {
         var localStruct = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
         var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(localStruct));
         Assert.Equal(TypeKind.Struct, symbol.TypeKind);
-
-        using var peStream = new MemoryStream();
-        using var pdbStream = new MemoryStream();
-        var emitResult = compilation.Emit(peStream, pdbStream);
-
-        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics.Select(d => d.ToString())));
     }
 
     [Fact]

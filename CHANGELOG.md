@@ -11,6 +11,24 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   parameters, indexer parameters, indexer async getters, and constructor
   initializers are reported during `GetDiagnostics()` even when symbol
   declarations were already cached.
+- Fixed diagnostic reuse for type declarations so partial-method, sealed
+  hierarchy, and static-type storage diagnostics remain available after
+  executable binding reuses cached declaration state.
+- Fixed duplicate diagnostics when rebinding finalizer declarations and partial
+  method definition/implementation counterparts.
+- Fixed complete semantic diagnostics so `GetDiagnostics()` collects
+  declaration-binder diagnostics instead of taking the document-scoped
+  incremental diagnostics path.
+- Fixed top-level `Main` entry-point discovery so invalid file-scoped statements
+  report `RAV1021` without also synthesizing or selecting a competing
+  top-level-program `Main`.
+- Fixed completion on cold semantic models so earlier top-level declarations
+  initialized from invocations or function expressions contribute their inferred
+  types to member lists and completion descriptions.
+- Fixed full diagnostics for top-level function attributes and extern
+  top-level functions with bodies.
+- Fixed qualified generic type lookup in member-access-shaped type expressions
+  such as `System.Func<int, string>`.
 - Fixed macro-expanded local declarations so documentation-comment lookup uses
   the declarator syntax node instead of a token-only span, avoiding crashes when
   inspecting expanded documents.

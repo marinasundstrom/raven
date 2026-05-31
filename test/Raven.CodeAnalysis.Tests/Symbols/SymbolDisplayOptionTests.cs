@@ -200,7 +200,9 @@ class C {
         foreach (var invocation in invocations)
         {
             var typeInfo = model.GetTypeInfo(invocation);
-            Assert.Equal("Some<string>", typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+            var actualType = typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var line = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+            Assert.True(actualType == "Some<string>", $"Expected Some<string> for '{invocation}' on line {line}, got '{actualType}'.");
             var type = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
 
             Assert.Equal("Option<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));

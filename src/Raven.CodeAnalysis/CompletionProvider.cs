@@ -29,6 +29,9 @@ public static class CompletionProvider
         }
 
         var binder = model.GetBinder(token.Parent);
+        if (token.Parent is { } tokenParent)
+            model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(tokenParent);
+
         var completions = new List<CompletionItem>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -135,11 +138,22 @@ public static class CompletionProvider
         static bool HasSymbolInfo(SymbolInfo symbolInfo)
             => symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty;
 
+        static bool IsUsableNamespaceOrTypeSymbol(INamespaceOrTypeSymbol symbol)
+            => symbol is not IErrorTypeSymbol and not ITypeSymbol { TypeKind: TypeKind.Error };
+
+        static INamespaceOrTypeSymbol? AsUsableNamespaceOrTypeSymbol(ISymbol? symbol)
+        {
+            var namespaceOrType = symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
+            return namespaceOrType is not null && IsUsableNamespaceOrTypeSymbol(namespaceOrType)
+                ? namespaceOrType
+                : null;
+        }
+
         INamespaceOrTypeSymbol? TryResolveNamespaceOrType(NameSyntax name)
         {
             INamespaceOrTypeSymbol? resolved = null;
             if (TryGetPreferredSymbolInfo(name, out var symbolInfo))
-                resolved = symbolInfo.Symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
+                resolved = AsUsableNamespaceOrTypeSymbol(symbolInfo.Symbol);
 
             if (resolved is not null)
                 return resolved;
@@ -187,9 +201,10 @@ public static class CompletionProvider
             if (TryResolveEnclosingTypeParameter(identifier, name) is { } typeParameter)
                 return typeParameter;
 
-            return (INamespaceOrTypeSymbol?)binder.LookupType(name)
+            return AsUsableNamespaceOrTypeSymbol(binder.LookupType(name))
                 ?? binder.LookupNamespace(name)
-                ?? (binder.LookupSymbol(name)?.UnderlyingSymbol as INamespaceOrTypeSymbol);
+                ?? AsUsableNamespaceOrTypeSymbol(binder.LookupSymbol(name))
+                ?? LookupRootMember(name, arity: 0);
         }
 
         ITypeParameterSymbol? TryResolveEnclosingTypeParameter(SyntaxNode node, string name)
@@ -223,6 +238,47 @@ public static class CompletionProvider
         {
             var left = TryResolveNamespaceOrType(qualified.Left);
             if (left is null)
+                return TryResolveRootNamespaceOrType(qualified);
+
+            var member = qualified.Right switch
+            {
+                IdentifierNameSyntax identifier => LookupQualifiedMember(left, identifier.Identifier.ValueText, arity: 0),
+                GenericNameSyntax generic => LookupQualifiedMember(left, generic.Identifier.ValueText, generic.TypeArgumentList.Arguments.Count),
+                _ => null
+            };
+
+            return member ?? TryResolveRootNamespaceOrType(qualified);
+        }
+
+        INamespaceOrTypeSymbol? TryResolveGenericNamespaceOrType(GenericNameSyntax generic)
+        {
+            var arity = generic.TypeArgumentList.Arguments.Count;
+            var name = generic.Identifier.ValueText;
+
+            var namedType = binder.LookupSymbols(name)
+                .OfType<INamedTypeSymbol>()
+                .FirstOrDefault(candidate => candidate.Arity == arity && IsUsableNamespaceOrTypeSymbol(candidate));
+
+            return namedType
+                ?? AsUsableNamespaceOrTypeSymbol(binder.LookupSymbol(name))
+                ?? LookupRootMember(name, arity);
+        }
+
+        INamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(NameSyntax name)
+        {
+            return name switch
+            {
+                IdentifierNameSyntax identifier => LookupRootMember(identifier.Identifier.ValueText, arity: 0),
+                GenericNameSyntax generic => LookupRootMember(generic.Identifier.ValueText, generic.TypeArgumentList.Arguments.Count),
+                QualifiedNameSyntax qualified => TryResolveRootQualifiedNamespaceOrType(qualified),
+                _ => null
+            };
+        }
+
+        INamespaceOrTypeSymbol? TryResolveRootQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
+        {
+            var left = TryResolveRootNamespaceOrType(qualified.Left);
+            if (left is null)
                 return null;
 
             return qualified.Right switch
@@ -233,17 +289,14 @@ public static class CompletionProvider
             };
         }
 
-        INamespaceOrTypeSymbol? TryResolveGenericNamespaceOrType(GenericNameSyntax generic)
+        INamespaceOrTypeSymbol? LookupRootMember(string name, int arity)
         {
-            var arity = generic.TypeArgumentList.Arguments.Count;
-            var name = generic.Identifier.ValueText;
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
 
-            var namedType = binder.LookupSymbols(name)
-                .OfType<INamedTypeSymbol>()
-                .FirstOrDefault(candidate => candidate.Arity == arity);
+            model.Compilation.EnsureSetup();
 
-            return namedType
-                ?? (binder.LookupSymbol(name)?.UnderlyingSymbol as INamespaceOrTypeSymbol);
+            return LookupQualifiedMember(model.Compilation.GlobalNamespace, name, arity);
         }
 
         INamespaceOrTypeSymbol? LookupQualifiedMember(INamespaceOrTypeSymbol? container, string name, int arity)
@@ -1630,7 +1683,7 @@ public static class CompletionProvider
                 var nameToken = aliasSimple.Identifier;
                 if (position >= nameToken.Position)
                 {
-                    var symbol = TryResolveNamespaceOrType(qualified.Left);
+                    var symbol = TryResolveImportNamespaceOrType(qualified.Left);
                     if (symbol is INamespaceOrTypeSymbol nsOrType)
                     {
                         var prefix = nameToken.ValueText;

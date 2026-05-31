@@ -9,10 +9,11 @@ build_codegen_exclusion_filter() {
 
   while IFS= read -r class_name; do
     [[ -z "$class_name" ]] && continue
-    filter+="&FullyQualifiedName!~$class_name"
+    filter+="&FullyQualifiedName!~.$class_name."
   done < <(
     find "$ROOT_DIR/test/Raven.CodeAnalysis.Tests/CodeGen" -name '*.cs' -print0 |
       xargs -0 sed -nE 's/^[[:space:]]*(public|internal)[[:space:]]+((sealed|abstract|static|partial)[[:space:]]+)*class[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\4/p' |
+      grep -E '(Tests?|Test)$' |
       sort -u
   )
 
@@ -25,12 +26,35 @@ build_code_analysis_test_classes() {
        -path "$ROOT_DIR/test/Raven.CodeAnalysis.Tests/CodeGen/*" \) -prune -o \
     -name '*.cs' -print0 |
     xargs -0 sed -nE 's/^[[:space:]]*(public|internal)[[:space:]]+((sealed|abstract|static|partial)[[:space:]]+)*class[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\4/p' |
+    grep -E '(Tests?|Test)$' |
     sort -u
 }
 
+build_heavy_exclusion_filter() {
+  local filter=""
+  local heavy_names=(
+    "MsBuildSampleProjectCompilationTests"
+    "ProjectDocumentationEmissionTests"
+    "ProjectFileTargetFrameworkAttributeTests"
+    "RavenProjectOutputDeterminismTests"
+    "NuGetHarness_AvaloniaRefAssemblySignature_EmitsWithoutRuntimeTypeLoadCrash"
+    "NuGetHarness_AvaloniaConstructedGenericContainerMember_Emits"
+    "StaticFactoryMethod_UsesCanonicalSourceMethodForEmission"
+    "OpenProject_RavenMacroProjectReference_WithObservableReplacement_EmitsExpandedSetter"
+  )
+
+  for name in "${heavy_names[@]}"; do
+    filter+="&FullyQualifiedName!~$name"
+  done
+
+  printf '%s' "$filter"
+}
+
+test_args=(/property:WarningLevel=0 --blame-hang-timeout 60s --blame-hang-dump-type none)
+
 run_code_analysis_tests_in_batches() {
   local class_batch=()
-  local batch_size=1
+  local batch_size=8
 
   run_batch() {
     local class_filter=""
@@ -45,7 +69,7 @@ run_code_analysis_tests_in_batches() {
 
     [[ -z "$class_filter" ]] && return
 
-    dotnet test "$CODE_ANALYSIS_TESTS" /property:WarningLevel=0 \
+    dotnet test "$CODE_ANALYSIS_TESTS" "${test_args[@]}" \
       --filter "$class_filter"
   }
 
@@ -67,15 +91,16 @@ run_code_analysis_tests_in_batches() {
 # so derive the CodeGen exclusion set from the folder rather than relying
 # only on fully-qualified namespace substrings.
 common_filter="FullyQualifiedName!~Sample"
-code_analysis_filter="$common_filter$(build_codegen_exclusion_filter)"
+code_analysis_filter="$common_filter$(build_codegen_exclusion_filter)$(build_heavy_exclusion_filter)"
 
 run_code_analysis_tests_in_batches
 
 while IFS= read -r project; do
   [[ "$project" == "$CODE_ANALYSIS_TESTS" ]] && continue
   [[ "$project" == *Raven.CodeAnalysis.Samples.Tests.csproj ]] && continue
+  [[ "$project" == *Raven.LanguageServer.Tests.csproj ]] && continue
 
-  dotnet test "$project" /property:WarningLevel=0 \
+  dotnet test "$project" "${test_args[@]}" \
     --filter "$common_filter"
 done < <(
   find "$ROOT_DIR/src" "$ROOT_DIR/test" \

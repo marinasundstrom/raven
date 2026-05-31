@@ -74,7 +74,7 @@ func Main() -> unit {
         var info = model.GetSymbolInfo(invocation);
 
         Assert.NotNull(info.Symbol);
-        Assert.Equal("Program.Foo()", FormatSignature((IMethodSymbol)info.Symbol!));
+        Assert.Equal("NamespaceMembers.Foo()", FormatSignature((IMethodSymbol)info.Symbol!));
 
         var candidates = info.CandidateSymbols
             .OfType<IMethodSymbol>()
@@ -82,7 +82,7 @@ func Main() -> unit {
             .OrderBy(value => value)
             .ToArray();
 
-        Assert.Equal(new[] { "Program.Foo()", "Program.Foo(Payload)" }, candidates);
+        Assert.Equal(new[] { "NamespaceMembers.Foo()", "NamespaceMembers.Foo(Payload)" }, candidates);
     }
 
     [Fact]

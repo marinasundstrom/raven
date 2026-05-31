@@ -16,7 +16,7 @@ import System.*
 
 func ParseMain(text: string) -> Result<int, IParseError> {
     val value = int.parse(text)?
-    return Ok(value)
+    return .Ok(value)
 }
 """;
 

@@ -87,11 +87,11 @@ WriteLine(errResult match {
 })
 
 func GetOk() -> Outcome<int, string> {
-    Ok(42)
+    .Ok(42)
 }
 
 func GetErr() -> Outcome<int, string> {
-    Err("fail")
+    .Err("fail")
 }
 
 union Outcome<T, E> {
@@ -107,7 +107,7 @@ union Outcome<T, E> {
     // If/else in last position of a value-returning function body should be
     // promoted to an implicit return, not produce RAV2108.
     [Fact]
-    public void IfElse_AsImplicitReturn_ReturnsCorrectBranch()
+    public void IfElse_WithExplicitReturns_ReturnsCorrectBranch()
     {
         var code = """
 import System.*
@@ -128,9 +128,9 @@ WriteLine(errResult match {
 
 func Compute(flag: bool) -> Outcome<int, string> {
     if flag {
-        Ok(99)
+        return .Ok(99)
     } else {
-        Err("nope")
+        return .Err("nope")
     }
 }
 
@@ -146,7 +146,7 @@ union Outcome<T, E> {
 
     // The same if/else implicit return scenario inside an async method.
     [Fact]
-    public void AsyncIfElse_AsImplicitReturn_ReturnsCorrectBranch()
+    public void AsyncIfElse_WithExplicitReturns_ReturnsCorrectBranch()
     {
         var code = """
 import System.*
@@ -169,9 +169,9 @@ WriteLine(errResult match {
 async func Compute(flag: bool) -> Task<Outcome<int, string>> {
     await Task.Delay(1)
     if flag {
-        Ok(99)
+        return .Ok(99)
     } else {
-        Err("nope")
+        return .Err("nope")
     }
 }
 

@@ -17,6 +17,8 @@ Use this skill when the task is primarily about increasing meaningful coverage i
 
 Use `WarningLevel=0` for ad hoc test runs.
 
+Use `test/Raven.CodeAnalysis.Tests/README.md` as the test-suite ledger and impact map. It should help feature work, bug fixes, and cleanup passes quickly identify which area suites may be affected before broad baseline/runtime gates are run. When you change suite organization, isolate or exclude runtime/reflection-heavy tests, add skips, or discover incomplete behavior that is not fixed in the same pass, update that README with the tier, affected area, command, and follow-up expectation.
+
 ## Related Skills
 
 When the tests touch a specialized area, also apply the relevant Raven skill:
@@ -65,6 +67,8 @@ Reorganize tests around the behavior a maintainer would look for:
 
 When moving tests, preserve useful names and update namespaces to match the destination structure. Consolidate repeated setup only when it reduces real duplication without hiding the scenario under test.
 
+Keep `test/Raven.CodeAnalysis.Tests/README.md` aligned with the organization: document which command owns each tier, which feature suite to run for each area, what neighboring behavior a feature or bug fix may impact, and which known gaps are intentionally outside the default baseline.
+
 ## Runtime And Reflection
 
 Keep runtime, emit, execution, and reflection-heavy tests separate from normal cleanup and baseline work.
@@ -84,6 +88,7 @@ When a cleanup uncovers broader structure issues, propose concrete follow-up cha
 - removal of duplicate legacy coverage after equivalent behavior-focused tests exist
 - focused new coverage for documented behaviors that were previously only implied by stale or deleted tests
 - a split between fast compiler tests and runtime/reflection-heavy tests
+- updates to `test/Raven.CodeAnalysis.Tests/README.md` so later cleanup work starts from the current tiering, skip, and gap inventory
 
 Keep the proposal close to the touched area unless the user asked for a full test-suite redesign.
 

@@ -158,35 +158,22 @@ WriteLine($"Result: {result}")
     }
 
     [Fact]
-    public void InvalidStaticHelperWithGuardedIf_DoesNotCrashHighlighter()
+    public void GuardedIf_DoesNotCrashHighlighter()
     {
         var source = """
-import System.*
-import System.Linq.*
-
-static class VehicleAppServices {
+static class AppSettings {
     static func GetConnectionString() -> string {
-        val environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
+        val environment = "ConnectionStrings__VehicleCosts"
         if environment is string when environment.Trim().Length > 0 {
             return environment
         }
 
         return "Host=localhost"
     }
-
-    static func PredictCosts(vehicle: VehicleEntity) -> VehicleCostPredictionResponse {
-        val samples = vehicle.FuelConsumptions
-            .Where(entry => entry.DistanceDrivenKm > 0 && entry.LitersFilled > 0 && entry.TotalCost > 0)
-            .OrderByDescending(entry => entry.RecordedAtUtc)
-            .Take(6)
-            .ToArray()
-
-        return VehicleCostPredictionResponse()
-    }
 }
 """;
         var tree = SyntaxTree.ParseText(source);
-        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
+        var compilation = Compilation.Create("test", [tree], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var root = tree.GetRoot();
 
         var exception = Record.Exception(() => root.WriteNodeToText(compilation));

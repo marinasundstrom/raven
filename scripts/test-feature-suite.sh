@@ -6,7 +6,7 @@ PROJECT="$ROOT_DIR/test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
 
 if [[ $# -eq 0 || "${1:-}" == "--list" ]]; then
   cat <<'EOF'
-Usage: scripts/test-feature-suite.sh <suite>
+Usage: scripts/test-feature-suite.sh <suite> [--runtime]
 
 Available suites:
   overload-resolution
@@ -17,12 +17,84 @@ Available suites:
   macros
   imports-and-namespaces
   framework-and-targeting
+
+Default mode runs the fast syntax/semantic surface for the suite and excludes
+CodeGen, sample, and known runtime/project-heavy integration tests.
+
+Use --runtime to run the suite's runtime/emission-heavy overlap explicitly.
 EOF
   exit 0
 fi
 
 suite="$1"
+mode="${2:-fast}"
 filter=""
+
+if [[ "$mode" != "fast" && "$mode" != "--runtime" ]]; then
+  echo "Unknown option: $mode" >&2
+  echo "Run scripts/test-feature-suite.sh --list for usage." >&2
+  exit 1
+fi
+
+build_runtime_heavy_filter() {
+  local filter="FullyQualifiedName~CodeGen"
+  local names=(
+    "MsBuildSampleProjectCompilationTests"
+    "ProjectDocumentationEmissionTests"
+    "ProjectFileTargetFrameworkAttributeTests"
+    "RavenProjectOutputDeterminismTests"
+    "NuGetHarness_AvaloniaRefAssemblySignature_EmitsWithoutRuntimeTypeLoadCrash"
+    "NuGetHarness_AvaloniaConstructedGenericContainerMember_Emits"
+    "StaticFactoryMethod_UsesCanonicalSourceMethodForEmission"
+    "OpenProject_RavenMacroProjectReference_WithObservableReplacement_EmitsExpandedSetter"
+  )
+
+  while IFS= read -r class_name; do
+    [[ -z "$class_name" ]] && continue
+    filter+="|FullyQualifiedName~.$class_name."
+  done < <(
+    find "$ROOT_DIR/test/Raven.CodeAnalysis.Tests/CodeGen" -name '*.cs' -print0 |
+      xargs -0 sed -nE 's/^[[:space:]]*(public|internal)[[:space:]]+((sealed|abstract|static|partial)[[:space:]]+)*class[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\4/p' |
+      sort -u
+  )
+
+  for name in "${names[@]}"; do
+    filter+="|FullyQualifiedName~$name"
+  done
+
+  filter+="|FullyQualifiedName~Sample"
+
+  printf '%s' "$filter"
+}
+
+build_fast_exclusion_filter() {
+  local filter="FullyQualifiedName!~Sample"
+  local names=(
+    "MsBuildSampleProjectCompilationTests"
+    "ProjectDocumentationEmissionTests"
+    "ProjectFileTargetFrameworkAttributeTests"
+    "RavenProjectOutputDeterminismTests"
+    "NuGetHarness_AvaloniaRefAssemblySignature_EmitsWithoutRuntimeTypeLoadCrash"
+    "NuGetHarness_AvaloniaConstructedGenericContainerMember_Emits"
+    "StaticFactoryMethod_UsesCanonicalSourceMethodForEmission"
+    "OpenProject_RavenMacroProjectReference_WithObservableReplacement_EmitsExpandedSetter"
+  )
+
+  while IFS= read -r class_name; do
+    [[ -z "$class_name" ]] && continue
+    filter+="&FullyQualifiedName!~.$class_name."
+  done < <(
+    find "$ROOT_DIR/test/Raven.CodeAnalysis.Tests/CodeGen" -name '*.cs' -print0 |
+      xargs -0 sed -nE 's/^[[:space:]]*(public|internal)[[:space:]]+((sealed|abstract|static|partial)[[:space:]]+)*class[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\4/p' |
+      sort -u
+  )
+
+  for name in "${names[@]}"; do
+    filter+="&FullyQualifiedName!~$name"
+  done
+
+  printf '%s' "$filter"
+}
 
 case "$suite" in
   overload-resolution)
@@ -56,4 +128,10 @@ case "$suite" in
     ;;
 esac
 
-dotnet test "$PROJECT" /property:WarningLevel=0 --filter "$filter"
+if [[ "$mode" == "--runtime" ]]; then
+  filter="($filter)&($(build_runtime_heavy_filter))&FullyQualifiedName!~CodeGen.Development"
+  dotnet test "$PROJECT" /property:WarningLevel=0 --blame-hang-timeout 300s --blame-hang-dump-type none --filter "$filter"
+else
+  filter="($filter)&$(build_fast_exclusion_filter)"
+  dotnet test "$PROJECT" /property:WarningLevel=0 --blame-hang-timeout 60s --blame-hang-dump-type none --filter "$filter"
+fi

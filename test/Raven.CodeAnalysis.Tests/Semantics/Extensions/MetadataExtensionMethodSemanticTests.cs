@@ -230,17 +230,23 @@ val projection = numbers.NotAnExtension()
 
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
+        compilation.EnsureSourceDeclarationsDeclared();
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "NotAnExtension");
         var invocation = Assert.IsType<InvocationExpressionSyntax>(memberAccess.Parent);
 
-        _ = model.GetBoundNode(invocation);
-
         var receiverType = Assert.IsAssignableFrom<ITypeSymbol>(
             model.GetTypeInfo(memberAccess.Expression).Type ?? model.GetTypeInfo(memberAccess.Expression).ConvertedType);
         var binder = model.GetBinder(invocation);
+        var result = ExtensionMemberLookup.Lookup(
+            binder,
+            receiverType,
+            "NotAnExtension",
+            includePartialMatches: false,
+            kinds: ExtensionMemberKinds.InstanceMethods);
 
+        Assert.True(result.IsEmpty);
         Assert.True(ExtensionMemberLookup.TryGetCached(
             binder,
             receiverType,

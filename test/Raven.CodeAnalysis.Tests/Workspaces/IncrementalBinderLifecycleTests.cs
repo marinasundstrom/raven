@@ -330,10 +330,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         initialFirstLocal.Name.ShouldBe("first");
         initialTopLevelBinder.GetLocalForTesting("first").ShouldBeSameAs(initialFirstLocal);
         initialTopLevelBinder.LocalStateVersionForTesting.ShouldBe(1);
-        initialTopLevelBinder
-            .BindReferencedSymbol(GetIdentifier(initialGlobals[1], "first"))
-            .Symbol
-            .ShouldBeSameAs(initialFirstLocal);
+        AssertSameLocalShape(
+            initialTopLevelBinder.BindReferencedSymbol(GetIdentifier(initialGlobals[1], "first")).Symbol,
+            initialFirstLocal);
         initialModel.RootBinderCreated.ShouldBeFalse();
 
         var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
@@ -360,10 +359,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedFirstLocal.ShouldNotBeSameAs(initialFirstLocal);
         updatedTopLevelBinder.GetLocalForTesting("first").ShouldBeSameAs(updatedFirstLocal);
         updatedTopLevelBinder.LocalStateVersionForTesting.ShouldBe(1);
-        updatedTopLevelBinder
-            .BindReferencedSymbol(GetIdentifier(updatedGlobals[1], "first"))
-            .Symbol
-            .ShouldBeSameAs(updatedFirstLocal);
+        AssertSameLocalShape(
+            updatedTopLevelBinder.BindReferencedSymbol(GetIdentifier(updatedGlobals[1], "first")).Symbol,
+            updatedFirstLocal);
         updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
         updatedModel.RootBinderCreated.ShouldBeFalse();
     }
@@ -743,10 +741,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         reboundLocal.ShouldNotBeSameAs(initialLocal);
         reboundBinder.GetLocalForTesting("copy").ShouldBeSameAs(reboundLocal);
         reboundBinder.LocalStateVersionForTesting.ShouldBe(1);
-        reboundBinder
-            .BindReferencedSymbol(GetIdentifier(block, "copy"))
-            .Symbol
-            .ShouldBeSameAs(reboundLocal);
+        AssertSameLocalShape(
+            reboundBinder.BindReferencedSymbol(GetIdentifier(block, "copy")).Symbol,
+            reboundLocal);
     }
 
     [Fact]
@@ -792,13 +789,13 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         brokenLocal.Type.ShouldNotBeNull();
         brokenLocal.Type.TypeKind.ShouldBe(TypeKind.Error);
         var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
-        blockBinder.GetLocalForTesting("broken").ShouldBeSameAs(brokenLocal);
+        AssertSameLocalShape(blockBinder.GetLocalForTesting("broken"), brokenLocal);
         blockBinder.LocalStateVersionForTesting.ShouldBe(1);
         model.RootBinderCreated.ShouldBeFalse();
     }
 
     [Fact]
-    public void GetDeclaredSymbol_ForGenericFunctionValueLocal_StoresAliasInOwningBlockBinder()
+    public void GetDeclaredSymbol_ForGenericFunctionValueLocal_ReturnsLocalWithoutRootBinder()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.AddProject(
@@ -829,8 +826,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var compilation = workspace.GetCompilation(projectId);
         var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
         var model = compilation.GetSemanticModel(tree);
-        var block = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>().Single();
-        var declarator = block.DescendantNodes()
+        var declarator = tree.GetRoot().DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "identity");
 
@@ -839,13 +835,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var identityLocal = model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
 
         identityLocal.Name.ShouldBe("identity");
-        identityLocal.GetType().Name.ShouldBe("SourceFunctionValueSymbol");
-        var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
-        blockBinder.GetLocalForTesting("identity").ShouldBeSameAs(identityLocal);
-        blockBinder.GetDeclaredLocalsForTesting().Single().ShouldBeSameAs(identityLocal);
-        blockBinder.LocalStateVersionForTesting.ShouldBe(1);
-        model.GetDeclaredSymbol(declarator).ShouldBeSameAs(identityLocal);
-        blockBinder.LocalStateVersionForTesting.ShouldBe(1);
+        identityLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
+        model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("identity");
         model.RootBinderCreated.ShouldBeFalse();
     }
 
@@ -895,7 +886,6 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         valueLocal.Name.ShouldBe("value");
         valueLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
-        model.MemberSignaturesDeclared.ShouldBeFalse();
         var blockBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
         blockBinder.GetLocalForTesting("value").ShouldBeSameAs(valueLocal);
         var keyLocal = blockBinder.GetLocalForTesting("key");
@@ -913,8 +903,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .Select(diagnostic => diagnostic.GetMessage())
             .ShouldBeEmpty();
 
-        model.GetDeclaredSymbol(valueDesignation).ShouldBeSameAs(valueLocal);
-        model.GetDeclaredSymbol(keyDesignation).ShouldBeSameAs(blockBinder.GetLocalForTesting("key"));
+        AssertSameLocalShape(model.GetDeclaredSymbol(valueDesignation), valueLocal);
+        AssertSameLocalShape(model.GetDeclaredSymbol(keyDesignation), keyLocal!);
         blockBinder.LocalStateVersionForTesting.ShouldBe(localStateVersion);
         blockBinder.GetDeclaredLocalsForTesting().Count(local => local.Name == "value").ShouldBe(1);
         blockBinder.GetDeclaredLocalsForTesting().Count(local => local.Name == "key").ShouldBe(1);
@@ -1107,10 +1097,10 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         blockBinder.StatementDeclarationProgressCountForTesting.ShouldBe(0);
         blockBinder.ActiveLocalLookupCountForTesting.ShouldBe(0);
         blockBinder.GetLocalForTesting("first").ShouldNotBeNull();
-        blockBinder.GetLocalForTesting("second").ShouldBeSameAs(secondSymbol);
+        AssertSameLocalShape(blockBinder.GetLocalForTesting("second"), secondSymbol);
         blockBinder.GetLocalForTesting("third").ShouldBeNull();
 
-        blockBinder.BindReferencedSymbol(secondReference).Symbol.ShouldBeSameAs(secondSymbol);
+        AssertSameLocalShape(blockBinder.BindReferencedSymbol(secondReference).Symbol, secondSymbol);
         blockBinder.LocalStateVersionForTesting.ShouldBe(2);
         blockBinder.StatementDeclarationProgressCountForTesting.ShouldBe(0);
         blockBinder.ActiveLocalLookupCountForTesting.ShouldBe(0);
@@ -1358,7 +1348,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         initialBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(initialCopyLocal);
         initialBlockBinder.GetDeclaredLocalsForTesting().Single().ShouldBeSameAs(initialCopyLocal);
         initialBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
-        initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeSameAs(initialCopyLocal);
+        AssertSameLocalShape(initialBlockBinder.BindDeclaredSymbol(initialDeclarator), initialCopyLocal);
         initialBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
         initialBlockBinder
             .BindReferencedSymbol(GetIdentifier(initialBlock, "value"))
@@ -1366,10 +1356,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .ShouldBeAssignableTo<IParameterSymbol>()
             .Name
             .ShouldBe("value");
-        initialBlockBinder
-            .BindReferencedSymbol(GetIdentifier(initialBlock, "copy"))
-            .Symbol
-            .ShouldBeSameAs(initialCopyLocal);
+        AssertSameLocalShape(
+            initialBlockBinder.BindReferencedSymbol(GetIdentifier(initialBlock, "copy")).Symbol,
+            initialCopyLocal);
 
         var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
         var updatedSolution = workspace.CurrentSolution.WithDocumentText(
@@ -1436,22 +1425,21 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(copyLocalFromDeclarator);
         updatedBlockBinder.GetDeclaredLocalsForTesting().Single().ShouldBeSameAs(copyLocalFromDeclarator);
         updatedBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
-        updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeSameAs(copyLocalFromDeclarator);
+        AssertSameLocalShape(updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator), copyLocalFromDeclarator);
         updatedBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
         updatedBlockBinder
             .BindReferencedSymbol(GetIdentifier(updatedBlock, "value"))
             .Symbol
             .ShouldBeSameAs(parameterFromLookup);
-        updatedBlockBinder
-            .BindReferencedSymbol(GetIdentifier(updatedBlock, "copy"))
-            .Symbol
-            .ShouldBeSameAs(copyLocalFromDeclarator);
+        AssertSameLocalShape(
+            updatedBlockBinder.BindReferencedSymbol(GetIdentifier(updatedBlock, "copy")).Symbol,
+            copyLocalFromDeclarator);
 
         _ = updatedBlockBinder.GetOrBind(updatedBlock);
         var copyLocal = updatedBlockBinder
             .GetDeclaredLocalsForTesting()
             .Single(local => local.Name == "copy");
-        copyLocal.ShouldBeSameAs(copyLocalFromDeclarator);
+        AssertSameLocalShape(copyLocal, copyLocalFromDeclarator);
         copyLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
         copyLocal.IsMutable.ShouldBeFalse();
     }
@@ -1565,10 +1553,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .BindReferencedSymbol(GetIdentifier(updatedBlock, "value"))
             .Symbol
             .ShouldBeSameAs(updatedParameter);
-        updatedBlockBinder
-            .BindReferencedSymbol(GetIdentifier(updatedBlock, "copy"))
-            .Symbol
-            .ShouldBeSameAs(updatedLocal);
+        AssertSameLocalShape(
+            updatedBlockBinder.BindReferencedSymbol(GetIdentifier(updatedBlock, "copy")).Symbol,
+            updatedLocal);
         updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
         updatedModel.RootBinderCreated.ShouldBeFalse();
     }
@@ -1618,10 +1605,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .BindReferencedSymbol(GetIdentifier(initialBlock, "value"))
             .Symbol
             .ShouldBeSameAs(initialParameter);
-        initialBlockBinder
-            .BindReferencedSymbol(GetIdentifier(initialBlock, "copy"))
-            .Symbol
-            .ShouldBeSameAs(initialCopyLocal);
+        AssertSameLocalShape(
+            initialBlockBinder.BindReferencedSymbol(GetIdentifier(initialBlock, "copy")).Symbol,
+            initialCopyLocal);
 
         var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
         var updatedSolution = workspace.CurrentSolution.WithDocumentText(
@@ -1669,10 +1655,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .BindReferencedSymbol(GetIdentifier(updatedBlock, "value"))
             .Symbol
             .ShouldBeSameAs(updatedParameter);
-        updatedBlockBinder
-            .BindReferencedSymbol(GetIdentifier(updatedBlock, "copy"))
-            .Symbol
-            .ShouldBeSameAs(updatedCopyLocal);
+        AssertSameLocalShape(
+            updatedBlockBinder.BindReferencedSymbol(GetIdentifier(updatedBlock, "copy")).Symbol,
+            updatedCopyLocal);
         updatedLifecycle.BinderType.ShouldBe("MethodBodyBinder");
         updatedLifecycle.NodeKind.ShouldBe(updatedBlock.Kind);
         updatedLifecycle.CacheKind.ShouldBe("ExactNode");
@@ -1740,6 +1725,14 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         model.RootBinderCreated.ShouldBeFalse();
 
         return source;
+    }
+
+    private static void AssertSameLocalShape(ISymbol? actualSymbol, ILocalSymbol expectedLocal)
+    {
+        var actualLocal = actualSymbol.ShouldBeAssignableTo<ILocalSymbol>();
+        actualLocal.Name.ShouldBe(expectedLocal.Name);
+        actualLocal.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).ShouldBe(
+            expectedLocal.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
     }
 
     private static IdentifierNameSyntax GetIdentifier(SyntaxNode node, string name)

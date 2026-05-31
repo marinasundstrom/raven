@@ -34,15 +34,15 @@ match condition {
     }
 
     [Fact]
-    public void MatchStatement_WithReturnExpressionsInArms_EmitsAndRuns()
+    public void MatchExpression_ReturnedFromFunction_EmitsAndRuns()
     {
         const string code = """
 import System.*
 
 func ping(name: string) -> int {
-    match name {
-        "Bob" | "bob" => return 1
-        _ => return 0
+    return name match {
+        "Bob" | "bob" => 1
+        _ => 0
     }
 }
 

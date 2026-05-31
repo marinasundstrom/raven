@@ -121,7 +121,7 @@ func Main() -> int => 0
         var mainSymbol = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
 
         Assert.False(mainSymbol.IsImplicitlyDeclared);
-        Assert.Equal("Program", mainSymbol.ContainingType?.Name);
+        Assert.Equal("NamespaceMembers", mainSymbol.ContainingType?.Name);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ namespace Utility
         var mainSymbol = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
 
         Assert.False(mainSymbol.IsImplicitlyDeclared);
-        Assert.Equal("Program", mainSymbol.ContainingType?.Name);
+        Assert.Equal("NamespaceMembers", mainSymbol.ContainingType?.Name);
     }
 
     [Fact]

@@ -27,10 +27,8 @@ public class AliasResolutionTest : DiagnosticTestBase
         var model = result.Compilation.GetSemanticModel(tree);
         var identifier = tree.GetRoot()
             .DescendantNodes()
-            .OfType<VariableDeclaratorSyntax>()
-            .Single()
-            .TypeAnnotation!
-            .Type;
+            .OfType<IdentifierNameSyntax>()
+            .First(identifier => identifier.Identifier.Text == "SB");
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
@@ -239,7 +237,7 @@ public class AliasResolutionTest : DiagnosticTestBase
     }
 
     [Fact]
-    public void AliasDirective_UsesAlias_InsideClass_ReportsOutOfScopeDiagnostics()
+    public void AliasDirective_UsesAlias_InsideClass()
     {
         string testCode =
             """
@@ -251,19 +249,22 @@ public class AliasResolutionTest : DiagnosticTestBase
             }
             """;
 
-        var verifier = CreateVerifier(
-            testCode,
-            expectedDiagnostics:
-            [
-                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
-                    .WithSpan(5, 13, 5, 15)
-                    .WithArguments("SB"),
-                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
-                    .WithSpan(5, 18, 5, 20)
-                    .WithArguments("SB"),
-            ]);
+        var verifier = CreateVerifier(testCode);
 
+        var result = verifier.GetResult();
         verifier.Verify();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var identifier = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(identifier => identifier.Identifier.Text == "SB");
+        var symbol = model.GetSymbolInfo(identifier).Symbol;
+        Assert.NotNull(symbol);
+        Assert.True(symbol!.IsAlias);
+        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        Assert.Equal("SB", alias.Name);
+        Assert.Equal("StringBuilder", alias.UnderlyingSymbol.Name);
     }
 
     [Fact]

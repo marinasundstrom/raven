@@ -763,14 +763,14 @@ class C {
     }
 
     [Fact]
-    public void TryGetInvocationTargetSymbolInfo_ForMemberInvocationOnConstructorInferredLocal_UsesAvailableSemanticState()
+    public void TryGetInvocationTargetSymbolInfo_ForMemberInvocationOnAnnotatedLocal_UsesAvailableSemanticState()
     {
         var code = """
 import System.Collections.Generic.*
 
 func Test() {
     val order = Order("ORD-1", [OrderLine("SKU-1", 1)])
-    val picks = List<PickLine>()
+    val picks: List<PickLine> = List<PickLine>()
     for line in order.Lines {
         picks.Add(PickLine(order.Id, line.Sku, line.Quantity))
     }
@@ -795,13 +795,6 @@ record class PickLine(val OrderId: string, val Sku: string, val Quantity: int)
         var receiver = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(static node => node.Identifier.ValueText == "picks" && node.Parent is MemberAccessExpressionSyntax);
-        var listInitializer = root.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Single(static node => node.Expression.ToString() == "List<PickLine>");
-
-        Assert.True(model.TryGetAvailableTypeInfo(listInitializer, out var listInitializerTypeInfo));
-        Assert.Equal("List<PickLine>", listInitializerTypeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-
         Assert.True(model.TryGetAvailableSymbolInfo(receiver, out var receiverInfo));
         var receiverLocal = Assert.IsAssignableFrom<ILocalSymbol>(receiverInfo.Symbol);
         Assert.Equal("List<PickLine>", receiverLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));

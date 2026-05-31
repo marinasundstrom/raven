@@ -2163,6 +2163,9 @@ internal partial class TypeMemberBinder : Binder
 
         if (existingFinalizer is SourceMethodSymbol existingSourceFinalizer)
         {
+            if (IsSameEffectiveDeclaration(existingSourceFinalizer, finalDecl))
+                return new MethodBinder(existingSourceFinalizer, this);
+
             _diagnostics.ReportTypeAlreadyDefinesMember(
                 _containingType.Name,
                 "finally",
@@ -2389,12 +2392,39 @@ internal partial class TypeMemberBinder : Binder
                 IsSameEffectiveDeclaration(method, currentDeclaration))
                 continue;
 
+            if (currentDeclaration is MethodDeclarationSyntax currentMethod &&
+                currentMethod.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.PartialKeyword) &&
+                IsPartialMethodCounterpart(method, currentMethod))
+            {
+                continue;
+            }
+
             if (SignaturesMatch(method, parameters))
             {
                 _diagnostics.ReportTypeAlreadyDefinesMember(_containingType.Name, displayName, location);
                 break;
             }
         }
+    }
+
+    private static bool IsPartialMethodCounterpart(IMethodSymbol method, MethodDeclarationSyntax currentMethod)
+    {
+        var currentHasBody = currentMethod.Body is not null || currentMethod.ExpressionBody is not null;
+
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not MethodDeclarationSyntax candidate)
+                continue;
+
+            if (!candidate.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.PartialKeyword))
+                continue;
+
+            var candidateHasBody = candidate.Body is not null || candidate.ExpressionBody is not null;
+            if (candidateHasBody != currentHasBody)
+                return true;
+        }
+
+        return false;
     }
 
     private bool IsSameEffectiveDeclaration(ISymbol symbol, SyntaxNode currentDeclaration)

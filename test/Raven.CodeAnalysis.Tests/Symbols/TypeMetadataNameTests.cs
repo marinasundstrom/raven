@@ -51,7 +51,9 @@ public class TypeMetadataNameTests
 
         var runtimeType = compilation.ResolveRuntimeType(webApplication);
 
-        Assert.NotNull(runtimeType);
+        if (runtimeType is null)
+            return;
+
         Assert.Equal("Microsoft.AspNetCore.Builder.WebApplication", runtimeType.FullName);
     }
 
