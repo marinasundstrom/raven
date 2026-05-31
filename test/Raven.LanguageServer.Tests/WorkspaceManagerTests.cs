@@ -630,6 +630,54 @@ func Main() -> unit { }
     }
 
     [Fact]
+    public async Task ReloadForWatchedFiles_OpenSourceChange_DoesNotReloadWorkspaceAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
+        WriteRavenFile(sourcePath, """
+func Main() -> unit { }
+""");
+
+        var projectSystem = new CountingProjectSystemService(new MsBuildProjectSystemService());
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0", projectSystemService: projectSystem);
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var uri = DocumentUri.FromFileSystemPath(sourcePath);
+        _ = await manager.UpsertDocumentAsync(uri, File.ReadAllText(sourcePath));
+        projectSystem.OpenAttempts.ShouldBe(1);
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = uri,
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        projectSystem.OpenAttempts.ShouldBe(1);
+        manager.TryGetDocument(uri, out var document).ShouldBeTrue();
+        document!.FilePath.ShouldBe(sourcePath);
+    }
+
+    [Fact]
     public void ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges_UpdatesProjectOptionsWithoutReload()
     {
         Directory.CreateDirectory(_tempRoot);

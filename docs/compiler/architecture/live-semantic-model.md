@@ -215,6 +215,13 @@ cheap:
   in direct invocation or generic symbol resolution. Headless runs should track
   these slow paths separately from correctness fixes so the compiler API remains
   complete while hot paths become cheaper.
+- Watched-file handling should invalidate selectively. Saving an open source
+  document must not reset the workspace because the text-document snapshot is
+  already authoritative. Project files, project references, NuGet/package
+  references, assembly references, `.editorconfig`, and closed-file create/delete
+  events may require broader project-graph or option invalidation, but those
+  paths should update the affected project state instead of rebuilding every
+  semantic cache by default.
 - Declaration-binder recovery is still explicit for several declaration syntax
   forms. Over time this should converge on one declaration-owner recovery path
   instead of per-declaration fallbacks.

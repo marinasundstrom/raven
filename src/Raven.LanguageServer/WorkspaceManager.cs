@@ -130,18 +130,11 @@ internal sealed class WorkspaceManager
     {
         ArgumentNullException.ThrowIfNull(changes);
 
-        var changedPaths = changes
-            .Select(change => change.Uri?.GetFileSystemPath())
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => NormalizePath(path!))
+        var relevantChanges = changes
+            .Where(ShouldReloadForWatchedFileChange)
             .ToArray();
 
-        if (changedPaths.Length == 0 || _workspaceRoots.Length == 0)
-            return;
-
-        var shouldReload = ShouldReloadForWatchedFileChanges(changedPaths);
-
-        if (!shouldReload)
+        if (relevantChanges.Length == 0 || _workspaceRoots.Length == 0)
             return;
 
         lock (_gate)
@@ -167,6 +160,26 @@ internal sealed class WorkspaceManager
                 _ = UpsertDocument(openDocument.Uri, SourceText.From(openDocument.Text));
 #pragma warning restore VSTHRD103
         }
+    }
+
+    private bool ShouldReloadForWatchedFileChange(FileEvent change)
+    {
+        var path = change.Uri?.GetFileSystemPath();
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        var normalizedPath = NormalizePath(path);
+        if (!IsRelevantWatchedFileChangePath(normalizedPath))
+            return false;
+
+        if (change.Type == FileChangeType.Changed &&
+            RavenFileExtensions.HasRavenExtension(normalizedPath) &&
+            IsOpenDocumentPath(normalizedPath))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     public IReadOnlyList<DocumentUri> ApplyEditorConfigDiagnosticOptionsForWatchedFileChanges(IEnumerable<FileEvent> changes)
@@ -583,6 +596,21 @@ internal sealed class WorkspaceManager
             if (WatchedFileExcludedDirectoryNames.Contains(segment) ||
                 segment.StartsWith("tmp-", StringComparison.OrdinalIgnoreCase))
                 return true;
+        }
+
+        return false;
+    }
+
+    private bool IsOpenDocumentPath(string normalizedPath)
+    {
+        foreach (var uri in _documents.Keys)
+        {
+            var openPath = uri.GetFileSystemPath();
+            if (!string.IsNullOrWhiteSpace(openPath) &&
+                string.Equals(NormalizePath(openPath), normalizedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
         }
 
         return false;
