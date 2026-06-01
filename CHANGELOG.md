@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed hover on `default` expressions so it shows a `default(T)` constant
+  expression preview instead of being suppressed as a keyword.
 - Fixed `use` declarations so nullable disposable targets such as
   `IDisposable?` are rejected and invalid resources are not registered for
   disposal.

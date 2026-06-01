@@ -18,7 +18,7 @@ public sealed class LiteralHoverPreviewFormatterTests
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
         Assert.True(success);
-        Assert.Equal("int = 5", preview);
+        Assert.Equal("0b101: int = 5", preview);
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public sealed class LiteralHoverPreviewFormatterTests
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
         Assert.True(success, $"token={token.Kind} parent={token.Parent?.GetType().Name} text={token.Text}");
-        Assert.Equal("int = 31", preview);
+        Assert.Equal("0x1F: int = 31", preview);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class LiteralHoverPreviewFormatterTests
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
         Assert.True(success);
-        Assert.Equal("string = \"A\\nB\"", preview);
+        Assert.Equal("\"A\\nB\": string", preview);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ class CounterViewModel {
         var success = LiteralHoverPreviewFormatter.TryCreatePreview(semanticModel, token, out var preview, out _);
 
         Assert.True(success);
-        Assert.Equal("int = 0", preview);
+        Assert.Equal("0: int", preview);
     }
 
     [Fact]
@@ -111,7 +111,113 @@ func Do(no: int = default) -> unit { }
             out var span);
 
         Assert.True(success);
-        Assert.Equal("int = default", preview);
+        Assert.Equal("default(int) = 0", preview);
+        Assert.Equal(defaultExpression.Span, span);
+    }
+
+    [Fact]
+    public void TryCreatePreview_BooleanDefault_ShowsFalseValue()
+    {
+        const string code = """
+val flag: bool = default
+""";
+
+        var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
+
+        var success = LiteralHoverPreviewFormatter.TryCreatePreview(
+            semanticModel,
+            token,
+            out var preview,
+            out var span);
+
+        Assert.True(success);
+        Assert.Equal("default(bool) = false", preview);
+        Assert.Equal(defaultExpression.Span, span);
+    }
+
+    [Fact]
+    public void TryCreatePreview_DoubleDefault_ShowsZeroValue()
+    {
+        const string code = """
+val amount: double = default
+""";
+
+        var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
+
+        var success = LiteralHoverPreviewFormatter.TryCreatePreview(
+            semanticModel,
+            token,
+            out var preview,
+            out var span);
+
+        Assert.True(success);
+        Assert.Equal("default(double) = 0.0", preview);
+        Assert.Equal(defaultExpression.Span, span);
+    }
+
+    [Fact]
+    public void TryCreatePreview_StructDefault_KeepsDefaultExpression()
+    {
+        const string code = """
+struct Point {
+    val X: int
+}
+
+val point: Point = default
+""";
+
+        var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
+
+        var success = LiteralHoverPreviewFormatter.TryCreatePreview(
+            semanticModel,
+            token,
+            out var preview,
+            out var span);
+
+        Assert.True(success);
+        Assert.Equal("default(Point)", preview);
+        Assert.Equal(defaultExpression.Span, span);
+    }
+
+    [Fact]
+    public void TryCreatePreview_NullableReferenceDefault_ShowsNullValue()
+    {
+        const string code = """
+import System.*
+
+val resource: IDisposable? = default
+""";
+
+        var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
+
+        var success = LiteralHoverPreviewFormatter.TryCreatePreview(
+            semanticModel,
+            token,
+            out var preview,
+            out var span);
+
+        Assert.True(success);
+        Assert.Equal("default(IDisposable?) = null", preview);
+        Assert.Equal(defaultExpression.Span, span);
+    }
+
+    [Fact]
+    public void TryCreatePreview_NullableValueTypeDefault_ShowsNullValue()
+    {
+        const string code = """
+val maybe: int? = default
+""";
+
+        var (semanticModel, token, defaultExpression) = CreateDefaultPreviewModel(code);
+
+        var success = LiteralHoverPreviewFormatter.TryCreatePreview(
+            semanticModel,
+            token,
+            out var preview,
+            out var span);
+
+        Assert.True(success);
+        Assert.Equal("default(int?) = null", preview);
         Assert.Equal(defaultExpression.Span, span);
     }
 
@@ -130,6 +236,24 @@ func Do(no: int = default) -> unit { }
             .Single();
 
         return (semanticModel, token);
+    }
+
+    private static (SemanticModel semanticModel, SyntaxToken token, DefaultExpressionSyntax defaultExpression) CreateDefaultPreviewModel(string code)
+    {
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var defaultExpression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<DefaultExpressionSyntax>()
+            .Single();
+        var token = syntaxTree.GetRoot().FindToken(defaultExpression.Span.Start);
+        Assert.Equal(SyntaxKind.DefaultKeyword, token.Kind);
+
+        return (semanticModel, token, defaultExpression);
     }
 
     private sealed class ObservableMacroPlugin : IRavenMacroPlugin

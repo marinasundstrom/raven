@@ -161,6 +161,52 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task HoverHandler_DefaultExpression_ShowsTypedLiteralPreviewAsync()
+    {
+        const string text = """
+import System.*
+
+func Main() -> unit {
+    val resource: IDisposable? = default
+    val value: int = default
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+
+        await AssertDefaultHoverAsync(text, context.Value.SourceText, handler, uri, "resource:", "default(IDisposable?) = null");
+        await AssertDefaultHoverAsync(text, context.Value.SourceText, handler, uri, "value:", "default(int) = 0");
+    }
+
+    private static async Task AssertDefaultHoverAsync(
+        string text,
+        SourceText sourceText,
+        HoverHandler handler,
+        DocumentUri uri,
+        string declarationMarker,
+        string expectedPreview)
+    {
+        var markerOffset = text.IndexOf(declarationMarker, StringComparison.Ordinal);
+        markerOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var defaultOffset = text.IndexOf("default", markerOffset, StringComparison.Ordinal);
+        defaultOffset.ShouldBeGreaterThanOrEqualTo(0);
+
+        var hover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new TextSpan(defaultOffset + 1, 0)).Start
+        }, CancellationToken.None);
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain(expectedPreview);
+        hover.Contents.MarkupContent.Value.ShouldContain("Constant expression");
+        hover.Range.ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task HoverHandler_CanceledRequest_ReturnsNullAsync()
     {
         var (store, _, uri) = await CreateWorkspaceAsync("""

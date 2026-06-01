@@ -36,16 +36,22 @@ internal static class LiteralHoverPreviewFormatter
                                   .OfType<ITypeSymbol>()
                                   .FirstOrDefault();
 
+            var fallbackTypeSyntax = defaultExpression.Type ??
+                                     defaultExpression.AncestorsAndSelf()
+                                         .OfType<ParameterSyntax>()
+                                         .Select(parameter => parameter.TypeAnnotation?.Type)
+                                         .FirstOrDefault(type => type is not null);
+
             string? typeDisplay = null;
             if (defaultType is not null && defaultType.TypeKind != TypeKind.Error)
                 typeDisplay = defaultType.ToDisplayString(PlainTypeFormat);
-            else if (defaultExpression.AncestorsAndSelf().OfType<ParameterSyntax>().FirstOrDefault()?.TypeAnnotation?.Type is { } parameterTypeSyntax)
-                typeDisplay = parameterTypeSyntax.ToString();
+            else if (fallbackTypeSyntax is not null)
+                typeDisplay = fallbackTypeSyntax.ToString();
 
             if (string.IsNullOrWhiteSpace(typeDisplay))
                 return false;
 
-            preview = $"{typeDisplay} = default";
+            preview = FormatDefaultPreview(typeDisplay, defaultType, fallbackTypeSyntax);
             span = defaultExpression.Span;
             return true;
         }
@@ -60,9 +66,137 @@ internal static class LiteralHoverPreviewFormatter
         if (!TryFormatLiteralValue(token, out var valueDisplay))
             return false;
 
-        preview = $"{type.ToDisplayString(PlainTypeFormat)} = {valueDisplay}";
+        preview = FormatExpressionPreview(token.Text, type.ToDisplayString(PlainTypeFormat), valueDisplay);
         span = literalExpression.Span;
         return true;
+    }
+
+    private static string FormatExpressionPreview(
+        string expressionDisplay,
+        string typeDisplay,
+        string valueDisplay,
+        bool alwaysShowValue = false)
+    {
+        if (!alwaysShowValue && string.Equals(expressionDisplay, valueDisplay, StringComparison.Ordinal))
+            return $"{expressionDisplay}: {typeDisplay}";
+
+        return $"{expressionDisplay}: {typeDisplay} = {valueDisplay}";
+    }
+
+    private static string FormatDefaultPreview(string typeDisplay, ITypeSymbol? type, TypeSyntax? fallbackTypeSyntax)
+    {
+        var expressionDisplay = $"default({typeDisplay})";
+        if (!TryFormatKnownDefaultValue(type, out var valueDisplay) &&
+            !TryFormatKnownDefaultValue(fallbackTypeSyntax, out valueDisplay))
+        {
+            return expressionDisplay;
+        }
+
+        return $"{expressionDisplay} = {valueDisplay}";
+    }
+
+    private static bool TryFormatKnownDefaultValue(ITypeSymbol? type, out string valueDisplay)
+    {
+        valueDisplay = string.Empty;
+
+        if (type is null || type.TypeKind == TypeKind.Error)
+            return false;
+
+        if (type.TypeKind is TypeKind.Nullable or TypeKind.Null ||
+            type.IsReferenceType)
+        {
+            valueDisplay = "null";
+            return true;
+        }
+
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+                valueDisplay = "false";
+                return true;
+            case SpecialType.System_Char:
+                valueDisplay = "'\\0'";
+                return true;
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+            case SpecialType.System_Decimal:
+                valueDisplay = "0";
+                return true;
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+                valueDisplay = "0.0";
+                return true;
+            default:
+                if (type.TypeKind == TypeKind.Unit)
+                {
+                    valueDisplay = "()";
+                    return true;
+                }
+
+                return false;
+        }
+    }
+
+    private static bool TryFormatKnownDefaultValue(TypeSyntax? typeSyntax, out string valueDisplay)
+    {
+        valueDisplay = string.Empty;
+
+        switch (typeSyntax)
+        {
+            case NullableTypeSyntax:
+                valueDisplay = "null";
+                return true;
+            case UnitTypeSyntax:
+                valueDisplay = "()";
+                return true;
+            case PredefinedTypeSyntax predefined:
+                return TryFormatKnownDefaultValue(predefined.Keyword.Kind, out valueDisplay);
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryFormatKnownDefaultValue(SyntaxKind kind, out string valueDisplay)
+    {
+        switch (kind)
+        {
+            case SyntaxKind.BoolKeyword:
+                valueDisplay = "false";
+                return true;
+            case SyntaxKind.CharKeyword:
+                valueDisplay = "'\\0'";
+                return true;
+            case SyntaxKind.FloatKeyword:
+            case SyntaxKind.DoubleKeyword:
+                valueDisplay = "0.0";
+                return true;
+            case SyntaxKind.SByteKeyword:
+            case SyntaxKind.ByteKeyword:
+            case SyntaxKind.ShortKeyword:
+            case SyntaxKind.UShortKeyword:
+            case SyntaxKind.IntKeyword:
+            case SyntaxKind.UIntKeyword:
+            case SyntaxKind.LongKeyword:
+            case SyntaxKind.ULongKeyword:
+            case SyntaxKind.DecimalKeyword:
+                valueDisplay = "0";
+                return true;
+            case SyntaxKind.StringKeyword:
+            case SyntaxKind.ObjectKeyword:
+                valueDisplay = "null";
+                return true;
+            default:
+                valueDisplay = string.Empty;
+                return false;
+        }
     }
 
     private static bool TryFormatLiteralValue(SyntaxToken token, out string valueDisplay)

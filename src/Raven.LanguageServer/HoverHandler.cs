@@ -484,7 +484,7 @@ internal sealed class HoverHandler : IHoverHandler
 
             var hoverText = BuildHoverText(
                 preview,
-                kind: "Literal",
+                kind: "Constant expression",
                 containing: null,
                 documentation: null,
                 capturedVariables: ImmutableArray<ISymbol>.Empty,
@@ -1635,7 +1635,15 @@ internal sealed class HoverHandler : IHoverHandler
     }
 
     private static bool IsSemanticHoverSuppressedToken(SyntaxToken token)
-        => IsNonSymbolKeywordHoverToken(token.Kind) || IsNonSymbolPunctuationHoverToken(token.Kind);
+    {
+        if (token.Kind == SyntaxKind.DefaultKeyword &&
+            token.Parent?.AncestorsAndSelf().OfType<DefaultExpressionSyntax>().Any() == true)
+        {
+            return false;
+        }
+
+        return IsNonSymbolKeywordHoverToken(token.Kind) || IsNonSymbolPunctuationHoverToken(token.Kind);
+    }
 
     private static bool IsNonSymbolKeywordHoverToken(SyntaxKind kind)
         => kind is SyntaxKind.AbstractKeyword
