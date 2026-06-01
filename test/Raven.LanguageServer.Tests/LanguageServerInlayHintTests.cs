@@ -2034,6 +2034,76 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_EfCoreExpressionTreesSample_QueryDotEditCycleKeepsInlaysStickyAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var withDotCode = code.Replace(
+            "    val names = query.ToList()",
+            "    query.\n\n    val names = query.ToList()",
+            StringComparison.Ordinal);
+        var withoutDotCode = withDotCode.Replace("    query.\n", "    query\n", StringComparison.Ordinal);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-expression-trees",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var inlayHandler = new InlayHintHandler(store, dispatcher, NullLogger<InlayHintHandler>.Instance);
+        await store.UpsertDocumentAsync(uri, code);
+
+        AssertQueryTypeHint(code, await GetFullHintsAsync(code));
+
+        store.QueuePendingDocumentChange(uri, SourceText.From(withDotCode), deferMacroConsumerRefresh: true);
+        AssertQueryTypeHint(withDotCode, await GetFullHintsAsync(withDotCode));
+
+        _ = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        store.TryGetPendingDocumentText(uri, out _).ShouldBeFalse();
+        AssertQueryTypeHint(withDotCode, await GetFullHintsAsync(withDotCode));
+
+        store.QueuePendingDocumentChange(uri, SourceText.From(withoutDotCode), deferMacroConsumerRefresh: true);
+        AssertQueryTypeHint(withoutDotCode, await GetFullHintsAsync(withoutDotCode));
+
+        _ = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        store.TryGetPendingDocumentText(uri, out _).ShouldBeFalse();
+        AssertQueryTypeHint(withoutDotCode, await GetFullHintsAsync(withoutDotCode));
+
+        store.QueuePendingDocumentChange(uri, SourceText.From(withDotCode), deferMacroConsumerRefresh: true);
+        AssertQueryTypeHint(withDotCode, await GetFullHintsAsync(withDotCode));
+
+        async Task<InlayHint[]> GetFullHintsAsync(string source)
+        {
+            var sourceText = SourceText.From(source);
+            var result = await inlayHandler.Handle(new InlayHintParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = FullDocumentRange(sourceText)
+            }, CancellationToken.None);
+            return result.ToArray();
+        }
+
+        static void AssertQueryTypeHint(string source, InlayHint[] hints)
+        {
+            var sourceText = SourceText.From(source);
+            var queryInsertion = source.IndexOf("query = db.Users", StringComparison.Ordinal) + "query".Length;
+            AssertHasHintAtInsertion(sourceText, hints, queryInsertion, ": IQueryable<string>");
+        }
+    }
+
+    [Fact]
     public async Task Handle_EfCoreExpressionTreesSample_PreciseRangeProvidesTargetTypedConstructorParameterHintsAsync()
     {
         var repoRoot = FindRepositoryRoot();

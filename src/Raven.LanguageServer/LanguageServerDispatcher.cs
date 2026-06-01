@@ -337,6 +337,28 @@ internal sealed class LanguageServerDispatcher
             }
         }
 
+        if (currentSourceText is not null &&
+            editorTextMatchesLatestCache &&
+            hasLatestCache &&
+            latestCache.DocumentVersion != document.Version &&
+            !latestCache.Hints.IsDefaultOrEmpty)
+        {
+            hints = latestCache.Hints
+                .Where(hint => IsInRange(hint.Position, request.Range))
+                .ToArray();
+            if (hints.Length > 0)
+            {
+                RecordInlayPresentationDecision(
+                    "InlayPresentationCacheHit",
+                    uri,
+                    document,
+                    request.Range,
+                    hints.Length,
+                    "outcome=LatestSourceText");
+                return true;
+            }
+        }
+
         if (currentSourceText is null ||
             !hasLatestCache ||
             latestCache.Hints.IsDefaultOrEmpty ||

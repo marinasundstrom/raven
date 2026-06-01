@@ -1104,10 +1104,12 @@ public static class CompletionProvider
             ExtensionMemberLookupResult extensionMembers;
             try
             {
-                extensionMembers = ExtensionMemberLookup.Lookup(
-                    binder,
+                model.Compilation.EnsureSetup();
+                extensionMembers = model.LookupApplicableExtensionMembers(
                     receiverType,
-                    includePartialMatches: false,
+                    token.Parent,
+                    string.IsNullOrEmpty(prefix) ? null : prefix,
+                    includePartialMatches: !string.IsNullOrEmpty(prefix),
                     kinds: kinds);
             }
             catch
