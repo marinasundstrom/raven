@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added receiver-aware pipe target completion after `|>` and in the following
+  identifier, including applicable in-scope functions/static methods and
+  extension methods. The language server now registers `>` as a completion
+  trigger so typing `value |> ` opens the suggestion list.
 - Fixed editor diagnostics after text edits so syntax diagnostics are refreshed
   from the pending document text immediately, clearing stale parser errors
   while semantic diagnostics remain deferred.

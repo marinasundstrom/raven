@@ -16,6 +16,7 @@ at the requested position.
 
 ## Current coverage snapshots
 - Member and namespace access is driven by semantic lookup: after a dot the provider filters accessible static, instance, and extension members, while also supporting qualified names and `self` access when available.【F:src/Raven.CodeAnalysis/CompletionProvider.cs†L526-L663】
+- Pipe target completion is receiver-aware: after `|>` or in the following identifier, completion filters in-scope functions/static methods by first-parameter compatibility with the piped value and also includes applicable extension methods. The language server registers `>` as a trigger character so typing a pipe operator can open the completion list.
 - Import and alias directives surface namespace/type symbols from the binder and respect partial prefixes, with separate handling for alias targets and alias identifiers.【F:src/Raven.CodeAnalysis/CompletionProvider.cs†L280-L401】
 - Literal completions are inferred from the target type of assignments or initializer expressions (including union and null literals), so only literals valid for the target type are offered.【F:src/Raven.CodeAnalysis/CompletionProvider.cs†L144-L201】
 - The current keyword list is intentionally small (control-flow and declaration basics plus literals), meaning most reserved/contextual keywords are not suggested by completion.【F:src/Raven.CodeAnalysis/CompletionProvider.cs†L664-L676】

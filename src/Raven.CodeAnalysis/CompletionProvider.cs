@@ -1161,6 +1161,161 @@ public static class CompletionProvider
             }
         }
 
+        static bool ContainsTypeParameter(ITypeSymbol type)
+        {
+            type = type.UnwrapLiteralType() ?? type;
+
+            return type switch
+            {
+                ITypeParameterSymbol => true,
+                INamedTypeSymbol named => named.TypeArguments.Any(ContainsTypeParameter),
+                IArrayTypeSymbol array => ContainsTypeParameter(array.ElementType),
+                IPointerTypeSymbol pointer => ContainsTypeParameter(pointer.PointedAtType),
+                IAddressTypeSymbol address => ContainsTypeParameter(address.ReferencedType),
+                ITypeUnionSymbol union => union.Types.Any(ContainsTypeParameter),
+                _ => false
+            };
+        }
+
+        bool CanPipeReceiverConvertTo(ITypeSymbol receiverType, ITypeSymbol targetType)
+        {
+            receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
+            targetType = targetType.UnwrapLiteralType() ?? targetType;
+
+            if (receiverType.TypeKind == TypeKind.Error || targetType.TypeKind == TypeKind.Error)
+                return false;
+
+            var conversion = model.Compilation.ClassifyConversion(receiverType, targetType);
+            if (conversion.Exists && conversion.IsImplicit)
+                return true;
+
+            // Generic pipe targets often use a type parameter in the first
+            // parameter position; full method inference happens during binding.
+            return ContainsTypeParameter(targetType);
+        }
+
+        bool IsPipeCompatibleFunctionTarget(IMethodSymbol method, ITypeSymbol receiverType)
+        {
+            if (IsSuppressedCompletionMethod(method) ||
+                method.IsExtensionMethod ||
+                method.Parameters.IsDefaultOrEmpty ||
+                method.Parameters[0].RefKind is RefKind.Out or RefKind.Ref)
+            {
+                return false;
+            }
+
+            return CanPipeReceiverConvertTo(receiverType, method.Parameters[0].Type);
+        }
+
+        bool IsPipeCompatiblePropertyTarget(IPropertySymbol property, ITypeSymbol receiverType)
+            => property is { IsMutable: true, IsIndexer: false } &&
+               CanPipeReceiverConvertTo(receiverType, property.Type);
+
+        bool TryGetPipeTargetCompletionContext(
+            SyntaxToken currentToken,
+            out InfixOperatorExpressionSyntax pipeExpression,
+            out string prefix,
+            out TextSpan targetSpan)
+        {
+            pipeExpression = null!;
+            prefix = string.Empty;
+            targetSpan = default;
+
+            if (currentToken.IsKind(SyntaxKind.PipeToken) &&
+                currentToken.Parent is InfixOperatorExpressionSyntax pipeFromOperator &&
+                pipeFromOperator.OperatorToken == currentToken &&
+                position >= currentToken.Span.End)
+            {
+                pipeExpression = pipeFromOperator;
+                targetSpan = new TextSpan(position, 0);
+                return true;
+            }
+
+            if (currentToken.Parent is not IdentifierNameSyntax identifier)
+                return false;
+
+            var candidate = identifier
+                .Ancestors()
+                .OfType<InfixOperatorExpressionSyntax>()
+                .FirstOrDefault(pipe =>
+                    pipe.OperatorToken.Kind == SyntaxKind.PipeToken &&
+                    position >= pipe.OperatorToken.Span.End &&
+                    pipe.Right.Span.Start <= identifier.Span.Start &&
+                    identifier.Span.End <= Math.Max(pipe.Right.Span.End, identifier.Span.End));
+
+            if (candidate is null)
+                return false;
+
+            var isPipeTargetName =
+                candidate.Right is IdentifierNameSyntax rightIdentifier &&
+                rightIdentifier.Identifier.Span == identifier.Identifier.Span;
+
+            if (!isPipeTargetName &&
+                candidate.Right is InvocationExpressionSyntax { Expression: IdentifierNameSyntax invocationIdentifier } &&
+                invocationIdentifier.Identifier.Span == identifier.Identifier.Span)
+            {
+                isPipeTargetName = true;
+            }
+
+            if (!isPipeTargetName)
+                return false;
+
+            pipeExpression = candidate;
+            prefix = identifier.Identifier.ValueText;
+            targetSpan = identifier.Identifier.Span;
+            return true;
+        }
+
+        void AddPipeTargetCompletions(ITypeSymbol receiverType, string prefix, TextSpan targetSpan)
+        {
+            receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
+            model.Compilation.EnsureSetup();
+
+            void AddPipeTargetIfApplicable(ISymbol symbol)
+            {
+                if (!IsAccessible(symbol) || !NameMatchesPrefix(symbol.Name, prefix))
+                    return;
+
+                switch (symbol)
+                {
+                    case IMethodSymbol method when IsPipeCompatibleFunctionTarget(method, receiverType):
+                        AddCompletionItem(method, targetSpan);
+                        break;
+
+                    case IPropertySymbol property when IsPipeCompatiblePropertyTarget(property, receiverType):
+                        AddCompletionItem(property, targetSpan);
+                        break;
+                }
+            }
+
+            INamespaceSymbol GetCurrentNamespace()
+            {
+                if (token.GetAncestor<NamespaceDeclarationSyntax>() is { } namespaceDeclaration &&
+                    model.GetDeclaredSymbol(namespaceDeclaration) is INamespaceSymbol namespaceSymbol)
+                {
+                    return namespaceSymbol;
+                }
+
+                return model.Compilation.GlobalNamespace;
+            }
+
+            var contextNode = token.Parent ?? model.SyntaxTree.GetRoot();
+            foreach (var symbol in model.GetVisibleValueSymbols(contextNode))
+                AddPipeTargetIfApplicable(symbol);
+
+            foreach (var symbol in binder.LookupAvailableSymbols())
+                AddPipeTargetIfApplicable(symbol);
+
+            foreach (var symbol in GetNamespaceCompletionMembers(GetCurrentNamespace()))
+                AddPipeTargetIfApplicable(symbol);
+
+            AddExtensionMemberCompletions(
+                receiverType,
+                prefix,
+                targetSpan,
+                ExtensionMemberKinds.InstanceMethods);
+        }
+
         ITypeSymbol? TryGetExplicitlyAnnotatedType(ISymbol? symbol)
         {
             if (symbol is null)
@@ -1664,6 +1819,14 @@ public static class CompletionProvider
             {
                 AddCompletionItem(field, nameSpan);
             }
+
+            return completions;
+        }
+
+        if (TryGetPipeTargetCompletionContext(token, out var pipeExpression, out var pipePrefix, out var pipeTargetSpan))
+        {
+            if (TryGetExpressionType(pipeExpression.Left) is { TypeKind: not TypeKind.Error } pipeReceiverType)
+                AddPipeTargetCompletions(pipeReceiverType, pipePrefix, pipeTargetSpan);
 
             return completions;
         }

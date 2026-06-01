@@ -34,7 +34,7 @@ internal sealed class CompletionHandler : ICompletionHandler
         => new()
         {
             DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
-            TriggerCharacters = new Container<string>(".", ":", "#", "[")
+            TriggerCharacters = new Container<string>(".", ":", "#", "[", ">")
         };
 
     public async Task<CompletionList> Handle(CompletionParams request, CancellationToken cancellationToken)
