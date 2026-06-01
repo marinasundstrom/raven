@@ -181,4 +181,54 @@ func A(x: int) -> int {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void IfExpressionBranchValues_AssignedToLocal_DoNotReport()
+    {
+        const string code = """
+func A(totalDistance: decimal) -> decimal {
+    val averageLitersPer100Km =
+        if totalDistance == 0m {
+            0m
+        } else {
+            1m
+        }
+
+    averageLitersPer100Km
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpressionBranchValues_AssignedToLocal_DoNotReport()
+    {
+        const string code = """
+func A(value: int) -> int {
+    val result = value match {
+        0 => {
+            0
+        }
+        _ => {
+            1
+        }
+    }
+
+    result
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics: [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
 }

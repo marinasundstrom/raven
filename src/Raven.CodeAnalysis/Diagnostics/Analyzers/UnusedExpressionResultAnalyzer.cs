@@ -115,6 +115,12 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        if (blockNode is BlockSyntax branchBlock &&
+            IsBranchValueConsumed(branchBlock))
+        {
+            return true;
+        }
+
         return blockNode.Parent switch
         {
             BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as IMethodSymbol),
@@ -123,6 +129,47 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             FunctionExpressionSyntax functionExpression => LambdaReturnsValue(functionExpression, semanticModel),
             _ => false,
         };
+    }
+
+    private static bool IsBranchValueConsumed(BlockSyntax blockExpression)
+    {
+        SyntaxNode current = blockExpression;
+
+        while (true)
+        {
+            switch (current.Parent)
+            {
+                case IfExpressionSyntax ifExpression
+                    when ifExpression.Expression.SyntaxTree == current.SyntaxTree &&
+                         ifExpression.Expression.Span == current.Span:
+                    current = ifExpression;
+                    continue;
+
+                case ElseExpressionClauseSyntax { Parent: IfExpressionSyntax ifExpression } elseClause
+                    when elseClause.Expression.SyntaxTree == current.SyntaxTree &&
+                         elseClause.Expression.Span == current.Span:
+                    current = ifExpression;
+                    continue;
+
+                case MatchArmSyntax { Parent: MatchExpressionSyntax matchExpression } matchArm
+                    when matchArm.Expression.SyntaxTree == current.SyntaxTree &&
+                         matchArm.Expression.Span == current.Span:
+                    current = matchExpression;
+                    continue;
+
+                case ParenthesizedExpressionSyntax parenthesized
+                    when parenthesized.Expression.SyntaxTree == current.SyntaxTree &&
+                         parenthesized.Expression.Span == current.Span:
+                    current = parenthesized;
+                    continue;
+
+                case ExpressionStatementSyntax:
+                    return false;
+
+                default:
+                    return current is not BlockSyntax && current.Parent is not null;
+            }
+        }
     }
 
     private static bool AccessorReturnsValue(AccessorDeclarationSyntax accessor, SemanticModel semanticModel)
