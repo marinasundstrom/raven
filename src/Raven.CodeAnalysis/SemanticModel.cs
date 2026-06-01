@@ -12028,6 +12028,12 @@ public partial class SemanticModel
     {
         EnsureBindingReadyForSemanticQuery();
 
+        if (node is GlobalStatementSyntax globalStatement)
+        {
+            boundNode = BindContextualRootForSemanticQuery(globalStatement);
+            return true;
+        }
+
         if (TryGetCachedBoundNode(node) is { } cachedNode &&
             !IsLikelyStaleFunctionBodyNode(cachedNode))
         {
@@ -12193,6 +12199,9 @@ public partial class SemanticModel
 
                 return CreateSyntheticTopLevelBlock(compilationUnitNode);
             }
+
+            if (node is GlobalStatementSyntax globalStatementNode)
+                return BindContextualRootForSemanticQuery(globalStatementNode);
 
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeBindFallback();
             var binder = GetBinder(node);

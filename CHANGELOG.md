@@ -11,6 +11,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed editor diagnostics after text edits so syntax diagnostics are refreshed
   from the pending document text immediately, clearing stale parser errors
   while semantic diagnostics remain deferred.
+- Fixed inlay hint flicker while editing by keeping visible providers stable
+  until a debounced refresh can request translated cached hints for pending
+  document text or fresh hints from the loaded workspace snapshot.
+- Fixed semantic queries for top-level global statements so editor features bind
+  through the compiler-owned top-level statement binder instead of throwing.
 - Added `RAV9034` for standalone value-producing expressions whose result is
   known to be unused, such as literal/variable unary and binary expressions in
   `unit`-returning bodies. Calls remain exempt.

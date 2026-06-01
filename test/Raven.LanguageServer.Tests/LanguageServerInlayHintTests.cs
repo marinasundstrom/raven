@@ -418,7 +418,71 @@ func Test2() -> {{returnType}} {
     }
 
     [Fact]
-    public async Task Handle_FullDocumentAfterPendingEdit_DoesNotForceImmediateInlayBindingAsync()
+    public async Task Handle_FullDocumentAfterPendingEdit_ReturnsStickyHintsWithoutFlushingPendingEditAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string initialCode = """
+func Main() -> unit {
+    val value = 1
+}
+""";
+        const string updatedCode = """
+// edited while inlay hints are still cached
+
+func Main() -> unit {
+    val valueEdited = 1
+}
+""";
+
+        await store.UpsertDocumentAsync(uri, initialCode);
+        var initialSourceText = SourceText.From(initialCode);
+        var initialResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(initialSourceText)
+        }, CancellationToken.None);
+        AssertHasHintAtInsertion(
+            initialSourceText,
+            initialResult.ToArray(),
+            initialCode.IndexOf("value = 1", StringComparison.Ordinal) + "value".Length,
+            ": int");
+
+        store.QueuePendingDocumentChange(uri, SourceText.From(updatedCode), deferMacroConsumerRefresh: true);
+        var updatedSourceText = SourceText.From(updatedCode);
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(updatedSourceText)
+        }, CancellationToken.None);
+
+        var stickyHints = result.ToArray();
+        AssertHasHintAtInsertion(
+            updatedSourceText,
+            stickyHints,
+            updatedCode.IndexOf("valueEdited = 1", StringComparison.Ordinal) + "valueEdited".Length,
+            ": int");
+        store.TryGetPendingDocumentText(uri, out _).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_FullDocumentAfterCommittedEdit_ClearsStickyHintsWhenNoHintsRemainAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -444,12 +508,23 @@ func Main() -> unit {
 """;
         const string updatedCode = """
 func Main() -> unit {
-    val value = 2
 }
 """;
 
         await store.UpsertDocumentAsync(uri, initialCode);
-        store.QueuePendingDocumentChange(uri, SourceText.From(updatedCode), deferMacroConsumerRefresh: true);
+        var initialSourceText = SourceText.From(initialCode);
+        var initialResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(initialSourceText)
+        }, CancellationToken.None);
+        AssertHasHintAtInsertion(
+            initialSourceText,
+            initialResult.ToArray(),
+            initialCode.IndexOf("value = 1", StringComparison.Ordinal) + "value".Length,
+            ": int");
+
+        await store.UpsertDocumentAsync(uri, updatedCode);
         var updatedSourceText = SourceText.From(updatedCode);
 
         var result = await handler.Handle(new InlayHintParams
@@ -459,7 +534,6 @@ func Main() -> unit {
         }, CancellationToken.None);
 
         result.ToArray().ShouldBeEmpty();
-        store.TryGetPendingDocumentText(uri, out _).ShouldBeFalse();
     }
 
     [Fact]
@@ -1920,6 +1994,46 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task Handle_EfCoreExpressionTreesSample_FullDocumentKeepsCachedQueryTypeHintAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees");
+        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-expression-trees",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var queryInsertion = code.IndexOf("query = db.Users", StringComparison.Ordinal) + "query".Length;
+
+        var preciseHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, queryInsertion);
+        AssertHasHintAtInsertion(sourceText, preciseHints, queryInsertion, ": ");
+
+        var result = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        AssertHasHintAtInsertion(sourceText, result.ToArray(), queryInsertion, ": ");
+    }
+
+    [Fact]
     public async Task Handle_EfCoreExpressionTreesSample_PreciseRangeProvidesTargetTypedConstructorParameterHintsAsync()
     {
         var repoRoot = FindRepositoryRoot();
@@ -1953,7 +2067,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_TopLevelInvocationWithFunctionArgument_DoesNotFailWhenRefreshingParameterHintsAsync()
+    public async Task Handle_TopLevelInvocationWithFunctionArgument_ReturnsHintsWhenRefreshingParameterHintsAsync()
     {
         var repoRoot = FindRepositoryRoot();
         var projectRoot = Path.Combine(repoRoot, "samples", "projects", "aspnet-trailing-block-dsl");
@@ -1986,6 +2100,7 @@ func Main() -> unit {
         }, CancellationToken.None);
 
         result.ShouldNotBeNull();
+        result.ToArray().ShouldNotBeEmpty();
     }
 
     [Fact]

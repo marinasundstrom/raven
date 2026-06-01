@@ -89,6 +89,23 @@ enum Shade {
     }
 
     [Fact]
+    public void GetBoundNode_GlobalStatement_BindsContainedStatement()
+    {
+        const string source = """
+val value = 1
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, assemblyName: "app");
+        var model = compilation.GetSemanticModel(tree);
+        var globalStatement = tree.GetRoot().Members.OfType<GlobalStatementSyntax>().Single();
+
+        var boundNode = model.GetBoundNode(globalStatement);
+
+        Assert.IsType<BoundLocalDeclarationStatement>(boundNode);
+    }
+
+    [Fact]
     public void GlobalStatements_CanBeDisabledByCompilationOptions()
     {
         const string source = """

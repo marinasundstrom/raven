@@ -57,6 +57,8 @@ run_code_analysis_tests_in_batches() {
   local batch_size=8
 
   run_batch() {
+    (( ${#class_batch[@]} == 0 )) && return
+
     local class_filter=""
 
     for class_name in "${class_batch[@]}"; do

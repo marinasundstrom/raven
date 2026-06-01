@@ -387,6 +387,12 @@ public static class CompletionProvider
 
         ISymbol? TryResolveReceiverSymbol(ExpressionSyntax receiverExpression)
         {
+            if (TryGetPreferredSymbolInfo(receiverExpression, out var preferredSymbolInfo) &&
+                preferredSymbolInfo.Symbol is { } preferredSymbol)
+            {
+                return preferredSymbol.UnderlyingSymbol;
+            }
+
             string? receiverName = null;
             if (receiverExpression is IdentifierNameSyntax receiverIdentifier)
             {

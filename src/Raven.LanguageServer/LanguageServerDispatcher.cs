@@ -313,7 +313,13 @@ internal sealed class LanguageServerDispatcher
             return false;
         }
 
-        if (_inlayHintCache.TryGetValue(CreateInlayCacheKey(document), out var cachedHints))
+        var hasLatestCache = _latestInlayHintDocumentCache.TryGetValue(uri.ToString(), out var latestCache);
+        var editorTextMatchesLatestCache = currentSourceText is null ||
+            hasLatestCache &&
+            latestCache.SourceText.ContentEquals(currentSourceText);
+
+        if (editorTextMatchesLatestCache &&
+            _inlayHintCache.TryGetValue(CreateInlayCacheKey(document), out var cachedHints))
         {
             hints = cachedHints
                 .Where(hint => IsInRange(hint.Position, request.Range))
@@ -332,11 +338,8 @@ internal sealed class LanguageServerDispatcher
         }
 
         if (currentSourceText is null ||
-            !_latestInlayHintDocumentCache.TryGetValue(uri.ToString(), out var latestCache) ||
+            !hasLatestCache ||
             latestCache.Hints.IsDefaultOrEmpty ||
-            latestCache.DocumentVersion == document.Version &&
-            latestCache.ProjectVersion == document.Project.Version ||
-            latestCache.ProjectVersion != document.Project.Version &&
             latestCache.SourceText.ContentEquals(currentSourceText))
         {
             RecordInlayPresentationDecision(
@@ -524,14 +527,10 @@ internal sealed class LanguageServerDispatcher
             return hints.Length > 0;
         }
 
-        if (changes.Count != 1)
-            return false;
-
-        var change = changes[0];
         var translated = new List<InlayHint>();
         foreach (var hint in oldHints)
         {
-            if (!TryTranslateHint(oldText, newText, change, hint, out var translatedHint))
+            if (!TryTranslateHint(oldText, newText, changes, hint, out var translatedHint))
                 continue;
 
             if (IsInRange(translatedHint.Position, requestRange))
@@ -545,17 +544,17 @@ internal sealed class LanguageServerDispatcher
     private static bool TryTranslateHint(
         SourceText oldText,
         SourceText newText,
-        TextChange change,
+        IReadOnlyList<TextChange> changes,
         InlayHint hint,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out InlayHint? translatedHint)
     {
         translatedHint = null;
         var oldOffset = PositionHelper.ToOffset(oldText, hint.Position);
-        if (!TryTranslateOffset(change, oldOffset, out var newOffset))
+        if (!TryTranslateOffset(changes, oldOffset, out var newOffset))
             return false;
 
         var newPosition = PositionHelper.ToRange(newText, new TextSpan(newOffset, 0)).Start;
-        var translatedTextEdits = TranslateTextEdits(oldText, newText, change, hint.TextEdits);
+        var translatedTextEdits = TranslateTextEdits(oldText, newText, changes, hint.TextEdits);
         if (hint.TextEdits is not null && translatedTextEdits is null)
             return false;
 
@@ -576,7 +575,7 @@ internal sealed class LanguageServerDispatcher
     private static Container<TextEdit>? TranslateTextEdits(
         SourceText oldText,
         SourceText newText,
-        TextChange change,
+        IReadOnlyList<TextChange> changes,
         Container<TextEdit>? textEdits)
     {
         if (textEdits is null)
@@ -587,8 +586,8 @@ internal sealed class LanguageServerDispatcher
         {
             var oldStart = PositionHelper.ToOffset(oldText, textEdit.Range.Start);
             var oldEnd = PositionHelper.ToOffset(oldText, textEdit.Range.End);
-            if (!TryTranslateOffset(change, oldStart, out var newStart) ||
-                !TryTranslateOffset(change, oldEnd, out var newEnd))
+            if (!TryTranslateOffset(changes, oldStart, out var newStart) ||
+                !TryTranslateOffset(changes, oldEnd, out var newEnd))
             {
                 return null;
             }
@@ -603,26 +602,32 @@ internal sealed class LanguageServerDispatcher
         return new Container<TextEdit>(translated);
     }
 
-    private static bool TryTranslateOffset(TextChange change, int oldOffset, out int newOffset)
+    private static bool TryTranslateOffset(IReadOnlyList<TextChange> changes, int oldOffset, out int newOffset)
     {
-        var oldStart = change.Span.Start;
-        var oldEnd = change.Span.End;
-        var delta = change.NewText.Length - change.Span.Length;
+        var accumulatedDelta = 0;
 
-        if (oldOffset < oldStart)
+        foreach (var change in changes.OrderBy(static change => change.Span.Start))
         {
-            newOffset = oldOffset;
-            return true;
+            var oldStart = change.Span.Start;
+            var oldEnd = change.Span.End;
+
+            if (oldOffset < oldStart)
+            {
+                newOffset = oldOffset + accumulatedDelta;
+                return true;
+            }
+
+            if (oldOffset <= oldEnd)
+            {
+                newOffset = oldStart + accumulatedDelta + change.NewText.Length;
+                return true;
+            }
+
+            accumulatedDelta += change.NewText.Length - change.Span.Length;
         }
 
-        if (oldOffset > oldEnd)
-        {
-            newOffset = oldOffset + delta;
-            return true;
-        }
-
-        newOffset = 0;
-        return false;
+        newOffset = oldOffset + accumulatedDelta;
+        return true;
     }
 
     private static bool IsInRange(Position position, LspRange range)

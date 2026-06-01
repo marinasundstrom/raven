@@ -131,6 +131,21 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
         try
         {
+            if (_documents.TryGetPendingDocumentText(request.TextDocument.Uri, out var pendingSourceText))
+            {
+                currentSourceText = pendingSourceText;
+                if (_dispatcher.TryGetCachedInlayHints(request, pendingSourceText, out var cachedHints))
+                {
+                    cacheHit = true;
+                    outcome = "PendingEditCached";
+                    resultCount = cachedHints.Length;
+                    return new InlayHintContainer(cachedHints);
+                }
+
+                outcome = "PendingEdit";
+                return new InlayHintContainer();
+            }
+
             stageStopwatch.Restart();
             var context = await _documents.GetAnalysisContextAsync(request.TextDocument.Uri, effectiveCancellationToken).ConfigureAwait(false);
             analysisContextMs = stageStopwatch.Elapsed.TotalMilliseconds;

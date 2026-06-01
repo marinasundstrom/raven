@@ -13,15 +13,9 @@ const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
 let pendingInlayHintRefresh: NodeJS.Timeout | undefined;
 let pendingImportCompletionTrigger: NodeJS.Timeout | undefined;
-const recentRavenDocumentChanges = new Map<string, RavenDocumentChangeState>();
 const inlayHintRequestVersions = new Map<string, number>();
 let inlayHintRefreshEpoch = 0;
 let inlayHintRefreshPromise: Promise<void> | undefined;
-
-type RavenDocumentChangeState = {
-  version: number;
-  changedAt: number;
-};
 
 type ExecFileTextOptions = Omit<ExecFileOptions, 'encoding'>;
 
@@ -190,22 +184,17 @@ function isCurrentInlayHintRequest(key: string, requestVersion: number): boolean
   return inlayHintRequestVersions.get(key) === requestVersion;
 }
 
-function invalidateVisibleInlayHintRequests(): number {
-  let invalidated = 0;
+function countVisibleRavenDocuments(): number {
+  let count = 0;
   for (const editor of vscode.window.visibleTextEditors) {
     if (editor.document.languageId !== 'raven') {
       continue;
     }
 
-    bumpInlayHintRequestVersion(editor.document.uri.toString());
-    invalidated++;
+    count++;
   }
 
-  if (invalidated > 0) {
-    appendLifecycleLog(`Invalidated in-flight inlay hint request(s) for ${invalidated} visible Raven document(s).`);
-  }
-
-  return invalidated;
+  return count;
 }
 
 function areSemanticTokensEnabled(): boolean {
@@ -219,67 +208,12 @@ function isSemanticTokensRequest(method: string): boolean {
     method === 'textDocument/semanticTokens/range';
 }
 
-function delayUnlessCanceled(milliseconds: number, token: vscode.CancellationToken): Promise<boolean> {
-  if (milliseconds <= 0) {
-    return Promise.resolve(!token.isCancellationRequested);
-  }
-
-  if (token.isCancellationRequested) {
-    return Promise.resolve(false);
-  }
-
-  return new Promise(resolve => {
-    let disposable: vscode.Disposable | undefined;
-    const timer = setTimeout(() => {
-      disposable?.dispose();
-      resolve(!token.isCancellationRequested);
-    }, milliseconds);
-
-    disposable = token.onCancellationRequested(() => {
-      clearTimeout(timer);
-      disposable?.dispose();
-      resolve(false);
-    });
-  });
-}
-
 function delay(milliseconds: number): Promise<void> {
   if (milliseconds <= 0) {
     return Promise.resolve();
   }
 
   return new Promise(resolve => setTimeout(resolve, milliseconds));
-}
-
-async function waitForInlayHintQuietPeriod(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<boolean> {
-  const debounceMilliseconds = getInlayHintRequestDebounceMilliseconds();
-  if (debounceMilliseconds <= 0) {
-    return !token.isCancellationRequested;
-  }
-
-  const key = document.uri.toString();
-  while (!token.isCancellationRequested) {
-    const state = recentRavenDocumentChanges.get(key);
-    if (!state) {
-      return true;
-    }
-
-    if (state.version !== document.version) {
-      return false;
-    }
-
-    const remaining = debounceMilliseconds - (Date.now() - state.changedAt);
-    if (remaining <= 0) {
-      return true;
-    }
-
-    const completed = await delayUnlessCanceled(remaining, token);
-    if (!completed) {
-      return false;
-    }
-  }
-
-  return false;
 }
 
 async function refreshInlayHints(): Promise<void> {
@@ -299,23 +233,22 @@ async function runInlayHintRefreshLoop(): Promise<void> {
   let completedEpoch = 0;
   do {
     const refreshEpoch = inlayHintRefreshEpoch;
-    pulseVisibleInlayHintProviders(refreshEpoch, 'primary');
-    await delay(125);
+    await delay(50);
 
     if (refreshEpoch !== inlayHintRefreshEpoch) {
-      appendLifecycleLog(`Inlay hint refresh epoch ${refreshEpoch} superseded before settled pulse.`);
+      appendLifecycleLog(`Inlay hint refresh epoch ${refreshEpoch} superseded before provider invalidation.`);
       continue;
     }
 
-    pulseVisibleInlayHintProviders(refreshEpoch, 'settled');
+    pulseVisibleInlayHintProviders(refreshEpoch);
     completedEpoch = refreshEpoch;
   } while (completedEpoch !== inlayHintRefreshEpoch);
 }
 
-function pulseVisibleInlayHintProviders(refreshEpoch: number, phase: string): void {
-  const invalidatedDocumentCount = invalidateVisibleInlayHintRequests();
+function pulseVisibleInlayHintProviders(refreshEpoch: number): void {
+  const visibleDocumentCount = countVisibleRavenDocuments();
   const providerCount = fireVisibleInlayHintProviders();
-  appendLifecycleLog(`Inlay hint refresh pulse completed: epoch=${refreshEpoch} phase=${phase} invalidatedDocuments=${invalidatedDocumentCount} providers=${providerCount}.`);
+  appendLifecycleLog(`Inlay hint refresh pulse completed: epoch=${refreshEpoch} visibleDocuments=${visibleDocumentCount} providers=${providerCount}.`);
 }
 
 function fireVisibleInlayHintProviders(): number {
@@ -363,7 +296,7 @@ function scheduleInlayHintRefresh(): void {
   pendingInlayHintRefresh = setTimeout(() => {
     pendingInlayHintRefresh = undefined;
     void refreshInlayHints();
-  }, 50);
+  }, getInlayHintRequestDebounceMilliseconds());
 }
 
 function shouldTriggerImportCompletionAfterQuietPeriod(event: vscode.TextDocumentChangeEvent): boolean {
@@ -655,11 +588,6 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
 
           const key = document.uri.toString();
           const requestVersion = bumpInlayHintRequestVersion(key);
-
-          const shouldContinue = await waitForInlayHintQuietPeriod(document, token);
-          if (!shouldContinue) {
-            throw new vscode.CancellationError();
-          }
 
           if (!isCurrentInlayHintRequest(key, requestVersion)) {
             throw new vscode.CancellationError();
@@ -1665,12 +1593,6 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      recentRavenDocumentChanges.set(event.document.uri.toString(), {
-        version: event.document.version,
-        changedAt: Date.now()
-      });
-      invalidateVisibleInlayHintRequests();
-
       if (areRavenInlayHintsEnabled() &&
           (areInferredTypeInlayHintsEnabled() || areNameInlayHintsEnabled()) &&
           event.contentChanges.length > 0) {
@@ -1686,7 +1608,6 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidCloseTextDocument(document => {
       if (document.languageId === 'raven') {
-        recentRavenDocumentChanges.delete(document.uri.toString());
         inlayHintRequestVersions.delete(document.uri.toString());
       }
     })

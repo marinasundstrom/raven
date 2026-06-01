@@ -817,6 +817,36 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_EfCoreExpressionTrees_QueryLocalMemberCompletionAfterPipeChain_ReturnsMembers()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "EfCoreExpressionTrees.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-expression-trees", "src", "main.rvn");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document =>
+            string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var updatedText = SourceText.From(
+            File.ReadAllText(sourcePath).Replace(
+                "    val names = query.ToList()",
+                "    query.\n\n    val names = query.ToList()",
+                StringComparison.Ordinal));
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(document.Id, updatedText));
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var position = updatedText.ToString().IndexOf("    query.", StringComparison.Ordinal) + "    query.".Length;
+
+        var service = new CompletionService();
+        var completion = service.GetCompletionsWithMetrics(compilation, tree, position);
+
+        Assert.False(completion.UsedFallback, completion.FailureType);
+        Assert.Contains(completion.Items, item => item.DisplayText == "ToList");
+    }
+
+    [Fact]
     public void OpenProject_EfCoreSample_AwaitSymbolInfo_DoesNotBindBodies()
     {
         var repoRoot = FindRepositoryRoot();
