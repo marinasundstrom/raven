@@ -62,6 +62,7 @@ partial class BlockBinder : Binder
     private int _objectInitializerDepth;
     private int _withInitializerDepth;
     private int _unsafeBlockDepth;
+    private int _semanticQueryScopeDepth;
     private SyntaxKind _ambientPatternDeclarationBindingKeyword;
 
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
@@ -2209,6 +2210,13 @@ partial class BlockBinder : Binder
         return GetOrBind(node);
     }
 
+    private bool IsInSemanticQueryScope => _semanticQueryScopeDepth > 0;
+
+    private IDisposable EnterNestedBinderExecutionScope(BlockBinder binder)
+        => IsInSemanticQueryScope
+            ? binder.EnterSemanticQueryScope()
+            : binder.EnterExecutionScope();
+
     private ExecutionScope EnterExecutionScope()
     {
         Monitor.Enter(_executionGate);
@@ -2231,6 +2239,7 @@ partial class BlockBinder : Binder
         public SemanticQueryScope(BlockBinder binder)
         {
             _binder = binder;
+            _binder._semanticQueryScopeDepth++;
             _snapshot = BlockTransientStateSnapshot.Capture(binder);
             _diagnosticsScope = binder.Diagnostics.CreateNonReportingScope();
         }
@@ -2242,6 +2251,7 @@ partial class BlockBinder : Binder
 
             _diagnosticsScope.Dispose();
             _snapshot.Restore(_binder);
+            _binder._semanticQueryScopeDepth--;
             _disposed = true;
             Monitor.Exit(_binder._executionGate);
         }

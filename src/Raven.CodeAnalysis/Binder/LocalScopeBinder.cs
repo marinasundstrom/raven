@@ -60,4 +60,7 @@ class LocalScopeBinder : Binder
         return ParentBinder?.BindInvocationReference(node) ?? default;
     }
 
+    public override BoundNode GetOrBindForSemanticQuery(SyntaxNode node)
+        => ParentBinder?.GetOrBindForSemanticQuery(node) ?? base.GetOrBindForSemanticQuery(node);
+
 }

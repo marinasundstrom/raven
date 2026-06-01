@@ -126,6 +126,71 @@ func Main() -> int {
     }
 
     [Fact]
+    public void GetDocumentDiagnostics_AfterForStatementSemanticQuery_KeepsEnclosingBlockLocalsInScope()
+    {
+        var tree = SyntaxTree.ParseText("""
+import System.*
+import System.Collections.Generic.*
+import System.Text.Json.*
+
+union JsonValue(string | double | bool | JsonObject | JsonValue[])
+record JsonObject(Properties: IDictionary<string, JsonValue>)
+
+class JsonObjectConverter {
+    private static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
+        if element.ValueKind is JsonValueKind.Array {
+            val values = List<JsonValue>()
+
+            for item in element.EnumerateArray() {
+                values.Add(ReadJsonValue(item, options))
+            }
+
+            return JsonValue(values.ToArray())
+        }
+
+        if element.ValueKind is JsonValueKind.Object {
+            val properties = Dictionary<string, JsonValue>()
+
+            for property in element.EnumerateObject() {
+                properties.Add(property.Name, ReadJsonValue(property.Value, options))
+            }
+
+            return JsonValue(JsonObject(properties))
+        }
+
+        throw JsonException("Unsupported JSON value kind.")
+    }
+}
+""");
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .Where(static declarator => declarator.Identifier.ValueText is "values" or "properties"))
+        {
+            _ = model.GetDeclaredSymbol(declarator);
+        }
+
+        foreach (var forStatement in root.DescendantNodes().OfType<ForStatementSyntax>())
+        {
+            _ = model.GetBoundNode(forStatement);
+        }
+
+        foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            _ = model.GetBoundNode(invocation);
+        }
+
+        var diagnostics = model.GetDocumentDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic =>
+            diagnostic.Id == "RAV0103" &&
+            (diagnostic.GetMessage().Contains("'values' is not in scope", StringComparison.Ordinal) ||
+             diagnostic.GetMessage().Contains("'properties' is not in scope", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void GetSymbolInfo_ForStatement_DoesNotTriggerDiagnosticBinding()
     {
         var instrumentation = new PerformanceInstrumentation();
