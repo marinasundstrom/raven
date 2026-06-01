@@ -1050,6 +1050,81 @@ public static class CompletionProvider
             ));
         }
 
+        void AddAttributeCompletionItem(INamedTypeSymbol type, string prefix, TextSpan replacementSpan)
+        {
+            if (!IsAccessible(type) || !IsAttributeType(type) || !AttributeNameMatchesPrefix(type, prefix))
+                return;
+
+            var name = GetAttributeCompletionName(type);
+            var escapedName = EscapeIdentifierForInsertion(name);
+            var dedupKey = type.ToFullyQualifiedMetadataName() ?? type.Name;
+
+            if (!seen.Add(dedupKey))
+                return;
+
+            completions.Add(new CompletionItem(
+                DisplayText: escapedName,
+                InsertionText: escapedName,
+                ReplacementSpan: replacementSpan,
+                CursorOffset: escapedName.Length,
+                Description: SafeToDisplayString(type),
+                Symbol: type));
+        }
+
+        void AddAttributeTypeCompletions(string prefix, TextSpan replacementSpan)
+        {
+            foreach (var symbol in binder.LookupAvailableSymbols())
+            {
+                if (symbol is INamedTypeSymbol type)
+                    AddAttributeCompletionItem(type, prefix, replacementSpan);
+            }
+        }
+
+        void AddNamespaceCompletionItem(INamespaceSymbol namespaceSymbol, string prefix, TextSpan replacementSpan)
+        {
+            if (!NameMatchesPrefix(namespaceSymbol.Name, prefix))
+                return;
+
+            var (displayText, insertText, dedupKey) = CreateCompletionParts(namespaceSymbol);
+
+            if (!seen.Add(dedupKey))
+                return;
+
+            completions.Add(new CompletionItem(
+                DisplayText: displayText,
+                InsertionText: insertText,
+                ReplacementSpan: replacementSpan,
+                Description: SafeToDisplayString(namespaceSymbol),
+                Symbol: namespaceSymbol));
+        }
+
+        void AddQualifiedAttributeNameCompletions(INamespaceOrTypeSymbol nsOrType, string prefix, TextSpan replacementSpan)
+        {
+            var members = nsOrType is INamespaceSymbol attributeNamespace
+                ? GetNamespaceCompletionMembers(attributeNamespace)
+                : nsOrType.GetMembers().Where(IsAccessible);
+
+            foreach (var member in members)
+            {
+                if (member is INamespaceSymbol namespaceSymbol)
+                    AddNamespaceCompletionItem(namespaceSymbol, prefix, replacementSpan);
+                else if (member is INamedTypeSymbol type)
+                    AddAttributeCompletionItem(type, prefix, replacementSpan);
+            }
+        }
+
+        INamespaceOrTypeSymbol? TryResolveAttributeCompletionReceiver(NameSyntax name)
+        {
+            var metadataName = name.ToString();
+            if (model.Compilation.SymbolLookup.GetNamespace(metadataName) is { } namespaceSymbol)
+                return namespaceSymbol;
+
+            if (TryResolveNamespaceOrType(name) is { } resolved)
+                return resolved;
+
+            return model.Compilation.SymbolLookup.GetTypeByMetadataNameSourceFirst(metadataName);
+        }
+
         void AddWildcardImportCompletion(string prefix, TextSpan replacementSpan)
         {
             if (!NameMatchesPrefix("*", prefix))
@@ -1509,6 +1584,31 @@ public static class CompletionProvider
         static bool IsAttributeType(INamedTypeSymbol type)
             => type.Name.EndsWith("Attribute", StringComparison.Ordinal) ||
                type.BaseType?.ToFullyQualifiedMetadataName() == "System.Attribute";
+
+        static string GetAttributeCompletionName(INamedTypeSymbol type)
+        {
+            const string suffix = "Attribute";
+            return type.Name.EndsWith(suffix, StringComparison.Ordinal) &&
+                   type.Name.Length > suffix.Length
+                ? type.Name[..^suffix.Length]
+                : type.Name;
+        }
+
+        static bool AttributeNameMatchesPrefix(INamedTypeSymbol type, string prefix)
+            => NameMatchesPrefix(GetAttributeCompletionName(type), prefix) ||
+               NameMatchesPrefix(type.Name, prefix);
+
+        static bool IsAttributeNameCompletionPosition(AttributeSyntax attribute, int position)
+        {
+            if (position < attribute.Name.Span.Start)
+                return false;
+
+            if (attribute.ArgumentList is not null &&
+                position >= attribute.ArgumentList.Span.Start)
+                return false;
+
+            return position <= Math.Max(attribute.Name.Span.End, attribute.Name.Span.Start);
+        }
 
         static ITypeSymbol? TryGetAttributeConstructorParameterType(
             INamedTypeSymbol attributeType,
@@ -2078,35 +2178,41 @@ public static class CompletionProvider
             }
         }
 
-        /*
-        if (token.Parent is AttributeSyntax attribute && attribute.Name is IdentifierNameSyntax attrName)
+        var attributeNameContext = token.GetAncestor<AttributeSyntax>();
+        if (attributeNameContext is not null &&
+            IsAttributeNameCompletionPosition(attributeNameContext, position))
         {
-            foreach (var symbol in binder.LookupAvailableSymbols())
+            if (attributeNameContext.Name is QualifiedNameSyntax attributeQualifiedName &&
+                attributeQualifiedName.Right is SimpleNameSyntax attributeSimpleName &&
+                position >= attributeQualifiedName.DotToken.Span.End)
             {
-                if (symbol is INamedTypeSymbol { IsAttribute: true } attrType)
+                var receiver = TryResolveAttributeCompletionReceiver(attributeQualifiedName.Left);
+                if (receiver is INamespaceOrTypeSymbol nsOrType)
                 {
-                    var name = attrType.Name;
-                    if (name.EndsWith("Attribute") && name.Length > "Attribute".Length)
-                        name = name[..^"Attribute".Length];
-
-                    if (string.IsNullOrEmpty(tokenText) || name.StartsWith(tokenText, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (seen.Add(name))
-                        {
-                            completions.Add(new CompletionItem(
-                                DisplayText: name,
-                                InsertionText: name,
-                                ReplacementSpan: replacementSpan,
-                                CursorOffset: name.Length,
-                                Description: SafeToDisplayString(attrType),
-                                Symbol: attrType
-                            ));
-                        }
-                    }
+                    var attributePrefix = attributeSimpleName.Identifier.IsMissing
+                        ? string.Empty
+                        : attributeSimpleName.Identifier.ValueText;
+                    var attributeNameSpan = attributeSimpleName.Identifier.IsMissing
+                        ? new TextSpan(position, 0)
+                        : attributeSimpleName.Identifier.Span;
+                    AddQualifiedAttributeNameCompletions(nsOrType, attributePrefix, attributeNameSpan);
                 }
+
+                return completions;
             }
+
+            var unqualifiedAttributePrefix = tokenValueText;
+            var unqualifiedAttributeSpan = replacementSpan;
+            if (attributeNameContext.Name is SimpleNameSyntax unqualifiedAttributeSimple &&
+                !unqualifiedAttributeSimple.Identifier.IsMissing)
+            {
+                unqualifiedAttributePrefix = unqualifiedAttributeSimple.Identifier.ValueText;
+                unqualifiedAttributeSpan = unqualifiedAttributeSimple.Identifier.Span;
+            }
+
+            AddAttributeTypeCompletions(unqualifiedAttributePrefix, unqualifiedAttributeSpan);
+            return completions;
         }
-        */
 
         // Conditional member access: value?.Member
         var memberBinding = token.GetAncestor<MemberBindingExpressionSyntax>();

@@ -51,6 +51,9 @@ internal sealed class AttributeBinder : BlockBinder
 
     private BoundExpression BindAttributeCore(AttributeSyntax attribute)
     {
+        if (HasIncompleteAttributeName(attribute.Name))
+            return ErrorExpression(reason: BoundExpressionReason.NotFound);
+
         var attributeType = BindAttributeType(attribute.Name);
 
         if (attributeType is null)
@@ -367,6 +370,9 @@ internal sealed class AttributeBinder : BlockBinder
 
         return TryLookupAttributeType(attributeName, appendAttributeSuffix: false);
     }
+
+    private static bool HasIncompleteAttributeName(TypeSyntax attributeName)
+        => attributeName.DescendantTokens().Any(static token => token.IsMissing);
 
     private bool TryBindAttributeNamedArgument(
         INamedTypeSymbol attributeType,

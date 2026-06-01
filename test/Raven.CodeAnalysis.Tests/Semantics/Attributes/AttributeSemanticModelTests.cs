@@ -119,4 +119,20 @@ class Widget {}
         Assert.Equal(TypedConstantKind.Primitive, named.Value.Kind);
         Assert.Equal("demo", named.Value.Value);
     }
+
+    [Fact]
+    public void IncompleteQualifiedAttributeName_DoesNotReportConstructorAccessibility()
+    {
+        const string source = """
+[System.Runtime.CompilerServices.]
+func Test() {
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Id == CompilerDiagnostics.SymbolIsInaccessible.Id);
+    }
 }
