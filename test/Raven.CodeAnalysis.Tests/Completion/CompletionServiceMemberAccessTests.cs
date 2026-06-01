@@ -90,6 +90,53 @@ func A(value: int) -> int {
     }
 
     [Fact]
+    public void GetCompletions_AfterDot_OnNullableSuppressedLocal_ReturnsMemberItems()
+    {
+        var code = """
+func Main() {
+    val x: string? = default
+    x!.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("x!.", StringComparison.Ordinal) + "x!.".Length;
+        var completion = service.GetCompletionsWithMetrics(compilation, syntaxTree, position);
+
+        Assert.False(completion.UsedFallback, completion.FailureType);
+        Assert.Contains(completion.Items, item => item.DisplayText == "Length");
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDot_OnNullableSuppressedTargetTypedDefault_ReturnsMemberItems()
+    {
+        var code = """
+import System.*
+
+func Create() -> IDisposable {
+    return default!.
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var service = new CompletionService();
+        var position = code.LastIndexOf("default!.", StringComparison.Ordinal) + "default!.".Length;
+        var completion = service.GetCompletionsWithMetrics(compilation, syntaxTree, position);
+
+        Assert.False(completion.UsedFallback, completion.FailureType);
+        Assert.Contains(completion.Items, item => item.DisplayText == "Dispose");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnNamespace_ReturnsNamespaceMembers()
     {
         var code = """

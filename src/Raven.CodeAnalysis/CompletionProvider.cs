@@ -943,6 +943,9 @@ public static class CompletionProvider
             if (type is not null && type.TypeKind != TypeKind.Error)
                 return (symbol, type);
 
+            if (TryGetNullableSuppressionReceiverType(expression, out var suppressedReceiverType))
+                return (symbol, suppressedReceiverType);
+
             var binderSymbol = model.GetBinder(expression).BindSymbol(expression).Symbol?.UnderlyingSymbol;
             if (binderSymbol is not null)
             {
@@ -953,8 +956,104 @@ public static class CompletionProvider
             }
 
             type = model.GetTypeInfo(expression).Type;
+            if ((type is null || type.TypeKind == TypeKind.Error) &&
+                TryGetNullableSuppressionReceiverType(expression, out suppressedReceiverType))
+            {
+                type = suppressedReceiverType;
+            }
+
             return (symbol, type);
         }
+
+        bool TryGetNullableSuppressionReceiverType(
+            ExpressionSyntax expression,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? receiverType)
+        {
+            receiverType = null;
+            if (expression is not PostfixOperatorExpressionSyntax
+                {
+                    Kind: SyntaxKind.SuppressNullableWarningExpression
+                } suppression)
+            {
+                return false;
+            }
+
+            ITypeSymbol? operandType = null;
+            if (suppression.Expression is DefaultExpressionSyntax &&
+                TryGetTargetTypedDefaultSuppressionReceiverType(suppression, out var defaultTargetType))
+            {
+                operandType = defaultTargetType.GetDefaultValueType();
+            }
+            else
+            {
+                var operandInfo = model.GetTypeInfo(suppression.Expression);
+                operandType = operandInfo.Type ?? operandInfo.ConvertedType;
+            }
+
+            if (operandType is null || operandType.TypeKind == TypeKind.Error)
+                return false;
+
+            receiverType = operandType.StripNullable() ?? operandType.GetPlainType();
+            return receiverType.TypeKind != TypeKind.Error;
+        }
+
+        bool TryGetTargetTypedDefaultSuppressionReceiverType(
+            PostfixOperatorExpressionSyntax suppression,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? targetType)
+        {
+            targetType = null;
+            if (suppression.Parent is not MemberAccessExpressionSyntax memberAccess ||
+                !IsSameSyntaxNode(memberAccess.Expression, suppression))
+            {
+                return false;
+            }
+
+            var context = memberAccess.Parent;
+            if (context is ReturnStatementSyntax returnStatement &&
+                returnStatement.Expression is { } returnExpression &&
+                IsSameSyntaxNode(returnExpression, memberAccess))
+            {
+                targetType = TryGetContainingReturnType(returnStatement);
+                return targetType is not null && targetType.TypeKind != TypeKind.Error;
+            }
+
+            if (context is ReturnExpressionSyntax returnExpressionSyntax &&
+                IsSameSyntaxNode(returnExpressionSyntax.Expression, memberAccess))
+            {
+                targetType = TryGetContainingReturnType(returnExpressionSyntax);
+                return targetType is not null && targetType.TypeKind != TypeKind.Error;
+            }
+
+            return false;
+        }
+
+        ITypeSymbol? TryGetContainingReturnType(SyntaxNode node)
+        {
+            foreach (var ancestor in node.Ancestors())
+            {
+                switch (ancestor)
+                {
+                    case BaseMethodDeclarationSyntax methodDeclaration
+                        when model.GetDeclaredSymbol(methodDeclaration) is IMethodSymbol method:
+                        return method.ReturnType;
+
+                    case FunctionStatementSyntax functionStatement
+                        when model.GetDeclaredSymbol(functionStatement) is IMethodSymbol function:
+                        return function.ReturnType;
+
+                    case AccessorDeclarationSyntax accessor
+                        when model.GetDeclaredSymbol(accessor) is IMethodSymbol accessorMethod:
+                        return accessorMethod.ReturnType;
+                }
+            }
+
+            return null;
+        }
+
+        static bool IsSameSyntaxNode(SyntaxNode left, SyntaxNode right)
+            => left.Kind == right.Kind &&
+               left.Span == right.Span &&
+               ReferenceEquals(left.SyntaxTree, right.SyntaxTree);
 
         static bool NeedsReceiverFallback(ISymbol? symbol, ITypeSymbol? type)
         {

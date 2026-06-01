@@ -15,6 +15,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   snapshot diagnostics across pending edits until fresh diagnostics are ready.
 - Changed `RAV0403` to report on the full `<expr>!` nullable suppression
   expression and describe that the operand is treated as non-null.
+- Fixed member completion after nullable suppression expressions such as `x!.`
+  and target-typed `default!.`.
 - Fixed inlay hint flicker while editing by keeping visible providers stable
   until a debounced refresh can request translated cached hints for pending
   document text or fresh hints from the loaded workspace snapshot.
