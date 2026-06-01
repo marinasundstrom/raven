@@ -13,7 +13,7 @@ func Seed(db: AppDbContext) {
 }
 
 func Main() {
-    val db = AppDbContext()
+    use db = AppDbContext()
     db.Database.EnsureDeleted()
     db.Database.EnsureCreated()
 
