@@ -10,6 +10,22 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
+    private ITypeSymbol EnsureSourceMemberSignatureDeclaredForExactLookup(ITypeSymbol receiverType, string memberName)
+    {
+        if (string.IsNullOrEmpty(memberName) ||
+            Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ||
+            receiverType is not INamedTypeSymbol namedReceiverType)
+        {
+            return receiverType;
+        }
+
+        var semanticModel = SemanticModel;
+        return semanticModel is not null &&
+            semanticModel.TryEnsureSourceTypeMemberSignatureDeclared(namedReceiverType, memberName, out var ensuredReceiverType)
+                ? ensuredReceiverType
+                : receiverType;
+    }
+
     private BoundErrorExpression InvocationError(
             BoundExpression? receiver,
             string methodName,
@@ -3972,9 +3988,11 @@ partial class BlockBinder
 
         if (receiver is BoundTypeExpression typeExpr)
         {
+            var typeLookupType = EnsureSourceMemberSignatureDeclaredForExactLookup(typeExpr.Type, name);
+
             if (preferMethods)
             {
-                var methodCandidates = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+                var methodCandidates = new SymbolQuery(name, typeLookupType, IsStatic: true)
                     .LookupMethods(this)
                     .ToImmutableArray();
 
@@ -3993,7 +4011,7 @@ partial class BlockBinder
                 }
                 else
                 {
-                    var extensionCandidates = LookupExtensionStaticMethods(name, typeExpr.Type).ToImmutableArray();
+                    var extensionCandidates = LookupExtensionStaticMethods(name, typeLookupType).ToImmutableArray();
 
                     if (!extensionCandidates.IsDefaultOrEmpty)
                     {
@@ -4011,7 +4029,7 @@ partial class BlockBinder
                 }
             }
 
-            var nonMethodMember = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+            var nonMethodMember = new SymbolQuery(name, typeLookupType, IsStatic: true)
                 .Lookup(this)
                 .FirstOrDefault(static m => m is not IMethodSymbol);
 
@@ -4056,7 +4074,7 @@ partial class BlockBinder
 
             if (!preferMethods)
             {
-                var methodCandidates = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+                var methodCandidates = new SymbolQuery(name, typeLookupType, IsStatic: true)
                     .LookupMethods(this)
                     .ToImmutableArray();
 
@@ -4075,7 +4093,7 @@ partial class BlockBinder
                 }
                 else
                 {
-                    var extensionCandidates = LookupExtensionStaticMethods(name, typeExpr.Type).ToImmutableArray();
+                    var extensionCandidates = LookupExtensionStaticMethods(name, typeLookupType).ToImmutableArray();
 
                     if (!extensionCandidates.IsDefaultOrEmpty)
                     {
@@ -4093,7 +4111,7 @@ partial class BlockBinder
                 }
             }
 
-            var member = new SymbolQuery(name, typeExpr.Type, IsStatic: true)
+            var member = new SymbolQuery(name, typeLookupType, IsStatic: true)
                 .Lookup(this)
                 .FirstOrDefault();
 
@@ -4128,10 +4146,10 @@ partial class BlockBinder
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
                 }
 
-                if (TryBindDiscriminatedUnionCase(typeExpr.Type, name, nameLocation) is BoundExpression unionCase)
+                if (TryBindDiscriminatedUnionCase(typeLookupType, name, nameLocation) is BoundExpression unionCase)
                     return unionCase;
 
-                if (TryBindSealedHierarchyCase(typeExpr.Type, name, explicitTypeArguments, genericTypeSyntax, nameLocation) is BoundExpression sealedCase)
+                if (TryBindSealedHierarchyCase(typeLookupType, name, explicitTypeArguments, genericTypeSyntax, nameLocation) is BoundExpression sealedCase)
                     return sealedCase;
 
                 var typeName = typeExpr.Symbol!.Name;
@@ -4163,6 +4181,7 @@ partial class BlockBinder
         if (receiver.Type is not null)
         {
             var receiverType = receiverTypeForLookup ?? (receiver.Type.UnwrapLiteralType() ?? receiver.Type);
+            receiverType = EnsureSourceMemberSignatureDeclaredForExactLookup(receiverType, name);
 
             if (!suppressNullWarning)
                 ReportPossibleNullReferenceAccess(receiver, simpleName);

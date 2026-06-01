@@ -6403,6 +6403,29 @@ public partial class SemanticModel
             : ImmutableArray<IMethodSymbol>.Empty;
     }
 
+    internal bool TryEnsureSourceTypeMemberSignatureDeclared(
+        INamedTypeSymbol receiverType,
+        string memberName,
+        out INamedTypeSymbol ensuredReceiverType)
+    {
+        ensuredReceiverType = receiverType;
+        var ensured = false;
+
+        if (TryEnsureSourceTypeValueMemberSignatureDeclared(receiverType, memberName, out var valueReceiverType, out _))
+        {
+            ensuredReceiverType = valueReceiverType;
+            ensured = true;
+        }
+
+        if (TryEnsureSourceTypeMethodSignaturesDeclared(ensuredReceiverType, memberName, out var methodReceiverType, out _))
+        {
+            ensuredReceiverType = methodReceiverType;
+            ensured = true;
+        }
+
+        return ensured;
+    }
+
     private bool TryEnsureSourceTypeMethodSignaturesDeclared(
         INamedTypeSymbol receiverType,
         string memberName,

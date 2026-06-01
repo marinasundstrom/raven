@@ -1768,6 +1768,54 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_DocumentDiagnostics_LazilyDeclareLaterSourceReceiverMethod()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        project = project.AddDocument(
+            "contracts.rav",
+            SourceText.From(
+                """
+                class Request {
+                    var Status: VehicleStatusDto = VehicleStatusDto()
+
+                    func ToStatus() -> int {
+                        return Status.ToStatus()
+                    }
+                }
+
+                class VehicleStatusDto {
+                    func ToStatus() -> int {
+                        return 1
+                    }
+                }
+                """),
+            "/tmp/contracts.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/contracts.rav");
+        var model = compilation.GetSemanticModel(tree);
+
+        var diagnostics = compilation.GetDocumentDiagnostics(tree, analyzerOptions: null, CancellationToken.None);
+
+        diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.MemberDoesNotContainDefinition &&
+            diagnostic.GetMessage().Contains("'VehicleStatusDto' has no member 'ToStatus'", StringComparison.Ordinal));
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
     public void WorkspaceCompilation_DocumentDiagnostics_ForNestedLambdaBodyEdit_SeedsContainingBlockLocals()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
