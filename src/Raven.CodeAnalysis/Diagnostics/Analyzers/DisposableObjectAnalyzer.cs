@@ -18,7 +18,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         title: "Disposable object is not disposed",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Disposable object '{0}' is not disposed before it leaves scope.",
+        messageFormat: "Disposable value is not disposed before leaving scope.",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Warning);
 
@@ -132,12 +132,12 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
             if (isUseDeclaration ||
                 declarator.Initializer?.Value is not { } initializer ||
-                !TryGetDisposableProducer(initializer, context, out _))
+                !TryGetDisposableProducer(initializer, context))
             {
                 continue;
             }
 
-            tracked[local] = new TrackedDisposable(local.Name, declarator.Identifier.GetLocation());
+            tracked[local] = new TrackedDisposable(declarator.Identifier.GetLocation());
         }
     }
 
@@ -146,12 +146,12 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         SyntaxNodeAnalysisContext context,
         Dictionary<ILocalSymbol, TrackedDisposable> tracked)
     {
-        if (!TryGetDisposableProducer(assignment.Right, context, out var producerName))
+        if (!TryGetDisposableProducer(assignment.Right, context))
             return;
 
         if (assignment.IsDiscard)
         {
-            Report(context, producerName, assignment.Right.GetLocation());
+            Report(context, assignment.Right.GetLocation());
             return;
         }
 
@@ -161,7 +161,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         if (tracked.TryGetValue(local, out var previous))
             Report(context, previous);
 
-        tracked[local] = new TrackedDisposable(local.Name, assignment.Left.GetLocation());
+        tracked[local] = new TrackedDisposable(assignment.Left.GetLocation());
     }
 
     private static void TrackExpressionStatement(
@@ -178,8 +178,8 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (TryGetDisposableProducer(expressionStatement.Expression, context, out var producerName))
-            Report(context, producerName, expressionStatement.Expression.GetLocation());
+        if (TryGetDisposableProducer(expressionStatement.Expression, context))
+            Report(context, expressionStatement.Expression.GetLocation());
     }
 
     private static void ApplyReturnStatement(
@@ -208,30 +208,24 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
     private static bool TryGetDisposableProducer(
         ExpressionSyntax expression,
-        SyntaxNodeAnalysisContext context,
-        out string producerName)
+        SyntaxNodeAnalysisContext context)
     {
-        producerName = string.Empty;
-
         var operation = context.SemanticModel.GetOperation(expression);
         return operation is not null &&
-               TryGetDisposableProducer(operation, context.Compilation, out producerName);
+               TryGetDisposableProducer(operation, context.Compilation);
     }
 
     private static bool TryGetDisposableProducer(
         IOperation operation,
-        Compilation compilation,
-        out string producerName)
+        Compilation compilation)
     {
-        producerName = string.Empty;
-
         operation = UnwrapParenthesized(operation);
 
         switch (operation)
         {
             case IConversionOperation conversion:
                 if (conversion.Operand is not null &&
-                    TryGetDisposableProducer(conversion.Operand, compilation, out producerName) &&
+                    TryGetDisposableProducer(conversion.Operand, compilation) &&
                     SupportsSyncDispose(compilation, conversion.Type ?? conversion.Operand.Type))
                 {
                     return true;
@@ -241,7 +235,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
             case IAwaitOperation awaitOperation:
                 if (awaitOperation.Operation is not null &&
-                    TryGetDisposableProducer(awaitOperation.Operation, compilation, out producerName) &&
+                    TryGetDisposableProducer(awaitOperation.Operation, compilation) &&
                     SupportsSyncDispose(compilation, awaitOperation.Type))
                 {
                     return true;
@@ -253,17 +247,19 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
                 if (IsDisposeInvocation(invocation))
                     return false;
 
-                if (!SupportsSyncDispose(compilation, invocation.TargetMethod.ReturnType))
+                var resultType = invocation.TargetMethod.IsConstructor
+                    ? invocation.Type ?? invocation.TargetMethod.ContainingType
+                    : invocation.TargetMethod.ReturnType;
+
+                if (!SupportsSyncDispose(compilation, resultType))
                     return false;
 
-                producerName = invocation.TargetMethod.Name;
                 return true;
 
             case IObjectCreationOperation objectCreation:
                 if (!SupportsSyncDispose(compilation, objectCreation.Type))
                     return false;
 
-                producerName = objectCreation.Type?.Name ?? "new";
                 return true;
 
             default:
@@ -388,10 +384,10 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
            type.TypeKind is not TypeKind.Error;
 
     private static void Report(SyntaxNodeAnalysisContext context, TrackedDisposable disposable)
-        => Report(context, disposable.Name, disposable.Location);
+        => Report(context, disposable.Location);
 
-    private static void Report(SyntaxNodeAnalysisContext context, string name, Location location)
-        => context.ReportDiagnostic(Diagnostic.Create(Descriptor, location, name));
+    private static void Report(SyntaxNodeAnalysisContext context, Location location)
+        => context.ReportDiagnostic(Diagnostic.Create(Descriptor, location));
 
-    private sealed record TrackedDisposable(string Name, Location Location);
+    private sealed record TrackedDisposable(Location Location);
 }

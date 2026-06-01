@@ -2,10 +2,10 @@ import Utilities.*
 
 func Main() {
     Test()
-    let x = A(42)
+    val x = A(42)
     Test()
     A(x)
+    A("test")
 
     use test = Test2()
-    test.Dispose()
 }

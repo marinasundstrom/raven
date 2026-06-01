@@ -10,6 +10,10 @@ func A(x: int) -> int {
     42 + x
 }
 
+func A(x: string) -> int {
+    42
+}
+
 func Test2() -> IDisposable {
     return default!
 }

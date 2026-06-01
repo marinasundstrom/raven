@@ -31,7 +31,6 @@ func Test() -> () {
             [
                 new DiagnosticResult(DisposableObjectAnalyzer.DiagnosticId)
                     .WithSpan(13, 9, 13, 17)
-                    .WithArguments("resource")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, UnusedVariableAnalyzer.DiagnosticId]);
 
@@ -121,7 +120,6 @@ func Test() -> () {
             [
                 new DiagnosticResult(DisposableObjectAnalyzer.DiagnosticId)
                     .WithSpan(13, 5, 13, 21)
-                    .WithArguments("CreateResource")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -182,7 +180,6 @@ func Test() -> () {
             [
                 new DiagnosticResult(DisposableObjectAnalyzer.DiagnosticId)
                     .WithSpan(13, 9, 13, 25)
-                    .WithArguments("CreateResource")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
@@ -211,9 +208,36 @@ func Test() -> () {
             [
                 new DiagnosticResult(DisposableObjectAnalyzer.DiagnosticId)
                     .WithSpan(9, 9, 9, 17)
-                    .WithArguments("resource")
             ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, UnusedVariableAnalyzer.DiagnosticId]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void DisposableObjectCreationAsBareExpression_ReportsConstructorDiagnostic()
+    {
+        const string code = """
+import System.*
+
+class Resource : IDisposable {
+    public init() {}
+    public func Dispose() -> unit {}
+}
+
+func Test() -> () {
+    Resource()
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<DisposableObjectAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(DisposableObjectAnalyzer.DiagnosticId)
+                    .WithSpan(9, 5, 9, 15)
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
