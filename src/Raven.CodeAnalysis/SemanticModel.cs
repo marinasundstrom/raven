@@ -386,8 +386,14 @@ public partial class SemanticModel
                     // Document diagnostics should first try the owner-scoped path.
                     // Full project declaration is still available as a fallback below,
                     // but doing it eagerly makes ordinary body edits pay for every file.
-                    if (root is CompilationUnitSyntax compilationUnit)
+                    if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
+                    {
+                        Compilation.EnsureSourceDeclarationsDeclared();
+                    }
+                    else if (root is CompilationUnitSyntax compilationUnit)
+                    {
                         EnsureTopLevelFunctionDeclarations(compilationUnit);
+                    }
 
                     EnsureDeclarations();
                 }

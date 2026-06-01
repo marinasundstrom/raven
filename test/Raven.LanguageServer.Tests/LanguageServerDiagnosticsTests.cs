@@ -355,6 +355,117 @@ public func A(x: int) -> int {
     }
 
     [Fact]
+    public async Task TryGetDiagnosticsAsync_AfterCrossFileDeclarationEdit_RemovesNotInScopeDiagnosticAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var sourceRoot = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceRoot);
+
+        var mainPath = Path.Combine(sourceRoot, "main.rvn");
+        var testPath = Path.Combine(sourceRoot, "test.rvn");
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        const string main = """
+import Utilities.*
+
+func Main() {
+    use test = Test2()
+    test.Dispose()
+}
+""";
+        const string badDeclarationSyntax = """
+namespace Utilities
+
+import System.Console.*
+
+func Test() {
+    WriteLine("Hello")
+}
+
+func A(x: int) -> int {
+    42 + x
+}
+
+func A(x: string) -> int {
+    42 + int.Parse(x
+}
+
+func Test2() -> IDisposable {
+    return default!
+}
+""";
+        const string fixedDeclaration = """
+namespace Utilities
+
+import System.Console.*
+
+func Test() {
+    WriteLine("Hello")
+}
+
+func A(x: int) -> int {
+    42 + x
+}
+
+func A(x: string) -> int {
+    42 + int.Parse(x)
+}
+
+func Test2() -> IDisposable {
+    return default!
+}
+""";
+
+        await store.UpsertDocumentAsync(testUri, badDeclarationSyntax);
+        await store.UpsertDocumentAsync(mainUri, main);
+
+        var initialDiagnostics = await store.TryGetDiagnosticsAsync(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        initialDiagnostics.WasSkipped.ShouldBeFalse();
+        initialDiagnostics.Diagnostics.Any(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV0103", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Test2", StringComparison.Ordinal))
+            .ShouldBeTrue();
+
+        await store.UpsertDocumentAsync(testUri, fixedDeclaration);
+
+        var updatedDiagnostics = await store.TryGetDiagnosticsAsync(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            shouldSkipWork: null,
+            cancellationToken: CancellationToken.None);
+
+        updatedDiagnostics.WasSkipped.ShouldBeFalse();
+        var updatedDiagnosticSummary = string.Join(
+            Environment.NewLine,
+            updatedDiagnostics.Diagnostics.Select(static diagnostic =>
+                $"{diagnostic.Code?.String}: {diagnostic.Message}"));
+        updatedDiagnostics.Diagnostics.Any(diagnostic =>
+            diagnostic.Code.HasValue &&
+            string.Equals(diagnostic.Code.Value.String, "RAV0103", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Test2", StringComparison.Ordinal))
+            .ShouldBeFalse(updatedDiagnosticSummary);
+    }
+
+    [Fact]
     public async Task GetDocumentWithAnalyzersDiagnosticsAsync_AfterConstructorAssignmentEdit_ReportsOnlyActuallyUnusedParameterAsync()
     {
         Directory.CreateDirectory(_tempRoot);

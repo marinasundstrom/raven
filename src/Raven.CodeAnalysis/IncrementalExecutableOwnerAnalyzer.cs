@@ -106,6 +106,8 @@ internal static class IncrementalExecutableOwnerAnalyzer
             changedBuilder.ToImmutable(),
             matchedBuilder.ToImmutable(),
             ownerChanges.ToImmutable(),
+            HasSemanticShapeUnstableSyntax(previousTree) ||
+            HasSemanticShapeUnstableSyntax(currentTree) ||
             HasChangeOutsideExecutableBody(previousTree, currentTree));
     }
 
@@ -406,6 +408,10 @@ internal static class IncrementalExecutableOwnerAnalyzer
 
         return false;
     }
+
+    private static bool HasSemanticShapeUnstableSyntax(SyntaxTree syntaxTree)
+        => syntaxTree.GetDiagnostics()
+            .Any(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
     private static bool IsSpanWithinExecutableBody(SyntaxNode root, Text.TextSpan span)
     {
