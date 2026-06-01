@@ -6,6 +6,7 @@ using System.Linq;
 using MediatR;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -37,15 +38,13 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private const double DidCloseLogThresholdMs = 50;
 
     private readonly DocumentStore _documents;
+    private readonly LanguageServerDispatcher _dispatcher;
     private readonly ILanguageServerFacade _languageServer;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
     private readonly ConcurrentDictionary<DocumentUri, PendingDiagnosticsRequest> _pendingDiagnostics = new();
     private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _documentUpdateGates = new();
     private readonly ConcurrentDictionary<DocumentUri, long> _documentSessions = new();
     private readonly ConcurrentDictionary<DocumentUri, int> _documentVersions = new();
-    private readonly ConcurrentDictionary<DocumentUri, int> _lastPublishedDiagnosticVersions = new();
-    private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
-    private readonly ConcurrentDictionary<DocumentUri, VersionedDiagnostics> _lastPublishedAnalyzerDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _activeDiagnostics = new();
     private readonly ConcurrentDictionary<PendingDiagnosticsRetryKey, byte> _pendingDiagnosticsRetries = new();
@@ -53,8 +52,18 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private long _nextDiagnosticsScheduleId;
 
     public RavenTextDocumentSyncHandler(DocumentStore documents, ILanguageServerFacade languageServer, ILogger<RavenTextDocumentSyncHandler> logger)
+        : this(documents, new LanguageServerDispatcher(documents, NullLogger<LanguageServerDispatcher>.Instance), languageServer, logger)
+    {
+    }
+
+    public RavenTextDocumentSyncHandler(
+        DocumentStore documents,
+        LanguageServerDispatcher dispatcher,
+        ILanguageServerFacade languageServer,
+        ILogger<RavenTextDocumentSyncHandler> logger)
     {
         _documents = documents;
+        _dispatcher = dispatcher;
         _languageServer = languageServer;
         _logger = logger;
     }
@@ -71,7 +80,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
         try
         {
-            _ = AdvanceDocumentSession(notification.TextDocument.Uri);
+            var documentSession = AdvanceDocumentSession(notification.TextDocument.Uri);
             CancelPendingDocumentCommit(notification.TextDocument.Uri);
             _documents.DiscardPendingDocumentChange(notification.TextDocument.Uri);
             var upsertResult = await _documents.UpsertDocumentWithResultAsync(
@@ -82,6 +91,12 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
             if (notification.TextDocument.Version is { } openVersion)
                 _documentVersions[notification.TextDocument.Uri] = openVersion;
+            _dispatcher.RecordWorkspaceEvent(
+                "DocumentOpened",
+                notification.TextDocument.Uri,
+                reason: "didOpen",
+                editorVersion: notification.TextDocument.Version,
+                documentSession: documentSession);
             LanguageServerPerformanceInstrumentation.RecordDocumentEdit(
                 notification.TextDocument.Uri,
                 notification.TextDocument.Version,
@@ -215,6 +230,15 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
             if (notification.TextDocument.Version is { } appliedVersion)
                 _documentVersions[notification.TextDocument.Uri] = appliedVersion;
+            var latestSession = _documentSessions.TryGetValue(notification.TextDocument.Uri, out var session)
+                ? session
+                : 0;
+            _dispatcher.RecordWorkspaceEvent(
+                "DocumentChanged",
+                notification.TextDocument.Uri,
+                reason: "didChange",
+                editorVersion: notification.TextDocument.Version,
+                documentSession: latestSession);
             updateDocumentMs = stageStopwatch.Elapsed.TotalMilliseconds;
             LanguageServerPerformanceInstrumentation.RecordDocumentEdit(
                 notification.TextDocument.Uri,
@@ -364,6 +388,12 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
                 return;
 
+            _dispatcher.RecordWorkspaceEvent(
+                "DocumentCommitted",
+                uri,
+                reason: "didChangeCommit",
+                editorVersion: expectedVersion,
+                documentSession: expectedSession);
             if (upsertResult is null or { ProjectChanged: true })
             {
                 ScheduleRelatedOpenDocumentCompilerDiagnostics(
@@ -522,9 +552,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             CancelPendingDocumentCommit(notification.TextDocument.Uri);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
-            _lastPublishedDiagnosticVersions.TryRemove(notification.TextDocument.Uri, out _);
-            _lastPublishedDiagnostics.TryRemove(notification.TextDocument.Uri, out _);
-            _lastPublishedAnalyzerDiagnostics.TryRemove(notification.TextDocument.Uri, out _);
+            _dispatcher.ClearPresentationState(notification.TextDocument.Uri, reason: "didClose");
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
 
             if (_documentUpdateGates.TryRemove(notification.TextDocument.Uri, out var gate))
@@ -571,6 +599,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             cancellationToken).ConfigureAwait(false);
         if (upsertResult is { TextChanged: true })
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
+        _dispatcher.RecordWorkspaceEvent(
+            "DocumentSaved",
+            notification.TextDocument.Uri,
+            reason: "didSave",
+            editorVersion: null,
+            documentSession: _documentSessions.TryGetValue(notification.TextDocument.Uri, out var session)
+                ? session
+                : 0);
 
         var policy = GetSaveDiagnosticsPolicy();
         return await ScheduleDiagnosticsPublishAsync(
@@ -1166,14 +1202,30 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
             var diagnostics = result.Diagnostics;
             var snapshotKey = result.SnapshotKey;
-            var lastPublishedVersion = _lastPublishedDiagnosticVersions.TryGetValue(uri, out var publishedVersion)
-                ? publishedVersion
-                : (int?)null;
-            var diagnosticsToPublish = MergePartialDiagnosticsForPublish(
-                lane,
-                diagnostics,
-                GetCarryForwardAnalyzerDiagnostics(uri, expectedVersion, snapshotKey));
-            var diagnosticValues = CreatePublishedDiagnosticValues(diagnosticsToPublish);
+            if (!_dispatcher.ShouldAcceptDiagnosticsResult(
+                    uri,
+                    snapshotKey,
+                    lane,
+                    reason: $"publish:{lane}",
+                    editorVersion: expectedVersion))
+            {
+                outcome = PublishDiagnosticsOutcome.SkippedVersionMismatch;
+                _logger.LogInformation(
+                    "Skipped diagnostics publish for {Uri}: snapshot is stale (schedule={ScheduleId}, expectedSession={ExpectedSession}, expectedVersion={ExpectedVersion}, lane={Lane}).",
+                    uri,
+                    FormatOptionalId(scheduleId),
+                    expectedSession,
+                    expectedVersion?.ToString() ?? "<none>",
+                    lane);
+                RequeueDiagnosticsPublish(
+                    uri,
+                    expectedSession,
+                    expectedVersion,
+                    lane,
+                    ActiveDiagnosticsRetryDelayMilliseconds,
+                    originScheduleId: scheduleId);
+                return Unit.Value;
+            }
 
             if (ShouldSkipRequest(uri, expectedSession, expectedVersion))
             {
@@ -1185,24 +1237,22 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     expectedSession,
                     expectedVersion?.ToString() ?? "<none>",
                     lane,
-                    diagnosticsToPublish.Length,
-                    SummarizeDiagnosticsForLog(diagnosticsToPublish));
+                    diagnostics.Count,
+                    SummarizeDiagnosticsForLog(diagnostics));
                 return Unit.Value;
             }
 
-            var hasLastPublishedDiagnostics = _lastPublishedDiagnostics.TryGetValue(uri, out var lastPublishedDiagnostics);
-            if (!ShouldPublishDiagnostics(
-                    hasLastPublishedDiagnostics,
-                    lastPublishedDiagnostics,
-                    lastPublishedVersion,
-                    diagnosticValues,
-                    expectedVersion))
+            var presentation = _dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                lane,
+                diagnostics,
+                expectedVersion,
+                snapshotKey);
+            var diagnosticsToPublish = presentation.Diagnostics;
+
+            if (!presentation.ShouldPublish)
             {
                 diagnosticsCount = diagnosticsToPublish.Length;
-                if (expectedVersion is { } stableVersion)
-                    _lastPublishedDiagnosticVersions[uri] = stableVersion;
-
-                UpdatePublishedAnalyzerDiagnostics(uri, lane, expectedVersion, snapshotKey, diagnosticsToPublish);
                 MarkDiagnosticsPublishCompleted(uri, expectedVersion, lane);
                 var diagnosticSummary = SummarizeDiagnosticsForLog(diagnosticsToPublish);
                 outcome = PublishDiagnosticsOutcome.SkippedUnchanged;
@@ -1220,10 +1270,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
             PublishDiagnosticsToClient(uri, diagnosticsToPublish, expectedVersion);
             diagnosticsCount = diagnosticsToPublish.Length;
-            _lastPublishedDiagnostics[uri] = diagnosticValues;
-            UpdatePublishedAnalyzerDiagnostics(uri, lane, expectedVersion, snapshotKey, diagnosticsToPublish);
-            if (expectedVersion is { } completedVersion)
-                _lastPublishedDiagnosticVersions[uri] = completedVersion;
             MarkDiagnosticsPublishCompleted(uri, expectedVersion, lane);
             var publishedDiagnosticSummary = SummarizeDiagnosticsForLog(diagnosticsToPublish);
             _logger.LogInformation(
@@ -1259,41 +1305,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
 
         return Unit.Value;
-    }
-
-    private void UpdatePublishedAnalyzerDiagnostics(
-        DocumentUri uri,
-        DocumentStore.DiagnosticLane lane,
-        int? version,
-        DocumentStore.DiagnosticSnapshotKey? snapshotKey,
-        ImmutableArray<Diagnostic> diagnostics)
-    {
-        if (lane is not DocumentStore.DiagnosticLane.DocumentWithAnalyzers and
-            not DocumentStore.DiagnosticLane.ProjectWithAnalyzers)
-        {
-            return;
-        }
-
-        var analyzerDiagnostics = diagnostics
-            .Where(CanCarryForwardAnalyzerDiagnostic)
-            .ToImmutableArray();
-        if (analyzerDiagnostics.IsDefaultOrEmpty)
-        {
-            _lastPublishedAnalyzerDiagnostics.TryRemove(uri, out _);
-            return;
-        }
-
-        _lastPublishedAnalyzerDiagnostics[uri] = new VersionedDiagnostics(version, snapshotKey, analyzerDiagnostics);
-    }
-
-    private ImmutableArray<Diagnostic> GetCarryForwardAnalyzerDiagnostics(
-        DocumentUri uri,
-        int? version,
-        DocumentStore.DiagnosticSnapshotKey? snapshotKey)
-    {
-        return _lastPublishedAnalyzerDiagnostics.TryGetValue(uri, out var previous)
-            ? GetCarryForwardAnalyzerDiagnosticsForPresentation(version, snapshotKey, previous)
-            : [];
     }
 
     private void RequeueDiagnosticsPublish(
@@ -1501,6 +1512,11 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         try
         {
             _languageServer.Workspace.SendInlayHintRefresh(new InlayHintRefreshParams());
+            _dispatcher.RecordWorkItemEvent(
+                "InlayRefreshRequested",
+                changedUri,
+                reason,
+                extraDetail: $"advertisedRefreshSupport={advertisedRefreshSupport}");
             RecordInlayHintRefreshEvent(
                 "inlayHintRefreshSent",
                 changedUri,
@@ -1571,7 +1587,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             .ToImmutableArray();
     }
 
-    private static bool CanCarryForwardAnalyzerDiagnostic(Diagnostic diagnostic)
+    internal static bool CanCarryForwardAnalyzerDiagnostic(Diagnostic diagnostic)
     {
         if (!string.Equals(diagnostic.Source, "raven", StringComparison.OrdinalIgnoreCase))
             return true;

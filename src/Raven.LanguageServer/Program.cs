@@ -39,6 +39,7 @@ internal static class Program
                     workspaceEventSink: provider.GetRequiredService<IWorkspaceEventSink>()));
                 services.AddSingleton<WorkspaceManager>();
                 services.AddSingleton<DocumentStore>();
+                services.AddSingleton<LanguageServerDispatcher>();
                 services.AddSingleton<HoverHandler>();
             })
             .OnInitialize((server, request, _) =>

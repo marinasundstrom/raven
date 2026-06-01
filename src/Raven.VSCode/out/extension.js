@@ -51,6 +51,8 @@ let pendingInlayHintRefresh;
 let pendingImportCompletionTrigger;
 const recentRavenDocumentChanges = new Map();
 const inlayHintRequestVersions = new Map();
+let inlayHintRefreshEpoch = 0;
+let inlayHintRefreshPromise;
 function execFileText(command, args, options = {}) {
     return new Promise((resolve, reject) => {
         (0, child_process_1.execFile)(command, [...args], { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
@@ -165,6 +167,28 @@ function getInlayHintRequestDebounceMilliseconds() {
     }
     return Math.max(0, Math.min(2000, Math.trunc(configured)));
 }
+function bumpInlayHintRequestVersion(key) {
+    const requestVersion = (inlayHintRequestVersions.get(key) ?? 0) + 1;
+    inlayHintRequestVersions.set(key, requestVersion);
+    return requestVersion;
+}
+function isCurrentInlayHintRequest(key, requestVersion) {
+    return inlayHintRequestVersions.get(key) === requestVersion;
+}
+function invalidateVisibleInlayHintRequests() {
+    let invalidated = 0;
+    for (const editor of vscode.window.visibleTextEditors) {
+        if (editor.document.languageId !== 'raven') {
+            continue;
+        }
+        bumpInlayHintRequestVersion(editor.document.uri.toString());
+        invalidated++;
+    }
+    if (invalidated > 0) {
+        appendLifecycleLog(`Invalidated in-flight inlay hint request(s) for ${invalidated} visible Raven document(s).`);
+    }
+    return invalidated;
+}
 function areSemanticTokensEnabled() {
     return vscode.workspace
         .getConfiguration('raven')
@@ -194,6 +218,12 @@ function delayUnlessCanceled(milliseconds, token) {
         });
     });
 }
+function delay(milliseconds) {
+    if (milliseconds <= 0) {
+        return Promise.resolve();
+    }
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
 async function waitForInlayHintQuietPeriod(document, token) {
     const debounceMilliseconds = getInlayHintRequestDebounceMilliseconds();
     if (debounceMilliseconds <= 0) {
@@ -220,17 +250,33 @@ async function waitForInlayHintQuietPeriod(document, token) {
     return false;
 }
 async function refreshInlayHints() {
+    inlayHintRefreshEpoch++;
+    if (!inlayHintRefreshPromise) {
+        inlayHintRefreshPromise = runInlayHintRefreshLoop()
+            .finally(() => {
+            inlayHintRefreshPromise = undefined;
+        });
+    }
+    return inlayHintRefreshPromise;
+}
+async function runInlayHintRefreshLoop() {
+    let completedEpoch = 0;
+    do {
+        const refreshEpoch = inlayHintRefreshEpoch;
+        pulseVisibleInlayHintProviders(refreshEpoch, 'primary');
+        await delay(125);
+        if (refreshEpoch !== inlayHintRefreshEpoch) {
+            appendLifecycleLog(`Inlay hint refresh epoch ${refreshEpoch} superseded before settled pulse.`);
+            continue;
+        }
+        pulseVisibleInlayHintProviders(refreshEpoch, 'settled');
+        completedEpoch = refreshEpoch;
+    } while (completedEpoch !== inlayHintRefreshEpoch);
+}
+function pulseVisibleInlayHintProviders(refreshEpoch, phase) {
+    const invalidatedDocumentCount = invalidateVisibleInlayHintRequests();
     const providerCount = fireVisibleInlayHintProviders();
-    if (providerCount > 0) {
-        return;
-    }
-    try {
-        await vscode.commands.executeCommand('editor.action.inlayHints.refresh');
-    }
-    catch (error) {
-        const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-        appendLifecycleLog(`Unable to refresh inlay hints: ${message}`);
-    }
+    appendLifecycleLog(`Inlay hint refresh pulse completed: epoch=${refreshEpoch} phase=${phase} invalidatedDocuments=${invalidatedDocumentCount} providers=${providerCount}.`);
 }
 function fireVisibleInlayHintProviders() {
     const activeClient = client;
@@ -518,16 +564,18 @@ function createLanguageClient(context) {
                         return [];
                     }
                     const key = document.uri.toString();
-                    const requestVersion = (inlayHintRequestVersions.get(key) ?? 0) + 1;
-                    inlayHintRequestVersions.set(key, requestVersion);
+                    const requestVersion = bumpInlayHintRequestVersion(key);
                     const shouldContinue = await waitForInlayHintQuietPeriod(document, token);
                     if (!shouldContinue) {
                         throw new vscode.CancellationError();
                     }
-                    if (inlayHintRequestVersions.get(key) !== requestVersion) {
+                    if (!isCurrentInlayHintRequest(key, requestVersion)) {
                         throw new vscode.CancellationError();
                     }
                     const hints = await next(document, viewPort, token);
+                    if (!isCurrentInlayHintRequest(key, requestVersion)) {
+                        throw new vscode.CancellationError();
+                    }
                     if (!hints) {
                         return hints;
                     }
@@ -575,6 +623,10 @@ async function startClient(context, reason) {
         }
         appendLifecycleLog(`Starting language client (${reason}).`);
         await client.start();
+        client.onRequest(node_1.InlayHintRefreshRequest.type, async () => {
+            appendLifecycleLog('Received workspace/inlayHint/refresh from language server.');
+            await refreshInlayHints();
+        });
     })().finally(() => {
         clientStartPromise = undefined;
     });
@@ -1346,6 +1398,7 @@ function activate(context) {
             version: event.document.version,
             changedAt: Date.now()
         });
+        invalidateVisibleInlayHintRequests();
         if (areRavenInlayHintsEnabled() &&
             (areInferredTypeInlayHintsEnabled() || areNameInlayHintsEnabled()) &&
             event.contentChanges.length > 0) {

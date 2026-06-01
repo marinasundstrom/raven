@@ -93,7 +93,8 @@ func Main() -> unit {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new InlayHintHandler(store, dispatcher, NullLogger<InlayHintHandler>.Instance);
         var documentPath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
@@ -182,7 +183,8 @@ func Main() -> unit {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new InlayHintHandler(store, dispatcher, NullLogger<InlayHintHandler>.Instance);
         var documentPath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string initialCode = """
@@ -277,7 +279,8 @@ func Test2() -> IDisposable {
         });
 
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new InlayHintHandler(store, dispatcher, NullLogger<InlayHintHandler>.Instance);
         var mainUri = DocumentUri.FromFileSystemPath(mainPath);
         var utilitiesUri = DocumentUri.FromFileSystemPath(utilitiesPath);
         await store.UpsertDocumentAsync(mainUri, mainCode);
@@ -292,6 +295,7 @@ func Test2() -> IDisposable {
         var initialResult = await handler.Handle(request, CancellationToken.None);
         var initialContext = await store.GetAnalysisContextAsync(mainUri, CancellationToken.None);
         initialContext.ShouldNotBeNull();
+        var initialSnapshot = dispatcher.CreateSnapshot(mainUri, initialContext.Value.Document, documentSession: 0);
         var insertion = mainCode.IndexOf("test =", StringComparison.Ordinal) + "test".Length;
         AssertSourceApplicable(
             sourceText,
@@ -300,20 +304,15 @@ func Test2() -> IDisposable {
             ": IDisposable?");
 
         await store.UpsertDocumentAsync(utilitiesUri, updatedUtilitiesCode);
-        var tryGetCachedHints = typeof(InlayHintHandler).GetMethod(
-            "TryGetCachedHints",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        tryGetCachedHints.ShouldNotBeNull();
-        object?[] arguments = [request, sourceText, null];
-
-        var cacheHit = (bool)tryGetCachedHints!.Invoke(handler, arguments)!;
+        var cacheHit = dispatcher.TryGetCachedInlayHints(request, sourceText, out _);
 
         cacheHit.ShouldBeFalse();
         store.TryGetDocument(mainUri, out var currentMainDocument).ShouldBeTrue();
-        InlayHintHandler.IsStaleSnapshot(initialContext.Value.Document, currentMainDocument)
+        dispatcher.IsCurrent(initialSnapshot).ShouldBeFalse();
+        LanguageServerDispatcher.IsCurrent(
+                dispatcher.CreateSnapshot(mainUri, currentMainDocument!, documentSession: 0),
+                currentMainDocument!)
             .ShouldBeTrue();
-        InlayHintHandler.IsStaleSnapshot(currentMainDocument!, currentMainDocument)
-            .ShouldBeFalse();
 
         var updatedResult = await handler.Handle(request, CancellationToken.None);
         var updatedHints = updatedResult.ToArray();
@@ -323,6 +322,99 @@ func Test2() -> IDisposable {
             insertion,
             ": IDisposable");
         updatedHints.Select(static hint => hint.Label.String).ShouldNotContain(": IDisposable?");
+    }
+
+    [Fact]
+    public async Task Handle_RepeatedCrossFileNullableTypeToggle_ReturnsCurrentHintAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var sourceRoot = Path.Combine(_tempRoot, "src");
+        Directory.CreateDirectory(sourceRoot);
+        await File.WriteAllTextAsync(Path.Combine(_tempRoot, "App.rvnproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <RavenCompile Include="src/**/*.rvn" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var mainPath = Path.Combine(sourceRoot, "main.rvn");
+        var utilitiesPath = Path.Combine(sourceRoot, "test.rvn");
+        const string mainCode = """
+import Utilities.*
+
+func Main() -> unit {
+    val test = Test2()
+}
+""";
+
+        static string UtilitiesCode(string returnType, string returnValue)
+            => $$"""
+namespace Utilities
+
+func Test2() -> {{returnType}} {
+    return {{returnValue}}
+}
+""";
+
+        await File.WriteAllTextAsync(mainPath, mainCode);
+        await File.WriteAllTextAsync(utilitiesPath, UtilitiesCode("IDisposable?", "null"));
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new InlayHintHandler(store, dispatcher, NullLogger<InlayHintHandler>.Instance);
+        var mainUri = DocumentUri.FromFileSystemPath(mainPath);
+        var utilitiesUri = DocumentUri.FromFileSystemPath(utilitiesPath);
+        await store.UpsertDocumentAsync(mainUri, mainCode);
+        await store.UpsertDocumentAsync(utilitiesUri, UtilitiesCode("IDisposable?", "null"));
+        var sourceText = SourceText.From(mainCode);
+        var request = new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(mainUri),
+            Range = FullDocumentRange(sourceText)
+        };
+        var insertion = mainCode.IndexOf("test =", StringComparison.Ordinal) + "test".Length;
+
+        await AssertCurrentTypeHintAsync(": IDisposable?");
+
+        await store.UpsertDocumentAsync(utilitiesUri, UtilitiesCode("IDisposable", "default!"));
+        await AssertCurrentTypeHintAsync(": IDisposable");
+
+        await store.UpsertDocumentAsync(utilitiesUri, UtilitiesCode("IDisposable?", "null"));
+        await AssertCurrentTypeHintAsync(": IDisposable?");
+
+        await store.UpsertDocumentAsync(utilitiesUri, UtilitiesCode("IDisposable", "default!"));
+        await AssertCurrentTypeHintAsync(": IDisposable");
+
+        async Task AssertCurrentTypeHintAsync(string expectedLabel)
+        {
+            var result = await handler.Handle(request, CancellationToken.None);
+            var hints = result.ToArray();
+            var hint = AssertHasHintAtInsertion(sourceText, hints, insertion, expectedLabel);
+            AssertSourceApplicable(
+                sourceText,
+                hint,
+                insertion,
+                expectedLabel);
+            hints
+                .Where(candidate => candidate.Position == hint.Position)
+                .Select(static hint => hint.Label.String)
+                .ShouldBe([expectedLabel]);
+        }
     }
 
     [Fact]

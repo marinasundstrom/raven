@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { execFile, ExecFileOptions } from 'child_process';
 import * as vscode from 'vscode';
-import { CloseAction, ErrorAction, InlayHintRequest, InlayHintsProviderShape, LanguageClient, LanguageClientOptions, ServerOptions, State, StateChangeEvent, Trace } from 'vscode-languageclient/node';
+import { CloseAction, ErrorAction, InlayHintRefreshRequest, InlayHintRequest, InlayHintsProviderShape, LanguageClient, LanguageClientOptions, ServerOptions, State, StateChangeEvent, Trace } from 'vscode-languageclient/node';
 
 let client: LanguageClient | undefined;
 let clientStopPromise: Promise<void> | undefined;
@@ -15,6 +15,8 @@ let pendingInlayHintRefresh: NodeJS.Timeout | undefined;
 let pendingImportCompletionTrigger: NodeJS.Timeout | undefined;
 const recentRavenDocumentChanges = new Map<string, RavenDocumentChangeState>();
 const inlayHintRequestVersions = new Map<string, number>();
+let inlayHintRefreshEpoch = 0;
+let inlayHintRefreshPromise: Promise<void> | undefined;
 
 type RavenDocumentChangeState = {
   version: number;
@@ -178,6 +180,34 @@ function getInlayHintRequestDebounceMilliseconds(): number {
   return Math.max(0, Math.min(2000, Math.trunc(configured)));
 }
 
+function bumpInlayHintRequestVersion(key: string): number {
+  const requestVersion = (inlayHintRequestVersions.get(key) ?? 0) + 1;
+  inlayHintRequestVersions.set(key, requestVersion);
+  return requestVersion;
+}
+
+function isCurrentInlayHintRequest(key: string, requestVersion: number): boolean {
+  return inlayHintRequestVersions.get(key) === requestVersion;
+}
+
+function invalidateVisibleInlayHintRequests(): number {
+  let invalidated = 0;
+  for (const editor of vscode.window.visibleTextEditors) {
+    if (editor.document.languageId !== 'raven') {
+      continue;
+    }
+
+    bumpInlayHintRequestVersion(editor.document.uri.toString());
+    invalidated++;
+  }
+
+  if (invalidated > 0) {
+    appendLifecycleLog(`Invalidated in-flight inlay hint request(s) for ${invalidated} visible Raven document(s).`);
+  }
+
+  return invalidated;
+}
+
 function areSemanticTokensEnabled(): boolean {
   return vscode.workspace
     .getConfiguration('raven')
@@ -213,6 +243,14 @@ function delayUnlessCanceled(milliseconds: number, token: vscode.CancellationTok
   });
 }
 
+function delay(milliseconds: number): Promise<void> {
+  if (milliseconds <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
 async function waitForInlayHintQuietPeriod(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<boolean> {
   const debounceMilliseconds = getInlayHintRequestDebounceMilliseconds();
   if (debounceMilliseconds <= 0) {
@@ -245,17 +283,39 @@ async function waitForInlayHintQuietPeriod(document: vscode.TextDocument, token:
 }
 
 async function refreshInlayHints(): Promise<void> {
-  const providerCount = fireVisibleInlayHintProviders();
-  if (providerCount > 0) {
-    return;
+  inlayHintRefreshEpoch++;
+
+  if (!inlayHintRefreshPromise) {
+    inlayHintRefreshPromise = runInlayHintRefreshLoop()
+      .finally(() => {
+        inlayHintRefreshPromise = undefined;
+      });
   }
 
-  try {
-    await vscode.commands.executeCommand('editor.action.inlayHints.refresh');
-  } catch (error) {
-    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-    appendLifecycleLog(`Unable to refresh inlay hints: ${message}`);
-  }
+  return inlayHintRefreshPromise;
+}
+
+async function runInlayHintRefreshLoop(): Promise<void> {
+  let completedEpoch = 0;
+  do {
+    const refreshEpoch = inlayHintRefreshEpoch;
+    pulseVisibleInlayHintProviders(refreshEpoch, 'primary');
+    await delay(125);
+
+    if (refreshEpoch !== inlayHintRefreshEpoch) {
+      appendLifecycleLog(`Inlay hint refresh epoch ${refreshEpoch} superseded before settled pulse.`);
+      continue;
+    }
+
+    pulseVisibleInlayHintProviders(refreshEpoch, 'settled');
+    completedEpoch = refreshEpoch;
+  } while (completedEpoch !== inlayHintRefreshEpoch);
+}
+
+function pulseVisibleInlayHintProviders(refreshEpoch: number, phase: string): void {
+  const invalidatedDocumentCount = invalidateVisibleInlayHintRequests();
+  const providerCount = fireVisibleInlayHintProviders();
+  appendLifecycleLog(`Inlay hint refresh pulse completed: epoch=${refreshEpoch} phase=${phase} invalidatedDocuments=${invalidatedDocumentCount} providers=${providerCount}.`);
 }
 
 function fireVisibleInlayHintProviders(): number {
@@ -594,19 +654,22 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
           }
 
           const key = document.uri.toString();
-          const requestVersion = (inlayHintRequestVersions.get(key) ?? 0) + 1;
-          inlayHintRequestVersions.set(key, requestVersion);
+          const requestVersion = bumpInlayHintRequestVersion(key);
 
           const shouldContinue = await waitForInlayHintQuietPeriod(document, token);
           if (!shouldContinue) {
             throw new vscode.CancellationError();
           }
 
-          if (inlayHintRequestVersions.get(key) !== requestVersion) {
+          if (!isCurrentInlayHintRequest(key, requestVersion)) {
             throw new vscode.CancellationError();
           }
 
           const hints = await next(document, viewPort, token);
+          if (!isCurrentInlayHintRequest(key, requestVersion)) {
+            throw new vscode.CancellationError();
+          }
+
           if (!hints) {
             return hints;
           }
@@ -669,6 +732,10 @@ async function startClient(context: vscode.ExtensionContext, reason: string): Pr
 
     appendLifecycleLog(`Starting language client (${reason}).`);
     await client.start();
+    client.onRequest(InlayHintRefreshRequest.type, async () => {
+      appendLifecycleLog('Received workspace/inlayHint/refresh from language server.');
+      await refreshInlayHints();
+    });
   })().finally(() => {
     clientStartPromise = undefined;
   });
@@ -1602,6 +1669,7 @@ export function activate(context: vscode.ExtensionContext): void {
         version: event.document.version,
         changedAt: Date.now()
       });
+      invalidateVisibleInlayHintRequests();
 
       if (areRavenInlayHintsEnabled() &&
           (areInferredTypeInlayHintsEnabled() || areNameInlayHintsEnabled()) &&
