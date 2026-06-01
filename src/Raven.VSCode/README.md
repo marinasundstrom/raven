@@ -1,6 +1,6 @@
 # Raven VS Code Extension
 
-This extension wires VS Code to the `Raven.LanguageServer` project via the Language Server Protocol (LSP). It provides document synchronization and diagnostics for `.rvn` files (with legacy `.rav` compatibility) and is designed to run alongside the Raven workspace.
+This extension wires VS Code to the `Raven.LanguageServer` project via the Language Server Protocol (LSP). It provides document synchronization, diagnostics, completions, and inlay hints for `.rvn` files (with legacy `.rav` compatibility) and is designed to run alongside the Raven workspace. The language server publishes fast syntax diagnostics after edits and keeps previous semantic diagnostics and inlays visible for unchanged ranges while newer snapshot results are pending.
 
 It also adds Raven debug integration: F5 can compile and launch either a single `.rvn` file (or legacy `.rav`) or a Raven project file (`.rvnproj` or legacy `.ravenproj`) by invoking a bundled or prebuilt Raven compiler host and then debugging the emitted DLL with the C# debugger.
 

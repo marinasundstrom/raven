@@ -4972,8 +4972,8 @@ affects runtime representation, not the surface type rules.
 
 #### Nullable suppression (`!`)
 
-`!` suppresses nullable checking for a single expression. Use it only when the
-programmer has stronger knowledge than the exposed type.
+`!` treats the operand as non-null for a single expression. Use it only when
+the programmer has stronger knowledge than the exposed type.
 
 ##### Concept
 
@@ -5001,7 +5001,8 @@ func Increment(value: int?) -> int {
 
 * `!` affects only the annotated expression.
 * `!` does not relax nullability rules for surrounding expressions.
-* Using `!` reports warning `RAV0403`.
+* Using `!` reports warning `RAV0403` on the full `<expr>!` nullable
+  suppression expression.
 
 ### Unions
 

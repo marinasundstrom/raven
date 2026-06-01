@@ -172,8 +172,8 @@ val count: int? = 1
 * Nullable and non-nullable forms are distinct for type identity and overload
   resolution.
 * `T?` is the canonical nullable form in Raven.
-* Postfix `expr!` suppresses nullable checking for a single expression and
-  reports warning `RAV0403`.
+* Postfix `expr!` treats the operand as non-null for the annotated expression
+  and reports warning `RAV0403` on the full `<expr>!` expression.
 
 #### Strict null checks and flow narrowing
 

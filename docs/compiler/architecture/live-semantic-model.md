@@ -35,6 +35,13 @@ presentation, and semantic-token results per document version. It must not own
 symbol identity, type inference, overload selection, diagnostic truth, or binder
 invalidation policy.
 
+That cache is allowed to preserve presentation while a newer snapshot is being
+computed. Diagnostics and inlays may remain visible across unrelated edits when
+their ranges can be translated from the previous source text to the current
+source text. They must be dropped when the edit intersects the diagnostic or
+hint range, because that is the point where the cached presentation may describe
+text that no longer exists.
+
 ## Semantic Queries
 
 Public semantic APIs should stay Roslyn-shaped:
@@ -103,6 +110,12 @@ document version. Stale results are dropped. Skipped, canceled, or failed
 background semantic/analyzer work must not publish an empty diagnostic set that
 erases the last valid analyzer diagnostics. The previous result remains visible
 until a newer successful lane result replaces it.
+
+For active editor feedback, syntax diagnostics may publish before semantic
+diagnostics. That syntax publish should merge with the last successful semantic
+and analyzer lanes where possible instead of clearing them. The merge is
+presentation-only: ranges are translated across non-intersecting edits, and any
+diagnostic whose previous span intersects the edit is removed immediately.
 
 The compiler diagnostic lane must also be deterministic for a single snapshot.
 Diagnostic traversal may use incremental binders, transferred owner diagnostics,
@@ -192,6 +205,12 @@ tokens and broad inlays may degrade to syntax-only or cached presentation when
 semantic access is busy. Hover and completion should always ask the compiler for
 authoritative semantic answers.
 
+Full-document inlay hints follow the same presentation rule as diagnostics.
+Cached hints may be reused or translated for unchanged ranges while a debounced
+or background inlay request waits for semantic access. Focused inlay requests for
+the visible range or cursor-adjacent area may bind authoritatively and replace
+the cached presentation sooner.
+
 ## Lookup Boundaries
 
 Compiler internals should prefer context-aware lookup services instead of
@@ -246,6 +265,12 @@ Important validation scenarios:
 - cross-file additions update the active project snapshot;
 - lambda and extension-method chains bind in receiver order;
 - analyzer diagnostics remain visible while newer analyzer work is pending;
+- compiler diagnostics remain visible across unrelated edits while newer
+  snapshot diagnostics are pending;
+- diagnostics disappear immediately when the edit intersects the diagnostic
+  source span;
+- full-document inlays remain stable across unrelated edits while newer inlay
+  results are pending;
 - foreground hovers remain responsive while diagnostics/analyzers/semantic tokens
   are running;
 - repeated hovers after warm-up reuse compiler-owned state.

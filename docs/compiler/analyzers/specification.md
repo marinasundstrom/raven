@@ -152,6 +152,12 @@ The language server may schedule syntax diagnostics and analyzer diagnostics on 
 lanes. Analyzer diagnostics are allowed to be slower than syntax diagnostics, but analyzers
 must be written with repeated typing updates and cancellation in mind.
 
+Skipped, canceled, or pending analyzer lanes are not empty diagnostic results.
+The language server keeps the last successful analyzer diagnostics visible while
+newer analyzer work is pending when their source ranges can be translated across
+the edit. If an edit intersects an analyzer diagnostic's previous span, that
+diagnostic is dropped until a fresh analyzer result reports it again.
+
 `.editorconfig` severity changes are watched by the language server and reapplied to open
 projects without reloading the project. Project-file analyzer mode changes follow project
 reload behavior.

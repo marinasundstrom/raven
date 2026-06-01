@@ -167,8 +167,10 @@ same options pipeline as compiler diagnostics:
   diagnostic prefix.
 
 The language server publishes syntax diagnostics quickly and schedules project-with-analyzers
-diagnostics separately. Analyzers should be responsive under repeated document changes and
-should honor cancellation.
+diagnostics separately. Pending, skipped, or canceled analyzer work is not an empty analyzer
+result: previous analyzer diagnostics remain visible for unchanged ranges until a newer
+successful analyzer lane replaces them. Analyzers should be responsive under repeated document
+changes and should honor cancellation.
 
 ## Testing APIs
 

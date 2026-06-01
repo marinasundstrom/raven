@@ -1,10 +1,10 @@
 # Raven Language Server
 
-The Raven language server provides Language Server Protocol (LSP) support for `.rvn` files, with legacy `.rav` compatibility, so editors can surface diagnostics and completions while you work. It is hosted inside the `Raven.LanguageServer` project and wraps the Raven compiler workspace to keep documents synchronized with the editor.
+The Raven language server provides Language Server Protocol (LSP) support for `.rvn` files, with legacy `.rav` compatibility, so editors can surface diagnostics, completions, and inlay hints while you work. It is hosted inside the `Raven.LanguageServer` project and wraps the Raven compiler workspace to keep documents synchronized with the editor.
 
 ## Features
 - **Text synchronization:** Opens, changes, saves, and closes documents through `TextDocumentSyncHandlerBase`, storing the latest text in the workspace.
-- **Diagnostics:** Publishes Raven diagnostics for the current file after each change so clients can highlight errors inline.
+- **Diagnostics:** Publishes Raven diagnostics for the current file after each change, keeping previous semantic results visible while newer snapshot diagnostics are pending when their ranges can be translated safely.
 - **Completions:** Maps the compiler's completion items into LSP responses with snippet ranges for insertion.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
 - **Hover capture annotations:** Hover on lambdas and nested `func` statements includes captured-symbol lists. Hover on captured locals/parameters marks them as captured variables.
@@ -33,6 +33,15 @@ The VS Code extension exposes a master setting plus per-category settings:
 
 The command palette also exposes `Raven: Toggle Inlay Hints`, `Raven: Toggle Inferred Type Inlay Hints`, and `Raven: Toggle Name Inlay Hints`.
 
+Inlay hints are editor presentation, not semantic truth. The compiler still owns
+the inferred type and parameter-name answers, while the LSP layer owns request
+scheduling and display stability. After an edit, the client debounces broad
+inlay requests and the server may answer from cached or available presentation
+state for unchanged ranges until the next successful semantic inlay query
+replaces it. Cached hints may be translated across edits that do not intersect
+the hint range; edits inside a hint's source range drop that hint instead of
+presenting stale text.
+
 ## Diagnostics publication
 
 The language server follows the live semantic-model architecture described in
@@ -57,6 +66,22 @@ then `DocumentCompiler` as a follow-up. This gives the editor a fast replacement
 diagnostic set for the new buffer while binder work completes in the background.
 If the diagnostic values are unchanged but the document version changed, the
 server still republishes them for the new version.
+
+Syntax publication must not clear still-valid semantic diagnostics just because
+the newer semantic snapshot is not ready. When possible, the dispatcher keeps
+the last successfully computed diagnostics visible by translating their ranges
+from the previous source text to the current source text. This applies to
+compiler and analyzer diagnostics independently, so a syntax-only publish can
+refresh parser errors without emptying the Problems list for semantic results
+that are still being recomputed.
+
+Translated diagnostics are a presentation bridge only. If an edit intersects a
+previous diagnostic span, that diagnostic is not carried forward. For example,
+editing `default!` to `default` intersects the `RAV0403` span for `<expr>!`, so
+the nullable-suppression diagnostic is removed immediately instead of sticking
+to unrelated text. Editing another area of the file, such as changing `42` to
+`42 + 2`, should keep an unchanged `default!` diagnostic visible until the
+document compiler lane publishes the fresh snapshot diagnostics.
 
 Project-wide and analyzer-heavy lanes should not run as part of the active
 editor feedback loop unless they are explicitly surfaced through a separate

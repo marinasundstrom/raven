@@ -1,6 +1,6 @@
 # Raven VS Code Extension
 
-The Raven VS Code extension wires the editor to the `Raven.LanguageServer` LSP process so `.rvn` files, with legacy `.rav` compatibility, can surface diagnostics and completions. It auto-discovers the language server build output and starts it with `dotnet` when the extension activates.
+The Raven VS Code extension wires the editor to the `Raven.LanguageServer` LSP process so `.rvn` files, with legacy `.rav` compatibility, can surface diagnostics, completions, and inlay hints. The language server publishes syntax diagnostics immediately after edits and keeps previous semantic diagnostics and inlays visible for unchanged ranges while newer snapshot results are pending. It auto-discovers the language server build output and starts it with `dotnet` when the extension activates.
 
 ## Prerequisites
 - .NET SDK available on your `PATH` so the client can start the language server.
