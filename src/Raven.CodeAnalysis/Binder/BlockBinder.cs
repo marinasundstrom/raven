@@ -2646,7 +2646,7 @@ partial class BlockBinder : Binder
         if (unwrappedType is null)
             return operand;
 
-        _diagnostics.ReportNullableSuppressionUsed(postfixUnary.OperatorToken.GetLocation());
+        _diagnostics.ReportNullableSuppressionUsed(postfixUnary.GetLocation());
 
         if (operand.Type is NullableTypeSymbol nullableValueType && nullableValueType.UnderlyingType.IsValueType)
             return new BoundNullableValueExpression(operand, nullableValueType.UnderlyingType);

@@ -47,7 +47,8 @@ internal sealed class DocumentStore
     internal readonly record struct DiagnosticsComputationResult(
         IReadOnlyList<LspDiagnostic> Diagnostics,
         bool WasSkipped,
-        DiagnosticSnapshotKey? SnapshotKey = null);
+        DiagnosticSnapshotKey? SnapshotKey = null,
+        Raven.CodeAnalysis.Text.SourceText? SourceText = null);
 
     internal sealed class DocumentSemanticAccess : IDisposable
     {
@@ -963,7 +964,7 @@ internal sealed class DocumentStore
                 }
             }
 
-            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false, diagnosticSnapshotKey);
+            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false, diagnosticSnapshotKey, context.Value.SourceText);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -1219,7 +1220,7 @@ internal sealed class DocumentStore
             var diagnostics = MapSyntaxDiagnostics(context.Value.SyntaxTree);
             diagnosticsFetchMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
-            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false, diagnosticSnapshotKey);
+            return new DiagnosticsComputationResult(diagnostics, WasSkipped: false, diagnosticSnapshotKey, context.Value.SourceText);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

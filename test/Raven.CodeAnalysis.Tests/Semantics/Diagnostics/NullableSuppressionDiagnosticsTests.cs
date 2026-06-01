@@ -20,7 +20,7 @@ func Foo(name: string?) -> int {
             expectedDiagnostics:
             [
                 new DiagnosticResult(CompilerDiagnostics.NullableSuppressionUsed.Id)
-                    .WithSpan(2, 24, 2, 25)
+                    .WithSpan(2, 20, 2, 25)
                     .WithSeverity(DiagnosticSeverity.Warning)
             ],
             disabledDiagnostics: ["RAV9012"]);
@@ -42,7 +42,7 @@ func Foo(value: int?) -> int {
             expectedDiagnostics:
             [
                 new DiagnosticResult(CompilerDiagnostics.NullableSuppressionUsed.Id)
-                    .WithSpan(2, 25, 2, 26)
+                    .WithSpan(2, 20, 2, 26)
                     .WithSeverity(DiagnosticSeverity.Warning)
             ],
             disabledDiagnostics: ["RAV9012"]);

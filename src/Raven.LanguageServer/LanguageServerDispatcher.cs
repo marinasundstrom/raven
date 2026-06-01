@@ -23,6 +23,9 @@ internal sealed class LanguageServerDispatcher
     private readonly ILogger<LanguageServerDispatcher> _logger;
     private readonly ConcurrentDictionary<DocumentUri, int> _lastPublishedDiagnosticVersions = new();
     private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<RavenTextDocumentSyncHandler.PublishedDiagnosticValue>> _lastPublishedDiagnostics = new();
+    private readonly ConcurrentDictionary<DocumentUri, ImmutableArray<Diagnostic>> _lastPublishedDiagnosticObjects = new();
+    private readonly ConcurrentDictionary<DocumentUri, SourceText> _lastPublishedDiagnosticSourceTexts = new();
+    private readonly ConcurrentDictionary<DocumentUri, DocumentStore.DiagnosticLane> _lastPublishedDiagnosticLanes = new();
     private readonly ConcurrentDictionary<DocumentUri, RavenTextDocumentSyncHandler.VersionedDiagnostics> _lastPublishedAnalyzerDiagnostics = new();
     private readonly ConcurrentDictionary<InlayHintDocumentCacheKey, ImmutableArray<InlayHint>> _inlayHintCache = new();
     private readonly ConcurrentDictionary<string, InlayHintDocumentCacheEntry> _latestInlayHintDocumentCache = new();
@@ -47,6 +50,9 @@ internal sealed class LanguageServerDispatcher
     {
         _lastPublishedDiagnosticVersions.TryRemove(uri, out _);
         _lastPublishedDiagnostics.TryRemove(uri, out _);
+        _lastPublishedDiagnosticObjects.TryRemove(uri, out _);
+        _lastPublishedDiagnosticSourceTexts.TryRemove(uri, out _);
+        _lastPublishedDiagnosticLanes.TryRemove(uri, out _);
         _lastPublishedAnalyzerDiagnostics.TryRemove(uri, out _);
         _latestInlayHintDocumentCache.TryRemove(uri.ToString(), out _);
         RecordWorkItemEvent(
@@ -240,7 +246,8 @@ internal sealed class LanguageServerDispatcher
         DocumentStore.DiagnosticLane lane,
         IReadOnlyList<Diagnostic> diagnostics,
         int? editorVersion,
-        DocumentStore.DiagnosticSnapshotKey? snapshotKey)
+        DocumentStore.DiagnosticSnapshotKey? snapshotKey,
+        SourceText? sourceText = null)
     {
         var carriedAnalyzerDiagnostics = _lastPublishedAnalyzerDiagnostics.TryGetValue(uri, out var previousAnalyzers)
             ? RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForPresentation(
@@ -252,17 +259,25 @@ internal sealed class LanguageServerDispatcher
             lane,
             diagnostics,
             carriedAnalyzerDiagnostics);
+        diagnosticsToPublish = MergeStickySyntaxDiagnosticsForPublish(
+            uri,
+            lane,
+            sourceText,
+            diagnosticsToPublish,
+            out var forceStickyPublish,
+            out var carriedStickyDiagnostics);
         var diagnosticValues = RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues(diagnosticsToPublish);
         var lastPublishedVersion = _lastPublishedDiagnosticVersions.TryGetValue(uri, out var publishedVersion)
             ? publishedVersion
             : (int?)null;
         var hasLastPublishedDiagnostics = _lastPublishedDiagnostics.TryGetValue(uri, out var lastPublishedDiagnostics);
-        var shouldPublish = RavenTextDocumentSyncHandler.ShouldPublishDiagnostics(
-            hasLastPublishedDiagnostics,
-            lastPublishedDiagnostics,
-            lastPublishedVersion,
-            diagnosticValues,
-            editorVersion);
+        var shouldPublish = forceStickyPublish ||
+            RavenTextDocumentSyncHandler.ShouldPublishDiagnostics(
+                hasLastPublishedDiagnostics,
+                lastPublishedDiagnostics,
+                lastPublishedVersion,
+                diagnosticValues,
+                editorVersion);
 
         if (!shouldPublish)
         {
@@ -282,6 +297,14 @@ internal sealed class LanguageServerDispatcher
         }
 
         _lastPublishedDiagnostics[uri] = diagnosticValues;
+        _lastPublishedDiagnosticObjects[uri] = diagnosticsToPublish;
+        if (sourceText is not null)
+            _lastPublishedDiagnosticSourceTexts[uri] = sourceText;
+
+        _lastPublishedDiagnosticLanes[uri] = GetPublishedDiagnosticsLane(
+            uri,
+            lane,
+            carriedStickyDiagnostics);
         if (editorVersion is { } completedVersion)
             _lastPublishedDiagnosticVersions[uri] = completedVersion;
 
@@ -295,6 +318,66 @@ internal sealed class LanguageServerDispatcher
             diagnosticsToPublish,
             "outcome=Changed");
         return new DiagnosticPresentationResult(diagnosticsToPublish, ShouldPublish: true);
+    }
+
+    private ImmutableArray<Diagnostic> MergeStickySyntaxDiagnosticsForPublish(
+        DocumentUri uri,
+        DocumentStore.DiagnosticLane lane,
+        SourceText? sourceText,
+        ImmutableArray<Diagnostic> diagnostics,
+        out bool forcePublish,
+        out bool carriedPreviousDiagnostics)
+    {
+        forcePublish = false;
+        carriedPreviousDiagnostics = false;
+        if (lane != DocumentStore.DiagnosticLane.Syntax ||
+            sourceText is null ||
+            !_lastPublishedDiagnosticLanes.TryGetValue(uri, out var previousLane) ||
+            previousLane == DocumentStore.DiagnosticLane.Syntax ||
+            !_lastPublishedDiagnosticObjects.TryGetValue(uri, out var previousDiagnostics) ||
+            previousDiagnostics.IsDefaultOrEmpty ||
+            !_lastPublishedDiagnosticSourceTexts.TryGetValue(uri, out var previousSourceText))
+        {
+            return diagnostics;
+        }
+
+        var existing = RavenTextDocumentSyncHandler.CreatePublishedDiagnosticValues(diagnostics).ToHashSet();
+        var builder = diagnostics.ToBuilder();
+        var carriedAnyPreviousDiagnostic = false;
+
+        foreach (var previous in previousDiagnostics)
+        {
+            if (!TryTranslateDiagnostic(previousSourceText, sourceText, previous, out var translated))
+                continue;
+
+            carriedAnyPreviousDiagnostic = true;
+            carriedPreviousDiagnostics = true;
+            if (existing.Add(RavenTextDocumentSyncHandler.PublishedDiagnosticValue.From(translated)))
+                builder.Add(translated);
+        }
+
+        forcePublish = carriedAnyPreviousDiagnostic &&
+            !previousSourceText.ContentEquals(sourceText);
+
+        return builder
+            .OrderBy(static diagnostic => RavenTextDocumentSyncHandler.PublishedDiagnosticValue.From(diagnostic))
+            .ToImmutableArray();
+    }
+
+    private DocumentStore.DiagnosticLane GetPublishedDiagnosticsLane(
+        DocumentUri uri,
+        DocumentStore.DiagnosticLane lane,
+        bool carriedStickyDiagnostics)
+    {
+        if (lane != DocumentStore.DiagnosticLane.Syntax ||
+            !carriedStickyDiagnostics ||
+            !_lastPublishedDiagnosticLanes.TryGetValue(uri, out var previousLane) ||
+            previousLane == DocumentStore.DiagnosticLane.Syntax)
+        {
+            return lane;
+        }
+
+        return previousLane;
     }
 
     public bool TryGetCachedInlayHints(InlayHintParams request, SourceText? currentSourceText, out InlayHint[] hints)
@@ -590,6 +673,42 @@ internal sealed class LanguageServerDispatcher
             PaddingRight = hint.PaddingRight,
             TextEdits = translatedTextEdits,
             Data = hint.Data
+        };
+        return true;
+    }
+
+    private static bool TryTranslateDiagnostic(
+        SourceText oldText,
+        SourceText newText,
+        Diagnostic diagnostic,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Diagnostic? translatedDiagnostic)
+    {
+        translatedDiagnostic = null;
+
+        var changes = newText.GetTextChanges(oldText);
+        var oldStart = PositionHelper.ToOffset(oldText, diagnostic.Range.Start);
+        var oldEnd = PositionHelper.ToOffset(oldText, diagnostic.Range.End);
+        var oldSpan = TextSpan.FromBounds(oldStart, oldEnd);
+        if (changes.Any(change => change.Span.IntersectsWith(oldSpan)))
+            return false;
+
+        if (!TryTranslateOffset(changes, oldStart, out var newStart) ||
+            !TryTranslateOffset(changes, oldEnd, out var newEnd))
+        {
+            return false;
+        }
+
+        translatedDiagnostic = new Diagnostic
+        {
+            Code = diagnostic.Code,
+            CodeDescription = diagnostic.CodeDescription,
+            Data = diagnostic.Data,
+            Message = diagnostic.Message,
+            Range = PositionHelper.ToRange(newText, TextSpan.FromBounds(newStart, newEnd)),
+            RelatedInformation = diagnostic.RelatedInformation,
+            Severity = diagnostic.Severity,
+            Source = diagnostic.Source,
+            Tags = diagnostic.Tags
         };
         return true;
     }

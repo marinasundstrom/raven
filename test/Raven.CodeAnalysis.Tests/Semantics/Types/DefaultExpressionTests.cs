@@ -94,7 +94,7 @@ public class DefaultExpressionDiagnosticTests : DiagnosticTestBase
             expectedDiagnostics:
             [
                 new DiagnosticResult(CompilerDiagnostics.NullableSuppressionUsed.Id)
-                    .WithSpan(4, 19, 4, 20)
+                    .WithSpan(4, 12, 4, 20)
                     .WithSeverity(DiagnosticSeverity.Warning)
             ]);
 

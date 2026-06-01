@@ -317,7 +317,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             DocumentStore.DiagnosticLane.Syntax,
             diagnostics,
             version,
-            snapshotKey: null);
+            snapshotKey: null,
+            sourceText);
     }
 
     private void PublishPendingSyntaxDiagnostics(
@@ -1307,7 +1308,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 lane,
                 diagnostics,
                 expectedVersion,
-                snapshotKey);
+                snapshotKey,
+                result.SourceText);
             var diagnosticsToPublish = presentation.Diagnostics;
 
             if (!presentation.ShouldPublish)

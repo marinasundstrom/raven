@@ -458,6 +458,288 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_KeepsPreviousSnapshotDiagnosticsSticky()
+    {
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var oldText = SourceText.From("""
+func Main() -> unit {
+    Missing()
+}
+""");
+        var newText = SourceText.From("""
+// typing
+
+func Main() -> unit {
+    Missing()
+}
+""");
+        var diagnostic = CreateDiagnostic(
+            "RAV0103",
+            "The name 'Missing' does not exist in the current context.",
+            1,
+            4,
+            1,
+            11,
+            DiagnosticSeverity.Error);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 1,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: 2);
+
+        var stickyDiagnostic = pending.Diagnostics.ShouldHaveSingleItem();
+        pending.ShouldPublish.ShouldBeTrue();
+        stickyDiagnostic.Code?.String.ShouldBe("RAV0103");
+        stickyDiagnostic.Range.Start.Line.ShouldBe(3);
+        stickyDiagnostic.Range.End.Line.ShouldBe(3);
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_KeepsRav0403StickyWhenUnrelatedEditDoesNotMoveRange()
+    {
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "test.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var oldText = SourceText.From("""
+namespace Utilities
+
+func A(x: string) -> int {
+    42
+}
+
+func Test2() -> IDisposable {
+    return default!
+}
+""");
+        var newText = SourceText.From("""
+namespace Utilities
+
+func A(x: string) -> int {
+    43
+}
+
+func Test2() -> IDisposable {
+    return default!
+}
+""");
+        var diagnostic = CreateDiagnostic(
+            "RAV0403",
+            "The '!' operator treats the operand as non-null",
+            7,
+            11,
+            7,
+            19,
+            DiagnosticSeverity.Information);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 8,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: null);
+
+        var stickyDiagnostic = pending.Diagnostics.ShouldHaveSingleItem();
+        pending.ShouldPublish.ShouldBeTrue();
+        stickyDiagnostic.Code?.String.ShouldBe("RAV0403");
+        stickyDiagnostic.Range.Start.Line.ShouldBe(7);
+        stickyDiagnostic.Range.Start.Character.ShouldBe(11);
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_HelloWorldSampleKeepsRav0403StickyWhenAddingExpression()
+    {
+        var samplePath = Path.Combine(GetRepositoryRoot(), "samples", "projects", "hello-world", "src", "test.rvn");
+        var oldText = SourceText.From(File.ReadAllText(samplePath));
+        var oldContent = oldText.ToString();
+        var newText = SourceText.From(oldContent.Replace(
+            """
+[Obsolete("Test")]
+func A(x: string) -> int {
+    42
+}
+""",
+            """
+[Obsolete("Test")]
+func A(x: string) -> int {
+    42 + 2
+}
+""",
+            StringComparison.Ordinal));
+        oldText.ContentEquals(newText).ShouldBeFalse();
+
+        var uri = DocumentUri.FromFileSystemPath(samplePath);
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var expressionOffset = oldContent.IndexOf("default!", StringComparison.Ordinal);
+        expressionOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var expressionRange = PositionHelper.ToRange(oldText, new TextSpan(expressionOffset, "default!".Length));
+        var diagnostic = CreateDiagnostic(
+            "RAV0403",
+            "The '!' operator treats the operand as non-null",
+            expressionRange.Start.Line,
+            expressionRange.Start.Character,
+            expressionRange.End.Line,
+            expressionRange.End.Character,
+            DiagnosticSeverity.Information);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 8,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: null);
+
+        var stickyDiagnostic = pending.Diagnostics.ShouldHaveSingleItem();
+        pending.ShouldPublish.ShouldBeTrue();
+        stickyDiagnostic.Code?.String.ShouldBe("RAV0403");
+        stickyDiagnostic.Message.ShouldBe("The '!' operator treats the operand as non-null");
+        stickyDiagnostic.Range.Start.Line.ShouldBe(expressionRange.Start.Line);
+        stickyDiagnostic.Range.Start.Character.ShouldBe(expressionRange.Start.Character);
+
+        var committedSyntax = dispatcher.AcceptDiagnosticsForPublish(
+            uri,
+            DocumentStore.DiagnosticLane.Syntax,
+            [],
+            editorVersion: 2,
+            snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                uri.ToString(),
+                ProjectId.CreateNew(SolutionId.CreateNew()),
+                VersionStamp.Create(),
+                VersionStamp.Create()),
+            sourceText: newText);
+        var committedStickyDiagnostic = committedSyntax.Diagnostics.ShouldHaveSingleItem();
+        committedStickyDiagnostic.Code?.String.ShouldBe("RAV0403");
+
+        var nextText = SourceText.From(newText.ToString().Replace("42 + 2", "42 + 3", StringComparison.Ordinal));
+        var nextPending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            nextText,
+            version: null);
+        var nextStickyDiagnostic = nextPending.Diagnostics.ShouldHaveSingleItem();
+        nextStickyDiagnostic.Code?.String.ShouldBe("RAV0403");
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_HelloWorldSampleDropsRav0403WhenBangIsRemoved()
+    {
+        var samplePath = Path.Combine(GetRepositoryRoot(), "samples", "projects", "hello-world", "src", "test.rvn");
+        var oldText = SourceText.From(File.ReadAllText(samplePath));
+        var oldContent = oldText.ToString();
+        var newText = SourceText.From(oldContent.Replace("default!", "default", StringComparison.Ordinal));
+        oldText.ContentEquals(newText).ShouldBeFalse();
+
+        var uri = DocumentUri.FromFileSystemPath(samplePath);
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var expressionOffset = oldContent.IndexOf("default!", StringComparison.Ordinal);
+        expressionOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var expressionRange = PositionHelper.ToRange(oldText, new TextSpan(expressionOffset, "default!".Length));
+        var diagnostic = CreateDiagnostic(
+            "RAV0403",
+            "The '!' operator treats the operand as non-null",
+            expressionRange.Start.Line,
+            expressionRange.Start.Character,
+            expressionRange.End.Line,
+            expressionRange.End.Character,
+            DiagnosticSeverity.Information);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 8,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: null);
+
+        pending.ShouldPublish.ShouldBeTrue();
+        pending.Diagnostics.ShouldBeEmpty();
+
+        var committedSyntax = dispatcher.AcceptDiagnosticsForPublish(
+            uri,
+            DocumentStore.DiagnosticLane.Syntax,
+            [],
+            editorVersion: 2,
+            snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                uri.ToString(),
+                ProjectId.CreateNew(SolutionId.CreateNew()),
+                VersionStamp.Create(),
+                VersionStamp.Create()),
+            sourceText: newText);
+        committedSyntax.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void ActiveEditorDiagnosticsPolicies_UseSyntaxFirstThenDeferredFollowUp()
     {
         var policies = new[]
@@ -938,6 +1220,9 @@ func Main() -> unit {
         countProperty.ShouldNotBeNull();
         return (int)countProperty!.GetValue(field.GetValue(handler)!)!;
     }
+
+    private static string GetRepositoryRoot()
+        => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
     public void Dispose()
     {

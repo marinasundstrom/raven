@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed editor diagnostics after text edits so syntax diagnostics are refreshed
   from the pending document text immediately, clearing stale parser errors
   while semantic diagnostics remain deferred.
+- Fixed editor diagnostic flicker while typing by translating the last computed
+  snapshot diagnostics across pending edits until fresh diagnostics are ready.
+- Changed `RAV0403` to report on the full `<expr>!` nullable suppression
+  expression and describe that the operand is treated as non-null.
 - Fixed inlay hint flicker while editing by keeping visible providers stable
   until a debounced refresh can request translated cached hints for pending
   document text or fresh hints from the loaded workspace snapshot.

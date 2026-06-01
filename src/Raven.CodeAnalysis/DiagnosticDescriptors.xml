@@ -470,7 +470,7 @@
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0403" Identifier="NullableSuppressionUsed"
     Title="Nullable suppression used"
-    Message="The '!' operator suppresses nullable checking for this expression"
+    Message="The '!' operator treats the operand as non-null"
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0410" Identifier="EnumUnderlyingTypeMustBeSingle"
     Title="Enum underlying type list must be a single type"
