@@ -424,6 +424,40 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_PublishesEmptySetWhenPendingTextIsFixed()
+    {
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+
+        var broken = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            SourceText.From("""
+                func Main() -> unit {
+                    val value =
+                }
+                """),
+            version: 2);
+
+        broken.ShouldPublish.ShouldBeTrue();
+        broken.Diagnostics.ShouldNotBeEmpty();
+
+        var fixedText = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            SourceText.From("""
+                func Main() -> unit {
+                    val value = 1
+                }
+                """),
+            version: 3);
+
+        fixedText.ShouldPublish.ShouldBeTrue();
+        fixedText.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void ActiveEditorDiagnosticsPolicies_UseSyntaxFirstThenDeferredFollowUp()
     {
         var policies = new[]

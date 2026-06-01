@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed editor diagnostics after text edits so syntax diagnostics are refreshed
+  from the pending document text immediately, clearing stale parser errors
+  while semantic diagnostics remain deferred.
 - Added `RAV9034` for standalone value-producing expressions whose result is
   known to be unused, such as literal/variable unary and binary expressions in
   `unit`-returning bodies. Calls remain exempt.

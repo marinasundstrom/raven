@@ -17,6 +17,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 
 using Raven.CodeAnalysis.Text;
 
+using SyntaxTree = Raven.CodeAnalysis.Syntax.SyntaxTree;
 using SaveOptions = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.SaveOptions;
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
 using TextDocumentSyncKind = OmniSharp.Extensions.LanguageServer.Protocol.Server.Capabilities.TextDocumentSyncKind;
@@ -262,6 +263,10 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             stageStopwatch.Restart();
             if (textChanged)
             {
+                PublishPendingSyntaxDiagnostics(
+                    notification.TextDocument.Uri,
+                    updatedText,
+                    notification.TextDocument.Version);
                 ScheduleDebouncedDocumentCommit(
                     notification.TextDocument.Uri,
                     notification.TextDocument.Version,
@@ -297,6 +302,61 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                     new LanguageServerPerformanceInstrumentation.StageTiming("scheduleDiagnostics", scheduleMs)
                 ]);
             gate.Release();
+        }
+    }
+
+    internal DiagnosticPresentationResult AcceptPendingSyntaxDiagnosticsForPublish(
+        DocumentUri uri,
+        SourceText sourceText,
+        int? version)
+    {
+        var syntaxTree = SyntaxTree.ParseText(sourceText, path: uri.GetFileSystemPath());
+        var diagnostics = DocumentStore.MapSyntaxDiagnostics(syntaxTree);
+        return _dispatcher.AcceptDiagnosticsForPublish(
+            uri,
+            DocumentStore.DiagnosticLane.Syntax,
+            diagnostics,
+            version,
+            snapshotKey: null);
+    }
+
+    private void PublishPendingSyntaxDiagnostics(
+        DocumentUri uri,
+        SourceText sourceText,
+        int? version)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var diagnosticsCount = 0;
+
+        try
+        {
+            var presentation = AcceptPendingSyntaxDiagnosticsForPublish(uri, sourceText, version);
+            diagnosticsCount = presentation.Diagnostics.Length;
+            if (!presentation.ShouldPublish)
+                return;
+
+            PublishDiagnosticsToClient(uri, presentation.Diagnostics, version);
+            _logger.LogInformation(
+                "Published pending syntax diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
+                uri,
+                version?.ToString() ?? "<none>",
+                presentation.Diagnostics.Length,
+                SummarizeDiagnosticsForLog(presentation.Diagnostics));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Pending syntax diagnostics publish failed for {Uri}.", uri);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LanguageServerPerformanceInstrumentation.RecordOperation(
+                "publishPendingSyntaxDiagnostics",
+                uri,
+                version,
+                stopwatch.Elapsed.TotalMilliseconds,
+                resultCount: diagnosticsCount,
+                detail: $"{uri} version={version?.ToString() ?? "<none>"}");
         }
     }
 

@@ -1216,9 +1216,7 @@ internal sealed class DocumentStore
                 context.Value.Document.Version,
                 context.Value.Document.Project.Version);
 
-            var diagnostics = context.Value.SyntaxTree.GetDiagnostics()
-                    .Select(MapDiagnostic)
-                    .ToArray();
+            var diagnostics = MapSyntaxDiagnostics(context.Value.SyntaxTree);
             diagnosticsFetchMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             return new DiagnosticsComputationResult(diagnostics, WasSkipped: false, diagnosticSnapshotKey);
@@ -1344,6 +1342,17 @@ internal sealed class DocumentStore
         var lineSpanPath = diagnostic.Location.GetLineSpan().Path;
         return PathsEqual(lineSpanPath, syntaxTreePath);
     }
+
+    internal static ImmutableArray<LspDiagnostic> MapSyntaxDiagnostics(SyntaxTree syntaxTree)
+        => syntaxTree.GetDiagnostics()
+            .Select(MapDiagnostic)
+            .OrderBy(static diagnostic => diagnostic.Range.Start.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.Start.Character)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Line)
+            .ThenBy(static diagnostic => diagnostic.Range.End.Character)
+            .ThenBy(static diagnostic => diagnostic.Code?.String ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(static diagnostic => diagnostic.Message, StringComparer.Ordinal)
+            .ToImmutableArray();
 
     private static ImmutableArray<LspDiagnostic> MapDiagnostics(
         IEnumerable<CodeDiagnostic> diagnostics,
