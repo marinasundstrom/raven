@@ -106,6 +106,33 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 };
             }
 
+            var attributeContext = TryGetAttributeContextAtPosition(root, offset);
+            if (attributeContext is not null)
+            {
+                var symbolInfo = semanticModel.GetSymbolInfo(attributeContext.Attribute);
+                var constructors = GetCandidateAttributeConstructors(symbolInfo, semanticModel, attributeContext.Attribute);
+                if (constructors.IsDefaultOrEmpty)
+                    return null;
+
+                var argumentIndex = GetArgumentIndex(attributeContext.ArgumentList, offset);
+                var selectedConstructor = symbolInfo.Symbol as IMethodSymbol;
+                var activeSignature = GetActiveSignatureIndex(constructors, selectedConstructor, argumentIndex);
+                var activeParameter = GetActiveParameterIndex(constructors[activeSignature], attributeContext.ArgumentList, offset, argumentIndex);
+
+                var signatures = constructors
+                    .Select(constructor => CreateAttributeConstructorSignatureInformation(constructor, plainTypeFormat))
+                    .ToArray();
+                resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                resultCount = signatures.Length;
+
+                return new SignatureHelp
+                {
+                    Signatures = new Container<SignatureInformation>(signatures),
+                    ActiveSignature = activeSignature,
+                    ActiveParameter = activeParameter
+                };
+            }
+
             var elementAccessContext = TryGetElementAccessContextAtPosition(root, offset);
             if (elementAccessContext is null)
                 return null;
@@ -223,6 +250,43 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             Parameters = new Container<ParameterInformation>(parameterInfos),
             Documentation = FormatDocumentation(method.GetDocumentationComment())
         };
+    }
+
+    private static SignatureInformation CreateAttributeConstructorSignatureInformation(IMethodSymbol constructor, SymbolDisplayFormat plainTypeFormat)
+    {
+        var containingType = constructor.ContainingType;
+        var name = containingType is null
+            ? constructor.Name
+            : GetAttributeSyntaxName(containingType.Name);
+        var typeParams = containingType is not null && !containingType.TypeParameters.IsDefaultOrEmpty
+            ? $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
+            : string.Empty;
+
+        var parameterLabels = constructor.Parameters
+            .Select(parameter => FormatParameter(parameter, plainTypeFormat))
+            .ToArray();
+        var parameterInfos = constructor.Parameters
+            .Select(parameter => new ParameterInformation
+            {
+                Label = FormatParameter(parameter, plainTypeFormat)
+            })
+            .ToArray();
+
+        return new SignatureInformation
+        {
+            Label = $"{name}{typeParams}({string.Join(", ", parameterLabels)})",
+            Parameters = new Container<ParameterInformation>(parameterInfos),
+            Documentation = FormatDocumentation(constructor.GetDocumentationComment())
+        };
+    }
+
+    private static string GetAttributeSyntaxName(string name)
+    {
+        const string suffix = "Attribute";
+        return name.EndsWith(suffix, StringComparison.Ordinal) &&
+               name.Length > suffix.Length
+            ? name[..^suffix.Length]
+            : name;
     }
 
     private static SignatureInformation CreateSignatureInformation(IPropertySymbol property, SymbolDisplayFormat plainTypeFormat)
@@ -381,6 +445,71 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         }
     }
 
+    private static ImmutableArray<IMethodSymbol> GetCandidateAttributeConstructors(
+        SymbolInfo symbolInfo,
+        SemanticModel semanticModel,
+        AttributeSyntax attribute)
+    {
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        void AddIfNotPresent(IMethodSymbol method)
+        {
+            if (method.IsStatic || method.MethodKind != MethodKind.Constructor)
+                return;
+
+            foreach (var existing in builder)
+            {
+                if (SymbolEqualityComparer.Default.Equals(existing, method))
+                    return;
+            }
+
+            builder.Add(method);
+        }
+
+        AddSymbolInfoConstructors(symbolInfo);
+
+        foreach (var constructor in builder.ToImmutableArray())
+            AddSiblingOverloads(constructor, AddIfNotPresent);
+
+        if (builder.Count == 0)
+        {
+            var nameInfo = semanticModel.GetSymbolInfo(attribute.Name);
+            AddConstructorsFromSymbol(nameInfo.Symbol);
+
+            foreach (var candidate in nameInfo.CandidateSymbols)
+                AddConstructorsFromSymbol(candidate);
+        }
+
+        return builder
+            .OrderBy(method => method.Parameters.Length)
+            .ThenBy(method => method.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat))
+            .ToImmutableArray();
+
+        void AddSymbolInfoConstructors(SymbolInfo info)
+        {
+            if (info.Symbol is IMethodSymbol method)
+                AddIfNotPresent(method);
+
+            foreach (var candidate in info.CandidateSymbols.OfType<IMethodSymbol>())
+                AddIfNotPresent(candidate);
+        }
+
+        void AddConstructorsFromSymbol(ISymbol? symbol)
+        {
+            switch (symbol)
+            {
+                case IMethodSymbol method:
+                    AddIfNotPresent(method);
+                    break;
+
+                case INamedTypeSymbol type:
+                    foreach (var constructor in type.InstanceConstructors)
+                        AddIfNotPresent(constructor);
+                    break;
+            }
+        }
+    }
+
     private static void AddSiblingOverloads(
         IMethodSymbol method,
         Action<IMethodSymbol> addIfNotPresent)
@@ -483,6 +612,34 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
             if (invocation is not null)
                 return invocation;
+        }
+
+        return null;
+    }
+
+    private static AttributeContext? TryGetAttributeContextAtPosition(SyntaxNode root, int offset)
+    {
+        foreach (var normalizedOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(normalizedOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var attribute = token.Parent?
+                .AncestorsAndSelf()
+                .OfType<AttributeSyntax>()
+                .FirstOrDefault(candidate =>
+                    candidate.ArgumentList is not null &&
+                    IsWithinArgumentList(candidate.ArgumentList, normalizedOffset));
+
+            if (attribute?.ArgumentList is not null)
+                return new AttributeContext(attribute, attribute.ArgumentList);
         }
 
         return null;
@@ -785,4 +942,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         ExpressionSyntax ReceiverExpression,
         BracketedArgumentListSyntax ArgumentList,
         SyntaxNode SymbolInfoNode);
+
+    private sealed record AttributeContext(
+        AttributeSyntax Attribute,
+        ArgumentListSyntax ArgumentList);
 }

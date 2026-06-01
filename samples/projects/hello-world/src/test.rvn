@@ -10,6 +10,7 @@ func A(x: int) -> int {
     42 + x
 }
 
+[Obsolete("Test")]
 func A(x: string) -> int {
     42
 }

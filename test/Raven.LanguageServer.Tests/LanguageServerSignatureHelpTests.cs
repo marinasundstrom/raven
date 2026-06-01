@@ -204,6 +204,58 @@ union Either<T1, T2>(T1 | T2)
         result.Signatures.Select(signature => signature.Label).ShouldContain("union class Either<int, string>(int | string)(value: string)");
     }
 
+    [Fact]
+    public async Task SignatureHelpHandler_AttributeConstructor_ShowsAllOverloadsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.*
+
+class InfoAttribute : Attribute {
+    init() { }
+    init(name: string) { }
+    init(name: string, version: int) { }
+}
+
+[Info()]
+func Main() -> () {
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var offset = code.LastIndexOf("Info(", StringComparison.Ordinal) + "Info(".Length;
+        offset.ShouldBeGreaterThan(0);
+
+        var result = await handler.Handle(new SignatureHelpParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new Raven.CodeAnalysis.Text.TextSpan(offset, 0)).Start
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.Signatures.ShouldNotBeNull();
+        result.Signatures.Select(signature => signature.Label).Count().ShouldBe(3);
+        result.Signatures.Select(signature => signature.Label).ShouldContain("Info()");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("Info(name: string)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("Info(name: string, version: int)");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))
