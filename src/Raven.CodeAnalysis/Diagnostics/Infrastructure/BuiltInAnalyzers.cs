@@ -25,6 +25,7 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<UnusedLocalAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnusedParameterAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnusedImportDirectiveAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UnusedExpressionResultAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnhandledMemberReturnValueAnalyzer>(project);
         project = AddAnalyzerIfMissing<DisposableObjectAnalyzer>(project);
         project = AddAnalyzerIfMissing<ImmutableCollectionOperationResultAnalyzer>(project);

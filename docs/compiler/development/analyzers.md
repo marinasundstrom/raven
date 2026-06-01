@@ -53,6 +53,10 @@ Raven currently provides analyzers for two different contexts:
   imports whose declaring compilation-unit or namespace scope does not reference any
   imported type, top-level namespace member, or nested namespace member. Nested namespaces
   are included in the declaring import scope.
+- **UnusedExpressionResultAnalyzer** (Raven, `RAV9034`) – reports standalone expressions
+  whose value is known to be unused when the expression is a conservative composition of
+  literals, variables, unary operators, binary operators, and tuples. Calls and other
+  potentially effectful expressions are excluded.
 - **UnhandledMemberReturnValueAnalyzer** (Raven, `RAV9029`) – reports bare member
   invocations, property accesses, or field accesses whose returned value is not handled.
   Assign the returned value to a target, assign it to `_`, return it, or pass it on. The
