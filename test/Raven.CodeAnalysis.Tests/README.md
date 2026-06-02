@@ -12,6 +12,7 @@ Runtime, reflection, generated IL, process, NuGet, MSBuild, and sample-project c
 | Feature suite | Focused area checks after changing a feature | `scripts/test-feature-suite.sh <suite>` |
 | Runtime isolated | CodeGen, sample, reflection, emitted-assembly, and project-heavy integration tests | `scripts/test-runtime-isolated.sh` |
 | Feature runtime | Runtime/emission overlap for one area | `scripts/test-feature-suite.sh <suite> --runtime` |
+| Language-server integration | Opt-in project-backed language-server workspace, document-store, analyzer-lane, sample, and headless edit scenarios | `scripts/test-language-server-integration.sh` |
 | Language-server perf | Opt-in language-server latency and interaction-budget checks | `scripts/test-language-server-perf.sh` |
 | Samples | End-to-end sample project build after compiler/runtime changes | `FORCE_REBUILD=1 samples/build.sh` |
 
@@ -29,6 +30,7 @@ Run suites because their owning behavior changed, not because they are nearby:
 | Compiler driver, Raven project loading, MSBuild targets, target frameworks, references | Targeted project-loading/compiler-driver tests, then sample build only when compatibility changed |
 | Emit, lowering, runtime execution, metadata shape, reflection | Focused runtime/CodeGen test or isolated runtime suite |
 | Language-server handlers, document store, workspace manager, request scheduling, presentation formatting | Focused `Raven.LanguageServer.Tests` filter |
+| Project-backed language-server workspace loading, analyzer lanes, document-sync scheduling, sample-backed LSP scenarios | Focused `Raven.LanguageServer.Integration.Tests` filter |
 | Language-server latency budgets or metrics thresholds | `scripts/test-language-server-perf.sh` only |
 | Console editor behavior | `test/Raven.Editor.Tests` only |
 
@@ -46,6 +48,7 @@ Keep compiler and editor-adjacent coverage in the project that owns the behavior
 |---|---|
 | `test/Raven.CodeAnalysis.Tests` | Compiler API, syntax, binding, semantic model, diagnostics, symbols, operations, project loading, and reduced compiler regressions from samples |
 | `test/Raven.LanguageServer.Tests` | Language-server request handling, document snapshots, diagnostics publication, hover/completion/inlay presentation, request cancellation, and VS Code-facing workspace behavior |
+| `test/Raven.LanguageServer.Integration.Tests` | Opt-in project-backed language-server workspace, document-store, analyzer-lane, sample, and headless edit integration scenarios |
 | `test/Raven.LanguageServer.Perf.Tests` | Opt-in language-server metrics, latency budgets, and performance instrumentation; do not include in baseline behavior gates |
 | `test/Raven.Editor.Tests` | The `Raven.Editor` console editor only; do not use this project or namespace for language-server or VS Code integration coverage |
 

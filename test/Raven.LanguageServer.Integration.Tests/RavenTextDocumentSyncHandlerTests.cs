@@ -19,7 +19,7 @@ using RavenWorkspace = Raven.CodeAnalysis.RavenWorkspace;
 using SolutionId = Raven.CodeAnalysis.SolutionId;
 using VersionStamp = Raven.CodeAnalysis.VersionStamp;
 
-namespace Raven.LanguageServer.Tests;
+namespace Raven.LanguageServer.Integration.Tests;
 
 public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
 {

@@ -13,7 +13,7 @@ using Raven.LanguageServer;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 
-namespace Raven.LanguageServer.Tests;
+namespace Raven.LanguageServer.Integration.Tests;
 
 public sealed class HeadlessEditSimulationTests : IDisposable
 {
