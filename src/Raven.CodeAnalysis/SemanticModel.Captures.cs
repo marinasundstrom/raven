@@ -252,7 +252,11 @@ public partial class SemanticModel
             SyntaxTree.GetRoot() is CompilationUnitSyntax root)
         {
             EnsureTopLevelCompilationUnitBound(root);
-            BindPrecedingGlobalStatementsForScope(root, globalStatement, requireCompleteDeclarations: false);
+            BindPrecedingGlobalStatementsForScope(
+                root,
+                globalStatement,
+                GetBinderForIncrementalSemanticQuery(globalStatement),
+                requireCompleteDeclarations: false);
         }
         else
         {

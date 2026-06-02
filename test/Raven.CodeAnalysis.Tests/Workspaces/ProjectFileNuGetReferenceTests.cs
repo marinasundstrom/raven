@@ -1201,6 +1201,41 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_AspNetMinimalApiSample_PatternInlayQueryBeforeDiagnostics_DoesNotLoseAppLocal()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "AspNetMinimalApi.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "main.rvn");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var patternDesignations = root.DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Where(static designation => designation.Identifier.ValueText is "name" or "age")
+            .ToArray();
+        Assert.Equal(2, patternDesignations.Length);
+
+        foreach (var designation in patternDesignations)
+            Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+
+        var diagnostics = compilation.GetDocumentDiagnostics(tree, analyzerOptions: null, CancellationToken.None);
+
+        var appDiagnostics = diagnostics
+            .Where(diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+            diagnostic.GetMessage().Contains("'app' is not in scope", StringComparison.Ordinal))
+            .Select(diagnostic => $"{diagnostic.Location.GetLineSpan().StartLinePosition}: {diagnostic.GetMessage()}")
+            .ToArray();
+        Assert.Empty(appDiagnostics);
+    }
+
+    [Fact]
     public void OpenProject_FrameworkReference_EmitsMinimalApiProjectWithParameterizedSyncLambda()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

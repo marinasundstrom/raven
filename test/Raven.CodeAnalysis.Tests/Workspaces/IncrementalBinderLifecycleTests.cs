@@ -577,6 +577,36 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void DocumentDiagnostics_ForTopLevelReferenceAfterFunctionMember_SeedsEarlierLocals()
+    {
+        const string source = """
+            val app = 1
+
+            func ping() -> int {
+                return 2
+            }
+
+            val after = app + ping()
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "top-level-reference-after-function",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+
+        var diagnostics = model.GetDocumentDiagnostics();
+
+        diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+            diagnostic.GetMessage().Contains("'app' is not in scope", StringComparison.Ordinal));
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
     public void GetSymbolInfo_ForTopLevelInvocation_AfterPriorEdit_BindsContextualStatementRoot()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

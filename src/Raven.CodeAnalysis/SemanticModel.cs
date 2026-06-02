@@ -1290,14 +1290,21 @@ public partial class SemanticModel
                 ClearCachedBinderDiagnostics(owner.Span);
                 ClearCachedBoundNodes(owner.Span);
 
-                if (owner is GlobalStatementSyntax globalOwner)
-                    BindPrecedingGlobalStatementsForScope(root, globalOwner, requireCompleteDeclarations);
-
                 var ownerBinder = ReferenceEquals(owner, root)
                     ? rootBinder
                     : requireCompleteDeclarations
                         ? GetBinder(owner)
                         : GetBinderForIncrementalSemanticQuery(owner);
+
+                if (owner is GlobalStatementSyntax globalOwner)
+                    BindPrecedingGlobalStatementsForScope(root, globalOwner, ownerBinder, requireCompleteDeclarations);
+                else if (ReferenceEquals(owner, root) &&
+                    root is CompilationUnitSyntax compilationUnit &&
+                    Compilation.HasRunnableFileScopeCode(compilationUnit))
+                {
+                    EnsureTopLevelCompilationUnitBound(compilationUnit);
+                    BindGlobalStatementDeclarationsForScope(root, ownerBinder, requireCompleteDeclarations);
+                }
 
                 Traverse(owner, ownerBinder);
 
@@ -1401,14 +1408,21 @@ public partial class SemanticModel
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (owner is GlobalStatementSyntax globalOwner)
-                    BindPrecedingGlobalStatementsForScope(root, globalOwner, requireCompleteDeclarations);
-
                 var ownerBinder = ReferenceEquals(owner, root)
                     ? rootBinder
                     : requireCompleteDeclarations
                         ? GetBinder(owner)
                         : GetBinderForIncrementalSemanticQuery(owner);
+
+                if (owner is GlobalStatementSyntax globalOwner)
+                    BindPrecedingGlobalStatementsForScope(root, globalOwner, ownerBinder, requireCompleteDeclarations);
+                else if (ReferenceEquals(owner, root) &&
+                    root is CompilationUnitSyntax compilationUnit &&
+                    Compilation.HasRunnableFileScopeCode(compilationUnit))
+                {
+                    EnsureTopLevelCompilationUnitBound(compilationUnit);
+                    BindGlobalStatementDeclarationsForScope(root, ownerBinder, requireCompleteDeclarations);
+                }
 
                 Traverse(owner, ownerBinder);
             }
@@ -1746,8 +1760,7 @@ public partial class SemanticModel
             or FunctionBinder
             or ImportBinder
             or CompilationUnitBinder
-            or NamespaceBinder
-            or TopLevelBinder;
+            or NamespaceBinder;
 
     private static SyntaxNode? TryGetMacroTarget(AttributeSyntax attributeSyntax)
         => attributeSyntax.Parent?.Parent switch
@@ -8652,8 +8665,14 @@ public partial class SemanticModel
     private void BindPrecedingGlobalStatementsForScope(
         SyntaxNode root,
         GlobalStatementSyntax owner,
+        Binder ownerBinder,
         bool requireCompleteDeclarations)
     {
+        var scopeBinder = !requireCompleteDeclarations &&
+            TryGetNearestBlockBinder(ownerBinder, out var ownerBlockBinder)
+                ? ownerBlockBinder
+                : null;
+
         foreach (var global in root.DescendantNodesAndSelf().OfType<GlobalStatementSyntax>())
         {
             if (!ReferenceEquals(global.Parent, owner.Parent))
@@ -8664,7 +8683,33 @@ public partial class SemanticModel
 
             var binder = requireCompleteDeclarations
                 ? GetBinder(global.Statement)
-                : GetBinderForIncrementalSemanticQuery(global.Statement);
+                : scopeBinder ?? GetBinderForIncrementalSemanticQuery(global.Statement);
+            if (requireCompleteDeclarations)
+                binder.GetOrBind(global.Statement);
+            else
+                binder.EnsureStatementDeclarations(global.Statement);
+        }
+    }
+
+    private void BindGlobalStatementDeclarationsForScope(
+        SyntaxNode root,
+        Binder ownerBinder,
+        bool requireCompleteDeclarations)
+    {
+        var scopeBinder = !requireCompleteDeclarations &&
+            TryGetNearestBlockBinder(ownerBinder, out var ownerBlockBinder)
+                ? ownerBlockBinder
+                : null;
+
+        var globals = root is CompilationUnitSyntax compilationUnit
+            ? Compilation.GetBindableGlobalStatements(compilationUnit)
+            : root.DescendantNodesAndSelf().OfType<GlobalStatementSyntax>();
+
+        foreach (var global in globals)
+        {
+            var binder = requireCompleteDeclarations
+                ? GetBinder(global.Statement)
+                : scopeBinder ?? GetBinderForIncrementalSemanticQuery(global.Statement);
             if (requireCompleteDeclarations)
                 binder.GetOrBind(global.Statement);
             else
@@ -8683,7 +8728,7 @@ public partial class SemanticModel
             return;
         }
 
-        BindPrecedingGlobalStatementsForScope(root, globalOwner, requireCompleteDeclarations: true);
+        BindPrecedingGlobalStatementsForScope(root, globalOwner, GetBinder(globalOwner), requireCompleteDeclarations: true);
     }
 
     private void PrimeContextualFunctionExpressions(SyntaxNode root)
