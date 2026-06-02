@@ -9,6 +9,12 @@ Use this skill when the task is primarily about test failures, stabilization, or
 
 ## Baseline Strategy
 
+For large stabilization passes, use a planned task sequence: define the current
+test or behavior slice, keep one step active, verify it before moving on, and
+re-evaluate the next slice after each result. Prefer a reduced compiler test
+that locks the invariant first, then broaden to LSP, sample builds, baseline,
+or runtime suites only when the affected layer warrants it.
+
 Establish the baseline with:
 
 ```bash

@@ -18,6 +18,13 @@ Include relevant excerpts when reporting or fixing hover, completion, or definit
 
 ## Workflow
 
+For large or multi-surface investigations, work as a planned task sequence:
+define the current slice, keep one step active, verify it before moving on,
+and re-evaluate the next slice after each result. Prefer reduced
+compiler-level repros before broad LSP or sample-project coverage, then add
+editor-level tests only when request scheduling, workspace loading, or
+presentation behavior is part of the bug.
+
 1. Reduce the issue to a minimal source example.
 2. Record the exact editor action that fails.
 3. Reproduce the request with the headless language-server harness when possible:
