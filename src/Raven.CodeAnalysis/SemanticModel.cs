@@ -3094,8 +3094,13 @@ public partial class SemanticModel
 
     private void StoreSymbolMapping(SyntaxNode node, SymbolInfo info, bool nonReporting = false)
     {
+        StoreSymbolMappingExact(node, info, nonReporting || !IsCollectingDiagnostics);
+    }
+
+    private void StoreSymbolMappingExact(SyntaxNode node, SymbolInfo info, bool nonReporting)
+    {
         _symbolMappings[node] = info;
-        UpdateNonReportingSymbolMapping(node, nonReporting || !IsCollectingDiagnostics);
+        UpdateNonReportingSymbolMapping(node, nonReporting);
     }
 
     private void StoreTypeMapping(SyntaxNode node, TypeInfo info, bool nonReporting = false)
@@ -12810,6 +12815,12 @@ public partial class SemanticModel
 
     internal bool HasCachedBoundNodeForTesting(SyntaxNode node)
         => TryGetCachedBoundNode(node) is not null;
+
+    internal bool IsCachedBoundNodeNonReportingForTesting(SyntaxNode node)
+        => _nonReportingBoundNodeCache.ContainsKey(node);
+
+    internal bool IsCachedSymbolMappingNonReportingForTesting(SyntaxNode node)
+        => _nonReportingSymbolMappings.ContainsKey(node);
 
     internal void EnsureCompilationUnitDeclarationBindersCreated()
     {

@@ -192,6 +192,57 @@ class C {
     }
 
     [Fact]
+    public void CacheBoundNode_WhenIncomingNodeIsRejected_PreservesSelectedNodeReportingState()
+    {
+        var tree = SyntaxTree.ParseText("""
+class C {
+    func Test() {
+        val value = 1
+        value
+    }
+}
+""");
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static node => node.Identifier.ValueText == "value");
+        var reference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Last(static node => node.Identifier.ValueText == "value");
+        var binder = model.GetIncrementalSemanticQueryBinderForTesting(reference);
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var selected = new BoundLocalAccess(local);
+        var rejected = new BoundErrorExpression(compilation.ErrorTypeSymbol, local);
+
+        using (binder.Diagnostics.CreateNonReportingScope())
+            model.CacheBoundNode(reference, selected, binder);
+
+        Assert.True(model.IsCachedBoundNodeNonReportingForTesting(reference));
+        Assert.True(model.IsCachedSymbolMappingNonReportingForTesting(reference));
+
+        model.CacheBoundNode(reference, rejected, binder);
+
+        Assert.Same(selected, model.TryGetCachedBoundNode(reference));
+        Assert.True(model.IsCachedBoundNodeNonReportingForTesting(reference));
+        Assert.True(model.IsCachedSymbolMappingNonReportingForTesting(reference));
+
+        model.RemoveCachedBoundNode(reference);
+        model.CacheBoundNode(reference, selected, binder);
+
+        Assert.False(model.IsCachedBoundNodeNonReportingForTesting(reference));
+        Assert.False(model.IsCachedSymbolMappingNonReportingForTesting(reference));
+
+        using (binder.Diagnostics.CreateNonReportingScope())
+            model.CacheBoundNode(reference, rejected, binder);
+
+        Assert.Same(selected, model.TryGetCachedBoundNode(reference));
+        Assert.False(model.IsCachedBoundNodeNonReportingForTesting(reference));
+        Assert.False(model.IsCachedSymbolMappingNonReportingForTesting(reference));
+    }
+
+    [Fact]
     public void TryGetAvailableInvocationCandidates_UsesAvailableLocalInitializerTypeForReceiver()
     {
         var code = """

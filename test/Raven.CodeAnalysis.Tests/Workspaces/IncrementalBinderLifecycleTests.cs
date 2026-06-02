@@ -607,6 +607,131 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void DocumentDiagnostics_ForTopLevelUseReferenceAfterFunctionMember_SeedsEarlierLocal()
+    {
+        const string source = """
+            import System.*
+
+            class App : IDisposable {
+                public init() {}
+                public func Dispose() -> unit {}
+                public func Run() -> unit {}
+            }
+
+            use app = App()
+
+            func ping() -> int {
+                return 2
+            }
+
+            app.Run()
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "top-level-use-reference-after-function",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+
+        var diagnostics = model.GetDocumentDiagnostics();
+
+        diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+            diagnostic.GetMessage().Contains("'app' is not in scope", StringComparison.Ordinal));
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_AfterPresentationSemanticQueries_MatchDiagnosticsOnlyBaseline()
+    {
+        const string source = """
+            import System.*
+
+            record Person(val Name: string, val Age: int)
+
+            val person = Person("Ada", 42)
+            val app = person.Name
+
+            func ping(name: string) -> string {
+                return "pong $name"
+            }
+
+            func apply(value: int, projector: Func<int, int>) -> int {
+                return projector(value)
+            }
+
+            val message = ping(app)
+
+            if val (name, age when >= 18) = person {
+                val routed = ping(name)
+            }
+
+            val projected = apply(1, value => value + app.Length)
+            val after = app.Length + projected
+            val unresolved = missingValue
+            """;
+
+        var expected = GetDocumentDiagnosticSignaturesAfterQueries(source, query: null);
+        expected.ShouldContain(diagnostic =>
+            diagnostic.Contains(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id, StringComparison.Ordinal) &&
+            diagnostic.Contains("'missingValue' is not in scope", StringComparison.Ordinal));
+
+        var queryOrders = new (string Name, Action<SemanticModel, CompilationUnitSyntax> Query)[]
+        {
+            ("local declared symbols", (model, root) =>
+            {
+                foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+                    _ = model.GetDeclaredSymbol(declarator);
+            }),
+            ("pattern declared symbols", (model, root) =>
+            {
+                foreach (var designation in root.DescendantNodes().OfType<SingleVariableDesignationSyntax>())
+                    _ = model.GetDeclaredSymbol(designation);
+            }),
+            ("hover-like symbol and type info", (model, root) =>
+            {
+                foreach (var identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>()
+                    .Where(identifier => identifier.Identifier.ValueText is "app" or "name" or "value" or "missingValue"))
+                {
+                    _ = model.GetSymbolInfo(identifier);
+                    _ = model.GetTypeInfo(identifier);
+                }
+            }),
+            ("function parameter symbols", (model, root) =>
+            {
+                foreach (var parameter in root.DescendantNodes()
+                    .OfType<FunctionExpressionSyntax>()
+                    .SelectMany(GetFunctionExpressionParameters))
+                {
+                    _ = model.GetFunctionExpressionParameterSymbol(parameter);
+                }
+            }),
+            ("bound invocation nodes", (model, root) =>
+            {
+                foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                {
+                    _ = model.GetBoundNode(invocation);
+                    _ = model.GetSymbolInfo(invocation);
+                }
+            })
+        };
+
+        foreach (var (name, query) in queryOrders)
+        {
+            var actual = GetDocumentDiagnosticSignaturesAfterQueries(source, query);
+
+            actual.ShouldBe(
+                expected,
+                $"Document diagnostics changed after {name}:{Environment.NewLine}" +
+                $"Expected:{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}" +
+                $"Actual:{Environment.NewLine}{string.Join(Environment.NewLine, actual)}");
+        }
+    }
+
+    [Fact]
     public void GetSymbolInfo_ForTopLevelInvocation_AfterPriorEdit_BindsContextualStatementRoot()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -1763,6 +1888,46 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         actualLocal.Name.ShouldBe(expectedLocal.Name);
         actualLocal.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).ShouldBe(
             expectedLocal.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    }
+
+    private static string[] GetDocumentDiagnosticSignaturesAfterQueries(
+        string source,
+        Action<SemanticModel, CompilationUnitSyntax>? query)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "diagnostic-query-order",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot().ShouldBeAssignableTo<CompilationUnitSyntax>();
+
+        query?.Invoke(model, root);
+
+        return model.GetDocumentDiagnostics()
+            .Select(static diagnostic =>
+            {
+                var span = diagnostic.Location.GetLineSpan();
+                return $"{diagnostic.Id}@{span.StartLinePosition}-{span.EndLinePosition}:{diagnostic.GetMessage()}";
+            })
+            .OrderBy(static diagnostic => diagnostic, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static IEnumerable<ParameterSyntax> GetFunctionExpressionParameters(FunctionExpressionSyntax functionExpression)
+    {
+        switch (functionExpression)
+        {
+            case SimpleFunctionExpressionSyntax simple:
+                yield return simple.Parameter;
+                break;
+
+            case ParenthesizedFunctionExpressionSyntax parenthesized:
+                foreach (var parameter in parenthesized.ParameterList.Parameters)
+                    yield return parameter;
+                break;
+        }
     }
 
     private static IdentifierNameSyntax GetIdentifier(SyntaxNode node, string name)

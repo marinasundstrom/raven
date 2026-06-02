@@ -614,7 +614,7 @@ public class Workspace
             ?? throw new InvalidOperationException("Document does not have a syntax tree.");
 
         var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
-        return compilation.GetDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
+        return compilation.GetDocumentDiagnostics(syntaxTree, analyzerOptions, cancellationToken);
     }
 
     public ImmutableArray<Diagnostic> GetDocumentDiagnosticsWithAnalyzers(

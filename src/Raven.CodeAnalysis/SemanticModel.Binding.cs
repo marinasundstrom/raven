@@ -6670,22 +6670,19 @@ public partial class SemanticModel
 
     internal void CacheBoundNode(SyntaxNode node, BoundNode bound, Binder? binder = null)
     {
-        BoundNode selectedBound = bound;
-        _boundNodeCache.AddOrUpdate(
+        var selectedBound = _boundNodeCache.AddOrUpdate(
             node,
             _ => bound,
-            (_, existing) =>
-            {
-                if (ShouldReplaceCachedBoundNode(existing, bound))
-                    return bound;
-
-                selectedBound = existing;
-                return existing;
-            });
+            (_, existing) => ShouldReplaceCachedBoundNode(existing, bound)
+                ? bound
+                : existing);
+        var selectedBoundIsNonReporting = ReferenceEquals(selectedBound, bound)
+            ? IsNonReportingBinder(binder)
+            : _nonReportingBoundNodeCache.ContainsKey(node);
 
         _syntaxCache[selectedBound] = node;
         UpdateNonReportingBoundNodeCache(node, selectedBound, bound, binder);
-        CacheSymbolInfo(node, selectedBound, binder);
+        CacheSymbolInfo(node, selectedBound, selectedBoundIsNonReporting);
         if (IsDebuggingEnabled && binder is not null)
         {
             _boundNodeCache2.AddOrUpdate(
@@ -6716,23 +6713,20 @@ public partial class SemanticModel
             return;
         }
 
-        BoundNode selectedBound = bound;
         var key = new ContextualBoundNodeCacheKey(node, targetType);
-        _contextualBoundNodeCache.AddOrUpdate(
+        var selectedBound = _contextualBoundNodeCache.AddOrUpdate(
             key,
             _ => bound,
-            (_, existing) =>
-            {
-                if (ShouldReplaceCachedBoundNode(existing, bound))
-                    return bound;
-
-                selectedBound = existing;
-                return existing;
-            });
+            (_, existing) => ShouldReplaceCachedBoundNode(existing, bound)
+                ? bound
+                : existing);
+        var selectedBoundIsNonReporting = ReferenceEquals(selectedBound, bound)
+            ? IsNonReportingBinder(binder)
+            : _nonReportingContextualBoundNodeCache.ContainsKey(key);
 
         _syntaxCache[selectedBound] = node;
         UpdateNonReportingBoundNodeCache(key, selectedBound, bound, binder);
-        CacheSymbolInfo(node, selectedBound, binder);
+        CacheSymbolInfo(node, selectedBound, selectedBoundIsNonReporting);
         if (IsDebuggingEnabled && binder is not null)
         {
             _contextualBoundNodeCache2.AddOrUpdate(
@@ -6777,7 +6771,10 @@ public partial class SemanticModel
             _nonReportingContextualBoundNodeCache.TryRemove(key, out _);
     }
 
-    private void CacheSymbolInfo(SyntaxNode node, BoundNode bound, Binder? binder)
+    private static bool IsNonReportingBinder(Binder? binder)
+        => binder?.Diagnostics.IsReportingDisabled == true;
+
+    private void CacheSymbolInfo(SyntaxNode node, BoundNode bound, bool nonReporting)
     {
         var info = bound switch
         {
@@ -6787,7 +6784,7 @@ public partial class SemanticModel
         };
 
         if (info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty)
-            StoreSymbolMapping(node, info, binder?.Diagnostics.IsReportingDisabled == true);
+            StoreSymbolMappingExact(node, info, nonReporting);
     }
 
     private static bool ShouldReplaceCachedBoundNode(BoundNode existing, BoundNode incoming)

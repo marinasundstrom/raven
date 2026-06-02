@@ -1866,6 +1866,16 @@ union MyResult<T>(List<T> | int)
         var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         var code = await File.ReadAllTextAsync(documentPath);
+        var initialCode = code.Replace("use app = builder.Build()", "val app = builder.Build()", StringComparison.Ordinal);
+        await store.UpsertDocumentAsync(uri, initialCode);
+
+        var initialSourceText = Raven.CodeAnalysis.Text.SourceText.From(initialCode);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(initialSourceText, new CodeTextSpan(0, initialSourceText.Length))
+        }, CancellationToken.None);
+
         await store.UpsertDocumentAsync(uri, code);
 
         var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
@@ -1888,7 +1898,8 @@ union MyResult<T>(List<T> | int)
                      "encoding",
                      "detectEncodingFromByteOrderMarks",
                      "bufferSize",
-                     "leaveOpen"
+                     "leaveOpen",
+                     "app"
                  })
         {
             diagnostics.Any(diagnostic =>
@@ -1904,6 +1915,51 @@ union MyResult<T>(List<T> | int)
         diagnostics.Any(diagnostic =>
                 string.Equals(diagnostic.Code?.String, "RAV2700", StringComparison.Ordinal) ||
                 string.Equals(diagnostic.Code?.String, "RAV1900", StringComparison.Ordinal))
+            .ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetDiagnosticsAsync_EfCoreContractsSample_AfterInlayHints_DoesNotReportBogusMissingMemberDiagnosticsAsync()
+    {
+        var sampleRoot = Path.Combine(
+            GetRepositoryRoot(),
+            "samples",
+            "projects",
+            "efcore-vehicle-costs");
+        var documentPath = Path.Combine(sampleRoot, "src", "Contracts", "Contracts.rvn");
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-vehicle-costs",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var inlayHandler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        await store.UpsertDocumentAsync(uri, code);
+
+        var sourceText = Raven.CodeAnalysis.Text.SourceText.From(code);
+        _ = await inlayHandler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new CodeTextSpan(0, sourceText.Length))
+        }, CancellationToken.None);
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0117", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("'VehicleStatusDto' has no member 'ToStatus'", StringComparison.Ordinal))
             .ShouldBeFalse();
     }
 

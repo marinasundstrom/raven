@@ -10,7 +10,7 @@ import Microsoft.AspNetCore.Http.*
 import Microsoft.AspNetCore.Mvc.*
 
 val builder = WebApplication.CreateBuilder(args)
-val app = builder.Build()
+use app = builder.Build()
 
 app.MapGet("/", func () => "Hello from Raven Minimal API")
 

@@ -781,10 +781,31 @@ public static class CompletionProvider
             return null;
         }
 
-        static IEnumerable<ISymbol> GetTypeMembersIncludingBase(ITypeSymbol type, bool includeStatic) =>
-            type.GetMembersRecursive(
+        static IEnumerable<ISymbol> GetTypeMembersIncludingBase(ITypeSymbol type, bool includeStatic)
+        {
+            var yielded = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            foreach (var member in type.GetMembersRecursive(
                 TypeSymbolLookupExtensions.MemberLookupFlags.Default,
-                member => member.IsStatic == includeStatic);
+                member => member.IsStatic == includeStatic))
+            {
+                if (yielded.Add(member))
+                    yield return member;
+            }
+
+            if (type is not INamedTypeSymbol namedType)
+                yield break;
+
+            foreach (var interfaceType in namedType.AllInterfaces)
+            {
+                foreach (var member in interfaceType.GetMembersRecursive(
+                    TypeSymbolLookupExtensions.MemberLookupFlags.Default,
+                    member => member.IsStatic == includeStatic))
+                {
+                    if (yielded.Add(member))
+                        yield return member;
+                }
+            }
+        }
 
         static ITypeSymbol UnwrapAliases(ITypeSymbol type)
         {
@@ -2498,9 +2519,10 @@ public static class CompletionProvider
                 }
                 else if (type is ITypeSymbol instanceType)
                 {
+                    var completionType = instanceType.GetPlainType();
                     // Accessing an instance: show instance members
-                    members = GetTypeMembersIncludingBase(instanceType, includeStatic: false).Where(IsAccessible);
-                    instanceTypeForExtensions = instanceType switch
+                    members = GetTypeMembersIncludingBase(completionType, includeStatic: false).Where(IsAccessible);
+                    instanceTypeForExtensions = completionType switch
                     {
                         INamedTypeSymbol named => named,
                         IArrayTypeSymbol array => array,

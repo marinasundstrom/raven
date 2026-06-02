@@ -424,6 +424,73 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task DidChange_ValToUseInAspNetMinimalApiSample_KeepsAppInScopeAsync()
+    {
+        var sampleRoot = Path.Combine(
+            GetRepositoryRoot(),
+            "samples",
+            "projects",
+            "aspnet-minimal-api");
+        var documentPath = Path.Combine(sampleRoot, "src", "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+
+        Directory.Exists(sampleRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "aspnet-minimal-api",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            store,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var savedCode = await File.ReadAllTextAsync(documentPath);
+        var initialCode = savedCode.Replace("use app = builder.Build()", "val app = builder.Build()", StringComparison.Ordinal);
+        initialCode.ShouldNotBe(savedCode);
+
+        _ = await store.UpsertDocumentWithResultAsync(uri, SourceText.From(initialCode));
+        GetDocumentSessions(handler)[uri] = 1;
+        GetDocumentVersions(handler)[uri] = 1;
+
+        await handler.Handle(new DidChangeTextDocumentParams
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier
+            {
+                Uri = uri,
+                Version = 2
+            },
+            ContentChanges = new Container<TextDocumentContentChangeEvent>(
+                new TextDocumentContentChangeEvent
+                {
+                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                        new Position(12, 0),
+                        new Position(12, 3)),
+                    Text = "use"
+                })
+        }, CancellationToken.None);
+
+        store.TryGetPendingDocumentText(uri, out var pendingText).ShouldBeTrue();
+        pendingText!.ToString().ShouldContain("use app = builder.Build()");
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+
+        diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("app", StringComparison.Ordinal))
+            .ShouldBeFalse();
+        store.TryGetPendingDocumentText(uri, out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public void AcceptPendingSyntaxDiagnosticsForPublish_PublishesEmptySetWhenPendingTextIsFixed()
     {
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
@@ -513,6 +580,73 @@ func Main() -> unit {
         stickyDiagnostic.Code?.String.ShouldBe("RAV0103");
         stickyDiagnostic.Range.Start.Line.ShouldBe(3);
         stickyDiagnostic.Range.End.Line.ShouldBe(3);
+    }
+
+    [Fact]
+    public void DocumentCompilerPublish_AfterStickyValToUseSyntaxPublish_ClearsStaleAppDiagnostic()
+    {
+        var samplePath = Path.Combine(GetRepositoryRoot(), "samples", "projects", "aspnet-minimal-api", "src", "main.rvn");
+        var newText = SourceText.From(File.ReadAllText(samplePath));
+        var oldText = SourceText.From(newText.ToString().Replace(
+            "use app = builder.Build()",
+            "val app = builder.Build()",
+            StringComparison.Ordinal));
+        var uri = DocumentUri.FromFileSystemPath(samplePath);
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var appOffset = oldText.ToString().IndexOf("app.MapPost(\"/submit\"", StringComparison.Ordinal);
+        appOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var appRange = PositionHelper.ToRange(oldText, new TextSpan(appOffset, "app".Length));
+        var staleDiagnostic = CreateDiagnostic(
+            "RAV0103",
+            "'app' is not in scope.",
+            appRange.Start.Line,
+            appRange.Start.Character,
+            appRange.End.Line,
+            appRange.End.Character,
+            DiagnosticSeverity.Error);
+        var projectId = ProjectId.CreateNew(SolutionId.CreateNew());
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [staleDiagnostic],
+                editorVersion: 1,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    projectId,
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var stickySyntax = handler.AcceptPendingSyntaxDiagnosticsForPublish(uri, newText, version: 2);
+        stickySyntax.ShouldPublish.ShouldBeTrue();
+        stickySyntax.Diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("'app' is not in scope", StringComparison.Ordinal))
+            .ShouldBeTrue();
+
+        var clearedCompiler = dispatcher.AcceptDiagnosticsForPublish(
+            uri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [],
+            editorVersion: 2,
+            snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                uri.ToString(),
+                projectId,
+                VersionStamp.Create(),
+                VersionStamp.Create()),
+            sourceText: newText);
+
+        clearedCompiler.ShouldPublish.ShouldBeTrue();
+        clearedCompiler.Diagnostics.ShouldBeEmpty();
     }
 
     [Fact]

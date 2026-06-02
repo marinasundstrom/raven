@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed editor compiler diagnostics after hover/inlay-style semantic queries so
+  presentation-only cache entries do not cause false missing local or missing
+  member errors in the same document snapshot.
+- Fixed member completion for interface-typed receivers so members inherited
+  through implemented interfaces are offered on values such as `IQueryable<T>`.
+- Added `scripts/build-project-samples.sh` to build all source sample projects
+  under `samples/projects` separately from the standalone sample compiler script.
 - Added receiver-aware pipe target completion after `|>` and in the following
   identifier, including applicable in-scope functions/static methods and
   extension methods. The language server now registers `>` as a completion

@@ -77,6 +77,15 @@ dotnet build samples/projects/hello-world/HelloWorld.rvnproj --property WarningL
 dotnet run --project samples/projects/hello-world/HelloWorld.rvnproj --property WarningLevel=0
 ```
 
+To build the project sample set, use:
+
+```bash
+scripts/build-project-samples.sh
+```
+
+This is separate from `samples/build.sh`, which compiles the standalone
+`.rav` and `.rvn` samples outside `samples/projects`.
+
 With `scripts/raven-env.sh` sourced, the equivalent frontend commands are:
 
 ```bash
