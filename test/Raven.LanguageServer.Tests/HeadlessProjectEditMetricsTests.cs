@@ -175,6 +175,42 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
     }
 
     [Fact]
+    public async Task AttributeNameHover_ObsoleteStaysWithinInteractionBudgetAsync()
+    {
+        await using var simulation = HeadlessProjectSimulation.Create(
+            Path.Combine(_tempRoot, "obsolete-attribute-hover"),
+            stableFileCount: 0,
+            runAnalyzers: false,
+            _output,
+            """
+            import System.*
+
+            [Obsolete("Test")]
+            func A(x: string) -> int {
+                42
+            }
+            """);
+
+        await simulation.WarmSemanticModelAsync();
+        var firstHover = await simulation.RunHoverProbeAsync("Obsolete", occurrence: 1, expectedHoverText: "ObsoleteAttribute");
+        var secondHover = await simulation.RunHoverProbeAsync("Obsolete", occurrence: 1, expectedHoverText: "ObsoleteAttribute");
+
+        _output.WriteLine(
+            $"obsoleteAttribute firstHover={firstHover.ElapsedMs:F1}ms secondHover={secondHover.ElapsedMs:F1}ms firstSemantic=[{SemanticQueryInstrumentation.FormatDelta(firstHover.SemanticDelta)}] secondSemantic=[{SemanticQueryInstrumentation.FormatDelta(secondHover.SemanticDelta)}]");
+
+        firstHover.HasHover.ShouldBeTrue();
+        secondHover.HasHover.ShouldBeTrue();
+        firstHover.ElapsedMs.ShouldBeLessThan(500);
+        secondHover.ElapsedMs.ShouldBeLessThan(50);
+        firstHover.SemanticDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        firstHover.SemanticDelta.SymbolInfoOperationFallbacks.ShouldBe(0);
+        firstHover.SemanticDelta.BoundNodeBindFallbacks.ShouldBe(0);
+        secondHover.SemanticDelta.SymbolInfoBinderFallbacks.ShouldBe(0);
+        secondHover.SemanticDelta.SymbolInfoOperationFallbacks.ShouldBe(0);
+        secondHover.SemanticDelta.BoundNodeBindFallbacks.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task TopLevelEdit_FirstLocalHoverAfterEditStaysWithinInteractionBudgetAsync()
     {
         await using var simulation = HeadlessProjectSimulation.Create(
@@ -436,7 +472,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             _store = new DocumentStore(_manager, new TestOutputLogger<DocumentStore>(output));
             _hoverHandler = new HoverHandler(_store, new TestOutputLogger<HoverHandler>(output));
             _mainUri = DocumentUri.FromFileSystemPath(_mainPath);
-            _store.UpsertDocumentAsync(_mainUri, _mainText);
+            _store.UpsertDocumentAsync(_mainUri, _mainText).GetAwaiter().GetResult();
         }
 
         public static HeadlessProjectSimulation Create(string root, int stableFileCount, bool runAnalyzers, ITestOutputHelper output)
@@ -471,6 +507,12 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
             return new ProjectSnapshot(
                 context.Value.SourceText,
                 GetTreesByPath(context.Value.Compilation));
+        }
+
+        public async Task WarmSemanticModelAsync()
+        {
+            var semanticModel = await _store.GetSemanticModelAsync(_mainUri, CancellationToken.None);
+            semanticModel.ShouldNotBeNull();
         }
 
         public async Task<ProjectEditMetrics> ApplyEditAndMeasureAsync(SourceText updatedText, bool measureHover = true)
@@ -543,10 +585,28 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
                 diagnostics.Diagnostics);
         }
 
+        public async Task<HoverProbeMetrics> RunHoverProbeAsync(
+            string target,
+            int occurrence,
+            string expectedHoverText)
+        {
+            var context = await _store.GetAnalysisContextAsync(_mainUri, CancellationToken.None);
+            context.ShouldNotBeNull();
+
+            return await RunHoverProbeAsync(context.Value.SourceText, target, occurrence, expectedHoverText);
+        }
+
         private async Task<HoverProbeMetrics> RunHoverProbeAsync(SourceText sourceText)
+            => await RunHoverProbeAsync(sourceText, "answer", occurrence: 2, expectedHoverText: "answer");
+
+        private async Task<HoverProbeMetrics> RunHoverProbeAsync(
+            SourceText sourceText,
+            string target,
+            int occurrence,
+            string expectedHoverText)
         {
             var text = sourceText.ToString();
-            var offset = IndexOfOccurrence(text, "answer", occurrence: 2);
+            var offset = IndexOfOccurrence(text, target, occurrence);
             offset.ShouldBeGreaterThanOrEqualTo(0);
 
             var position = PositionHelper.ToRange(
@@ -568,7 +628,7 @@ public sealed class HeadlessProjectEditMetricsTests : IDisposable
 
             var hoverText = hover?.Contents.MarkupContent?.Value ?? string.Empty;
             hover.ShouldNotBeNull();
-            hoverText.ShouldContain("answer");
+            hoverText.ShouldContain(expectedHoverText);
 
             return new HoverProbeMetrics(stopwatch.Elapsed.TotalMilliseconds, hover is not null, delta);
         }

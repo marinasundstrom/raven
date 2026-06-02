@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -32,6 +33,7 @@ internal sealed class HoverHandler : IHoverHandler
     private readonly DocumentStore _documents;
     private readonly ILogger<HoverHandler> _logger;
     private readonly LatestDocumentRequestTracker _latestRequests = new();
+    private readonly ConcurrentDictionary<HoverPresentationCacheKey, string> _hoverPresentationCache = new();
 
     public HoverHandler(DocumentStore documents, ILogger<HoverHandler> logger)
     {
@@ -66,6 +68,7 @@ internal sealed class HoverHandler : IHoverHandler
         double hoverTextMs = 0;
         double rangeMs = 0;
         double directInvocationResolutionMs = 0;
+        double directAttributeResolutionMs = 0;
         double declaredSymbolResolutionMs = 0;
         double genericSymbolResolutionMs = 0;
         Compilation? semanticCompilation = null;
@@ -148,7 +151,11 @@ internal sealed class HoverHandler : IHoverHandler
             var resolution = TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
             declaredSymbolResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
+            {
+                stageStopwatch.Restart();
                 resolution = TryResolveAttributeHoverDirect(semanticModel, root, offset);
+                directAttributeResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
+            }
 
             if (resolution is null)
             {
@@ -181,6 +188,28 @@ internal sealed class HoverHandler : IHoverHandler
             invocationOverrideMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             var symbol = resolvedValue.Symbol;
+            var presentationCacheKey = CreateHoverPresentationCacheKey(
+                request.TextDocument.Uri,
+                context.Value.Document.Version,
+                context.Value.Document.Project.Version,
+                resolvedValue);
+            if (_hoverPresentationCache.TryGetValue(presentationCacheKey, out var cachedHoverText))
+            {
+                currentStage = "range";
+                stageStopwatch.Restart();
+                var cachedHoverRange = PositionHelper.ToRange(sourceText, GetHoverSpanForResolution(resolvedValue));
+                rangeMs = stageStopwatch.Elapsed.TotalMilliseconds;
+                return new Hover
+                {
+                    Contents = new MarkedStringsOrMarkupContent(new MarkupContent
+                    {
+                        Kind = MarkupKind.Markdown,
+                        Value = cachedHoverText
+                    }),
+                    Range = cachedHoverRange
+                };
+            }
+
             currentStage = "signature";
             stageStopwatch.Restart();
             var signature = BuildDisplaySignatureForResolvedHover(resolvedValue, semanticModel, root, offset);
@@ -207,7 +236,7 @@ internal sealed class HoverHandler : IHoverHandler
 
             currentStage = "documentation";
             stageStopwatch.Restart();
-            var documentation = symbol.GetDocumentationComment();
+            var documentation = GetHoverDocumentation(symbol);
             documentationMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             currentStage = "captures";
@@ -234,6 +263,8 @@ internal sealed class HoverHandler : IHoverHandler
                 documentation,
                 functionCaptures,
                 isCapturedVariable);
+            PruneHoverPresentationCacheIfNeeded();
+            _hoverPresentationCache[presentationCacheKey] = hoverText;
             hoverTextMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             currentStage = "range";
@@ -300,6 +331,7 @@ internal sealed class HoverHandler : IHoverHandler
                     new LanguageServerPerformanceInstrumentation.StageTiming("semanticModel", semanticModelMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("resolution", resolutionMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("directInvocationResolution", directInvocationResolutionMs),
+                    new LanguageServerPerformanceInstrumentation.StageTiming("directAttributeResolution", directAttributeResolutionMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("declaredSymbolResolution", declaredSymbolResolutionMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("genericSymbolResolution", genericSymbolResolutionMs),
                     new LanguageServerPerformanceInstrumentation.StageTiming("invocationOverride", invocationOverrideMs),
@@ -314,7 +346,7 @@ internal sealed class HoverHandler : IHoverHandler
             if (totalStopwatch.Elapsed.TotalMilliseconds >= SlowHoverThresholdMs)
             {
                 _logger.LogInformation(
-                    "Slow hover for {Uri} at {Line}:{Character}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms resolution={ResolutionMs:F1}ms directInvocation={DirectInvocationMs:F1}ms declaredSymbol={DeclaredSymbolMs:F1}ms genericSymbol={GenericSymbolMs:F1}ms invocationOverride={InvocationOverrideMs:F1}ms signature={SignatureMs:F1}ms containing={ContainingMs:F1}ms documentation={DocumentationMs:F1}ms captures={CapturesMs:F1}ms hoverText={HoverTextMs:F1}ms range={RangeMs:F1}ms lastStage={LastStage}.",
+                    "Slow hover for {Uri} at {Line}:{Character}: total={TotalMs:F1}ms gateWait={GateWaitMs:F1}ms context={ContextMs:F1}ms semanticModel={SemanticModelMs:F1}ms resolution={ResolutionMs:F1}ms directInvocation={DirectInvocationMs:F1}ms directAttribute={DirectAttributeMs:F1}ms declaredSymbol={DeclaredSymbolMs:F1}ms genericSymbol={GenericSymbolMs:F1}ms invocationOverride={InvocationOverrideMs:F1}ms signature={SignatureMs:F1}ms containing={ContainingMs:F1}ms documentation={DocumentationMs:F1}ms captures={CapturesMs:F1}ms hoverText={HoverTextMs:F1}ms range={RangeMs:F1}ms lastStage={LastStage}.",
                     request.TextDocument.Uri,
                     request.Position.Line,
                     request.Position.Character,
@@ -324,6 +356,7 @@ internal sealed class HoverHandler : IHoverHandler
                     semanticModelMs,
                     resolutionMs,
                     directInvocationResolutionMs,
+                    directAttributeResolutionMs,
                     declaredSymbolResolutionMs,
                     genericSymbolResolutionMs,
                     invocationOverrideMs,
@@ -405,6 +438,59 @@ internal sealed class HoverHandler : IHoverHandler
             _cancellation.Dispose();
         }
     }
+
+    private static HoverPresentationCacheKey CreateHoverPresentationCacheKey(
+        DocumentUri uri,
+        VersionStamp documentVersion,
+        VersionStamp projectVersion,
+        SymbolResolutionResult resolution)
+    {
+        var span = GetHoverSpanForResolution(resolution);
+        return new HoverPresentationCacheKey(
+            uri.ToString(),
+            documentVersion,
+            projectVersion,
+            resolution.Kind,
+            resolution.Node.Kind,
+            span.Start,
+            span.Length,
+            CreateHoverSymbolDisplayKey(resolution.Symbol));
+    }
+
+    private static string CreateHoverSymbolDisplayKey(ISymbol symbol)
+        => $"{symbol.Kind}|{FormatTrackedHoverSymbolDisplay(symbol)}";
+
+    private static DocumentationComment? GetHoverDocumentation(ISymbol symbol)
+    {
+        if (symbol is PEMethodSymbol
+            {
+                MethodKind: MethodKind.Constructor,
+                ContainingType.Name: { } containingTypeName
+            } &&
+            containingTypeName.EndsWith("Attribute", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return symbol.GetDocumentationComment();
+    }
+
+    private void PruneHoverPresentationCacheIfNeeded()
+    {
+        const int MaxCachedHoverPresentations = 4096;
+        if (_hoverPresentationCache.Count > MaxCachedHoverPresentations)
+            _hoverPresentationCache.Clear();
+    }
+
+    private readonly record struct HoverPresentationCacheKey(
+        string Uri,
+        VersionStamp DocumentVersion,
+        VersionStamp ProjectVersion,
+        SymbolResolutionKind ResolutionKind,
+        SyntaxKind NodeKind,
+        int SpanStart,
+        int SpanLength,
+        string SymbolDisplayKey);
 
     private static string BuildHoverText(
         string signature,

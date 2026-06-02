@@ -27,6 +27,7 @@ namespace Raven.LanguageServer;
 internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
     private const int DiagnosticsDebounceMilliseconds = 900;
+    internal const int PendingSyntaxDiagnosticsDebounceMilliseconds = 250;
     private const int DocumentCompilerDiagnosticsAfterEditDelayMilliseconds = 1_000;
     private const int DocumentCompilerDiagnosticsAfterOpenDelayMilliseconds = 1_000;
     internal const int RelatedDocumentCompilerDiagnosticsAfterEditDelayMilliseconds = DocumentCompilerDiagnosticsAfterEditDelayMilliseconds;
@@ -35,7 +36,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private const int DocumentAnalyzerDiagnosticsAfterOpenDelayMilliseconds = 4_000;
     private const int ActiveDiagnosticsRetryDelayMilliseconds = 250;
     private const int DiagnosticsRetryDelayMilliseconds = 2_500;
-    internal const int DocumentCommitDebounceMilliseconds = 600;
+    internal const int DocumentCommitDebounceMilliseconds = 1_200;
     private const double DidCloseLogThresholdMs = 50;
 
     private readonly DocumentStore _documents;
@@ -49,6 +50,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _completedDiagnostics = new();
     private readonly ConcurrentDictionary<CompletedDiagnosticsKey, byte> _activeDiagnostics = new();
     private readonly ConcurrentDictionary<PendingDiagnosticsRetryKey, byte> _pendingDiagnosticsRetries = new();
+    private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingSyntaxDiagnosticsPublishes = new();
     private readonly ConcurrentDictionary<DocumentUri, CancellationTokenSource> _pendingDocumentCommits = new();
     private long _nextDiagnosticsScheduleId;
 
@@ -82,6 +84,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         try
         {
             var documentSession = AdvanceDocumentSession(notification.TextDocument.Uri);
+            CancelPendingSyntaxDiagnostics(notification.TextDocument.Uri);
             CancelPendingDocumentCommit(notification.TextDocument.Uri);
             _documents.DiscardPendingDocumentChange(notification.TextDocument.Uri);
             var upsertResult = await _documents.UpsertDocumentWithResultAsync(
@@ -263,7 +266,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             stageStopwatch.Restart();
             if (textChanged)
             {
-                PublishPendingSyntaxDiagnostics(
+                SchedulePendingSyntaxDiagnostics(
                     notification.TextDocument.Uri,
                     updatedText,
                     notification.TextDocument.Version);
@@ -359,6 +362,70 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 resultCount: diagnosticsCount,
                 detail: $"{uri} version={version?.ToString() ?? "<none>"}");
         }
+    }
+
+    private void SchedulePendingSyntaxDiagnostics(
+        DocumentUri uri,
+        SourceText sourceText,
+        int? version)
+    {
+        var source = new CancellationTokenSource();
+        var token = source.Token;
+        var expectedSession = GetOrCreateDocumentSession(uri);
+        var current = _pendingSyntaxDiagnosticsPublishes.AddOrUpdate(
+            uri,
+            source,
+            (_, previous) =>
+            {
+                try
+                {
+                    previous.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+
+                return source;
+            });
+
+        if (!ReferenceEquals(current, source))
+        {
+            source.Dispose();
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(PendingSyntaxDiagnosticsDebounceMilliseconds, token).ConfigureAwait(false);
+                if (ShouldSkipRequest(uri, expectedSession, version))
+                    return;
+
+                PublishPendingSyntaxDiagnostics(uri, sourceText, version);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Pending syntax diagnostics publish canceled for {Uri}.", uri);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Pending syntax diagnostics publish failed for {Uri}.", uri);
+            }
+            finally
+            {
+                if (_pendingSyntaxDiagnosticsPublishes.TryGetValue(uri, out var active) && ReferenceEquals(active, source))
+                    _pendingSyntaxDiagnosticsPublishes.TryRemove(uri, out _);
+
+                try
+                {
+                    source.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        }, CancellationToken.None);
     }
 
     private void ScheduleDebouncedDocumentCommit(
@@ -610,6 +677,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         {
             _logger.LogInformation("DidClose started for {Uri}.", notification.TextDocument.Uri);
             _ = AdvanceDocumentSession(notification.TextDocument.Uri);
+            CancelPendingSyntaxDiagnostics(notification.TextDocument.Uri);
             CancelPendingDocumentCommit(notification.TextDocument.Uri);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
@@ -654,6 +722,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     public override async Task<Unit> Handle(DidSaveTextDocumentParams notification, CancellationToken cancellationToken)
     {
         _logger.LogDebug("DidSave {Uri}.", notification.TextDocument.Uri);
+        CancelPendingSyntaxDiagnostics(notification.TextDocument.Uri);
         CancelPendingDocumentCommit(notification.TextDocument.Uri);
         var upsertResult = await _documents.FlushPendingDocumentChangeAsync(
             notification.TextDocument.Uri,
@@ -1138,6 +1207,28 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 pending.ExpectedVersion,
                 pending.Reason,
                 "source=clearPending");
+        }
+    }
+
+    private void CancelPendingSyntaxDiagnostics(DocumentUri uri)
+    {
+        if (!_pendingSyntaxDiagnosticsPublishes.TryRemove(uri, out var pending))
+            return;
+
+        try
+        {
+            pending.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        try
+        {
+            pending.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
         }
     }
 

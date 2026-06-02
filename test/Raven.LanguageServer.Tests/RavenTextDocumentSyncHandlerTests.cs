@@ -123,7 +123,15 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     [Fact]
     public void DocumentCommitDebounce_LeavesTimeToTypeBeforeUpdatingWorkspaceSnapshot()
     {
-        RavenTextDocumentSyncHandler.DocumentCommitDebounceMilliseconds.ShouldBe(600);
+        RavenTextDocumentSyncHandler.DocumentCommitDebounceMilliseconds.ShouldBe(1_200);
+    }
+
+    [Fact]
+    public void PendingSyntaxDiagnosticsDebounce_LeavesTimeToCompleteCommentToken()
+    {
+        RavenTextDocumentSyncHandler.PendingSyntaxDiagnosticsDebounceMilliseconds.ShouldBe(250);
+        RavenTextDocumentSyncHandler.PendingSyntaxDiagnosticsDebounceMilliseconds
+            .ShouldBeLessThan(RavenTextDocumentSyncHandler.DocumentCommitDebounceMilliseconds);
     }
 
     [Fact]

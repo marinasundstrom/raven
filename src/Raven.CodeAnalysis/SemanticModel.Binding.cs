@@ -65,11 +65,27 @@ public partial class SemanticModel
         if (_attributeCache.TryGetValue(attribute, out var cached))
             return cached;
 
-        EnsureBindingReadyForSemanticQuery();
+        EnsureDeclarations();
 
+        var boundExpression = BindAttributeExpression(attribute);
+        var data = AttributeDataFactory.Create(boundExpression, attribute);
+        if (data?.AttributeConstructor is null && !MemberSignaturesDeclared)
+        {
+            RemoveCachedBoundNode(attribute);
+            EnsureMemberSignaturesDeclared();
+            boundExpression = BindAttributeExpression(attribute);
+            data = AttributeDataFactory.Create(boundExpression, attribute);
+        }
+
+        _attributeCache[attribute] = data;
+        return data;
+    }
+
+    private BoundExpression? BindAttributeExpression(AttributeSyntax attribute)
+    {
         BoundExpression? boundExpression = TryGetCachedBoundNode(attribute) as BoundExpression;
         var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
-        var binder = GetBinder(binderNode);
+        var binder = GetBinderForIncrementalSemanticQuery(binderNode);
 
         if (boundExpression is null)
         {
@@ -81,10 +97,7 @@ public partial class SemanticModel
         if (boundExpression is null)
             return null;
 
-        var data = AttributeDataFactory.Create(boundExpression, attribute);
-
-        _attributeCache[attribute] = data;
-        return data;
+        return boundExpression;
     }
 
     internal void RegisterLabel(LabeledStatementSyntax syntax, ILabelSymbol symbol)

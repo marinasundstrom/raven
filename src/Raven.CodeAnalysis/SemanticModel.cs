@@ -392,7 +392,7 @@ public partial class SemanticModel
                     }
                     else if (root is CompilationUnitSyntax compilationUnit)
                     {
-                        EnsureTopLevelFunctionDeclarations(compilationUnit);
+                        EnsureTopLevelFunctionDeclarations(compilationUnit, ensureSourceDeclarations: false);
                     }
 
                     EnsureDeclarations();
@@ -1302,7 +1302,7 @@ public partial class SemanticModel
                     root is CompilationUnitSyntax compilationUnit &&
                     Compilation.HasRunnableFileScopeCode(compilationUnit))
                 {
-                    EnsureTopLevelCompilationUnitBound(compilationUnit);
+                    EnsureTopLevelCompilationUnitBound(compilationUnit, ensureSourceDeclarations: requireCompleteDeclarations);
                     BindGlobalStatementDeclarationsForScope(root, ownerBinder, requireCompleteDeclarations);
                 }
 
@@ -1420,7 +1420,7 @@ public partial class SemanticModel
                     root is CompilationUnitSyntax compilationUnit &&
                     Compilation.HasRunnableFileScopeCode(compilationUnit))
                 {
-                    EnsureTopLevelCompilationUnitBound(compilationUnit);
+                    EnsureTopLevelCompilationUnitBound(compilationUnit, ensureSourceDeclarations: requireCompleteDeclarations);
                     BindGlobalStatementDeclarationsForScope(root, ownerBinder, requireCompleteDeclarations);
                 }
 
@@ -13450,7 +13450,9 @@ public partial class SemanticModel
         return null;
     }
 
-    private void EnsureTopLevelCompilationUnitBound(CompilationUnitSyntax compilationUnit)
+    private void EnsureTopLevelCompilationUnitBound(
+        CompilationUnitSyntax compilationUnit,
+        bool ensureSourceDeclarations = true)
     {
         if (TryGetCachedBoundNode(compilationUnit) is not null)
             return;
@@ -13470,16 +13472,23 @@ public partial class SemanticModel
         if (globals.Length == 0)
             return;
 
-        var topLevelBinder = FindTopLevelBinder(GetBinder(compilationUnit))
-            ?? FindTopLevelBinder(GetBinder(globals[0]));
+        var topLevelBinder = FindTopLevelBinder(GetTopLevelCompilationUnitBinder(compilationUnit))
+            ?? FindTopLevelBinder(GetTopLevelCompilationUnitBinder(globals[0]));
         if (topLevelBinder is null)
             return;
 
-        EnsureTopLevelFunctionDeclarations(compilationUnit);
+        EnsureTopLevelFunctionDeclarations(compilationUnit, ensureSourceDeclarations);
         topLevelBinder.BindGlobalStatements(globals);
+
+        Binder GetTopLevelCompilationUnitBinder(SyntaxNode node)
+            => ensureSourceDeclarations
+                ? GetBinder(node)
+                : GetBinderForIncrementalSemanticQuery(node);
     }
 
-    internal void EnsureTopLevelFunctionDeclarations(CompilationUnitSyntax compilationUnit)
+    internal void EnsureTopLevelFunctionDeclarations(
+        CompilationUnitSyntax compilationUnit,
+        bool ensureSourceDeclarations = true)
     {
         static TopLevelBinder? FindTopLevelBinder(Binder? binder)
         {
@@ -13497,8 +13506,8 @@ public partial class SemanticModel
         if (functionGlobals.Length == 0)
             return;
 
-        var topLevelBinder = FindTopLevelBinder(GetBinder(compilationUnit))
-            ?? (globals.Length > 0 ? FindTopLevelBinder(GetBinder(globals[0])) : null);
+        var topLevelBinder = FindTopLevelBinder(GetTopLevelFunctionDeclarationBinder(compilationUnit))
+            ?? (globals.Length > 0 ? FindTopLevelBinder(GetTopLevelFunctionDeclarationBinder(globals[0])) : null);
 
         if (topLevelBinder is not null)
             topLevelBinder.DeclareGlobalFunctions(globals.Concat(functionGlobals));
@@ -13514,12 +13523,17 @@ public partial class SemanticModel
                         reference.SyntaxTree == function.SyntaxTree &&
                         reference.Span == function.Span))
                 {
-                    var parentBinder = (Binder?)topLevelBinder ?? GetBinder(compilationUnit);
+                    var parentBinder = (Binder?)topLevelBinder ?? GetTopLevelFunctionDeclarationBinder(compilationUnit);
                     var functionBinder = new FunctionBinder(parentBinder, function);
                     _ = functionBinder.GetMethodSymbol();
                 }
             }
         }
+
+        Binder GetTopLevelFunctionDeclarationBinder(SyntaxNode node)
+            => ensureSourceDeclarations
+                ? GetBinder(node)
+                : GetBinderForIncrementalSemanticQuery(node);
     }
 
     private static IEnumerable<GlobalStatementSyntax> GetTopLevelFunctionGlobalStatements(CompilationUnitSyntax compilationUnit)
