@@ -148,6 +148,9 @@ internal sealed class HoverHandler : IHoverHandler
             var resolution = TryResolveDeclaredHoverSymbol(semanticModel, root, offset);
             declaredSymbolResolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (resolution is null)
+                resolution = TryResolveAttributeHoverDirect(semanticModel, root, offset);
+
+            if (resolution is null)
             {
                 stageStopwatch.Restart();
                 resolution = TryResolveInvocationTargetHoverDirect(semanticModel, root, offset);
@@ -626,6 +629,48 @@ internal sealed class HoverHandler : IHoverHandler
         {
             if (TryResolveInvocationMethodFromSyntax(semanticModel, invocation, identifier, out var resolution))
                 return resolution;
+        }
+
+        return null;
+    }
+
+    private static SymbolResolutionResult? TryResolveAttributeHoverDirect(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (token.Kind != SyntaxKind.IdentifierToken)
+                continue;
+
+            var attribute = token.GetAncestor<AttributeSyntax>();
+            if (attribute is not null &&
+                !attribute.Name.Span.Contains(token.Span) &&
+                attribute.Name.Span.End != candidateOffset)
+            {
+                attribute = null;
+            }
+
+            if (attribute is null)
+                continue;
+
+            var symbolInfo = semanticModel.GetSymbolInfo(attribute);
+            var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
+            if (symbol is null)
+                continue;
+
+            return new SymbolResolutionResult(SymbolResolutionKind.SymbolInfo, symbol, attribute.Name);
         }
 
         return null;

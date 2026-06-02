@@ -175,6 +175,56 @@ class C {
     }
 
     [Fact]
+    public void AttributeNameHover_ResolvesConstructorDirectly()
+    {
+        const string code = """
+open class Attribute {}
+
+class InfoAttribute : Attribute
+{
+    public init() {}
+}
+
+[Info]
+class Widget {}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var token = root.DescendantTokens().Single(token =>
+            token.Kind == SyntaxKind.IdentifierToken &&
+            token.ValueText == "Info");
+        var attribute = token.GetAncestor<AttributeSyntax>();
+        attribute.ShouldNotBeNull();
+        var symbolInfo = semanticModel.GetSymbolInfo(attribute);
+        (symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault()).ShouldNotBeNull();
+        var resolveAttributeHoverDirect = typeof(HoverHandler)
+            .GetMethod("TryResolveAttributeHoverDirect", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var resolution = (SymbolResolutionResult?)resolveAttributeHoverDirect.Invoke(
+            null,
+            [semanticModel, root, token.SpanStart + 1]);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Node.ShouldBeAssignableTo<IdentifierNameSyntax>()
+            .Identifier.ValueText.ShouldBe("Info");
+        var constructor = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        constructor.MethodKind.ShouldBe(MethodKind.Constructor);
+        constructor.ContainingType?.Name.ShouldBe("InfoAttribute");
+    }
+
+    [Fact]
     public void TypePositionResolution_TreatsGenericNameAsWholeSyntax()
     {
         const string code = """
