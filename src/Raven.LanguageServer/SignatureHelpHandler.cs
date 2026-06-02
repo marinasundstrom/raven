@@ -93,7 +93,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 var activeParameter = GetActiveParameterIndex(methods[activeSignature], invocation.ArgumentList, offset, argumentIndex);
 
                 var signatures = methods
-                    .Select(method => CreateSignatureInformation(method, plainTypeFormat))
+                    .Select(method => CreateSignatureInformation(method, plainTypeFormat, methods))
                     .ToArray();
                 resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
                 resultCount = signatures.Length;
@@ -194,7 +194,10 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         }
     }
 
-    private static SignatureInformation CreateSignatureInformation(IMethodSymbol method, SymbolDisplayFormat plainTypeFormat)
+    private static SignatureInformation CreateSignatureInformation(
+        IMethodSymbol method,
+        SymbolDisplayFormat plainTypeFormat,
+        ImmutableArray<IMethodSymbol> overloads = default)
     {
         string name;
         string typeParams;
@@ -204,13 +207,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             var containingType = method.ContainingType;
             if (containingType?.IsUnion == true)
             {
-                name = containingType.ToDisplayString(
-                    SymbolDisplayFormat.RavenSignatureFormat
-                        .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
-                        .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword)
-                        .WithMiscellaneousOptions(
-                            SymbolDisplayFormat.RavenSignatureFormat.MiscellaneousOptions |
-                            SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes));
+                name = FormatUnionConstructorContainingType(containingType, overloads, plainTypeFormat);
                 typeParams = string.Empty;
             }
             else
@@ -250,6 +247,34 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             Parameters = new Container<ParameterInformation>(parameterInfos),
             Documentation = FormatDocumentation(method.GetDocumentationComment())
         };
+    }
+
+    private static string FormatUnionConstructorContainingType(
+        INamedTypeSymbol containingType,
+        ImmutableArray<IMethodSymbol> overloads,
+        SymbolDisplayFormat plainTypeFormat)
+    {
+        var unionTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+            .WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword)
+            .WithMiscellaneousOptions(
+                SymbolDisplayFormat.RavenSignatureFormat.MiscellaneousOptions |
+                SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
+        var display = containingType.ToDisplayString(unionTypeFormat);
+        if (display.Contains('(') || overloads.IsDefaultOrEmpty)
+            return display;
+
+        var memberTypes = overloads
+            .Where(method =>
+                method.MethodKind == MethodKind.Constructor &&
+                method.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(method.ContainingType, containingType))
+            .Select(method => method.Parameters[0].Type.ToDisplayString(plainTypeFormat))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return memberTypes.Length == 0
+            ? display
+            : $"{display}({string.Join(" | ", memberTypes)})";
     }
 
     private static SignatureInformation CreateAttributeConstructorSignatureInformation(IMethodSymbol constructor, SymbolDisplayFormat plainTypeFormat)

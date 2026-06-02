@@ -4301,7 +4301,30 @@ public partial class SemanticModel
                 return true;
 
             if (method.MethodKind == MethodKind.Constructor)
+            {
+                if (method is SubstitutedMethodSymbol or ConstructedMethodSymbol ||
+                    method.ContainingType is ConstructedNamedTypeSymbol)
+                {
+                    return true;
+                }
+
+                if (!TryGetExplicitTypeArguments(out var containingTypeArguments) ||
+                    method.ContainingType is not INamedTypeSymbol containingType ||
+                    containingType.TypeParameters.Length != containingTypeArguments.Length)
+                {
+                    normalized = null;
+                    return false;
+                }
+
+                if (containingType.Construct(containingTypeArguments.ToArray()) is not ConstructedNamedTypeSymbol constructedType)
+                {
+                    normalized = null;
+                    return false;
+                }
+
+                normalized = new SubstitutedMethodSymbol(method.OriginalDefinition ?? method, constructedType);
                 return true;
+            }
 
             if (!TryGetExplicitTypeArguments(out var typeArguments) ||
                 method.TypeParameters.Length != typeArguments.Length)
@@ -5728,7 +5751,7 @@ public partial class SemanticModel
 
         foreach (var memberTypeSyntax in memberTypes.Types)
         {
-            if (!TryResolveAvailableTypeSyntax(memberTypeSyntax, out var memberType))
+            if (!TryResolveStandardUnionMemberTypeSyntax(memberTypeSyntax, out var memberType))
                 continue;
 
             var constructor = new SourceMethodSymbol(
@@ -5755,6 +5778,26 @@ public partial class SemanticModel
 
             constructor.SetParameters([parameter]);
             addIfNotPresent(constructor);
+        }
+
+        bool TryResolveStandardUnionMemberTypeSyntax(TypeSyntax memberTypeSyntax, out ITypeSymbol memberType)
+        {
+            if (memberTypeSyntax is IdentifierNameSyntax identifier &&
+                !unionType.TypeParameters.IsDefaultOrEmpty &&
+                !unionType.TypeArguments.IsDefaultOrEmpty &&
+                unionType.TypeParameters.Length == unionType.TypeArguments.Length)
+            {
+                for (var i = 0; i < unionType.TypeParameters.Length; i++)
+                {
+                    if (string.Equals(unionType.TypeParameters[i].Name, identifier.Identifier.ValueText, StringComparison.Ordinal))
+                    {
+                        memberType = unionType.TypeArguments[i];
+                        return true;
+                    }
+                }
+            }
+
+            return TryResolveAvailableTypeSyntax(memberTypeSyntax, out memberType);
         }
     }
 
@@ -5904,14 +5947,32 @@ public partial class SemanticModel
             if (TryLookupAvailableTypeFromBinder(simpleName, out var binderType) &&
                 binderType is INamedTypeSymbol { TypeKind: not TypeKind.Error } namedBinderType)
             {
-                type = namedBinderType;
-                return true;
+                if (TryConstructAvailableNamedType(simpleName, namedBinderType, out var constructedBinderType) &&
+                    constructedBinderType is INamedTypeSymbol constructedBinderNamedType)
+                {
+                    type = constructedBinderNamedType;
+                    return true;
+                }
+
+                return false;
             }
 
-            return TryLookupAvailableNamedType(simpleName.Identifier.ValueText, simpleName is GenericNameSyntax genericName
-                ? genericName.TypeArgumentList.Arguments.Count
-                : 0, out type) &&
-                type is not null;
+            if (!TryLookupAvailableNamedType(simpleName.Identifier.ValueText, simpleName is GenericNameSyntax genericName
+                    ? genericName.TypeArgumentList.Arguments.Count
+                    : 0, out var namedType) ||
+                namedType is null)
+            {
+                return false;
+            }
+
+            if (!TryConstructAvailableNamedType(simpleName, namedType, out var constructedType) ||
+                constructedType is not INamedTypeSymbol constructedNamedType)
+            {
+                return false;
+            }
+
+            type = constructedNamedType;
+            return true;
         }
 
         var metadataName = expression.ToString();

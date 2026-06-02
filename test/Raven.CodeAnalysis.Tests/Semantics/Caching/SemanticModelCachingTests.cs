@@ -1910,6 +1910,43 @@ union Foo(int | string)
     }
 
     [Fact]
+    public void TryGetAvailableInvocationCandidates_ResolvesColdGenericUnionConstructorsOnConstructedTypeWithoutBinding()
+    {
+        var code = """
+func Main() -> () {
+    val x = Either<int, string>()
+}
+
+union Either<T1, T2>(T1 | T2)
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var instrumentation = new PerformanceInstrumentation();
+        var options = new CompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            performanceInstrumentation: instrumentation);
+        var compilation = CreateCompilation(tree, options: options);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+
+        instrumentation.BinderReentry.Reset();
+
+        Assert.True(model.TryGetAvailableInvocationCandidates(invocation, out var methods));
+        Assert.Equal(2, methods.Length);
+        Assert.All(methods, method =>
+        {
+            Assert.Equal(MethodKind.Constructor, method.MethodKind);
+            Assert.Equal("Either<int, string>", method.ContainingType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        });
+        Assert.Contains(methods, method => method.Parameters.Single().Type.SpecialType == SpecialType.System_Int32);
+        Assert.Contains(methods, method => method.Parameters.Single().Type.SpecialType == SpecialType.System_String);
+        Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
+    }
+
+    [Fact]
     public void TryGetAvailableTypeInfo_ReusesCachedMemberAccessTypeWithoutBinding()
     {
         var code = """

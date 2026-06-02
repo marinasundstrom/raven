@@ -21,6 +21,19 @@ The full baseline can take around 20 minutes on a typical local machine. Treat i
 
 The full sample build is also a smoke gate, not a default inner-loop command: `FORCE_REBUILD=1 samples/build.sh` can take roughly 5-6 minutes because it recompiles Raven.Core/compiler dependencies and every sample, while `samples/run.sh` usually finishes in seconds once the sample DLLs are built. Prefer targeted sample filters when validating one language area, then run the full sample build/run pass for compiler/runtime stabilization.
 
+Run suites because their owning behavior changed, not because they are nearby:
+
+| Touched area | Usual validation |
+|---|---|
+| Parser, binder, semantic model, symbol display, diagnostics, operations | Focused `Raven.CodeAnalysis.Tests` class/filter or matching feature suite |
+| Compiler driver, Raven project loading, MSBuild targets, target frameworks, references | Targeted project-loading/compiler-driver tests, then sample build only when compatibility changed |
+| Emit, lowering, runtime execution, metadata shape, reflection | Focused runtime/CodeGen test or isolated runtime suite |
+| Language-server handlers, document store, workspace manager, request scheduling, presentation formatting | Focused `Raven.LanguageServer.Tests` filter |
+| Language-server latency budgets or metrics thresholds | `scripts/test-language-server-perf.sh` only |
+| Console editor behavior | `test/Raven.Editor.Tests` only |
+
+Do not run `Raven.LanguageServer.Tests` merely because a language feature changed. Run it when the change touches language-server code, editor-facing presentation, or a bug was observed only through the language-server path and needs an LSP-specific guard.
+
 ## Coverage Gaps
 
 A skipped test is not covered by the baseline. Keep skipped tests visible and either restore them as fast syntax/semantic coverage, move them into isolated runtime coverage, or delete/replace them when they are stale.
