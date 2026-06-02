@@ -9,7 +9,7 @@ using Raven.LanguageServer;
 
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public sealed class LanguageServerInlayHintTests : IDisposable
 {

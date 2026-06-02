@@ -3,7 +3,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 internal static class LanguageServerTestReferences
 {

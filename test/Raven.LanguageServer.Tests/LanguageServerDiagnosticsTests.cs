@@ -16,7 +16,7 @@ using CodeLocation = Raven.CodeAnalysis.Location;
 using CodeTextSpan = Raven.CodeAnalysis.Text.TextSpan;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public sealed class LanguageServerDiagnosticsTests : IDisposable
 {

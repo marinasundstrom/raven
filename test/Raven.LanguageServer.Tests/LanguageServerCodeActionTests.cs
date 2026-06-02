@@ -11,7 +11,7 @@ using Raven.CodeAnalysis.Diagnostics;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 using CodeFixAction = Raven.CodeAnalysis.CodeAction;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;

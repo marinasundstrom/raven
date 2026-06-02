@@ -12,7 +12,7 @@ using Raven.LanguageServer;
 using RavenLocation = Raven.CodeAnalysis.Location;
 using RavenSymbolKind = Raven.CodeAnalysis.SymbolKind;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerCompletionMappingTests
 {

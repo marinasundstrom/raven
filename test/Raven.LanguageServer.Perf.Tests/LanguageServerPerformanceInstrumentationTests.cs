@@ -2,7 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 
 using Raven.LanguageServer;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Perf.Tests;
 
 public sealed class LanguageServerPerformanceInstrumentationTests
 {

@@ -101,6 +101,7 @@ while IFS= read -r project; do
   [[ "$project" == "$CODE_ANALYSIS_TESTS" ]] && continue
   [[ "$project" == *Raven.CodeAnalysis.Samples.Tests.csproj ]] && continue
   [[ "$project" == *Raven.LanguageServer.Tests.csproj ]] && continue
+  [[ "$project" == *Raven.LanguageServer.Perf.Tests.csproj ]] && continue
 
   dotnet test "$project" "${test_args[@]}" \
     --filter "$common_filter"

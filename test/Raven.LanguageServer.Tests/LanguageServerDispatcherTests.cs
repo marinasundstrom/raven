@@ -8,7 +8,7 @@ using Raven.LanguageServer;
 using RavenWorkspace = Raven.CodeAnalysis.RavenWorkspace;
 using SourceText = Raven.CodeAnalysis.Text.SourceText;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public sealed class LanguageServerDispatcherTests : IDisposable
 {

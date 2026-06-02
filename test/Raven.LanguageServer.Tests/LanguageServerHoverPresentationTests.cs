@@ -15,7 +15,7 @@ using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerHoverPresentationTests
 {

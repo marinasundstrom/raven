@@ -4,7 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 
 using Raven.LanguageServer;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerCompletionRegistrationTests
 {

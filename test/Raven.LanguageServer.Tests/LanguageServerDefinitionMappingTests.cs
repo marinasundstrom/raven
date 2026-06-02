@@ -4,9 +4,10 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerDefinitionMappingTests
 {

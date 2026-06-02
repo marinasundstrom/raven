@@ -9,7 +9,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.LanguageServer;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
 {

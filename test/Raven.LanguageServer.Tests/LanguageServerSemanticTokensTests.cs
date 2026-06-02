@@ -10,7 +10,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public sealed class LanguageServerSemanticTokensTests
 {

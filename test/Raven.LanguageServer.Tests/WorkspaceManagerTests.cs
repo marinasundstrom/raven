@@ -13,7 +13,7 @@ using Raven.LanguageServer;
 
 using CodeFixAction = Raven.CodeAnalysis.CodeAction;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public sealed class WorkspaceManagerTests : IDisposable
 {

@@ -17,7 +17,7 @@ using Xunit.Abstractions;
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Perf.Tests;
 
 public sealed class HeadlessProjectEditMetricsTests : IDisposable
 {

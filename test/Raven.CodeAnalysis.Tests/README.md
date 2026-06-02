@@ -12,6 +12,7 @@ Runtime, reflection, generated IL, process, NuGet, MSBuild, and sample-project c
 | Feature suite | Focused area checks after changing a feature | `scripts/test-feature-suite.sh <suite>` |
 | Runtime isolated | CodeGen, sample, reflection, emitted-assembly, and project-heavy integration tests | `scripts/test-runtime-isolated.sh` |
 | Feature runtime | Runtime/emission overlap for one area | `scripts/test-feature-suite.sh <suite> --runtime` |
+| Language-server perf | Opt-in language-server latency and interaction-budget checks | `scripts/test-language-server-perf.sh` |
 | Samples | End-to-end sample project build after compiler/runtime changes | `FORCE_REBUILD=1 samples/build.sh` |
 
 All ad hoc `dotnet test` commands should use `/property:WarningLevel=0`.
@@ -23,6 +24,19 @@ The full sample build is also a smoke gate, not a default inner-loop command: `F
 ## Coverage Gaps
 
 A skipped test is not covered by the baseline. Keep skipped tests visible and either restore them as fast syntax/semantic coverage, move them into isolated runtime coverage, or delete/replace them when they are stale.
+
+## Project Boundaries
+
+Keep compiler and editor-adjacent coverage in the project that owns the behavior:
+
+| Project | Owns |
+|---|---|
+| `test/Raven.CodeAnalysis.Tests` | Compiler API, syntax, binding, semantic model, diagnostics, symbols, operations, project loading, and reduced compiler regressions from samples |
+| `test/Raven.LanguageServer.Tests` | Language-server request handling, document snapshots, diagnostics publication, hover/completion/inlay presentation, request cancellation, and VS Code-facing workspace behavior |
+| `test/Raven.LanguageServer.Perf.Tests` | Opt-in language-server metrics, latency budgets, and performance instrumentation; do not include in baseline behavior gates |
+| `test/Raven.Editor.Tests` | The `Raven.Editor` console editor only; do not use this project or namespace for language-server or VS Code integration coverage |
+
+When a language-server failure exposes a compiler semantic bug, reduce it into `Raven.CodeAnalysis.Tests` first, then keep a narrow `Raven.LanguageServer.Tests` guard only for the language-server path that made the bug visible.
 
 Current explicit gaps:
 

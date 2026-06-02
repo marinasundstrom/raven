@@ -9,7 +9,7 @@ using CodeDiagnostic = Raven.CodeAnalysis.Diagnostic;
 using CodeDiagnosticSeverity = Raven.CodeAnalysis.DiagnosticSeverity;
 using CodeLocation = Raven.CodeAnalysis.Location;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerDiagnosticTagTests
 {

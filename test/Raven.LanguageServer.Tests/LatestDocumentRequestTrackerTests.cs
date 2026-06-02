@@ -4,7 +4,7 @@ using Raven.LanguageServer;
 
 using Shouldly;
 
-namespace Raven.Editor.Tests;
+namespace Raven.LanguageServer.Tests;
 
 public sealed class LatestDocumentRequestTrackerTests
 {
