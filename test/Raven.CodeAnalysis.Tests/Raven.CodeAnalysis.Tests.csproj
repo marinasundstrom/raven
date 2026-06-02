@@ -37,6 +37,7 @@
     <ProjectReference
       Include="..\..\src\Raven.Compiler\Raven.Compiler.csproj"
       AdditionalProperties="UseRavenCoreReference=false" />
+    <ProjectReference Include="..\..\src\Raven.Core\Raven.Core.rvnproj" />
     <ProjectReference
       Include="..\MetadataFixtures\ExtensionMethodsFixture\ExtensionMethodsFixture.csproj" />
   </ItemGroup>

@@ -102,7 +102,7 @@ public partial class Compilation
 
     private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, MacroReference[] macroReferences, CompilationOptions? options = null)
     {
-        AssemblyName = assemblyName ?? "assembly";
+        AssemblyName = string.IsNullOrWhiteSpace(assemblyName) ? "assembly" : assemblyName;
         _syntaxTrees = syntaxTrees;
         _references = references;
         _macroReferences = macroReferences;

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <AssemblyName>Raven.Core</AssemblyName>
+    <OutputType>Library</OutputType>
+    <ImplicitUsings>false</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <RavenCompile Include="Error.rav" />
+    <RavenCompile Include="Option.rav" />
+    <RavenCompile Include="Parse.rav" />
+    <RavenCompile Include="Receiver.rav" />
+    <RavenCompile Include="Result.rav" />
+    <RavenCompile Include="LinqExtensions.rav" />
+    <RavenCompile Include="TopLevel.rav" />
+    <RavenCompile Include="UnionJsonConverter.rav" />
+    <RavenCompile Include="Union.rav" />
+  </ItemGroup>
+</Project>

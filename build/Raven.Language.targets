@@ -13,10 +13,14 @@
     <RavenCoreReferencePath Condition="'$(RavenCoreReferencePath)' == '' and Exists('$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\Raven.Core.dll')">$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\Raven.Core.dll</RavenCoreReferencePath>
     <RavenCoreReferencePath Condition="'$(RavenCoreReferencePath)' == '' and Exists('$(RavenCoreCompilerFrameworkCandidate)')">$(RavenCoreCompilerFrameworkCandidate)</RavenCoreReferencePath>
     <RavenCoreReferencePath Condition="'$(RavenCoreReferencePath)' == '' and Exists('$(RavenCoreCompilerHostCandidate)')">$(RavenCoreCompilerHostCandidate)</RavenCoreReferencePath>
-    <RavenCoreArgument Condition="'$(RavenCoreReferencePath)' != ''">--raven-core &quot;$(RavenCoreReferencePath)&quot;</RavenCoreArgument>
+    <RavenEmitCoreTypesOnly Condition="'$(RavenEmitCoreTypesOnly)' == ''">false</RavenEmitCoreTypesOnly>
+    <RavenCoreArgument Condition="'$(RavenEmitCoreTypesOnly)' == 'true'">--emit-core-types-only</RavenCoreArgument>
+    <RavenCoreArgument Condition="'$(RavenCoreArgument)' == '' and '$(RavenCoreReferencePath)' != ''">--raven-core &quot;$(RavenCoreReferencePath)&quot;</RavenCoreArgument>
     <RavenCoreArgument Condition="'$(RavenCoreArgument)' == ''">--emit-core-types-only</RavenCoreArgument>
     <RavenBuildArgs Condition="'$(RavenBuildArgs)' == ''"></RavenBuildArgs>
     <RavenTargetFrameworkArgument Condition="'$(TargetFramework)' != ''">--framework &quot;$(TargetFramework)&quot;</RavenTargetFrameworkArgument>
+    <RavenOutputTypeArgument Condition="'$(OutputType)' == 'Library'">--output-type classlib</RavenOutputTypeArgument>
+    <RavenOutputTypeArgument Condition="'$(RavenOutputTypeArgument)' == '' and '$(OutputType)' != ''">--output-type exe</RavenOutputTypeArgument>
 
     <DefaultLanguageSourceExtension>.rvn</DefaultLanguageSourceExtension>
     <Language>Raven</Language>
@@ -36,7 +40,7 @@
     <EmbeddedResource Remove="**/*.resx" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(IsCrossTargetingBuild)' != 'true' and '$(RavenCoreReferencePath)' != ''">
+  <ItemGroup Condition="'$(IsCrossTargetingBuild)' != 'true' and '$(RavenEmitCoreTypesOnly)' != 'true' and '$(RavenCoreReferencePath)' != ''">
     <Reference Include="Raven.Core">
       <HintPath>$(RavenCoreReferencePath)</HintPath>
       <Private>true</Private>
@@ -58,11 +62,16 @@
     Inputs="$(MSBuildProjectFullPath);@(RavenCompile);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
+    <PropertyGroup>
+      <_RavenIntermediateOutputPath Condition="$([System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)'))">$(IntermediateOutputPath)</_RavenIntermediateOutputPath>
+      <_RavenIntermediateOutputPath Condition="'$(_RavenIntermediateOutputPath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(IntermediateOutputPath)'))</_RavenIntermediateOutputPath>
+    </PropertyGroup>
+
     <Error
       Condition="!Exists('$(RavenCompilerHost)')"
       Text="Built Raven compiler host not found at '$(RavenCompilerHost)'. Build Raven.Compiler first or set &lt;RavenCompilerHost&gt;." />
 
-    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <MakeDir Directories="$(_RavenIntermediateOutputPath)" />
 
     <ItemGroup>
       <_RavenReferencePath Include="@(ReferencePath)" Condition="Exists('%(FullPath)') and '%(Filename)' != 'Raven.Core'" />
@@ -74,7 +83,7 @@
 
     <Message Importance="High" Text="RavenCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
-      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(IntermediateOutputPath)&quot; $(RavenTargetFrameworkArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath)&quot; $(RavenTargetFrameworkArgument) $(RavenOutputTypeArgument) --no-project-restore $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenBuildArgs)" />
 
     <MakeDir Directories="@(IntermediateRefAssembly->'%(RootDir)%(Directory)')" Condition="'@(IntermediateRefAssembly)' != ''" />
     <Copy

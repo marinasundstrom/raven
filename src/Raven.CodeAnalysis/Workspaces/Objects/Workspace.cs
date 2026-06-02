@@ -310,7 +310,10 @@ public class Workspace
             references.Add(compRef);
         }
 
-        var compilation = Compilation.Create(project.AssemblyName ?? project.Name,
+        var assemblyName = !string.IsNullOrWhiteSpace(project.AssemblyName)
+            ? project.AssemblyName
+            : project.Name;
+        var compilation = Compilation.Create(assemblyName,
             syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
 
         if (previousCompilation is not null)

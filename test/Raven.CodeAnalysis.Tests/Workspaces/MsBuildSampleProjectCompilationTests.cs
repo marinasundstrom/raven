@@ -254,7 +254,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         if (File.Exists(ravenCoreDllPath))
             return;
 
-        var ravenCoreProjectPath = Path.Combine(repoRoot, "src", "Raven.Core", "Raven.Core.csproj");
+        var ravenCoreProjectPath = Path.Combine(repoRoot, "src", "Raven.Core", "Raven.Core.rvnproj");
         var buildArgs = $"build \"{ravenCoreProjectPath}\" --framework {targetFramework} /property:WarningLevel=0";
         var buildResult = RunProcess("dotnet", buildArgs, repoRoot, timeoutMilliseconds: 300_000);
         Assert.True(

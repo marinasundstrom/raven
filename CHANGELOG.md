@@ -14,6 +14,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   through implemented interfaces are offered on values such as `IQueryable<T>`.
 - Added `scripts/build-project-samples.sh` to build all source sample projects
   under `samples/projects` separately from the standalone sample compiler script.
+- Converted `Raven.Core` to a normal Raven MSBuild project so it builds through
+  the shared Raven language targets and participates in project references.
 - Added receiver-aware pipe target completion after `|>` and in the following
   identifier, including applicable in-scope functions/static methods and
   extension methods. The language server now registers `>` as a completion

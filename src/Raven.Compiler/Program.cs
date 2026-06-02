@@ -1047,7 +1047,11 @@ if (projectFileInput is not null)
             options = options.WithMembersPublicByDefault(membersPublicByDefault);
     }
 
-    assemblyName = project.AssemblyName ?? project.Name;
+    assemblyName = !string.IsNullOrWhiteSpace(project.AssemblyName)
+        ? project.AssemblyName
+        : !string.IsNullOrWhiteSpace(project.Name)
+            ? project.Name
+            : assemblyName;
     outputFilePath = Path.Combine(outputDirectory, $"{assemblyName}.dll");
 }
 
@@ -1417,7 +1421,7 @@ if (debugDir is not null)
     AnsiConsole.MarkupLine($"[yellow]Debug output written to '{debugDir}'.[/]");
 }
 
-if (allowConsoleOutput)
+if (allowConsoleOutput && writeDebugSourceArtifacts)
 {
     var document = project.Documents.Single();
     var syntaxTree = document.GetSyntaxTreeAsync().Result!;
@@ -1544,7 +1548,7 @@ if (allowConsoleOutput)
         }
     }
 }
-else if (printRawSyntax || printSyntaxTree || printSyntax || macroSourceDumpTarget is not null || printBinders || printBoundTree)
+else if (writeDebugSourceArtifacts)
 {
     if (debugDir is null)
         AnsiConsole.MarkupLine("[yellow]Create a '.debug' directory to capture debug output.[/]");

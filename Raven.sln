@@ -47,7 +47,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Raven.CodeAnalysis.Samples.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEntryDiffRunner.Tests", "test\AsyncEntryDiffRunner.Tests\AsyncEntryDiffRunner.Tests.csproj", "{388E94EF-797A-4187-9CBD-CB009AB30C63}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Raven.Core", "src\Raven.Core\Raven.Core.csproj", "{B57F74B5-9BA5-4ABC-897E-73CC2C8FFE42}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Raven.Core", "src\Raven.Core\Raven.Core.rvnproj", "{B57F74B5-9BA5-4ABC-897E-73CC2C8FFE42}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Raven.LanguageServer", "src\Raven.LanguageServer\Raven.LanguageServer.csproj", "{853FEEB0-00A8-4E01-9624-2A1E7B823FB8}"
 EndProject

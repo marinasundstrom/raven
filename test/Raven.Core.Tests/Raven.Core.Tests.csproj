@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Raven.Core\Raven.Core.csproj" />
+    <ProjectReference Include="..\..\src\Raven.Core\Raven.Core.rvnproj" />
     <ProjectReference Include="..\..\src\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
     <ProjectReference Include="..\..\src\Raven.CodeAnalysis.Testing\Raven.CodeAnalysis.Testing.csproj" />
   </ItemGroup>
