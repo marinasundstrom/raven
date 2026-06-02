@@ -42,6 +42,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly DocumentStore _documents;
     private readonly LanguageServerDispatcher _dispatcher;
     private readonly ILanguageServerFacade _languageServer;
+    private readonly Action<PublishDiagnosticsParams>? _publishDiagnosticsOverride;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
     private readonly ConcurrentDictionary<DocumentUri, PendingDiagnosticsRequest> _pendingDiagnostics = new();
     private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _documentUpdateGates = new();
@@ -63,12 +64,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         DocumentStore documents,
         LanguageServerDispatcher dispatcher,
         ILanguageServerFacade languageServer,
-        ILogger<RavenTextDocumentSyncHandler> logger)
+        ILogger<RavenTextDocumentSyncHandler> logger,
+        Action<PublishDiagnosticsParams>? publishDiagnosticsOverride = null)
     {
         _documents = documents;
         _dispatcher = dispatcher;
         _languageServer = languageServer;
         _logger = logger;
+        _publishDiagnosticsOverride = publishDiagnosticsOverride;
     }
 
     public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
@@ -1620,12 +1623,20 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         IReadOnlyList<Diagnostic> diagnostics,
         int? version)
     {
-        _languageServer.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
+        var notification = new PublishDiagnosticsParams
         {
             Uri = uri,
             Version = version,
             Diagnostics = new Container<Diagnostic>(diagnostics)
-        });
+        };
+
+        if (_publishDiagnosticsOverride is { } publishDiagnostics)
+        {
+            publishDiagnostics(notification);
+            return;
+        }
+
+        _languageServer.TextDocument.PublishDiagnostics(notification);
     }
 
     internal static bool ShouldSkipDiagnosticRequest(

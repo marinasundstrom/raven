@@ -499,6 +499,86 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task DidChange_TypingLineComment_DoesNotPublishSingleSlashSyntaxDiagnosticsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var published = new List<PublishDiagnosticsParams>();
+        var handler = new RavenTextDocumentSyncHandler(
+            store,
+            new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance),
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance,
+            publishDiagnosticsOverride: published.Add);
+
+        await store.UpsertDocumentWithResultAsync(uri, SourceText.From("""
+            [Obsolete("Test")]
+            func A(x: string) -> int {
+                42
+            }
+            """));
+        GetDocumentSessions(handler)[uri] = 1;
+        GetDocumentVersions(handler)[uri] = 1;
+
+        await handler.Handle(new DidChangeTextDocumentParams
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier
+            {
+                Uri = uri,
+                Version = 2
+            },
+            ContentChanges = new Container<TextDocumentContentChangeEvent>(
+                new TextDocumentContentChangeEvent
+                {
+                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                        new Position(0, 0),
+                        new Position(0, 0)),
+                    Text = "/"
+                })
+        }, CancellationToken.None);
+
+        await handler.Handle(new DidChangeTextDocumentParams
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier
+            {
+                Uri = uri,
+                Version = 3
+            },
+            ContentChanges = new Container<TextDocumentContentChangeEvent>(
+                new TextDocumentContentChangeEvent
+                {
+                    Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                        new Position(0, 1),
+                        new Position(0, 1)),
+                    Text = "/"
+                })
+        }, CancellationToken.None);
+
+        await Task.Delay(RavenTextDocumentSyncHandler.PendingSyntaxDiagnosticsDebounceMilliseconds + 150);
+
+        published.Any(notification => notification.Version == 2).ShouldBeFalse();
+        published.ShouldNotBeEmpty();
+        var latest = published.Last();
+        latest.Version.ShouldBe(3);
+        latest.Diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Message.Contains("Unexpected", StringComparison.OrdinalIgnoreCase) &&
+            diagnostic.Message.Contains("/", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void AcceptPendingSyntaxDiagnosticsForPublish_PublishesEmptySetWhenPendingTextIsFixed()
     {
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
