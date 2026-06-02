@@ -1964,6 +1964,51 @@ union MyResult<T>(List<T> | int)
     }
 
     [Fact]
+    public async Task GetDiagnosticsAsync_EfCoreSeedSample_WhenOpenedFromRepositoryRoot_DoesNotReportBogusMissingVehicleDbContextAsync()
+    {
+        var repositoryRoot = GetRepositoryRoot();
+        var documentPath = Path.Combine(
+            repositoryRoot,
+            "samples",
+            "projects",
+            "efcore-vehicle-costs",
+            "src",
+            "Data",
+            "Seed.rvn");
+
+        Directory.Exists(repositoryRoot).ShouldBeTrue();
+        File.Exists(documentPath).ShouldBeTrue();
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "Raven",
+                Uri = DocumentUri.FromFileSystemPath(repositoryRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var code = await File.ReadAllTextAsync(documentPath);
+        await store.UpsertDocumentAsync(uri, code);
+
+        var result = await store.TryGetDocumentCompilerDiagnosticsAsync(
+            uri,
+            shouldSkipWork: null,
+            CancellationToken.None);
+        result.WasSkipped.ShouldBeFalse();
+        var diagnostics = result.Diagnostics;
+
+        diagnostics.Any(diagnostic =>
+                string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+                diagnostic.Message.Contains("'VehicleDbContext' is not in scope", StringComparison.Ordinal))
+            .ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task GetDiagnosticsAsync_FileScopedNamespaceImportCoveredByPrelude_ReportsRedundantImportAsync()
     {
         _ = WriteProject(

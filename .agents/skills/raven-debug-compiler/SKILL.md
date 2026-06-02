@@ -11,9 +11,10 @@ Use this skill when debugging compiler behavior through command-line tooling.
 
 For large compiler investigations, use a planned task sequence: define the
 current slice, keep one step active, verify it before moving on, and re-evaluate
-the next slice after each result. Prefer the smallest compiler-level repro that
-proves or disproves the suspected behavior before broadening to samples,
-language-server tests, or full baselines.
+the next slice after each result. Tell the user what the next step is after each
+verified slice. Prefer the smallest compiler-level repro that proves or
+disproves the suspected behavior before broadening to samples, language-server
+tests, or full baselines.
 
 1. Reduce the issue to a tiny `.rav` sample.
 2. Prefer working from the `samples` directory or another minimal repro location.

@@ -618,7 +618,7 @@ internal abstract partial class Binder
 
     private IMethodSymbol AdjustExtensionForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
     {
-        if (!method.IsInstanceExtensionMember || receiverType is null || receiverType.TypeKind == TypeKind.Error)
+        if (!TryIsInstanceExtensionMember(method) || receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return method;
 
         if (!TryCreateConstructedExtension(method, receiverType, out var constructed))
@@ -1130,7 +1130,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 var extensionContainers = Compilation.SymbolLookup.GetExtensionContainers(
                     ns,
@@ -1162,15 +1162,15 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
         var members = typeMembers.OfType<IMethodSymbol>();
 
         foreach (var member in members)
         {
-            if (!member.IsInstanceExtensionMember)
+            if (!TryIsInstanceExtensionMember(member))
                 continue;
 
-            if (name is not null && member.Name != name)
+            if (!ExtensionMemberNameMatches(member.Name, name, includePartialMatches))
                 continue;
 
             yield return member;
@@ -1190,7 +1190,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
                     ns,
@@ -1223,7 +1223,7 @@ internal abstract partial class Binder
         if (!type.HasStaticExtensionMembers)
             yield break;
 
-        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
         var members = typeMembers.OfType<IMethodSymbol>();
 
         foreach (var member in members)
@@ -1231,7 +1231,7 @@ internal abstract partial class Binder
             if (!member.IsStatic || !member.IsStaticExtensionMember)
                 continue;
 
-            if (name is not null && member.Name != name)
+            if (!ExtensionMemberNameMatches(member.Name, name, includePartialMatches))
                 continue;
 
             yield return member;
@@ -1251,7 +1251,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
                     ns,
@@ -1281,7 +1281,7 @@ internal abstract partial class Binder
         if (scope is not INamedTypeSymbol type)
             yield break;
 
-        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
         var members = typeMembers.OfType<IPropertySymbol>();
 
         foreach (var property in members)
@@ -1289,7 +1289,7 @@ internal abstract partial class Binder
             if (!property.IsExtensionProperty)
                 continue;
 
-            if (name is not null && property.Name != name)
+            if (!ExtensionMemberNameMatches(property.Name, name, includePartialMatches))
                 continue;
 
             yield return property;
@@ -1309,7 +1309,7 @@ internal abstract partial class Binder
     {
         if (scope is INamespaceSymbol ns)
         {
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(name) && !includePartialMatches)
             {
                 foreach (var typeMember in Compilation.SymbolLookup.GetExtensionContainers(
                     ns,
@@ -1342,7 +1342,7 @@ internal abstract partial class Binder
         if (!type.HasStaticExtensionMembers)
             yield break;
 
-        var typeMembers = GetDeclaredMembersForExtensionLookup(type, name);
+        var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
         var members = typeMembers.OfType<IPropertySymbol>();
 
         foreach (var property in members)
@@ -1353,7 +1353,7 @@ internal abstract partial class Binder
             if (property.GetExtensionReceiverType() is null)
                 continue;
 
-            if (name is not null && property.Name != name)
+            if (!ExtensionMemberNameMatches(property.Name, name, includePartialMatches))
                 continue;
 
             yield return property;
@@ -1390,12 +1390,22 @@ internal abstract partial class Binder
             : type.GetMembers(name!);
     }
 
+    private static bool ExtensionMemberNameMatches(string memberName, string? requestedName, bool includePartialMatches)
+    {
+        if (string.IsNullOrEmpty(requestedName))
+            return true;
+
+        return includePartialMatches
+            ? memberName.StartsWith(requestedName, StringComparison.Ordinal)
+            : string.Equals(memberName, requestedName, StringComparison.Ordinal);
+    }
+
     private bool IsExtensionCandidateForReceiver(
         IMethodSymbol method,
         ITypeSymbol receiverType,
         bool includePartialMatches)
     {
-        if (!method.IsInstanceExtensionMember)
+        if (!TryIsInstanceExtensionMember(method))
             return false;
 
         if (includePartialMatches)
@@ -1422,6 +1432,26 @@ internal abstract partial class Binder
 
         var conversion = Compilation.ClassifyConversion(receiverType, parameterType, includeUserDefined: false);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private static bool TryIsInstanceExtensionMember(IMethodSymbol method)
+    {
+        try
+        {
+            if (method.IsExtensionMethod)
+                return true;
+
+            var receiverType = method.GetExtensionReceiverType();
+            if (receiverType is null)
+                return false;
+
+            return TryGetMethodParameterType(method, 0, out var parameterType) &&
+                   SymbolEqualityComparer.Default.Equals(receiverType, parameterType);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static bool TryGetMethodParameterType(

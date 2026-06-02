@@ -66,6 +66,7 @@ internal sealed class CodeActionHandler : ICodeActionHandler
             var documentText = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
             var selectionSpan = GetRequestedSpan(documentText, request.Range);
             var supportsRefactorRewrite = SupportsKind(request.Context?.Only, CodeActionKind.RefactorRewrite);
+            var refactorRewriteExplicitlyRequested = IsKindExplicitlyRequested(request.Context?.Only, CodeActionKind.RefactorRewrite);
             var supportsQuickFix = SupportsKind(request.Context?.Only, CodeActionKind.QuickFix);
 
             var filteredFixes = supportsQuickFix
@@ -84,17 +85,32 @@ internal sealed class CodeActionHandler : ICodeActionHandler
 
             if (supportsRefactorRewrite)
             {
-                using var semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
-                    request.TextDocument.Uri,
-                    context.Value,
-                    cancellationToken,
-                    "codeAction").ConfigureAwait(false);
-                var semanticModel = semanticAccess.SemanticModel;
-                var root = syntaxTree.GetRoot(cancellationToken);
-                if (semanticModel is not null &&
-                    TryCreateMacroExpansionAction(request.TextDocument.Uri, documentText, semanticModel, root, request.Range, out var macroAction))
+                DocumentStore.DocumentSemanticAccess? semanticAccess = null;
+                try
                 {
-                    actions.Add(macroAction);
+                    semanticAccess = refactorRewriteExplicitlyRequested
+                        ? await _documents.EnterDocumentSemanticModelAccessAsync(
+                            request.TextDocument.Uri,
+                            context.Value,
+                            cancellationToken,
+                            "codeAction").ConfigureAwait(false)
+                        : await _documents.TryEnterDocumentSemanticModelAccessAsync(
+                            request.TextDocument.Uri,
+                            context.Value,
+                            cancellationToken,
+                            "codeAction").ConfigureAwait(false);
+
+                    var semanticModel = semanticAccess?.SemanticModel;
+                    var root = syntaxTree.GetRoot(cancellationToken);
+                    if (semanticModel is not null &&
+                        TryCreateMacroExpansionAction(request.TextDocument.Uri, documentText, semanticModel, root, request.Range, out var macroAction))
+                    {
+                        actions.Add(macroAction);
+                    }
+                }
+                finally
+                {
+                    semanticAccess?.Dispose();
                 }
             }
 
@@ -287,6 +303,14 @@ internal sealed class CodeActionHandler : ICodeActionHandler
     {
         if (requestedKinds is null || !requestedKinds.Any())
             return true;
+
+        return IsKindExplicitlyRequested(requestedKinds, kind);
+    }
+
+    private static bool IsKindExplicitlyRequested(Container<CodeActionKind>? requestedKinds, CodeActionKind kind)
+    {
+        if (requestedKinds is null || !requestedKinds.Any())
+            return false;
 
         var kindText = kind.ToString();
         return requestedKinds.Any(requestedKind =>

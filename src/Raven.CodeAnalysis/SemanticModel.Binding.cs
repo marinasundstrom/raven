@@ -1551,6 +1551,7 @@ public partial class SemanticModel
         var namespaceImports = new List<INamespaceOrTypeSymbol>();
         var typeImports = new List<ITypeSymbol>();
         var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
+        var unresolvedAliases = new List<AliasDirectiveSyntax>();
         var deferredWildcardImports = new List<NameSyntax>();
         var deferredConstantImports = new List<NameSyntax>();
         var globalImportKeys = CollectGlobalImportKeys();
@@ -1563,9 +1564,13 @@ public partial class SemanticModel
             if (!isGlobalImport &&
                 globalImportKeys.Contains(name))
             {
+                var location = import.GetLocation();
                 namespaceBinder.Diagnostics.ReportImportDirectiveRedundantWithGlobalImport(
                     name,
-                    import.GetLocation());
+                    location);
+                _declarationDiagnostics.ReportImportDirectiveRedundantWithGlobalImport(
+                    name,
+                    location);
                 continue;
             }
 
@@ -1590,7 +1595,9 @@ public partial class SemanticModel
             var nsSymbol = ResolveNamespace(targetNamespace, name);
             if (nsSymbol != null)
             {
-                namespaceBinder.Diagnostics.ReportTypeExpectedWithoutWildcard(import.Name.GetLocation());
+                var location = import.Name.GetLocation();
+                namespaceBinder.Diagnostics.ReportTypeExpectedWithoutWildcard(location);
+                _declarationDiagnostics.ReportTypeExpectedWithoutWildcard(location);
                 continue;
             }
 
@@ -1624,15 +1631,34 @@ public partial class SemanticModel
         if (!allowSourceDeclarationCompletion)
             EnsureDeclarations();
 
-        BindAliases(EnumerateGlobalAliasDirectives());
-        BindAliases(cu.Aliases);
+        BindAliases(EnumerateGlobalAliasDirectives(), reportUnresolved: false);
+        BindAliases(cu.Aliases, reportUnresolved: false);
 
         if (fileScopedNamespace is not null)
         {
-            BindAliases(fileScopedNamespace.Aliases);
+            BindAliases(fileScopedNamespace.Aliases, reportUnresolved: false);
         }
 
         BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: allowSourceDeclarationCompletion);
+
+        if (unresolvedAliases.Count > 0)
+        {
+            if (!allowSourceDeclarationCompletion)
+            {
+                BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: true);
+            }
+
+            var aliasesToRetry = unresolvedAliases.ToArray();
+            unresolvedAliases.Clear();
+            BindAliases(aliasesToRetry, reportUnresolved: true);
+        }
+
+        if (!allowSourceDeclarationCompletion &&
+            (deferredWildcardImports.Count > 0 || deferredConstantImports.Count > 0))
+        {
+            Compilation.EnsureSourceDeclarationsDeclared();
+            BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: true);
+        }
 
         foreach (var baseName in deferredWildcardImports)
         {
@@ -1648,7 +1674,9 @@ public partial class SemanticModel
             }
             else
             {
-                namespaceBinder.Diagnostics.ReportInvalidImportTarget(baseName.GetLocation());
+                var location = baseName.GetLocation();
+                namespaceBinder.Diagnostics.ReportInvalidImportTarget(location);
+                _declarationDiagnostics.ReportInvalidImportTarget(location);
             }
         }
 
@@ -1664,7 +1692,9 @@ public partial class SemanticModel
             }
             else
             {
-                namespaceBinder.Diagnostics.ReportInvalidImportTarget(constantImport.GetLocation());
+                var location = constantImport.GetLocation();
+                namespaceBinder.Diagnostics.ReportInvalidImportTarget(location);
+                _declarationDiagnostics.ReportInvalidImportTarget(location);
             }
         }
 
@@ -1685,7 +1715,7 @@ public partial class SemanticModel
 
         return topLevelBinder;
 
-        void BindAliases(IEnumerable<AliasDirectiveSyntax> aliasList)
+        void BindAliases(IEnumerable<AliasDirectiveSyntax> aliasList, bool reportUnresolved)
         {
             foreach (var alias in aliasList)
             {
@@ -1712,7 +1742,15 @@ public partial class SemanticModel
                 }
                 else
                 {
-                    namespaceBinder.Diagnostics.ReportInvalidAliasType(alias.Target.GetLocation());
+                    if (!reportUnresolved)
+                    {
+                        unresolvedAliases.Add(alias);
+                        continue;
+                    }
+
+                    var location = alias.Target.GetLocation();
+                    namespaceBinder.Diagnostics.ReportInvalidAliasType(location);
+                    _declarationDiagnostics.ReportInvalidAliasType(location);
                 }
             }
         }
@@ -1846,13 +1884,26 @@ public partial class SemanticModel
             {
                 var memberName = GetRightmostIdentifier(name);
                 var left = qn.Left;
+                var leftHasTypeArguments = HasTypeArguments(left);
 
-                ITypeSymbol? containingType = HasTypeArguments(left)
-                    ? ResolveGenericType(current, left)
+                ITypeSymbol? containingType = leftHasTypeArguments
+                    ? ResolveGenericType(current, left) ?? TryResolveTypeSyntaxSilently(left)
                     : ResolveType(current, left.ToString());
 
                 if (containingType != null)
                 {
+                    if (!leftHasTypeArguments &&
+                        containingType is IUnionSymbol unionSymbol)
+                    {
+                        var caseTypes = unionSymbol.CaseTypes
+                            .Where(type => string.Equals(type.Name, memberName, StringComparison.Ordinal))
+                            .Cast<ISymbol>()
+                            .ToArray();
+
+                        if (caseTypes.Length > 0)
+                            return caseTypes;
+                    }
+
                     var members = containingType.GetMembers(memberName)
                         .Where(m => m.IsStatic)
                         .ToArray();

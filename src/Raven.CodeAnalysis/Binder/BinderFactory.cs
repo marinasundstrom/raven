@@ -364,13 +364,26 @@ class BinderFactory
             {
                 var memberName = GetRightmostIdentifier(name);
                 var left = qn.Left;
+                var leftHasTypeArguments = HasTypeArguments(left);
 
-                ITypeSymbol? containingType = HasTypeArguments(left)
+                ITypeSymbol? containingType = leftHasTypeArguments
                     ? ResolveGenericType(current, left) ?? TryResolveTypeSyntaxSilently(left)
                     : ResolveType(current, left.ToString());
 
                 if (containingType != null)
                 {
+                    if (!leftHasTypeArguments &&
+                        containingType is IUnionSymbol unionSymbol)
+                    {
+                        var caseTypes = unionSymbol.CaseTypes
+                            .Where(type => string.Equals(type.Name, memberName, StringComparison.Ordinal))
+                            .Cast<ISymbol>()
+                            .ToArray();
+
+                        if (caseTypes.Length > 0)
+                            return caseTypes;
+                    }
+
                     var members = containingType.GetMembers(memberName)
                         .Where(m => m.IsStatic)
                         .ToArray();

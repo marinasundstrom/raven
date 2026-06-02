@@ -134,6 +134,65 @@ val x = 1
     }
 
     [Fact]
+    public async Task Handle_QuickFix_WithRequestDiagnosticsAndNoOnly_DoesNotWaitForBusySemanticGateAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        const string code = """
+val x = 1
+""";
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(
+            workspace,
+            NullLogger<WorkspaceManager>.Instance,
+            ImmutableArray.Create<CodeFixProvider>(new RequestDiagnosticCodeFixProvider()),
+            ImmutableArray<CodeRefactoringProvider>.Empty);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentAsync(uri, code);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+
+        var handler = new CodeActionHandler(store, manager, NullLogger<CodeActionHandler>.Instance);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var result = await handler.Handle(
+            new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new LspRange(new Position(0, 4), new Position(0, 5)),
+                Context = new CodeActionContext
+                {
+                    Diagnostics = new Container<LspDiagnostic>(new LspDiagnostic
+                    {
+                        Code = RequestDiagnosticCodeFixProvider.DiagnosticId,
+                        Message = "Request supplied diagnostic",
+                        Source = "raven",
+                        Range = new LspRange(new Position(0, 4), new Position(0, 5))
+                    })
+                }
+            },
+            timeout.Token);
+
+        result.ShouldNotBeNull();
+        var actions = result!.ToArray();
+        actions.Length.ShouldBe(2);
+        actions[0].CodeAction.ShouldNotBeNull();
+        actions[0].CodeAction!.Title.ShouldBe("Apply request diagnostic fix");
+        actions[1].Command.ShouldNotBeNull();
+        actions[1].Command!.Title.ShouldBe("Preview: Apply request diagnostic fix");
+    }
+
+    [Fact]
     public async Task Handle_QuickFix_WithoutRequestDiagnostics_DoesNotComputeProjectDiagnosticsAsync()
     {
         Directory.CreateDirectory(_tempRoot);

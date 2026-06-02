@@ -163,6 +163,42 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void DocumentDiagnostics_ForCrossFileSignatureType_DeclaresProjectSourceTypesBeforeBindingDocument()
+    {
+        const string contextSource = """
+            namespace Samples.VehicleCosts
+
+            class VehicleDbContext {}
+            """;
+        const string seedSource = """
+            namespace Samples.VehicleCosts
+
+            static class VehicleSeedData {
+                static func SeedAsync(db: VehicleDbContext) -> unit {
+                }
+            }
+            """;
+
+        var contextTree = SyntaxTree.ParseText(contextSource, path: "/workspace/src/Data/Db.rvn");
+        var seedTree = SyntaxTree.ParseText(seedSource, path: "/workspace/src/Data/Seed.rvn");
+        var compilation = Compilation.Create(
+            "cross-file-signature-type-document-diagnostics",
+            [contextTree, seedTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostics = compilation.GetDocumentDiagnostics(
+            seedTree,
+            analyzerOptions: null,
+            CancellationToken.None);
+
+        diagnostics
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
     public void DocumentDiagnostics_ForTargetTypedMemberInitializers_UseOwningTypeMemberBinder()
     {
         const string source = """
@@ -728,6 +764,342 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
                 $"Document diagnostics changed after {name}:{Environment.NewLine}" +
                 $"Expected:{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}" +
                 $"Actual:{Environment.NewLine}{string.Join(Environment.NewLine, actual)}");
+        }
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_AfterInlayShapedSemanticQueries_MatchDiagnosticsOnlyBaseline()
+    {
+        var cases = new (string Name, string Source)[]
+        {
+            ("pipe locals", """
+                import System.*
+                import System.Linq.*
+                import System.Linq.Expressions.*
+
+                class User(var Name: string, var Age: int, var IsActive: bool)
+
+                class QueryOwner {
+                    func Build(users: IQueryable<User>) -> unit {
+                        val minAge = 21
+                        val onlyActiveAdults: Expression<System.Func<User, bool>> =
+                            user => user.IsActive && user.Age >= minAge
+
+                        val query = users
+                            |> Where(onlyActiveAdults)
+                            |> OrderBy(user => user.Name)
+                            |> Select(user => user.Name)
+                    }
+                }
+                """),
+            ("async lambda locals", """
+                import System.*
+                import System.Threading.Tasks.*
+
+                class RequestContext {
+                    public val Text: string = "body"
+                }
+
+                class App {
+                    func Configure() -> unit {
+                        Accept(async func (context: RequestContext) {
+                            val content = await Task.FromResult(context.Text)
+                            return "submitted: $content"
+                        })
+                    }
+
+                    func Accept(handler: (RequestContext) -> Task<string>) -> unit { }
+                }
+                """)
+        };
+
+        foreach (var (name, source) in cases)
+        {
+            var expected = GetDocumentDiagnosticSignaturesAfterQueries(source, query: null);
+            var actual = GetDocumentDiagnosticSignaturesAfterQueries(source, InlayShapedSemanticQueries);
+
+            actual.ShouldBe(
+                expected,
+                $"Document diagnostics changed after inlay-shaped semantic queries for {name}:{Environment.NewLine}" +
+                $"Expected:{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}" +
+                $"Actual:{Environment.NewLine}{string.Join(Environment.NewLine, actual)}");
+        }
+
+        static void InlayShapedSemanticQueries(SemanticModel model, CompilationUnitSyntax root)
+        {
+            foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+                _ = model.GetDeclaredSymbol(declarator);
+
+            foreach (var designation in root.DescendantNodes().OfType<SingleVariableDesignationSyntax>())
+                _ = model.GetDeclaredSymbol(designation);
+
+            foreach (var parameter in root.DescendantNodes()
+                .OfType<FunctionExpressionSyntax>()
+                .SelectMany(GetFunctionExpressionParameters))
+            {
+                _ = model.GetFunctionExpressionParameterSymbol(parameter);
+            }
+
+            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                _ = model.GetBoundNode(invocation);
+                _ = model.GetTypeInfo(invocation);
+            }
+        }
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_AfterHoverShapedSemanticQueries_MatchDiagnosticsOnlyBaseline()
+    {
+        var cases = new (string Name, string Source)[]
+        {
+            ("namespace member invocation", """
+                namespace App
+
+                import Utilities.*
+
+                val greeting = Format("Ada")
+                val length = greeting.Length
+
+                namespace Utilities
+
+                func Format(name: string) -> string {
+                    return "hello $name"
+                }
+                """),
+            ("member and pipeline invocation", """
+                import System.*
+                import System.Linq.*
+
+                class User(var Name: string, var Age: int)
+
+                class QueryOwner {
+                    func Build(users: IQueryable<User>) -> unit {
+                        val query = users
+                            |> Where(user => user.Age >= 18)
+                            |> Select(user => user.Name)
+
+                        val firstName = query.First()
+                        val length = firstName.Length
+                    }
+                }
+                """),
+            ("constructor and async invocation", """
+                import System.*
+                import System.Threading.Tasks.*
+
+                class RequestContext {
+                    public val Text: string = "body"
+                }
+
+                class App {
+                    func Configure() -> unit {
+                        Accept(async func (context: RequestContext) {
+                            val content = await Task.FromResult(context.Text)
+                            return "submitted: $content"
+                        })
+                    }
+
+                    func Accept(handler: (RequestContext) -> Task<string>) -> unit { }
+                }
+                """)
+        };
+
+        foreach (var (name, source) in cases)
+        {
+            var expected = GetDocumentDiagnosticSignaturesAfterQueries(source, query: null);
+            var actual = GetDocumentDiagnosticSignaturesAfterQueries(source, HoverShapedSemanticQueries);
+
+            actual.ShouldBe(
+                expected,
+                $"Document diagnostics changed after hover-shaped semantic queries for {name}:{Environment.NewLine}" +
+                $"Expected:{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}" +
+                $"Actual:{Environment.NewLine}{string.Join(Environment.NewLine, actual)}");
+        }
+
+        static void HoverShapedSemanticQueries(SemanticModel model, CompilationUnitSyntax root)
+        {
+            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                _ = model.TryGetAvailableInvocationCandidates(invocation, out _);
+                _ = model.TryGetInvocationTargetSymbolInfo(invocation, out _);
+                _ = model.GetSymbolInfo(invocation);
+                _ = model.GetTypeInfo(invocation);
+
+                if (invocation.Expression is SyntaxNode expression)
+                    _ = model.GetSymbolInfo(expression);
+            }
+
+            foreach (var memberAccess in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+            {
+                _ = model.GetSymbolInfo(memberAccess);
+                _ = model.GetTypeInfo(memberAccess);
+                _ = model.GetSymbolInfo(memberAccess.Name);
+                _ = model.GetTypeInfo(memberAccess.Expression);
+            }
+
+            foreach (var identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+            {
+                _ = model.GetSymbolInfo(identifier);
+                _ = model.GetTypeInfo(identifier);
+            }
+        }
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_AfterCompletionShapedSemanticQueries_MatchDiagnosticsOnlyBaseline()
+    {
+        var cases = new (string Name, string Source, Func<string, int[]> Positions)[]
+        {
+            ("member access", """
+                import System.Collections.Generic.*
+                import System.Linq.*
+
+                class User(var Name: string, var Age: int)
+
+                func Main() -> unit {
+                    val users = List<User>()
+                    val query = users.Where(user => user.Age >= 18)
+                    query.
+                }
+                """,
+                source => [source.LastIndexOf("query.", StringComparison.Ordinal) + "query.".Length]),
+            ("pipe extension", """
+                import System.Collections.Generic.*
+                import System.Linq.*
+
+                class User(var Name: string, var Age: int)
+
+                func Main() -> unit {
+                    val users = List<User>()
+                    val adults = users |> Wh
+                }
+                """,
+                source => [source.LastIndexOf("Wh", StringComparison.Ordinal) + "Wh".Length]),
+            ("local and namespace prefix", """
+                import Utilities.*
+
+                val greeting = Format("Ada")
+                val length = greeting.Len
+
+                namespace Utilities
+
+                func Format(name: string) -> string {
+                    return "hello $name"
+                }
+                """,
+                source =>
+                [
+                    source.LastIndexOf("greeting.Len", StringComparison.Ordinal) + "greeting.Len".Length,
+                    source.LastIndexOf("Format", StringComparison.Ordinal)
+                ])
+        };
+
+        foreach (var (name, source, positions) in cases)
+        {
+            var expected = GetDocumentDiagnosticSignaturesAfterCompilationQueries(source, query: null);
+            var actual = GetDocumentDiagnosticSignaturesAfterCompilationQueries(
+                source,
+                (compilation, syntaxTree) =>
+                {
+                    var service = new CompletionService();
+                    foreach (var position in positions(source))
+                        _ = service.GetCompletions(compilation, syntaxTree, position).ToList();
+                });
+
+            actual.ShouldBe(
+                expected,
+                $"Document diagnostics changed after completion-shaped semantic queries for {name}:{Environment.NewLine}" +
+                $"Expected:{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}" +
+                $"Actual:{Environment.NewLine}{string.Join(Environment.NewLine, actual)}");
+        }
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_AfterSemanticTokenShapedQueries_MatchDiagnosticsOnlyBaseline()
+    {
+        var cases = new (string Name, string Source)[]
+        {
+            ("top level generic invocation", """
+                val foo = Foo("Marina")
+                val options = Options()
+                val str = Serializer.Serialize(foo, options)
+                val obj = Serializer.Deserialize<Foo>(str, options)
+
+                record Foo(Name: string)
+
+                class Options {}
+
+                static class Serializer {
+                    static func Serialize(foo: Foo, options: Options) -> string {
+                        return foo.Name
+                    }
+
+                    static func Deserialize<T>(str: string, options: Options) -> T {
+                        return default
+                    }
+                }
+                """),
+            ("target typed union case", """
+                import System.*
+
+                val foo = Foo(
+                    Name: "Foo",
+                    Status: .OnMaintenance(.UtcNow, "Test"),
+                    Item: "Foo"
+                )
+
+                record Foo(
+                    val Name: string,
+                    val Status: Status
+                    val Item: string
+                )
+
+                union Status {
+                    case Active(Date: DateTimeOffset)
+                    case OnMaintenance(Date: DateTimeOffset, Reason: string)
+                }
+                """),
+            ("member and pipe invocations", """
+                import System.*
+                import System.Linq.*
+
+                class User(var Name: string, var Age: int)
+
+                class QueryOwner {
+                    func Build(users: IQueryable<User>) -> unit {
+                        val query = users
+                            |> Where(user => user.Age >= 18)
+                            |> Select(user => user.Name)
+
+                        val firstName = query.First()
+                        val length = firstName.Length
+                    }
+                }
+                """)
+        };
+
+        foreach (var (name, source) in cases)
+        {
+            var expected = GetDocumentDiagnosticSignaturesAfterQueries(source, query: null);
+            var actual = GetDocumentDiagnosticSignaturesAfterQueries(source, SemanticTokenShapedQueries);
+
+            actual.ShouldBe(
+                expected,
+                $"Document diagnostics changed after semantic-token-shaped queries for {name}:{Environment.NewLine}" +
+                $"Expected:{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}" +
+                $"Actual:{Environment.NewLine}{string.Join(Environment.NewLine, actual)}");
+        }
+
+        static void SemanticTokenShapedQueries(SemanticModel model, CompilationUnitSyntax root)
+        {
+            _ = SemanticClassifier.Classify(root, model, allowBinding: false);
+
+            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                _ = model.GetSymbolInfo(invocation);
+                _ = model.GetSymbolInfo(invocation.Expression);
+            }
         }
     }
 
@@ -1906,6 +2278,32 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         query?.Invoke(model, root);
 
         return model.GetDocumentDiagnostics()
+            .Select(static diagnostic =>
+            {
+                var span = diagnostic.Location.GetLineSpan();
+                return $"{diagnostic.Id}@{span.StartLinePosition}-{span.EndLinePosition}:{diagnostic.GetMessage()}";
+            })
+            .OrderBy(static diagnostic => diagnostic, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string[] GetDocumentDiagnosticSignaturesAfterCompilationQueries(
+        string source,
+        Action<Compilation, SyntaxTree>? query)
+    {
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "diagnostic-compilation-query-order",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        query?.Invoke(compilation, syntaxTree);
+
+        return compilation.GetDocumentDiagnostics(
+                syntaxTree,
+                analyzerOptions: null,
+                CancellationToken.None)
             .Select(static diagnostic =>
             {
                 var span = diagnostic.Location.GetLineSpan();

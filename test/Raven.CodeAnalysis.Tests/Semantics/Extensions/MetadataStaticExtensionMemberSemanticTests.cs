@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
@@ -45,11 +44,7 @@ import System.*
 val parsed = int.parse("42")
 """;
 
-        var references = TestMetadataReferences.Default
-            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
-            .ToArray();
-
-        var (compilation, tree) = CreateCompilation(source, references: references);
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -67,11 +62,7 @@ val parsed = int.parse("42")
     [Fact]
     public void RavenStaticExtensionMethod_MetadataSymbol_RecoversReceiverType()
     {
-        var references = TestMetadataReferences.Default
-            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
-            .ToArray();
-
-        var compilation = CreateCompilation(references: references);
+        var compilation = CreateCompilation(references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
 
         var systemNamespace = compilation.GetNamespaceSymbol("System");
@@ -92,11 +83,7 @@ val parsed = int.parse("42")
     [Fact]
     public void RavenOptionMember_MetadataSymbol_IsDeclaredOnOption()
     {
-        var references = TestMetadataReferences.Default
-            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
-            .ToArray();
-
-        var compilation = CreateCompilation(references: references);
+        var compilation = CreateCompilation(references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
 
         var systemNamespace = compilation.GetNamespaceSymbol("System");
@@ -121,11 +108,7 @@ import System.*
 val wrapped = int.parse("42").WithContext("wrapped")
 """;
 
-        var references = TestMetadataReferences.Default
-            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
-            .ToArray();
-
-        var (compilation, tree) = CreateCompilation(source, references: references);
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -144,11 +127,7 @@ val wrapped = int.parse("42").WithContext("wrapped")
     [Fact]
     public void MetadataType_AllInterfaces_IncludeTransitiveInterfaces()
     {
-        var references = TestMetadataReferences.Default
-            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
-            .ToArray();
-
-        var compilation = CreateCompilation(references: references);
+        var compilation = CreateCompilation(references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
 
         var systemNamespace = compilation.GetNamespaceSymbol("System");
@@ -168,10 +147,6 @@ val wrapped = int.parse("42").WithContext("wrapped")
     [Fact]
     public void RavenStaticExtensionConversionOperator_FromMetadata_IsImported()
     {
-        var references = TestMetadataReferences.Default
-            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
-            .ToArray();
-
         var (compilation, tree) = CreateCompilation(
             """
 import System.*
@@ -179,7 +154,7 @@ import System.*
 val value = Option<int>.Some(42)
 val result: int? = value
 """,
-            references: references);
+            references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -196,6 +171,108 @@ val result: int? = value
         Assert.True(conversion.IsUserDefined);
         Assert.Equal("op_Implicit", conversion.MethodSymbol?.Name);
         Assert.Equal("OptionExtensions2", conversion.MethodSymbol?.ContainingType?.Name);
+    }
+
+    [Fact]
+    public void RavenCoreMetadata_OptionAndResultCarrierHelperSurface_BindsTypes()
+    {
+        const string source = """
+import System.*
+
+val option: Option<int> = .Some(2)
+val optionHasSome = option.HasSome
+val optionHasNone = option.HasNone
+val optionCarrierHasValue = option.HasValue
+val optionCarrierValue = option.Value
+val converted = option.IsOkOr(CustomError("Bang!"))
+
+val result: Result<int, CustomError> = .Ok(2)
+val resultHasOk = result.HasOk
+val resultHasError = result.HasError
+val resultCarrierHasValue = result.HasValue
+val resultCarrierValue = result.Value
+val resultIsOk = result.IsOk
+
+record class CustomError(message: string)
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(
+                static declarator => declarator.Identifier.ValueText,
+                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)));
+
+        Assert.Equal("bool", locals["optionHasSome"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("bool", locals["optionHasNone"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("bool", locals["optionCarrierHasValue"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("object", locals["optionCarrierValue"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Result<int, CustomError>", locals["converted"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        Assert.Equal("bool", locals["resultHasOk"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("bool", locals["resultHasError"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("bool", locals["resultCarrierHasValue"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("object", locals["resultCarrierValue"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Option<int>", locals["resultIsOk"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void RavenCoreMetadata_ResultMemberAccessPropagationAndUnwrapOrDefault_BindsTypes()
+    {
+        const string source = """
+import System.*
+
+func GetUser() -> Result<User, Err> {
+    return .Ok(User("Marina"))
+}
+
+func Test() -> Result<int, Err> {
+    val wrapped = GetUser()?.Name
+    val name = wrapped.UnwrapOrDefault()
+
+    return .Ok(name.Length + 1)
+}
+
+union Err {
+    case MissingUser
+    case MissingName
+}
+
+record class User(Name: string)
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(
+                static declarator => declarator.Identifier.ValueText,
+                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)));
+
+        Assert.Equal("Result<string, Err>", locals["wrapped"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("string", locals["name"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var unwrapInvocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "wrapped.UnwrapOrDefault");
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(unwrapInvocation));
+
+        Assert.Equal("Result", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("string", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]
@@ -226,14 +303,10 @@ record class User(Name: string, Item: Option<Item>)
 record class Item(Name: string)
 """;
 
-        var references = TestMetadataReferences.Default
-            .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
-            .ToArray();
-
         var (compilation, tree) = CreateCompilation(
             source,
             options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
-            references: references);
+            references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -256,13 +329,4 @@ record class Item(Name: string)
         Assert.NotNull(bound.ReceiverResultErrorDataGetter);
     }
 
-    private static string GetRavenCorePath()
-    {
-        var outputPath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
-        if (File.Exists(outputPath))
-            return outputPath;
-
-        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        return Path.Combine(repoRoot, "src", "Raven.Core", "bin", "Debug", "net10.0", "Raven.Core.dll");
-    }
 }

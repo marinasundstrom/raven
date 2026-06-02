@@ -84,6 +84,26 @@ func Main() -> () {
     }
 
     [Fact]
+    public void GetDiagnostics_PipeOperatorLambdaTarget_DoesNotCrashOnUnreadableMetadataExtensionReceiver()
+    {
+        const string source = """
+import System.Console.*
+
+val increment = (x: int, amount: int) -> int => x + amount
+val result = 5 |> increment(2)
+
+WriteLine("Result: $result")
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(syntaxTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void GetDiagnostics_ParsedInvalidLocalInterfaceDeclaration_ReportsSingleDiagnostic()
     {
         const string source = """

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed extension member completion after partially typed member names so
+  imported metadata extension methods are offered for prefixes such as
+  `widget.Dou`.
 - Fixed editor compiler diagnostics after hover/inlay-style semantic queries so
   presentation-only cache entries do not cause false missing local or missing
   member errors in the same document snapshot.

@@ -11,9 +11,9 @@ Use this skill when the task is primarily about increasing meaningful coverage i
 
 For large cleanup or coverage-improvement efforts, use a planned task sequence:
 define the current behavior slice, keep one step active, verify it before
-moving on, and re-evaluate the next slice after each result. Prefer narrow
-coverage at the owning compiler/API layer before broad suite rewrites or
-sample-level validation.
+moving on, and re-evaluate the next slice after each result. Tell the user what
+the next step is after each verified slice. Prefer narrow coverage at the owning
+compiler/API layer before broad suite rewrites or sample-level validation.
 
 1. Establish the test baseline once before code changes with `scripts/test-baseline.sh`.
 2. Inspect the requested test files or feature area and identify the behavior each test is trying to protect and any documented behavior that lacks focused coverage.

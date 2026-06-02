@@ -11,9 +11,10 @@ Use this skill when the task changes Raven language behavior or compiler support
 
 For large feature or stabilization efforts, work as a planned task sequence:
 define concrete slices, keep one step active, verify each slice before moving
-on, and re-evaluate the plan after each result. Prefer proving behavior at the
-owning compiler layer first, then add broader language-service, sample, or
-baseline coverage when that broader layer is actually involved.
+on, and re-evaluate the plan after each result. Tell the user what the next
+step is after each verified slice. Prefer proving behavior at the owning
+compiler layer first, then add broader language-service, sample, or baseline
+coverage when that broader layer is actually involved.
 
 1. Inspect `docs/` to confirm intended syntax and semantics before changing behavior.
 2. Identify which compiler layers are affected.

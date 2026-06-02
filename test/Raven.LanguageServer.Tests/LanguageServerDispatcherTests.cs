@@ -205,6 +205,65 @@ func Test2() -> IDisposable {
     }
 
     [Fact]
+    public async Task AcceptDiagnosticsForPublish_CompilerLaneCarriesForwardPreviousAnalyzerDiagnosticsAsync()
+    {
+        var (store, mainUri, _) = await CreateTwoFileProjectAsync();
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var context = await store.GetAnalysisContextAsync(mainUri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var snapshot = new DocumentStore.DiagnosticSnapshotKey(
+            mainUri.ToString(),
+            context.Value.Document.Project.Id,
+            context.Value.Document.Version,
+            context.Value.Document.Project.Version);
+        var analyzerDiagnostic = CreateDiagnostic(
+            "RAV9030",
+            "Parameter 'name' is never used.",
+            5,
+            12,
+            5,
+            16,
+            DiagnosticSeverity.Warning);
+        var compilerDiagnostic = CreateDiagnostic(
+            "RAV0103",
+            "'Missing' is not in scope.",
+            3,
+            4,
+            3,
+            11,
+            DiagnosticSeverity.Error);
+
+        var analyzerPublish = dispatcher.AcceptDiagnosticsForPublish(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentWithAnalyzers,
+            [analyzerDiagnostic],
+            editorVersion: 1,
+            snapshot);
+        var compilerPublish = dispatcher.AcceptDiagnosticsForPublish(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [compilerDiagnostic],
+            editorVersion: 1,
+            snapshot);
+        var repeatedCompilerPublish = dispatcher.AcceptDiagnosticsForPublish(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [compilerDiagnostic],
+            editorVersion: 1,
+            snapshot);
+
+        analyzerPublish.ShouldPublish.ShouldBeTrue();
+        analyzerPublish.Diagnostics.Select(static diagnostic => diagnostic.Code?.String)
+            .ShouldBe(["RAV9030"]);
+        compilerPublish.ShouldPublish.ShouldBeTrue();
+        compilerPublish.Diagnostics.Select(static diagnostic => diagnostic.Code?.String)
+            .ShouldBe(["RAV0103", "RAV9030"]);
+        repeatedCompilerPublish.ShouldPublish.ShouldBeFalse();
+        repeatedCompilerPublish.Diagnostics.Select(static diagnostic => diagnostic.Code?.String)
+            .ShouldBe(["RAV0103", "RAV9030"]);
+    }
+
+    [Fact]
     public async Task CacheInlayHints_RecordsExactHitAndRejectsCrossProjectStaleHintAsync()
     {
         var (store, mainUri, utilitiesUri) = await CreateTwoFileProjectAsync();
@@ -304,6 +363,25 @@ func Test2() -> IDisposable? {
         await store.UpsertDocumentAsync(utilitiesUri, utilitiesCode);
         return (store, mainUri, utilitiesUri);
     }
+
+    private static Diagnostic CreateDiagnostic(
+        string code,
+        string message,
+        int startLine,
+        int startCharacter,
+        int endLine,
+        int endCharacter,
+        DiagnosticSeverity severity)
+        => new()
+        {
+            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                new Position(startLine, startCharacter),
+                new Position(endLine, endCharacter)),
+            Message = message,
+            Code = code,
+            Source = "raven",
+            Severity = severity
+        };
 
     public void Dispose()
     {

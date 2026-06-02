@@ -384,13 +384,17 @@ public partial class SemanticModel
                 else
                 {
                     // Document diagnostics should first try the owner-scoped path.
-                    // Full project declaration is still available as a fallback below,
-                    // but doing it eagerly makes ordinary body edits pay for every file.
-                    if (Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree))
-                    {
-                        Compilation.EnsureSourceDeclarationsDeclared();
-                    }
-                    else if (root is CompilationUnitSyntax compilationUnit)
+                    // Cross-file type names in signatures still need source declarations
+                    // from the current project. This declares symbols without binding every
+                    // body, keeping the pass document-scoped while avoiding fallback errors
+                    // for types declared in another file.
+                    Compilation.EnsureSourceDeclarationsDeclared();
+
+                    // Full project declaration completion is still available as a fallback
+                    // below, but doing it eagerly makes ordinary body edits pay for every
+                    // file.
+                    if (!Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree) &&
+                        root is CompilationUnitSyntax compilationUnit)
                     {
                         EnsureTopLevelFunctionDeclarations(compilationUnit, ensureSourceDeclarations: false);
                     }

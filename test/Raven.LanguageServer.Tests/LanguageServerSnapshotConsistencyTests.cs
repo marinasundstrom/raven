@@ -105,6 +105,151 @@ func Test() -> () {
     }
 
     [Fact]
+    public async Task HoverHandler_WatchedSourceCreate_ResolvesCrossFileFunctionInUnchangedOpenDocumentAsync()
+    {
+        var (store, manager, mainUri) = await CreateWorkspaceAsync("""
+func Main() -> () {
+    Test()
+}
+""");
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        await File.WriteAllTextAsync(testPath, """
+func Test() -> () {
+}
+""");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+
+        var refreshedDocuments = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = testUri,
+                Type = FileChangeType.Created
+            }
+        ]);
+
+        refreshedDocuments.ShouldContain(mainUri);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(mainUri),
+            Position = new Position(1, 5)
+        }, CancellationToken.None);
+        var completedTask = await Task.WhenAny(hoverTask, Task.Delay(1000));
+
+        completedTask.ShouldBe(hoverTask);
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("func Test() -> ()");
+    }
+
+    [Fact]
+    public async Task HoverHandler_WatchedSiblingSourceChange_UpdatesCrossFileFunctionInUnchangedOpenDocumentAsync()
+    {
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        Directory.CreateDirectory(Path.GetDirectoryName(testPath)!);
+        await File.WriteAllTextAsync(testPath, """
+func Test() -> int {
+    return 1
+}
+""");
+
+        var (store, manager, mainUri) = await CreateWorkspaceAsync("""
+func Main() -> unit {
+    val value = Test()
+}
+""");
+        await File.WriteAllTextAsync(testPath, """
+func Test() -> string {
+    return "updated"
+}
+""");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+
+        var refreshedDocuments = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = testUri,
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        refreshedDocuments.ShouldContain(mainUri);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(mainUri),
+            Position = new Position(1, 16)
+        }, CancellationToken.None);
+        var completedTask = await Task.WhenAny(hoverTask, Task.Delay(1000));
+
+        completedTask.ShouldBe(hoverTask);
+        var hover = await hoverTask;
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("func Test() -> string");
+    }
+
+    [Fact]
+    public async Task HoverAndDiagnostics_WatchedSiblingSourceDelete_DropCrossFileFunctionFromUnchangedOpenDocumentAsync()
+    {
+        var testPath = Path.Combine(_tempRoot, "src", "test.rvn");
+        Directory.CreateDirectory(Path.GetDirectoryName(testPath)!);
+        await File.WriteAllTextAsync(testPath, """
+func Test() -> int {
+    return 1
+}
+""");
+
+        var (store, manager, mainUri) = await CreateWorkspaceAsync("""
+func Main() -> unit {
+    val value = Test()
+}
+""");
+        var testUri = DocumentUri.FromFileSystemPath(testPath);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var beforeHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(mainUri),
+            Position = new Position(1, 16)
+        }, CancellationToken.None);
+        beforeHover.ShouldNotBeNull();
+        beforeHover!.Contents.MarkupContent.ShouldNotBeNull();
+        beforeHover.Contents.MarkupContent!.Value.ShouldContain("func Test() -> int");
+
+        File.Delete(testPath);
+        var refreshedDocuments = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = testUri,
+                Type = FileChangeType.Deleted
+            }
+        ]);
+
+        refreshedDocuments.ShouldContain(mainUri);
+        var afterHoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(mainUri),
+            Position = new Position(1, 16)
+        }, CancellationToken.None);
+        var completedTask = await Task.WhenAny(afterHoverTask, Task.Delay(1000));
+
+        completedTask.ShouldBe(afterHoverTask);
+        var afterHover = await afterHoverTask;
+        afterHover.ShouldBeNull();
+
+        var diagnostics = await store.TryGetDocumentCompilerDiagnosticsAsync(
+            mainUri,
+            shouldSkipWork: null,
+            CancellationToken.None);
+        diagnostics.WasSkipped.ShouldBeFalse();
+        diagnostics.Diagnostics.Any(diagnostic =>
+            string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal) &&
+            diagnostic.Message.Contains("Test", StringComparison.Ordinal)).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task HoverHandler_InterpolatedStringText_DoesNotShowLoweredConcatAsync()
     {
         const string text = """
@@ -1350,6 +1495,41 @@ func Main() -> unit {
         }, CancellationToken.None);
 
         await Task.Delay(100);
+        hoverTask.IsCompleted.ShouldBeFalse();
+
+        semanticLease.Dispose();
+        var hover = await hoverTask;
+
+        hover.ShouldNotBeNull();
+        hover!.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("number");
+    }
+
+    [Fact]
+    public async Task HoverHandler_PreemptsBackgroundSemanticWorkBeforeWaitingForDocumentSemanticGateAsync()
+    {
+        var (store, _, uri) = await CreateWorkspaceAsync("""
+import System.Console.*
+
+func Main() -> unit {
+    val number = 42
+    WriteLine(number)
+}
+""");
+
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        using var semanticLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        using var backgroundCancellation = store.CreateBackgroundSemanticWorkCancellation(CancellationToken.None);
+
+        backgroundCancellation.Token.IsCancellationRequested.ShouldBeFalse();
+        var hoverTask = handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = new Position(4, 14)
+        }, CancellationToken.None);
+
+        await Task.Delay(100);
+        backgroundCancellation.Token.IsCancellationRequested.ShouldBeTrue();
         hoverTask.IsCompleted.ShouldBeFalse();
 
         semanticLease.Dispose();
