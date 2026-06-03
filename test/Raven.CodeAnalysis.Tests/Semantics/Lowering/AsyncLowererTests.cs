@@ -11,12 +11,14 @@ using Microsoft.CodeAnalysis;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
-namespace Raven.CodeAnalysis.Semantics.Tests;
+namespace Raven.CodeAnalysis.Semantics.Lowering.Tests;
 
 public sealed class AsyncLowererTests : CompilationTestBase
 {

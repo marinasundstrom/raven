@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
-namespace Raven.CodeAnalysis.Semantics.Tests;
+namespace Raven.CodeAnalysis.Semantics.Lowering.Tests;
 
 public sealed class ExpressionTreeLoweringTests : CompilationTestBase
 {
