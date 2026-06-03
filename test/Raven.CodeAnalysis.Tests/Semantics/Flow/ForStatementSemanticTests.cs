@@ -845,4 +845,47 @@ for val (key: string, value: string) in doubled {
         diagnostic.Location.SourceSpan.Start.ShouldBe(expectedStart);
         tree.GetText()!.ToString(diagnostic.Location.SourceSpan).ShouldBe("string");
     }
+
+    [Fact]
+    public void ForStatement_SingleStatementBody_BindsAsStatement()
+    {
+        var code = """
+class C {
+    func Test(values: int[]) {
+        for x in values
+            return
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var forStmt = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().First();
+        var bound = (BoundForStatement)model.GetBoundNode(forStmt);
+
+        Assert.IsType<BoundReturnStatement>(bound.Body);
+    }
+
+    [Fact]
+    public void ForStatement_BindsAsStatement()
+    {
+        var code = """
+class C {
+    func Test(items: int[]) {
+        for item in items {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var forStmt = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().First();
+        var bound = model.GetBoundNode(forStmt);
+
+        Assert.IsType<BoundForStatement>(bound);
+    }
 }

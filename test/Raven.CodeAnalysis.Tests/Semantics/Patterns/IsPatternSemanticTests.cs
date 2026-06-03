@@ -2,6 +2,7 @@ using System.Linq;
 
 using Microsoft.CodeAnalysis;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -148,5 +149,51 @@ func test(maybe: Box<int>) -> bool {
 
         Assert.Equal("Box<int>", declaredDisplay);
         Assert.Equal("Box<int>", localDisplay);
+    }
+
+    [Fact]
+    public void IsPatternExpression_WithAndNotPropertyPatterns_BindsBothPropertyPatterns()
+    {
+        var code = """
+class Box {
+    var Flag: bool
+}
+
+class C {
+    func Test(value: object) {
+        if value is Box { Flag: true } and not Box { Flag: false } {
+            ()
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var isPattern = tree.GetRoot().DescendantNodes().OfType<IsPatternExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
+        var andPattern = Assert.IsType<BoundAndPattern>(bound.Pattern);
+
+        var left = Assert.IsType<BoundPropertyPattern>(andPattern.Left);
+        var not = Assert.IsType<BoundNotPattern>(andPattern.Right);
+        var right = Assert.IsType<BoundPropertyPattern>(not.Pattern);
+
+        AssertBoxFlagProperty(left);
+        AssertBoxFlagProperty(right);
+    }
+
+    private static void AssertBoxFlagProperty(BoundPropertyPattern pattern)
+    {
+        Assert.Equal("Box", pattern.ReceiverType.Name);
+        var subpattern = Assert.Single(pattern.Properties);
+        Assert.Equal("Flag", subpattern.Member.Name);
+        Assert.IsAssignableFrom<IPropertySymbol>(subpattern.Member);
+        Assert.IsType<BoundConstantPattern>(subpattern.Pattern);
     }
 }

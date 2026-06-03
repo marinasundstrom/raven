@@ -1537,4 +1537,44 @@ val (first, second) = widget
         Assert.Equal("Deconstruct", deconstructPattern.DeconstructMethod.Name);
         Assert.Equal(2, deconstructPattern.Arguments.Length);
     }
+
+    [Fact]
+    public void PatternDeclarationAssignment_GetDeclaredSymbol_BindsOwnerBeforeFallback()
+    {
+        var code = """
+class C {
+    func Test() {
+        val (no, _) = Get()
+        no
+    }
+
+    func Get() -> (status: int, message: string) {
+        return (42, "Hej")
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var declaration = root.DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .Single(d => d.Identifier.ValueText == "no");
+        var usage = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "no");
+
+        var declared = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declaration));
+        Assert.Equal(SpecialType.System_Int32, declared.Type.SpecialType);
+
+        var usageSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(usage).Symbol);
+        Assert.Equal(SpecialType.System_Int32, usageSymbol.Type.SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(declared, usageSymbol));
+    }
 }

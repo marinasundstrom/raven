@@ -6,166 +6,14 @@ using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
+using Shouldly;
+
+using Xunit;
+
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
-public class ImperativeContextTests : CompilationTestBase
+public sealed class PatternStatementSemanticTests : CompilationTestBase
 {
-    [Fact]
-    public void NestedStatementBlockExpressionStatement_DoesNotRequireMethodReturnType()
-    {
-        var code = """
-class C {
-    func Test(flag: bool, action: () -> ()) -> int {
-        if flag {
-            action()
-        }
-        return 1
-    }
-}
-""";
-
-        var (compilation, _) = CreateCompilation(code);
-        var diagnostics = compilation.GetDiagnostics();
-
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV1503");
-    }
-
-    [Fact]
-    public void NestedStatementBlockInMethodReturningSequence_DoesNotRequireMethodReturnType()
-    {
-        var code = """
-import System.Collections.Generic.*
-
-class C {
-    func Test(flag: bool, list: List<int>) -> IEnumerable<int> {
-        if flag {
-            list.Add(1)
-        }
-        return list
-    }
-}
-""";
-
-        var (compilation, _) = CreateCompilation(code);
-        var diagnostics = compilation.GetDiagnostics();
-
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RAV1503");
-    }
-
-    [Fact]
-    public void IfStatement_BindsAsStatement()
-    {
-        var code = """
-class C {
-    func Test(flag: bool) {
-        if flag {
-            ()
-        } else {
-            ()
-        }
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var ifStmt = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().First();
-        var bound = model.GetBoundNode(ifStmt);
-
-        Assert.IsType<BoundIfStatement>(bound);
-    }
-
-    [Fact]
-    public void IfStatement_BranchesCanBeExpressions()
-    {
-        var code = """
-class C {
-    func Test(flag: bool) {
-        if flag {
-            ()
-        } else ()
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var ifStmt = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().First();
-        var bound = (BoundIfStatement)model.GetBoundNode(ifStmt);
-
-        Assert.IsType<BoundBlockStatement>(bound.ThenNode);
-        Assert.IsType<BoundExpressionStatement>(bound.ElseNode);
-        Assert.IsType<BoundUnitExpression>(((BoundExpressionStatement)bound.ElseNode!).Expression);
-    }
-
-    [Fact]
-    public void IfStatement_BranchesCanBeStatements()
-    {
-        var code = """
-class C {
-    func Test(flag: bool) {
-        if flag
-            return
-        else
-            return
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var ifStmt = tree.GetRoot().DescendantNodes().OfType<IfStatementSyntax>().First();
-        var bound = (BoundIfStatement)model.GetBoundNode(ifStmt);
-
-        Assert.IsType<BoundReturnStatement>(bound.ThenNode);
-        Assert.IsType<BoundReturnStatement>(bound.ElseNode);
-    }
-
-    [Fact]
-    public void WhileStatement_SingleStatementBody_BindsAsStatement()
-    {
-        var code = """
-class C {
-    func Test(flag: bool) {
-        while flag
-            return
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var whileStmt = tree.GetRoot().DescendantNodes().OfType<WhileStatementSyntax>().First();
-        var bound = (BoundWhileStatement)model.GetBoundNode(whileStmt);
-
-        Assert.IsType<BoundReturnStatement>(bound.Body);
-    }
-
-    [Fact]
-    public void ForStatement_SingleStatementBody_BindsAsStatement()
-    {
-        var code = """
-class C {
-    func Test(values: int[]) {
-        for x in values
-            return
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var forStmt = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().First();
-        var bound = (BoundForStatement)model.GetBoundNode(forStmt);
-
-        Assert.IsType<BoundReturnStatement>(bound.Body);
-    }
-
     [Fact]
     public void IfPatternStatement_BindsAsIfStatementWithPatternCondition()
     {
@@ -381,45 +229,6 @@ class C {
     }
 
     [Fact]
-    public void PatternDeclarationAssignment_GetDeclaredSymbol_BindsOwnerBeforeFallback()
-    {
-        var code = """
-class C {
-    func Test() {
-        val (no, _) = Get()
-        no
-    }
-
-    func Get() -> (status: int, message: string) {
-        return (42, "Hej")
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var diagnostics = compilation.GetDiagnostics();
-
-        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
-
-        var model = compilation.GetSemanticModel(tree);
-        var root = tree.GetRoot();
-        var declaration = root.DescendantNodes()
-            .OfType<SingleVariableDesignationSyntax>()
-            .Single(d => d.Identifier.ValueText == "no");
-        var usage = root.DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Single(identifier => identifier.Identifier.ValueText == "no");
-
-        var declared = model.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<ILocalSymbol>();
-        declared.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
-
-        var usageSymbol = model.GetSymbolInfo(usage).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
-        usageSymbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
-        SymbolEqualityComparer.Default.Equals(declared, usageSymbol).ShouldBeTrue();
-    }
-
-    [Fact]
     public void IfPatternStatement_WithComparisonPatternOfDifferentType_ReportsDiagnostic()
     {
         var code = """
@@ -512,51 +321,6 @@ class C {
     }
 
     [Fact]
-    public void IsPatternExpression_WithAndNotPropertyPatterns_BindsBothPropertyPatterns()
-    {
-        var code = """
-class Box {
-    var Flag: bool
-}
-
-class C {
-    func Test(value: object) {
-        if value is Box { Flag: true } and not Box { Flag: false } {
-            ()
-        }
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var diagnostics = compilation.GetDiagnostics();
-
-        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
-
-        var model = compilation.GetSemanticModel(tree);
-        var isPattern = tree.GetRoot().DescendantNodes().OfType<IsPatternExpressionSyntax>().Single();
-        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
-        var andPattern = Assert.IsType<BoundAndPattern>(bound.Pattern);
-
-        var left = Assert.IsType<BoundPropertyPattern>(andPattern.Left);
-        var not = Assert.IsType<BoundNotPattern>(andPattern.Right);
-        var right = Assert.IsType<BoundPropertyPattern>(not.Pattern);
-
-        AssertBoxFlagProperty(left);
-        AssertBoxFlagProperty(right);
-    }
-
-    private static void AssertBoxFlagProperty(BoundPropertyPattern pattern)
-    {
-        pattern.ReceiverType.Name.ShouldBe("Box");
-        var subpattern = Assert.Single(pattern.Properties);
-        subpattern.Member.Name.ShouldBe("Flag");
-        subpattern.Member.ShouldBeAssignableTo<IPropertySymbol>();
-        subpattern.Pattern.ShouldBeOfType<BoundConstantPattern>();
-    }
-
-    [Fact]
     public void WhilePatternStatement_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
     {
         var code = """
@@ -585,6 +349,77 @@ class C {
     }
 
     [Fact]
+    public void WhilePatternStatement_BindsAsWhileStatementWithPatternCondition()
+    {
+        var code = """
+class C {
+    func Test(input: (string, int)) {
+        while val ("Ok", value) = input {
+            value
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var whilePatternStmt = tree.GetRoot().DescendantNodes().OfType<WhilePatternStatementSyntax>().Single();
+        var bound = Assert.IsType<BoundWhileStatement>(model.GetBoundNode(whilePatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(condition.Pattern);
+        var valuePattern = Assert.IsType<BoundDeclarationPattern>(tuplePattern.Elements[1]);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(valuePattern.Designator);
+
+        bound.Body.ShouldBeOfType<BoundBlockStatement>();
+        designator.Local.Name.ShouldBe("value");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WhilePatternStatement_WithUnionCasePattern_BindsCapturedLocal()
+    {
+        var code = """
+union Result<T> {
+    case Ok(value: T)
+    case Done
+}
+
+class C {
+    func Test(input: Result<int>) {
+        while val .Ok(value) = input {
+            value
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var whilePatternStmt = tree.GetRoot().DescendantNodes().OfType<WhilePatternStatementSyntax>().Single();
+        var bound = Assert.IsType<BoundWhileStatement>(model.GetBoundNode(whilePatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var casePattern = Assert.IsType<BoundCasePattern>(condition.Pattern);
+        var valuePattern = Assert.IsType<BoundDeclarationPattern>(casePattern.Arguments.Single());
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(valuePattern.Designator);
+
+        casePattern.CaseSymbol.Name.ShouldBe("Ok");
+        designator.Local.Name.ShouldBe("value");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
     public void IfPatternStatement_WithDuplicatePropertyPatternMembers_ReportsDiagnostic()
     {
         var code = """
@@ -606,71 +441,5 @@ class C {
         var diagnostics = compilation.GetDiagnostics();
 
         diagnostics.ShouldContain(d => d.Id == CompilerDiagnostics.DuplicatePropertyPatternMember.Id);
-    }
-
-    [Fact]
-    public void WhileStatement_BindsAsStatement()
-    {
-        var code = """
-class C {
-    func Test(flag: bool) {
-        while flag {
-            break
-        }
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var whileStmt = tree.GetRoot().DescendantNodes().OfType<WhileStatementSyntax>().First();
-        var bound = model.GetBoundNode(whileStmt);
-
-        Assert.IsType<BoundWhileStatement>(bound);
-    }
-
-    [Fact]
-    public void ForStatement_BindsAsStatement()
-    {
-        var code = """
-class C {
-    func Test(items: int[]) {
-        for item in items {
-            ()
-        }
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var forStmt = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().First();
-        var bound = model.GetBoundNode(forStmt);
-
-        Assert.IsType<BoundForStatement>(bound);
-    }
-
-    [Fact]
-    public void BlockExpression_InExpressionStatement_BindsAsStatement()
-    {
-        var code = """
-class C {
-    func Test() {
-        {
-            ()
-        }
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(code);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var blockStmt = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>().Skip(1).First();
-        var bound = model.GetBoundNode(blockStmt);
-
-        Assert.IsType<BoundBlockStatement>(bound);
     }
 }
