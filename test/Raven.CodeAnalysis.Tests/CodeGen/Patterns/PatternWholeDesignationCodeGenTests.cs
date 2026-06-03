@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis.Tests;
 public class PatternWholeDesignationCodeGenTests
 {
     [Fact]
-    public void IfPatternStatement_WithWholeDesignation_BindsMatchedTupleValue()
+    public void IfPatternStatement_WithWholeDesignation_RunsWithMatchedTupleValue()
     {
         var code = """
 import System.Console.*
@@ -29,7 +29,7 @@ func Main() {
     }
 
     [Fact]
-    public void ForPatternTarget_WithWholeDesignation_BindsIterationElement()
+    public void ForPatternTarget_WithWholeDesignation_RunsWithIterationElement()
     {
         var code = """
 import System.Console.*
@@ -46,7 +46,7 @@ for val (2, > 0.5) point in points {
     }
 
     [Fact]
-    public void IfPatternStatement_WithPropertyPattern_BindsCapturedMemberValue()
+    public void IfPatternStatement_WithPropertyPattern_RunsWithCapturedMemberValue()
     {
         var code = """
 import System.Console.*
@@ -96,7 +96,7 @@ class Program {
     }
 
     [Fact]
-    public void WhilePatternStatement_WithTuplePattern_BindsCapturedValue()
+    public void WhilePatternStatement_WithTuplePattern_RunsWithCapturedValue()
     {
         var code = """
 import System.Console.*
@@ -129,7 +129,7 @@ class Program {
     }
 
     [Fact]
-    public void WhilePatternStatement_WithUnionCasePattern_BindsCapturedValue()
+    public void WhilePatternStatement_WithUnionCasePattern_RunsWithCapturedValue()
     {
         var code = """
 import System.Console.*

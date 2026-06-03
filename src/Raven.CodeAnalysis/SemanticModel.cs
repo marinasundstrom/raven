@@ -1802,6 +1802,29 @@ public partial class SemanticModel
             return attributeInfo;
         }
 
+        if (node is TypeSyntax typeSyntax &&
+            IsExplicitTypeSyntaxContext(typeSyntax))
+        {
+            if (typeSyntax is IdentifierNameSyntax typeIdentifier &&
+                TryLookupAvailableAlias(typeIdentifier, out var aliasSymbol) &&
+                aliasSymbol is not null)
+            {
+                var aliasInfo = new SymbolInfo(aliasSymbol);
+                StoreSymbolMapping(node, aliasInfo);
+                StoreNodeInterestSymbolDescriptor(node, aliasSymbol);
+                return aliasInfo;
+            }
+
+            var type = GetTypeInfo(typeSyntax).Type;
+            if (type is not null && type.TypeKind != TypeKind.Error)
+            {
+                var typeInfo = new SymbolInfo(type);
+                StoreSymbolMapping(node, typeInfo);
+                StoreNodeInterestSymbolDescriptor(node, type);
+                return typeInfo;
+            }
+        }
+
         if (node is IdentifierNameSyntax functionParameterReference &&
             TryGetAvailableFunctionExpressionParameterReferenceSymbolInfo(functionParameterReference, out var functionParameterInfo))
         {
@@ -7320,7 +7343,9 @@ public partial class SemanticModel
 
         try
         {
-            type = GetBinder(typeSyntax).BindTypeSyntax(typeSyntax).ResolvedType;
+            var binder = GetBinder(typeSyntax);
+            using var nonReportingScope = binder.Diagnostics.CreateNonReportingScope();
+            type = binder.BindTypeSyntax(typeSyntax).ResolvedType;
             return type is not null;
         }
         catch
@@ -12019,6 +12044,17 @@ public partial class SemanticModel
 
             return info;
         }
+
+        if (TryGetCachedTypeInfo(typeSyntax, out var cachedTypeInfo) &&
+            HasNonErrorTypeInfo(cachedTypeInfo))
+        {
+            return Cache(cachedTypeInfo);
+        }
+
+        if (TryGetAvailablePredefinedTypeInfo(typeSyntax, out var predefinedTypeInfo))
+            return Cache(predefinedTypeInfo);
+
+        Compilation.EnsureSourceDeclarationsDeclared();
 
         if (TryGetAvailableTypeInfo(typeSyntax, out var availableTypeInfo))
             return Cache(availableTypeInfo);

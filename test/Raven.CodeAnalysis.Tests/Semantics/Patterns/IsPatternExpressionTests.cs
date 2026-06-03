@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
 
@@ -57,6 +61,35 @@ func Test(value: double) -> bool {
         var verifier = CreateVerifier(code);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void ConstantMemberCheck_WithMathPi_BindsConstantPatternValue()
+    {
+        const string code = """
+import System.*
+
+func Test(value: double) -> bool {
+    return value is Math.PI
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var isPattern = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<IsPatternExpressionSyntax>()
+            .Single();
+        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
+        var constantPattern = Assert.IsType<BoundConstantPattern>(bound.Pattern);
+
+        Assert.Equal(Math.PI, Assert.IsType<double>(constantPattern.ConstantValue));
     }
 
     [Fact]

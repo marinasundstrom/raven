@@ -129,4 +129,58 @@ class Calculator {
         var captures = model.GetCapturedVariables(symbol);
         Assert.Contains(captures, static captured => captured is ILocalSymbol { Name: "offset" });
     }
+
+    [Fact]
+    public void NestedLambda_ReturnedAsFunctionValue_CapturesMutableOuterLocal()
+    {
+        var code = """
+class CounterFactory {
+    func Make(start: int) -> (int) -> int {
+        var current = start
+        val increment = (delta: int) -> int => {
+            current = current + delta
+            current
+        }
+
+        return increment
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var lambdaSyntax = root
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single();
+        var declarators = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(static declarator => declarator.Identifier.ValueText);
+
+        var currentLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["current"]));
+        var incrementLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["increment"]));
+        var returnReference = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "increment");
+
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var captures = model.GetCapturedVariables(lambdaSyntax);
+        var referencedReturnLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(returnReference).Symbol);
+
+        Assert.True(currentLocal.IsMutable);
+        Assert.Contains(captures, symbol => SymbolEqualityComparer.Default.Equals(currentLocal, symbol));
+        Assert.Contains(boundLambda.CapturedVariables, symbol => SymbolEqualityComparer.Default.Equals(currentLocal, symbol));
+        Assert.True(SymbolEqualityComparer.Default.Equals(incrementLocal, referencedReturnLocal));
+        Assert.Equal("int -> int", incrementLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("int -> int", boundLambda.DelegateType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
 }

@@ -382,6 +382,71 @@ class C {
     }
 
     [Fact]
+    public void WhilePatternStatement_WithTypedImplicitBinding_BindsDeclarationPattern()
+    {
+        var code = """
+class C {
+    func Test(input: int?) {
+        while val x: int = input {
+            x
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var whilePatternStmt = tree.GetRoot().DescendantNodes().OfType<WhilePatternStatementSyntax>().Single();
+        var bound = Assert.IsType<BoundWhileStatement>(model.GetBoundNode(whilePatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var pattern = Assert.IsType<BoundDeclarationPattern>(condition.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(pattern.Designator);
+
+        pattern.DeclaredType.SpecialType.ShouldBe(SpecialType.System_Int32);
+        designator.Local.Name.ShouldBe("x");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        designator.Local.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WhilePatternStatement_WithGuardedBinding_BindsGuardedPatternAndLocal()
+    {
+        var code = """
+class C {
+    func Test(order: (int, int)) {
+        while val (id, amount when amount > 100) = order {
+            amount
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var whilePatternStmt = tree.GetRoot().DescendantNodes().OfType<WhilePatternStatementSyntax>().Single();
+        var bound = Assert.IsType<BoundWhileStatement>(model.GetBoundNode(whilePatternStmt));
+        var condition = Assert.IsType<BoundIsPatternExpression>(bound.Condition);
+        var tuplePattern = Assert.IsType<BoundPositionalPattern>(condition.Pattern);
+        var guarded = Assert.IsType<BoundGuardedPattern>(tuplePattern.Elements[1]);
+        var capture = Assert.IsType<BoundDeclarationPattern>(guarded.Pattern);
+        var designator = Assert.IsType<BoundSingleVariableDesignator>(capture.Designator);
+
+        designator.Local.Name.ShouldBe("amount");
+        designator.Local.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        guarded.GuardExpression.ShouldNotBeNull();
+    }
+
+    [Fact]
     public void WhilePatternStatement_WithUnionCasePattern_BindsCapturedLocal()
     {
         var code = """

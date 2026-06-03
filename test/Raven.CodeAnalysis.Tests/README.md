@@ -91,3 +91,13 @@ When a test fails, first classify it:
 3. The test uses reflection, subprocesses, emitted assemblies, NuGet restore, MSBuild, or samples: move it to the isolated runtime path unless it is a small, crucial end-to-end guard.
 
 Avoid baseline tests that can hang. If runtime/reflection coverage is required, keep it narrow, guarded by the isolated scripts, and separate from fast syntax/semantic coverage.
+
+## Source Fixtures
+
+Prefer inline Raven source when the syntax under test is small and the exact shape is part of the assertion. A local snippet usually makes simple `if`, `for`, `match`, lambda, or declaration tests easier to read than a named fixture.
+
+Use shared Raven source fixtures selectively when the same small setup appears across several suites, especially reusable declarations such as `Option<T>`, `Result<T>`, record/property-pattern models, metadata-like helper extensions, or a canonical control-flow shape that syntax, semantic, operation, and diagnostic tests must intentionally keep aligned.
+
+Do not turn complex samples into fixtures. When sample code reveals a gap, reduce it into a feature-owned test that keeps the relevant structure visible; leave broad sample compositions to the sample build/run smoke gates.
+
+Fixtures should provide source text, not hide the assertion target. Keep the statement or expression being tested visible in the test unless the whole point is to verify one shared canonical source shape across multiple compiler layers.

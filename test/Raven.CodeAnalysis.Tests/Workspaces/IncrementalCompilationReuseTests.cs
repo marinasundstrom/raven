@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -1811,6 +1812,18 @@ public sealed class IncrementalCompilationReuseTests
         diagnostics.ShouldNotContain(diagnostic =>
             diagnostic.Descriptor == CompilerDiagnostics.MemberDoesNotContainDefinition &&
             diagnostic.GetMessage().Contains("'VehicleStatusDto' has no member 'ToStatus'", StringComparison.Ordinal));
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "Status.ToStatus");
+        var memberAccess = invocation.Expression.ShouldBeAssignableTo<MemberAccessExpressionSyntax>();
+
+        var method = model.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        method.Name.ShouldBe("ToStatus");
+        method.ReturnType.SpecialType.ShouldBe(SpecialType.System_Int32);
+        model.GetTypeInfo(memberAccess.Expression).Type.ShouldBeAssignableTo<INamedTypeSymbol>()
+            .Name.ShouldBe("VehicleStatusDto");
         compilation.SourceDeclarationsComplete.ShouldBeFalse();
         model.RootBinderCreated.ShouldBeFalse();
     }

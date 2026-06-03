@@ -199,6 +199,104 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void DocumentDiagnostics_ForCrossFileSignatureType_SeedsTypeInfoForSemanticQueries()
+    {
+        const string contextSource = """
+            namespace Samples.VehicleCosts
+
+            class VehicleDbContext {}
+            """;
+        const string seedSource = """
+            namespace Samples.VehicleCosts
+
+            static class VehicleSeedData {
+                static func SeedAsync(db: VehicleDbContext) -> unit {
+                }
+            }
+            """;
+
+        var contextTree = SyntaxTree.ParseText(contextSource, path: "/workspace/src/Data/Db.rvn");
+        var seedTree = SyntaxTree.ParseText(seedSource, path: "/workspace/src/Data/Seed.rvn");
+        var compilation = Compilation.Create(
+            "cross-file-signature-type-semantic-query",
+            [contextTree, seedTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(seedTree);
+
+        var diagnostics = compilation.GetDocumentDiagnostics(
+            seedTree,
+            analyzerOptions: null,
+            CancellationToken.None);
+        diagnostics
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
+
+        var parameter = seedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .Single(static parameter => parameter.Identifier.ValueText == "db");
+        var typeSyntax = parameter.TypeAnnotation!.Type;
+
+        var type = model.GetTypeInfo(typeSyntax).Type.ShouldBeAssignableTo<INamedTypeSymbol>();
+        var symbol = model.GetSymbolInfo(typeSyntax).Symbol.ShouldBeAssignableTo<INamedTypeSymbol>();
+
+        type.ShouldBeSameAs(symbol);
+        type.Name.ShouldBe("VehicleDbContext");
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SemanticQueriesBeforeDocumentDiagnostics_ForCrossFileSignatureType_KeepDiagnosticsClean()
+    {
+        const string contextSource = """
+            namespace Samples.VehicleCosts
+
+            class VehicleDbContext {}
+            """;
+        const string seedSource = """
+            namespace Samples.VehicleCosts
+
+            static class VehicleSeedData {
+                static func SeedAsync(db: VehicleDbContext) -> unit {
+                }
+            }
+            """;
+
+        var contextTree = SyntaxTree.ParseText(contextSource, path: "/workspace/src/Data/Db.rvn");
+        var seedTree = SyntaxTree.ParseText(seedSource, path: "/workspace/src/Data/Seed.rvn");
+        var compilation = Compilation.Create(
+            "cross-file-signature-type-query-before-diagnostics",
+            [contextTree, seedTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(seedTree);
+        var parameter = seedTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ParameterSyntax>()
+            .Single(static parameter => parameter.Identifier.ValueText == "db");
+        var typeSyntax = parameter.TypeAnnotation!.Type;
+
+        model.GetTypeInfo(typeSyntax).Type.ShouldBeAssignableTo<INamedTypeSymbol>()
+            .Name.ShouldBe("VehicleDbContext");
+        model.GetSymbolInfo(typeSyntax).Symbol.ShouldBeAssignableTo<INamedTypeSymbol>()
+            .Name.ShouldBe("VehicleDbContext");
+
+        var diagnostics = compilation.GetDocumentDiagnostics(
+            seedTree,
+            analyzerOptions: null,
+            CancellationToken.None);
+        diagnostics
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Select(diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
+            .ShouldBeEmpty();
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
     public void DocumentDiagnostics_ForTargetTypedMemberInitializers_UseOwningTypeMemberBinder()
     {
         const string source = """
@@ -676,6 +774,59 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         diagnostics.ShouldNotContain(diagnostic =>
             diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
             diagnostic.GetMessage().Contains("'app' is not in scope", StringComparison.Ordinal));
+        compilation.SourceDeclarationsComplete.ShouldBeFalse();
+        model.RootBinderCreated.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void DocumentDiagnostics_ForTopLevelUseReferenceAfterFunctionMember_SeedsLocalForSymbolInfo()
+    {
+        const string source = """
+            import System.*
+
+            class App : IDisposable {
+                public init() {}
+                public func Dispose() -> unit {}
+                public func Run() -> unit {}
+            }
+
+            use app = App()
+
+            func ping() -> int {
+                return 2
+            }
+
+            app.Run()
+            """;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "top-level-use-symbol-info-after-function",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(syntaxTree);
+
+        var diagnostics = model.GetDocumentDiagnostics();
+        diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+            diagnostic.GetMessage().Contains("'app' is not in scope", StringComparison.Ordinal));
+
+        var root = syntaxTree.GetRoot();
+        var declarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "app");
+        var reference = root
+            .DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "app");
+
+        var declared = model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var referenced = model.GetSymbolInfo(reference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+
+        referenced.ShouldBeSameAs(declared);
+        referenced.Type.Name.ShouldBe("App");
         compilation.SourceDeclarationsComplete.ShouldBeFalse();
         model.RootBinderCreated.ShouldBeFalse();
     }
