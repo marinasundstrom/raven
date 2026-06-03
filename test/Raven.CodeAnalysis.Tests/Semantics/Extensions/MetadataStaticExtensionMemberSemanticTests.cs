@@ -153,6 +153,17 @@ import System.*
 
 val value = Option<int>.Some(42)
 val result: int? = value
+AcceptNumber(value)
+
+val textValue = Option<string>.Some("OK")
+val textResult: string? = textValue
+AcceptText(textValue)
+
+func AcceptNumber(value: int?) -> unit {
+}
+
+func AcceptText(value: string?) -> unit {
+}
 """,
             references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
@@ -164,13 +175,22 @@ val result: int? = value
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
         var valueSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "value")));
         var resultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "result")));
-        var conversion = compilation.ClassifyConversion(valueSymbol.Type, resultSymbol.Type, includeUserDefined: true);
+        var textValueSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "textValue")));
+        var textResultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "textResult")));
+        var valueConversion = compilation.ClassifyConversion(valueSymbol.Type, resultSymbol.Type, includeUserDefined: true);
+        var textConversion = compilation.ClassifyConversion(textValueSymbol.Type, textResultSymbol.Type, includeUserDefined: true);
 
-        Assert.True(conversion.Exists);
-        Assert.True(conversion.IsImplicit);
-        Assert.True(conversion.IsUserDefined);
-        Assert.Equal("op_Implicit", conversion.MethodSymbol?.Name);
-        Assert.Equal("OptionExtensions2", conversion.MethodSymbol?.ContainingType?.Name);
+        AssertOptionConversion(valueConversion, "OptionExtensions2");
+        AssertOptionConversion(textConversion, "OptionExtensions1");
+
+        var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(static invocation => invocation.Expression is IdentifierNameSyntax)
+            .ToArray();
+        Assert.All(invocations, invocation =>
+        {
+            var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+            Assert.StartsWith("Accept", boundInvocation.Method.Name, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
@@ -327,6 +347,15 @@ record class Item(Name: string)
         Assert.NotNull(bound.ResultErrorCtor);
         Assert.NotNull(bound.ReceiverResultOkValueGetter);
         Assert.NotNull(bound.ReceiverResultErrorDataGetter);
+    }
+
+    private static void AssertOptionConversion(Conversion conversion, string expectedContainerName)
+    {
+        Assert.True(conversion.Exists);
+        Assert.True(conversion.IsImplicit);
+        Assert.True(conversion.IsUserDefined);
+        Assert.Equal("op_Implicit", conversion.MethodSymbol?.Name);
+        Assert.Equal(expectedContainerName, conversion.MethodSymbol?.ContainingType?.Name);
     }
 
 }

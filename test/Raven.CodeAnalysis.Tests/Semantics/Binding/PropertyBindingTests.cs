@@ -1,5 +1,6 @@
 using System.Linq;
 
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
@@ -364,6 +365,58 @@ public class PropertyBindingTests : DiagnosticTestBase
                     .WithSpan(2, 31, 2, 34)
                     .WithArguments("Status", "set"),
             ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void BaseReference_WithWritableAndReadOnlyOverrides_BindsCommonReadablePropertySurface()
+    {
+        const string testCode =
+            """
+            val writable: Base = Writable()
+            writable.P = 3
+
+            val readable: Base = ReadOnly()
+            val current = readable.P
+
+            open class Base {
+                virtual var P: int { get; set; } = 0
+            }
+
+            class Writable : Base {
+                override var P: int { get; set; } = 0
+            }
+
+            class ReadOnly : Base {
+                override val P: int { get; } = 0
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+        var result = verifier.GetResult();
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var memberAccesses = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(static access => access.Name.Identifier.ValueText == "P")
+            .ToArray();
+        var currentDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "current");
+
+        Assert.Equal(2, memberAccesses.Length);
+
+        var assignmentProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(memberAccesses[0]).Symbol);
+        var readProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(memberAccesses[1]).Symbol);
+        var current = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(currentDeclarator));
+
+        Assert.Equal("P", assignmentProperty.Name);
+        Assert.Equal("P", readProperty.Name);
+        Assert.NotNull(assignmentProperty.SetMethod);
+        Assert.Equal(SpecialType.System_Int32, current.Type.SpecialType);
 
         verifier.Verify();
     }

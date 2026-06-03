@@ -1,4 +1,8 @@
+using System.Linq;
+
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
 using Xunit;
@@ -152,6 +156,47 @@ val renamed = newBob with {
 """;
 
         var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var locals = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(static declarator => declarator.Identifier.ValueText);
+
+        Assert.Equal("Person", Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["bob"])).Type.Name);
+        Assert.Equal("Person", Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["newBob"])).Type.Name);
+        Assert.Equal("Person", Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["renamed"])).Type.Name);
+
+        var withExpressions = root.DescendantNodes()
+            .OfType<WithExpressionSyntax>()
+            .ToArray();
+
+        Assert.Collection(
+            withExpressions,
+            expression => Assert.Equal("Person", model.GetTypeInfo(expression).Type?.Name),
+            expression => Assert.Equal("Person", model.GetTypeInfo(expression).Type?.Name));
+
+        var assignments = root.DescendantNodes()
+            .OfType<WithAssignmentSyntax>()
+            .ToArray();
+
+        Assert.Collection(
+            assignments,
+            assignment =>
+            {
+                var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignment.Name).Symbol);
+                Assert.Equal("MiddleName", property.Name);
+                Assert.Equal("Person", property.ContainingType.Name);
+            },
+            assignment =>
+            {
+                var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignment.Name).Symbol);
+                Assert.Equal("LastName", property.Name);
+                Assert.Equal("Person", property.ContainingType.Name);
+            });
+
         verifier.Verify();
     }
 }

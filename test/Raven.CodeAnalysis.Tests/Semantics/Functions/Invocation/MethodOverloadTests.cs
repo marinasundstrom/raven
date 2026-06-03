@@ -293,6 +293,83 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void NestedReceiverTrailingBlocks_WithChainedReceiverConfiguration_BindEachReceiverScope()
+    {
+        const string source = """
+        import System.*
+
+        class ReceiverAttribute : Attribute {}
+
+        class ItemHandle {
+            var Name: string = ""
+        }
+
+        extension ItemHandleDslExtensions for ItemHandle {
+            func Configure([Receiver] configure: ItemHandle -> unit) -> ItemHandle {
+                configure(self)
+                return self
+            }
+        }
+
+        class RootScope {
+            func Section(name: string, [Receiver] configure: NestedScope -> unit) -> () {
+                configure(NestedScope())
+            }
+        }
+
+        class NestedScope {
+            func Item(name: string, handler: () -> string) -> ItemHandle {
+                return ItemHandle()
+            }
+        }
+
+        class Source {
+            func Text() -> string => "ok"
+        }
+
+        func ConfigureRoot([Receiver] configure: RootScope -> unit) -> () {
+            configure(RootScope())
+        }
+
+        val source = Source()
+
+        ConfigureRoot {
+            Section("group") {
+                Item("leaf") {
+                    source.Text()
+                }.Configure {
+                    Name = "leaf"
+                }
+            }
+        }
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+
+        var configureInvocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.ValueText == "Configure");
+        var nameIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "Name");
+        var textIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(static identifier => identifier.Identifier.ValueText == "Text");
+
+        var configureMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(configureInvocation).Symbol);
+        var nameProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(nameIdentifier).Symbol);
+        var textMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(textIdentifier).Symbol);
+
+        Assert.Equal("Configure", configureMethod.Name);
+        Assert.Equal("ItemHandle", nameProperty.ContainingType?.Name);
+        Assert.Equal("Source", textMethod.ContainingType?.Name);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void GenericReceiverTrailingBlock_UsesExplicitReceiverLookupType()
     {
         const string source = """

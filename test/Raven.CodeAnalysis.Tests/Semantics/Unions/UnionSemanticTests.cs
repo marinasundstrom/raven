@@ -163,6 +163,66 @@ union MyResult3(List<int> | string)
     }
 
     [Fact]
+    public void RecursiveNominalUnion_TargetsNestedCollectionLiteralThroughArrayMember()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+union Value(string | int | Node | Value[])
+record Node(Entries: IDictionary<string, Value>)
+
+func Create() -> Node {
+    return Node([
+        "name": 1,
+        "children": [ "leaf", 2 ]
+    ])
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var recursiveArrayMember = Assert.IsAssignableFrom<IArrayTypeSymbol>(
+            unionSymbol.MemberTypes.Single(static member => member is IArrayTypeSymbol));
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(unionSymbol, recursiveArrayMember.ElementType));
+
+        var creationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "Node" });
+        var creation = Assert.IsType<BoundObjectCreationExpression>(model.GetBoundNode(creationSyntax));
+        var dictionaryConversion = Assert.IsType<BoundConversionExpression>(Assert.Single(creation.Arguments));
+        Assert.True(dictionaryConversion.Conversion.Exists);
+        var conversionTargetType = Assert.IsAssignableFrom<INamedTypeSymbol>(dictionaryConversion.Type);
+        Assert.Equal("IDictionary`2", conversionTargetType.MetadataName);
+        Assert.Equal(SpecialType.System_String, conversionTargetType.TypeArguments[0].SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(unionSymbol, conversionTargetType.TypeArguments[1]));
+
+        var dictionary = Assert.IsType<BoundDictionaryExpression>(dictionaryConversion.Expression);
+        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(dictionary.Type);
+        Assert.Equal("Dictionary`2", dictionaryType.MetadataName);
+        Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(unionSymbol, dictionaryType.TypeArguments[1]));
+
+        var arrayConversion = Assert.IsType<BoundConversionExpression>(dictionary.Elements
+            .OfType<DictionaryEntryBinding>()
+            .Select(static entry => entry.Value)
+            .Single(static value => value is BoundConversionExpression conversion &&
+                conversion.Expression.Type is IArrayTypeSymbol));
+        Assert.True(SymbolEqualityComparer.Default.Equals(unionSymbol, arrayConversion.Type));
+
+        var array = Assert.IsType<BoundCollectionExpression>(arrayConversion.Expression);
+        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(array.Type);
+        Assert.True(SymbolEqualityComparer.Default.Equals(unionSymbol, arrayType.ElementType));
+    }
+
+    [Fact]
     public void GenericNominalUnionDeclaration_PreservesTypeParameterConstraints()
     {
         const string source = """

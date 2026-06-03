@@ -754,6 +754,50 @@ for (val x, 0) in points {
     }
 
     [Fact]
+    public void For_WithGuardedPatternTarget_BindsGuardedPatternAndCaptures()
+    {
+        const string source = """
+val orders = [Order(1001, 120), Order(1002, 80)]
+
+for val (id, amount when > 100) in orders {
+    _ = id
+    _ = amount
+}
+
+record Order(Id: int, Amount: int)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        diagnostics.ShouldBeEmpty();
+
+        var model = compilation.GetSemanticModel(tree);
+        var forStatement = tree.GetRoot().DescendantNodes().OfType<ForStatementSyntax>().Single();
+        var boundFor = model.GetBoundNode(forStatement).ShouldBeOfType<BoundForStatement>();
+        var guard = boundFor.Body.ShouldBeOfType<BoundIfStatement>();
+        var isPattern = guard.Condition.ShouldBeOfType<BoundIsPatternExpression>();
+        var deconstructPattern = isPattern.Pattern.ShouldBeOfType<BoundDeconstructPattern>();
+        deconstructPattern.ReceiverType.Name.ShouldBe("Order");
+        var guardedAmount = deconstructPattern.Arguments[1].ShouldBeOfType<BoundGuardedPattern>();
+
+        guardedAmount.Pattern.ShouldBeOfType<BoundDeclarationPattern>();
+        var comparison = guardedAmount.GuardPattern.ShouldBeOfType<BoundComparisonPattern>();
+        comparison.InputType.SpecialType.ShouldBe(SpecialType.System_Int32);
+        comparison.Value.ShouldBeOfType<BoundLiteralExpression>().Value.ShouldBe(100);
+
+        var root = tree.GetRoot();
+        var id = model.GetDeclaredSymbol(root.DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "id")).ShouldBeOfType<SourceLocalSymbol>();
+        var amount = model.GetDeclaredSymbol(root.DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "amount")).ShouldBeOfType<SourceLocalSymbol>();
+
+        id.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        amount.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
+        id.IsMutable.ShouldBeFalse();
+        amount.IsMutable.ShouldBeFalse();
+    }
+
+    [Fact]
     public void For_WithImplicitTypedPatternTargetMismatch_ReportsDiagnosticOnTypeAnnotation()
     {
         const string source = """

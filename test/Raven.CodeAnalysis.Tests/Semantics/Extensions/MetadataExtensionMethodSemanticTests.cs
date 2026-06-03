@@ -609,6 +609,57 @@ val projection = numbers.Select(value => value.ToString())
     }
 
     [Fact]
+    public void Invocation_WithAggregateLambda_InfersAccumulatorAndTupleElementTypes()
+    {
+        const string source = """
+import System.Collections.Generic.*
+import Raven.MetadataFixtures.Linq.*
+
+alias Entry = (label: string, value: int)
+
+val entries = List<Entry>()
+val total = entries.Aggregate(0, (acc, entry) => acc + entry.value)
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var memberAccess = GetMemberAccess(tree, "Aggregate");
+
+        var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.True(selected.IsExtensionMethod);
+        Assert.Equal("Aggregate", selected.Name);
+        Assert.Equal("RavenEnumerableExtensions", selected.ContainingType?.Name);
+        Assert.Equal(2, selected.TypeArguments.Length);
+        Assert.Equal("Entry", selected.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(SpecialType.System_Int32, selected.TypeArguments[1].SpecialType);
+        Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+
+        var lambdaSyntax = invocation.ArgumentList.Arguments[1].Expression;
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        Assert.Collection(
+            boundLambda.Parameters,
+            parameter => Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType),
+            parameter => Assert.Equal("Entry", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+        Assert.Equal(SpecialType.System_Int32, boundLambda.ReturnType.SpecialType);
+
+        var totalDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "total");
+        var total = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(totalDeclarator));
+        Assert.Equal(SpecialType.System_Int32, total.Type.SpecialType);
+    }
+
+    [Fact]
     public void Invocation_WithMetadataExtensionOverloads_AndActionExpressionLambda_UsesSingleParameterOverload()
     {
         const string source = """
@@ -751,6 +802,81 @@ val result = numbers.Where(value => value == 2)
         Assert.Equal(SpecialType.System_Int32, lambdaParameter.Type.SpecialType);
         Assert.Equal(SpecialType.System_Boolean, boundLambda.ReturnType.SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
+    }
+
+    [Fact]
+    public void RavenCoreFirstOrError_WithPredicateAndImplicitErrorConversion_BindsPropagation()
+    {
+        const string source = """
+import System.*
+import System.Linq.*
+import System.Collections.Generic.*
+
+func Pick(items: IEnumerable<Person>) -> Result<Person, AppError> {
+    val current = items.FirstOrError(
+        person => person.YearOfBirth is 1950..1960,
+        () => DomainError("No match"))?
+
+    return .Ok(current)
+}
+
+record Person(Name: string, YearOfBirth: int)
+record DomainError(Message: string)
+record AppError(Message: string)
+
+extension ErrorConverters for AppError {
+    static func implicit(value: DomainError) -> AppError {
+        return AppError(value.Message)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ResultPropagationImplicitErrorConversion);
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static node => node.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "FirstOrError" });
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.Equal("FirstOrError", boundInvocation.Method.Name);
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("EnumerableOption", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("Result<Person, DomainError>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+
+        var lambdas = invocation.ArgumentList.Arguments
+            .Select(static argument => argument.Expression)
+            .OfType<FunctionExpressionSyntax>()
+            .ToArray();
+        Assert.Equal(2, lambdas.Length);
+
+        var predicate = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[0]));
+        Assert.Equal("Person", Assert.Single(predicate.Parameters).Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal(SpecialType.System_Boolean, predicate.ReturnType.SpecialType);
+
+        var errorFactory = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[1]));
+        Assert.Empty(errorFactory.Parameters);
+        Assert.Equal("DomainError", errorFactory.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var propagation = tree.GetRoot().DescendantNodes().OfType<PropagateExpressionSyntax>().Single();
+        Assert.Equal("Person", model.GetTypeInfo(propagation).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var currentDeclarator = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(static declarator => declarator.Identifier.ValueText == "current");
+        var current = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(currentDeclarator));
+        Assert.Equal("Person", current.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
     [Fact]

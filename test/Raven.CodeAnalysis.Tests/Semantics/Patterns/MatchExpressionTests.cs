@@ -1963,6 +1963,35 @@ val result = value match {
     }
 
     [Fact]
+    public void MatchExpression_WithRangePatternVariableBounds_BindsEndpointExpressions()
+    {
+        const string code = """
+func IsEligible(year: int, lower: int, upper: int) -> bool {
+    return year match {
+        lower..upper => true
+        _ => false
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+
+        var rangePattern = Assert.IsType<BoundRangePattern>(bound.Arms[0].Pattern);
+        Assert.Equal(SpecialType.System_Int32, rangePattern.Type.SpecialType);
+        Assert.IsType<BoundParameterAccess>(rangePattern.LowerBound);
+        Assert.IsType<BoundParameterAccess>(rangePattern.UpperBound);
+    }
+
+    [Fact]
     public void MatchExpression_WithNestedCaseNominalSequenceAndWholeDesignation_BindsAllLocals()
     {
         const string code = """

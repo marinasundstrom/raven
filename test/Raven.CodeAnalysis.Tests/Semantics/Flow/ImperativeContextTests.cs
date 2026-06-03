@@ -512,6 +512,51 @@ class C {
     }
 
     [Fact]
+    public void IsPatternExpression_WithAndNotPropertyPatterns_BindsBothPropertyPatterns()
+    {
+        var code = """
+class Box {
+    var Flag: bool
+}
+
+class C {
+    func Test(value: object) {
+        if value is Box { Flag: true } and not Box { Flag: false } {
+            ()
+        }
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var isPattern = tree.GetRoot().DescendantNodes().OfType<IsPatternExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
+        var andPattern = Assert.IsType<BoundAndPattern>(bound.Pattern);
+
+        var left = Assert.IsType<BoundPropertyPattern>(andPattern.Left);
+        var not = Assert.IsType<BoundNotPattern>(andPattern.Right);
+        var right = Assert.IsType<BoundPropertyPattern>(not.Pattern);
+
+        AssertBoxFlagProperty(left);
+        AssertBoxFlagProperty(right);
+    }
+
+    private static void AssertBoxFlagProperty(BoundPropertyPattern pattern)
+    {
+        pattern.ReceiverType.Name.ShouldBe("Box");
+        var subpattern = Assert.Single(pattern.Properties);
+        subpattern.Member.Name.ShouldBe("Flag");
+        subpattern.Member.ShouldBeAssignableTo<IPropertySymbol>();
+        subpattern.Pattern.ShouldBeOfType<BoundConstantPattern>();
+    }
+
+    [Fact]
     public void WhilePatternStatement_WithNamedTypedTargetWithoutInlineBinding_ReportsDiagnostic()
     {
         var code = """

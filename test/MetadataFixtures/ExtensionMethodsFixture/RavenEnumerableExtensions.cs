@@ -109,6 +109,22 @@ public static class RavenEnumerableExtensions
         return count;
     }
 
+    public static TAccumulate Aggregate<TSource, TAccumulate>(
+        this IEnumerable<TSource> source,
+        TAccumulate seed,
+        Func<TAccumulate, TSource, TAccumulate> func)
+    {
+        if (source is null)
+            throw new ArgumentNullException(nameof(source));
+        if (func is null)
+            throw new ArgumentNullException(nameof(func));
+
+        var result = seed;
+        foreach (var item in source)
+            result = func(result, item);
+        return result;
+    }
+
     public static int Sum(this IEnumerable<int> source)
     {
         if (source is null)

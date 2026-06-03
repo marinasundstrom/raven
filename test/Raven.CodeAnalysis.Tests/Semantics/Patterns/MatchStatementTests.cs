@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
@@ -177,6 +178,61 @@ match value {
 
         Assert.Equal("Box<int>", declaration.DeclaredType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("Box<int>", designator.Local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void MatchStatement_WithRangeAndTypedPositionalArms_BindsPatternsAndLocals()
+    {
+        const string code = """
+record SupportTicket(Id: int, Priority: int)
+
+func Route(ticket: SupportTicket, target: object) -> unit {
+    match ticket.Priority {
+        1 => ()
+        2..3 => ()
+        _ => ()
+    }
+
+    match target {
+        SupportTicket(val id, val priority) => ()
+        string teamCode => ()
+        _ => ()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var statements = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().ToArray();
+
+        Assert.Equal(2, statements.Length);
+
+        var priorityMatch = Assert.IsType<BoundMatchStatement>(model.GetBoundNode(statements[0]));
+        Assert.IsType<BoundRangePattern>(priorityMatch.Arms[1].Pattern);
+
+        var targetMatch = Assert.IsType<BoundMatchStatement>(model.GetBoundNode(statements[1]));
+        var ticketPattern = Assert.IsType<BoundDeconstructPattern>(targetMatch.Arms[0].Pattern);
+        Assert.Equal("SupportTicket", ticketPattern.ReceiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var typedPattern = Assert.IsType<BoundDeclarationPattern>(targetMatch.Arms[1].Pattern);
+        Assert.Equal(SpecialType.System_String, typedPattern.Type.SpecialType);
+
+        var locals = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .ToDictionary(
+                static designation => designation.Identifier.ValueText,
+                designation => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation)));
+
+        Assert.Equal(SpecialType.System_Int32, locals["id"].Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, locals["priority"].Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, locals["teamCode"].Type.SpecialType);
     }
 
     [Fact]

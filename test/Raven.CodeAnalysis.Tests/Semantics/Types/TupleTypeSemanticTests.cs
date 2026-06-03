@@ -1,8 +1,10 @@
 using System.Linq;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
+
 using Xunit;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -70,6 +72,52 @@ public class TupleTypeSemanticTests
         var annotationType = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type;
 
         Assert.True(SymbolEqualityComparer.Default.Equals(annotationType, initializerType));
+    }
+
+    [Fact]
+    public void NamedTuple_ReturnedFromFunction_PreservesNamesForMemberAccess()
+    {
+        var source = """
+        val person = GetPerson("Bob", 40)
+        val name = person.name
+        val age = person.age
+
+        func GetPerson(name: string, age: int) -> (name: string, age: int) {
+            return (name, age)
+        }
+        """;
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", [tree], new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(static declarator => declarator.Identifier.ValueText);
+
+        var person = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["person"]));
+        var personType = Assert.IsAssignableFrom<ITupleTypeSymbol>(person.Type);
+        Assert.Collection(
+            personType.TupleElements,
+            element =>
+            {
+                Assert.Equal("name", element.Name);
+                Assert.Equal(SpecialType.System_String, element.Type.SpecialType);
+            },
+            element =>
+            {
+                Assert.Equal("age", element.Name);
+                Assert.Equal(SpecialType.System_Int32, element.Type.SpecialType);
+            });
+
+        var name = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["name"]));
+        var age = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["age"]));
+        Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Int32, age.Type.SpecialType);
     }
 
     [Fact]

@@ -1,6 +1,8 @@
 using System;
+using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Semantics;
@@ -78,5 +80,15 @@ func parse<T: IParsable<T>>(text: string) -> T {
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Id == "RAV0320");
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var invocation = syntaxTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("Parse", method.Name);
+        Assert.Equal("IParsable", method.ContainingType?.Name);
+
+        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(model.GetTypeInfo(invocation).Type);
+        Assert.Equal("T", typeParameter.Name);
     }
 }

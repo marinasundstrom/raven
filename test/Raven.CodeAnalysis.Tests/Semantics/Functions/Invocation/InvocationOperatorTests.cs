@@ -180,6 +180,73 @@ func test(foo: Foo?) -> int {
     }
 
     [Fact]
+    public void InvocationOperator_AwaitedAfterNotNullCheck_BindsInvokeAndAwaitedResult()
+    {
+        var source = """
+import System.Threading.Tasks.*
+
+union Option<T> {
+    case Some(value: T)
+    case None
+}
+
+class Foo(value: int) {
+    async func Test(flag: bool) -> Task<Option<int>> {
+        await Task.Yield()
+
+        if flag {
+            return .Some(value)
+        }
+
+        return .None
+    }
+
+    func self(flag: bool) -> Task<Option<int>> {
+        return Test(flag)
+    }
+}
+
+async func Run(foo: Foo?) -> Task<Option<int>> {
+    if foo is not null {
+        val result = await foo(true)
+        return result
+    }
+
+    return .None
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is IdentifierNameSyntax { Identifier.ValueText: "foo" });
+        var invokeSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+
+        Assert.Equal("Invoke", invokeSymbol.Name);
+        Assert.Equal("Foo", invokeSymbol.ContainingType.Name);
+        Assert.Equal("Task<Option<int>>", model.GetTypeInfo(invocation).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var awaitExpression = root.DescendantNodes()
+            .OfType<PrefixOperatorExpressionSyntax>()
+            .Single(node => node.Kind == SyntaxKind.AwaitExpression && node.Expression == invocation);
+        Assert.Equal("Option<int>", model.GetTypeInfo(awaitExpression).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var resultDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(node => node.Identifier.ValueText == "result");
+        var result = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        Assert.Equal("Option<int>", result.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void InvocationOperator_DiagnosticsOnly_BindsToInvokeMethod()
     {
         var source = """

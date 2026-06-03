@@ -200,4 +200,57 @@ public sealed class GenericMethodTests : CompilationTestBase
 
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
     }
+
+    [Fact]
+    public void InvocationThroughConstructedGenericInterface_AwaitsConstructedReturnType()
+    {
+        var source = """
+import System.Threading.Tasks.*
+
+val handler: IHandler<Request, Response<int>> = Handler()
+val response = await handler.Handle(Request())
+
+interface IHandler<TRequest, TResponse> {
+    func Handle(request: TRequest) -> Task<TResponse>;
+}
+
+class Handler : IHandler<Request, Response<int>> {
+    async func Handle(request: Request) -> Task<Response<int>> {
+        await Task.CompletedTask
+        return .Success(1)
+    }
+}
+
+record class Request()
+
+union Response<T> {
+    case Success(value: T)
+    case Failure(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString() == "handler.Handle");
+
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Equal("Handle", symbol.Name);
+        Assert.Equal("IHandler", symbol.ContainingType?.Name);
+        Assert.Equal("Task<Response<int>>", symbol.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var awaitExpression = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PrefixOperatorExpressionSyntax>()
+            .Single(awaitExpression => awaitExpression.Expression == invocation);
+
+        Assert.Equal("Response<int>", model.GetTypeInfo(awaitExpression).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
 }

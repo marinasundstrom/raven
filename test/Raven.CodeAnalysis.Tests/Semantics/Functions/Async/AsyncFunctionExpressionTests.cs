@@ -222,6 +222,58 @@ val result = await handler()
     }
 
     [Fact]
+    public void AsyncLambda_PassedToTaskRun_TargetTypesLambdaAndAwaitsPayload()
+    {
+        const string source = """
+import System.*
+import System.Threading.Tasks.*
+
+val value = 42
+val result = await Task.Run(async () => {
+    await Task.Delay(1)
+    return value
+})
+""";
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var lambdaSyntax = root
+            .DescendantNodes()
+            .OfType<ParenthesizedFunctionExpressionSyntax>()
+            .Single();
+        var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
+        var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
+
+        Assert.True(lambdaSymbol.IsAsync);
+
+        var expectedReturn = ((INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
+            .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn.MakeNullable(), boundLambda.ReturnType));
+
+        var taskRunInvocation = root
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(invocation => invocation.Expression.ToString() == "Task.Run");
+        var boundTaskRun = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(taskRunInvocation));
+        Assert.Equal("Run", boundTaskRun.Method.Name);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(boundTaskRun.Method.TypeArguments).SpecialType);
+        Assert.Equal("Task<int>", boundTaskRun.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var resultDeclarator = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "result");
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        Assert.Equal(SpecialType.System_Int32, resultLocal.Type.SpecialType);
+    }
+
+    [Fact]
     public void AsyncFuncExpression_WithBlockBody_BindsAndInfersTaskResult()
     {
         const string source = """

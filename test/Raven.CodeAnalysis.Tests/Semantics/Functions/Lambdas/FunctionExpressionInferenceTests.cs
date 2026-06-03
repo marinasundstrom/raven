@@ -761,6 +761,53 @@ class Container {
     }
 
     [Fact]
+    public void Lambda_InGenericLinqSelect_WithPatternParameters_TargetsProjectedTypes()
+    {
+        const string code = """
+import System.Linq.*
+
+class Container {
+    func Run() -> unit {
+        val pairs = [(2, "foo"), (3, "bar")]
+        val words = pairs.Select(((number, text)) => text)
+
+        val rows = [[1, 2, 3], [4, 5, 6]]
+        val tails = rows.Select(([head, ..tail]) => tail)
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var lambdas = root.DescendantNodes()
+            .OfType<FunctionExpressionSyntax>()
+            .ToArray();
+
+        Assert.Equal(2, lambdas.Length);
+
+        var tupleLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[0]));
+        Assert.Equal(SpecialType.System_String, tupleLambda.ReturnType.SpecialType);
+
+        var collectionLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[1]));
+        var collectionReturn = Assert.IsAssignableFrom<INamedTypeSymbol>(collectionLambda.ReturnType);
+        Assert.Equal("ImmutableList", collectionReturn.Name);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(collectionReturn.TypeArguments).SpecialType);
+
+        var locals = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(
+                static declarator => declarator.Identifier.ValueText,
+                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)));
+
+        Assert.Equal("IEnumerable<string>", locals["words"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("IEnumerable<ImmutableList<int>>", locals["tails"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void Lambda_InGenericLinqSelect_QualifiedUnionCases_ReportsConversionDiagnostic()
     {
         const string code = """

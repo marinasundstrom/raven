@@ -152,6 +152,48 @@ func Main() -> () {
         Assert.Equal("Calculator.Add(int, int)", FormatSignature(candidate));
     }
 
+    [Fact]
+    public void TopLevelFunctionReference_WithSingleCandidate_InferredDelegateCanBeInvoked()
+    {
+        const string source = """
+val project = Project
+val result = project(2)
+
+func Project(value: int) -> int {
+    value + 1
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(System.Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var projectReference = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "Project");
+
+        var bound = model.GetBoundNode(projectReference);
+        var delegateCreation = Assert.IsType<BoundDelegateCreationExpression>(bound);
+        Assert.NotNull(delegateCreation.Method);
+        Assert.Equal("Program.Project(int)", FormatSignature(delegateCreation.Method!));
+
+        var info = model.GetSymbolInfo(projectReference);
+        Assert.Equal(CandidateReason.None, info.CandidateReason);
+        Assert.Equal("Program.Project(int)", FormatSignature(Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol)));
+
+        var invocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        Assert.Equal(SpecialType.System_Int32, boundInvocation.Type.SpecialType);
+
+        var resultDeclarator = root.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Single(declarator => declarator.Identifier.ValueText == "result");
+        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        Assert.Equal(SpecialType.System_Int32, resultLocal.Type.SpecialType);
+    }
+
     private static string FormatSignature(IMethodSymbol method)
     {
         var containingType = method.ContainingType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? method.Name;

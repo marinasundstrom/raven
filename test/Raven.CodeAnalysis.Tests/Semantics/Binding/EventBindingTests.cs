@@ -137,6 +137,57 @@ class Button {
     }
 
     [Fact]
+    public void EventSubscription_UnsubscriptionAndNullableInvocation_BindWithoutDiagnostics()
+    {
+        const string code = """
+import System.*
+
+interface ISource {
+    event Raised: EventHandler?
+}
+
+class Source : ISource {
+    event Raised: EventHandler?
+
+    func Raise() -> unit {
+        Raised?(self, EventArgs.Empty)
+    }
+}
+
+func Wire(source: ISource, handler: EventHandler) -> unit {
+    source.Raised += handler
+    source.Raised -= handler
+}
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var eventDeclaration = root.DescendantNodes()
+            .OfType<EventDeclarationSyntax>()
+            .Single(static declaration => declaration.Parent is InterfaceDeclarationSyntax);
+        var declaredEvent = Assert.IsAssignableFrom<IEventSymbol>(model.GetDeclaredSymbol(eventDeclaration));
+
+        var memberAccesses = root.DescendantNodes()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Where(static access => access.Name.Identifier.ValueText == "Raised")
+            .ToArray();
+
+        Assert.Equal(2, memberAccesses.Length);
+        Assert.All(memberAccesses, access =>
+        {
+            var referenced = Assert.IsAssignableFrom<IEventSymbol>(model.GetSymbolInfo(access).Symbol);
+            Assert.True(SymbolEqualityComparer.Default.Equals(declaredEvent, referenced));
+        });
+    }
+
+    [Fact]
     public void WithInitializer_EventSubscription_WithPlusEquals_BindsWithoutDiagnostics()
     {
         const string code = """

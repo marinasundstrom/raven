@@ -473,6 +473,48 @@ class C {
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Fact]
+    public void AsyncMethod_UseDeclaration_AcceptsAsyncDisposableAndSyncFallback()
+    {
+        const string source = """
+import System.*
+import System.Threading.Tasks.*
+
+class C {
+    async func Run() -> Task {
+        use asyncOnly = AsyncOnly()
+        use syncOnly = SyncOnly()
+        await Task.CompletedTask
+    }
+}
+
+class AsyncOnly : IAsyncDisposable {
+    public func DisposeAsync() -> ValueTask => ValueTask.CompletedTask
+}
+
+class SyncOnly : IDisposable {
+    public func Dispose() -> unit {}
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Run");
+        var body = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(method.Body!));
+
+        Assert.Equal(
+            ["asyncOnly", "syncOnly"],
+            body.LocalsToDispose.Select(local => local.Name));
+    }
+
     private static INamedTypeSymbol GetSynthesizedProgram(Compilation compilation)
     {
         return Assert.IsAssignableFrom<INamedTypeSymbol>(

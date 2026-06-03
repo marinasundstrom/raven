@@ -1,6 +1,7 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
@@ -47,6 +48,45 @@ async func outer() {
             .Single(e => e.Kind == SyntaxKind.AwaitExpression);
         var typeInfo = model.GetTypeInfo(awaitExpression);
         Assert.Equal(SpecialType.System_Unit, typeInfo.Type!.SpecialType);
+    }
+
+    [Fact]
+    public void AwaitExpression_ValueTaskAndValueTaskOfT_HaveAwaitedResultTypes()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func outer() {
+    val number = await ValueTask.FromResult(42)
+    val done = await ValueTask.CompletedTask
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var awaits = tree.GetRoot().DescendantNodes()
+            .OfType<PrefixOperatorExpressionSyntax>()
+            .Where(e => e.Kind == SyntaxKind.AwaitExpression)
+            .ToArray();
+
+        Assert.Equal(2, awaits.Length);
+        Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(awaits[0]).Type!.SpecialType);
+        Assert.Equal(SpecialType.System_Unit, model.GetTypeInfo(awaits[1]).Type!.SpecialType);
+
+        var locals = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToDictionary(static declarator => declarator.Identifier.ValueText);
+        var number = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["number"]));
+        var done = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["done"]));
+
+        Assert.Equal(SpecialType.System_Int32, number.Type.SpecialType);
+        Assert.Equal(SpecialType.System_Unit, done.Type.SpecialType);
     }
 
     [Fact]

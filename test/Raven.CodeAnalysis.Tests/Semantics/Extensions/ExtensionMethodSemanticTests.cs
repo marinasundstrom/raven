@@ -1262,6 +1262,73 @@ static class NumberExtensions {
     }
 
     [Fact]
+    public void ConditionalAccess_WithSourceTraitExtension_BindsExtensionInvocation()
+    {
+        const string source = """
+class Target(value: int) {
+    func self(factor: int) -> int {
+        return value * factor
+    }
+}
+
+trait TargetExtensions for Target {
+    func Label() -> string? {
+        return self.ToString()
+    }
+}
+
+class Query {
+    func Run(target: Target?) -> unit {
+        val scaled = target?(2)
+        val label: string? = target?.Label()
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var conditionalAccess = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ConditionalAccessExpressionSyntax>()
+            .Single(node => node.WhenNotNull is InvocationExpressionSyntax
+            {
+                Expression: MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Label" }
+            });
+
+        var boundAccess = Assert.IsType<BoundConditionalAccessExpression>(model.GetBoundNode(conditionalAccess));
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(boundAccess.WhenNotNull);
+
+        Assert.Equal("Label", boundInvocation.Method.Name);
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("TargetExtensions", boundInvocation.Method.ContainingType?.Name);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.Equal("Target", boundInvocation.ExtensionReceiver!.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+
+        var labelType = Assert.IsType<NullableTypeSymbol>(model.GetTypeInfo(conditionalAccess).Type);
+        Assert.Equal(SpecialType.System_String, labelType.UnderlyingType.SpecialType);
+
+        var declarators = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .ToArray();
+
+        var labelDeclarator = declarators.Single(node => node.Identifier.ValueText == "label");
+        var label = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(labelDeclarator));
+        var labelLocalType = Assert.IsType<NullableTypeSymbol>(label.Type);
+        Assert.Equal(SpecialType.System_String, labelLocalType.UnderlyingType.SpecialType);
+
+        var scaledDeclarator = declarators.Single(node => node.Identifier.ValueText == "scaled");
+        var scaled = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(scaledDeclarator));
+        var scaledType = Assert.IsType<NullableTypeSymbol>(scaled.Type);
+        Assert.Equal(SpecialType.System_Int32, scaledType.UnderlyingType.SpecialType);
+    }
+
+    [Fact]
     public void ExtensionInvocation_WithUnsatisfiedGenericConstraint_ExcludesCandidateFromLookup()
     {
         const string source = """
