@@ -336,6 +336,7 @@ internal abstract class Generator
 
             if (conversion.ConstructorSymbol is not null)
             {
+                PrepareUnionConstructorArgument(from, conversion.ConstructorSymbol.Parameters[0].Type);
                 ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(conversion.ConstructorSymbol));
                 return;
             }
@@ -438,6 +439,24 @@ internal abstract class Generator
         }
 
         throw new NotSupportedException("Unsupported conversion");
+    }
+
+    private void PrepareUnionConstructorArgument(ITypeSymbol from, ITypeSymbol parameterType)
+    {
+        if (from.TypeKind == TypeKind.Null &&
+            parameterType is NullableTypeSymbol { UnderlyingType.IsValueType: true })
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+            EmitDefaultValue(parameterType);
+            return;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(from, parameterType))
+            return;
+
+        var parameterConversion = Compilation.ClassifyConversion(from, parameterType, includeUserDefined: false);
+        if (parameterConversion.Exists && !parameterConversion.IsIdentity)
+            EmitConversion(from, parameterType, parameterConversion);
     }
 
     private bool EmitExplicitUnionExtraction(INamedTypeSymbol unionType, ITypeSymbol memberType)

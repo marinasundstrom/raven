@@ -3918,7 +3918,9 @@ partial class BlockBinder : Binder
                     .Select(expression => expression.Type ?? Compilation.ErrorTypeSymbol)
                     .ToArray();
 
-                var resultType = TypeSymbolNormalization.NormalizeUnion(contributingArmTypes);
+                var resultType = TypeSymbolNormalization.NormalizeUnion(
+                    contributingArmTypes,
+                    errorTypeSymbol: Compilation.ErrorTypeSymbol);
                 var matchExpr = new BoundMatchExpression(scrutinee, arms, resultType);
                 return new BoundExpressionStatement(matchExpr);
             }
@@ -4036,7 +4038,9 @@ partial class BlockBinder : Binder
                 .ToArray();
         }
 
-        var resultType = TypeSymbolNormalization.NormalizeUnion(contributingArmTypes);
+        var resultType = TypeSymbolNormalization.NormalizeUnion(
+            contributingArmTypes,
+            errorTypeSymbol: Compilation.ErrorTypeSymbol);
 
         return new BoundMatchExpression(scrutinee, arms, resultType);
     }

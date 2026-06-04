@@ -38,6 +38,9 @@ internal static class TypeSymbolNormalization
 
         var filtered = RemoveRedundantUnionMembers(members.ToImmutable());
 
+        if (filtered.Length == 0)
+            return errorTypeSymbol ?? throw new ArgumentException("Union normalization requires at least one type.", nameof(types));
+
         if (TryCollapseToDiscriminatedUnion(filtered, out var discriminatedUnion))
             return NormalizeForInference(discriminatedUnion);
 

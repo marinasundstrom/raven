@@ -12,8 +12,8 @@ internal sealed partial class Lowerer
     {
         var compilation = GetCompilation();
         var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
-        var rewrittenArms = RewriteMatchArms(node.Arms, compilation);
         var scrutinee = (BoundExpression)VisitExpression(node.Expression)!;
+        var rewrittenArms = RewriteMatchArms(node.Arms, scrutinee.Type, compilation);
 
         var statements = new List<BoundStatement>();
         var scrutineeLocal = EnsureMatchScrutineeLocal(scrutinee, statements, compilation);
@@ -66,8 +66,8 @@ internal sealed partial class Lowerer
         var compilation = GetCompilation();
         var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
-        var rewrittenArms = RewriteMatchArms(node.Arms, compilation);
         var scrutinee = (BoundExpression)VisitExpression(node.Expression)!;
+        var rewrittenArms = RewriteMatchArms(node.Arms, scrutinee.Type, compilation);
 
         var statements = new List<BoundStatement>();
         var scrutineeLocal = EnsureMatchScrutineeLocal(scrutinee, statements, compilation);
@@ -112,13 +112,14 @@ internal sealed partial class Lowerer
 
     private ImmutableArray<RewrittenMatchArm> RewriteMatchArms(
         ImmutableArray<BoundMatchArm> arms,
+        ITypeSymbol? scrutineeType,
         Compilation compilation)
     {
         var rewrittenArms = ImmutableArray.CreateBuilder<RewrittenMatchArm>(arms.Length);
 
         foreach (var arm in arms)
         {
-            var pattern = RewriteNullDiscardPattern(arm.Pattern, compilation);
+            var pattern = RewritePatternForMatch(arm.Pattern, scrutineeType, compilation);
             var guard = arm.Guard is null ? null : (BoundExpression?)VisitExpression(arm.Guard);
             var expression = (BoundExpression)VisitExpression(arm.Expression)!;
             rewrittenArms.Add(new RewrittenMatchArm(pattern, guard, expression));
@@ -142,21 +143,6 @@ internal sealed partial class Lowerer
         ]));
 
         return scrutineeLocal;
-    }
-
-    private static BoundPattern RewriteNullDiscardPattern(BoundPattern pattern, Compilation compilation)
-    {
-        if (pattern is BoundDeclarationPattern
-            {
-                Type: NullTypeSymbol,
-                Designator: BoundDiscardDesignator
-            } declarationPattern)
-        {
-            var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, compilation.NullTypeSymbol);
-            return new BoundConstantPattern(nullLiteral, reason: declarationPattern.Reason);
-        }
-
-        return pattern;
     }
 
     private static BoundStatement ConvertExpressionToStatement(BoundExpression expression)

@@ -11,6 +11,27 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MatchExpressionTests : DiagnosticTestBase
 {
     [Fact]
+    public void MatchExpression_IncompleteSuffix_DiagnosticsDoNotThrow()
+    {
+        const string code = """
+val v = 1
+val r = v match
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "incomplete_match_expression_diagnostics",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.NotEmpty(diagnostics);
+    }
+
+    [Fact]
     public void MatchExpression_InValuePosition_BindsDirectlyAsBoundMatchExpression()
     {
         const string code = """
