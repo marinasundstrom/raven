@@ -8,7 +8,7 @@ func Main() {
     A("42")
 
     use test = Test2()
-    test.Dispose()
+    //test.Dispose()
 
     val v: Foo = 3
     val r = v match {
@@ -18,6 +18,17 @@ func Main() {
     }
 
     Console.WriteLine(r)
+
+    val s = Status.Open("foo")
+    match s {
+        .Open(val reason) => Console.WriteLine("Reason $reason")
+        .Closed(_) => ()
+    }
 }
 
 union Foo(int | string | null)
+
+union Status {
+    case Closed(reason: string)
+    case Open(reason: string)
+}

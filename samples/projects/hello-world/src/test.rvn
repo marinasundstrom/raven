@@ -16,5 +16,9 @@ func A(x: string) -> int {
 }
 
 func Test2() -> IDisposable {
-    return default!
+    return Disposable()
+}
+
+class Disposable : IDisposable {
+    func Dispose() {}
 }
