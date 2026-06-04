@@ -154,7 +154,8 @@ UnionDeclarationBody     ::= UnionPrimaryList | '{' UnionCaseList '}' ;
 
 UnionPrimaryList.        ::= '(' UnionAlternativeTypeList ')' ;
 
-UnionAlternativeTypeList ::= TypeSyntax ('|' TypeSyntax)* ;
+UnionAlternativeTypeList ::= UnionAlternativeType ('|' UnionAlternativeType)* ;
+UnionAlternativeType     ::= Type | 'null' ; (* 'null' is union-declaration-only syntax for nullable active contents, not a general Type *)
 
 DelegateDeclaration      ::= TypeModifiers? 'delegate' Identifier TypeParameterList?
                              '(' ParameterList? ')'
@@ -737,10 +738,7 @@ NullableType             ::= PrimaryType ['?'] ;
 PrimaryType              ::= TupleType
                            | GenericType
                            | SimpleType
-                           | NullType
                            | ParenthesizedType ;
-
-NullType                 ::= 'null' ;
 
 SimpleType               ::= BuiltinType | QualifiedName ;
 BuiltinType              ::= 'bool'

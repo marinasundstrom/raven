@@ -49,8 +49,11 @@ types.
 
 The primitive set defines the building blocks for all other types. `unit` is
 singleton-valued and participates in equality, generics, tuples, and unions like
-any other value type. The `null` literal is not a separate type; it flows only to
-nullable locations and never satisfies non-nullable parameters or bindings.
+any other value type. The `null` literal is not a separate general type; it flows
+only to nullable locations and never satisfies non-nullable parameters or
+bindings. Parenthesized union declarations have a scoped syntactic exception:
+`null` may appear in the member list, such as `union Value(string | null)`, where
+it marks nullable active union contents rather than naming a type.
 
 ## Literal expressions
 

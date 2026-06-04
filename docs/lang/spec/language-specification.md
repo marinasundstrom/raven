@@ -4970,6 +4970,11 @@ default, and `null` can only flow through nullable annotations (`T?`). The same
 rules apply uniformly to reference and value types; the distinction only
 affects runtime representation, not the surface type rules.
 
+`null` is not a general type annotation spelling. The scoped exception is
+parenthesized union declarations, where `null` may appear in the member list to
+mark nullable active union contents; `T?` remains the canonical nullable type
+syntax everywhere else.
+
 #### Nullable suppression (`!`)
 
 `!` treats the operand as non-null for a single expression. Use it only when
@@ -5032,6 +5037,7 @@ record Cash(amount: decimal)
 record Card(last4: string)
 
 union Payment(Cash | Card)
+union OptionalPayment(Cash | Card | null)
 
 val paidInCash: Payment = Cash(12.50m)
 val paidByCard: Payment = Card("4242")
@@ -5040,6 +5046,11 @@ val paidByCard: Payment = Card("4242")
 ##### Rules
 
 * Each listed member type is part of the carrier's closed case set.
+* A `null` alternative in the member list is not a member type. It marks the
+  carrier's active contents as nullable, so `union U(T | null)` has `T` as its
+  member type and may hold active null contents.
+* The `null` alternative is valid only in parenthesized union declaration member
+  lists. Ordinary type annotations use `T?` for nullability.
 * Pattern matching uses ordinary patterns over those member types.
 * Construction occurs by constructing a listed member type and then converting it
   to the carrier when needed.
@@ -5127,7 +5138,8 @@ val left = (int)outcome
   value.
 * `Value` has type `object?` when the carrier may legitimately report `null`,
   including `union struct` default-state carriers and class carriers whose
-  member set includes a nullable member type.
+  member set includes a nullable member type or explicit `null` member-list
+  marker.
 * Every union carrier also exposes `HasValue: bool`, which reports whether the
   carrier currently has an active case/member.
 * `TryGetValue(out CaseType)` exposes carrier inspection for each case type.
