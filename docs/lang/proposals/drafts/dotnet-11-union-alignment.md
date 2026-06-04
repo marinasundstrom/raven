@@ -61,8 +61,18 @@ these relevant properties:
   the nullable state.
 * Case types may be classes, structs, interfaces, type parameters, nullable
   types, or other unions.
+* Union nullability is case-driven. The default null state of `Value` is
+  maybe-null when any case type is maybe-null; otherwise it is not-null for
+  constructed values. A constructor or union conversion transfers the incoming
+  value's null state to the union's `Value`.
 * Pattern matching on a union unwraps the union and applies most patterns to
   `Value`; `var` and discard patterns apply to the union value itself.
+* A `null` pattern checks the union contents. For class unions it also checks
+  whether the carrier reference is null; for nullable struct-union values it
+  also checks whether the nullable wrapper has no value.
+* `HasValue` and `TryGetValue(out T)`, when present, participate in the same
+  nullability flow as checking `Value` and make the contents not-null on the
+  true branch.
 * C# recognizes custom class or struct unions marked with
   `[System.Runtime.CompilerServices.Union]` when they provide the basic union
   pattern.
@@ -113,10 +123,10 @@ References:
 * Do not remove Raven's current union syntax.
 * Do not require Raven case types to be nested CLR types.
 * Do not require Raven to use C#'s exact storage layout.
-* Do not decide nullable union contents in this proposal; that is handled by the
-  dependent null proposal.
 * Do not change `Option<T>` or `Result<T, E>` semantics beyond interop surface
   alignment.
+* Do not introduce Raven-only metadata that C# must understand for basic union
+  construction, conversion, pattern matching, exhaustiveness, or nullability.
 
 ## Proposed design
 
@@ -150,6 +160,19 @@ Raven should not emit `System.Runtime.CompilerServices.UnionCaseAttribute` or
 `DiscriminatedUnionCaseAttribute`. Those case marker attributes are not part of
 the current .NET 11 Preview 4 direction.
 
+Recognition should follow the C# basic union pattern, not Raven metadata:
+
+* the type is marked with `[System.Runtime.CompilerServices.Union]`;
+* the type is a class or struct;
+* the type exposes a public `Value` property of type `object?` or `object`;
+* public single-parameter constructors define case types;
+* optional public `TryGetValue(out T)` members provide non-boxing extraction
+  for matching and should be associated with the corresponding case type.
+
+Raven-owned metadata can add source conveniences, such as logical names for
+body-declared Raven cases, but it must not be necessary to recognize ordinary
+C# generated or custom unions.
+
 ### 2. IUnion and Value
 
 Raven carriers should expose a C#-compatible value surface:
@@ -172,9 +195,34 @@ As with `UnionAttribute`, .NET 11 and later should use the framework-provided
 `IUnion`. .NET 10 and earlier should receive Raven's generated compatibility
 interface until source shims can be conditionally included.
 
-The exact nullability of `Value` is refined by the dependent null proposal. This
-proposal only establishes that `Value` is the interop surface used by C# and
-Raven tooling.
+`Value` is always the interop surface used by C# and Raven tooling. Its metadata
+shape is `object?` or `object`, but Raven should not attach an independent
+union-level nullable-content contract to that property. Instead, nullable
+contents are derived from the case construction surface:
+
+* a case constructor parameter typed as nullable, such as `string?` or `int?`,
+  makes the union contents maybe-null for C# and Raven analysis;
+* a union conversion from a maybe-null value transfers that maybe-null state to
+  the resulting union value;
+* `HasValue` and `TryGetValue(out T)` are access-pattern helpers that refine
+  the contents to not-null on successful checks, matching C# flow rules.
+
+Raven may keep an internal convenience property such as `ContentMayBeNull`, but
+it must be derived from the C#-recognizable surface: constructor parameter
+types, `TryGetValue(out T)` types, and imported nullable annotations. It should
+not be emitted as Raven-only metadata and should not make a union nullable when
+the C# case surface is not nullable.
+
+This distinction matters for standard union sugar. A value of type
+`System.Union<T1, T2>` has a fixed binary shape; Raven cannot attach a separate
+nullable-content bit to one use site and remain C#-compatible. If null contents
+are needed, they must be represented by nullable case types:
+
+```raven
+val value: string? | int
+```
+
+rather than a hidden Raven-only nullable marker on `string | int`.
 
 ### 3. Case construction
 
@@ -198,6 +246,41 @@ public static implicit operator Result<T, E>(Error<E> value);
 
 Raven can continue to synthesize independent case types rather than nested case
 types. Compatibility must not depend on nested CLR case types.
+
+For standard C#-style parenthesized unions, the public constructor set is the
+case set. Raven should avoid creating additional public one-parameter
+constructors that are not intended to be C# cases. Helper construction APIs, if
+needed, should use names or accessibility that do not alter the C# case set.
+
+When Raven consumes an imported union, implicit conversion to the carrier should
+be available from each public constructor parameter type. If the imported type
+also defines a user conversion, Raven should preserve normal conversion
+priority instead of treating the union conversion as a special higher-priority
+path.
+
+For parenthesized unions, the constructor parameter types are the case types
+from C#'s perspective. Raven's `null` source sugar must therefore lower to this
+constructor surface rather than to a separate null case:
+
+```raven
+union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+```
+
+should emit and model a nullable case constructor, for example the equivalent
+of `string?` when that is the unambiguous nullable-capable case. It must not
+emit a synthetic `null` case constructor, and it must not rely on a Raven-only
+marker to make `Value` maybe-null.
+
+When there is no unambiguous nullable-capable case, Raven should require the
+nullable case to be written explicitly:
+
+```raven
+union U(string? | Uri)
+union V(int? | bool)
+```
+
+This keeps binary compatibility centered on the same case constructor pattern
+that C# consumes.
 
 Body-declared case types are a Raven extension rather than the C# standard union
 shape. For those cases Raven may emit Raven-owned implementation metadata on the
@@ -247,6 +330,13 @@ Overload resolution distinguishes the case type. Existing Raven-specific helper
 names can remain temporarily, but the C#-compatible form should be the long-term
 surface.
 
+For imported C# unions, `TryGetValue(out T)` should be treated as an access
+pattern, not as the source of new cases when the constructor case set is already
+known. If constructors and `TryGetValue` disagree, constructors define the
+authoritative case set and the mismatch should either be ignored for matching
+optimization or reported for Raven-authored source, depending on whether the
+compiler is validating or merely consuming metadata.
+
 ### 5. Pattern matching
 
 Raven pattern matching over a union should be able to lower through the same
@@ -256,6 +346,21 @@ apply ordinary patterns to those contents.
 This proposal does not require Raven to use boxed `Value` for efficient Raven
 code. The compiler can use non-boxing paths internally and still expose `Value`
 for interop.
+
+The semantic rules should align with C#:
+
+* type, constant, relational, property, list, and logical patterns apply to the
+  union contents;
+* `var` and discard patterns apply to the incoming union value itself;
+* for class unions, non-null content patterns require the carrier reference to
+  be non-null;
+* for nullable struct-union values, non-null content patterns require the
+  nullable wrapper to have a value;
+* a `null` pattern covers a null `Value`, plus a null carrier reference for
+  class unions and an empty nullable wrapper for nullable struct-union values;
+* pattern lowering should prefer `TryGetValue(out T)` for type-directed
+  extraction, then fall back to `HasValue` for null checks, then fall back to
+  `Value`.
 
 For body-declared Raven unions imported from metadata, pattern matching should
 resolve the logical case through the carrier and then bind extraction through
@@ -280,7 +385,22 @@ patterns to the union value itself rather than unwrapping. Raven may choose to
 preserve current semantics, but the divergence should be documented if it
 remains.
 
-### 5.1 Propagation and carrier conditional access
+### 5.1 Exhaustiveness
+
+Exhaustiveness should be based on the same case set that C# sees:
+
+* public single-parameter constructors for C# generated/custom unions;
+* Raven-owned case metadata only for Raven body-declared unions whose logical
+  case types cannot be reconstructed from the C# surface alone;
+* parenthesized union member types for Raven source unions, emitted as C#
+  constructor case types.
+
+A switch/match is exhaustive when every case type is handled. If the incoming
+union contents are maybe-null according to C# nullability flow, `null` must also
+be handled. Struct union default/inactive state should be modeled as `Value ==
+null`; nullable struct-union wrappers add the wrapper-null state on top.
+
+### 5.2 Propagation and carrier conditional access
 
 Raven's `?` propagation and carrier conditional access are part of the same
 interop surface as pattern matching. When the receiver is a Raven.Core
@@ -326,6 +446,17 @@ The semantic model should avoid exposing implementation-specific bridge details
 to language-service and analyzer consumers. Public semantic APIs should describe
 the union shape, member types, conversions, and nullability.
 
+Nullability for standard union syntax follows the same case-type rule:
+
+* `T | null`, if supported outside declarations, should canonicalize to `T?`
+  rather than a one-case standard union.
+* `T1 | T2 | null` should either rewrite to an explicit nullable case type when
+  the target case is unambiguous or be rejected with a diagnostic requiring
+  `T1? | T2` / `T1 | T2?`.
+* Raven should not represent standard union nullability as a use-site flag on
+  `System.Union<...>` because that flag would not exist in the C# union pattern
+  or metadata shape.
+
 ### 7. Class and struct carriers
 
 C# generated unions are value types by default, but custom unions may be class or
@@ -339,7 +470,35 @@ The compiler must model:
 * active member/case contents,
 * `HasValue` where Raven exposes it.
 
-The dependent null proposal builds on these states to define null contents.
+Raven should not assume all imported C# unions are value types. Generated C#
+unions are structs, but custom unions may be classes, and class-union matching
+has an extra carrier-null state. This affects conversions, nullable annotations,
+match lowering, exhaustiveness diagnostics, and `is null` behavior.
+
+## Compatibility checklist
+
+Raven is aligned with the C# union pattern when all of the following are true:
+
+* Raven emits `[Union]`, implements `IUnion`, and exposes a public `Value`
+  property that C# accepts.
+* Raven source parenthesized unions emit public constructors whose parameter
+  types exactly match the C# case types Raven wants to expose.
+* Raven source body-form unions remain Raven extensions but expose enough
+  constructor and `TryGetValue(out T)` surface for C# consumption where
+  practical.
+* Raven imports C# generated unions and custom `[Union]` class/struct types
+  without Raven-specific metadata.
+* Raven derives case types from public one-parameter constructors, using
+  `TryGetValue(out T)` for optimized extraction rather than as a competing
+  source of truth.
+* Raven implements union conversions from case types to carriers with normal
+  conversion priority.
+* Raven pattern matching unwraps to `Value` according to C# rules, including the
+  `var`/discard exceptions and class/nullable-struct carrier null states.
+* Raven exhaustiveness diagnostics use the C# case set and require `null` only
+  when the C# null state of the incoming union contents is maybe-null.
+* Raven standard union sugar does not invent metadata beyond the C# union
+  pattern; nullable content is represented by nullable case types.
 
 ## Affected components
 
