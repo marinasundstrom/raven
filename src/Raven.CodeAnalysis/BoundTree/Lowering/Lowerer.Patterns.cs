@@ -9,6 +9,15 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
+    public override BoundNode? VisitIsPatternExpression(BoundIsPatternExpression node)
+    {
+        var expression = (BoundExpression)VisitExpression(node.Expression)!;
+        var pattern = RewritePatternForMatch(node.Pattern, expression.Type, GetCompilation());
+        var booleanType = (ITypeSymbol)VisitSymbol(node.BooleanType)!;
+
+        return node.Update(expression, pattern, booleanType, node.Reason);
+    }
+
     private BoundPattern RewritePatternForMatch(
         BoundPattern pattern,
         ITypeSymbol? inputType,
@@ -26,8 +35,14 @@ internal sealed partial class Lowerer
             BoundNotPattern notPattern => new BoundNotPattern(
                 RewritePatternForMatch(notPattern.Pattern, inputType, compilation)),
             BoundUnionMemberPattern unionMemberPattern => RewriteUnionMemberPatternForMatch(unionMemberPattern, compilation),
+            BoundConstantPattern constantPattern => RewriteConstantPatternForMatch(constantPattern),
+            BoundPropertyPattern propertyPattern => RewritePropertyPatternForMatch(propertyPattern, compilation),
+            BoundRangePattern rangePattern => RewriteRangePatternForMatch(rangePattern),
             _ => RewriteNullDiscardPattern(pattern, compilation)
         };
+
+        if (TryRewriteUnionDeclarationPattern(pattern, inputType, out var rewrittenDeclarationPattern))
+            return rewrittenDeclarationPattern;
 
         return TryRewriteUnionConstantPattern(pattern, inputType, out var rewrittenPattern)
             ? rewrittenPattern
@@ -80,6 +95,104 @@ internal sealed partial class Lowerer
         return pattern;
     }
 
+    private BoundPattern RewriteRangePatternForMatch(BoundRangePattern rangePattern)
+    {
+        var lowerBound = rangePattern.LowerBound is null
+            ? null
+            : VisitExpression(rangePattern.LowerBound) ?? rangePattern.LowerBound;
+        var upperBound = rangePattern.UpperBound is null
+            ? null
+            : VisitExpression(rangePattern.UpperBound) ?? rangePattern.UpperBound;
+
+        BoundPattern? lowerPattern = lowerBound is null
+            ? null
+            : new BoundComparisonPattern(
+                rangePattern.Type,
+                BoundComparisonPatternOperator.GreaterThanOrEqual,
+                lowerBound,
+                rangePattern.Reason);
+
+        BoundPattern? upperPattern = upperBound is null
+            ? null
+            : new BoundComparisonPattern(
+                rangePattern.Type,
+                rangePattern.IsUpperExclusive
+                    ? BoundComparisonPatternOperator.LessThan
+                    : BoundComparisonPatternOperator.LessThanOrEqual,
+                upperBound,
+                rangePattern.Reason);
+
+        return (lowerPattern, upperPattern) switch
+        {
+            ({ } lower, { } upper) => new BoundAndPattern(lower, upper),
+            ({ } lower, null) => lower,
+            (null, { } upper) => upper,
+            _ => new BoundDiscardPattern(rangePattern.Type, rangePattern.Reason)
+        };
+    }
+
+    private static BoundPattern RewritePropertyPatternForMatch(BoundPropertyPattern propertyPattern, Compilation compilation)
+    {
+        if (propertyPattern.Properties.Length != 0 || propertyPattern.Designator is not null)
+            return propertyPattern;
+
+        if (propertyPattern.NarrowedType is not null)
+            return new BoundDeclarationPattern(
+                propertyPattern.NarrowedType,
+                new BoundDiscardDesignator(propertyPattern.NarrowedType),
+                propertyPattern.Reason);
+
+        var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, compilation.NullTypeSymbol);
+        return new BoundNotPattern(new BoundConstantPattern(nullLiteral, reason: propertyPattern.Reason));
+    }
+
+    private BoundPattern RewriteConstantPatternForMatch(BoundConstantPattern constantPattern)
+    {
+        if (constantPattern.Expression is null)
+            return constantPattern;
+
+        var expression = VisitExpression(constantPattern.Expression) ?? constantPattern.Expression;
+        return ReferenceEquals(expression, constantPattern.Expression)
+            ? constantPattern
+            : new BoundConstantPattern(expression, constantPattern.Designator, constantPattern.Reason);
+    }
+
+    private bool TryRewriteUnionDeclarationPattern(
+        BoundPattern pattern,
+        ITypeSymbol? inputType,
+        out BoundPattern rewrittenPattern)
+    {
+        rewrittenPattern = pattern;
+
+        if (pattern is not BoundDeclarationPattern declarationPattern || inputType is null)
+            return false;
+
+        var declaredType = declarationPattern.DeclaredType;
+        if (declaredType.TypeKind is TypeKind.Error or TypeKind.Null)
+            return false;
+
+        var unionType = inputType.TryGetUnion()
+            ?? inputType.TryGetUnionCase()?.Union;
+
+        if (unionType is null || unionType.MemberTypes.IsDefaultOrEmpty)
+            return false;
+
+        foreach (var memberType in unionType.MemberTypes)
+        {
+            if (!CanUnionMemberMatchDeclaration(memberType, declaredType))
+                continue;
+
+            var tryGetMethod = FindTryGetMethod(inputType, unionType, memberType);
+            if (tryGetMethod is null)
+                continue;
+
+            rewrittenPattern = new BoundUnionMemberPattern(inputType, memberType, tryGetMethod, declarationPattern);
+            return true;
+        }
+
+        return false;
+    }
+
     private bool TryRewriteUnionConstantPattern(
         BoundPattern pattern,
         ITypeSymbol? inputType,
@@ -121,6 +234,17 @@ internal sealed partial class Lowerer
             rewrittenPattern = new BoundOrPattern(rewrittenPattern, matches[i]);
 
         return true;
+    }
+
+    private static bool CanUnionMemberMatchDeclaration(ITypeSymbol memberType, ITypeSymbol declaredType)
+    {
+        if (AreSameUnionMemberPatternTarget(memberType, declaredType))
+            return true;
+
+        var memberContentType = UnionContentNullability.GetNonNullContentType(memberType, out _);
+        var declaredContentType = UnionContentNullability.GetNonNullContentType(declaredType, out _);
+
+        return AreSameUnionMemberPatternTarget(memberContentType, declaredContentType);
     }
 
     private static ITypeSymbol? GetConstantPatternComparisonType(BoundConstantPattern constantPattern)

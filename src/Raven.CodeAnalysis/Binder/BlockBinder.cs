@@ -4975,6 +4975,17 @@ partial class BlockBinder : Binder
             return false;
         }
 
+        if ((scrutineeType.TryGetUnion() ?? scrutineeType.TryGetUnionCase()?.Union) is { } nominalUnion &&
+            !nominalUnion.MemberTypes.IsDefaultOrEmpty)
+        {
+            foreach (var member in nominalUnion.MemberTypes)
+            {
+                var memberContentType = UnionContentNullability.GetNonNullContentType(member, out _);
+                if (PatternCanMatch(memberContentType, patternType))
+                    return true;
+            }
+        }
+
         if (patternType is ITypeUnionSymbol patternUnion)
         {
             foreach (var member in patternUnion.Types)

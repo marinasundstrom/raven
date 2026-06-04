@@ -947,7 +947,10 @@ internal class PatternSyntaxParser : SyntaxParser
         ExpressionSyntax? upperBound = null;
         if (CanStartRangeBoundExpression(PeekToken()))
         {
-            upperBound = new ExpressionSyntaxParser(this, allowLambdaExpressions: false).ParseExpression();
+            upperBound = new ExpressionSyntaxParser(
+                this,
+                stopOnOpenBrace: true,
+                allowLambdaExpressions: false).ParseExpression();
         }
 
         return RangePattern(lowerBound, dotDotToken, lessThanToken, upperBound);

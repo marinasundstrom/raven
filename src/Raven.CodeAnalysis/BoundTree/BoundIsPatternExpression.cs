@@ -901,17 +901,8 @@ internal partial class BlockBinder
             designator = new BoundDiscardDesignator(declaredType);
         }
 
-        if (typeExpression is BoundTypeExpression { TypeSymbol: NullTypeSymbol } &&
-            designator is BoundDiscardDesignator)
-        {
-            var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol);
-            return new BoundConstantPattern(nullLiteral);
-        }
-
         var declarationPattern = new BoundDeclarationPattern(declaredType, designator);
-        return TryWrapUnionMemberPattern(syntax.Type, inputType, declaredType, declarationPattern, out var unionMemberPattern)
-            ? unionMemberPattern
-            : declarationPattern;
+        return declarationPattern;
     }
 
     private bool TryInferDeclarationPatternTypeFromIdentifierSyntax(
@@ -2526,25 +2517,6 @@ internal partial class BlockBinder
         }
 
         return null;
-    }
-
-    private bool TryWrapUnionMemberPattern(
-        TypeSyntax memberTypeSyntax,
-        ITypeSymbol? inputType,
-        ITypeSymbol memberType,
-        BoundPattern innerPattern,
-        out BoundPattern unionMemberPattern)
-    {
-        unionMemberPattern = innerPattern;
-
-        if (!TryResolveUnionMemberPatternTarget(memberTypeSyntax, inputType, out var resolvedMemberType, out var tryGetMethod))
-            return false;
-
-        if (!AreSameUnionMemberPatternTarget(memberType, resolvedMemberType))
-            return false;
-
-        unionMemberPattern = new BoundUnionMemberPattern(inputType!, resolvedMemberType, tryGetMethod, innerPattern);
-        return true;
     }
 
     private bool TryResolveUnionMemberPatternTarget(

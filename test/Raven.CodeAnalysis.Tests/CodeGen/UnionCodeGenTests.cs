@@ -743,6 +743,57 @@ union Foo(int | null)
     }
 
     [Fact]
+    public void ClassUnion_WithNullableValuePayload_IsDeclarationPatternExtractsMember()
+    {
+        var code = """
+class Runner {
+    public static func IntCase() -> int {
+        val v: Foo = 42
+        if v is int i {
+            return i
+        }
+
+        return -1
+    }
+
+    public static func NullCase() -> int {
+        val v: Foo = null
+        if v is int i {
+            return i
+        }
+
+        return -1
+    }
+}
+
+union Foo(int | null)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var runnerType = runtimeAssembly.GetType("Runner", throwOnError: true)!;
+
+        Assert.Equal(42, runnerType.GetMethod("IntCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(-1, runnerType.GetMethod("NullCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
     public void DefaultStructUnion_NullPatternMatchesInactiveState()
     {
         var code = """
