@@ -9,11 +9,12 @@ func Main() {
 
     use test = Test2()
 
-    val v: Foo = "null"
+    val v: Foo = 3
     val r = v match {
+        3 => 3
         int i => i
         string => 2
-        null => 0
+        _ => 4
     }
 
     Console.WriteLine(r)

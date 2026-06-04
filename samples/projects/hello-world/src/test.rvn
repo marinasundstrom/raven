@@ -18,3 +18,5 @@ func A(x: string) -> int {
 func Test2() -> IDisposable {
     return default!
 }
+
+union Foo(int | string)

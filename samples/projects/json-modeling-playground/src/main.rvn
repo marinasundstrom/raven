@@ -16,7 +16,12 @@ items.Add(null)
 
 val value = JsonObject([ 
     "name": 32.0,
-    "items": items.ToArray(),
+    "items": items.ToArray()
+    /*"items": [
+        "true",
+        42.0
+        //null
+    ]*/
     "metadata": null
 ])
 
