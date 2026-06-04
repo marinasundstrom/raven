@@ -355,6 +355,9 @@ public partial class Compilation
             if (destination is ITypeUnionSymbol unionDest && UnionContainsNull(unionDest))
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
+            if (destination is IUnionSymbol { ContentMayBeNull: true })
+                return Finalize(new Conversion(isImplicit: true, isReference: true));
+
             return Conversion.None;
         }
 

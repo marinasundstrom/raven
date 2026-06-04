@@ -644,6 +644,8 @@ public interface IUnionSymbol : INamedTypeSymbol
 
     ImmutableArray<ITypeSymbol> MemberTypes { get; }
 
+    bool ContentMayBeNull { get; }
+
     IFieldSymbol DiscriminatorField { get; }
 
     IFieldSymbol PayloadField { get; }

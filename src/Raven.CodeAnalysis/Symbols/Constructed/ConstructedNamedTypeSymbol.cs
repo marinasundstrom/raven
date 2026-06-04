@@ -1004,6 +1004,8 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             return _memberTypes.Value;
         }
     }
+    public bool ContentMayBeNull => TryGetUnionDefinition(out var unionDefinition) && unionDefinition.ContentMayBeNull;
+
     public IFieldSymbol DiscriminatorField
     {
         get

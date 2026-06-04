@@ -189,6 +189,95 @@ union Either(int | string)
     }
 
     [Fact]
+    public void NominalUnionDeclaration_WithNullableMember_MarksNullableContent()
+    {
+        const string source = """
+union Foo(int | double?)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.True(unionSymbol.ContentMayBeNull);
+        Assert.Equal(2, unionSymbol.MemberTypes.Length);
+        Assert.True(unionSymbol.MemberTypes[1].IsNullable);
+    }
+
+    [Fact]
+    public void NominalUnionDeclaration_WithoutNullableMember_DoesNotMarkNullableContent()
+    {
+        const string source = """
+union Foo(int | double)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.False(unionSymbol.ContentMayBeNull);
+
+        var valueProperty = Assert.Single(unionSymbol.GetMembers("Value").OfType<IPropertySymbol>());
+        Assert.True(valueProperty.Type.IsNullable);
+    }
+
+    [Fact]
+    public void ParenthesizedUnionMatch_WithNullableMemberPattern_CoversNullContent()
+    {
+        const string source = """
+func Test(value: Foo) -> int {
+    return value match {
+        int number => number
+        double? number => 0
+    }
+}
+
+union Foo(int | double?)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void NullLiteral_ConvertsToUnionWithNullableContent()
+    {
+        const string source = """
+union Foo(int | double?)
+
+func Test() -> () {
+    val value: Foo = null
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
     public void GenericNominalUnionDeclaration_BindsNestedGenericMemberTypes()
     {
         const string source = """
@@ -1328,7 +1417,7 @@ union Result {
     }
 
     [Fact]
-    public void UnionValueProperty_Type_IsObjectForClassUnionCases()
+    public void UnionValueProperty_Type_IsNullableObjectForClassUnionCases()
     {
         const string source = """
 union Result {
@@ -1344,8 +1433,8 @@ union Result {
         var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
         var valueProperty = Assert.Single(unionSymbol.GetMembers("Value").OfType<IPropertySymbol>().Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingType, unionSymbol)));
 
-        Assert.Equal("object", valueProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        Assert.False(valueProperty.Type.IsNullable);
+        Assert.Equal("object?", valueProperty.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.True(valueProperty.Type.IsNullable);
     }
 
     [Fact]

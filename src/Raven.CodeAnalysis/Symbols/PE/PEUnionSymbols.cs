@@ -14,6 +14,7 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
     private ImmutableArray<IUnionCaseTypeSymbol>? _cases;
     private ImmutableArray<ITypeSymbol>? _caseTypes;
     private ImmutableArray<ITypeSymbol>? _memberTypes;
+    private bool? _contentMayBeNull;
     private IFieldSymbol? _discriminatorField;
     private IFieldSymbol? _payloadField;
 
@@ -243,6 +244,8 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
         }
     }
 
+    public bool ContentMayBeNull => _contentMayBeNull ??= ComputeContentMayBeNull();
+
     public IFieldSymbol PayloadField =>
         _payloadField ??= FindUnionField(UnionFieldUtilities.IsPayloadFieldName)
             ?? throw new InvalidOperationException($"Missing payload field on discriminated union '{Name}'.");
@@ -293,6 +296,16 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
         return builder.ToImmutable();
     }
 
+    private bool ComputeContentMayBeNull()
+    {
+        if (MemberTypes.Any(IsNullableContentType))
+            return true;
+
+        return GetMembers("Value")
+            .OfType<IPropertySymbol>()
+            .Any(property => IsNullableContentType(property.Type));
+    }
+
     private static void AddMemberType(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol memberType)
     {
         if (builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, memberType)))
@@ -300,6 +313,11 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 
         builder.Add(memberType);
     }
+
+    private static bool IsNullableContentType(ITypeSymbol type)
+        => type.TypeKind == TypeKind.Null ||
+           type.IsNullable ||
+           type is INamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T };
 }
 
 internal sealed class PEUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbol

@@ -210,6 +210,12 @@ internal sealed class MatchExhaustivenessEvaluator
             .Select(UnwrapAlias)
             .ToList();
 
+        if (union.ContentMayBeNull &&
+            !memberTypes.Any(CanBeNull))
+        {
+            memberTypes.Add(_compilation.NullTypeSymbol);
+        }
+
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
 
@@ -970,6 +976,9 @@ internal sealed class MatchExhaustivenessEvaluator
             return true;
 
         if (type.IsNullable)
+            return true;
+
+        if (type.TryGetUnion() is { ContentMayBeNull: true })
             return true;
 
         if (type.TryGetUnion() is { TypeKind: TypeKind.Struct })

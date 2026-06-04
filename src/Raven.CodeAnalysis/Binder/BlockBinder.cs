@@ -5014,6 +5014,9 @@ partial class BlockBinder : Binder
         if (type.IsNullable)
             return true;
 
+        if (type.TryGetUnion() is { ContentMayBeNull: true })
+            return true;
+
         if (type.TryGetUnion() is { TypeKind: TypeKind.Struct })
             return true;
 
@@ -5645,6 +5648,12 @@ partial class BlockBinder : Binder
         var memberTypes = union.MemberTypes
             .Select(UnwrapAlias)
             .ToList();
+
+        if (union.ContentMayBeNull &&
+            !memberTypes.Any(CanBeNull))
+        {
+            memberTypes.Add(Compilation.NullTypeSymbol);
+        }
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);

@@ -174,6 +174,11 @@ Value member types: string
 Value content nullability: maybe-null
 ```
 
+Implementation note: source and metadata union symbols expose this state as
+`ContentMayBeNull`. Synthesized union carriers expose `Value` as `object?` for
+C# union compatibility; `ContentMayBeNull` determines whether the union contents
+accept `null` as a valid active value.
+
 For declaration display, Raven may prefer either of these forms depending on
 context:
 

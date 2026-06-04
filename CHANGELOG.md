@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Aligned union content nullability with C# unions: Raven now tracks nullable
+  parenthesized union contents, exposes synthesized union `Value` as `object?`,
+  allows `null` conversions when union content may be null, and imports nullable
+  C# union contents from .NET 11 metadata.
 - Fixed extension member completion after partially typed member names so
   imported metadata extension methods are offered for prefixes such as
   `widget.Dou`.

@@ -360,7 +360,17 @@ public static partial class SymbolExtensions
                 !unionSymbol.MemberTypes.IsDefaultOrEmpty)
             {
                 var memberFormat = format.WithKindOptions(format.KindOptions & ~SymbolDisplayKindOptions.IncludeTypeKeyword);
-                var members = string.Join(" | ", unionSymbol.MemberTypes.Select(member => FormatType(member, memberFormat)));
+                var memberDisplayParts = unionSymbol.MemberTypes
+                    .Select(member => FormatType(member, memberFormat))
+                    .ToList();
+
+                if (unionSymbol.ContentMayBeNull &&
+                    !unionSymbol.MemberTypes.Any(static member => member.TypeKind == TypeKind.Null || member.IsNullable))
+                {
+                    memberDisplayParts.Add("null");
+                }
+
+                var members = string.Join(" | ", memberDisplayParts);
                 text += $"({members})";
             }
 
