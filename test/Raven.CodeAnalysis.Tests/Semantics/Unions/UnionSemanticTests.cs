@@ -278,6 +278,155 @@ func Test() -> () {
     }
 
     [Fact]
+    public void NominalUnionDeclaration_WithExplicitNull_MarksNullableContentWithoutNullMember()
+    {
+        const string source = """
+union Foo(int | double | null)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+
+        Assert.True(unionSymbol.ContentMayBeNull);
+        Assert.DoesNotContain(unionSymbol.MemberTypes, static member => member.TypeKind == TypeKind.Null);
+        Assert.DoesNotContain(unionSymbol.CaseTypes, static member => member.TypeKind == TypeKind.Null);
+        Assert.Collection(
+            unionSymbol.MemberTypes,
+            first => Assert.Equal(SpecialType.System_Int32, first.SpecialType),
+            second => Assert.Equal(SpecialType.System_Double, second.SpecialType));
+
+        var valueProperty = Assert.Single(unionSymbol.GetMembers("Value").OfType<IPropertySymbol>());
+        Assert.True(valueProperty.Type.IsNullable);
+    }
+
+    [Fact]
+    public void NullTypeSyntax_OutsideParenthesizedUnionDeclaration_IsRejected()
+    {
+        const string source = """
+func Test(value: int | null) -> () {
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.NotEmpty(diagnostics);
+    }
+
+    [Fact]
+    public void NullLiteral_ConvertsToUnionWithExplicitNullContent()
+    {
+        const string source = """
+union Foo(int | double | null)
+
+func Test() -> () {
+    val value: Foo = null
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void ParenthesizedUnionMatch_WithLiteralAndNull_CoversNullButNotEntireMemberType()
+    {
+        const string source = """
+func Test(x2: Test2) -> int {
+    val r = x2 match {
+        42 => 3
+        null => 2
+    }
+
+    return r
+}
+
+union Test2(int | null)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Contains("int", info.MissingCases);
+        Assert.DoesNotContain("null", info.MissingCases);
+    }
+
+    [Fact]
+    public void ParenthesizedUnionMatch_WithOnlyNullArm_ReportsMissingMemberDiagnostic()
+    {
+        const string source = """
+func Test(x2: Test2) -> int {
+    val r = x2 match {
+        null => 2
+    }
+
+    return r
+}
+
+union Test2(int | null)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
+
+        Assert.Contains("int", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("null", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("int", missing));
+    }
+
+    [Fact]
+    public void ParenthesizedUnionMatch_WithTypedMemberAndNull_IsExhaustive()
+    {
+        const string source = """
+func Test(x2: Test2) -> int {
+    return x2 match {
+        int value => value
+        null => 2
+    }
+}
+
+union Test2(int | null)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
     public void GenericNominalUnionDeclaration_BindsNestedGenericMemberTypes()
     {
         const string source = """

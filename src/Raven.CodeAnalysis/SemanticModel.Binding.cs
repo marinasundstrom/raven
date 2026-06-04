@@ -3971,8 +3971,13 @@ public partial class SemanticModel
 
             foreach (var memberTypeSyntax in memberTypeList.Types)
             {
-                var memberType = unionBinder.BindTypeSyntaxAndReport(memberTypeSyntax);
+                if (memberTypeSyntax is NullTypeSyntax)
+                {
+                    contentMayBeNull = true;
+                    continue;
+                }
 
+                var memberType = unionBinder.BindTypeSyntaxAndReport(memberTypeSyntax);
                 contentMayBeNull |= memberType.IsNullable;
                 boundMemberTypes.Add((memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference()));
             }

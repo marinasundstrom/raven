@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added union-only `null` syntax in parenthesized union declarations, so
+  declarations such as `union Foo(int | null)` mark the union content as
+  maybe-null without creating a null member type.
 - Aligned union content nullability with C# unions: Raven now tracks nullable
   parenthesized union contents, exposes synthesized union `Value` as `object?`,
   allows `null` conversions when union content may be null, and imports nullable

@@ -4,25 +4,19 @@
 
 ## Summary
 
-Allow `null` to participate in Raven union declarations and Raven standard union
-type syntax, building on the .NET 11-compatible union model described in
+Allow `null` to participate in parenthesized Raven union declarations, building
+on the .NET 11-compatible union model described in
 [Align Raven Unions with .NET 11](dotnet-11-union-alignment.md).
 
-The source spelling:
+The implemented source spelling:
 
 ```raven
-string | Expression<() -> object> | null
+union Value(string | Expression<() -> object> | null)
 ```
 
-means a standard union whose active contents may be `null`. For ordinary
-nullable display and flow, that form is equivalent to:
-
-```raven
-(string | Expression<() -> object>)?
-```
-
-The implementation must treat `null` as a union content state, not as a
-generated nominal case type.
+means a union carrier whose active contents may be `null`. The implementation
+treats `null` as union content nullability metadata, not as a generated nominal
+case type or a generally valid type name.
 
 ## Dependency
 
@@ -40,23 +34,17 @@ encoding the wrong distinction between nullable carriers and nullable contents.
 
 ## Motivation
 
-Raven already uses `T1 | T2` as ergonomic source sugar for standard unions. APIs
-often need a value that is one of several shapes, with `null` as a legitimate
-default or absence state:
+Raven already uses parenthesized union declarations as ergonomic source sugar
+for standard union carriers. APIs often need a value that is one of several
+shapes, with `null` as a legitimate default or absence state:
 
 ```raven
-Label(text: string | Expression<() -> object> | null = null)
+union LabelText(string | Expression<() -> object> | null)
 ```
 
-Without a first-class rule for `null` in union syntax, users must choose between
-less precise overloads, ad hoc `Option<T>` wrapping, or a nullable annotation
-whose relationship to the union is unclear. The language should make the
-following forms converge:
-
-```raven
-text: string | Expression<() -> object> | null
-text: (string | Expression<() -> object>)?
-```
+Without a first-class rule for `null` in union declaration syntax, users must
+choose between less precise overloads, ad hoc `Option<T>` wrapping, or a nullable
+annotation whose relationship to the union is unclear.
 
 C# 15 union types in .NET 11 previews already allow nullable case types and
 surface possible null contents through `IUnion.Value`. Raven should align with
@@ -102,11 +90,8 @@ failed conversion, or default carrier.
 
 ## Goals
 
-* Allow `null` in Raven standard union syntax: `A | B | null`.
 * Allow nullable member types in parenthesized union declarations:
   `union Value(string | null)`.
-* Allow body-form union case payloads to be nullable:
-  `case Text(value: string | null)`.
 * Keep `T1 | T2` as Raven source sugar for standard union carriers.
 * Let existing type and `null` patterns compose naturally over nullable union
   contents.
@@ -118,6 +103,8 @@ failed conversion, or default carrier.
 
 * Do not synthesize a nominal `Null` case type for `null`.
 * Do not make `null` inhabit non-nullable union contents.
+* Do not introduce a second general nullable type spelling; `T?` remains the
+  nullable type annotation spelling.
 * Do not remove `T?` from Raven source syntax.
 * Do not change `Option<T>` semantics.
 * Do not define the .NET 11 union compatibility surface here; that belongs to
@@ -125,33 +112,35 @@ failed conversion, or default carrier.
 
 ## Proposed design
 
-### 1. Null in standard union syntax
+### 1. Deferred: null in standard union type syntax
 
-The type syntax:
+The general type syntax:
 
 ```raven
 A | B | null
 ```
 
-constructs the same standard union as:
+could construct the same standard union as:
 
 ```raven
 (A | B)?
 ```
 
-when the target representation is the ordinary standard union carrier. The
-`null` entry is represented by the union content null state, not by a distinct
-case slot.
+when the target representation is the ordinary standard union carrier. However,
+that spelling is intentionally not part of the current implementation because it
+looks like a second way to write nullable types such as `int?`. For now, `T?`
+remains the nullable type syntax and `null` is accepted only in parenthesized
+union declaration member lists.
 
-Examples:
+Deferred example:
 
 ```raven
-val text: string | Expression<() -> object> | null = null
-val equivalent: (string | Expression<() -> object>)? = null
+val text: string | Expression<() -> object> | null = null // not implemented
 ```
 
-The standard union member set remains `string` and `Expression<() -> object>`.
-The nullable bit applies to the union contents as a whole.
+If this form is ever enabled, the standard union member set should remain
+`string` and `Expression<() -> object>`, with a nullable-content bit applying to
+the union contents as a whole.
 
 ### 2. Null in parenthesized union declarations
 
@@ -165,6 +154,10 @@ union Input(string | Expression<() -> object> | null)
 These declarations define a carrier whose active contents may be null. `null`
 does not introduce an addressable case type, constructor, or `TryGetValue(out
 Null)` member.
+
+Current implementation scope: the `null` spelling is accepted as syntactic
+sugar only in parenthesized union declaration member lists. It marks the union's
+contents as maybe-null and is not a generally valid Raven type annotation.
 
 The member type list should preserve the non-null member types and record that
 the union's contents are nullable:
@@ -196,13 +189,13 @@ normalized nullable union form:
 
 ### 3. Null in body-form union cases
 
-Body-form union cases can already express payload nullability through their
-parameter types. This proposal clarifies that `null` in such payloads follows
-ordinary nullable type rules:
+Body-form union cases can express payload nullability through ordinary nullable
+type syntax. The `null` type spelling is not enabled in this position by the
+current implementation:
 
 ```raven
 union Node {
-    case Text(value: string | null)
+    case Text(value: string?)
     case Element(name: string)
 }
 ```
@@ -268,7 +261,9 @@ contents. In other words, for most user code, pattern matching should "just
 work":
 
 ```raven
-func Render(value: string | Expression<() -> object> | null) -> string {
+union RenderValue(string | Expression<() -> object> | null)
+
+func Render(value: RenderValue) -> string {
     return value match {
         string text => text
         Expression<() -> object> binding => binding.ToString()
@@ -316,7 +311,6 @@ value match {
 The `null` literal converts implicitly to any union whose contents are nullable:
 
 ```raven
-val text: string | Expression<() -> object> | null = null
 val value: Value = null
 ```
 
@@ -396,17 +390,12 @@ temporary limitation and prefer preserving the distinction in the semantic model
 Likely implementation touchpoints:
 
 * `src/Raven.CodeAnalysis/Syntax/InternalSyntax/Parser/Parsers/NameSyntaxParser.cs`
-  for parsing `null` in type-union positions if it is not already accepted.
-* `src/Raven.CodeAnalysis/TypeSymbolNormalization.cs` for preserving null
-  content state while normalizing `A | B | null`.
-* `src/Raven.CodeAnalysis/Symbols/Constructed/TypeUnionSymbol.cs` for standard
-  union member sets and nullable content metadata.
-* `src/Raven.CodeAnalysis/Symbols/Constructed/NullableTypeSymbol.cs` for
-  canonical nullable union representation.
+  for parsing `null` in parenthesized union declaration member lists if it is not
+  already accepted.
 * `src/Raven.CodeAnalysis/SemanticModel.Binding.cs` for parenthesized union
-  member binding and removal of diagnostics that reject nullable union members.
+  member binding, nullable content metadata, and union-only `null` member syntax.
 * `src/Raven.CodeAnalysis/Compilation.Conversions.cs` for `null` literal to
-  nullable union conversion and union-to-nullable conversions.
+  nullable-content union conversion.
 * `src/Raven.CodeAnalysis/BoundTree/BoundIsPatternExpression.cs` and
   `src/Raven.CodeAnalysis/MatchExhaustivenessEvaluator.cs` for null patterns
   and exhaustive coverage.
@@ -422,7 +411,8 @@ Likely implementation touchpoints:
 ### Compiler behavior
 
 * Stop rejecting nullable member types in unions as a blanket rule.
-* Treat `null` in a standard union as nullable content state.
+* Treat `null` in parenthesized union declaration member lists as nullable
+  content state.
 * Preserve the non-null member set for case matching and construction.
 * Require a `null` match arm when content nullability is maybe-null.
 * Ensure `Value` nullability follows the union content state.
@@ -445,22 +435,22 @@ Likely implementation touchpoints:
 
 * Update the language spec standard-union and union sections to document `null`
   content.
-* Update type-system docs so `T | null` and `T?` remain consistent with the
-  unified nullable type symbol proposal.
+* Update type-system docs to clarify that `T?` remains the general nullable type
+  syntax and that `null` is union-declaration-only sugar in the current
+  implementation.
 * Update diagnostics documentation for `RAV0400`.
-* Add examples for parenthesized unions, body-form nullable payloads, and
-  standard unions with null.
+* Add examples for parenthesized unions and body-form nullable payloads using
+  ordinary nullable type syntax.
 
 ## Testing plan
 
 Add focused tests in these areas:
 
 * Syntax:
-  * `string | null`
-  * `string | Expression<() -> object> | null`
   * `union Value(string | null)`
 * Semantics:
-  * `null` literal conversion to nullable standard union.
+  * `null` in ordinary type annotations such as `string | null` is not accepted
+    in the current implementation.
   * `null` literal conversion to parenthesized union with nullable contents.
   * rejection of `null` where the union contents are not nullable.
   * `Value` property type/nullability.
@@ -486,7 +476,10 @@ Add focused tests in these areas:
 
 * Should Raven allow `val value: U = null` for `union struct U(string | null)`
   before the carrier can distinguish active null from default/inactive?
-* Should display prefer `A | B | null` or `(A | B)?` in diagnostics?
+* Should a future general standard-union type syntax allow `A | B | null`, or is
+  that too easily confused with `T?`?
+* If general `A | B | null` is enabled later, should display prefer that spelling
+  or `(A | B)?` in diagnostics?
 * How many standard union arities should Raven keep once .NET's union runtime
   surface stabilizes?
 * Should nullable standard union normalization produce `NullableTypeSymbol` over
@@ -499,11 +492,11 @@ Existing source that used nullable member types in union declarations should
 become valid. Existing diagnostics that relied on `RAV0400` will need updated
 expectations.
 
-Source that already wrote `(A | B)?` remains valid. The compiler should
-canonicalize it with `A | B | null` for semantic equivalence, while preserving
-the original syntax for syntax-tree consumers and formatting.
+Source that already wrote `(A | B)?` remains valid. The current implementation
+does not canonicalize it to `A | B | null`, because that source spelling is
+deferred outside parenthesized union declarations.
 
-`Option<T>` remains the explicit algebraic absence model. `T | null` is the
-.NET/nullability interop model. Conversions between `Option<T>` and nullable
-unions should remain governed by the separate option-to-nullable conversion
-proposal.
+`Option<T>` remains the explicit algebraic absence model. Nullable-content unions
+remain the .NET/nullability interop model. Conversions between `Option<T>` and
+nullable unions should remain governed by the separate option-to-nullable
+conversion proposal.

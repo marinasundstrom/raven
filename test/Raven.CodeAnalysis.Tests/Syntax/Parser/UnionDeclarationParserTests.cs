@@ -104,6 +104,23 @@ public class UnionDeclarationParserTests
     }
 
     [Fact]
+    public void UnionDeclaration_WithNullNominalMember_ParsesNullType()
+    {
+        var source = "union Foo(int | double | null)";
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+
+        Assert.NotNull(declaration.MemberTypes);
+        Assert.Equal(3, declaration.MemberTypes!.Types.Count);
+        Assert.IsType<PredefinedTypeSyntax>(declaration.MemberTypes.Types[0]);
+        Assert.IsType<PredefinedTypeSyntax>(declaration.MemberTypes.Types[1]);
+        Assert.IsType<NullTypeSyntax>(declaration.MemberTypes.Types[2]);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void UnionDeclaration_WithCasesAndMethodBody_ParsesAllMembers()
     {
         var source = """
