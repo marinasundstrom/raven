@@ -5,7 +5,18 @@ func Main() {
     val x = A(42)
     Test()
     A(x)
-    A("test")
+    A("42")
 
     use test = Test2()
+
+    val v: Foo = "null"
+    val r = v match {
+        int i => i
+        string => 2
+        null => 0
+    }
+
+    Console.WriteLine(r)
 }
+
+union Foo(int | string | null)

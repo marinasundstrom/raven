@@ -12,7 +12,7 @@ func A(x: int) -> int {
 
 [Obsolete("Test")]
 func A(x: string) -> int {
-    42
+    42 + int.Parse(x)
 }
 
 func Test2() -> IDisposable {
