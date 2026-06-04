@@ -8,10 +8,10 @@ func Main() {
     A("42")
 
     use test = Test2()
+    test.Dispose()
 
     val v: Foo = 3
     val r = v match {
-        3 => 3
         int i => i
         string => 2
         _ => 4
