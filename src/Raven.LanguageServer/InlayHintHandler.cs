@@ -108,8 +108,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     public async Task<InlayHintContainer?> Handle(InlayHintParams request, CancellationToken cancellationToken)
     {
         var requestState = _latestRequests.Begin(CreateRequestTrackerKey(request), cancellationToken);
-        using var backgroundCancellation = _documents.CreateBackgroundSemanticWorkCancellation(requestState.Token);
-        var effectiveCancellationToken = backgroundCancellation.Token;
+        var effectiveCancellationToken = requestState.Token;
+        CancellationTokenSource? backgroundCancellation = null;
+        DocumentStore.DocumentSemanticAccess? semanticAccess = null;
         var totalStopwatch = Stopwatch.StartNew();
         var stageStopwatch = Stopwatch.StartNew();
         var gateWaitMs = 0d;
@@ -167,6 +168,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var isFullDocumentRequest = IsFullDocumentRequest(sourceText, requestSpan, request.Range);
             var isBroadDocumentRequest = IsBroadFullDocumentInlayRequest(sourceText, requestSpan, request.Range);
 
+            if (isBroadDocumentRequest &&
+                _dispatcher.TryGetCachedInlayHints(request, sourceText, out var broadCachedHints))
+            {
+                cacheHit = true;
+                outcome = "BroadCached";
+                resultCount = broadCachedHints.Length;
+                return new InlayHintContainer(broadCachedHints);
+            }
+
             if (isFullDocumentRequest &&
                 _documents.HasRecentDocumentChange(
                     request.TextDocument.Uri,
@@ -185,11 +195,27 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             stageStopwatch.Restart();
-            using var semanticAccess = await _documents.TryEnterDocumentSemanticModelAccessAsync(
-                request.TextDocument.Uri,
-                context.Value,
-                effectiveCancellationToken,
-                "inlayHint").ConfigureAwait(false);
+            if (isBroadDocumentRequest)
+            {
+                backgroundCancellation = _documents.CreateBackgroundSemanticWorkCancellation(requestState.Token);
+                effectiveCancellationToken = backgroundCancellation.Token;
+                semanticAccess = await _documents.TryEnterDocumentSemanticModelAccessAsync(
+                    request.TextDocument.Uri,
+                    context.Value,
+                    effectiveCancellationToken,
+                    "inlayHint").ConfigureAwait(false);
+            }
+            else
+            {
+                semanticAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
+                    request.TextDocument.Uri,
+                    context.Value,
+                    requestState.Token,
+                    "inlayHint").ConfigureAwait(false);
+                backgroundCancellation = _documents.CreateBackgroundSemanticWorkCancellation(requestState.Token);
+                effectiveCancellationToken = backgroundCancellation.Token;
+            }
+
             gateWaitMs = stageStopwatch.Elapsed.TotalMilliseconds;
             if (semanticAccess is null)
             {
@@ -346,6 +372,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
         finally
         {
+            semanticAccess?.Dispose();
+            backgroundCancellation?.Dispose();
             _latestRequests.Complete(requestState);
             totalStopwatch.Stop();
             LanguageServerPerformanceInstrumentation.RecordOperation(
@@ -2027,7 +2055,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         => position >= span.Start && position <= span.End;
 
     internal static string CreateRequestTrackerKey(InlayHintParams request)
-        => request.TextDocument.Uri.ToString();
+        => $"{request.TextDocument.Uri}|{request.Range.Start.Line}:{request.Range.Start.Character}-{request.Range.End.Line}:{request.Range.End.Character}";
 
     private readonly struct InlayHintCollectionBudget
     {

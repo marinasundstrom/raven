@@ -16,7 +16,7 @@ public sealed class LanguageServerInlayHintTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-inlay-hints-{Guid.NewGuid():N}");
 
     [Fact]
-    public void CreateRequestTrackerKey_UsesDocumentScopeInsteadOfRangeScope()
+    public void CreateRequestTrackerKey_UsesRangeScope()
     {
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
         var fullDocumentRequest = new InlayHintParams
@@ -39,7 +39,13 @@ public sealed class LanguageServerInlayHintTests : IDisposable
         };
 
         InlayHintHandler.CreateRequestTrackerKey(visibleRangeRequest)
-            .ShouldBe(InlayHintHandler.CreateRequestTrackerKey(fullDocumentRequest));
+            .ShouldNotBe(InlayHintHandler.CreateRequestTrackerKey(fullDocumentRequest));
+        InlayHintHandler.CreateRequestTrackerKey(visibleRangeRequest)
+            .ShouldBe(InlayHintHandler.CreateRequestTrackerKey(new InlayHintParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = visibleRangeRequest.Range
+            }));
     }
 
     [Fact]
@@ -661,7 +667,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_DocumentSemanticGateBusyWithoutCachedResult_ReturnsWithoutWaitingAsync()
+    public async Task Handle_BroadFullDocumentSemanticGateBusyWithoutCachedResult_ReturnsWithoutWaitingAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -680,10 +686,13 @@ func Main() -> unit {
         var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
         var documentPath = Path.Combine(_tempRoot, "main.rvn");
         var uri = DocumentUri.FromFileSystemPath(documentPath);
-        const string code = """
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 90).Select(static i => $"// padding {i}"));
+        var code = $$"""
 func Main() -> unit {
     val answer = 1 + 2
 }
+
+{{padding}}
 """;
         await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
@@ -703,7 +712,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public async Task Handle_DocumentSemanticGateBusyWithCachedResult_ReturnsCachedHintsAsync()
+    public async Task Handle_ConcurrentVisibleRanges_DoNotSupersedeEachOtherAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
@@ -724,18 +733,106 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    val answer = 1 + 2
+    val first = 1
+    val second = "two"
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
+
+        IDisposable? heldLease = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
+        try
+        {
+            var firstTask = handler.Handle(new InlayHintParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new LspRange
+                {
+                    Start = new Position(0, 0),
+                    End = new Position(2, 0)
+                }
+            }, CancellationToken.None);
+
+            await Task.Delay(50);
+            var secondTask = handler.Handle(new InlayHintParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = new LspRange
+                {
+                    Start = new Position(2, 0),
+                    End = new Position(4, 0)
+                }
+            }, CancellationToken.None);
+
+            await Task.Delay(100);
+            firstTask.IsCompleted.ShouldBeFalse();
+            secondTask.IsCompleted.ShouldBeFalse();
+
+            heldLease.Dispose();
+            heldLease = null;
+
+            var firstHints = (await firstTask).ToArray();
+            var secondHints = (await secondTask).ToArray();
+
+            AssertHasHintAtInsertion(
+                sourceText,
+                firstHints,
+                code.IndexOf("first = 1", StringComparison.Ordinal) + "first".Length,
+                ": int");
+            AssertHasHintAtInsertion(
+                sourceText,
+                secondHints,
+                code.IndexOf("second = \"two\"", StringComparison.Ordinal) + "second".Length,
+                ": string");
+        }
+        finally
+        {
+            heldLease?.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Handle_BroadFullDocumentSemanticGateBusyWithCachedResult_ReturnsCachedHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 90).Select(static i => $"// padding {i}"));
+        var code = $$"""
+func Main() -> unit {
+    val answer = 1
+}
+
+{{padding}}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var answerInsertion = code.IndexOf("answer = 1", StringComparison.Ordinal) + "answer".Length;
         var request = new InlayHintParams
         {
             TextDocument = new TextDocumentIdentifier(uri),
             Range = FullDocumentRange(sourceText)
         };
 
-        var firstResult = await handler.Handle(request, CancellationToken.None);
+        var firstResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(answerInsertion, 0))
+        }, CancellationToken.None);
         var firstHints = firstResult.ToArray();
         firstHints.ShouldContain(static hint => hint.Label.String == ": int");
 
@@ -743,11 +840,7 @@ func Main() -> unit {
         var hintsTask = handler.Handle(new InlayHintParams
         {
             TextDocument = new TextDocumentIdentifier(uri),
-            Range = new LspRange
-            {
-                Start = new Position(0, 0),
-                End = new Position(3, 0)
-            }
+            Range = FullDocumentRange(sourceText)
         }, CancellationToken.None);
 
         var completedTask = await Task.WhenAny(hintsTask, Task.Delay(1000));
@@ -755,6 +848,58 @@ func Main() -> unit {
 
         var cachedHints = (await hintsTask).ToArray();
         cachedHints.Select(static hint => hint.Label.String).ShouldContain(": int");
+    }
+
+    [Fact]
+    public async Task Handle_BroadFullDocumentAfterVisibleLambdaRange_ReturnsCachedLambdaHintsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var padding = string.Join(Environment.NewLine, Enumerable.Range(0, 90).Select(static i => $"// padding {i}"));
+        var code = $$"""
+func Where(values: int[], predicate: (int -> bool)) -> int[] {
+    return values
+}
+
+func Main() -> unit {
+    val filtered = Where([|1, 2, 3|], candidate => candidate > 1)
+}
+
+{{padding}}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var candidateInsertion = code.IndexOf("candidate =>", StringComparison.Ordinal) + "candidate".Length;
+
+        var visibleResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(candidateInsertion, 0))
+        }, CancellationToken.None);
+        AssertHasHintAtInsertion(sourceText, visibleResult.ToArray(), candidateInsertion, ": int");
+
+        var broadResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        AssertHasHintAtInsertion(sourceText, broadResult.ToArray(), candidateInsertion, ": int");
     }
 
     [Fact]
@@ -1909,6 +2054,53 @@ func Main() -> unit {
         var routeHandlerInsertion = code.IndexOf(routeHandler, StringComparison.Ordinal) + routeHandler.Length;
         var routeHandlerHints = await GetHintsAtInsertionAsync(handler, uri, sourceText, routeHandlerInsertion);
         AssertHasHintAtInsertion(sourceText, routeHandlerHints, routeHandlerInsertion, " -> ");
+    }
+
+    [Fact]
+    public async Task Handle_EfCoreVehicleSample_BroadFullDocumentAfterVisibleLambdaRange_ReturnsCachedLambdaHintsAsync()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs");
+        var filePath = Path.Combine(projectRoot, "src", "Api", "Main.rvn");
+        File.Exists(filePath).ShouldBeTrue();
+
+        var code = await File.ReadAllTextAsync(filePath);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "efcore-vehicle-costs",
+                Uri = DocumentUri.FromFileSystemPath(projectRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        const string lambda = ".Include(candidate => candidate.FuelConsumptions)";
+        var lambdaStart = code.IndexOf(lambda, StringComparison.Ordinal);
+        lambdaStart.ShouldBeGreaterThanOrEqualTo(0);
+        var candidateInsertion = lambdaStart + lambda.IndexOf("candidate =>", StringComparison.Ordinal) + "candidate".Length;
+
+        var visibleResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = PositionHelper.ToRange(sourceText, new TextSpan(candidateInsertion, 0))
+        }, CancellationToken.None);
+        AssertHasHintAtInsertion(sourceText, visibleResult.ToArray(), candidateInsertion, ": VehicleEntity");
+
+        var broadResult = await handler.Handle(new InlayHintParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Range = FullDocumentRange(sourceText)
+        }, CancellationToken.None);
+
+        AssertHasHintAtInsertion(sourceText, broadResult.ToArray(), candidateInsertion, ": VehicleEntity");
     }
 
     [Fact]
