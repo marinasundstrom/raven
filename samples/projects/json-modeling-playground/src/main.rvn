@@ -11,7 +11,8 @@ val options = JsonSerializerOptions with {
 
 val value = JsonObject([ 
     "name": 32,
-    "items": [ "true", 42 ]
+    "items": [ "true", 42, null ],
+    "metadata": null
 ])
 
 val json = JsonSerializer.Serialize(value, options)
@@ -22,7 +23,7 @@ val propertyCount = roundTripped.Properties.Count
 WriteLine("Round-tripped property count: $propertyCount")
 
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union JsonValue(string | double | bool | JsonObject | JsonValue[])
+union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
 
 [JsonConverter(typeof(JsonObjectConverter))]
 record JsonObject(Properties: IDictionary<string, JsonValue>)
@@ -67,6 +68,10 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
     }
 
     private static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
+        if element.ValueKind is JsonValueKind.Null {
+            return null
+        }
+
         if element.ValueKind is JsonValueKind.String {
             return JsonValue(element.GetString() ?? "")
         }

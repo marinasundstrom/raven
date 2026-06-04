@@ -3,9 +3,9 @@
 This is a playground for modeling the structure of JSON with Raven records and
 unions.
 
-It uses a parenthesized `JsonValue` union to model scalar, object, and array
-values, and a `JsonObject` record to hold object properties. Serialization uses
-both built-in Raven.Core JSON converter support and a custom converter:
+It uses a parenthesized `JsonValue` union to model scalar, object, array, and
+null values, and a `JsonObject` record to hold object properties. Serialization
+uses both built-in Raven.Core JSON converter support and a custom converter:
 
 - `RavenParenthesizedUnionJsonConverterFactory` serializes `JsonValue` as plain
   JSON values whenever possible.
