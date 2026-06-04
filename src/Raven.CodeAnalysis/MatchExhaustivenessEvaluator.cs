@@ -206,15 +206,7 @@ internal sealed class MatchExhaustivenessEvaluator
         IUnionSymbol union,
         MatchExhaustivenessOptions options)
     {
-        var memberTypes = union.MemberTypes
-            .Select(UnwrapAlias)
-            .ToList();
-
-        if (union.ContentMayBeNull &&
-            !memberTypes.Any(CanBeNull))
-        {
-            memberTypes.Add(_compilation.NullTypeSymbol);
-        }
+        var memberTypes = UnionContentNullability.GetPatternDomainTypes(union, _compilation.NullTypeSymbol);
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
@@ -645,10 +637,12 @@ internal sealed class MatchExhaustivenessEvaluator
         Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
     {
         var patternMemberType = UnwrapAlias(unionMemberPattern.MemberType);
+        patternMemberType = UnionContentNullability.GetNonNullContentType(patternMemberType, out _);
 
         foreach (var candidate in remaining.ToArray())
         {
             var candidateType = UnwrapAlias(candidate);
+            candidateType = UnionContentNullability.GetNonNullContentType(candidateType, out _);
             if (!ArePatternTypesEquivalent(candidateType, patternMemberType))
                 continue;
 
@@ -846,6 +840,7 @@ internal sealed class MatchExhaustivenessEvaluator
         Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
         patternType = UnwrapAlias(patternType);
+        patternType = UnionContentNullability.GetNonNullContentType(patternType, out _);
 
         if (patternType.TypeKind == TypeKind.Error)
             return;
@@ -860,6 +855,9 @@ internal sealed class MatchExhaustivenessEvaluator
                 literalCoverage?.Remove(candidate);
                 continue;
             }
+
+            if (candidateType.TypeKind == TypeKind.Null)
+                continue;
 
             if (IsAssignable(patternType, candidateType))
             {

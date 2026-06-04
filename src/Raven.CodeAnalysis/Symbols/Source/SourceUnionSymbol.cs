@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -7,7 +8,6 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
     private ImmutableArray<ITypeSymbol> _caseTypes = ImmutableArray<ITypeSymbol>.Empty;
     private ImmutableArray<IUnionCaseTypeSymbol> _declaredCases = ImmutableArray<IUnionCaseTypeSymbol>.Empty;
     private ImmutableArray<ITypeSymbol> _memberTypes = ImmutableArray<ITypeSymbol>.Empty;
-    private bool _contentMayBeNull;
 
     public SourceUnionSymbol(
         string name,
@@ -30,7 +30,7 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
 
     public ImmutableArray<ITypeSymbol> MemberTypes => _memberTypes;
 
-    public bool ContentMayBeNull => _contentMayBeNull;
+    public bool ContentMayBeNull => _memberTypes.Any(UnionContentNullability.IsNullableContentType);
 
     public IFieldSymbol DiscriminatorField { get; private set; } = null!;
 
@@ -51,11 +51,6 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
     internal void SetMemberTypes(IEnumerable<ITypeSymbol> memberTypes)
     {
         _memberTypes = memberTypes.ToImmutableArray();
-    }
-
-    internal void SetContentMayBeNull(bool contentMayBeNull)
-    {
-        _contentMayBeNull = contentMayBeNull;
     }
 
     internal void SetDiscriminatorField(SourceFieldSymbol discriminator)

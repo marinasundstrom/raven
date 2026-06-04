@@ -103,6 +103,26 @@ extract a case instance. For parenthesized unions such as
 types instead of synthesized case types, so the carrier constructor and
 `TryGetValue` overloads operate directly on those member types.
 
+Raven follows the C# union ABI for metadata recognition: a union carrier is a
+class or struct with `System.Runtime.CompilerServices.UnionAttribute`, a public
+`Value` property of `object` or `object?`, and at least one public
+one-parameter constructor. Those constructors define the case set. Public
+`TryGetValue(out T)` methods are an access pattern and do not introduce
+additional cases when constructors are present. Nullable active contents are
+derived from nullable constructor parameter types, not from `Value` being
+`object?`.
+
+For `null` in a parenthesized union declaration, Raven emits nullable-capable
+constructor parameter types for the listed members and does not emit a
+synthetic null constructor:
+
+```raven
+union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+```
+
+Raven pattern matching still treats that source form as the non-null listed
+member cases plus a distinct `null` branch.
+
 Producing a union from C# is done by constructing the case and then converting
 it to the carrier:
 

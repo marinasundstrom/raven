@@ -5,12 +5,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 ## Unreleased
 
 - Added union-only `null` syntax in parenthesized union declarations, so
-  declarations such as `union Foo(int | null)` mark the union content as
-  maybe-null without creating a null member type.
+  declarations such as `union Foo(int | null)` lower to nullable-capable public
+  case constructors without creating a null member type or constructor.
 - Aligned union content nullability with C# unions: Raven now tracks nullable
-  parenthesized union contents, exposes synthesized union `Value` as `object?`,
-  allows `null` conversions when union content may be null, and imports nullable
-  C# union contents from .NET 11 metadata.
+  parenthesized union contents from constructor/member case types, treats
+  `TryGetValue(out T)` as an extraction helper instead of an extra case source
+  when constructors exist, allows `null` conversions when union content may be
+  null, and imports nullable C# union contents from .NET 11 metadata.
 - Fixed extension member completion after partially typed member names so
   imported metadata extension methods are offered for prefixes such as
   `widget.Dou`.

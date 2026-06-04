@@ -159,18 +159,20 @@ Current implementation scope: the `null` spelling is accepted as syntactic
 sugar only in parenthesized union declaration member lists. It marks the union's
 contents as maybe-null and is not a generally valid Raven type annotation.
 
-The member type list should preserve the non-null member types and record that
-the union's contents are nullable:
+The Raven source-domain model preserves the non-null member cases and records
+that the union's contents are nullable:
 
 ```text
 Value member types: string
 Value content nullability: maybe-null
 ```
 
-Implementation note: source and metadata union symbols expose this state as
-`ContentMayBeNull`. Synthesized union carriers expose `Value` as `object?` for
-C# union compatibility; `ContentMayBeNull` determines whether the union contents
-accept `null` as a valid active value.
+Implementation note: source and metadata union symbols may expose this state as
+derived `ContentMayBeNull`, but it is not independent metadata. For C# union
+compatibility, synthesized parenthesized unions lower explicit `| null` to
+nullable-capable public case constructor parameter types for the listed members
+and do not emit a synthetic null constructor. Raven matching still treats the
+domain as the non-null member cases plus a distinct `null` branch.
 
 For declaration display, Raven may prefer either of these forms depending on
 context:

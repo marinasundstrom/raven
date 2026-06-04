@@ -208,10 +208,12 @@ contents are derived from the case construction surface:
   the contents to not-null on successful checks, matching C# flow rules.
 
 Raven may keep an internal convenience property such as `ContentMayBeNull`, but
-it must be derived from the C#-recognizable surface: constructor parameter
-types, `TryGetValue(out T)` types, and imported nullable annotations. It should
-not be emitted as Raven-only metadata and should not make a union nullable when
-the C# case surface is not nullable.
+it must be derived from the C#-recognizable case construction surface:
+constructor parameter types and imported nullable annotations. `TryGetValue(out
+T)` remains an extraction/access pattern and must not introduce extra cases when
+constructors already define the case set. `ContentMayBeNull` should not be
+emitted as Raven-only metadata and should not make a union nullable when the C#
+case surface is not nullable.
 
 This distinction matters for standard union sugar. A value of type
 `System.Union<T1, T2>` has a fixed binary shape; Raven cannot attach a separate
@@ -267,12 +269,9 @@ union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
 ```
 
 should emit and model a nullable case constructor, for example the equivalent
-of `string?` when that is the unambiguous nullable-capable case. It must not
-emit a synthetic `null` case constructor, and it must not rely on a Raven-only
-marker to make `Value` maybe-null.
-
-When there is no unambiguous nullable-capable case, Raven should require the
-nullable case to be written explicitly:
+of `string?`, `double?`, and the other listed member cases when `null` appears
+explicitly. It must not emit a synthetic `null` case constructor, and it must
+not rely on a Raven-only marker to make `Value` maybe-null.
 
 ```raven
 union U(string? | Uri)

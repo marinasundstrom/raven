@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -537,11 +538,112 @@ union Maybe(string? | int)
         var unionType = runtimeAssembly.GetType("Maybe", throwOnError: true)!;
         var valueProperty = unionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public)!;
         var nullability = new NullabilityInfoContext().Create(valueProperty);
-        var instance = Activator.CreateInstance(unionType, [null])!;
+        var stringConstructor = unionType.GetConstructor([typeof(string)])!;
+        var instance = stringConstructor.Invoke([null]);
 
         Assert.Equal(typeof(object), valueProperty.PropertyType);
         Assert.Equal(NullabilityState.Nullable, nullability.ReadState);
         Assert.Null(valueProperty.GetValue(instance));
+    }
+
+    [Fact]
+    public void ClassUnion_WithExplicitNullMember_EmitsNullableCaseConstructorsWithoutNullConstructor()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+
+record JsonObject(Properties: IDictionary<string, JsonValue>)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("RavenJsonUnion", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("JsonValue", throwOnError: true)!;
+        var objectType = runtimeAssembly.GetType("JsonObject", throwOnError: true)!;
+        var constructors = unionType
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public)
+            .Where(static constructor => constructor.GetParameters().Length == 1)
+            .ToArray();
+        var nullabilityContext = new NullabilityInfoContext();
+
+        Assert.Equal(5, constructors.Length);
+        AssertNullableConstructor(typeof(string));
+        AssertNullableConstructor(typeof(double?));
+        AssertNullableConstructor(typeof(bool?));
+        AssertNullableConstructor(objectType);
+        AssertNullableConstructor(unionType.MakeArrayType());
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-json-union-csharp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            var referencePath = Path.Combine(directory, "RavenJsonUnion.dll");
+            File.WriteAllBytes(referencePath, peStream.ToArray());
+
+            File.WriteAllText(
+                Path.Combine(directory, "CSharpConsumer.csproj"),
+                $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>{{TestTargetFramework.Default}}</TargetFramework>
+                    <Nullable>enable</Nullable>
+                    <ImplicitUsings>disable</ImplicitUsings>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Reference Include="RavenJsonUnion">
+                      <HintPath>{{referencePath}}</HintPath>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(
+                Path.Combine(directory, "UseUnion.cs"),
+                """
+                public static class UseUnion
+                {
+                    public static object? ReadNull()
+                    {
+                        var value = new JsonValue((string?)null);
+                        return value.Value;
+                    }
+                }
+                """);
+
+            var build = RunDotnet(["build", "/property:WarningLevel=0", "-v:minimal"], directory);
+            Assert.True(build.ExitCode == 0, build.Output);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+
+        void AssertNullableConstructor(Type parameterType)
+        {
+            var constructor = Assert.Single(constructors, constructor => constructor.GetParameters()[0].ParameterType == parameterType);
+            var parameter = constructor.GetParameters()[0];
+            var nullability = nullabilityContext.Create(parameter);
+            Assert.Equal(NullabilityState.Nullable, nullability.ReadState);
+        }
     }
 
     [Fact]
@@ -588,17 +690,17 @@ class Runner {
         val value: Maybe<int> = default
         return value match {
             null => "inactive"
-            Some(val payload) => payload.ToString()
-            None => "none"
+            .Some(val payload) => payload.ToString()
+            .None => "none"
         }
     }
 
     public static func DescribeSome() -> string {
-        val value: Maybe<int> = Some(42)
+        val value: Maybe<int> = .Some(42)
         return value match {
             null => "inactive"
-            Some(val payload) => payload.ToString()
-            None => "none"
+            .Some(val payload) => payload.ToString()
+            .None => "none"
         }
     }
 }
@@ -2489,6 +2591,28 @@ class Container {
 
         Assert.True(isError);
         Assert.False(isOk);
+    }
+
+    private static (int ExitCode, string Output) RunDotnet(string[] arguments, string workingDirectory)
+    {
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+
+        foreach (var argument in arguments)
+            process.StartInfo.ArgumentList.Add(argument);
+
+        process.Start();
+        var output = process.StandardOutput.ReadToEnd();
+        output += process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        return (process.ExitCode, output);
     }
 
     private static bool IsMetadataType(MetadataReader metadata, EntityHandle handle, string @namespace, string name)

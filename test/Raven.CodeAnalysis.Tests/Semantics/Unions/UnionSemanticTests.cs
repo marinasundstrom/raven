@@ -232,7 +232,7 @@ union Foo(int | double)
     }
 
     [Fact]
-    public void ParenthesizedUnionMatch_WithNullableMemberPattern_CoversNullContent()
+    public void ParenthesizedUnionMatch_WithNullableMemberPattern_StillRequiresNullArm()
     {
         const string source = """
 func Test(value: Foo) -> int {
@@ -247,16 +247,17 @@ union Foo(int | double?)
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        Assert.Empty(diagnostics);
+        var diagnostics = compilation.GetDiagnostics();
+        var diagnostic = Assert.Single(diagnostics.Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
+        Assert.Contains("null", diagnostic.GetMessage(), StringComparison.Ordinal);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
 
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.True(info.IsExhaustive);
-        Assert.Empty(info.MissingCases);
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("null", missing));
     }
 
     [Fact]
@@ -298,8 +299,16 @@ union Foo(int | double | null)
         Assert.DoesNotContain(unionSymbol.CaseTypes, static member => member.TypeKind == TypeKind.Null);
         Assert.Collection(
             unionSymbol.MemberTypes,
-            first => Assert.Equal(SpecialType.System_Int32, first.SpecialType),
-            second => Assert.Equal(SpecialType.System_Double, second.SpecialType));
+            first =>
+            {
+                Assert.True(first.IsNullable);
+                Assert.Equal(SpecialType.System_Int32, first.GetNullableUnderlyingType()?.SpecialType);
+            },
+            second =>
+            {
+                Assert.True(second.IsNullable);
+                Assert.Equal(SpecialType.System_Double, second.GetNullableUnderlyingType()?.SpecialType);
+            });
 
         var valueProperty = Assert.Single(unionSymbol.GetMembers("Value").OfType<IPropertySymbol>());
         Assert.True(valueProperty.Type.IsNullable);

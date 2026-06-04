@@ -115,18 +115,13 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             if (attributeName is null)
                 continue;
 
-            if (attributeName is "System.Runtime.CompilerServices.UnionAttribute" or "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
+            if (attributeName is "System.Runtime.CompilerServices.UnionAttribute" &&
+                LooksLikeCSharpUnion(typeInfo))
             {
                 // Do not eagerly load members during construction; keep loading lazy to avoid re-entrancy/duplication.
                 return new PEUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
             }
 
-        }
-
-        if (LooksLikeDiscriminatedUnion(typeInfo))
-        {
-            // Do not eagerly load members during construction; keep loading lazy to avoid re-entrancy/duplication.
-            return new PEUnionSymbol(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations).AddAsMember();
         }
 
         if (containingType is IUnionSymbol parentUnion ||
@@ -189,20 +184,42 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         return index >= 0 ? name[..index] : name;
     }
 
-    private static bool LooksLikeDiscriminatedUnion(System.Reflection.TypeInfo typeInfo)
+    private static bool LooksLikeCSharpUnion(System.Reflection.TypeInfo typeInfo)
     {
         try
         {
-            var fields = typeInfo.DeclaredFields;
+            if (!typeInfo.IsClass &&
+                !(typeInfo.IsValueType && !typeInfo.IsEnum))
+            {
+                return false;
+            }
 
-            return fields.Any(f => UnionFieldUtilities.IsTagFieldName(f.Name))
-                && fields.Any(f => UnionFieldUtilities.IsPayloadFieldName(f.Name));
+            if (!typeInfo.DeclaredConstructors.Any(static constructor =>
+                    constructor.IsPublic &&
+                    !constructor.IsStatic &&
+                    constructor.GetParameters() is [var parameter] &&
+                    IsUnionConstructorParameter(parameter)))
+            {
+                return false;
+            }
+
+            return typeInfo.DeclaredProperties.Any(static property =>
+                string.Equals(property.Name, "Value", StringComparison.Ordinal) &&
+                property.GetMethod is { IsPublic: true, IsStatic: false } getter &&
+                getter.GetParameters().Length == 0 &&
+                IsObjectType(property.PropertyType));
         }
         catch (ArgumentException)
         {
             return false;
         }
     }
+
+    private static bool IsObjectType(Type type)
+        => string.Equals(type.FullName, "System.Object", StringComparison.Ordinal);
+
+    private static bool IsUnionConstructorParameter(ParameterInfo parameter)
+        => !parameter.ParameterType.IsByRef || parameter.IsIn;
 
     private static bool IsValueTypeLike(System.Reflection.TypeInfo typeInfo)
     {

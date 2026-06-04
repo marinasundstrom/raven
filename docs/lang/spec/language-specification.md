@@ -5047,11 +5047,16 @@ val paidByCard: Payment = Card("4242")
 
 * Each listed member type is part of the carrier's closed case set.
 * A `null` alternative in the member list is not a member type. It marks the
-  carrier's active contents as nullable, so `union U(T | null)` has `T` as its
-  member type and may hold active null contents.
+  carrier's active contents as nullable. Raven pattern matching treats the
+  domain as the non-null listed member cases plus a distinct `null` case.
+  For C# metadata compatibility, the emitted public case constructors use
+  nullable-capable parameter types for the listed members rather than a
+  synthetic null constructor.
 * The `null` alternative is valid only in parenthesized union declaration member
   lists. Ordinary type annotations use `T?` for nullability.
-* Pattern matching uses ordinary patterns over those member types.
+* Pattern matching uses ordinary patterns over those member types. Nullable
+  member patterns do not cover the `null` branch for exhaustiveness; include a
+  `null` arm when the union contents may be null.
 * Construction occurs by constructing a listed member type and then converting it
   to the carrier when needed.
 
@@ -5134,15 +5139,14 @@ val left = (int)outcome
   lexical lookup wins before union-case lookup.
 * Every union carrier exposes a conventional `Value` property whose runtime
   value is the currently stored member or case value.
-* `Value` has type `object` when the carrier cannot represent a null active
-  value.
-* `Value` has type `object?` when the carrier may legitimately report `null`,
-  including `union struct` default-state carriers and class carriers whose
-  member set includes a nullable member type or explicit `null` member-list
-  marker.
+* `Value` has a C#-compatible `object` or `object?` shape. This property shape
+  is not the source of truth for nullable active contents; Raven derives that
+  from the case construction surface.
 * Every union carrier also exposes `HasValue: bool`, which reports whether the
   carrier currently has an active case/member.
-* `TryGetValue(out CaseType)` exposes carrier inspection for each case type.
+* Public one-parameter constructors define the C#-compatible case set.
+  `TryGetValue(out CaseType)` exposes carrier inspection for each case type but
+  does not add extra cases when constructors already define the case set.
 * An explicit cast from the carrier to a member or case type succeeds only when
   the carrier currently holds that case; otherwise it throws
   `InvalidCastException`.

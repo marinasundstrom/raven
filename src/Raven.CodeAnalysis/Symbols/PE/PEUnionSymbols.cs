@@ -266,7 +266,7 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
 
     private ImmutableArray<ITypeSymbol> GetRuntimeUnionMemberTypes()
     {
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>();
+        var constructorTypes = ImmutableArray.CreateBuilder<ITypeSymbol>();
 
         foreach (var constructor in Constructors)
         {
@@ -277,8 +277,13 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
                 continue;
             }
 
-            AddMemberType(builder, constructor.Parameters[0].Type);
+            AddMemberType(constructorTypes, constructor.Parameters[0].GetByRefElementType());
         }
+
+        if (constructorTypes.Count > 0)
+            return constructorTypes.ToImmutable();
+
+        var accessPatternTypes = ImmutableArray.CreateBuilder<ITypeSymbol>();
 
         foreach (var method in GetMembers("TryGetValue").OfType<IMethodSymbol>())
         {
@@ -290,21 +295,14 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
                 continue;
             }
 
-            AddMemberType(builder, method.Parameters[0].GetByRefElementType());
+            AddMemberType(accessPatternTypes, method.Parameters[0].GetByRefElementType());
         }
 
-        return builder.ToImmutable();
+        return accessPatternTypes.ToImmutable();
     }
 
     private bool ComputeContentMayBeNull()
-    {
-        if (MemberTypes.Any(IsNullableContentType))
-            return true;
-
-        return GetMembers("Value")
-            .OfType<IPropertySymbol>()
-            .Any(property => IsNullableContentType(property.Type));
-    }
+        => MemberTypes.Any(UnionContentNullability.IsNullableContentType);
 
     private static void AddMemberType(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol memberType)
     {
@@ -314,10 +312,6 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
         builder.Add(memberType);
     }
 
-    private static bool IsNullableContentType(ITypeSymbol type)
-        => type.TypeKind == TypeKind.Null ||
-           type.IsNullable ||
-           type is INamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T };
 }
 
 internal sealed class PEUnionCaseSymbol : PENamedTypeSymbol, IUnionCaseTypeSymbol

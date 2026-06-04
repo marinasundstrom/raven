@@ -9,9 +9,14 @@ val options = JsonSerializerOptions with {
     PropertyNamingPolicy = .CamelCase
 }
 
+val items = List<JsonValue>()
+items.Add(JsonValue("true"))
+items.Add(JsonValue(42.0))
+items.Add(null)
+
 val value = JsonObject([ 
-    "name": 32,
-    "items": [ "true", 42, null ],
+    "name": 32.0,
+    "items": items.ToArray(),
     "metadata": null
 ])
 

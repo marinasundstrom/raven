@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
@@ -360,15 +361,29 @@ public static partial class SymbolExtensions
                 !unionSymbol.MemberTypes.IsDefaultOrEmpty)
             {
                 var memberFormat = format.WithKindOptions(format.KindOptions & ~SymbolDisplayKindOptions.IncludeTypeKeyword);
-                var memberDisplayParts = unionSymbol.MemberTypes
+                var memberTypes = new List<ITypeSymbol>();
+                var includeNullMember = false;
+
+                foreach (var member in unionSymbol.MemberTypes)
+                {
+                    var nonNullMember = UnionContentNullability.GetNonNullContentType(member, out var memberMayBeNull);
+                    includeNullMember |= memberMayBeNull;
+
+                    if (nonNullMember.TypeKind == TypeKind.Null)
+                        continue;
+
+                    if (memberTypes.Any(existing => SymbolEqualityComparer.Default.Equals(existing, nonNullMember)))
+                        continue;
+
+                    memberTypes.Add(nonNullMember);
+                }
+
+                var memberDisplayParts = memberTypes
                     .Select(member => FormatType(member, memberFormat))
                     .ToList();
 
-                if (unionSymbol.ContentMayBeNull &&
-                    !unionSymbol.MemberTypes.Any(static member => member.TypeKind == TypeKind.Null || member.IsNullable))
-                {
+                if (includeNullMember || unionSymbol.ContentMayBeNull)
                     memberDisplayParts.Add("null");
-                }
 
                 var members = string.Join(" | ", memberDisplayParts);
                 text += $"({members})";

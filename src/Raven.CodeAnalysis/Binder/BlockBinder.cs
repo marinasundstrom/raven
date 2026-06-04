@@ -5645,15 +5645,7 @@ partial class BlockBinder : Binder
         IUnionSymbol union,
         int catchAllIndex)
     {
-        var memberTypes = union.MemberTypes
-            .Select(UnwrapAlias)
-            .ToList();
-
-        if (union.ContentMayBeNull &&
-            !memberTypes.Any(CanBeNull))
-        {
-            memberTypes.Add(Compilation.NullTypeSymbol);
-        }
+        var memberTypes = UnionContentNullability.GetPatternDomainTypes(union, Compilation.NullTypeSymbol);
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
@@ -6016,10 +6008,12 @@ partial class BlockBinder : Binder
         Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
     {
         var patternMemberType = UnwrapAlias(unionMemberPattern.MemberType);
+        patternMemberType = UnionContentNullability.GetNonNullContentType(patternMemberType, out _);
 
         foreach (var candidate in remaining.ToArray())
         {
             var candidateType = UnwrapAlias(candidate);
+            candidateType = UnionContentNullability.GetNonNullContentType(candidateType, out _);
             if (!ArePatternTypesEquivalent(candidateType, patternMemberType))
                 continue;
 
@@ -6157,6 +6151,7 @@ partial class BlockBinder : Binder
         Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
         patternType = UnwrapAlias(patternType);
+        patternType = UnionContentNullability.GetNonNullContentType(patternType, out _);
 
         if (patternType.TypeKind == TypeKind.Error)
             return;
@@ -6171,6 +6166,9 @@ partial class BlockBinder : Binder
                 literalCoverage?.Remove(candidate);
                 continue;
             }
+
+            if (candidateType.TypeKind == TypeKind.Null)
+                continue;
 
             if (IsAssignable(patternType, candidateType, out _))
             {

@@ -231,6 +231,13 @@ internal partial class ExpressionGenerator
         if (pattern is BoundDeclarationPattern declarationPattern)
         {
             var typeSymbol = declarationPattern.Type;
+
+            if (typeSymbol.TypeKind == TypeKind.Null)
+            {
+                EmitNullConstantPattern(inputType, ResolveClrType(inputType), scrutineeLocal2);
+                return;
+            }
+
             var clrType = ResolveClrType(typeSymbol);
 
             if (inputType.TryGetUnion() is INamedTypeSymbol unionType &&
@@ -1096,6 +1103,13 @@ internal partial class ExpressionGenerator
 
             if (inputType.TypeKind != TypeKind.Error && declared.TypeKind != TypeKind.Error)
             {
+                if (declared.TypeKind == TypeKind.Null)
+                {
+                    EmitNullConstantPattern(inputType, ResolveClrType(inputType), scrutineeLocal2);
+                    ILGenerator.Emit(OpCodes.Brfalse, labelFail);
+                    return;
+                }
+
                 var inputClr = Generator.InstantiateType(ResolveClrType(inputType));
                 var declaredClr = Generator.InstantiateType(ResolveClrType(declared));
 
@@ -1944,8 +1958,13 @@ internal partial class ExpressionGenerator
                     .Select(property => property.GetMethod!)
                     .First();
 
-            var unionLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(scrutineeClr);
-            ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+            var unionLocal = scrutineeLocal2;
+            if (unionLocal is null)
+            {
+                unionLocal = ILGenerator.DeclareLocal(scrutineeClr);
+                ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+            }
+
             ILGenerator.Emit(OpCodes.Ldloca_S, unionLocal);
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(hasValueGetter));
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
@@ -2168,11 +2187,23 @@ internal partial class ExpressionGenerator
             return true;
         }
 
+        if (pattern is BoundConstantPattern constantPattern && IsNullConstantPattern(constantPattern))
+        {
+            EmitStructUnionHasNoValue(unionLocal, unionClrType);
+            return true;
+        }
+
         // Binder may insert a redundant declaration/type pattern when the scrutinee is already
         // statically known to be the DU type (especially for generics). Treat it as always-true
         // and perform the binding without boxing/isinst.
         if (pattern is BoundDeclarationPattern dp)
         {
+            if (dp.Type.TypeKind == TypeKind.Null)
+            {
+                EmitStructUnionHasNoValue(unionLocal, unionClrType);
+                return true;
+            }
+
             var dpClr = ResolveClrType(dp.Type);
             dpClr = Generator.InstantiateType(dpClr);
 
@@ -2214,6 +2245,27 @@ internal partial class ExpressionGenerator
 
         return false;
     }
+
+    private void EmitStructUnionHasNoValue(IILocal unionLocal, Type unionClrType)
+    {
+        EmitStructUnionHasValue(unionLocal, unionClrType);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Ceq);
+    }
+
+    private void EmitStructUnionHasValue(IILocal unionLocal, Type unionClrType)
+    {
+        var getter = unionClrType.GetProperty("HasValue")?.GetGetMethod()
+            ?? throw new InvalidOperationException($"Missing HasValue getter on union type '{unionClrType}'.");
+
+        ILGenerator.Emit(OpCodes.Ldloca_S, unionLocal);
+        ILGenerator.Emit(OpCodes.Call, getter);
+    }
+
+    private static bool IsNullConstantPattern(BoundConstantPattern pattern)
+        => pattern.Expression is null &&
+           pattern.ConstantValue is null &&
+           pattern.LiteralType is null;
 
     private bool TryEmitAnd_UnboxedDU(
         BoundPattern left,
@@ -2649,9 +2701,23 @@ internal partial class ExpressionGenerator
             return true;
         }
 
+        if (pattern is BoundConstantPattern constantPattern && IsNullConstantPattern(constantPattern))
+        {
+            EmitStructUnionHasValue(unionLocal, unionClrType);
+            ILGenerator.Emit(OpCodes.Brtrue, labelFail);
+            return true;
+        }
+
         // Treat redundant declaration/type pattern over DU as always-true and just bind.
         if (pattern is BoundDeclarationPattern dp)
         {
+            if (dp.Type.TypeKind == TypeKind.Null)
+            {
+                EmitStructUnionHasValue(unionLocal, unionClrType);
+                ILGenerator.Emit(OpCodes.Brtrue, labelFail);
+                return true;
+            }
+
             var dpClr = ResolveClrType(dp.Type);
             dpClr = Generator.InstantiateType(dpClr);
 

@@ -3967,19 +3967,27 @@ public partial class SemanticModel
         if (unionDecl.MemberTypes is { } memberTypeList)
         {
             var boundMemberTypes = new List<(ITypeSymbol Type, Location Location, SyntaxReference Reference)>();
-            var contentMayBeNull = false;
+            var hasExplicitNullMember = false;
 
             foreach (var memberTypeSyntax in memberTypeList.Types)
             {
                 if (memberTypeSyntax is NullTypeSyntax)
                 {
-                    contentMayBeNull = true;
+                    hasExplicitNullMember = true;
                     continue;
                 }
 
                 var memberType = unionBinder.BindTypeSyntaxAndReport(memberTypeSyntax);
-                contentMayBeNull |= memberType.IsNullable;
                 boundMemberTypes.Add((memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference()));
+            }
+
+            if (hasExplicitNullMember)
+            {
+                for (var i = 0; i < boundMemberTypes.Count; i++)
+                {
+                    var (memberType, location, reference) = boundMemberTypes[i];
+                    boundMemberTypes[i] = (memberType.IsNullable ? memberType : memberType.MakeNullable(), location, reference);
+                }
             }
 
             if (unionSymbol.PayloadFields.IsDefaultOrEmpty)
@@ -3994,7 +4002,6 @@ public partial class SemanticModel
             unionSymbol.SetCases(caseSymbols);
             unionSymbol.SetCaseTypes(caseSymbols.Cast<ITypeSymbol>().Concat(memberTypes));
             unionSymbol.SetMemberTypes(memberTypes);
-            unionSymbol.SetContentMayBeNull(contentMayBeNull);
             unionSymbol.SetPayloadFields(payloadFields);
 
             if (synthesizeUnionSurface)
@@ -4007,8 +4014,6 @@ public partial class SemanticModel
 
             return;
         }
-
-        unionSymbol.SetContentMayBeNull(false);
 
         if (synthesizeUnionSurface)
         {
