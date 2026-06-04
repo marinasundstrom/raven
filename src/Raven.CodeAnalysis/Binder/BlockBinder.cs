@@ -5582,6 +5582,12 @@ partial class BlockBinder : Binder
         IUnionSymbol union,
         int catchAllIndex)
     {
+        if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
+        {
+            EnsureParenthesizedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, union, catchAllIndex);
+            return;
+        }
+
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
@@ -5626,6 +5632,82 @@ partial class BlockBinder : Binder
             ReportMatchNotExhaustive(
                 matchSyntax,
                 MatchCaseDisplay.ForDiscriminatedUnionCase(missingCase));
+        }
+    }
+
+    private void EnsureParenthesizedUnionMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        IUnionSymbol union,
+        int catchAllIndex)
+    {
+        var memberTypes = union.MemberTypes
+            .Select(UnwrapAlias)
+            .ToList();
+
+        var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
+        var literalCoverage = CreateLiteralCoverage(remaining);
+
+        HashSet<ITypeSymbol>? guaranteedRemaining = null;
+        Dictionary<ITypeSymbol, HashSet<object?>>? guaranteedLiteralCoverage = null;
+        if (catchAllIndex >= 0)
+        {
+            guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
+            guaranteedLiteralCoverage = CloneLiteralCoverage(literalCoverage);
+        }
+
+        var reportedRedundantCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+                RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern, guaranteedLiteralCoverage);
+
+            if (guardGuaranteesMatch)
+                RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
+
+            if (remaining.Count == 0)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+                {
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                    reportedRedundantCatchAll = true;
+                }
+
+                return;
+            }
+
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+            {
+                ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                reportedRedundantCatchAll = true;
+            }
+        }
+
+        if (literalCoverage is not null && literalCoverage.Count > 0)
+        {
+            foreach (var (type, constants) in literalCoverage)
+            {
+                if (remaining.Contains(type))
+                {
+                    ReportMissingLiteralCoverage(matchSyntax, type, constants);
+                    return;
+                }
+            }
+        }
+
+        if (catchAllIndex >= 0)
+            return;
+
+        foreach (var missing in remaining
+            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal))
+        {
+            ReportMatchNotExhaustive(matchSyntax, missing);
         }
     }
 
@@ -5887,6 +5969,9 @@ partial class BlockBinder : Binder
 
                     break;
                 }
+            case BoundUnionMemberPattern unionMemberPattern:
+                RemoveUnionMemberPatternCoverage(remaining, unionMemberPattern, literalCoverage);
+                break;
             case BoundOrPattern orPattern:
                 RemoveCoveredUnionMembers(remaining, orPattern.Left, literalCoverage);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
@@ -5910,9 +5995,31 @@ partial class BlockBinder : Binder
             => expression switch
             {
                 BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral } => true,
+                BoundTypeExpression { Type: NullTypeSymbol } => true,
                 BoundConversionExpression conversion => IsNullLiteralPatternExpression(conversion.Expression),
                 _ => false
             };
+    }
+
+    private void RemoveUnionMemberPatternCoverage(
+        HashSet<ITypeSymbol> remaining,
+        BoundUnionMemberPattern unionMemberPattern,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+    {
+        var patternMemberType = UnwrapAlias(unionMemberPattern.MemberType);
+
+        foreach (var candidate in remaining.ToArray())
+        {
+            var candidateType = UnwrapAlias(candidate);
+            if (!ArePatternTypesEquivalent(candidateType, patternMemberType))
+                continue;
+
+            if (!IsTotalPattern(candidateType, unionMemberPattern.Pattern))
+                continue;
+
+            remaining.Remove(candidate);
+            literalCoverage?.Remove(candidate);
+        }
     }
 
     private void RemoveCoveredCases(

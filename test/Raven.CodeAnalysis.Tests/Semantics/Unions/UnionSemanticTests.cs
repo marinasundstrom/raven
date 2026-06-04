@@ -132,6 +132,63 @@ union Either(Left | Right)
     }
 
     [Fact]
+    public void ParenthesizedUnionMatch_WithMissingMember_ReportsExhaustivenessDiagnostic()
+    {
+        const string source = """
+func Test(value: Either) -> int {
+    return value match {
+        string text => text.Length
+    }
+}
+
+union Either(int | string)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
+
+        Assert.Contains("int", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("int", missing));
+    }
+
+    [Fact]
+    public void ParenthesizedUnionMatch_WithAllMembers_IsExhaustive()
+    {
+        const string source = """
+func Test(value: Either) -> int {
+    return value match {
+        int number => number
+        string text => text.Length
+    }
+}
+
+union Either(int | string)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Empty(diagnostics);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
     public void GenericNominalUnionDeclaration_BindsNestedGenericMemberTypes()
     {
         const string source = """

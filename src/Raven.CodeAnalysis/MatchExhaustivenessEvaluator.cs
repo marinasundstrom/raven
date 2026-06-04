@@ -167,6 +167,9 @@ internal sealed class MatchExhaustivenessEvaluator
         IUnionSymbol union,
         MatchExhaustivenessOptions options)
     {
+        if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
+            return GetMissingParenthesizedUnionCases(scrutineeType, arms, union, options);
+
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
         var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutineeType, union);
 
@@ -195,6 +198,52 @@ internal sealed class MatchExhaustivenessEvaluator
             .OrderBy(name => name, StringComparer.Ordinal));
 
         return builder.ToImmutable();
+    }
+
+    private ImmutableArray<string> GetMissingParenthesizedUnionCases(
+        ITypeSymbol scrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        IUnionSymbol union,
+        MatchExhaustivenessOptions options)
+    {
+        var memberTypes = union.MemberTypes
+            .Select(UnwrapAlias)
+            .ToList();
+
+        var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
+        var literalCoverage = CreateLiteralCoverage(remaining);
+
+        foreach (var arm in arms)
+        {
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(scrutineeType, arm.Pattern))
+                continue;
+
+            RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
+
+            if (remaining.Count == 0)
+                break;
+        }
+
+        if (literalCoverage is not null && literalCoverage.Count > 0)
+        {
+            foreach (var (type, constants) in literalCoverage)
+            {
+                if (remaining.Contains(type))
+                {
+                    var literalMissing = GetMissingLiteralCoverage(type, constants);
+                    if (!literalMissing.IsDefaultOrEmpty)
+                        return literalMissing;
+                }
+            }
+        }
+
+        return remaining
+            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToImmutableArray();
     }
 
     private ImmutableArray<string> GetMissingEnumCases(
@@ -485,12 +534,26 @@ internal sealed class MatchExhaustivenessEvaluator
                 literalCoverage?.Clear();
                 break;
             case BoundDeclarationPattern declaration:
-                RemoveMembersAssignableToPattern(remaining, declaration.DeclaredType, literalCoverage);
-                break;
+                {
+                    var declaredType = UnwrapAlias(declaration.DeclaredType);
+                    if (declaredType.TypeKind == TypeKind.Null)
+                    {
+                        RemoveNullMember(remaining, literalCoverage);
+                        break;
+                    }
+
+                    RemoveMembersAssignableToPattern(remaining, declaredType, literalCoverage);
+                    break;
+                }
             case BoundConstantPattern constant:
                 {
                     if (constant.Expression is not null)
+                    {
+                        if (IsNullLiteralPatternExpression(constant.Expression))
+                            RemoveNullMember(remaining, literalCoverage);
+
                         break;
+                    }
 
                     if (constant.LiteralType is null)
                         break;
@@ -502,16 +565,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
                     if (constant.ConstantValue is null)
                     {
-                        foreach (var candidate in remaining.ToArray())
-                        {
-                            var candidateType = UnwrapAlias(candidate);
-
-                            if (candidateType.TypeKind == TypeKind.Null)
-                            {
-                                remaining.Remove(candidate);
-                                literalCoverage?.Remove(candidate);
-                            }
-                        }
+                        RemoveNullMember(remaining, literalCoverage);
 
                         break;
                     }
@@ -529,6 +583,9 @@ internal sealed class MatchExhaustivenessEvaluator
 
                     break;
                 }
+            case BoundUnionMemberPattern unionMemberPattern:
+                RemoveUnionMemberPatternCoverage(remaining, unionMemberPattern, literalCoverage);
+                break;
             case BoundOrPattern orPattern:
                 RemoveCoveredUnionMembers(remaining, orPattern.Left, literalCoverage);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
@@ -548,6 +605,52 @@ internal sealed class MatchExhaustivenessEvaluator
                         RemoveMembersAssignableToPattern(remaining, propertyPattern.NarrowedType, literalCoverage);
                     break;
                 }
+        }
+    }
+
+    private static bool IsNullLiteralPatternExpression(BoundExpression expression)
+        => expression switch
+        {
+            BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral } => true,
+            BoundTypeExpression { Type: NullTypeSymbol } => true,
+            BoundConversionExpression conversion => IsNullLiteralPatternExpression(conversion.Expression),
+            _ => false
+        };
+
+    private static void RemoveNullMember(
+        HashSet<ITypeSymbol> remaining,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+    {
+        foreach (var candidate in remaining.ToArray())
+        {
+            var candidateType = UnwrapAlias(candidate);
+
+            if (candidateType.TypeKind == TypeKind.Null)
+            {
+                remaining.Remove(candidate);
+                literalCoverage?.Remove(candidate);
+            }
+        }
+    }
+
+    private void RemoveUnionMemberPatternCoverage(
+        HashSet<ITypeSymbol> remaining,
+        BoundUnionMemberPattern unionMemberPattern,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+    {
+        var patternMemberType = UnwrapAlias(unionMemberPattern.MemberType);
+
+        foreach (var candidate in remaining.ToArray())
+        {
+            var candidateType = UnwrapAlias(candidate);
+            if (!ArePatternTypesEquivalent(candidateType, patternMemberType))
+                continue;
+
+            if (!IsTotalPattern(candidateType, unionMemberPattern.Pattern, assumeNonNull: true))
+                continue;
+
+            remaining.Remove(candidate);
+            literalCoverage?.Remove(candidate);
         }
     }
 
