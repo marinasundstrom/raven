@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added code fixes for compiler-owned match exhaustiveness diagnostics: `RAV2100`
+  can insert a missing match arm, and `RAV2103` can remove a redundant catch-all arm.
 - Added union-only `null` syntax in parenthesized union declarations, so
   declarations such as `union Foo(int | null)` lower to nullable-capable public
   case constructors without creating a null member type or constructor.

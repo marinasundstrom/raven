@@ -20,6 +20,7 @@ public static class BuiltInCodeFixProviders
             new PreferIsNullOverEqualityCodeFixProvider(),
             new ConstructorParameterNamingCodeFixProvider(),
             new ConversionCastCodeFixProvider(),
+            new MatchExhaustivenessCodeFixProvider(),
             new RemoveRedundantImportCodeFixProvider(),
             new PragmaWarningSuppressionCodeFixProvider(),
         ];

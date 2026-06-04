@@ -12,7 +12,6 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<EventDelegateMustBeNullableAnalyzer>(project);
         project = AddAnalyzerIfMissing<NonNullDeclarationsAnalyzer>(project);
         project = AddAnalyzerIfMissing<VarCanBeValAnalyzer>(project);
-        project = AddAnalyzerIfMissing<MatchExhaustivenessAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferValInsteadOfLetAnalyzer>(project);
         project = AddAnalyzerIfMissing<UninitializedPropertyAnalyzer>(project);
         project = AddAnalyzerIfMissing<UninitializedFieldAnalyzer>(project);

@@ -19,9 +19,6 @@ Raven currently provides analyzers for two different contexts:
   serves as a reference for building analyzers that operate on Raven syntax and semantics.
   When the inferred type is `Unit` (the language's `void`), the analyzer suppresses the
   suggestion.
-- **MatchExhaustivenessAnalyzer** (Raven) – reports informational diagnostics when a
-  match expression is one case away from being exhaustive, or when a discard pattern could
-  be replaced by a specific missing case to make the match exhaustive.
 - **MemberCanBePrivateAnalyzer** (Raven, `RAV9016`) – reports when an internal/public
   member is only used from within its declaring type and can be narrowed to `private`.
 - **MemberCanBeStaticAnalyzer** (Raven, `RAV9017`) – reports instance members that do not
@@ -85,7 +82,6 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `EventDelegateMustBeNullableAnalyzer`
 - `NonNullDeclarationsAnalyzer`
 - `VarCanBeValAnalyzer`
-- `MatchExhaustivenessAnalyzer`
 - `PreferValInsteadOfLetAnalyzer`
 - `UninitializedPropertyAnalyzer`
 - `UninitializedFieldAnalyzer`
@@ -127,6 +123,8 @@ syntax forms. It warns when a real trailing comma is present before the closing 
 newline-delimited boundaries represented by `SyntaxKind.None` are not reported.
 
 Built-in code fixes currently include:
+- `RAV2100` (`Add missing match arm`)
+- `RAV2103` (`Remove redundant catch-all arm`)
 - `RAV9016` (`Make member private`)
 - `RAV9017` (`Make member static`)
 - `RAV9018` (`Remove unused property`)

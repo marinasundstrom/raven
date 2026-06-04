@@ -1026,7 +1026,7 @@ union Option<T> {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV9002");
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
         Assert.True(diagnostics.All(d => d.Severity != DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
     }
 
