@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Changed `RAV9016` member-can-be-private and `RAV9017`
+  member-can-be-static analyzer diagnostics to default to informational
+  suggestions. `RAV9017` no longer suggests making methods static when they
+  satisfy inherited interface contracts such as `IDisposable.Dispose`.
 - Added code fixes for compiler-owned match exhaustiveness diagnostics: `RAV2100`
   can insert a missing match arm, and `RAV2103` can remove a redundant catch-all arm.
 - Added union-only `null` syntax in parenthesized union declarations, so

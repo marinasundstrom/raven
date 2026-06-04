@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Diagnostics;
@@ -13,7 +15,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         helpLinkUri: string.Empty,
         messageFormat: "Method '{0}' does not access instance data and can be static.",
         category: "Design",
-        defaultSeverity: DiagnosticSeverity.Warning);
+        defaultSeverity: DiagnosticSeverity.Info);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -51,12 +53,60 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
             !methodSymbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty ||
             methodSymbol.ContainingType is null ||
             methodSymbol.ContainingType.TypeKind is not (TypeKind.Class or TypeKind.Struct) ||
-            methodSymbol.ContainingType.IsStatic)
+            methodSymbol.ContainingType.IsStatic ||
+            ImplementsInterfaceMember(methodSymbol))
         {
             return false;
         }
 
         return methodDecl.Body is not null || methodDecl.ExpressionBody is not null;
+    }
+
+    private static bool ImplementsInterfaceMember(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol.ContainingType is null)
+            return false;
+
+        foreach (var interfaceType in methodSymbol.ContainingType.AllInterfaces)
+        {
+            foreach (var interfaceMember in interfaceType.GetMembers(methodSymbol.Name))
+            {
+                if (interfaceMember is IMethodSymbol interfaceMethod &&
+                    IsMatchingInterfaceMethod(methodSymbol, interfaceMethod))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsMatchingInterfaceMethod(IMethodSymbol methodSymbol, IMethodSymbol interfaceMethod)
+    {
+        return methodSymbol.MethodKind == MethodKind.Ordinary &&
+            interfaceMethod.MethodKind == MethodKind.Ordinary &&
+            HasSameParameters(methodSymbol.Parameters, interfaceMethod.Parameters) &&
+            SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, interfaceMethod.ReturnType);
+    }
+
+    private static bool HasSameParameters(
+        ImmutableArray<IParameterSymbol> left,
+        ImmutableArray<IParameterSymbol> right)
+    {
+        if (left.Length != right.Length)
+            return false;
+
+        for (var i = 0; i < left.Length; i++)
+        {
+            if (left[i].RefKind != right[i].RefKind)
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(left[i].Type, right[i].Type))
+                return false;
+        }
+
+        return true;
     }
 
     private static bool UsesInstanceState(

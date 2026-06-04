@@ -25,6 +25,7 @@ class Counter {
             expectedDiagnostics:
             [
                 new DiagnosticResult(MemberCanBePrivateAnalyzer.DiagnosticId)
+                    .WithSeverity(DiagnosticSeverity.Info)
                     .WithLocation(4, 17)
                     .WithArguments("Increment")
             ],

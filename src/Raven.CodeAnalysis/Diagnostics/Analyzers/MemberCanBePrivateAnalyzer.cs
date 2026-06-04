@@ -19,7 +19,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
         helpLinkUri: string.Empty,
         messageFormat: "'{0}' can be made private.",
         category: "Design",
-        defaultSeverity: DiagnosticSeverity.Warning);
+        defaultSeverity: DiagnosticSeverity.Info);
 
     public override void Initialize(AnalysisContext context)
     {

@@ -19,6 +19,7 @@ class MathOps {
             expectedDiagnostics:
             [
                 new DiagnosticResult(MemberCanBeStaticAnalyzer.DiagnosticId)
+                    .WithSeverity(DiagnosticSeverity.Info)
                     .WithLocation(2, 10)
                     .WithArguments("Add")
             ],
@@ -115,6 +116,84 @@ class Foo(var Name: string) {
         var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
             code,
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id, "RAV0113"]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ImplicitInterfaceImplementation_DoesNotReport()
+    {
+        const string code = """
+interface ILogger {
+    func Log(message: string) -> unit
+}
+
+class Logger : ILogger {
+    func Log(message: string) -> unit { }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void DisposableImplementation_DoesNotReport()
+    {
+        const string code = """
+import System.*
+
+class Disposable : IDisposable {
+    func Dispose() -> unit { }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ExplicitInterfaceImplementation_DoesNotReport()
+    {
+        const string code = """
+interface ILogger {
+    func Log(message: string) -> unit
+}
+
+class Logger : ILogger {
+    func ILogger.Log(message: string) -> unit { }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void OverrideMethod_DoesNotReport()
+    {
+        const string code = """
+open class Base {
+    virtual func Run() -> unit { }
+}
+
+class Derived : Base {
+    override func Run() -> unit { }
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<MemberCanBeStaticAnalyzer>(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
     }
