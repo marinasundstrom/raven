@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 
+using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
@@ -107,6 +108,56 @@ func Test(x: object?) {
         var verifier = CreateVerifier(
             code,
             [new DiagnosticResult("RAV2102").WithAnySpan().WithArguments("bool", "(int, int)")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void IsPattern_UserDefinedUnionCasesRequireQualificationOrImport()
+    {
+        const string code = """
+val s = Status.Open("foo")
+
+if s is Open(val reason) {
+}
+
+union Status {
+    case Closed(reason: string)
+    case Open(reason: string)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
+                .WithAnySpan()
+                .WithArguments("Open")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void IsPattern_UserDefinedUnionCasesCanUseTargetTypedOrWildcardImportedForm()
+    {
+        const string code = """
+import Status.*
+
+val a = Status.Open("foo")
+val b = Status.Closed("done")
+
+if a is .Open(val reason) {
+}
+
+if b is Closed(_) {
+}
+
+union Status {
+    case Closed(reason: string)
+    case Open(reason: string)
+}
+""";
+
+        var verifier = CreateVerifier(code);
 
         verifier.Verify();
     }

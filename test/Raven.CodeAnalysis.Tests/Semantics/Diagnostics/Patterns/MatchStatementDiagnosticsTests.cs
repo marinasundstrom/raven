@@ -110,6 +110,67 @@ union Result<T> {
     }
 
     [Fact]
+    public void MatchStatement_UserDefinedUnionCasesRequireQualificationOrImport()
+    {
+        const string code = """
+val s = Status.Open("foo")
+
+match s {
+    Open(val reason) => reason
+    Closed(_) => ""
+}
+
+union Status {
+    case Closed(reason: string)
+    case Open(reason: string)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
+                    .WithAnySpan()
+                    .WithArguments("Open"),
+                new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
+                    .WithAnySpan()
+                    .WithArguments("Closed"),
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_UserDefinedUnionCasesCanUseTargetTypedOrWildcardImportedForm()
+    {
+        const string code = """
+import Status.*
+
+val a = Status.Open("foo")
+val b = Status.Closed("done")
+
+val textA = a match {
+    .Open(val reason) => reason
+    .Closed(_) => ""
+}
+
+val textB = b match {
+    Open(val reason) => reason
+    Closed(_) => ""
+}
+
+union Status {
+    case Closed(reason: string)
+    case Open(reason: string)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchStatement_NotLastInBlock_TargetTypesArmMemberBindings_AndWarnsValueIgnored()
     {
         const string code = """
