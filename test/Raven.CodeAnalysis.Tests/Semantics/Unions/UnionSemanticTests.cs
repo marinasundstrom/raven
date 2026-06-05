@@ -718,8 +718,8 @@ union Option<T> {
     public void UnqualifiedUserUnionCaseInvocation_WithoutImport_ReportsMissingName()
     {
         const string source = """
-func build() -> HeaterResult {
-    return TempTooLow(12)
+func build() {
+    val result = TempTooLow(12)
 }
 
 union HeaterResult {
@@ -841,7 +841,8 @@ union HeaterResult {
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, diagnostic =>
-            diagnostic.Id == CompilerDiagnostics.MatchExpressionNotExhaustive.Id);
+            diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+            diagnostic.GetMessage().Contains("TempTooLow", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -969,6 +970,52 @@ func build() {
     val resultB: Result<int, string> = .Ok<int>(2)
     val resultC: Result<int, string> = Result<int, string>.Ok(2)
     val resultD: Result<int, string> = .Ok(2)
+}
+
+union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void UnqualifiedCaseInvocation_WithoutTargetType_ReportsDiagnostic()
+    {
+        const string source = """
+import Result.*
+
+func build() {
+    val result = Ok(2)
+}
+
+union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d =>
+            d.Descriptor == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext &&
+            d.GetMessage().Contains("Ok", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void UnqualifiedCaseInvocation_WithExplicitTargetType_BindsWithoutErrors()
+    {
+        const string source = """
+func build() {
+    val result: Result<int, string> = Ok(2)
 }
 
 union Result<T, E> {
@@ -2599,6 +2646,8 @@ union Result<T> {
     public void CasePattern_UnqualifiedSingleArm_ReportsExhaustivenessDiagnostic()
     {
         const string source = """
+import Result.*
+
 func format(result: Result<int>) -> string {
     return result match {
         Ok(val payload) => payload.ToString()

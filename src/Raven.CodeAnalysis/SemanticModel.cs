@@ -1802,6 +1802,24 @@ public partial class SemanticModel
             return attributeInfo;
         }
 
+        if (node is IdentifierNameSyntax casePatternIdentifier &&
+            TryGetCasePatternHeadSymbol(casePatternIdentifier, out var casePatternIdentifierSymbol))
+        {
+            var casePatternInfo = new SymbolInfo(casePatternIdentifierSymbol);
+            StoreSymbolMapping(node, casePatternInfo);
+            StoreNodeInterestSymbolDescriptor(node, casePatternIdentifierSymbol);
+            return casePatternInfo;
+        }
+
+        if (node is GenericNameSyntax casePatternGenericName &&
+            TryGetCasePatternHeadSymbol(casePatternGenericName, out var casePatternGenericSymbol))
+        {
+            var casePatternInfo = new SymbolInfo(casePatternGenericSymbol);
+            StoreSymbolMapping(node, casePatternInfo);
+            StoreNodeInterestSymbolDescriptor(node, casePatternGenericSymbol);
+            return casePatternInfo;
+        }
+
         if (node is TypeSyntax typeSyntax &&
             IsExplicitTypeSyntaxContext(typeSyntax))
         {
@@ -7749,10 +7767,10 @@ public partial class SemanticModel
             return false;
         }
 
-        if (TryResolveCasePatternSymbolFromContext(memberPattern, pathSyntax.Identifier.ValueText, out symbol))
+        if (TryGetCasePatternSymbol(memberPattern, out symbol))
             return true;
 
-        return TryGetCasePatternSymbol(memberPattern, out symbol);
+        return TryResolveCasePatternSymbolFromContext(memberPattern, pathSyntax.Identifier.ValueText, out symbol);
     }
 
     private bool TryGetCasePatternHeadSymbol(SimpleNameSyntax nameSyntax, out ISymbol symbol)
@@ -7774,10 +7792,10 @@ public partial class SemanticModel
         if (patternNode is null)
             return false;
 
-        if (TryResolveCasePatternSymbolFromContext(patternNode, nameSyntax.Identifier.ValueText, out symbol))
+        if (TryGetCasePatternSymbol(patternNode, out symbol))
             return true;
 
-        return TryGetCasePatternSymbol(patternNode, out symbol);
+        return TryResolveCasePatternSymbolFromContext(patternNode, nameSyntax.Identifier.ValueText, out symbol);
     }
 
     private bool TryGetCasePatternSymbol(SyntaxNode patternNode, out ISymbol symbol)
@@ -7867,11 +7885,96 @@ public partial class SemanticModel
         if (union is null)
             return false;
 
-        var caseSymbol = union.CaseTypes.FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
+        var caseSymbol = union.CaseTypes
+            .OfType<IUnionCaseTypeSymbol>()
+            .FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
         if (caseSymbol is null)
             return false;
 
-        symbol = caseSymbol;
+        symbol = TryProjectCasePatternSymbol(inputType, caseSymbol, out var projectedCase)
+            ? projectedCase
+            : caseSymbol;
+        return true;
+    }
+
+    private static bool TryProjectCasePatternSymbol(
+        ITypeSymbol inputType,
+        IUnionCaseTypeSymbol caseSymbol,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IUnionCaseTypeSymbol? projectedCase)
+    {
+        projectedCase = null;
+
+        var unionType = inputType.TryGetUnion() as INamedTypeSymbol;
+        if (unionType is null &&
+            inputType is INamedTypeSymbol inputCaseType &&
+            inputCaseType.TryGetUnionCase() is { } inputCaseSymbol &&
+            TryProjectUnionFromCaseArguments(inputCaseType, inputCaseSymbol, out var projectedUnion))
+        {
+            unionType = projectedUnion;
+        }
+
+        if (unionType is null || unionType.TypeArguments.IsDefaultOrEmpty)
+            return false;
+
+        var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
+        if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+            caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty)
+        {
+            return false;
+        }
+
+        var unionDefinition = unionType.OriginalDefinition as INamedTypeSymbol ?? unionType;
+        if (unionDefinition.TypeParameters.IsDefaultOrEmpty ||
+            unionDefinition.TypeParameters.Length != unionType.TypeArguments.Length)
+        {
+            return false;
+        }
+
+        var caseTypeArguments = caseDefinitionNamed.TypeParameters
+            .Select(typeParameter => (ITypeSymbol)typeParameter)
+            .ToArray();
+
+        var changed = false;
+        for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
+        {
+            var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
+            ITypeParameterSymbol? unionTypeParameter = null;
+
+            if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
+                sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
+            {
+                unionTypeParameter = mapped;
+            }
+            else
+            {
+                unionTypeParameter = unionDefinition.TypeParameters
+                    .FirstOrDefault(tp => string.Equals(tp.Name, caseTypeParameter.Name, StringComparison.Ordinal));
+            }
+
+            if (unionTypeParameter is null)
+                continue;
+
+            var unionIndex = -1;
+            for (var unionParameterIndex = 0; unionParameterIndex < unionDefinition.TypeParameters.Length; unionParameterIndex++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(unionDefinition.TypeParameters[unionParameterIndex], unionTypeParameter))
+                {
+                    unionIndex = unionParameterIndex;
+                    break;
+                }
+            }
+
+            if (unionIndex < 0 || unionIndex >= unionType.TypeArguments.Length)
+                continue;
+
+            caseTypeArguments[i] = unionType.TypeArguments[unionIndex];
+            changed = true;
+        }
+
+        if (!changed)
+            return false;
+
+        projectedCase = (IUnionCaseTypeSymbol)caseDefinitionNamed.Construct(caseTypeArguments);
         return true;
     }
 

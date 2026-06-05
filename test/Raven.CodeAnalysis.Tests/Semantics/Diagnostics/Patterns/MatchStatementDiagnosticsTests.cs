@@ -116,7 +116,7 @@ union Result<T> {
 val s = Status.Open("foo")
 
 match s {
-    Open(val reason) => reason
+    Open(_) => ""
     Closed(_) => ""
 }
 
@@ -135,7 +135,32 @@ union Status {
                 new DiagnosticResult(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
                     .WithAnySpan()
                     .WithArguments("Closed"),
+                new DiagnosticResult("RAV2101").WithAnySpan(),
             ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_UserDefinedUnionCasesCanBindFromWildcardImport()
+    {
+        const string code = """
+import Status.*
+
+val s = Status.Open("foo")
+
+match s {
+    Open(val reason) => reason
+    Closed(_) => ""
+}
+
+union Status {
+    case Closed(reason: string)
+    case Open(reason: string)
+}
+""";
+
+        var verifier = CreateVerifier(code);
 
         verifier.Verify();
     }

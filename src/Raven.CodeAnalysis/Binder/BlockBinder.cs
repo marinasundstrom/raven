@@ -4975,7 +4975,7 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        if ((scrutineeType.TryGetUnion() ?? scrutineeType.TryGetUnionCase()?.Union) is { } nominalUnion &&
+        if (scrutineeType.TryGetUnion() is { } nominalUnion &&
             !nominalUnion.MemberTypes.IsDefaultOrEmpty)
         {
             foreach (var member in nominalUnion.MemberTypes)
@@ -10153,8 +10153,7 @@ partial class BlockBinder : Binder
             if (invocationTargetType is not null)
             {
                 var unwrappedTargetType = UnwrapTaskLikeTargetType(invocationTargetType);
-                if (LookupUnionCaseTypeCandidates(id.Identifier.ValueText).Length > 0 &&
-                    TryBindDiscriminatedUnionCase(unwrappedTargetType, id.Identifier.ValueText, id.Identifier.GetLocation()) is BoundUnionCaseExpression contextualUnionCase)
+                if (TryBindDiscriminatedUnionCase(unwrappedTargetType, id.Identifier.ValueText, id.Identifier.GetLocation()) is BoundUnionCaseExpression contextualUnionCase)
                     return BindInvokedUnionCaseExpression(contextualUnionCase, syntax);
             }
 
@@ -10167,12 +10166,6 @@ partial class BlockBinder : Binder
                     var (first, second) = GetAmbiguousCaseDisplayNames(unionCaseCandidates[0], unionCaseCandidates[1]);
                     _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
                     return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
-                }
-
-                if (unionCaseCandidates.Length == 1 &&
-                    BindDiscriminatedUnionCaseType(unionCaseCandidates[0]) is BoundUnionCaseExpression unionCaseFromLookup)
-                {
-                    return BindConstructorInvocation(unionCaseFromLookup.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
                 }
 
                 receiver = null;
@@ -10203,7 +10196,11 @@ partial class BlockBinder : Binder
                     return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                 }
 
-                return BindInvokedUnionCaseExpression(unionCaseCallee, syntax);
+                if (invocationTargetType is not null)
+                    return BindInvokedUnionCaseExpression(unionCaseCallee, syntax);
+
+                _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(id.Identifier.ValueText, id.Identifier.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.MissingType);
             }
             else if (IsInvocableValueReceiver(boundIdentifier))
             {
@@ -10230,6 +10227,9 @@ partial class BlockBinder : Binder
                         _diagnostics.ReportCallIsAmbiguous(first, second, syntax.GetLocation());
                         return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
                     }
+
+                    _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(id.Identifier.ValueText, id.Identifier.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.MissingType);
                 }
 
                 return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);

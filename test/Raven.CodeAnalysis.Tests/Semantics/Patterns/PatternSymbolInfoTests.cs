@@ -44,6 +44,46 @@ func StatusMatches(status: VehicleStatus) -> bool {
     }
 
     [Fact]
+    public void GetSymbolInfo_NominalUnionCasePattern_ProjectsGenericCaseFromScrutineeType()
+    {
+        const string source = """
+import Outcome.*
+
+val result: Outcome<int, string> = Ok(2)
+
+match result {
+    Ok(val value) => value
+    Error(_) => 0
+}
+
+union Outcome<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var patternNames = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<NominalDeconstructionPatternSyntax>()
+            .Select(pattern => Assert.IsType<IdentifierNameSyntax>(pattern.Type))
+            .ToDictionary(name => name.Identifier.ValueText);
+
+        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternNames["Ok"]).Symbol);
+        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternNames["Error"]).Symbol);
+
+        Assert.Equal("Ok", okCase.Name);
+        Assert.Equal(SpecialType.System_Int32, okCase.TypeArguments.Single().SpecialType);
+        Assert.Equal("Error", errorCase.Name);
+        Assert.Equal(SpecialType.System_String, errorCase.TypeArguments.Single().SpecialType);
+    }
+
+    [Fact]
     public void GetSymbolInfo_QualifiedEnumConstantInIsPattern_ResolvesEnumMember()
     {
         const string source = """

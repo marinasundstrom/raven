@@ -1749,12 +1749,35 @@ internal partial class BlockBinder
         for (var i = 0; i < count; i++)
             nameToArgument[unionTypeParameters[i].Name] = unionTypeArguments[i];
 
+        var caseDefinition = caseType.OriginalDefinition as IUnionCaseTypeSymbol ?? caseType as IUnionCaseTypeSymbol;
+        var unionDefinition = unionType.OriginalDefinition as INamedTypeSymbol ?? unionType;
         var projectedArguments = new ITypeSymbol[caseType.TypeParameters.Length];
         var changed = false;
         for (var i = 0; i < caseType.TypeParameters.Length; i++)
         {
             var parameter = caseType.TypeParameters[i];
-            if (nameToArgument.TryGetValue(parameter.Name, out var mapped))
+            ITypeSymbol? mapped = null;
+            if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
+                sourceCaseDefinition.TryGetProjectedUnionTypeParameter(parameter, out var unionParameter))
+            {
+                var unionIndex = -1;
+                for (var unionParameterIndex = 0; unionParameterIndex < unionDefinition.TypeParameters.Length; unionParameterIndex++)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(unionDefinition.TypeParameters[unionParameterIndex], unionParameter))
+                    {
+                        unionIndex = unionParameterIndex;
+                        break;
+                    }
+                }
+
+                if (unionIndex >= 0 && unionIndex < unionTypeArguments.Length)
+                    mapped = unionTypeArguments[unionIndex];
+            }
+
+            if (mapped is null)
+                nameToArgument.TryGetValue(parameter.Name, out mapped);
+
+            if (mapped is not null)
             {
                 projectedArguments[i] = mapped;
                 if (!SymbolEqualityComparer.Default.Equals(mapped, parameter))
@@ -2041,6 +2064,16 @@ internal partial class BlockBinder
         var arguments = syntax.ArgumentList.Arguments.Select(argument => argument.Pattern).ToImmutableArray();
         var canUseUnqualifiedUnionCase = qualifierType is not null ||
             IsUnqualifiedUnionCaseImported(caseName!, GetCasePatternTypeArgumentCount(syntax.Type));
+
+        if (!canUseUnqualifiedUnionCase &&
+            qualifierType is null &&
+            (inputType.TryGetUnion() ?? inputType.TryGetUnionCase()?.Union) is { } inputUnion &&
+            inputUnion.DeclaredCaseTypes.Any(@case => string.Equals(@case.Name, caseName, StringComparison.Ordinal)))
+        {
+            _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(caseName!, caseNameLocation);
+            pattern = new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+            return true;
+        }
 
         return (canUseUnqualifiedUnionCase &&
                 TryBindDiscriminatedUnionCasePattern(

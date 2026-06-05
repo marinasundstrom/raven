@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Fixed union case binding so bare case constructor calls require an explicit
+  target type, while pattern hovers report case symbols projected from the
+  matched union type arguments.
 - Changed `RAV9016` member-can-be-private and `RAV9017`
   member-can-be-static analyzer diagnostics to default to informational
   suggestions. `RAV9017` no longer suggests making methods static when they

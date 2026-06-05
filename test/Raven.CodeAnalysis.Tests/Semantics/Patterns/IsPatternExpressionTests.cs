@@ -137,6 +137,28 @@ union Status {
     }
 
     [Fact]
+    public void IsPattern_UserDefinedUnionCasesCanBindFromWildcardImport()
+    {
+        const string code = """
+import Status.*
+
+val s = Status.Open("foo")
+
+if s is Open(val reason) {
+}
+
+union Status {
+    case Closed(reason: string)
+    case Open(reason: string)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void IsPattern_UserDefinedUnionCasesCanUseTargetTypedOrWildcardImportedForm()
     {
         const string code = """
