@@ -211,7 +211,7 @@ async func BuildFulfillmentPlan(batch: InboundBatch, inventory: InventoryItem[])
         val decision = DecideOrder(order, inventoryBySku, remainingExpeditedSlots)?
         decisions.Add(decision)
 
-        if order.Priority is Expedited && decision is Reserve(_, _, _) {
+        if order.Priority is .Expedited && decision is .Reserve(_, _, _) {
             remainingExpeditedSlots = remainingExpeditedSlots - 1
         }
     }
@@ -223,7 +223,7 @@ async func BuildFulfillmentPlan(batch: InboundBatch, inventory: InventoryItem[])
         alerts.Add("Cold-chain handling required for ${orderId}")
     }
 
-    for val BackOrder(orderId, missingSkus) in decisions {
+    for val .BackOrder(orderId, missingSkus) in decisions {
         alerts.Add("Back order for ${orderId}: ${DescribeStrings(missingSkus)}")
     }
 
@@ -241,7 +241,7 @@ func DecideOrder(
     inventoryBySku: IReadOnlyDictionary<string, InventoryItem>,
     remainingExpeditedSlots: int
 ) -> Result<FulfillmentDecision, FulfillmentError> {
-    if order.Priority is Expedited && remainingExpeditedSlots <= 0 {
+    if order.Priority is .Expedited && remainingExpeditedSlots <= 0 {
         val rejectedDecision: FulfillmentDecision = .Reject(order.Id, "No expedited capacity remains for this planning window")
         return Ok(rejectedDecision)
     }
@@ -313,9 +313,9 @@ func PrintPlan(plan: FulfillmentPlan) {
     WriteLine("Created at:  ${plan.CreatedAt}")
     WriteLine("")
 
-    val reserved = [for val Reserve(orderId, warehouse, picks) in plan.Decisions => "${orderId} -> ${warehouse} (${picks.Length} picks)"]
-    val backOrders = [for val BackOrder(orderId, missingSkus) in plan.Decisions => "${orderId} missing ${DescribeStrings(missingSkus)}"]
-    val rejected = [for val Reject(orderId, reason) in plan.Decisions => "${orderId} rejected: ${reason}"]
+    val reserved = [for val .Reserve(orderId, warehouse, picks) in plan.Decisions => "${orderId} -> ${warehouse} (${picks.Length} picks)"]
+    val backOrders = [for val .BackOrder(orderId, missingSkus) in plan.Decisions => "${orderId} missing ${DescribeStrings(missingSkus)}"]
+    val rejected = [for val .Reject(orderId, reason) in plan.Decisions => "${orderId} rejected: ${reason}"]
 
     WriteSection("Reserved")
     WriteEntries(reserved)
