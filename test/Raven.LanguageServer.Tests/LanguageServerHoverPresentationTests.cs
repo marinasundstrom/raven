@@ -1062,6 +1062,132 @@ class Runner {
     }
 
     [Fact]
+    public void MetadataResultCasePatternHover_UsesScrutineeTypeArguments()
+    {
+        const string code = """
+import System.*
+import System.Result.*
+
+class C {
+    func Test() {
+        val ok: Result<int, string> = Ok(2)
+
+        match ok {
+            Ok(_) => {}
+            Error(_) => {}
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var references = LanguageServerTestReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCoreReferencePath())])
+            .ToArray();
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var errorIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(id => id.Identifier.ValueText == "Error");
+        errorIdentifier.Parent.ShouldBeAssignableTo<NominalDeconstructionPatternSyntax>();
+        var matchStatement = errorIdentifier.GetAncestor<MatchStatementSyntax>();
+        matchStatement.ShouldNotBeNull();
+        matchStatement.Expression.ToString().ShouldBe("ok");
+        var scrutineeSymbol = semanticModel.GetSymbolInfo(matchStatement.Expression).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        scrutineeSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Result<int, string>");
+
+        var hoverOffset = errorIdentifier.Identifier.SpanStart + 1;
+        var hoverToken = root.FindToken(hoverOffset);
+        hoverToken.ShouldBe(errorIdentifier.Identifier);
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+
+        var buildSignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForResolvedHover.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, hoverOffset])!;
+
+        signature.ShouldContain("Error");
+        signature.ShouldContain("string");
+        signature.ShouldNotContain(" E");
+    }
+
+    [Fact]
+    public void MetadataResultCasePatternHover_PrefersUnionCaseOverVisibleTypeWithSameName()
+    {
+        const string code = """
+import System.*
+import System.Result.*
+
+class Ok {}
+
+class C {
+    func Test() {
+        val result: Result<int, string> = .Ok(2)
+
+        match result {
+            Ok(val value) => {}
+            Error(_) => {}
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var references = LanguageServerTestReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCoreReferencePath())])
+            .ToArray();
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var okPatternIdentifier = root.DescendantNodes()
+            .OfType<NominalDeconstructionPatternSyntax>()
+            .Select(pattern => Assert.IsType<IdentifierNameSyntax>(pattern.Type))
+            .Single(identifier => identifier.Identifier.ValueText == "Ok");
+
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(
+            semanticModel,
+            root,
+            okPatternIdentifier.Identifier.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        var symbol = resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>();
+        symbol.IsUnionCase.ShouldBeTrue();
+        symbol.Name.ShouldBe("Ok");
+
+        var buildSignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForResolvedHover.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, okPatternIdentifier.Identifier.SpanStart + 1])!;
+
+        signature.ShouldContain("Ok");
+        signature.ShouldContain("int");
+        signature.ShouldNotContain("class Ok {}");
+    }
+
+    [Fact]
     public void ImportDirectiveNameHover_DoesNotResolveErrorType()
     {
         const string code = """

@@ -1820,6 +1820,15 @@ public partial class SemanticModel
             return casePatternInfo;
         }
 
+        if (node is TypeSyntax patternTypeSyntax &&
+            TryGetProjectedPatternTypeSymbol(patternTypeSyntax, out var projectedPatternType))
+        {
+            var patternTypeInfo = new SymbolInfo(projectedPatternType);
+            StoreSymbolMapping(node, patternTypeInfo);
+            StoreNodeInterestSymbolDescriptor(node, projectedPatternType);
+            return patternTypeInfo;
+        }
+
         if (node is TypeSyntax typeSyntax &&
             IsExplicitTypeSyntaxContext(typeSyntax))
         {
@@ -7641,6 +7650,13 @@ public partial class SemanticModel
                     return true;
                 }
 
+            case TypeSyntax typeSyntax when TryGetProjectedPatternTypeSymbol(typeSyntax, out var projectedPatternType):
+                {
+                    info = new SymbolInfo(projectedPatternType);
+                    StoreNodeInterestSymbolDescriptor(node, projectedPatternType);
+                    return true;
+                }
+
             case IdentifierNameSyntax identifier:
                 {
                     if (identifier.Parent is MemberAccessExpressionSyntax memberAccess)
@@ -7855,29 +7871,27 @@ public partial class SemanticModel
         ITypeSymbol? inputType = null;
         if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
         {
-            var typeInfo = GetTypeInfo(matchExpression.Expression);
-            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+            inputType = GetPatternScrutineeType(matchExpression.Expression);
         }
         else if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
-            var typeInfo = GetTypeInfo(matchStatement.Expression);
-            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+            inputType = GetPatternScrutineeType(matchStatement.Expression);
         }
         else if (patternNode.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
         {
-            var typeInfo = GetTypeInfo(isPatternExpression.Expression);
-            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+            inputType = GetPatternScrutineeType(isPatternExpression.Expression);
         }
         else if (patternNode.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
         {
-            var typeInfo = GetTypeInfo(ifPatternStatement.Expression);
-            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+            inputType = GetPatternScrutineeType(ifPatternStatement.Expression);
         }
         else if (patternNode.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
         {
-            var typeInfo = GetTypeInfo(whilePatternStatement.Expression);
-            inputType = typeInfo.Type ?? typeInfo.ConvertedType;
+            inputType = GetPatternScrutineeType(whilePatternStatement.Expression);
         }
+
+        if (inputType is null)
+            return false;
 
         var union = inputType.TryGetUnion()
             ?? inputType.TryGetUnionCase()?.Union;
@@ -7885,8 +7899,7 @@ public partial class SemanticModel
         if (union is null)
             return false;
 
-        var caseSymbol = union.CaseTypes
-            .OfType<IUnionCaseTypeSymbol>()
+        var caseSymbol = union.DeclaredCaseTypes
             .FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
         if (caseSymbol is null)
             return false;
@@ -7896,6 +7909,265 @@ public partial class SemanticModel
             : caseSymbol;
         return true;
     }
+
+    private bool TryGetProjectedPatternTypeSymbol(TypeSyntax typeSyntax, out ISymbol symbol)
+    {
+        symbol = null!;
+
+        if (!TryGetPatternNodeForType(typeSyntax, out var patternNode))
+            return false;
+
+        BindPatternContextForSemanticQuery(patternNode);
+
+        if (TryGetCachedBoundNode(patternNode) is BoundDeclarationPattern { DeclaredType: INamedTypeSymbol declaredType } &&
+            declaredType.TypeKind != TypeKind.Error)
+        {
+            symbol = declaredType;
+            return true;
+        }
+
+        if (!TryGetPatternScrutineeType(patternNode, out var scrutineeType) ||
+            !TryBindPatternTypeSyntax(typeSyntax, out var patternType) ||
+            !IsOpenGenericPatternType(patternType) ||
+            !TryProjectOpenGenericPatternType(patternType, scrutineeType, out var projectedPatternType))
+        {
+            return false;
+        }
+
+        symbol = projectedPatternType;
+        return true;
+    }
+
+    private static bool TryGetPatternNodeForType(TypeSyntax typeSyntax, out SyntaxNode patternNode)
+    {
+        patternNode = null!;
+
+        patternNode = typeSyntax.Parent switch
+        {
+            DeclarationPatternSyntax declaration when ReferenceEquals(declaration.Type, typeSyntax) => declaration,
+            NominalDeconstructionPatternSyntax nominal when ReferenceEquals(nominal.Type, typeSyntax) => nominal,
+            _ => null!
+        };
+
+        return patternNode is not null;
+    }
+
+    private bool TryGetPatternScrutineeType(SyntaxNode patternNode, out ITypeSymbol scrutineeType)
+    {
+        scrutineeType = null!;
+
+        if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
+            scrutineeType = GetPatternScrutineeType(matchExpression.Expression)!;
+        else if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
+            scrutineeType = GetPatternScrutineeType(matchStatement.Expression)!;
+        else if (patternNode.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
+            scrutineeType = GetPatternScrutineeType(isPatternExpression.Expression)!;
+        else if (patternNode.GetAncestor<IfPatternStatementSyntax>() is { } ifPatternStatement)
+            scrutineeType = GetPatternScrutineeType(ifPatternStatement.Expression)!;
+        else if (patternNode.GetAncestor<WhilePatternStatementSyntax>() is { } whilePatternStatement)
+            scrutineeType = GetPatternScrutineeType(whilePatternStatement.Expression)!;
+
+        return scrutineeType is not null && scrutineeType.TypeKind != TypeKind.Error;
+    }
+
+    private bool TryBindPatternTypeSyntax(TypeSyntax typeSyntax, out INamedTypeSymbol patternType)
+    {
+        patternType = null!;
+
+        Compilation.EnsureSourceDeclarationsDeclared();
+
+        var binder = GetBinder(typeSyntax);
+        try
+        {
+            var result = binder.BindTypeSyntax(typeSyntax);
+            if (!result.Success || result.ResolvedType is not INamedTypeSymbol namedType)
+                return false;
+
+            patternType = namedType;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsOpenGenericPatternType(INamedTypeSymbol patternType)
+    {
+        var definition = TypeSubstitution.GetDefinitionForSubstitution(patternType);
+        if (definition.TypeParameters.IsDefaultOrEmpty || definition.TypeParameters.Length == 0)
+            return false;
+
+        var arguments = TypeSubstitution.GetShallowTypeArguments(patternType);
+        return arguments.IsDefaultOrEmpty ||
+               arguments.All(static argument => argument is ITypeParameterSymbol);
+    }
+
+    private static bool TryProjectOpenGenericPatternType(
+        INamedTypeSymbol patternType,
+        ITypeSymbol scrutineeType,
+        out INamedTypeSymbol projectedPatternType)
+    {
+        projectedPatternType = null!;
+
+        if (scrutineeType is not INamedTypeSymbol scrutineeNamed ||
+            scrutineeNamed.TypeArguments.IsDefaultOrEmpty ||
+            scrutineeNamed.TypeArguments.Any(static argument => argument is ITypeParameterSymbol))
+        {
+            return false;
+        }
+
+        var patternDefinition = TypeSubstitution.GetDefinitionForSubstitution(patternType);
+        var patternParameters = patternDefinition.TypeParameters;
+        if (patternParameters.IsDefaultOrEmpty || patternParameters.Length == 0)
+            return false;
+
+        foreach (var view in EnumeratePatternTypeViews(patternType))
+        {
+            if (!TryProjectOpenGenericPatternTypeFromView(
+                    patternDefinition,
+                    patternParameters,
+                    view,
+                    scrutineeNamed,
+                    out projectedPatternType))
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<INamedTypeSymbol> EnumeratePatternTypeViews(INamedTypeSymbol patternType)
+    {
+        yield return patternType;
+
+        for (var baseType = patternType.BaseType; baseType is not null; baseType = baseType.BaseType)
+            yield return baseType;
+
+        foreach (var interfaceType in patternType.AllInterfaces)
+            yield return interfaceType;
+    }
+
+    private static bool TryProjectOpenGenericPatternTypeFromView(
+        INamedTypeSymbol patternDefinition,
+        ImmutableArray<ITypeParameterSymbol> patternParameters,
+        INamedTypeSymbol patternView,
+        INamedTypeSymbol scrutineeType,
+        out INamedTypeSymbol projectedPatternType)
+    {
+        projectedPatternType = null!;
+
+        var patternViewDefinition = TypeSubstitution.GetDefinitionForSubstitution(patternView);
+        var scrutineeDefinition = TypeSubstitution.GetDefinitionForSubstitution(scrutineeType);
+        if (!SymbolEqualityComparer.Default.Equals(patternViewDefinition, scrutineeDefinition))
+            return false;
+
+        var viewArguments = TypeSubstitution.GetShallowTypeArguments(patternView);
+        var scrutineeArguments = TypeSubstitution.GetShallowTypeArguments(scrutineeType);
+        if (viewArguments.IsDefaultOrEmpty ||
+            scrutineeArguments.IsDefaultOrEmpty ||
+            viewArguments.Length != scrutineeArguments.Length)
+        {
+            return false;
+        }
+
+        var inferredArguments = new ITypeSymbol[patternParameters.Length];
+        for (var i = 0; i < inferredArguments.Length; i++)
+            inferredArguments[i] = patternParameters[i];
+
+        var inferredAny = false;
+        for (var i = 0; i < viewArguments.Length; i++)
+        {
+            if (viewArguments[i] is not ITypeParameterSymbol viewParameter)
+                continue;
+
+            var patternParameterIndex = IndexOfEquivalentTypeParameter(patternParameters, viewParameter);
+            if (patternParameterIndex < 0)
+                continue;
+
+            inferredArguments[patternParameterIndex] = scrutineeArguments[i];
+            inferredAny = true;
+        }
+
+        if (!inferredAny ||
+            inferredArguments.Any(static argument => argument is ITypeParameterSymbol))
+        {
+            return false;
+        }
+
+        projectedPatternType = (INamedTypeSymbol)patternDefinition.Construct(inferredArguments);
+        return true;
+    }
+
+    private static int IndexOfEquivalentTypeParameter(
+        ImmutableArray<ITypeParameterSymbol> typeParameters,
+        ITypeParameterSymbol typeParameter)
+    {
+        for (var i = 0; i < typeParameters.Length; i++)
+        {
+            if (TypeSubstitution.AreEquivalentTypeParameters(typeParameters[i], typeParameter))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private ITypeSymbol? GetPatternScrutineeType(ExpressionSyntax expression)
+    {
+        var typeInfo = GetTypeInfo(expression);
+        var expressionType = typeInfo.ConvertedType ?? typeInfo.Type;
+
+        if (GetSymbolInfo(expression).Symbol is { } symbol &&
+            TryGetValueSymbolType(symbol) is { } symbolType &&
+            ShouldPreferValueSymbolTypeForPattern(expressionType, symbolType))
+        {
+            return symbolType;
+        }
+
+        return expressionType;
+    }
+
+    private static bool ShouldPreferValueSymbolTypeForPattern(ITypeSymbol? expressionType, ITypeSymbol symbolType)
+    {
+        if (expressionType is null || expressionType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (ContainsUnboundTypeParameter(expressionType) &&
+            !ContainsUnboundTypeParameter(symbolType))
+        {
+            return true;
+        }
+
+        return expressionType.TryGetUnionCase() is not null &&
+               (symbolType.TryGetUnion() is not null || symbolType.TryGetUnionCase() is not null);
+    }
+
+    private static bool ContainsUnboundTypeParameter(ITypeSymbol type)
+    {
+        return type switch
+        {
+            ITypeParameterSymbol => true,
+            INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty =>
+                named.TypeArguments.Any(ContainsUnboundTypeParameter),
+            IArrayTypeSymbol array => ContainsUnboundTypeParameter(array.ElementType),
+            IPointerTypeSymbol pointer => ContainsUnboundTypeParameter(pointer.PointedAtType),
+            IAddressTypeSymbol address => ContainsUnboundTypeParameter(address.ReferencedType),
+            _ => false
+        };
+    }
+
+    private static ITypeSymbol? TryGetValueSymbolType(ISymbol symbol)
+        => symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => null
+        };
 
     private static bool TryProjectCasePatternSymbol(
         ITypeSymbol inputType,

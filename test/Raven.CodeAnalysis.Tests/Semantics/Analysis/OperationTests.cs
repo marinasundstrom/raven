@@ -845,7 +845,7 @@ val updated = bob with {
     }
 
     [Fact]
-    public void GetOperation_UnionCaseExpression_CurrentlySurfacesAsConversionToObjectCreation()
+    public void GetOperation_UnionCaseExpression_ReturnsUnionCaseOperation()
     {
         const string source = """
 union Error {
@@ -862,9 +862,13 @@ val error: Error = MissingName("x")
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var conversion = Assert.IsAssignableFrom<IConversionOperation>(model.GetOperation(invocationSyntax));
-        conversion.Operand.ShouldNotBeNull();
-        conversion.Operand!.Kind.ShouldBe(OperationKind.ObjectCreation);
+        var operation = Assert.IsAssignableFrom<IUnionCaseOperation>(model.GetOperation(invocationSyntax));
+        operation.Kind.ShouldBe(OperationKind.UnionCase);
+        operation.UnionType.Name.ShouldBe("Error");
+        operation.CaseType.Name.ShouldBe("MissingName");
+        operation.Constructor.ShouldNotBeNull();
+        operation.Arguments.Length.ShouldBe(1);
+        operation.Arguments[0].Kind.ShouldBe(OperationKind.Literal);
     }
 
     [Fact]

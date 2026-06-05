@@ -906,39 +906,88 @@ internal static partial class SymbolResolver
 
         if (pattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
         {
-            var matchExpressionTypeInfo = semanticModel.GetTypeInfo(matchExpression.Expression);
-            scrutineeType = matchExpressionTypeInfo.Type ?? matchExpressionTypeInfo.ConvertedType;
+            scrutineeType = GetPatternScrutineeType(semanticModel, matchExpression.Expression);
         }
         else if (pattern.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
-            var matchStatementTypeInfo = semanticModel.GetTypeInfo(matchStatement.Expression);
-            scrutineeType = matchStatementTypeInfo.Type ?? matchStatementTypeInfo.ConvertedType;
+            scrutineeType = GetPatternScrutineeType(semanticModel, matchStatement.Expression);
         }
         else if (pattern.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
         {
-            var isPatternTypeInfo = semanticModel.GetTypeInfo(isPatternExpression.Expression);
-            scrutineeType = isPatternTypeInfo.Type ?? isPatternTypeInfo.ConvertedType;
+            scrutineeType = GetPatternScrutineeType(semanticModel, isPatternExpression.Expression);
         }
 
         if (scrutineeType is null)
             return false;
 
-        IUnionSymbol? union = null;
-        if (scrutineeType is IUnionSymbol unionType && scrutineeType.IsUnion)
-            union = unionType;
-        else if (scrutineeType is IUnionCaseTypeSymbol caseType && scrutineeType.IsUnionCase)
-            union = caseType.Union;
+        var union = scrutineeType.TryGetUnion()
+            ?? scrutineeType.TryGetUnionCase()?.Union;
 
         if (union is null)
             return false;
 
-        var caseSymbol = union.CaseTypes.FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
+        var caseSymbol = union.DeclaredCaseTypes.FirstOrDefault(c => string.Equals(c.Name, caseName, StringComparison.Ordinal));
         if (caseSymbol is null)
             return false;
 
-        symbol = caseSymbol;
+        symbol = ProjectSymbolForDisplay(caseSymbol);
         return true;
     }
+
+    private static ITypeSymbol? GetPatternScrutineeType(SemanticModel semanticModel, ExpressionSyntax expression)
+    {
+        var typeInfo = semanticModel.GetTypeInfo(expression);
+        var expressionType = typeInfo.ConvertedType ?? typeInfo.Type;
+
+        if (TryGetSymbolInfo(semanticModel, expression, out var symbolInfo) &&
+            ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, expression) is { } symbol &&
+            TryGetValueSymbolType(symbol) is { } symbolType &&
+            ShouldPreferValueSymbolTypeForPattern(expressionType, symbolType))
+        {
+            return symbolType;
+        }
+
+        return expressionType;
+    }
+
+    private static bool ShouldPreferValueSymbolTypeForPattern(ITypeSymbol? expressionType, ITypeSymbol symbolType)
+    {
+        if (expressionType is null || expressionType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (ContainsUnboundTypeParameter(expressionType) &&
+            !ContainsUnboundTypeParameter(symbolType))
+        {
+            return true;
+        }
+
+        return expressionType.TryGetUnionCase() is not null &&
+               (symbolType.TryGetUnion() is not null || symbolType.TryGetUnionCase() is not null);
+    }
+
+    private static bool ContainsUnboundTypeParameter(ITypeSymbol type)
+    {
+        return type switch
+        {
+            ITypeParameterSymbol => true,
+            INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty =>
+                named.TypeArguments.Any(ContainsUnboundTypeParameter),
+            IArrayTypeSymbol array => ContainsUnboundTypeParameter(array.ElementType),
+            IPointerTypeSymbol pointer => ContainsUnboundTypeParameter(pointer.PointedAtType),
+            IAddressTypeSymbol address => ContainsUnboundTypeParameter(address.ReferencedType),
+            _ => false
+        };
+    }
+
+    private static ITypeSymbol? TryGetValueSymbolType(ISymbol symbol)
+        => symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => null
+        };
 
     private static bool TryGetPatternCaseSymbolFromSemanticModel(
         SemanticModel semanticModel,
@@ -955,7 +1004,7 @@ internal static partial class SymbolResolver
 
             var chosen = ChoosePreferredSymbol(info.Symbol, info.CandidateSymbols, candidate);
             chosen = ProjectSymbolForDisplay(chosen);
-            if (chosen is null)
+            if (!IsUnionCaseSymbol(chosen))
                 continue;
 
             symbol = chosen;
@@ -965,15 +1014,22 @@ internal static partial class SymbolResolver
         return false;
     }
 
+    private static bool IsUnionCaseSymbol([NotNullWhen(true)] ISymbol? symbol)
+        => symbol is IUnionCaseTypeSymbol ||
+           symbol is ITypeSymbol { IsUnionCase: true };
+
     private static IEnumerable<SyntaxNode> EnumeratePatternCaseSymbolNodes(SyntaxNode node, PatternSyntax pattern)
     {
+        if (pattern is NominalDeconstructionPatternSyntax nominalPattern)
+            yield return nominalPattern.Type;
+
+        if (pattern is MemberPatternSyntax memberPattern)
+            yield return memberPattern.Path;
+
         yield return node;
 
         if (!ReferenceEquals(node, pattern))
             yield return pattern;
-
-        if (pattern is MemberPatternSyntax memberPattern)
-            yield return memberPattern.Path;
     }
 
     private static PatternSyntax? GetCasePatternHead(SyntaxNode node, SyntaxToken token)
