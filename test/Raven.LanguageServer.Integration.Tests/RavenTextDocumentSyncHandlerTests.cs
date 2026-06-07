@@ -671,15 +671,21 @@ func Main() -> unit {
     }
 
     [Fact]
-    public void DocumentCompilerPublish_AfterStickyValToUseSyntaxPublish_ClearsStaleAppDiagnostic()
+    public void DocumentCompilerPublish_AfterStickySyntaxPublish_ClearsStaleCompilerDiagnostic()
     {
-        var samplePath = Path.Combine(GetRepositoryRoot(), "samples", "projects", "aspnet-minimal-api", "src", "main.rvn");
-        var newText = SourceText.From(File.ReadAllText(samplePath));
-        var oldText = SourceText.From(newText.ToString().Replace(
-            "use app = builder.Build()",
-            "val app = builder.Build()",
-            StringComparison.Ordinal));
-        var uri = DocumentUri.FromFileSystemPath(samplePath);
+        var oldText = SourceText.From("""
+func Main() -> unit {
+    val app = Create()
+    app.Run()
+}
+""");
+        var newText = SourceText.From("""
+func Main() -> unit {
+    use app = Create()
+    app.Run()
+}
+""");
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
         var dispatcher = new LanguageServerDispatcher(
             documents: default!,
             NullLogger<LanguageServerDispatcher>.Instance);
@@ -688,7 +694,7 @@ func Main() -> unit {
             dispatcher,
             languageServer: default!,
             NullLogger<RavenTextDocumentSyncHandler>.Instance);
-        var appOffset = oldText.ToString().IndexOf("app.MapPost(\"/submit\"", StringComparison.Ordinal);
+        var appOffset = oldText.ToString().IndexOf("app.Run()", StringComparison.Ordinal);
         appOffset.ShouldBeGreaterThanOrEqualTo(0);
         var appRange = PositionHelper.ToRange(oldText, new TextSpan(appOffset, "app".Length));
         var staleDiagnostic = CreateDiagnostic(
@@ -806,28 +812,19 @@ func Test2() -> IDisposable {
     }
 
     [Fact]
-    public void AcceptPendingSyntaxDiagnosticsForPublish_HelloWorldSampleKeepsRav0403StickyWhenAddingExpression()
+    public void AcceptPendingSyntaxDiagnosticsForPublish_DropsStickyZeroWidthDiagnosticWhenEditTouchesPosition()
     {
-        var samplePath = Path.Combine(GetRepositoryRoot(), "samples", "projects", "hello-world", "src", "test.rvn");
-        var oldText = SourceText.From(File.ReadAllText(samplePath));
-        var oldContent = oldText.ToString();
-        var newText = SourceText.From(oldContent.Replace(
-            """
-[Obsolete("Test")]
-func A(x: string) -> int {
-    42
+        var oldText = SourceText.From("""
+func Main() -> unit {
+    val value =
 }
-""",
-            """
-[Obsolete("Test")]
-func A(x: string) -> int {
-    42 + 2
+""");
+        var newText = SourceText.From("""
+func Main() -> unit {
+    val value = 1
 }
-""",
-            StringComparison.Ordinal));
-        oldText.ContentEquals(newText).ShouldBeFalse();
-
-        var uri = DocumentUri.FromFileSystemPath(samplePath);
+""");
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
         var dispatcher = new LanguageServerDispatcher(
             documents: default!,
             NullLogger<LanguageServerDispatcher>.Instance);
@@ -836,7 +833,183 @@ func A(x: string) -> int {
             dispatcher,
             languageServer: default!,
             NullLogger<RavenTextDocumentSyncHandler>.Instance);
-        var expressionOffset = oldContent.IndexOf("default!", StringComparison.Ordinal);
+        var diagnosticOffset = oldText.ToString().IndexOf("=\n", StringComparison.Ordinal);
+        diagnosticOffset.ShouldBeGreaterThanOrEqualTo(0);
+        diagnosticOffset++;
+        var diagnosticRange = PositionHelper.ToRange(oldText, new TextSpan(diagnosticOffset, 0));
+        var diagnostic = CreateDiagnostic(
+            "RAV0001",
+            "Expected expression.",
+            diagnosticRange.Start.Line,
+            diagnosticRange.Start.Character,
+            diagnosticRange.End.Line,
+            diagnosticRange.End.Character,
+            DiagnosticSeverity.Error);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 1,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: 2);
+
+        pending.ShouldPublish.ShouldBeTrue();
+        pending.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_KeepsStickyZeroWidthDiagnosticWhenEditDoesNotTouchPosition()
+    {
+        var oldText = SourceText.From("""
+func Main() -> unit {
+    val value = 1
+}
+""");
+        var newText = SourceText.From("""
+// typing
+func Main() -> unit {
+    val value = 1
+}
+""");
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var diagnosticOffset = oldText.ToString().IndexOf("value", StringComparison.Ordinal);
+        diagnosticOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var diagnosticRange = PositionHelper.ToRange(oldText, new TextSpan(diagnosticOffset, 0));
+        var diagnostic = CreateDiagnostic(
+            "RAV0001",
+            "Marker.",
+            diagnosticRange.Start.Line,
+            diagnosticRange.Start.Character,
+            diagnosticRange.End.Line,
+            diagnosticRange.End.Character,
+            DiagnosticSeverity.Warning);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 1,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: 2);
+
+        var stickyDiagnostic = pending.Diagnostics.ShouldHaveSingleItem();
+        pending.ShouldPublish.ShouldBeTrue();
+        stickyDiagnostic.Code?.String.ShouldBe("RAV0001");
+        stickyDiagnostic.Range.Start.Line.ShouldBe(diagnosticRange.Start.Line + 1);
+        stickyDiagnostic.Range.Start.Character.ShouldBe(diagnosticRange.Start.Character);
+        stickyDiagnostic.Range.End.ShouldBe(stickyDiagnostic.Range.Start);
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_DropsStickyZeroWidthDiagnosticWhenReplacementSpansPosition()
+    {
+        var oldText = SourceText.From("""
+func Main() -> unit {
+    val value = 1
+}
+""");
+        var newText = SourceText.From(oldText.ToString().Replace("value", "answer", StringComparison.Ordinal));
+        oldText.ContentEquals(newText).ShouldBeFalse();
+
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var diagnosticOffset = oldText.ToString().IndexOf("value", StringComparison.Ordinal) + "value".Length / 2;
+        diagnosticOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var diagnosticRange = PositionHelper.ToRange(oldText, new TextSpan(diagnosticOffset, 0));
+        var diagnostic = CreateDiagnostic(
+            "RAV0001",
+            "Marker.",
+            diagnosticRange.Start.Line,
+            diagnosticRange.Start.Character,
+            diagnosticRange.End.Line,
+            diagnosticRange.End.Character,
+            DiagnosticSeverity.Warning);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 1,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: 2);
+
+        pending.ShouldPublish.ShouldBeTrue();
+        pending.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_KeepsRav0403StickyWhenUnrelatedInlineEditDoesNotTouchRange()
+    {
+        var oldText = SourceText.From("""
+namespace Utilities
+
+func A(x: string) -> int {
+    42
+}
+
+func Test2() -> IDisposable {
+    return default!
+}
+""");
+        var newText = SourceText.From(oldText.ToString().Replace("42", "42 + 2", StringComparison.Ordinal));
+        oldText.ContentEquals(newText).ShouldBeFalse();
+
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "test.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var expressionOffset = oldText.ToString().IndexOf("default!", StringComparison.Ordinal);
         expressionOffset.ShouldBeGreaterThanOrEqualTo(0);
         var expressionRange = PositionHelper.ToRange(oldText, new TextSpan(expressionOffset, "default!".Length));
         var diagnostic = CreateDiagnostic(
@@ -897,15 +1070,20 @@ func A(x: string) -> int {
     }
 
     [Fact]
-    public void AcceptPendingSyntaxDiagnosticsForPublish_HelloWorldSampleDropsRav0403WhenBangIsRemoved()
+    public void AcceptPendingSyntaxDiagnosticsForPublish_DropsStickyDiagnosticWhenInsertionTouchesRangeStart()
     {
-        var samplePath = Path.Combine(GetRepositoryRoot(), "samples", "projects", "hello-world", "src", "test.rvn");
-        var oldText = SourceText.From(File.ReadAllText(samplePath));
-        var oldContent = oldText.ToString();
-        var newText = SourceText.From(oldContent.Replace("default!", "default", StringComparison.Ordinal));
-        oldText.ContentEquals(newText).ShouldBeFalse();
+        var oldText = SourceText.From("""
+namespace Utilities
 
-        var uri = DocumentUri.FromFileSystemPath(samplePath);
+func Test2() -> IDisposable {
+    return default!
+}
+""");
+        var expressionOffset = oldText.ToString().IndexOf("default!", StringComparison.Ordinal);
+        expressionOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var newText = SourceText.From(oldText.ToString().Insert(expressionOffset, "_"));
+
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "test.rvn"));
         var dispatcher = new LanguageServerDispatcher(
             documents: default!,
             NullLogger<LanguageServerDispatcher>.Instance);
@@ -914,7 +1092,120 @@ func A(x: string) -> int {
             dispatcher,
             languageServer: default!,
             NullLogger<RavenTextDocumentSyncHandler>.Instance);
-        var expressionOffset = oldContent.IndexOf("default!", StringComparison.Ordinal);
+        var expressionRange = PositionHelper.ToRange(oldText, new TextSpan(expressionOffset, "default!".Length));
+        var diagnostic = CreateDiagnostic(
+            "RAV0403",
+            "The '!' operator treats the operand as non-null",
+            expressionRange.Start.Line,
+            expressionRange.Start.Character,
+            expressionRange.End.Line,
+            expressionRange.End.Character,
+            DiagnosticSeverity.Information);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 8,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: null);
+
+        pending.ShouldPublish.ShouldBeTrue();
+        pending.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_DropsStickyDiagnosticWhenInsertionTouchesRangeEnd()
+    {
+        var oldText = SourceText.From("""
+namespace Utilities
+
+func Test2() -> IDisposable {
+    return default!
+}
+""");
+        var expressionOffset = oldText.ToString().IndexOf("default!", StringComparison.Ordinal);
+        expressionOffset.ShouldBeGreaterThanOrEqualTo(0);
+        var newText = SourceText.From(oldText.ToString().Insert(expressionOffset + "default!".Length, " "));
+
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "test.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var expressionRange = PositionHelper.ToRange(oldText, new TextSpan(expressionOffset, "default!".Length));
+        var diagnostic = CreateDiagnostic(
+            "RAV0403",
+            "The '!' operator treats the operand as non-null",
+            expressionRange.Start.Line,
+            expressionRange.Start.Character,
+            expressionRange.End.Line,
+            expressionRange.End.Character,
+            DiagnosticSeverity.Information);
+
+        dispatcher.AcceptDiagnosticsForPublish(
+                uri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                [diagnostic],
+                editorVersion: 8,
+                snapshotKey: new DocumentStore.DiagnosticSnapshotKey(
+                    uri.ToString(),
+                    ProjectId.CreateNew(SolutionId.CreateNew()),
+                    VersionStamp.Create(),
+                    VersionStamp.Create()),
+                sourceText: oldText)
+            .ShouldPublish.ShouldBeTrue();
+
+        var pending = handler.AcceptPendingSyntaxDiagnosticsForPublish(
+            uri,
+            newText,
+            version: null);
+
+        pending.ShouldPublish.ShouldBeTrue();
+        pending.Diagnostics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void AcceptPendingSyntaxDiagnosticsForPublish_DropsRav0403WhenInlineEditTouchesRange()
+    {
+        var oldText = SourceText.From("""
+namespace Utilities
+
+func A(x: string) -> int {
+    42
+}
+
+func Test2() -> IDisposable {
+    return default!
+}
+""");
+        var newText = SourceText.From(oldText.ToString().Replace("default!", "default", StringComparison.Ordinal));
+        oldText.ContentEquals(newText).ShouldBeFalse();
+
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "test.rvn"));
+        var dispatcher = new LanguageServerDispatcher(
+            documents: default!,
+            NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            documents: default!,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+        var expressionOffset = oldText.ToString().IndexOf("default!", StringComparison.Ordinal);
         expressionOffset.ShouldBeGreaterThanOrEqualTo(0);
         var expressionRange = PositionHelper.ToRange(oldText, new TextSpan(expressionOffset, "default!".Length));
         var diagnostic = CreateDiagnostic(

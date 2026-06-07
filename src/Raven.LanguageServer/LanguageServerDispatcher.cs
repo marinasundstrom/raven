@@ -689,7 +689,7 @@ internal sealed class LanguageServerDispatcher
         var oldStart = PositionHelper.ToOffset(oldText, diagnostic.Range.Start);
         var oldEnd = PositionHelper.ToOffset(oldText, diagnostic.Range.End);
         var oldSpan = TextSpan.FromBounds(oldStart, oldEnd);
-        if (changes.Any(change => change.Span.IntersectsWith(oldSpan)))
+        if (changes.Any(change => TextChangeTouchesDiagnosticSpan(change, oldSpan)))
             return false;
 
         if (!TryTranslateOffset(changes, oldStart, out var newStart) ||
@@ -711,6 +711,23 @@ internal sealed class LanguageServerDispatcher
             Tags = diagnostic.Tags
         };
         return true;
+    }
+
+    private static bool TextChangeTouchesDiagnosticSpan(TextChange change, TextSpan diagnosticSpan)
+    {
+        if (change.Span.IntersectsWith(diagnosticSpan))
+            return true;
+
+        var diagnosticEnd = diagnosticSpan.Start + diagnosticSpan.Length;
+        var changeEnd = change.Span.Start + change.Span.Length;
+
+        if (diagnosticSpan.Length == 0)
+            return change.Span.Start <= diagnosticSpan.Start && diagnosticSpan.Start <= changeEnd;
+
+        if (change.Span.Length == 0)
+            return diagnosticSpan.Start <= change.Span.Start && change.Span.Start <= diagnosticEnd;
+
+        return false;
     }
 
     private static Container<TextEdit>? TranslateTextEdits(
