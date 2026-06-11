@@ -20,5 +20,6 @@ func Test2() -> IDisposable {
 }
 
 class Disposable : IDisposable {
+    // If I comment out: There is no error diagnostic telling IDisposable.Dispose() has not been implemented
     func Dispose() {}
 }

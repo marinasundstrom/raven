@@ -8,7 +8,7 @@ func Main() {
     A("42")
 
     use test = Test2()
-    //test.Dispose()
+    test?.Dispose() // ? Shouldn't be valid on non-nullable type. And hovering "Dispose" after "?."" don't display hint.
 
     val v: Foo = 3
     val r = v match {
@@ -23,6 +23,10 @@ func Main() {
     match s {
         .Open(val reason) => Console.WriteLine("Reason $reason")
         .Closed(_) => ()
+    }
+
+    if let Ok(no) = int.parse("42") {
+        Console.WriteLine(no)
     }
 }
 
