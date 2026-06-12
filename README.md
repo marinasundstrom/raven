@@ -71,8 +71,8 @@ record class User(val Id: int, val Name: string, val Role: Option<string>, val S
         }
 
         val status = Status match {
-            Active => "active"
-            Suspended(val reason) => "suspended ($reason)"
+            .Active => "active"
+            .Suspended(val reason) => "suspended ($reason)"
         }
 
         return "$Name is $status as a $role"
