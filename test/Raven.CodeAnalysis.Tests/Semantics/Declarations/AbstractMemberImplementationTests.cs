@@ -29,4 +29,64 @@ class Derived : Base {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void ClassWithoutSourceInterfaceMethod_ReportsDiagnostic()
+    {
+        const string source = """
+interface IResource {
+    func Dispose() -> unit
+}
+
+class Resource : IResource {
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotImplementAbstractMember.Id)
+                    .WithSpan(5, 7, 5, 15)
+                    .WithArguments("Resource", "Dispose()", "IResource")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ClassWithoutMetadataInterfaceMethod_ReportsDiagnostic()
+    {
+        const string source = """
+import System.*
+
+class Resource : IDisposable {
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotImplementAbstractMember.Id)
+                    .WithSpan(3, 7, 3, 15)
+                    .WithArguments("Resource", "Dispose()", "IDisposable")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ExplicitInterfaceProperty_SatisfiesInterfaceContract()
+    {
+        const string source = """
+interface IError {
+    val Cause: IError? => null
+}
+
+class Error : IError {
+    val IError.Cause: IError? => null
+}
+""";
+
+        CreateVerifier(source).Verify();
+    }
 }

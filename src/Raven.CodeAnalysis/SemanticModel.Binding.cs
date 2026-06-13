@@ -2769,6 +2769,7 @@ public partial class SemanticModel
                 continue;
 
             ReportMissingAbstractBaseMembers(classSymbol, classDecl, classBinder.Diagnostics);
+            ReportMissingInterfaceMembers(classSymbol, classDecl, classBinder.Diagnostics);
             ReportIncompletePartialMembers(classSymbol, classBinder.Diagnostics);
         }
 
@@ -4938,6 +4939,7 @@ public partial class SemanticModel
                 continue;
 
             ReportMissingAbstractBaseMembers(nestedSymbol, nestedSyntax, nestedBinder.Diagnostics);
+            ReportMissingInterfaceMembers(nestedSymbol, nestedSyntax, nestedBinder.Diagnostics);
         }
 
         if (classBinder.ContainingSymbol is SourceNamedTypeSymbol { IsRecord: true })
@@ -6623,6 +6625,172 @@ public partial class SemanticModel
         return true;
     }
 
+    private void ReportMissingInterfaceMembers(
+        INamedTypeSymbol typeSymbol,
+        TypeDeclarationSyntax declaration,
+        DiagnosticBag diagnostics)
+    {
+        if (typeSymbol.IsAbstract)
+            return;
+
+        foreach (var interfaceType in typeSymbol.AllInterfaces)
+        {
+            foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (!RequiresInterfaceImplementation(interfaceMethod))
+                    continue;
+
+                if (ImplementsInterfaceMethod(typeSymbol, interfaceMethod))
+                    continue;
+
+                var memberDisplay = GetAbstractMemberDisplay(interfaceMethod);
+                var interfaceDisplay = interfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+                diagnostics.ReportTypeDoesNotImplementAbstractMember(
+                    typeSymbol.Name,
+                    memberDisplay,
+                    interfaceDisplay,
+                    declaration.Identifier.GetLocation());
+            }
+
+            foreach (var interfaceProperty in interfaceType.GetMembers().OfType<IPropertySymbol>())
+            {
+                if (interfaceProperty.IsStatic)
+                    continue;
+
+                if (ImplementsInterfaceProperty(typeSymbol, interfaceProperty))
+                    continue;
+
+                var memberDisplay = GetInterfacePropertyDisplay(interfaceProperty);
+                var interfaceDisplay = interfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+
+                diagnostics.ReportTypeDoesNotImplementAbstractMember(
+                    typeSymbol.Name,
+                    memberDisplay,
+                    interfaceDisplay,
+                    declaration.Identifier.GetLocation());
+            }
+        }
+    }
+
+    private static bool RequiresInterfaceImplementation(IMethodSymbol interfaceMethod)
+    {
+        if (interfaceMethod.IsStatic)
+            return false;
+
+        if (interfaceMethod.AssociatedSymbol is IPropertySymbol or IEventSymbol)
+            return false;
+
+        return interfaceMethod.MethodKind is not MethodKind.Constructor and not MethodKind.StaticConstructor;
+    }
+
+    private static bool ImplementsInterfaceMethod(INamedTypeSymbol typeSymbol, IMethodSymbol interfaceMethod)
+    {
+        foreach (var candidate in EnumerateTypeAndBaseMethods(typeSymbol, interfaceMethod.Name))
+        {
+            if (candidate.IsStatic)
+                continue;
+
+            if (candidate.ExplicitInterfaceImplementations.Any(implementation =>
+                    SymbolEqualityComparer.Default.Equals(implementation, interfaceMethod)))
+            {
+                return true;
+            }
+
+            if (candidate is SourceMethodSymbol { IsSignatureSkeleton: true })
+                return true;
+
+            if (candidate.Name == interfaceMethod.Name &&
+                MethodSignaturesMatch(candidate, interfaceMethod))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ImplementsInterfaceProperty(INamedTypeSymbol typeSymbol, IPropertySymbol interfaceProperty)
+    {
+        foreach (var candidate in EnumerateTypeAndBaseProperties(typeSymbol, interfaceProperty.Name))
+        {
+            if (candidate.IsStatic)
+                continue;
+
+            if (candidate.ExplicitInterfaceImplementations.Any(implementation =>
+                    SymbolEqualityComparer.Default.Equals(implementation, interfaceProperty)))
+            {
+                return true;
+            }
+
+            if (candidate.Name == interfaceProperty.Name &&
+                PropertySignaturesMatch(candidate, interfaceProperty))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool PropertySignaturesMatch(IPropertySymbol candidate, IPropertySymbol interfaceProperty)
+    {
+        if (candidate.IsIndexer != interfaceProperty.IsIndexer)
+            return false;
+
+        if (!SymbolEqualityComparer.Default.Equals(
+                StripNullableReference(candidate.Type),
+                StripNullableReference(interfaceProperty.Type)))
+        {
+            return false;
+        }
+
+        if (interfaceProperty.GetMethod is not null && candidate.GetMethod is null)
+            return false;
+
+        if (interfaceProperty.SetMethod is not null && candidate.SetMethod is null)
+            return false;
+
+        if (candidate.Parameters.Length != interfaceProperty.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < candidate.Parameters.Length; i++)
+        {
+            var candidateParameter = candidate.Parameters[i];
+            var interfaceParameter = interfaceProperty.Parameters[i];
+
+            if (candidateParameter.RefKind != interfaceParameter.RefKind)
+                return false;
+
+            if (!SymbolEqualityComparer.Default.Equals(
+                    StripNullableReference(candidateParameter.Type),
+                    StripNullableReference(interfaceParameter.Type)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static IEnumerable<IMethodSymbol> EnumerateTypeAndBaseMethods(INamedTypeSymbol typeSymbol, string name)
+    {
+        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        {
+            foreach (var candidate in current.GetMembers(name).OfType<IMethodSymbol>())
+                yield return candidate;
+        }
+    }
+
+    private static IEnumerable<IPropertySymbol> EnumerateTypeAndBaseProperties(INamedTypeSymbol typeSymbol, string name)
+    {
+        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        {
+            foreach (var candidate in current.GetMembers(name).OfType<IPropertySymbol>())
+                yield return candidate;
+        }
+    }
+
     private static bool ImplementsAbstractMember(INamedTypeSymbol typeSymbol, IMethodSymbol abstractMember)
     {
         foreach (var candidate in typeSymbol.GetMembers(abstractMember.Name).OfType<IMethodSymbol>())
@@ -6714,6 +6882,12 @@ public partial class SemanticModel
 
         var methodFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithMemberOptions(SymbolDisplayMemberOptions.IncludeParameters);
         return abstractMember.ToDisplayString(methodFormat);
+    }
+
+    private static string GetInterfacePropertyDisplay(IPropertySymbol interfaceProperty)
+    {
+        var propertyFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithMemberOptions(SymbolDisplayMemberOptions.None);
+        return interfaceProperty.ToDisplayString(propertyFormat);
     }
 
     internal BoundNode? TryGetCachedBoundNode(SyntaxNode node)

@@ -6,6 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added `RAV0404` so conditional access reports an error when `?.` is used on
   a statically non-null receiver while preserving member binding for tooling.
+- Fixed interface contract diagnostics so concrete classes report missing
+  required interface members such as `IDisposable.Dispose`.
 - Fixed union case binding so bare case constructor calls require an explicit
   target type, while pattern hovers report case symbols projected from the
   matched union type arguments.
