@@ -97,6 +97,32 @@ func Main() {
     }
 
     [Fact]
+    public void ConditionalAccessOnNonNullableReceiver_ReportsDiagnostic()
+    {
+        var code = """
+func Main() {
+    val box = Box()
+    box?.Value()
+}
+
+class Box {
+    func Value() -> int {
+        return 1
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult("RAV0404").WithSpan(3, 8, 3, 9).WithArguments("Box")
+            ],
+            disabledDiagnostics: ["RAV9001"]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ConditionalAccessOnNonInvocableMember_ReportsNonInvocableMember()
     {
         var code = """
@@ -115,6 +141,7 @@ class Box {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
+                new DiagnosticResult("RAV0404").WithSpan(3, 8, 3, 9).WithArguments("Box"),
                 new DiagnosticResult("RAV1955").WithSpan(3, 9, 3, 17).WithArguments("Value")
             ],
             disabledDiagnostics: ["RAV9001"]);
@@ -166,6 +193,7 @@ class Box {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
+                new DiagnosticResult("RAV0404").WithSpan(3, 8, 3, 9).WithArguments("Box"),
                 new DiagnosticResult(CompilerDiagnostics.MemberDoesNotContainDefinition.Id).WithSpan(3, 10, 3, 17).WithArguments("Box", "Missing")
             ],
             disabledDiagnostics: ["RAV9001"]);

@@ -472,6 +472,10 @@
     Title="Nullable suppression used"
     Message="The '!' operator treats the operand as non-null"
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0404" Identifier="ConditionalAccessRequiresNullableReceiver"
+    Title="Conditional access requires nullable receiver"
+    Message="Conditional access requires a nullable receiver; '{receiverType}' is not nullable"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0410" Identifier="EnumUnderlyingTypeMustBeSingle"
     Title="Enum underlying type list must be a single type"
     Message="Enum declarations may specify only one underlying type" Category="compiler"

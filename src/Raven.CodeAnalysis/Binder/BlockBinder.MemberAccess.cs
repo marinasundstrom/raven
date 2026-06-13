@@ -2921,6 +2921,14 @@ partial class BlockBinder
                     : new BoundErrorExpression(receiver.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
         }
 
+        if (receiver.Type is { TypeKind: not TypeKind.Error } receiverType &&
+            !receiverType.IsNullable)
+        {
+            _diagnostics.ReportConditionalAccessRequiresNullableReceiver(
+                receiverType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                syntax.OperatorToken.GetLocation());
+        }
+
         var lookupType = GetConditionalAccessLookupType(receiver.Type);
         var whenNotNullReceiver = GetConditionalAccessWhenNotNullReceiver(receiver, lookupType);
 
