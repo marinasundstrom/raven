@@ -382,6 +382,28 @@ class Test {
     }
 
     [Fact]
+    public void PointerOperations_InsideUnsafeExpression_WorkWithoutGlobalUnsafeFlag()
+    {
+        const string source = """
+class Test {
+    static func Run() -> int {
+        var value = 0
+        return unsafe {
+            val pointer: *int = &value
+            *pointer = 11
+            value
+        }
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+    }
+
+    [Fact]
     public void PointerOperations_InsideUnsafeMethod_WorkWithoutGlobalUnsafeFlag()
     {
         const string source = """

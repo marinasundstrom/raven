@@ -333,6 +333,7 @@ Statement                ::= LocalDeclaration
                            | WhilePatternStatement
                            | ForStatement
                            | TryStatement
+                           | UnsafeStatement
                            | AssignmentStatement
                            | ExpressionStatement ;
 
@@ -381,6 +382,7 @@ CatchClauseList          ::= CatchClause {CatchClause} ;
 CatchClause              ::= 'catch' CatchPattern? [WhenClause] Block ;
 CatchPattern             ::= Pattern | '(' Pattern ')' ;
 FinallyClause            ::= 'finally' Block ;
+UnsafeStatement          ::= 'unsafe' Block ;
 
 (* Keep statement assignments consistent with expression assignments:
    - LHS must be assignable OR a deconstruction designation.
@@ -655,6 +657,7 @@ PrimaryExpression        ::= Literal
                            | TupleExpression
                            | ParenthesizedExpression
                            | TryExpression
+                           | UnsafeExpression
                            | ReturnExpression
                            | ThrowExpression
                            | Block
@@ -676,6 +679,7 @@ NameOfOperand            ::= Identifier
                            | QualifiedName ;
 
 TryExpression            ::= 'try' ['?'] Expression ;
+UnsafeExpression         ::= 'unsafe' Block ;
 ReturnExpression         ::= 'return' Expression ;
 ThrowExpression          ::= 'throw' Expression ;
 

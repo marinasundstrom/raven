@@ -115,6 +115,28 @@ func test() -> int {
     }
 
     [Fact]
+    public void UnsafeBlock_InExpressionPosition_ParsesAsUnsafeExpression()
+    {
+        var code = """
+func test() -> int {
+    var value = 0
+    val result = unsafe {
+        val pointer: *int = &value
+        *pointer = 1
+        value
+    }
+    return result
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var root = tree.GetRoot();
+        var unsafeExpression = root.DescendantNodes().OfType<UnsafeExpressionSyntax>().Single();
+        Assert.Equal(SyntaxKind.UnsafeKeyword, unsafeExpression.UnsafeKeyword.Kind);
+        Assert.NotNull(unsafeExpression.Block);
+    }
+
+    [Fact]
     public void UnsafeFunctionModifier_Parses()
     {
         var code = "unsafe func test() -> int { return 0 }";

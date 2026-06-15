@@ -4383,7 +4383,12 @@ Unsafe context can be enabled either globally (compiler option `--unsafe`)
 or locally with `unsafe` contexts:
 
 * `unsafe func Name(...) { ... }` for function/method scope
-* `unsafe { ... }` for block scope
+* `unsafe { ... }` as a statement for block scope
+* `unsafe { ... }` as an expression for a value-producing block scope
+
+An unsafe block expression has the same value and type as its inner block
+expression. It only enables unsafe operations while binding that block; code
+before and after the expression remains in the surrounding unsafe context.
 
 ```raven
 val value = 42

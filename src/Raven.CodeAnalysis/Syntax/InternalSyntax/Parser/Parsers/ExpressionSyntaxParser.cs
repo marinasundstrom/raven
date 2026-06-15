@@ -705,6 +705,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseTryExpression();
                 break;
 
+            case SyntaxKind.UnsafeKeyword:
+                expr = ParseUnsafeExpression();
+                break;
+
             case SyntaxKind.ReturnKeyword:
                 expr = ParseReturnExpression();
                 break;
@@ -732,6 +736,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             return expr;
 
         return ParseMatchExpressionSuffixes(expr);
+    }
+
+    private UnsafeExpressionSyntax ParseUnsafeExpression()
+    {
+        var unsafeKeyword = ReadToken();
+        var block = ParseBlockSyntax();
+        return UnsafeExpression(unsafeKeyword, block);
     }
 
     private TryExpressionSyntax ParseTryExpression()

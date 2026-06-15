@@ -611,6 +611,10 @@
     <Slot Name="Statements" Type="List" ElementType="Statement" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
   </Node>
+  <Node Name="UnsafeExpression" Inherits="Expression">
+    <Slot Name="UnsafeKeyword" Type="Token" DefaultToken="UnsafeKeyword" />
+    <Slot Name="Block" Type="Block" />
+  </Node>
   <Node Name="TryExpression" Inherits="Expression">
     <Slot Name="TryKeyword" Type="Token" DefaultToken="TryKeyword" />
     <Slot Name="QuestionToken" Type="Token" IsOptionalToken="true" />

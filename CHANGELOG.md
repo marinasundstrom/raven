@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added unsafe block expressions, allowing `unsafe { ... }` in value-producing
+  expression positions while reusing the existing scoped unsafe context rules.
 - Added `RAV0404` so conditional access reports an error when `?.` is used on
   a statically non-null receiver while preserving member binding for tooling.
 - Fixed interface contract diagnostics so concrete classes report missing

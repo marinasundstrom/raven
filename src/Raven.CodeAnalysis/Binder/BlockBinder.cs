@@ -1880,6 +1880,19 @@ partial class BlockBinder : Binder
         }
     }
 
+    private BoundExpression BindUnsafeExpression(UnsafeExpressionSyntax unsafeExpression)
+    {
+        _unsafeBlockDepth++;
+        try
+        {
+            return BindBlock(unsafeExpression.Block, allowReturn: _allowReturnsInExpression || _allowReturnsInBlockExpressionsOnly);
+        }
+        finally
+        {
+            _unsafeBlockDepth--;
+        }
+    }
+
     private BoundStatement BindLocalDeclarationStatement(LocalDeclarationStatementSyntax localDeclaration)
     {
         var declaration = localDeclaration.Declaration;
@@ -2140,6 +2153,7 @@ partial class BlockBinder : Binder
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression || _allowReturnsInBlockExpressionsOnly),
+            UnsafeExpressionSyntax unsafeExpression => BindUnsafeExpression(unsafeExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
             MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
