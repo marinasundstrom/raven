@@ -3882,11 +3882,21 @@ Attribute target prefixes are validated by declaration context:
 
 * `[assembly: ...]` is only valid as a compilation-unit attribute list (before
   top-level functions and constants).
+* `[module: ...]` is only valid as a compilation-unit attribute list and applies
+  to module metadata.
+* `[type: ...]` is valid on type declarations and applies to the declared type
+  metadata target (`class`, `struct`, `interface`, `enum`, or `delegate`).
+* `[method: ...]` is valid on function and method declarations. On a class,
+  struct, or record declaration with a primary constructor, it applies to the
+  synthesized primary constructor.
 * `[return: ...]` is only valid on callable return positions (function/method
   return metadata).
-* `[method: ...]` on a class, struct, or record declaration with a primary
-  constructor applies to the synthesized primary constructor.
-* Other explicit targets must match the declaration kind they annotate.
+* `[param: ...]` and `[parameter: ...]` are valid on parameter declarations.
+* `[property: ...]` is valid on property declarations.
+* `[field: ...]` is valid on field declarations. On a property or event
+  declaration with a synthesized backing field, it applies to that backing
+  field rather than to the property or event metadata.
+* `[event: ...]` is valid on event declarations.
 
 If a target prefix is syntactically recognized but not valid in that position,
 the compiler reports an attribute-target diagnostic.
