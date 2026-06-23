@@ -3884,6 +3884,8 @@ Attribute target prefixes are validated by declaration context:
   top-level functions and constants).
 * `[return: ...]` is only valid on callable return positions (function/method
   return metadata).
+* `[method: ...]` on a class, struct, or record declaration with a primary
+  constructor applies to the synthesized primary constructor.
 * Other explicit targets must match the declaration kind they annotate.
 
 If a target prefix is syntactically recognized but not valid in that position,

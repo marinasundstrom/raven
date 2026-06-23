@@ -298,4 +298,47 @@ class Widget
             static a => a.AttributeType.Name == "FieldMarkerAttribute");
         Assert.Equal("backing", fieldAttribute.ConstructorArguments[0].Value);
     }
+
+    [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    [InlineData("record")]
+    public void MethodTargetedPrimaryConstructorAttribute_IsEmittedOnPrimaryConstructorOnly(string typeKind)
+    {
+        var source = $$"""
+import System.*
+
+[AttributeUsage(AttributeTargets.Constructor)]
+class ConstructorMarkerAttribute : Attribute
+{
+    init(value: string) { }
+}
+
+[method: ConstructorMarker("primary")]
+{{typeKind}} Person(Name: string) { }
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("lib", [tree], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var personType = assembly.GetType("Person", throwOnError: true)!;
+
+        Assert.DoesNotContain(personType.GetCustomAttributesData(), static a => a.AttributeType.Name == "ConstructorMarkerAttribute");
+
+        var constructor = Assert.Single(
+            personType.GetConstructors(BindingFlags.Instance | BindingFlags.Public),
+            static constructor => constructor.GetParameters() is [{ ParameterType: { } parameterType }] &&
+                                  parameterType == typeof(string));
+        var attribute = Assert.Single(
+            constructor.GetCustomAttributesData(),
+            static a => a.AttributeType.Name == "ConstructorMarkerAttribute");
+
+        Assert.Equal("primary", attribute.ConstructorArguments[0].Value);
+    }
 }

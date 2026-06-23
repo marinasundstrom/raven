@@ -68,8 +68,45 @@ class BinderFactory
         if (parentNode is CompilationUnitSyntax)
             return _compilation.Assembly;
 
+        if (parentNode is TypeDeclarationSyntax { ParameterList: not null } typeDeclaration &&
+            HasExplicitAttributeTarget(attributeList, "method") &&
+            TryResolvePrimaryConstructor(typeDeclaration, parentBinder, out var primaryConstructor))
+        {
+            return primaryConstructor;
+        }
+
         return parentBinder.BindDeclaredSymbol(parentNode);
     }
+
+    private static bool TryResolvePrimaryConstructor(
+        TypeDeclarationSyntax declaration,
+        Binder parentBinder,
+        out IMethodSymbol primaryConstructor)
+    {
+        if (parentBinder.BindDeclaredSymbol(declaration) is INamedTypeSymbol type)
+        {
+            foreach (var constructor in type.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (constructor.MethodKind != MethodKind.Constructor)
+                    continue;
+
+                if (constructor.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() == declaration))
+                {
+                    primaryConstructor = constructor;
+                    return true;
+                }
+            }
+        }
+
+        primaryConstructor = null!;
+        return false;
+    }
+
+    private static bool HasExplicitAttributeTarget(AttributeListSyntax attributeList, string targetName)
+        => string.Equals(
+            attributeList.Target?.Identifier.ValueText,
+            targetName,
+            StringComparison.OrdinalIgnoreCase);
 
     private Binder? CreateBlockBinder(Binder? parentBinder)
     {

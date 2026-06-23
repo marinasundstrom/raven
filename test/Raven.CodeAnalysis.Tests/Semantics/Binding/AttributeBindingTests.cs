@@ -152,6 +152,46 @@ class C { }
         Assert.DoesNotContain(constructor.GetAttributes(), static a => a.AttributeClass?.Name == "ObsoleteAttribute");
     }
 
+    [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    [InlineData("record")]
+    public void MethodTargetedAttribute_OnPrimaryConstructorDeclaration_BindsToPrimaryConstructorOnly(string typeKind)
+    {
+        var source = $$"""
+import System.*
+
+[AttributeUsage(AttributeTargets.Constructor)]
+class ConstructorMarkerAttribute : Attribute
+{
+    init(value: string) { }
+}
+
+[method: ConstructorMarker("primary")]
+{{typeKind}} Person(Name: string) { }
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
+            .Single(static type => type.Identifier.ValueText == "Person");
+        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+
+        Assert.Empty(type.GetAttributes());
+        var constructor = Assert.Single(
+            type.Constructors,
+            static constructor => !constructor.IsStatic &&
+                                  constructor.Parameters.Length == 1 &&
+                                  constructor.Parameters[0].Name == "Name");
+        var attribute = Assert.Single(
+            constructor.GetAttributes(),
+            static attribute => attribute.AttributeClass?.Name == "ConstructorMarkerAttribute");
+
+        Assert.Equal("ConstructorMarkerAttribute", attribute.AttributeClass?.Name);
+        Assert.Equal("primary", attribute.ConstructorArguments.Single().Value);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void AssemblyTargetedAttribute_BindsToAssemblySymbol()
     {

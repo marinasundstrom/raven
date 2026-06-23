@@ -285,6 +285,8 @@ internal abstract class SourceSymbol : Symbol
                 .AttributeLists
                 .OfType<AttributeListSyntax>()
                 .Where(static list => HasExplicitTarget(list, "module")),
+            TypeDeclarationSyntax { ParameterList: not null } typeDeclaration when this is SourceMethodSymbol { MethodKind: MethodKind.Constructor } =>
+                typeDeclaration.AttributeLists.Where(static list => HasExplicitTarget(list, "method")),
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
             DelegateDeclarationSyntax delegateDeclaration when this is ITypeSymbol => delegateDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
@@ -317,6 +319,13 @@ internal abstract class SourceSymbol : Symbol
 
         if (this is IModuleSymbol)
             return HasExplicitTarget(list, "module") && IsAssemblyAttributeDeclarationContext(list);
+
+        if (this is ITypeSymbol &&
+            list.Parent is TypeDeclarationSyntax { ParameterList: not null } &&
+            HasExplicitTarget(list, "method"))
+        {
+            return false;
+        }
 
         if (this is IFieldSymbol { AssociatedSymbol: IPropertySymbol or IEventSymbol } &&
             list.Parent is PropertyDeclarationSyntax or EventDeclarationSyntax)

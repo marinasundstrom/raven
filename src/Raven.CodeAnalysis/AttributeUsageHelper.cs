@@ -262,6 +262,12 @@ internal static class AttributeUsageHelper
                 target = AttributeTargets.Event;
                 return true;
             case "method":
+                if (owner is SourceMethodSymbol { MethodKind: MethodKind.Constructor, IsPrimaryConstructorSymbol: true })
+                {
+                    target = AttributeTargets.Constructor;
+                    return true;
+                }
+
                 target = AttributeTargets.Method;
                 return true;
             case "param":

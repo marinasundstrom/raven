@@ -1135,6 +1135,13 @@ public partial class SemanticModel
                 return Compilation.Assembly;
             }
 
+            if (declaration is TypeDeclarationSyntax { ParameterList: not null } typeDeclaration &&
+                HasExplicitAttributeTarget(attributeList, "method") &&
+                TryResolvePrimaryConstructor(typeDeclaration, currentBinder, out var primaryConstructor))
+            {
+                return primaryConstructor;
+            }
+
             if (declaration is BaseTypeDeclarationSyntax or InterfaceDeclarationSyntax or ExtensionDeclarationSyntax or
                 UnionDeclarationSyntax or EnumDeclarationSyntax or DelegateDeclarationSyntax)
             {
@@ -1179,6 +1186,30 @@ public partial class SemanticModel
                 ?? attributeListBinder.ContainingSymbol
                 ?? currentBinder.ContainingSymbol
                 ?? Compilation.Assembly;
+        }
+
+        static bool TryResolvePrimaryConstructor(
+            TypeDeclarationSyntax declaration,
+            Binder currentBinder,
+            out IMethodSymbol primaryConstructor)
+        {
+            if (currentBinder.BindDeclaredSymbol(declaration) is INamedTypeSymbol type)
+            {
+                foreach (var constructor in type.GetMembers().OfType<IMethodSymbol>())
+                {
+                    if (constructor.MethodKind != MethodKind.Constructor)
+                        continue;
+
+                    if (constructor.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() == declaration))
+                    {
+                        primaryConstructor = constructor;
+                        return true;
+                    }
+                }
+            }
+
+            primaryConstructor = null!;
+            return false;
         }
 
         static bool HasExplicitAttributeTarget(AttributeListSyntax attributeList, string targetName)
