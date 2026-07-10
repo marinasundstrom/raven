@@ -71,8 +71,8 @@ these relevant properties:
   whether the carrier reference is null; for nullable struct-union values it
   also checks whether the nullable wrapper has no value.
 * `HasValue` and `TryGetValue(out T)`, when present, participate in the same
-  nullability flow as checking `Value` and make the contents not-null on the
-  true branch.
+  nullability flow as checking `Value`; `HasValue` means `Value` is not null,
+  and successful access makes the contents not-null on the true branch.
 * C# recognizes custom class or struct unions marked with
   `[System.Runtime.CompilerServices.Union]` when they provide the basic union
   pattern.

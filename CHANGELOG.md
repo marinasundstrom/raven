@@ -30,6 +30,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `TryGetValue(out T)` as an extraction helper instead of an extra case source
   when constructors exist, allows `null` conversions when union content may be
   null, and imports nullable C# union contents from .NET 11 metadata.
+- Aligned nullable union contents with the C# access pattern: `HasValue` now
+  follows `Value != null`, `null` patterns over class unions check both the
+  carrier reference and active `Value`, and nullable-content parenthesized
+  unions no longer expose `null` as a pseudo member type.
 - Fixed extension member completion after partially typed member names so
   imported metadata extension methods are offered for prefixes such as
   `widget.Dou`.

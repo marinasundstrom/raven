@@ -5159,8 +5159,8 @@ val left = (int)outcome
 * `Value` has a C#-compatible `object` or `object?` shape. This property shape
   is not the source of truth for nullable active contents; Raven derives that
   from the case construction surface.
-* Every union carrier also exposes `HasValue: bool`, which reports whether the
-  carrier currently has an active case/member.
+* Every union carrier also exposes `HasValue: bool`, which follows the
+  C# union access pattern and reports whether `Value` is not `null`.
 * Public one-parameter constructors define the C#-compatible case set.
   `TryGetValue(out CaseType)` exposes carrier inspection for each case type but
   does not add extra cases when constructors already define the case set.
@@ -5226,8 +5226,9 @@ Union invariants:
   only after construction through one of its union cases or constructors.
 * For ordinary class carriers with no nullable active member state, `null` is
   not a valid pseudo-case for `Value`.
-* `HasValue` is independent from `Value != null`; an active case may still
-  project `null` through `Value` when the selected member itself is nullable.
+* `HasValue` follows the public C# union access pattern and is equivalent to
+  `Value != null`. Raven does not expose active-null contents as a separate
+  public `HasValue` state.
 * Union wrapping is represented by carrier construction from a case value.
 * Compatibility is decided by case-to-union conversion rules (including
   payload subtype-to-supertype widening where valid).

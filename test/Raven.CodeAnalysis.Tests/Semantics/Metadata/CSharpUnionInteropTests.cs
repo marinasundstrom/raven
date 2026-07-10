@@ -132,14 +132,14 @@ public sealed class CSharpUnionInteropTests
 
             Assert.True(foo.ContentMayBeNull);
             Assert.Contains(foo.MemberTypes, static member => member.SpecialType == SpecialType.System_Int32);
-            Assert.Contains(foo.MemberTypes, static member => IsNullableOf(member, SpecialType.System_Double));
+            Assert.Contains(foo.MemberTypes, static member => member.SpecialType == SpecialType.System_Double && !member.IsNullable);
 
             var valueProperty = Assert.Single(foo.GetMembers("Value").OfType<IPropertySymbol>());
             Assert.True(valueProperty.Type.IsNullable);
 
             var customClass = fixtureNamespace.GetMembers("CustomClass").OfType<IUnionSymbol>().Single();
             Assert.True(customClass.ContentMayBeNull);
-            Assert.Contains(customClass.MemberTypes, static member => IsNullableOf(member, SpecialType.System_String));
+            Assert.Contains(customClass.MemberTypes, static member => member.SpecialType == SpecialType.System_String && !member.IsNullable);
             Assert.Contains(customClass.MemberTypes, static member => member.SpecialType == SpecialType.System_Int32);
             Assert.DoesNotContain(customClass.MemberTypes, static member => member.SpecialType == SpecialType.System_Decimal);
 

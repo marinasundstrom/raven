@@ -277,7 +277,7 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
                 continue;
             }
 
-            AddMemberType(constructorTypes, constructor.Parameters[0].GetByRefElementType());
+            AddMemberType(constructorTypes, constructor.Parameters[0].GetByRefElementType(), ref _contentMayBeNull);
         }
 
         if (constructorTypes.Count > 0)
@@ -295,17 +295,26 @@ internal sealed class PEUnionSymbol : PENamedTypeSymbol, IUnionSymbol
                 continue;
             }
 
-            AddMemberType(accessPatternTypes, method.Parameters[0].GetByRefElementType());
+            AddMemberType(accessPatternTypes, method.Parameters[0].GetByRefElementType(), ref _contentMayBeNull);
         }
 
         return accessPatternTypes.ToImmutable();
     }
 
     private bool ComputeContentMayBeNull()
-        => MemberTypes.Any(UnionContentNullability.IsNullableContentType);
-
-    private static void AddMemberType(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol memberType)
     {
+        _ = MemberTypes;
+        return _contentMayBeNull.GetValueOrDefault();
+    }
+
+    private static void AddMemberType(
+        ImmutableArray<ITypeSymbol>.Builder builder,
+        ITypeSymbol memberType,
+        ref bool? contentMayBeNull)
+    {
+        memberType = UnionContentNullability.GetNonNullContentType(memberType, out var memberMayBeNull);
+        contentMayBeNull = contentMayBeNull.GetValueOrDefault() || memberMayBeNull;
+
         if (builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, memberType)))
             return;
 

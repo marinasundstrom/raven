@@ -206,7 +206,8 @@ union Foo(int | double?)
 
         Assert.True(unionSymbol.ContentMayBeNull);
         Assert.Equal(2, unionSymbol.MemberTypes.Length);
-        Assert.True(unionSymbol.MemberTypes[1].IsNullable);
+        Assert.False(unionSymbol.MemberTypes[1].IsNullable);
+        Assert.Equal(SpecialType.System_Double, unionSymbol.MemberTypes[1].SpecialType);
     }
 
     [Fact]
@@ -301,13 +302,13 @@ union Foo(int | double | null)
             unionSymbol.MemberTypes,
             first =>
             {
-                Assert.True(first.IsNullable);
-                Assert.Equal(SpecialType.System_Int32, first.GetNullableUnderlyingType()?.SpecialType);
+                Assert.False(first.IsNullable);
+                Assert.Equal(SpecialType.System_Int32, first.SpecialType);
             },
             second =>
             {
-                Assert.True(second.IsNullable);
-                Assert.Equal(SpecialType.System_Double, second.GetNullableUnderlyingType()?.SpecialType);
+                Assert.False(second.IsNullable);
+                Assert.Equal(SpecialType.System_Double, second.SpecialType);
             });
 
         var valueProperty = Assert.Single(unionSymbol.GetMembers("Value").OfType<IPropertySymbol>());

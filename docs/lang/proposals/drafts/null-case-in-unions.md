@@ -232,15 +232,16 @@ an absent nullable wrapper. A null pattern on `U` matches a null `Value`, which
 includes the default/inactive carrier state if that carrier reports `Value ==
 null`.
 
-This gives three meaningful states for `union struct`:
+The public C#-compatible surface exposes these meaningful null states for
+`union struct`:
 
 * nullable wrapper absent: `U?` has no value
-* default/inactive carrier: `U` exists but `HasValue == false`
-* active null contents: `U` exists, `HasValue == true`, and `Value == null`
+* null contents/default carrier: `U` exists, `Value == null`, and
+  `HasValue == false`
 
-If the current carrier representation cannot distinguish default/inactive from
-active null contents, the semantic model should still reserve the distinction so
-future storage improvements do not require a source-breaking change.
+A future Raven-specific tagged representation may distinguish active null
+contents from a default carrier internally, but that distinction is not exposed
+through the C# union interface.
 
 ### 5. Pattern matching and exhaustiveness
 
@@ -320,15 +321,12 @@ For class union carriers, assigning `null` to `U?` may mean a null carrier
 reference. Assigning `null` to non-nullable `U` should construct or represent a
 carrier with null contents only when the union content set permits null.
 
-For struct union carriers, assigning `null` to non-nullable `U` should represent
-active null contents only if the carrier can distinguish that state. Otherwise
-the compiler should either:
+For struct union carriers, assigning `null` to non-nullable `U` should produce
+a union value whose public C#-compatible surface reports `Value == null`.
 
-* emit a diagnostic for non-nullable `U = null`, while allowing `U? = null`; or
-* explicitly define that `null` maps to the default/inactive state.
-
-The preferred long-term model is to distinguish active null contents from the
-default/inactive state.
+The public C#-compatible union surface collapses active null contents and the
+default/inactive state to `Value == null`. A stronger Raven-only distinction
+would require a separate tagged representation or API.
 
 ### 7. Value and HasValue
 
@@ -345,22 +343,14 @@ object? Value { get; }
 * the member set permits null contents,
 * the carrier itself may be null and the access is lifted.
 
-`HasValue` should continue to mean "an active member/case is present", not
-"Value is non-null". This distinction matters for active null contents:
-
-```text
-default union struct: HasValue == false, Value == null
-active null contents: HasValue == true, Value == null
-```
-
-If a current carrier cannot represent active null contents, `HasValue` behavior
-must be documented as a temporary limitation.
+`HasValue` follows the public C# union access pattern and means `Value is not
+null`. Raven should not expose active-null contents as `HasValue == true` on the
+C#-compatible surface.
 
 ### 8. JSON serialization
 
-Parenthesized union JSON conversion should distinguish explicit null contents
-from an uninitialized/default carrier when the carrier representation supports
-that distinction.
+Parenthesized union JSON conversion should round-trip explicit null contents
+through the public C#-compatible `Value == null` surface.
 
 For:
 
@@ -369,23 +359,16 @@ For:
 union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
 ```
 
-the JSON token `null` should deserialize to active null contents:
-
-```text
-HasValue == true
-Value == null
-```
-
-That differs from a default `union struct` carrier:
+the JSON token `null` should deserialize to null contents on the public union
+surface:
 
 ```text
 HasValue == false
 Value == null
 ```
 
-Both may serialize as JSON `null`, but they are not the same semantic state.
-If the current serializer or carrier cannot distinguish them, document that as a
-temporary limitation and prefer preserving the distinction in the semantic model.
+This matches the public C# union interface. A stronger Raven-only distinction
+would require a separate tagged representation.
 
 ## Affected components
 
@@ -418,9 +401,8 @@ Likely implementation touchpoints:
 * Preserve the non-null member set for case matching and construction.
 * Require a `null` match arm when content nullability is maybe-null.
 * Ensure `Value` nullability follows the union content state.
-* Keep `HasValue` independent from `Value is not null`.
-* Model default `union struct` separately from active null contents where the
-  representation allows it.
+* Keep `HasValue` aligned with the C# union access pattern (`Value is not null`).
+* Do not expose active-null contents as a distinct public `HasValue` state.
 
 ### Public API and symbols
 
@@ -463,11 +445,11 @@ Add focused tests in these areas:
   * redundant catch-all after all member types plus `null`.
 * Code generation/runtime:
   * default `union struct` behavior.
-  * active null contents if supported by the representation.
+  * null contents through the public `Value == null` surface.
   * class carrier null reference versus null contents.
   * JSON `null` round-trips through
     `union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)`
-    as active null contents.
+    as null contents on the public union surface.
 * Interop:
   * consume a C# Preview 4 union with nullable case type through the aligned
     union surface.

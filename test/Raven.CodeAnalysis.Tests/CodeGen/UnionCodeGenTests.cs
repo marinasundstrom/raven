@@ -647,7 +647,7 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
     }
 
     [Fact]
-    public void StructUnion_ConstructedWithNullablePayload_HasValueIsTrueWhenValueIsNull()
+    public void StructUnion_ConstructedWithNullablePayload_HasValueFollowsValueNullState()
     {
         var code = """
 union struct Maybe<T>(T)
@@ -677,7 +677,7 @@ union struct Maybe<T>(T)
         var valueProperty = closedUnionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public)!;
         var hasValueProperty = closedUnionType.GetProperty("HasValue", BindingFlags.Instance | BindingFlags.Public)!;
 
-        Assert.Equal(true, hasValueProperty.GetValue(instance));
+        Assert.Equal(false, hasValueProperty.GetValue(instance));
         Assert.Null(valueProperty.GetValue(instance));
     }
 
@@ -740,6 +740,85 @@ union Foo(int | null)
         Assert.Equal(-1, runnerType.GetMethod("NullCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
         Assert.Equal(30, runnerType.GetMethod("ConstantCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
         Assert.Equal(42, runnerType.GetMethod("IntCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
+    public void ClassUnion_WithNullableValuePayload_MatchExpressionAndStatementUseValueNullState()
+    {
+        var code = """
+class Runner {
+    public static func NullValueIsNull() -> bool {
+        val v: Foo = null
+        return v.Value is null
+    }
+
+    public static func NullHasValue() -> bool {
+        val v: Foo = null
+        return v.HasValue
+    }
+
+    public static func ExpressionNullCase() -> int {
+        val v: Foo = null
+        return v match {
+            int i => i
+            null => -1
+        }
+    }
+
+    public static func ExpressionValueCase() -> int {
+        val v: Foo = 42
+        return v match {
+            int i => i
+            null => -1
+        }
+    }
+
+    public static func StatementNullCase() -> int {
+        val v: Foo = null
+        match v {
+            int i => i
+            null => -1
+        }
+    }
+
+    public static func StatementValueCase() -> int {
+        val v: Foo = 42
+        match v {
+            int i => i
+            null => -1
+        }
+    }
+}
+
+union Foo(int | null)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var runnerType = runtimeAssembly.GetType("Runner", throwOnError: true)!;
+
+        Assert.Equal(true, runnerType.GetMethod("NullValueIsNull", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(false, runnerType.GetMethod("NullHasValue", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(-1, runnerType.GetMethod("ExpressionNullCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(42, runnerType.GetMethod("ExpressionValueCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(-1, runnerType.GetMethod("StatementNullCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(42, runnerType.GetMethod("StatementValueCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
     }
 
     [Fact]
