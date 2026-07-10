@@ -12,10 +12,24 @@ Ignore `test/Raven.CodeAnalysis.Samples.Tests`.
 
 ## Baseline
 
-Before making code changes, establish a test baseline once:
+Before making code changes, establish a targeted baseline once. Use
+`docs/testing/test-impact-map.md` to choose the smallest relevant build and test
+set for the area you are about to touch. Prefer a feature suite or focused test
+filter over the full baseline when the change is scoped.
+
+Run the full baseline when the change is broad or cross-cutting, when test
+infrastructure changes, when the current failure state is unknown, or when the
+impact map does not identify a smaller trustworthy baseline:
 
 ```bash
 scripts/test-baseline.sh
+```
+
+For feature-scoped work, start with:
+
+```bash
+scripts/test-feature-suite.sh <suite>
+dotnet test <project-file-path> --filter '<focused filter>' /property:WarningLevel=0
 ```
 
 Run runtime/emission-heavy tests separately when needed:

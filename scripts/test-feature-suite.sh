@@ -9,6 +9,7 @@ if [[ $# -eq 0 || "${1:-}" == "--list" ]]; then
 Usage: scripts/test-feature-suite.sh <suite> [--runtime]
 
 Available suites:
+  unions
   overload-resolution
   functions-async
   patterns
@@ -97,6 +98,9 @@ build_fast_exclusion_filter() {
 }
 
 case "$suite" in
+  unions)
+    filter="(FullyQualifiedName~.UnionSemanticTests.|FullyQualifiedName~.UnionCodeGenTests.|FullyQualifiedName~.CSharpUnionInteropTests.|FullyQualifiedName~.UnionGenericsTests.|FullyQualifiedName~.CompletionServiceUnionCaseTests.)"
+    ;;
   overload-resolution)
     filter="(FullyQualifiedName~.MethodOverloadTests.|FullyQualifiedName~.OverloadResolverTests.|FullyQualifiedName~.NamedArgumentTests.|FullyQualifiedName~.OptionalParameterSemanticTests.|FullyQualifiedName~.ParamsParameterSemanticTests.|FullyQualifiedName~.GenericMethodTests.|FullyQualifiedName~.InvocationOperatorTests.|FullyQualifiedName~.MethodReferenceSemanticTests.|FullyQualifiedName~.InvocationDiagnosticsTests.|FullyQualifiedName~.MethodReferenceDiagnosticsTests.|FullyQualifiedName~.TargetTypedExpressionTests.|FullyQualifiedName~.NullableTypeTests.|FullyQualifiedName~.FunctionExpressionInferenceTests.|FullyQualifiedName~.ExtensionMethodSemanticTests.|FullyQualifiedName~.GenericInvocationCodeGenTests.|FullyQualifiedName~.MethodReferenceCodeGenTests.|FullyQualifiedName~.RuntimeSymbolResolverTests.|FullyQualifiedName~.FunctionExpressionCodeGenTests.|FullyQualifiedName~.ConversionOperatorCodeGenTests.|FullyQualifiedName~.ByRefCodeGenTests.)"
     ;;

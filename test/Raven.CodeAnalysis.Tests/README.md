@@ -17,6 +17,8 @@ Runtime, reflection, generated IL, process, NuGet, MSBuild, and sample-project c
 | Samples | End-to-end sample project build after compiler/runtime changes | `FORCE_REBUILD=1 samples/build.sh` |
 
 All ad hoc `dotnet test` commands should use `/property:WarningLevel=0`.
+Use `docs/testing/test-impact-map.md` to choose the smallest pre-change
+baseline and post-change validation set for the compiler area being touched.
 
 The full baseline can take around 20 minutes on a typical local machine. Treat it as the broad safety gate, not the first tool for every edit: start with the smallest matching feature suite or test-class filter, then broaden to the baseline when the change affects shared compiler behavior or before handing off stabilization work. Part of the cleanup goal is to keep refactoring and reorganizing tests so selective runs become more accurate, faster, and easier to choose.
 
@@ -70,6 +72,7 @@ Use `scripts/test-feature-suite.sh --list` to see curated feature suites. Pick t
 
 | Changed area | Start with |
 |---|---|
+| Unions, union conversion, union nullability, C# union interop | `scripts/test-feature-suite.sh unions` |
 | Parser, syntax nodes, trivia, recovery | syntax or parser test class filters, then `scripts/test-baseline.sh` |
 | Function calls, overload resolution, optional/named/params args, callable `self` | `scripts/test-feature-suite.sh overload-resolution` |
 | Functions, lambdas, async/await, async lowering | `scripts/test-feature-suite.sh functions-async` |
