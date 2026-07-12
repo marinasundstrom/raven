@@ -104,7 +104,7 @@ public class UnionDeclarationParserTests
     }
 
     [Fact]
-    public void UnionDeclaration_WithNullNominalMember_ParsesNullType()
+    public void UnionDeclaration_WithNullNominalMember_ParsesNullTypeForSemanticRecovery()
     {
         var source = "union Foo(int | double | null)";
         var tree = SyntaxTree.ParseText(source);

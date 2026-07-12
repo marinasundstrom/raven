@@ -26,9 +26,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   satisfy inherited interface contracts such as `IDisposable.Dispose`.
 - Added code fixes for compiler-owned match exhaustiveness diagnostics: `RAV2100`
   can insert a missing match arm, and `RAV2103` can remove a redundant catch-all arm.
-- Added union-only `null` syntax in parenthesized union declarations, so
-  declarations such as `union Foo(int | null)` lower to nullable-capable public
-  case constructors without creating a null member type or constructor.
 - Aligned union content nullability with C# unions: Raven now tracks nullable
   parenthesized union contents from constructor/member case types, treats
   `TryGetValue(out T)` as an extraction helper instead of an extra case source

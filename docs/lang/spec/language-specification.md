@@ -5080,7 +5080,7 @@ record Cash(amount: decimal)
 record Card(last4: string)
 
 union Payment(Cash | Card)
-union OptionalPayment(Cash | Card | null)
+union OptionalPayment(Cash | Card?)
 
 val paidInCash: Payment = Cash(12.50m)
 val paidByCard: Payment = Card("4242")
@@ -5089,14 +5089,8 @@ val paidByCard: Payment = Card("4242")
 ##### Rules
 
 * Each listed member type is part of the carrier's closed case set.
-* A `null` alternative in the member list is not a member type. It marks the
-  carrier's active contents as nullable. Raven pattern matching treats the
-  domain as the non-null listed member cases plus a distinct `null` case.
-  For C# metadata compatibility, the emitted public case constructors use
-  nullable-capable parameter types for the listed members rather than a
-  synthetic null constructor.
-* The `null` alternative is valid only in parenthesized union declaration member
-  lists. Ordinary type annotations use `T?` for nullability.
+* `null` is not a member type. Use nullable member annotations such as `T?` when
+  a parenthesized union member may actively carry null.
 * Pattern matching uses ordinary patterns over those member types. Nullable
   member patterns do not cover the `null` branch for exhaustiveness; include a
   `null` arm when the union contents may be null.

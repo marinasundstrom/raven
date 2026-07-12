@@ -280,39 +280,17 @@ func Test() -> () {
     }
 
     [Fact]
-    public void NominalUnionDeclaration_WithExplicitNull_MarksNullableContentWithoutNullMember()
+    public void NominalUnionDeclaration_WithExplicitNullMember_ReportsDiagnostic()
     {
         const string source = """
 union Foo(int | double | null)
 """;
 
-        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
         var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        Assert.Empty(diagnostics);
 
-        var model = compilation.GetSemanticModel(tree);
-        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-
-        Assert.True(unionSymbol.ContentMayBeNull);
-        Assert.DoesNotContain(unionSymbol.MemberTypes, static member => member.TypeKind == TypeKind.Null);
-        Assert.DoesNotContain(unionSymbol.CaseTypes, static member => member.TypeKind == TypeKind.Null);
-        Assert.Collection(
-            unionSymbol.MemberTypes,
-            first =>
-            {
-                Assert.False(first.IsNullable);
-                Assert.Equal(SpecialType.System_Int32, first.SpecialType);
-            },
-            second =>
-            {
-                Assert.False(second.IsNullable);
-                Assert.Equal(SpecialType.System_Double, second.SpecialType);
-            });
-
-        var valueProperty = Assert.Single(unionSymbol.GetMembers("Value").OfType<IPropertySymbol>());
-        Assert.True(valueProperty.Type.IsNullable);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeExpectedWithoutWildcard);
     }
 
     [Fact]
@@ -331,24 +309,6 @@ func Test(value: int | null) -> () {
     }
 
     [Fact]
-    public void NullLiteral_ConvertsToUnionWithExplicitNullContent()
-    {
-        const string source = """
-union Foo(int | double | null)
-
-func Test() -> () {
-    val value: Foo = null
-}
-""";
-
-        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        compilation.EnsureSetup();
-
-        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        Assert.Empty(diagnostics);
-    }
-
-    [Fact]
     public void ParenthesizedUnionMatch_WithLiteralAndNull_CoversNullButNotEntireMemberType()
     {
         const string source = """
@@ -361,7 +321,7 @@ func Test(x2: Test2) -> int {
     return r
 }
 
-union Test2(int | null)
+union Test2(int?)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -388,7 +348,7 @@ func Test(x2: Test2) -> int {
     return r
 }
 
-union Test2(int | null)
+union Test2(int?)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -419,7 +379,7 @@ func Test(x2: Test2) -> int {
     }
 }
 
-union Test2(int | null)
+union Test2(int?)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -607,7 +567,7 @@ func build<T>(payload: T) -> Option<T> {
     return option
 }
 
-union Option<T> {
+union class Option<T> {
     case None
     case Some(value: T)
 }
@@ -693,7 +653,7 @@ class C<T> {
         const string source = """
 import Option.*
 
-union Option<T> {
+union class Option<T> {
     case Some(value: T)
     case None
 
@@ -723,7 +683,7 @@ func build() {
     val result = TempTooLow(12)
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -746,7 +706,7 @@ func build() -> HeaterResult {
     return TempTooLow(12)
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -832,7 +792,7 @@ func describe(result: HeaterResult) -> int {
     }
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -858,7 +818,7 @@ func describe(result: HeaterResult) -> int {
     }
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -1064,7 +1024,7 @@ func format(option: Option<int>) -> string {
     }
 }
 
-union Option<T> {
+union class Option<T> {
     case Some(value: T)
     case None
 }
@@ -1164,7 +1124,7 @@ func build(flag: bool) -> Response<int, string> {
     }
 }
 
-union Response<T, E> {
+union class Response<T, E> {
     case Ok(value: T)
     case Error(error: E)
 }
@@ -1187,13 +1147,13 @@ union Response<T, E> {
     {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
-    flag match {
+    match flag {
         true => .Ok(42)
         false => .Error("boom")
     }
 }
 
-union Response<T, E> {
+union class Response<T, E> {
     case Ok(value: T)
     case Error(error: E)
 }
@@ -1205,8 +1165,9 @@ union Response<T, E> {
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
-        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
-        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchExpression));
+        var matchStatement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var boundStatement = Assert.IsType<BoundExpressionStatement>(model.GetBoundNode(matchStatement));
+        var boundMatch = Assert.IsType<BoundMatchExpression>(boundStatement.Expression);
         var matchType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundMatch.Type);
         Assert.Equal("Response", matchType.Name);
     }
@@ -1325,7 +1286,7 @@ async func fetch() -> Task<Result<string>> {
     return .Ok(value: "done")
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -1416,7 +1377,7 @@ union Result<T, E> {
     public void Union_ToStringOverride_SuppressesSynthesizedToString()
     {
         const string source = """
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
 
     override func ToString() -> string {
@@ -2562,7 +2523,7 @@ func format(result: Result<int>) -> string {
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2586,7 +2547,7 @@ func format(result: Result<int>) -> string {
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2610,7 +2571,7 @@ func describe(result: Result<int>) -> string {
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2634,7 +2595,7 @@ func format(result: Result<int>) -> string {
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2683,7 +2644,7 @@ func describe(value: Test) -> string {
     }
 }
 
-union Test {
+union class Test {
     case Something(value: string)
     case Nothing
 }

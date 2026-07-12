@@ -112,16 +112,16 @@ additional cases when constructors are present. Nullable active contents are
 derived from nullable constructor parameter types, not from `Value` being
 `object?`.
 
-For `null` in a parenthesized union declaration, Raven emits nullable-capable
-constructor parameter types for the listed members and does not emit a
-synthetic null constructor:
+For nullable members in a parenthesized union declaration, Raven emits
+nullable-capable constructor parameter types for the listed members and does not
+emit a synthetic null constructor:
 
 ```raven
-union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+union JsonValue(string? | double | bool | JsonObject | JsonValue[])
 ```
 
-Raven pattern matching still treats that source form as the non-null listed
-member cases plus a distinct `null` branch.
+Raven pattern matching still treats nullable member contents as the non-null
+listed member cases plus a distinct `null` branch.
 
 Producing a union from C# is done by constructing the case and then converting
 it to the carrier:

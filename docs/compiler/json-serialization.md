@@ -112,7 +112,7 @@ Nominal parenthesized unions use the same value-union model:
 
 ```raven
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+union JsonValue(string? | double | bool | JsonObject | JsonValue[])
 ```
 
 Parenthesized unions differ from case-declaration unions because their members

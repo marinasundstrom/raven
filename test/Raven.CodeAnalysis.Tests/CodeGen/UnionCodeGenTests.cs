@@ -514,7 +514,7 @@ union struct Maybe<T> {
     public void ClassUnion_WithNullableMember_EmitsNullableValueProperty()
     {
         var code = """
-union Maybe(string? | int)
+union class Maybe(string? | int)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -547,12 +547,12 @@ union Maybe(string? | int)
     }
 
     [Fact]
-    public void ClassUnion_WithExplicitNullMember_EmitsNullableCaseConstructorsWithoutNullConstructor()
+    public void ClassUnion_WithNullableMember_EmitsNullableCaseConstructors()
     {
         var code = """
 import System.Collections.Generic.*
 
-union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+union class JsonValue(string? | double | bool | JsonObject | JsonValue[])
 
 record JsonObject(Properties: IDictionary<string, JsonValue>)
 """;
@@ -714,7 +714,7 @@ class Runner {
     }
 }
 
-union Foo(int | null)
+union class Foo(int?)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -790,7 +790,7 @@ class Runner {
     }
 }
 
-union Foo(int | null)
+union class Foo(int?)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -845,7 +845,7 @@ class Runner {
     }
 }
 
-union Foo(int | null)
+union class Foo(int?)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);

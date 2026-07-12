@@ -124,7 +124,7 @@ func test(v: Foo) -> int {
     }
 }
 
-union Foo(int | string | null)
+union Foo(int | string?)
 """;
 
         const string fixedCode = """
@@ -137,7 +137,7 @@ func test(v: Foo) -> int {
     }
 }
 
-union Foo(int | string | null)
+union Foo(int | string?)
 """;
 
         var workspace = RavenWorkspace.Create(targetFramework: TestTargetFramework.Default);

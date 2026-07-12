@@ -3980,27 +3980,17 @@ public partial class SemanticModel
         if (unionDecl.MemberTypes is { } memberTypeList)
         {
             var boundMemberTypes = new List<(ITypeSymbol MemberType, ITypeSymbol ArtifactType, Location Location, SyntaxReference Reference)>();
-            var hasExplicitNullMember = false;
 
             foreach (var memberTypeSyntax in memberTypeList.Types)
             {
                 if (memberTypeSyntax is NullTypeSyntax)
                 {
-                    hasExplicitNullMember = true;
+                    _declarationDiagnostics.ReportTypeExpectedWithoutWildcard(memberTypeSyntax.GetLocation());
                     continue;
                 }
 
                 var memberType = unionBinder.BindTypeSyntaxAndReport(memberTypeSyntax);
                 boundMemberTypes.Add((GetUnionContentMemberType(memberType), memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference()));
-            }
-
-            if (hasExplicitNullMember)
-            {
-                for (var i = 0; i < boundMemberTypes.Count; i++)
-                {
-                    var (memberType, artifactType, location, reference) = boundMemberTypes[i];
-                    boundMemberTypes[i] = (memberType, artifactType.IsNullable ? artifactType : artifactType.MakeNullable(), location, reference);
-                }
             }
 
             if (unionSymbol.PayloadFields.IsDefaultOrEmpty)
@@ -4015,7 +4005,7 @@ public partial class SemanticModel
             unionSymbol.SetCases(caseSymbols);
             unionSymbol.SetCaseTypes(caseSymbols.Cast<ITypeSymbol>().Concat(memberTypes));
             unionSymbol.SetMemberTypes(memberTypes);
-            unionSymbol.SetContentMayBeNull(hasExplicitNullMember || boundMemberTypes.Any(static member => UnionContentNullability.IsNullableContentType(member.ArtifactType)));
+            unionSymbol.SetContentMayBeNull(boundMemberTypes.Any(static member => UnionContentNullability.IsNullableContentType(member.ArtifactType)));
             unionSymbol.SetPayloadFields(payloadFields);
 
             if (synthesizeUnionSurface)
