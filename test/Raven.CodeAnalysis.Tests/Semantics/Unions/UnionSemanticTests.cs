@@ -262,7 +262,7 @@ union Foo(int | double?)
     }
 
     [Fact]
-    public void NullLiteral_ConvertsToUnionWithNullableContent()
+    public void NullLiteral_DoesNotConvertToUnionWithNullableContent()
     {
         const string source = """
 union Foo(int | double?)
@@ -276,7 +276,7 @@ func Test() -> () {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        Assert.Empty(diagnostics);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
     }
 
     [Fact]

@@ -9943,7 +9943,11 @@ partial class BlockBinder : Binder
                     SymbolEqualityComparer.Default.Equals(property.ContainingType, namedUnionType));
 
             if (hasValueProperty?.GetMethod is not null)
-                return new BoundInvocationExpression(hasValueProperty.GetMethod, Array.Empty<BoundExpression>(), nullableOperand);
+                return new BoundInvocationExpression(
+                    hasValueProperty.GetMethod,
+                    Array.Empty<BoundExpression>(),
+                    nullableOperand,
+                    requiresReceiverAddress: true);
         }
 
         var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, nullableType);

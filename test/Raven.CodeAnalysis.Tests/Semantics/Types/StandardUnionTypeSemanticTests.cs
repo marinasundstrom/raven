@@ -87,6 +87,29 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Fact]
+    public void UnionTypeSyntax_DoesNotConvertNullLiteralToNullableContentUnion()
+    {
+        const string source = """
+        import System.*
+
+        class C {
+            static func M() -> () {
+                val value: Union<int, string?> = null
+            }
+        }
+        """;
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            references: [.. TestMetadataReferences.Default, CreateUnionReference()]);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
+    }
+
     private static MetadataReference CreateUnionReference()
     {
         const string fixtureSource = """
