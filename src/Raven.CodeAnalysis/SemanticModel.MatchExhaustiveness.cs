@@ -10,6 +10,16 @@ public partial class SemanticModel
     public MatchExhaustivenessInfo GetMatchExhaustiveness(
         MatchExpressionSyntax matchExpression,
         MatchExhaustivenessOptions options = default)
+        => GetMatchExhaustivenessCore(matchExpression, options);
+
+    public MatchExhaustivenessInfo GetMatchExhaustiveness(
+        PostfixMatchExpressionSyntax matchExpression,
+        MatchExhaustivenessOptions options = default)
+        => GetMatchExhaustivenessCore(matchExpression, options);
+
+    private MatchExhaustivenessInfo GetMatchExhaustivenessCore(
+        SyntaxNode matchExpression,
+        MatchExhaustivenessOptions options)
     {
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 

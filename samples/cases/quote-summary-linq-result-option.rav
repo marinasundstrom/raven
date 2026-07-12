@@ -17,7 +17,7 @@ val requests = [
 
 val summaryResult = BuildQuoteSummary(requests, ratePlans)
 
-val message = summaryResult match {
+val message = match summaryResult {
     Ok(val summary) => FormatSummary(summary)
     Error(val error) => "Quote failed: ${error.Message}"
 }
@@ -25,7 +25,7 @@ val message = summaryResult match {
 WriteLine(message)
 
 val latePickup = requests.Where(r => !r.OnTime).FirstOrNone()
-val lateMessage = latePickup match {
+val lateMessage = match latePickup {
     Some(val req) => "Late pickup: ${req.Id}"
     None => "No late pickups today"
 }
@@ -45,7 +45,7 @@ func QuoteShipment(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Re
     val promoCents = PromoCents(request.PromoCode).UnwrapOr(0)
     val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents) + surcharge.UnwrapOr(0) - promoCents
 
-    val note = surcharge match {
+    val note = match surcharge {
         Some(_) => "Includes fragile handling"
         None => "Standard handling"
     }
@@ -58,7 +58,7 @@ func FindRatePlan(plans: IEnumerable<RatePlan>, carrier: string) -> Result<RateP
 }
 
 func ResolveSurcharge(tags: string[]) -> Option<int> {
-    return tags.FirstOrNone(t => t == "fragile") match {
+    match tags.FirstOrNone(t => t == "fragile") {
         Some(_) => Some(250)
         None => None
     }
@@ -68,7 +68,7 @@ func PromoCents(code: Option<string>) -> Option<int> {
     val raw = code?
     val normalized = raw.Trim().ToUpperInvariant()
 
-    return normalized match {
+    match normalized {
         "SAVE5" => Some(500)
         "FREESHIP" => Some(200)
         _ => None
@@ -92,14 +92,14 @@ func DecideQuote(quote: Quote, request: ShipmentRequest) -> Decision {
 }
 
 func HasTag(tags: string[], tag: string) -> bool {
-    return tags.FirstOrNone(t => t == tag) match {
+    match tags.FirstOrNone(t => t == tag) {
         Some(_) => true
         None => false
     }
 }
 
 func FormatSummary(summary: QuoteSummary) -> string {
-    val decisionText = summary.Decision match {
+    val decisionText = match summary.Decision {
         .Approve => "Approved"
         .ManualReview(val reason) => "Review: $reason"
         .Reject(val reason) => "Rejected: $reason"

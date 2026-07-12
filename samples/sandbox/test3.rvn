@@ -4,7 +4,7 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 val r: Option<int> = Some(42)
-val w = r match {
+val w = match r {
     Some(val x) => Option<int>.Some(x * 2)
     None => None
 }

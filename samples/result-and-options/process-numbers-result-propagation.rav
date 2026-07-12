@@ -4,7 +4,7 @@ import System.Console.*
 // Feature: `Result` propagation with `?` plus `try` expression parsing.
 func Main() -> () {
     val inputs = [|"10", "3", "abc", "42"|]
-    val r = ProcessNumbers(inputs) match {
+    val r = match ProcessNumbers(inputs) {
         Ok => ()
         Error(val message) => WriteLine(message)
     }
@@ -21,7 +21,7 @@ func ProcessNumbers(inputs: string[]) -> Result<(), string> {
     for text in inputs {
         val no = parseInt(text)?
 
-        val message = no match {
+        val message = match no {
             10 => "10!"
             val value => "Parsed: $value"
         }

@@ -399,9 +399,12 @@ DeconstructionAssignmentStatement
 
 (* ---------- Expressions & precedence (lowest → highest) ---------- *)
 
-Expression               ::= AssignmentExpression {MatchExpressionSuffix} ;
+Expression               ::= MatchExpression
+                           | AssignmentExpression {PostfixMatchExpressionSuffix} ;
 
-MatchExpressionSuffix    ::= 'match' '{' MatchArmList '}' ;
+MatchExpression          ::= 'match' Expression '{' MatchArmList '}' ;
+PostfixMatchExpressionSuffix
+                         ::= 'match' '{' MatchArmList '}' ;
 MatchArmList             ::= MatchArm {MatchArm} ;
 MatchArm                 ::= MatchArmBindingKeyword? Pattern MatchGuardClause? '=>' Expression MatchArmTerminator? ;
 MatchArmBindingKeyword   ::= 'val' | 'let' | 'var' ;

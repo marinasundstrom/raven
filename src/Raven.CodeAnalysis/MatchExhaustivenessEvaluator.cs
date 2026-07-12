@@ -191,7 +191,7 @@ internal sealed class MatchExhaustivenessEvaluator
         var builder = ImmutableArray.CreateBuilder<string>();
 
         if (inactiveStructStateRemaining)
-            builder.Add("null");
+            builder.Add("default");
 
         builder.AddRange(remaining
             .Select(MatchCaseDisplay.ForDiscriminatedUnionCase)
@@ -979,9 +979,6 @@ internal sealed class MatchExhaustivenessEvaluator
         if (type.TryGetUnion() is { ContentMayBeNull: true })
             return true;
 
-        if (type.TryGetUnion() is { TypeKind: TypeKind.Struct })
-            return true;
-
         if (type is ITypeUnionSymbol union)
         {
             foreach (var member in union.Types)
@@ -1013,13 +1010,9 @@ internal sealed class MatchExhaustivenessEvaluator
         if (IsCatchAllPattern(scrutineeType, pattern))
             return true;
 
-        return pattern switch
-        {
-            BoundConstantPattern { ConstantValue: null } => true,
-            BoundOrPattern orPattern => PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
-                                        PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union),
-            _ => false
-        };
+        return pattern is BoundOrPattern orPattern &&
+               (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
+                PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)

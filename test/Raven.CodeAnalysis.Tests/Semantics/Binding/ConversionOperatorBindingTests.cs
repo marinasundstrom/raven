@@ -207,7 +207,7 @@ public union Result<T, E> {
 import System.*
 
 func format<T>(result: Result<T, string>) -> Option<string> {
-    return result match {
+    return match result {
         .Ok(val value) => value.ToString()
         .Error(_) => .None
     }

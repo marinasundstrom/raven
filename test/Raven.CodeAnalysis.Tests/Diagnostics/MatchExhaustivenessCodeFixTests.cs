@@ -10,13 +10,13 @@ public sealed class MatchExhaustivenessCodeFixTests : CodeFixTestBase
     public void MatchExpressionNotExhaustive_AddsMissingBooleanArm()
     {
         const string code = """
-val result = true match {
+val result = match true {
     true => 1
 }
 """;
 
         const string fixedCode = """
-val result = true match {
+val result = match true {
     true => 1
     false => throw System.NotImplementedException()
 }
@@ -36,7 +36,7 @@ val result = true match {
         const string code = """
 val value: Result<int, string> = .Ok(1)
 
-val result = value match {
+val result = match value {
     .Ok(val payload) => payload
 }
 
@@ -49,7 +49,7 @@ union Result<T, E> {
         const string fixedCode = """
 val value: Result<int, string> = .Ok(1)
 
-val result = value match {
+val result = match value {
     .Ok(val payload) => payload
     .Error(_) => throw System.NotImplementedException()
 }
@@ -74,7 +74,7 @@ union Result<T, E> {
         const string code = """
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 2
     .Done => 3
@@ -91,7 +91,7 @@ union State {
         const string fixedCode = """
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 2
     .Done => 3
@@ -117,7 +117,7 @@ union State {
     {
         const string code = """
 func test(v: Foo) -> int {
-    return v match {
+    return match v {
         3 => 3
         int i => i
         string => 2
@@ -129,7 +129,7 @@ union Foo(int | string | null)
 
         const string fixedCode = """
 func test(v: Foo) -> int {
-    return v match {
+    return match v {
         3 => 3
         int i => i
         string => 2

@@ -21,7 +21,7 @@ Raven is not trying to be purely functional, purely object-oriented, or novel fo
 Raven prefers expressions because they compose well and keep local logic compact. `if`, `match`, `try`, and function bodies are designed to work naturally in value position.
 
 ```raven
-val message = status match {
+val message = match status {
     Ok(val value) => "Ready: $value"
     Error(val err) => "Failed: $err"
 }

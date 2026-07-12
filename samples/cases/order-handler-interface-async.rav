@@ -18,7 +18,7 @@ async func Main() -> Task {
     val result = await handler.Handle(request, default)
     WriteLine("Result $result")
 
-    val str = result match {
+    val str = match result {
         .Success(val value) => value.ToString(),
         .Failure(val message) => message
     }

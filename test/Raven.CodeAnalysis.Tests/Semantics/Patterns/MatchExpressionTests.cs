@@ -35,7 +35,7 @@ val r = v match
     public void MatchExpression_InValuePosition_BindsDirectlyAsBoundMatchExpression()
     {
         const string code = """
-val result = 1 match {
+val result = match 1 {
     1 => 10
     _ => 0
 }
@@ -59,12 +59,39 @@ val result = 1 match {
     }
 
     [Fact]
+    public void PostfixMatchExpression_InValuePosition_BindsDirectlyAsBoundMatchExpression()
+    {
+        const string code = """
+val result = 1 match {
+    1 => 10
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "postfix_match_expression_bound_shape",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<PostfixMatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+        Assert.Equal(2, bound.Arms.Length);
+    }
+
+    [Fact]
     public void MatchExpression_WithTypeArms_MissingDefaultReportsDiagnostic()
     {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object obj => obj.ToString()
 }
@@ -83,7 +110,7 @@ class Box<T> {}
 
 val value: Box<int> = Box<int>()
 
-val result = value match {
+val result = match value {
     Box box => 1
 }
 """;
@@ -115,7 +142,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object => value.ToString()
 }
@@ -134,7 +161,7 @@ import System.Collections.Generic.*
 
 val values: Dictionary<string, int> = !["a": 1, "b": 2]
 
-val result = values match {
+val result = match values {
     ["a": val first, "b": 2] => first
     _ => 0
 }
@@ -170,7 +197,7 @@ val result = values match {
         const string code = """
 val value = 42
 
-val result = value match {
+val result = match value {
     ["a": 1] => 1
     _ => 0
 }
@@ -193,7 +220,7 @@ import System.Collections.Generic.*
 
 val values: Dictionary<string, int> = !["a": 1]
 
-val result = values match {
+val result = match values {
     ["a": val first, "a": 1] => first
     _ => 0
 }
@@ -218,7 +245,7 @@ class Box {
 
 val value = Box(Value: 1)
 
-val result = value match {
+val result = match value {
     Box { Value: 1, Value: val other } => other
     _ => 0
 }
@@ -239,7 +266,7 @@ val result = value match {
         const string code = """
 val value: object = Person("Ada", 42)
 
-val result = value match {
+val result = match value {
     Person(Height: 170, Name: val name) => name
     _ => ""
 }
@@ -269,7 +296,7 @@ func GetUser() -> UserOrError {
     return .Ok(1)
 }
 
-val result = GetUser() match {
+val result = match GetUser() {
     .Ok(User(val name, val isActive)) => 1
     .Error(val error) => 0
 }
@@ -302,7 +329,7 @@ func GetUser() -> UserOrError {
     return .Ok(1)
 }
 
-val result = GetUser() match {
+val result = match GetUser() {
     .Ok(User(val name, val isActive)) => 1
     .Error(val error) => 0
 }
@@ -333,7 +360,7 @@ record class User(Name: string, IsActive: bool);
         const string code = """
 val value: bool = true
 
-val result = value match {
+val result = match value {
     true => "true"
     false => "false"
 }
@@ -355,7 +382,7 @@ union Value {
 
 val value: Value = .Flag(value: false)
 
-val result = value match {
+val result = match value {
     .Flag(val flag) => if flag { "true" } else { "false" }
     .Pair(val flag, val text) => "tuple ${text}"
 }
@@ -371,7 +398,7 @@ val result = value match {
     {
         const string code = """
 func ping(name: string) -> string {
-    return name match {
+    return match name {
         "Bob" | "bob" => "pong"
         _ => "invalid"
     }
@@ -389,7 +416,7 @@ func ping(name: string) -> string {
         const string code = """
 val value: int = -1
 
-val result = value match {
+val result = match value {
     -1 => "minus one"
     _ => "other"
 }
@@ -406,7 +433,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     _ => ""
 }
@@ -421,7 +448,7 @@ val result = value match {
     public void MatchExpression_WithDiscardArmOnNewLine_DoesNotInsertEmptyArm()
     {
         const string code = """
-val result = false match {
+val result = match false {
     _ => "none"
 }
 """;
@@ -456,7 +483,7 @@ class Character(name: string, species: Species, age: int) {
 
 val character = Character("Rex", .Dog, 4)
 
-val result = character match {
+val result = match character {
     { Age: not > 34, Species: .Dog } => true
     _ => false
 }
@@ -527,7 +554,7 @@ sealed interface Expr<T>
 
 func Evaluate<T>(expr: Expr<T>) -> T
     where T: INumber<T> {
-    return expr match {
+    return match expr {
         .Literal(val value) => value
         .Add(val left, val right) => Evaluate(left) + Evaluate(right)
     }
@@ -564,7 +591,7 @@ enum Color {
 
 val value: Color = .Red
 
-val result = value match {
+val result = match value {
     .Red => 1
     .Green => 2
 }
@@ -583,7 +610,7 @@ val result = value match {
         const string code = """
 class Program {
     func eval(color: Color) -> int {
-        return color match {
+        return match color {
             .Red => 1
         }
     }
@@ -612,7 +639,7 @@ enum Color {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object _ => value.ToString()
 }
@@ -633,7 +660,7 @@ enum PingStatus {
 }
 
 func ping(name: string) -> PingStatus {
-    return name match {
+    return match name {
         "Bob" | "bob" => .Ok
         _ => .Error
     }
@@ -655,7 +682,7 @@ union Value {
 
 val x: Value = .Bool(flag: false)
 
-val result = x match {
+val result = match x {
     .Bool(val flag) => "hej"
     .Pair(val a, val b) => "tuple ${a} ${b}"
 }
@@ -685,7 +712,7 @@ val result = x match {
 import System.*
 
 func Test(y: int) -> int {
-    val r = y match {
+    val r = match y {
         0 => return 0
         1 => 42
         _ => throw Exception("x")
@@ -705,7 +732,7 @@ func Test(y: int) -> int {
         const string code = """
 val items: int[] = [1, 2]
 
-val result = items match {
+val result = match items {
     [val first, val second] => first + second
     _ => 0
 }
@@ -749,7 +776,7 @@ val result = items match {
         const string code = """
 val items: int[] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
@@ -785,7 +812,7 @@ import System.Collections.Generic.*
 
 val items: List<int> = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
@@ -821,7 +848,7 @@ import System.Collections.Immutable.*
 
 val items: ImmutableList<int> = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
@@ -855,7 +882,7 @@ val result = items match {
         const string code = """
 val items: int[4] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, val second, ...val rest] => first + second + rest.Length
     _ => 0
 }
@@ -891,7 +918,7 @@ val result = items match {
         const string code = """
 val items: int[] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ...] => first
     _ => 0
 }
@@ -921,7 +948,7 @@ val result = items match {
         const string code = """
 val items: int[] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..., val last] => first + last
     _ => 0
 }
@@ -951,7 +978,7 @@ val result = items match {
         const string code = """
 val text = "rune"
 
-val result = text match {
+val result = match text {
     [val first, ..2 val middle, val last] => middle
     _ => ""
 }
@@ -990,7 +1017,7 @@ import System.Linq.*
 
 val items: IEnumerable<int> = [1, 2, 3].Where(v => v > 0)
 
-val result = items match {
+val result = match items {
     [val first, val second] => first + second
     _ => 0
 }
@@ -1013,7 +1040,7 @@ val result = items match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     _ => ""
     string text => text
 }
@@ -1032,7 +1059,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     object _ => value.ToString()
     string text => text
 }
@@ -1058,7 +1085,7 @@ union Result<T, E> {
 
 val value: Result<int, string> = .Ok(2)
 
-val result = value match {
+val result = match value {
     .Ok(2) => "Lucky you!"
     .Ok(2) => "Still lucky!"
     .Ok(val payload) => payload.ToString()
@@ -1079,7 +1106,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object obj => obj.ToString()
     _ => "None"
@@ -1105,7 +1132,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     val text => text
 }
 """;
@@ -1136,7 +1163,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     var text => text
 }
 """;
@@ -1167,7 +1194,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     val text: string => text
     _ => ""
 }
@@ -1199,7 +1226,7 @@ val result = value match {
         const string code = """
 val value: object = [1, 2, 3]
 
-val result = value match {
+val result = match value {
     int[] numbers => numbers.Length
     _ => 0
 }
@@ -1231,7 +1258,7 @@ val result = value match {
     {
         const string code = """
 func describe(value: object) -> string? {
-    value match {
+    match value {
         string text when text.Length > 3 => text
         string text => text.ToUpper()
         object obj => obj.ToString()
@@ -1255,7 +1282,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 0
 }
@@ -1272,7 +1299,7 @@ val result = state match {
         const string code = """
 val value: string? = null
 
-val result = value match {
+val result = match value {
     null => "empty"
     string text => text
 }
@@ -1325,7 +1352,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1343,7 +1370,7 @@ val result = state match {
         const string code = """
 val value: Result<int, string> = .Ok(1)
 
-val result = value match {
+val result = match value {
     .Ok(val payload) => payload
 }
 
@@ -1371,7 +1398,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1402,7 +1429,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1428,7 +1455,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1460,7 +1487,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 0
     _ => -1
@@ -1485,7 +1512,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 0
     _ => -1
@@ -1517,7 +1544,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off when false => 0
     _ => -1
@@ -1535,7 +1562,7 @@ val result = state match {
         const string code = """
 val result: Result<int> = .Ok(value: 1)
 
-val value = result match {
+val value = match result {
     .Ok(val payload) => payload
     .Error(val message) => 0
     _ => -1
@@ -1560,7 +1587,7 @@ union Result<T> {
         const string code = """
 val result: Result<int> = .Ok(value: 1)
 
-val value = result match {
+val value = match result {
     .Ok(val payload) => payload
     .Error(val message) => 0
     _ => -1
@@ -1596,7 +1623,7 @@ union Response<T> {
 }
 
 func Describe(result: Response<int>) -> string {
-    return result match {
+    return match result {
         .Success(val value) => value.ToString()
         .Failure(val message) => message
     }
@@ -1616,7 +1643,7 @@ import System.*
 
 val result: Result<string, Exception> = .Ok(value: "ok")
 
-val value = result match {
+val value = match result {
     .Ok(val text) => text
     .Error((val message)) => message
     _ => ""
@@ -1653,7 +1680,7 @@ union Input {
 
 val input: Input = .Text(value: "")
 
-val result = input match {
+val result = match input {
     .Text(val text) when text.Length > 0 => "Saw \"${text}\""
     .Number(val number) => "Counted ${number}"
 }
@@ -1678,7 +1705,7 @@ union Input {
 
 val input: Input = .Text(value: "")
 
-val result = input match {
+val result = match input {
     .Text(val text) when text.Length > 0 => "Saw \"${text}\""
     .Number(val number) => "Counted ${number}"
 }
@@ -1704,7 +1731,7 @@ val result = input match {
         const string code = """
 val input: string? = null
 
-val result = input match {
+val result = match input {
     null => "Nothing to report."
     string text => text
 }
@@ -1721,7 +1748,7 @@ val result = input match {
         const string code = """
 val pair: object = (1, "two")
 
-val result = pair match {
+val result = match pair {
     (val first: int, val second: string) => second
     _ => ""
 }
@@ -1762,7 +1789,7 @@ val result = pair match {
 val existingValue = 2
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (val a, == existingValue) => a
     _ => 0
 }
@@ -1798,7 +1825,7 @@ val a = 1
 val existingValue = 2
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (a, == existingValue) => 1
     _ => 0
 }
@@ -1829,7 +1856,7 @@ val result = pair match {
         const string code = """
 val input = [1, 2, 3, 4]
 
-val result = input match {
+val result = match input {
     val [first, second, ...rest] => first + second + rest.Count
     _ => 0
 }
@@ -1855,7 +1882,7 @@ union Option<T> {
 
 val value: Option<(int, int)> = .Some((1, 2))
 
-val result = value match {
+val result = match value {
     val Some((x, y)) => x + y
     _ => 0
 }
@@ -1876,7 +1903,7 @@ record class Person(Name: string, Age: int)
 
 val person = Person("Ada", 42)
 
-val result = person match {
+val result = match person {
     val (Name: name, Age: age) => name.Length + age
     _ => 0
 }
@@ -1897,7 +1924,7 @@ record class Person(Name: string, Age: int)
 
 val person = Person("Ada", 42)
 
-val result = person match {
+val result = match person {
     val (Name: name: string, Age: age: int) => name.Length + age
     _ => 0
 }
@@ -1923,7 +1950,7 @@ val result = person match {
         const string code = """
 val input = [1, 2, 3]
 
-val result = input match {
+val result = match input {
     val [val first, second, ...rest] => first
     _ => 0
 }
@@ -1943,7 +1970,7 @@ val result = input match {
         const string code = """
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (1, > 0.5) => 1
     _ => 0
 }
@@ -1966,7 +1993,7 @@ val result = pair match {
         const string code = """
 val value: int = 2
 
-val result = value match {
+val result = match value {
     0..0.5 => 1
     _ => 0
 }
@@ -1988,7 +2015,7 @@ val result = value match {
     {
         const string code = """
 func IsEligible(year: int, lower: int, upper: int) -> bool {
-    return year match {
+    return match year {
         lower..upper => true
         _ => false
     }
@@ -2025,7 +2052,7 @@ union Option<T> {
 
 class C {
     func Run(value: Option<(string, int)>) -> int {
-        return value match {
+        return match value {
             val Some((first, >= 18)) whole => first.Length
             _ => 0
         }
@@ -2055,7 +2082,7 @@ class C {
         const string code = """
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (int a, int b, int c) => c
 }
 """;
@@ -2076,7 +2103,7 @@ val result = pair match {
         const string code = """
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (int a, int b, int c) => c
 }
 """;
@@ -2101,7 +2128,7 @@ val result = pair match {
         const string code = """
 val value: int = 0
 
-val result = value match {
+val result = match value {
     string text => text
     _ => ""
 }
@@ -2125,7 +2152,7 @@ union State {
 
 val value: State = .On
 
-val result = value match {
+val result = match value {
     bool flag => 1
     _ => 0
 }
@@ -2144,7 +2171,7 @@ val result = value match {
         const string code = """
 val value: int = 0
 
-val result = value match {
+val result = match value {
     "foo" => 1
     _ => 0
 }
@@ -2170,7 +2197,7 @@ record Lit(Value: int) : Expr
 record Add(Left: Expr, Right: Expr) : Expr
 
 func Evaluate(expr: Expr) -> int {
-    return expr match {
+    return match expr {
         Add(val left, val right) => 0
         _ => 0
     }
@@ -2207,7 +2234,7 @@ func Evaluate(expr: Expr) -> int {
         const string code = """
 val value: int = 9
 
-val result = value match {
+val result = match value {
     2..<10 => 1
     _ => 0
 }

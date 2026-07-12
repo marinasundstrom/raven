@@ -5176,6 +5176,7 @@ public partial class SemanticModel
                 IfPatternStatementSyntax or
                 WhilePatternStatementSyntax or
                 MatchExpressionSyntax or
+                PostfixMatchExpressionSyntax or
                 MatchStatementSyntax or
                 ForStatementSyntax or
                 PatternDeclarationAssignmentStatementSyntax or
@@ -7868,6 +7869,12 @@ public partial class SemanticModel
             return;
         }
 
+        if (patternNode.GetAncestor<PostfixMatchExpressionSyntax>() is { } postfixMatchExpression)
+        {
+            _ = GetBoundNode(postfixMatchExpression);
+            return;
+        }
+
         if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
             _ = GetBoundNode(matchStatement);
@@ -7903,6 +7910,10 @@ public partial class SemanticModel
         if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
         {
             inputType = GetPatternScrutineeType(matchExpression.Expression);
+        }
+        else if (patternNode.GetAncestor<PostfixMatchExpressionSyntax>() is { } postfixMatchExpression)
+        {
+            inputType = GetPatternScrutineeType(postfixMatchExpression.Expression);
         }
         else if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
@@ -7989,6 +8000,8 @@ public partial class SemanticModel
 
         if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
             scrutineeType = GetPatternScrutineeType(matchExpression.Expression)!;
+        else if (patternNode.GetAncestor<PostfixMatchExpressionSyntax>() is { } postfixMatchExpression)
+            scrutineeType = GetPatternScrutineeType(postfixMatchExpression.Expression)!;
         else if (patternNode.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
             scrutineeType = GetPatternScrutineeType(matchStatement.Expression)!;
         else if (patternNode.GetAncestor<IsPatternExpressionSyntax>() is { } isPatternExpression)
@@ -11016,8 +11029,8 @@ public partial class SemanticModel
                         if (TryResolveContextualPatternSymbol(matchArm.Pattern, expression, name, out var patternSymbol))
                             return patternSymbol;
 
-                        if (matchArm.Parent is MatchExpressionSyntax matchExpression &&
-                            TryGetExpressionType(matchExpression.Expression) is { } inputType &&
+                        if (GetMatchExpressionScrutinee(matchArm.Parent) is { } matchExpressionScrutinee &&
+                            TryGetExpressionType(matchExpressionScrutinee) is { } inputType &&
                             TryInferPatternDesignationType(matchArm.Pattern, name, inputType) is { } patternType)
                         {
                             return CreateSyntheticInterestLocalSymbol(name, patternType, expression);
@@ -11029,6 +11042,16 @@ public partial class SemanticModel
         }
 
         return null;
+    }
+
+    private static ExpressionSyntax? GetMatchExpressionScrutinee(SyntaxNode? matchSyntax)
+    {
+        return matchSyntax switch
+        {
+            MatchExpressionSyntax matchExpression => matchExpression.Expression,
+            PostfixMatchExpressionSyntax matchExpression => matchExpression.Expression,
+            _ => null,
+        };
     }
 
     private bool TryResolveContextualPatternSymbol(

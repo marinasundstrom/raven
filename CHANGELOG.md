@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added keyword-first `match scrutinee { ... }` as the normal match expression
+  form, aligning match expressions with match statements. The older postfix
+  expression form remains supported for composition cases such as
+  `try expr match { ... }`.
 - Added support for `[method: ...]` attributes on class, struct, and record
   declarations with primary constructors, applying them to the synthesized
   constructor metadata.
@@ -34,6 +38,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   follows `Value != null`, `null` patterns over class unions check both the
   carrier reference and active `Value`, and nullable-content parenthesized
   unions no longer expose `null` as a pseudo member type.
+- Changed plain Raven `union` declarations to synthesize struct carriers by
+  default, matching the C# generated-union direction. Raven.Core `Union<...>`,
+  `Option<T>`, and `Result<T, E>` remain explicit `union class` carriers while
+  struct-union pattern matching is stabilized. Struct-union parameter matches
+  keep requiring inactive/default-state coverage because callers can pass
+  `default`; active `null` contents remain separate from the struct default
+  state.
 - Fixed extension member completion after partially typed member names so
   imported metadata extension methods are offered for prefixes such as
   `widget.Dou`.

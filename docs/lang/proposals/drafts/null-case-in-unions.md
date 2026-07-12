@@ -267,7 +267,7 @@ work":
 union RenderValue(string | Expression<() -> object> | null)
 
 func Render(value: RenderValue) -> string {
-    return value match {
+    match value {
         string text => text
         Expression<() -> object> binding => binding.ToString()
         null => ""

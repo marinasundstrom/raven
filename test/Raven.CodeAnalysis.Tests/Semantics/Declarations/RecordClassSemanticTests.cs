@@ -325,7 +325,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var source = """
             val value: object = Person("Ada", 42);
 
-            val result = value match {
+            val result = match value {
                 Person(val name, val age) => name
                 _ => ""
             };
@@ -402,7 +402,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var source = """
             val value: Pair = Pair(1, 2);
 
-            val result = value match {
+            val result = match value {
                 (val left, val right) => left
                 _ => 0
             };
@@ -429,7 +429,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var source = """
             val value: Person = Person("Ada", 42, ["tea"]);
 
-            val result = value match {
+            val result = match value {
                 (Age: 42, Items: val items, Name: val name) => name + items[0]
                 _ => ""
             };
@@ -457,7 +457,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var source = """
             val value: object = Person("Ada", 42, ["tea"]);
 
-            val result = value match {
+            val result = match value {
                 Person(Items: val items, Name: val name, Age: 42) => name + items[0]
                 _ => ""
             };

@@ -174,12 +174,12 @@ import Status.*
 val a = Status.Open("foo")
 val b = Status.Closed("done")
 
-val textA = a match {
+val textA = match a {
     .Open(val reason) => reason
     .Closed(_) => ""
 }
 
-val textB = b match {
+val textB = match b {
     Open(val reason) => reason
     Closed(_) => ""
 }

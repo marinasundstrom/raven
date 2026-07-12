@@ -555,7 +555,7 @@ if value is {{patternText}} {
             : $$"""
 let value: object = (1, "two")
 
-let result = value match {
+let result = match value {
     {{patternText}} => value
     _ => value
 }

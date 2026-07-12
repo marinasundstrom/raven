@@ -236,6 +236,7 @@ internal class MethodBodyGenerator
         var location = syntax switch
         {
             MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+            PostfixMatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
             MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
             _ => syntax.GetLocation()
         };
@@ -507,7 +508,7 @@ internal class MethodBodyGenerator
         if (syntax.GetAncestor<MatchArmSyntax>() is not null)
             return syntax;
 
-        if (syntax is MatchExpressionSyntax or MatchStatementSyntax)
+        if (syntax is MatchExpressionSyntax or PostfixMatchExpressionSyntax or MatchStatementSyntax)
             return syntax;
 
         return NormalizeSequencePointSyntax(syntax);
@@ -588,6 +589,9 @@ internal class MethodBodyGenerator
 
             if (initializerSyntax.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
                 return matchExpression;
+
+            if (initializerSyntax.GetAncestor<PostfixMatchExpressionSyntax>() is { } postfixMatchExpression)
+                return postfixMatchExpression;
         }
 
         return null;
@@ -604,7 +608,8 @@ internal class MethodBodyGenerator
     private static SyntaxNode? GetMatchSyntax(MatchArmSyntax armSyntax)
     {
         return armSyntax.GetAncestor<MatchStatementSyntax>()
-            ?? (SyntaxNode?)armSyntax.GetAncestor<MatchExpressionSyntax>();
+            ?? armSyntax.GetAncestor<MatchExpressionSyntax>()
+            ?? (SyntaxNode?)armSyntax.GetAncestor<PostfixMatchExpressionSyntax>();
     }
 
     private MatchArmSyntax? TryGetMatchArmSyntax(BoundIsPatternExpression patternCondition)
@@ -687,6 +692,9 @@ internal class MethodBodyGenerator
 
             if (statementSyntax.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
                 return matchExpression;
+
+            if (statementSyntax.GetAncestor<PostfixMatchExpressionSyntax>() is { } postfixMatchExpression)
+                return postfixMatchExpression;
         }
 
         return null;
@@ -705,8 +713,9 @@ internal class MethodBodyGenerator
             return null;
 
         var isMatchRelatedSyntax =
-            syntax is MatchExpressionSyntax or MatchStatementSyntax
+            syntax is MatchExpressionSyntax or PostfixMatchExpressionSyntax or MatchStatementSyntax
             || syntax.GetAncestor<MatchExpressionSyntax>() is not null
+            || syntax.GetAncestor<PostfixMatchExpressionSyntax>() is not null
             || syntax.GetAncestor<MatchStatementSyntax>() is not null
             || syntax.GetAncestor<MatchArmSyntax>() is not null
             || syntax.GetAncestor<WhenClauseSyntax>() is not null;

@@ -211,7 +211,7 @@ func A(totalDistance: decimal) -> decimal {
     {
         const string code = """
 func A(value: int) -> int {
-    val result = value match {
+    val result = match value {
         0 => {
             0
         }

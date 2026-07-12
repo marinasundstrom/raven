@@ -1182,7 +1182,7 @@ internal class StatementSyntaxParser : SyntaxParser
     private StatementSyntax ParseMatchStatementSyntax()
     {
         SetTreatNewlinesAsTokens(false);
-        var matchExpression = new ExpressionSyntaxParser(this).ParseMatchExpressionStatementForm();
+        var matchExpression = new ExpressionSyntaxParser(this).ParseMatchExpressionKeywordFirst();
         var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
         return MatchStatement(
             matchExpression.MatchKeyword,

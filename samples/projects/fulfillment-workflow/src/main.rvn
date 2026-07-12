@@ -142,7 +142,7 @@ func ValidateLine(orderId: string, dto: OrderLineDto) -> Result<OrderLine, Fulfi
 func ParsePriority(text: string) -> Result<Priority, FulfillmentError> {
     val normalized = text.Trim().ToLowerInvariant()
 
-    return normalized match {
+    match normalized {
         "standard" => {
             val priority: Priority = .Standard
             Ok(priority)

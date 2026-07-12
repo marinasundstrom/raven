@@ -228,7 +228,7 @@ class Program {
         val result: Result<int, ParseError> = Error(ParseError("invalid"))
         val wrapped = result.WithMessage("context")
 
-        return wrapped match {
+        return match wrapped {
             case Ok(val value) => value.ToString()
             Error(val error) => error.Message + ":" + error.Cause.Message
         }

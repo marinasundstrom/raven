@@ -477,7 +477,7 @@ class C {
         val expected = 1
         val actual = 1
 
-        val result = actual match {
+        val result = match actual {
             expected => "ok"
             _ => "no"
         }

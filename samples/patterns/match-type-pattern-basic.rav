@@ -3,7 +3,7 @@ import System.Console.*
 // Feature: basic type pattern in `match` expression.
 val metricPayload: object = 42
 
-val result = metricPayload match {
+val result = match metricPayload {
     int value => "Numeric metric: ${value}"
     _ => "Unsupported metric payload"
 }

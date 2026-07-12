@@ -292,7 +292,7 @@ class C {
     {
         const string source = """
 var value = 1
-var result = value match {
+var result = match value {
     not 1 or 2 when true => 10
     _ => 20
 }
@@ -329,7 +329,7 @@ var result = value match {
     public void GetOperation_MatchExpression_ArmValue_SkipsInternalRequiredResultWrapper()
     {
         const string source = """
-var value = 0 match {
+var value = match 0 {
     0 => 1
     _ => 2
 }
@@ -384,7 +384,7 @@ match value {
     {
         const string source = """
 var tuple = (1, 2)
-var result = tuple match {
+var result = match tuple {
     (val a, val b) => a
     _ => 0
 }
@@ -409,7 +409,7 @@ var result = tuple match {
     {
         const string source = """
 val value: object = Person("Ada", 42)
-val result = value match {
+val result = match value {
     Person(val name, val age) => name
     _ => ""
 }
@@ -437,7 +437,7 @@ record class Person(Name: string, Age: int)
     {
         const string source = """
 val value: object = Person("Ada", 42, ["tea"])
-val result = value match {
+val result = match value {
     Person(Items: val items, Name: val name, Age: 42) => name
     _ => ""
 }
@@ -466,7 +466,7 @@ record class Person(Name: string, Age: int, Items: string[])
     {
         const string source = """
 val value: int = 9
-val result = value match {
+val result = match value {
     2..<10 => 1
     _ => 0
 }
@@ -493,7 +493,7 @@ val result = value match {
     {
         const string source = """
 val value: int = 9
-val result = value match {
+val result = match value {
     > 2 => 1
     _ => 0
 }
@@ -518,7 +518,7 @@ val result = value match {
     {
         const string source = """
 val value: object = Person("Ada", 42)
-val result = value match {
+val result = match value {
     Person { Name: "Ada", Age: _ } => 1
     _ => 0
 }
@@ -585,7 +585,7 @@ func Test(value: object) -> int {
 import System.Collections.Generic.*
 
 val value: Dictionary<string, int> = !["Ada": 42, "Grace": 43]
-val result = value match {
+val result = match value {
     ["Ada": val age, "Grace": _] => 1
     _ => 0
 }
@@ -618,7 +618,7 @@ val result = value match {
         const string source = """
 var expected = 2
 var tuple = (1, 2)
-var result = tuple match {
+var result = match tuple {
     (val a, == expected) => a
     _ => 0
 }

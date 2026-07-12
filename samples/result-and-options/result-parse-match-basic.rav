@@ -5,7 +5,7 @@ val res = parseNumber("foo")
 
 Console.WriteLine("Is error: ${res.HasError}")
 
-val str = res match {
+val str = match res {
     Ok(val v) => "Number is: $v"
     Error(val message) => message
 }

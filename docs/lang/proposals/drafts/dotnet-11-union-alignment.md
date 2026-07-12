@@ -372,7 +372,7 @@ place, ordinary case patterns continue to work:
 import System.Result.*
 
 func Render(result: Result<int, string>) -> string {
-    return result match {
+    match result {
         Ok(val value) => value.ToString()
         Error(val error) => error
     }
@@ -416,7 +416,7 @@ func GetUser() -> Result<User, Err> {
 func GetItem() -> Result<string, Err> {
     val maybeItem = GetUser()?.Item?
 
-    return maybeItem match {
+    match maybeItem {
         Some(val item) => Ok(item.Name)
         None => Error(Err.MissingName)
     }

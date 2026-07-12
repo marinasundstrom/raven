@@ -100,7 +100,7 @@ class C {
         const string code = """
 class C {
     func Run(values: int[]) -> int {
-        return values match {
+        return match values {
             [val head, ..val rest] => rest.Length + head
             _ => 0
         }
@@ -324,7 +324,7 @@ union Option<T> {
 
 class C {
     func Run(value: Option<int>) -> int {
-        return value match {
+        return match value {
             val Some(inner) whole => inner
             _ => 0
         }

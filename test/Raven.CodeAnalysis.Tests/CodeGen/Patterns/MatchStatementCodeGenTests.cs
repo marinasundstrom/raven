@@ -40,7 +40,7 @@ match condition {
 import System.*
 
 func ping(name: string) -> int {
-    return name match {
+    return match name {
         "Bob" | "bob" => 1
         _ => 0
     }

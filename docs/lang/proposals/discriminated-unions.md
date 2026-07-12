@@ -62,7 +62,7 @@ Union instances participate in the existing pattern matching syntax. Exhaustiven
 
 ```csharp
 func describe(token: Token) -> string {
-    return token match {
+    match token {
         .Identifier(text) => "identifier ${text}"
         .Number(text) => "number ${text}"
         .Unknown => "unknown"
@@ -82,7 +82,7 @@ payload-bearing cases unpack each element positionally:
 ```csharp
 let token = Token.Identifier("foo")
 
-let description = token match {
+let description = match token {
     .Identifier(let text) => text,
     Token.Unknown() => "missing",
 }
@@ -100,7 +100,7 @@ union Result<T> {
 }
 
 func format(result: Result<int, string>) -> string {
-    return result match {
+    match result {
         .Ok(let payload) => "ok ${payload}"
         .Error(let message) => "error ${message}"
     }

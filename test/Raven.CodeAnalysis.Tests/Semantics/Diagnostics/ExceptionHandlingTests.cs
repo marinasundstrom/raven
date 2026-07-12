@@ -275,7 +275,7 @@ class C {
 
         var matchExpression = root
             .DescendantNodes()
-            .OfType<MatchExpressionSyntax>()
+            .OfType<PostfixMatchExpressionSyntax>()
             .Single();
 
         Assert.Equal(SpecialType.System_String, model.GetTypeInfo(matchExpression).Type!.SpecialType);

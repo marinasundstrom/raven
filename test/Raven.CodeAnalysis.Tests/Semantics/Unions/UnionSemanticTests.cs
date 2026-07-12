@@ -35,7 +35,7 @@ union Option {
     }
 
     [Fact]
-    public void UnionDeclaration_WithoutStorageModifier_DefaultsToClassUnionAndClassCases()
+    public void UnionDeclaration_WithoutStorageModifier_DefaultsToStructUnionAndStructCases()
     {
         const string source = """
 union Option {
@@ -51,8 +51,8 @@ union Option {
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
         var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        Assert.Equal(TypeKind.Class, unionSymbol.TypeKind);
-        Assert.All(unionSymbol.CaseTypes, static @case => Assert.Equal(TypeKind.Class, @case.TypeKind));
+        Assert.Equal(TypeKind.Struct, unionSymbol.TypeKind);
+        Assert.All(unionSymbol.CaseTypes, static @case => Assert.Equal(TypeKind.Struct, @case.TypeKind));
         Assert.Equal(2, unionSymbol.MemberTypes.Length);
     }
 
@@ -119,7 +119,7 @@ union Either(Left | Right)
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
         var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        Assert.Equal(TypeKind.Class, unionSymbol.TypeKind);
+        Assert.Equal(TypeKind.Struct, unionSymbol.TypeKind);
         Assert.Empty(unionSymbol.DeclaredCaseTypes);
         Assert.Collection(
             unionSymbol.CaseTypes,
@@ -136,7 +136,7 @@ union Either(Left | Right)
     {
         const string source = """
 func Test(value: Either) -> int {
-    return value match {
+    return match value {
         string text => text.Length
     }
 }
@@ -165,7 +165,7 @@ union Either(int | string)
     {
         const string source = """
 func Test(value: Either) -> int {
-    return value match {
+    return match value {
         int number => number
         string text => text.Length
     }
@@ -237,7 +237,7 @@ union Foo(int | double)
     {
         const string source = """
 func Test(value: Foo) -> int {
-    return value match {
+    return match value {
         int number => number
         double? number => 0
     }
@@ -353,7 +353,7 @@ func Test() -> () {
     {
         const string source = """
 func Test(x2: Test2) -> int {
-    val r = x2 match {
+    val r = match x2 {
         42 => 3
         null => 2
     }
@@ -381,7 +381,7 @@ union Test2(int | null)
     {
         const string source = """
 func Test(x2: Test2) -> int {
-    val r = x2 match {
+    val r = match x2 {
         null => 2
     }
 
@@ -413,7 +413,7 @@ union Test2(int | null)
     {
         const string source = """
 func Test(x2: Test2) -> int {
-    return x2 match {
+    return match x2 {
         int value => value
         null => 2
     }
@@ -637,7 +637,7 @@ record Card(reference: string)
 union Payment(Cash | Card)
 
 func Describe(value: Payment) -> string {
-    return value match {
+    return match value {
         Cash(val amount) => "cash $amount"
         Card(val reference) => "card $reference"
     }
@@ -700,7 +700,7 @@ union Option<T> {
     func Normalize(fallback: T) -> Option<T> {
         val current: Option<T> = Some(fallback)
 
-        return self match {
+        return match self {
             Some(val value) => Some(value)
             None => current
         }
@@ -827,7 +827,7 @@ union HeaterResult {
     {
         const string source = """
 func describe(result: HeaterResult) -> int {
-    return result match {
+    return match result {
         TempTooLow(val temp) => temp
     }
 }
@@ -853,7 +853,7 @@ union HeaterResult {
 import HeaterResult.*
 
 func describe(result: HeaterResult) -> int {
-    return result match {
+    return match result {
         TempTooLow(val temp) => temp
     }
 }
@@ -1058,7 +1058,7 @@ union Result<T, E> {
     {
         const string source = """
 func format(option: Option<int>) -> string {
-    return option match {
+    return match option {
         .Some(val value) => "some ${value}"
         .None => "none"
     }
@@ -1129,7 +1129,7 @@ union Result<T, E> {
 func build() -> Result<int, Err> {
     val value: int? = null
 
-    return value match {
+    return match value {
         null => .Error(.MissingName)
         val v => .Ok(v ?? 0)
     }
@@ -1158,7 +1158,7 @@ union Result<T, E> {
     {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
-    return flag match {
+    return match flag {
         true => .Ok(42)
         false => .Error("boom")
     }
@@ -1709,11 +1709,11 @@ union struct Result {
     }
 
     [Fact]
-    public void StructUnionMatch_ExhaustivenessIncludesInactiveNullState()
+    public void StructUnionMatch_ExhaustivenessIncludesInactiveDefaultState()
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
@@ -1727,23 +1727,27 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
+        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
         Assert.False(info.IsExhaustive);
-        Assert.Contains("null", info.MissingCases);
+        Assert.Contains("default", info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_NullArmCoversInactiveState()
+    public void StructUnionMatch_CatchAllArmCoversInactiveState()
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
-        null => "uninitialized"
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
+        _ => "uninitialized"
     }
 }
 
@@ -2552,7 +2556,7 @@ union Result<T, E> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
@@ -2576,7 +2580,7 @@ union Result<T> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
@@ -2600,7 +2604,7 @@ union Result<T> {
     {
         const string source = """
 func describe(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
@@ -2624,7 +2628,7 @@ union Result<T> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
@@ -2650,7 +2654,7 @@ union Result<T> {
 import Result.*
 
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         Ok(val payload) => payload.ToString()
     }
 }
@@ -2673,7 +2677,7 @@ union Result<T> {
     {
         const string source = """
 func describe(value: Test) -> string {
-    return value match {
+    return match value {
         .Something(val text) => text
         .Nothing => "none"
     }
@@ -2702,7 +2706,7 @@ union Test {
     {
         const string source = """
 func describe(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
     }
 }
@@ -2727,7 +2731,7 @@ union Result<T> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => "ok ${payload}" when payload > 1
         .Error(val message) => "error ${message}"
     }
@@ -2753,7 +2757,7 @@ union Result<T> {
     {
         const string source = """
 func area(shape: Shape) -> int {
-    return shape match {
+    return match shape {
         .Circle(val r) => r * r * 3
         .Rectangle(4, val h) => 42
     }
@@ -2779,7 +2783,7 @@ union Shape {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok() => "ok"
         _ => "none"
     }

@@ -2038,6 +2038,7 @@ internal sealed class MatchOperation : Operation, ISwitchOperation
     private ExpressionSyntax? MatchInput => Syntax switch
     {
         MatchExpressionSyntax matchExpression => matchExpression.Expression,
+        PostfixMatchExpressionSyntax matchExpression => matchExpression.Expression,
         MatchStatementSyntax matchStatement => matchStatement.Expression,
         _ => null
     };
@@ -2045,6 +2046,7 @@ internal sealed class MatchOperation : Operation, ISwitchOperation
     private SyntaxList<MatchArmSyntax> MatchArms => Syntax switch
     {
         MatchExpressionSyntax matchExpression => matchExpression.Arms,
+        PostfixMatchExpressionSyntax matchExpression => matchExpression.Arms,
         MatchStatementSyntax matchStatement => matchStatement.Arms,
         _ => default
     };

@@ -11,7 +11,7 @@ func Main() {
     test.Dispose()
 
     val v: Foo = 3
-    val r = v match {
+    val r = match v {
         int i => i
         string => 2
         _ => 4

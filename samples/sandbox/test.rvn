@@ -55,7 +55,7 @@ func FindPerson(persons: Person[], name: string) -> Result<Person, CustomError> 
 
 async func GetPersons() -> Task<Result<Person[], CustomError>> {
     val personResult = await GetPersonsCore()
-    return personResult match {
+    match personResult {
         Ok(val persons) => Ok(persons)
         Error(val exception) => Error(CustomError(exception.Message))
     }

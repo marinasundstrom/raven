@@ -201,6 +201,12 @@ partial class BlockBinder : Binder
             return true;
         }
 
+        if (designation.GetAncestor<PostfixMatchExpressionSyntax>() is { } postfixMatchExpression)
+        {
+            owner = postfixMatchExpression;
+            return true;
+        }
+
         if (designation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
             owner = matchStatement;
@@ -2155,7 +2161,14 @@ partial class BlockBinder : Binder
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression || _allowReturnsInBlockExpressionsOnly),
             UnsafeExpressionSyntax unsafeExpression => BindUnsafeExpression(unsafeExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
-            MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
+            MatchExpressionSyntax matchExpression => BindMatchExpression(
+                matchExpression,
+                matchExpression.Expression,
+                matchExpression.Arms),
+            PostfixMatchExpressionSyntax matchExpression => BindMatchExpression(
+                matchExpression,
+                matchExpression.Expression,
+                matchExpression.Arms),
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
             ReturnExpressionSyntax returnExpression => BindReturnExpression(returnExpression),
             ThrowExpressionSyntax throwExpression => BindThrowExpression(throwExpression),
@@ -2194,6 +2207,7 @@ partial class BlockBinder : Binder
             or IdentifierNameSyntax
             or DefaultExpressionSyntax
             or MatchExpressionSyntax
+            or PostfixMatchExpressionSyntax
             or IfExpressionSyntax
             || syntax is PostfixOperatorExpressionSyntax { OperatorToken.Kind: SyntaxKind.ExclamationToken };
 
@@ -4027,14 +4041,17 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private BoundExpression BindMatchExpression(MatchExpressionSyntax matchExpression)
+    private BoundExpression BindMatchExpression(
+        SyntaxNode matchExpression,
+        ExpressionSyntax expression,
+        SyntaxList<MatchArmSyntax> matchArms)
     {
         var armTargetType = GetTargetType(matchExpression);
 
         var (scrutinee, arms) = BindMatchCommon(
             matchExpression,
-            matchExpression.Expression,
-            matchExpression.Arms,
+            expression,
+            matchArms,
             allowReturnInArmExpressions: _allowReturnsInExpression,
             requireArmValue: true,
             armTargetType: armTargetType);
@@ -5046,9 +5063,6 @@ partial class BlockBinder : Binder
         if (type.TryGetUnion() is { ContentMayBeNull: true })
             return true;
 
-        if (type.TryGetUnion() is { TypeKind: TypeKind.Struct })
-            return true;
-
         // Union can be null if any member can be null.
         if (type is ITypeUnionSymbol union)
         {
@@ -5350,7 +5364,7 @@ partial class BlockBinder : Binder
 
         if (discriminatedUnion is not null)
         {
-            EnsureDiscriminatedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, discriminatedUnion, catchAllIndex);
+            EnsureDiscriminatedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, scrutineeType, discriminatedUnion, catchAllIndex);
             return;
         }
 
@@ -5611,6 +5625,7 @@ partial class BlockBinder : Binder
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
+        ITypeSymbol scrutineeType,
         IUnionSymbol union,
         int catchAllIndex)
     {
@@ -5621,10 +5636,15 @@ partial class BlockBinder : Binder
         }
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutineeType, union);
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
+        bool? guaranteedInactiveStructStateRemaining = null;
         if (catchAllIndex >= 0)
+        {
             guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+            guaranteedInactiveStructStateRemaining = inactiveStructStateRemaining;
+        }
 
         var reportedRedundantCatchAll = false;
 
@@ -5634,14 +5654,20 @@ partial class BlockBinder : Binder
             var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
 
             if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+            {
                 RemoveCoveredCases(guaranteedRemaining, arm.Pattern, union);
+                guaranteedInactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
 
             if (guardGuaranteesMatch)
-                RemoveCoveredCases(remaining, arm.Pattern, union);
-
-            if (remaining.Count == 0)
             {
-                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+                RemoveCoveredCases(remaining, arm.Pattern, union);
+                inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
+
+            if (remaining.Count == 0 && !inactiveStructStateRemaining)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
                 {
                     ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                     reportedRedundantCatchAll = true;
@@ -5650,11 +5676,17 @@ partial class BlockBinder : Binder
                 return;
             }
 
-            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
             {
                 ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                 reportedRedundantCatchAll = true;
             }
+        }
+
+        if (inactiveStructStateRemaining)
+        {
+            ReportMatchNotExhaustive(matchSyntax, "default");
+            return;
         }
 
         var missingCase = remaining.FirstOrDefault();
@@ -5788,6 +5820,30 @@ partial class BlockBinder : Binder
         }
 
         return true;
+    }
+
+    private static bool RequiresInactiveStructUnionStateCoverage(ITypeSymbol scrutineeType, IUnionSymbol union)
+    {
+        if (union.TypeKind != TypeKind.Struct)
+            return false;
+
+        return scrutineeType.TryGetUnion() is not null;
+    }
+
+    private bool PatternCoversInactiveStructUnionState(
+        ITypeSymbol scrutineeType,
+        BoundPattern pattern,
+        IUnionSymbol union)
+    {
+        if (union.TypeKind != TypeKind.Struct)
+            return false;
+
+        if (IsCatchAllPattern(scrutineeType, pattern))
+            return true;
+
+        return pattern is BoundOrPattern orPattern &&
+               (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
+                PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
     }
 
     private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern)
@@ -17916,6 +17972,7 @@ partial class BlockBinder : Binder
         return matchSyntax switch
         {
             MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+            PostfixMatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
             MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
             _ => UnexpectedMatchSyntaxLocation(matchSyntax),
         };
@@ -17925,16 +17982,27 @@ partial class BlockBinder : Binder
         int armIndex,
         int catchAllIndex,
         ICollection<T>? guaranteedRemaining)
+        => ShouldReportRedundantCatchAll(armIndex, catchAllIndex, guaranteedRemaining, inactiveStructStateRemaining: null);
+
+    private static bool ShouldReportRedundantCatchAll<T>(
+        int armIndex,
+        int catchAllIndex,
+        ICollection<T>? guaranteedRemaining,
+        bool? inactiveStructStateRemaining)
     {
         if (catchAllIndex < 0)
             return false;
 
+        var noRemainingCases = guaranteedRemaining is null || guaranteedRemaining.Count == 0;
+        var noRemainingInactiveState = inactiveStructStateRemaining is not true;
+
         if (armIndex < catchAllIndex)
-            return guaranteedRemaining is null || guaranteedRemaining.Count == 0;
+            return noRemainingCases && noRemainingInactiveState;
 
         return armIndex == catchAllIndex &&
                guaranteedRemaining is not null &&
-               guaranteedRemaining.Count == 0;
+               noRemainingCases &&
+               noRemainingInactiveState;
     }
 
     private static Location UnexpectedMatchSyntaxLocation(SyntaxNode matchSyntax)

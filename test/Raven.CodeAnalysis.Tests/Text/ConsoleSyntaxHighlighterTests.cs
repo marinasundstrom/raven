@@ -195,7 +195,7 @@ union VehicleStatus {
 
 static class VehicleStatusJson {
     static func EncodeStatus(status: VehicleStatus) -> string {
-        return status match {
+        return match status {
             .Operational(val driverName, val sinceUtc, val currentOdometerKm) =>
                 JsonSerializer.Serialize(VehicleStatusDto("operational", driverName, sinceUtc, currentOdometerKm, null, null, null, null))
             .Maintenance(val workshop, val startedUtc, val expectedReadyUtc, val reason) =>
@@ -566,7 +566,7 @@ union Option<T> {
 }
 
 func Render(input: Option<int>) -> int {
-    return input match {
+    return match input {
         None => 0
         .Some(val value) => value
     }

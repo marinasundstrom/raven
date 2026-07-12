@@ -4665,7 +4665,7 @@ public partial class SemanticModel
         {
             SyntaxKind.StructKeyword => TypeKind.Struct,
             SyntaxKind.ClassKeyword => TypeKind.Class,
-            _ => TypeKind.Class
+            _ => TypeKind.Struct
         };
     }
 

@@ -15,7 +15,7 @@ func Main() {
 
 func Evaluate<T>(expr: Expr<T>) -> T
     where T: INumber<T> {
-    return expr match {
+    match expr {
         .Literal(val value) => value
         .Add(val left, val right) => Evaluate(left) + Evaluate(right)
         .Multiply(val left, val right) => Evaluate(left) * Evaluate(right)

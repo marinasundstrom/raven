@@ -7,7 +7,7 @@ val [..2 start, last] = values
 
 val text = "rune"
 
-val label = text match {
+val label = match text {
     [val first, ..2 val middle, val lastChar] => first.ToString() + "-" + middle + "-" + lastChar.ToString()
     _ => "no-match"
 }

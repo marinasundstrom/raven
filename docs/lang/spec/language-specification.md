@@ -667,7 +667,7 @@ func userNameLength() -> Result<int, LookupError> {
 func selectedItemName() -> Result<string, LookupError> {
     val maybeItem = getUser()?.Item?
 
-    return maybeItem match {
+    match maybeItem {
         .Some(val item) => .Ok(item.Name)
         .None => .Error(.MissingItem)
     }
@@ -2002,7 +2002,7 @@ the stage boundaries explicit:
 val normalized =
     userOrError
         |> EnsureActive()
-        |> (x => x match {
+        |> (x => match x {
             Ok(val u) => u.Name
             Error(val e) => "ERR: " + e.ToString()
         })
@@ -2743,13 +2743,28 @@ discard arm, or type pattern for type `object`.
 
 ### `match` forms
 
-Raven supports both expression and statement-position `match` syntax:
+Raven supports `match` in expression and statement positions. The normal
+expression form is keyword-first so it reads the same way as statement-form
+`match`, which matches the shape most programmers expect:
 
-* **Expression form**: `scrutinee match { ... }`
+* **Expression form**: `match scrutinee { ... }`
 * **Statement form**: `match scrutinee { ... }`
+* **Postfix expression form**: `scrutinee match { ... }`
 
-The parser represents these as distinct syntax nodes: expression form produces
-`MatchExpressionSyntax`, while statement form produces `MatchStatementSyntax`.
+The postfix expression form remains valid for composition cases where the
+scrutinee is already a prefix expression, such as `try int.Parse(text) match {
+... }`.
+
+In statement context, `match scrutinee { ... }` is parsed as a
+`MatchStatementSyntax` before expression statements are considered. The
+keyword-first match expression form is used only when the parser is already
+expecting an expression, such as after `=`, `return`, an argument separator, or
+another expression-only position.
+
+The parser represents these as distinct syntax nodes: keyword-first expression
+form produces `MatchExpressionSyntax`, postfix expression form produces
+`PostfixMatchExpressionSyntax`, and statement form produces
+`MatchStatementSyntax`.
 
 Both forms use the same pattern binder and diagnostics, including exhaustiveness
 checking and unreachable-arm detection.
@@ -2773,7 +2788,7 @@ remains disallowed and reports `RAV1900`/`RAV1907`.
 Arm bodies accept any expression, including block expressions:
 
 ```raven
-val label = value match {
+val label = match value {
     0 => { "zero" }
     _ => {
         val text = "other"
@@ -2787,6 +2802,13 @@ match value {
         Console.WriteLine("other")
         ()
     }
+}
+```
+
+```raven
+val label = try int.Parse(text) match {
+    Ok(val value) => "Parsed ${value}"
+    Error(_) => "Invalid"
 }
 ```
 
@@ -2934,7 +2956,7 @@ patterns, and other pure match-only forms are not assignment/declaration heads.
   This inference applies uniformly in:
 
   * `is` patterns (`if value is Box box { ... }`)
-  * `match` expression arms (`value match { Box box => ... }`)
+  * `match` expression arms (`match value { Box box => ... }`)
   * `match` statement arms (`match value { Box box => ... }`)
 
   Example:
@@ -3050,7 +3072,7 @@ Bounds are written as expressions, but the binder may restrict them to constantâ
 ```raven
 val value = 42
 
-val result = value match {
+val result = match value {
     ..4 => "No"
     40..43 => "Yes"
     _ => "Other"
@@ -3308,7 +3330,7 @@ ordinary pattern for one of their declared member types:
 ```raven
 union Payment(Cash | Card)
 
-val description = payment match {
+val description = match payment {
     Cash(val amount) => "cash $amount"
     Card(val reference) => "card $reference"
 }
@@ -5032,6 +5054,10 @@ Unions define nominal carrier types with a fixed set of cases. A union value is
 always stored as the declared carrier type, and case values convert to that
 carrier implicitly when required.
 
+Plain `union` declarations synthesize struct carriers by default. Use
+`union class` when a reference carrier is intended, such as for APIs that must
+not expose the default struct-union state.
+
 For non-normative rationale and interop notes, see
 [Design notes](design-notes.md#unions-and-carrier-types).
 
@@ -5095,7 +5121,7 @@ union LookupResult {
     case Missing
 
     func Describe() -> string {
-        return self match {
+        match self {
             Found(val id) => "found $id"
             Missing => "missing"
         }
@@ -5214,14 +5240,21 @@ Binding model:
 
 Union invariants:
 
+* Plain `union` declares a struct carrier by default. `union struct` is explicit
+  spelling for the same carrier category, and `union class` opts into a
+  reference carrier.
 * Case constructors are independent case-type constructors; they are not
   rebound as union constructors.
 * `union struct` reserves its default state as an uninitialized carrier. For
   `default(U)`, `Value` is `null`, `HasValue` is `false`, and no case is active
   until a union constructor populates the carrier.
-* In pattern exhaustiveness, that default `union struct` carrier state behaves
-  like an additional `null`-like pseudo-case. A `null` arm or ordinary
-  catch-all arm covers it.
+* In pattern exhaustiveness, that default `union struct` carrier state is a
+  distinct `default` state. An ordinary catch-all arm covers it; a `null` arm
+  covers only active nullable union contents.
+* Function parameters of `union struct` type are definitely assigned variables,
+  but their incoming value may still be `default(U)`. Parameter matches therefore
+  require the same inactive-state coverage unless flow analysis proves an active
+  case.
 * `union class` does not have that extra carrier state; a class carrier exists
   only after construction through one of its union cases or constructors.
 * For ordinary class carriers with no nullable active member state, `null` is

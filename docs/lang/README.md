@@ -31,7 +31,7 @@ extensions/traits, and direct .NET interop.
 import System.Console.*
 
 func Main() -> () {
-    val result = ParsePort("8080") match {
+    val result = match ParsePort("8080") {
         Ok(val port) => "Listening on $port"
         Error(val err) => "Invalid port: $err"
     }

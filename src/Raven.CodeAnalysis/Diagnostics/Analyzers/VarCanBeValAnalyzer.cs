@@ -404,6 +404,13 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
                 arm.Accept(this);
         }
 
+        public override void VisitPostfixMatchExpression(PostfixMatchExpressionSyntax node)
+        {
+            Visit(node.Expression);
+            foreach (var arm in node.Arms)
+                arm.Accept(this);
+        }
+
         public override void VisitMatchArm(MatchArmSyntax node)
         {
             // arm pattern + optional guard + expression/body

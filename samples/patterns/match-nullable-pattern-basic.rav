@@ -3,7 +3,7 @@ import System.Console.*
 // Feature: nullable pattern matching.
 val priorityOverride: int? = null
 
-val result = priorityOverride match {
+val result = match priorityOverride {
     null => "Use default priority"
     int value => "Override priority: ${value}"
 }

@@ -6,7 +6,7 @@ val result: Result<(), string> = Ok
 
 WriteLine(result)
 
-val r = result match {
+val r = match result {
     Ok => "Foo",
     Error(val str) => "error"
 }

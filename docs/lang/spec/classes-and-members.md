@@ -599,7 +599,7 @@ sealed interface Expr<T>
 
 func Evaluate<T>(expr: Expr<T>) -> T
     where T: INumber<T> {
-    return expr match {
+    match expr {
         .Literal(val value) => value
         .Add(val left, val right) => Evaluate(left) + Evaluate(right)
     }
@@ -649,7 +649,7 @@ itself.
 When all required coverage types are handled, the match is considered exhaustive:
 
 ```raven
-val result = expr match {
+val result = match expr {
     Lit lit => lit.value
     Add add => eval(add.left) + eval(add.right)
 }
@@ -664,7 +664,7 @@ abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
 record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
 record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     BinaryExpr(val left, val right) => eval(left) + eval(right)
 }

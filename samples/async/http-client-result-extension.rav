@@ -7,7 +7,7 @@ import System.Threading.Tasks.*
 use client = HttpClient()
 val res = await client.FetchAsync("http://www.contoso.com/")
 
-val str = res match {
+val str = match res {
     Ok(val str) => "Response length: ${str.Length}"
     Error(val message) => "Error is: $message"
 }

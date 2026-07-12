@@ -135,7 +135,7 @@ public union Result<T> {
 class Runner {
     public static func Run(flag: bool) -> Option<int> {
         val input: Option<int> = Some(42)
-        return input match {
+        return match input {
             Some(val value) => Option<int>.Some(value)
             None => None
         }
@@ -191,7 +191,7 @@ import System.*
 class Runner {
     public static func Run() -> string {
         val result: Result<string, Exception> = Error(InvalidOperationException("x"))
-        return result match {
+        return match result {
             Error(val e) => e.GetType().Name
             Ok(val value) => value
         }
@@ -368,7 +368,7 @@ union Option {
     }
 
     [Fact]
-    public void UnionWithoutStorageModifier_EmitsReferenceTypeCarrier()
+    public void UnionWithoutStorageModifier_EmitsValueTypeCarrier()
     {
         var code = """
 union Option {
@@ -396,8 +396,8 @@ union Option {
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
 
-        Assert.True(unionType.IsClass);
-        Assert.False(unionType.IsValueType);
+        Assert.False(unionType.IsClass);
+        Assert.True(unionType.IsValueType);
     }
 
     [Fact]
@@ -688,7 +688,7 @@ union struct Maybe<T>(T)
 class Runner {
     public static func NullCase() -> int {
         val v: Foo = null
-        return v match {
+        return match v {
             3 => 30
             int i => i
             null => -1
@@ -697,7 +697,7 @@ class Runner {
 
     public static func ConstantCase() -> int {
         val v: Foo = 3
-        return v match {
+        return match v {
             3 => 30
             int i => i
             null => -1
@@ -706,7 +706,7 @@ class Runner {
 
     public static func IntCase() -> int {
         val v: Foo = 42
-        return v match {
+        return match v {
             3 => 30
             int i => i
             null => -1
@@ -759,7 +759,7 @@ class Runner {
 
     public static func ExpressionNullCase() -> int {
         val v: Foo = null
-        return v match {
+        return match v {
             int i => i
             null => -1
         }
@@ -767,7 +767,7 @@ class Runner {
 
     public static func ExpressionValueCase() -> int {
         val v: Foo = 42
-        return v match {
+        return match v {
             int i => i
             null => -1
         }
@@ -873,25 +873,25 @@ union Foo(int | null)
     }
 
     [Fact]
-    public void DefaultStructUnion_NullPatternMatchesInactiveState()
+    public void DefaultStructUnion_CatchAllPatternMatchesInactiveState()
     {
         var code = """
 class Runner {
     public static func DescribeDefault() -> string {
         val value: Maybe<int> = default
-        return value match {
-            null => "inactive"
+        return match value {
             .Some(val payload) => payload.ToString()
             .None => "none"
+            _ => "inactive"
         }
     }
 
     public static func DescribeSome() -> string {
         val value: Maybe<int> = .Some(42)
-        return value match {
-            null => "inactive"
+        return match value {
             .Some(val payload) => payload.ToString()
             .None => "none"
+            _ => "inactive"
         }
     }
 }
@@ -926,6 +926,64 @@ union struct Maybe<T> {
 
         Assert.Equal("inactive", defaultMethod.Invoke(null, Array.Empty<object?>()));
         Assert.Equal("42", someMethod.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
+    public void DefaultStructUnion_PassedAsArgumentPreservesInactiveState()
+    {
+        var code = """
+class Runner {
+    public static func Describe(value: Maybe<int>) -> string {
+        return match value {
+            .Some(val payload) => payload.ToString()
+            .None => "none"
+            _ => "inactive"
+        }
+    }
+
+    public static func DescribeDefaultLiteralArgument() -> string {
+        return Describe(default)
+    }
+
+    public static func DescribeDefaultLocalArgument() -> string {
+        val value: Maybe<int> = default
+        return Describe(value)
+    }
+
+    public static func DescribeSomeArgument() -> string {
+        return Describe(.Some(42))
+    }
+}
+
+union Maybe<T> {
+    case None
+    case Some(value: T)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var runnerType = runtimeAssembly.GetType("Runner", throwOnError: true)!;
+
+        Assert.Equal("inactive", runnerType.GetMethod("DescribeDefaultLiteralArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("inactive", runnerType.GetMethod("DescribeDefaultLocalArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("42", runnerType.GetMethod("DescribeSomeArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
     }
 
     [Fact]
@@ -1134,7 +1192,7 @@ union Either<T1, T2>(T1 | T2)
 class Runner {
     public static func DescribeLeft() -> string {
         val value: Either<int, string> = 42
-        return value match {
+        return match value {
             int amount => "cash $amount"
             string reference => "card $reference"
         }
@@ -1142,7 +1200,7 @@ class Runner {
 
     public static func DescribeRight() -> string {
         val value: Either<int, string> = "invoice"
-        return value match {
+        return match value {
             int amount => "cash $amount"
             string reference => "card $reference"
         }
@@ -1219,7 +1277,7 @@ union MyResult3(List<int> | string)
 class Runner {
     public static func DescribeCash() -> string {
         val value = Payment(Cash(42.0m))
-        return value match {
+        return match value {
             Cash(val amount) => "cash $amount"
             Card(val reference) => "card $reference"
         }
@@ -1227,7 +1285,7 @@ class Runner {
 
     public static func DescribeCard() -> string {
         val value = Payment(Card("invoice"))
-        return value match {
+        return match value {
             Cash(val amount) => "cash $amount"
             Card(val reference) => "card $reference"
         }
@@ -2204,7 +2262,7 @@ class Container {
     }
 
     static func describe(user: Option<User>) -> string {
-        return user match {
+        return match user {
             Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(val color)))))))) => "Primary color: $color"
             _ => "Could not access primary color"
         }

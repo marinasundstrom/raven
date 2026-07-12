@@ -229,12 +229,12 @@ union struct ValueOption<T> {
         var declarationFormat = format.WithMiscellaneousOptions(
             format.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
 
-        payment.ToDisplayString(format).ShouldBe("union class Payment");
-        response.ToDisplayString(format).ShouldBe("union class Response<T>");
+        payment.ToDisplayString(format).ShouldBe("union struct Payment");
+        response.ToDisplayString(format).ShouldBe("union struct Response<T>");
         valueOption.ToDisplayString(format).ShouldBe("union struct ValueOption<T>");
 
-        payment.ToDisplayString(declarationFormat).ShouldBe("union class Payment(Cash | Card)");
-        response.ToDisplayString(declarationFormat).ShouldBe("union class Response<T>(Success<T> | Failure)");
+        payment.ToDisplayString(declarationFormat).ShouldBe("union struct Payment(Cash | Card)");
+        response.ToDisplayString(declarationFormat).ShouldBe("union struct Response<T>(Success<T> | Failure)");
         valueOption.ToDisplayString(declarationFormat).ShouldBe("union struct ValueOption<T>(Some<T> | None)");
     }
 
@@ -338,11 +338,11 @@ func Test() {
         var declarationFormat = format.WithMiscellaneousOptions(
             format.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
 
-        either.ToDisplayString(format).ShouldBe("union class Either<T1, T2>");
-        value.Type.ToDisplayString(format).ShouldBe("union class Either<int, string>");
+        either.ToDisplayString(format).ShouldBe("union struct Either<T1, T2>");
+        value.Type.ToDisplayString(format).ShouldBe("union struct Either<int, string>");
 
-        either.ToDisplayString(declarationFormat).ShouldBe("union class Either<T1, T2>(T1 | T2)");
-        value.Type.ToDisplayString(declarationFormat).ShouldBe("union class Either<int, string>(int | string)");
+        either.ToDisplayString(declarationFormat).ShouldBe("union struct Either<T1, T2>(T1 | T2)");
+        value.Type.ToDisplayString(declarationFormat).ShouldBe("union struct Either<int, string>(int | string)");
     }
 
     [Fact]

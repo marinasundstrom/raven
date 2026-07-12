@@ -17,16 +17,16 @@ func GetConnectionString() -> string {
 
 func StatusMatches(status: VehicleStatus, kind: string) -> bool {
     val normalized = kind.Trim().ToLowerInvariant()
-    return normalized match {
-        "operational" => status match {
+    match normalized {
+        "operational" => match status {
             .Operational(_, _, _) => true
             _ => false
         }
-        "maintenance" => status match {
+        "maintenance" => match status {
             .Maintenance(_, _, _, _) => true
             _ => false
         }
-        "decommissioned" => status match {
+        "decommissioned" => match status {
             .Decommissioned(_, _) => true
             _ => false
         }

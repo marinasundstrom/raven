@@ -12,7 +12,7 @@ WriteLine(orderService.PendingCount)
 
 val quoteResult = await orderService.BuildQuote(21)
 
-val message = quoteResult match {
+val message = match quoteResult {
     Ok(val x) => "Value is: $x"
     Error(val msg) => "Error: $msg"
 }

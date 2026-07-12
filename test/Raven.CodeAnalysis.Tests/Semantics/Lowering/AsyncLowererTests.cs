@@ -417,7 +417,7 @@ import System.Threading.Tasks.*
 
 val res = await fetch("http://www.contoso.com/")
 
-val str = res match {
+val str = match res {
     .Ok(val str) => "Response is: ${str}"
     .Error(val message) => "Error is: ${message}"
 }
