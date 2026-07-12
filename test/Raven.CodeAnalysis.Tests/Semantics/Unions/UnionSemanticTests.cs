@@ -2016,6 +2016,109 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionArgument_DefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run() {
+    consume(default)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_DefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run() {
+    val result: Result<int> = default
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ReassignedActiveLocalDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run() {
+    var result: Result<int> = default
+    result = .Ok(1)
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ParameterDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func forward(result: Result<int>) {
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
     public void UnionCarrierConstructor_HasSynthesizedBody()
     {
         const string source = """

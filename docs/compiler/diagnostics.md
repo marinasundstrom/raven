@@ -113,6 +113,7 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0402` | Error | Possible null reference access | Possible null reference access | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
 | `RAV0403` | Warning | Nullable suppression used | The '!' operator treats the operand as non-null | Reported on the full `<expr>!` nullable suppression expression. |
 | `RAV0404` | Error | Conditional access requires nullable receiver | Conditional access requires a nullable receiver; '{receiverType}' is not nullable | — |
+| `RAV0405` | Error | Struct union argument may be default | Struct union argument for parameter '{parameterName}' of type '{unionType}' may be the inactive default state | — |
 | `RAV0410` | Error | Enum underlying type list must be a single type | Enum declarations may specify only one underlying type | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0411` | Error | Enum underlying type must be integral | Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0412` | Error | Enum member value must be constant | Enum member '{name}' must be initialized with a constant expression | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |

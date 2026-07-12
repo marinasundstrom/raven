@@ -46,7 +46,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   arms on struct unions are still allowed because the inactive carrier state is
   physically representable. Local assignment flow now updates that default-state
   analysis, so assigning an active case after `default` removes the requirement
-  and branch assignments to `default` preserve it.
+  and branch assignments to `default` preserve it. Passing a struct-union value
+  that may still be the inactive `default` carrier to a struct-union parameter
+  now reports `RAV0405` at the call site, so callee parameters can keep their
+  active-value contract.
 - Fixed extension member completion after partially typed member names so
   imported metadata extension methods are offered for prefixes such as
   `widget.Dou`.

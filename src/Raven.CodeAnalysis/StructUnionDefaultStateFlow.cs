@@ -26,7 +26,13 @@ internal static class StructUnionDefaultStateFlow
         BoundExpression expression,
         SyntaxNode matchSyntax,
         Func<SyntaxNode, BoundNode?> getBoundNode)
-        => GetExpressionState(expression, GetLocalStatesBefore(matchSyntax, getBoundNode)) is DefaultState.Default or DefaultState.MaybeDefault;
+        => ExpressionMayBeDefault(expression, matchSyntax, getBoundNode);
+
+    public static bool ExpressionMayBeDefault(
+        BoundExpression expression,
+        SyntaxNode expressionSyntax,
+        Func<SyntaxNode, BoundNode?> getBoundNode)
+        => GetExpressionState(expression, GetLocalStatesBefore(expressionSyntax, getBoundNode)) is DefaultState.Default or DefaultState.MaybeDefault;
 
     private static DefaultState GetExpressionState(
         BoundExpression expression,

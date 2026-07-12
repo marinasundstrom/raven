@@ -5247,6 +5247,10 @@ Union invariants:
   declared non-null union contract. Matching a parameter does not require
   inactive/default-state coverage solely because a caller could pass
   `default(U)`.
+* Passing a `union struct` value to a `union struct` parameter requires the
+  argument to be known active at the call site. A value that flow analysis knows
+  may still be the inactive/default carrier is rejected before entering the
+  callee.
 * `union class` does not have that extra carrier state; a class carrier exists
   only after construction through one of its union cases or constructors.
 * For ordinary class carriers with no nullable active member state, `null` is

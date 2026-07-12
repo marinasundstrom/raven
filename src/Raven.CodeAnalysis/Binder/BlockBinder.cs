@@ -13126,6 +13126,12 @@ partial class BlockBinder : Binder
                             continue;
                         }
 
+                        if (ReportStructUnionArgumentMayBeDefault(parameter, elementType, paramsExpression, paramsSyntaxNode))
+                        {
+                            paramsElements.Add(new BoundErrorExpression(elementType, null, BoundExpressionReason.ArgumentBindingFailed));
+                            continue;
+                        }
+
                         paramsElements.Add(ApplyConversion(paramsExpression, elementType, elementConversion, paramsSyntaxNode));
                     }
 
@@ -13215,6 +13221,13 @@ partial class BlockBinder : Binder
                 converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
                 continue;
             }
+
+            if (ReportStructUnionArgumentMayBeDefault(parameter, parameter.Type, expression, syntaxNode))
+            {
+                converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
+                continue;
+            }
+
             var convertedExpr = ApplyConversion(expression, conversionTargetType, conversion, syntaxNode);
 
             // When a method group is resolved to a concrete delegate type during argument
@@ -13232,6 +13245,32 @@ partial class BlockBinder : Binder
         }
 
         return converted;
+    }
+
+    private bool ReportStructUnionArgumentMayBeDefault(
+        IParameterSymbol parameter,
+        ITypeSymbol parameterType,
+        BoundExpression expression,
+        SyntaxNode? syntaxNode)
+    {
+        if (parameterType.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+            return false;
+
+        if (expression.Type?.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+            return false;
+
+        if (syntaxNode is null)
+            return false;
+
+        if (!StructUnionDefaultStateFlow.ExpressionMayBeDefault(expression, syntaxNode, TryGetCachedBoundNode))
+            return false;
+
+        var parameterName = string.IsNullOrEmpty(parameter.Name)
+            ? "<unnamed>"
+            : parameter.Name;
+        var unionType = parameterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportStructUnionArgumentMayBeDefault(parameterName, unionType, syntaxNode.GetLocation());
+        return true;
     }
 
     private bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
@@ -13462,6 +13501,9 @@ partial class BlockBinder : Binder
 
             return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
         }
+
+        if (ReportStructUnionArgumentMayBeDefault(parameter, parameter.Type, argument, syntax))
+            return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
 
         return ApplyConversion(argument, conversionTargetType, conversion, syntax);
     }
