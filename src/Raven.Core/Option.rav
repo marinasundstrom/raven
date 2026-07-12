@@ -42,7 +42,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(OptionJsonConverterFactory))]
-union class Option<T> {
+union Option<T> {
     /// Represents some value
     case Some(value: T)
 
@@ -60,6 +60,7 @@ union class Option<T> {
         self match {
             Some(val value) => Some(mapper(value))
             None => None
+            _ => None
         }
     }
 
@@ -68,6 +69,7 @@ union class Option<T> {
         self match {
             Some(val value) => binder(value)
             None => None
+            _ => None
         }
     }
 
@@ -76,6 +78,7 @@ union class Option<T> {
         self match {
             Some(val value) => if predicate(value) { Some(value) } else { None }
             None => None
+            _ => None
         }
     }
 
@@ -89,6 +92,7 @@ union class Option<T> {
         self match {
             Some(_) => self
             None => alternative()
+            _ => alternative()
         }
     }
 
@@ -97,6 +101,7 @@ union class Option<T> {
         self match {
             Some(val value) => value
             None => factory()
+            _ => factory()
         }
     }
 
@@ -105,6 +110,7 @@ union class Option<T> {
         self match {
             Some(val value) => some(value)
             None => none()
+            _ => none()
         }
     }
 
@@ -143,6 +149,7 @@ union class Option<T> {
         self match {
             Some(val value) => binder(value)
             None => Error(noneError())
+            _ => Error(noneError())
         }
     }
 
@@ -151,6 +158,7 @@ union class Option<T> {
         self match {
             Some(val value) => Ok(mapper(value))
             None => Error(noneError())
+            _ => Error(noneError())
         }
     }
 
@@ -278,6 +286,7 @@ extension OptionExtensionsNested<T> for Option<Option<T>> {
         self match {
             Some(val inner) => inner
             None => None
+            _ => None
         }
     }
 }

@@ -12,6 +12,18 @@ namespace Raven.Core.Tests;
 public sealed class ResultTest : RavenCoreDiagnosticTestBase
 {
     [Fact]
+    public void Result_IsStructCarrier_WithDefaultUninitializedState()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var defaultResult = Activator.CreateInstance(resultType)!;
+
+        Assert.True(resultType.IsValueType);
+        Assert.Equal(false, resultType.GetProperty("HasValue")!.GetValue(defaultResult));
+        Assert.Null(resultType.GetProperty("Value")!.GetValue(defaultResult));
+    }
+
+    [Fact]
     public void JsonSerializer_SerializesAndDeserializes_Ok()
     {
         var asm = LoadRavenCoreAssembly();

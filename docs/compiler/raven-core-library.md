@@ -32,18 +32,19 @@ A union carrier with two cases:
 - `Some(value: T)` holds a value.
 - `None` represents the absence of a value.
 
-`Option<T>` is a `union class` that uses Raven's standard union carrier model:
+`Option<T>` is a plain `union` that uses Raven's standard struct carrier model:
 
 - runtime values are `Option<T>` carriers
 - case values convert into the carrier
-- the carrier exposes a conventional non-nullable `Value: object` property containing the active case value
+- the carrier exposes a conventional `Value: object?` property containing the active case value
 - the carrier exposes `HasValue: bool` for initialization-safe inspection across interop boundaries
 - extraction uses `TryGetValue(out Some<T>)` / `TryGetValue(out None)` and pattern matching
 
-For the built-in `Option<T>` class carrier, `HasValue` is expected to be `true`
-for constructed values and `Value` points at the active case object
-(`Some<T>` or `None`). The carrier itself is the stable runtime type; `Value`
-is the authoritative active-case projection.
+For the built-in `Option<T>` struct carrier, `HasValue` is `true` for
+constructed values and `false` for the default carrier value. `Value` points at
+the active case object (`Some<T>` or `None`) when initialized. The carrier
+itself is the stable runtime type; `Value` is the authoritative active-case
+projection.
 
 `Option<T>` extension helpers:
 
@@ -62,21 +63,19 @@ is the authoritative active-case projection.
 
 ### `Result<T, E>`
 
-`Result<T, E>` is also a `union class` carrier:
+`Result<T, E>` is also a plain `union` struct carrier:
 
 - `Ok(value: T)` for success.
 - `Error(data: E)` for failure.
 
 Like `Option<T>`, `Result<T, E>` uses carrier semantics rather than inheritance semantics. Case values convert into the carrier, and extraction happens through `TryGetValue(out CaseType)` or pattern matching.
-The carrier also exposes a conventional non-nullable `Value: object` property
+The carrier also exposes a conventional `Value: object?` property
 containing the active case value.
-The carrier also exposes `HasValue: bool`, though constructed class-carrier
-instances are expected to report `true`.
+The carrier also exposes `HasValue: bool`, where constructed values report
+`true` and the default carrier value reports `false`.
 
 For constructed `Result<T, E>` values, `Value` points at either the active
-`Ok<T>` or `Error<E>` case object. `HasValue` exists for consistency with the
-general union contract even though class carriers do not have the extra
-default/uninitialized state that struct carriers can expose.
+`Ok<T>` or `Error<E>` case object.
 
 `Result<T, E>` extension helpers:
 

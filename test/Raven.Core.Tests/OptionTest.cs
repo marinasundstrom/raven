@@ -10,6 +10,18 @@ namespace Raven.Core.Tests;
 public sealed class OptionTest : RavenCoreDiagnosticTestBase
 {
     [Fact]
+    public void Option_IsStructCarrier_WithDefaultUninitializedState()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var defaultOption = Activator.CreateInstance(optionType)!;
+
+        Assert.True(optionType.IsValueType);
+        Assert.Equal(false, optionType.GetProperty("HasValue")!.GetValue(defaultOption));
+        Assert.Null(optionType.GetProperty("Value")!.GetValue(defaultOption));
+    }
+
+    [Fact]
     public void JsonSerializer_SerializesAndDeserializes_Some()
     {
         var asm = LoadRavenCoreAssembly();

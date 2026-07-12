@@ -6,6 +6,18 @@ namespace Raven.Core.Tests;
 public sealed class UnionTest : RavenCoreDiagnosticTestBase
 {
     [Fact]
+    public void StandardUnion_IsStructCarrier_WithDefaultUninitializedState()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var unionType = GetConstructedType(asm, "System.Union`2", typeof(string), typeof(int));
+        var defaultUnion = Activator.CreateInstance(unionType)!;
+
+        Assert.True(unionType.IsValueType);
+        Assert.Equal(false, unionType.GetProperty("HasValue")!.GetValue(defaultUnion));
+        Assert.Null(unionType.GetProperty("Value")!.GetValue(defaultUnion));
+    }
+
+    [Fact]
     public void JsonSerializer_SerializesAndDeserializes_FirstMemberType()
     {
         var asm = LoadRavenCoreAssembly();

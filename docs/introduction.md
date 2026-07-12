@@ -193,10 +193,9 @@ There is also an important surface distinction:
 
 Raven treats recoverable flow as data. In domain code, `Option<T>` is preferred for absence and `Result<T, E>` for expected failures.
 
-In the standard library, both carriers are defined as `union class` types.
-That keeps them aligned with the intended .NET-style union contract while
-avoiding the implicit default-state problem that exists for `union struct`
-carriers.
+In the standard library, both carriers are defined as plain `union` types, which
+means they use the default struct carrier shape aligned with the .NET union
+contract.
 
 ```raven
 func Divide(a: int, b: int) -> Result<int, string> {

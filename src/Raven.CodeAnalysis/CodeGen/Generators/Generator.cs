@@ -428,6 +428,12 @@ internal abstract class Generator
             if (conversion.IsImplicit)
                 return;
 
+            if (toClrType.IsGenericParameter)
+            {
+                ILGenerator.Emit(OpCodes.Unbox_Any, toClrType);
+                return;
+            }
+
             ILGenerator.Emit(OpCodes.Castclass, toClrType);
             return;
         }

@@ -51,10 +51,9 @@ Raven therefore leans toward:
 - modeling expected failures with `Result<T, E>` instead of exceptions alone
 - using `match` when a decision deserves to be seen, not hidden
 
-In the standard library, those carriers are intentionally `union class`
-surfaces rather than `union struct` surfaces. That keeps their runtime shape
-compatible with the expected .NET union contract while avoiding an extra
-default/uninitialized state in the common path.
+In the standard library, those carriers use plain `union` declarations. That
+keeps their runtime shape compatible with the expected .NET struct-union
+contract, including the explicit default/uninitialized carrier state.
 
 `null` is still part of the language because .NET interop demands it, but Raven’s
 preferred design direction is explicit domain flow through `Option<T>` and

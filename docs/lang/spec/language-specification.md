@@ -735,10 +735,9 @@ Raven ships `Option<T>`, `Result<T, E>`, and related extension helpers in
 standard language experience and are expected by diagnostics, samples, and
 tooling.
 
-`Option<T>` and `Result<T, E>` are defined in `Raven.Core` as `union class`
-carriers. This is intentional: the standard carriers follow the conventional
-`.NET` union contract without exposing the extra default/uninitialized state
-that exists for `union struct` values.
+`Option<T>` and `Result<T, E>` are defined in `Raven.Core` as plain `union`
+carriers, so they use Raven's default struct-union representation and follow the
+conventional `.NET` union contract.
 
 Raven.Core also provides `System.Text.Json` converters for `Option<T>`,
 `Result<T, E>`, and standard type unions. These converters prefer plain JSON
@@ -5009,10 +5008,8 @@ default, and `null` can only flow through nullable annotations (`T?`). The same
 rules apply uniformly to reference and value types; the distinction only
 affects runtime representation, not the surface type rules.
 
-`null` is not a general type annotation spelling. The scoped exception is
-parenthesized union declarations, where `null` may appear in the member list to
-mark nullable active union contents; `T?` remains the canonical nullable type
-syntax everywhere else.
+`null` is not a general type annotation spelling and is not a union member type.
+Use nullable annotations such as `T?` to mark nullable active union contents.
 
 #### Nullable suppression (`!`)
 

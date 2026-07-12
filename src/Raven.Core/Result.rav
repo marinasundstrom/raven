@@ -42,7 +42,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(ResultJsonConverterFactory))]
-union class Result<T, E> {
+union Result<T, E> {
     /// Represents a result value
     case Ok(value: T)
 
@@ -61,6 +61,7 @@ union class Result<T, E> {
             self match {
                 Ok(val value) => Some(value)
                 Error(_) => None
+                _ => None
             }
         }
     }
@@ -71,6 +72,7 @@ union class Result<T, E> {
             self match {
                 Error(val e) => Some(e)
                 Ok(_) => None
+                _ => None
             }
         }
     }
@@ -80,6 +82,7 @@ union class Result<T, E> {
         self match {
             Ok(val value) => Ok(mapper(value))
             Error(val error) => Error(error)
+            _ => default
         }
     }
 
@@ -88,6 +91,7 @@ union class Result<T, E> {
         self match {
             Ok(val value) => binder(value)
             Error(val error) => Error(error)
+            _ => default
         }
     }
 
@@ -96,6 +100,7 @@ union class Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val error) => Error(mapper(error))
+            _ => default
         }
     }
 
@@ -104,6 +109,7 @@ union class Result<T, E> {
         self match {
             Ok(val value) => ok(value)
             Error(val e) => error(e)
+            _ => throw InvalidOperationException("Result is uninitialized")
         }
     }
 
@@ -128,6 +134,7 @@ union class Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val e) => recover(e)
+            _ => default
         }
     }
 
@@ -136,6 +143,7 @@ union class Result<T, E> {
         self match {
             Ok(val value) => value
             Error(_) => factory()
+            _ => factory()
         }
     }
 

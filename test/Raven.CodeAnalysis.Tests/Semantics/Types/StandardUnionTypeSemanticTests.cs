@@ -92,9 +92,9 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
         const string fixtureSource = """
         namespace System
 
-        public union class Union<T1, T2>(T1 | T2)
+        public union Union<T1, T2>(T1 | T2)
 
-        public union class Union<T1, T2, T3, T4, T5>(T1 | T2 | T3 | T4 | T5)
+        public union Union<T1, T2, T3, T4, T5>(T1 | T2 | T3 | T4 | T5)
         """;
 
         return TestMetadataFactory.CreateFromSource(
