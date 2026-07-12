@@ -53,6 +53,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Returning a struct-union value that may still be the inactive `default`
   carrier now reports `RAV0406` at the return boundary, preserving the same
   active-value contract for callers.
+- Raven.Core `Result<T, E>` combinators now return an active `Error(default(E))`
+  carrier when invoked on an inactive default receiver, avoiding propagation of
+  the struct-union default carrier state from `Map`, `Then`, `MapError`, and
+  `OrElse`.
 - Fixed expanded `params` argument target typing so extra positional arguments
   are bound against the params element type, including target-typed union cases.
 - Fixed extension member completion after partially typed member names so

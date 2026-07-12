@@ -167,6 +167,35 @@ extension TestExt<T> for IEnumerable<T> {
     }
 
     [Fact]
+    public void DefaultReceiver_CombinatorsReturnActiveErrorCarrier()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var defaultResult = Activator.CreateInstance(resultType)!;
+
+        var mapped = resultType.GetMethod("Map")!
+            .MakeGenericMethod(typeof(int))
+            .Invoke(defaultResult, [new Func<int, int>(value => value + 1)])!;
+
+        Assert.Equal(true, resultType.GetProperty("HasValue")!.GetValue(mapped));
+        AssertCasePayload(mapped, resultType, "Error", "Data", expected: null);
+
+        var mappedError = resultType.GetMethod("MapError")!
+            .MakeGenericMethod(typeof(Exception))
+            .Invoke(defaultResult, [new Func<string, Exception>(message => new InvalidOperationException(message))])!;
+
+        var mappedErrorType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(Exception));
+        Assert.Equal(true, mappedErrorType.GetProperty("HasValue")!.GetValue(mappedError));
+        AssertCasePayload(mappedError, mappedErrorType, "Error", "Data", expected: null);
+
+        var recovered = resultType.GetMethod("OrElse")!
+            .Invoke(defaultResult, [null])!;
+
+        Assert.Equal(true, resultType.GetProperty("HasValue")!.GetValue(recovered));
+        AssertCasePayload(recovered, resultType, "Error", "Data", expected: null);
+    }
+
+    [Fact]
     public void ToString_QuotesStringPayload_ForGenericResult()
     {
         var asm = LoadRavenCoreAssembly();
@@ -258,6 +287,23 @@ extension TestExt<T> for IEnumerable<T> {
 
         return caseType
             ?? throw new InvalidOperationException($"Missing TryGetValue overload for case '{caseName}' on '{resultType}'.");
+    }
+
+    private static void AssertCasePayload(
+        object carrier,
+        Type carrierType,
+        string caseName,
+        string propertyName,
+        object? expected)
+    {
+        var caseType = GetCaseTypeFromTryGetValue(carrierType, caseName);
+        var tryGetValue = GetTryGetValueMethod(carrierType, caseType);
+        var args = new object?[] { null };
+        var matched = (bool)(tryGetValue.Invoke(carrier, args) ?? false);
+
+        Assert.True(matched);
+        Assert.NotNull(args[0]);
+        Assert.Equal(expected, args[0]!.GetType().GetProperty(propertyName)!.GetValue(args[0]));
     }
 
     private static object ConvertCaseToCarrier(Type carrierType, object caseValue)

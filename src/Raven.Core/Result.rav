@@ -82,7 +82,7 @@ union Result<T, E> {
         self match {
             Ok(val value) => Ok(mapper(value))
             Error(val error) => Error(error)
-            _ => default
+            _ => Error(default(E))
         }
     }
 
@@ -91,7 +91,7 @@ union Result<T, E> {
         self match {
             Ok(val value) => binder(value)
             Error(val error) => Error(error)
-            _ => default
+            _ => Error(default(E))
         }
     }
 
@@ -100,7 +100,7 @@ union Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val error) => Error(mapper(error))
-            _ => default
+            _ => Error(default(E2))
         }
     }
 
@@ -134,7 +134,7 @@ union Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val e) => recover(e)
-            _ => default
+            _ => Error(default(E))
         }
     }
 
