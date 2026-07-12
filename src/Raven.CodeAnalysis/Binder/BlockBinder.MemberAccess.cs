@@ -777,6 +777,11 @@ partial class BlockBinder
                     return null;
 
                 var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeReceiverType);
+                if (ShouldUseExpandedParamsElementTarget(method, parameterIndex, arguments.Count, pipeReceiverType) &&
+                    TryGetVarParamsElementTypeForArgumentBinding(type, out var elementType))
+                {
+                    type = elementType;
+                }
 
                 if (!hasCommon)
                 {
@@ -790,6 +795,45 @@ partial class BlockBinder
             }
 
             return hasCommon ? common : null;
+        }
+
+        bool ShouldUseExpandedParamsElementTarget(
+            IMethodSymbol method,
+            int parameterIndex,
+            int argumentCount,
+            ITypeSymbol? pipeSourceType)
+        {
+            if (method.Parameters.IsDefaultOrEmpty ||
+                parameterIndex != method.Parameters.Length - 1 ||
+                !method.Parameters[parameterIndex].IsVarParams)
+            {
+                return false;
+            }
+
+            var firstVisibleParameter = method.IsExtensionMethod || pipeSourceType is not null ? 1 : 0;
+            var fixedVisibleParameterCount = Math.Max(0, method.Parameters.Length - firstVisibleParameter - 1);
+            return argumentCount > fixedVisibleParameterCount + 1;
+        }
+
+        bool TryGetVarParamsElementTypeForArgumentBinding(ITypeSymbol parameterType, out ITypeSymbol elementType)
+        {
+            parameterType = parameterType.GetPlainType();
+
+            if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
+            {
+                elementType = arrayType.ElementType;
+                return true;
+            }
+
+            if (parameterType is INamedTypeSymbol namedType &&
+                TryGetIEnumerableElementType(namedType, out var enumerableElementType))
+            {
+                elementType = enumerableElementType;
+                return true;
+            }
+
+            elementType = Compilation.ErrorTypeSymbol;
+            return false;
         }
 
         IParameterSymbol? TryGetCommonPositionalParameter(ImmutableArray<IMethodSymbol> methods, int argumentIndex, BoundExpression? invocationReceiver)
