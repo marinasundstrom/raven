@@ -12,13 +12,18 @@ namespace Raven.CodeAnalysis;
 internal sealed class MatchExhaustivenessEvaluator
 {
     private readonly Compilation _compilation;
+    private readonly Func<SyntaxNode, BoundNode?> _getBoundNode;
 
-    public MatchExhaustivenessEvaluator(Compilation compilation)
+    public MatchExhaustivenessEvaluator(Compilation compilation, Func<SyntaxNode, BoundNode?> getBoundNode)
     {
         _compilation = compilation;
+        _getBoundNode = getBoundNode;
     }
 
-    public MatchExhaustivenessInfo Evaluate(BoundMatchExpression matchExpression, MatchExhaustivenessOptions options)
+    public MatchExhaustivenessInfo Evaluate(
+        SyntaxNode matchSyntax,
+        BoundMatchExpression matchExpression,
+        MatchExhaustivenessOptions options)
     {
         if (matchExpression.Expression.Type is not ITypeSymbol scrutineeType)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
@@ -44,7 +49,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
             if (discriminatedUnion is not null)
             {
-                missingCases = GetMissingDiscriminatedUnionCases(matchExpression.Expression, scrutineeType, arms, discriminatedUnion, options);
+                missingCases = GetMissingDiscriminatedUnionCases(matchSyntax, matchExpression.Expression, scrutineeType, arms, discriminatedUnion, options);
             }
             else if (scrutineeType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
             {
@@ -159,6 +164,7 @@ internal sealed class MatchExhaustivenessEvaluator
     }
 
     private ImmutableArray<string> GetMissingDiscriminatedUnionCases(
+        SyntaxNode matchSyntax,
         BoundExpression scrutinee,
         ITypeSymbol scrutineeType,
         ImmutableArray<BoundMatchArm> arms,
@@ -166,10 +172,10 @@ internal sealed class MatchExhaustivenessEvaluator
         MatchExhaustivenessOptions options)
     {
         if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
-            return GetMissingParenthesizedUnionCases(scrutinee, scrutineeType, arms, union, options);
+            return GetMissingParenthesizedUnionCases(matchSyntax, scrutinee, scrutineeType, arms, union, options);
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, union);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, union);
 
         foreach (var arm in arms)
         {
@@ -199,6 +205,7 @@ internal sealed class MatchExhaustivenessEvaluator
     }
 
     private ImmutableArray<string> GetMissingParenthesizedUnionCases(
+        SyntaxNode matchSyntax,
         BoundExpression scrutinee,
         ITypeSymbol scrutineeType,
         ImmutableArray<BoundMatchArm> arms,
@@ -209,7 +216,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, union);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, union);
 
         foreach (var arm in arms)
         {
@@ -1001,7 +1008,10 @@ internal sealed class MatchExhaustivenessEvaluator
         return false;
     }
 
-    private static bool RequiresInactiveStructUnionStateCoverage(BoundExpression scrutinee, IUnionSymbol union)
+    private bool RequiresInactiveStructUnionStateCoverage(
+        SyntaxNode matchSyntax,
+        BoundExpression scrutinee,
+        IUnionSymbol union)
     {
         if (union.TypeKind != TypeKind.Struct)
             return false;
@@ -1009,7 +1019,7 @@ internal sealed class MatchExhaustivenessEvaluator
         if (scrutinee.Type?.TryGetUnion() is null)
             return false;
 
-        return UnionContentsMayBeDefault(scrutinee);
+        return StructUnionDefaultStateFlow.ContentsMayBeDefault(scrutinee, matchSyntax, _getBoundNode);
     }
 
     private static bool PatternCoversInactiveStructUnionState(
@@ -1026,39 +1036,6 @@ internal sealed class MatchExhaustivenessEvaluator
         return pattern is BoundOrPattern orPattern &&
                (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
                 PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
-    }
-
-    private static bool UnionContentsMayBeDefault(BoundExpression expression)
-    {
-        switch (expression)
-        {
-            case BoundDefaultValueExpression:
-                return true;
-            case BoundParenthesizedExpression parenthesized:
-                return UnionContentsMayBeDefault(parenthesized.Expression);
-            case BoundConversionExpression conversion:
-                return UnionContentsMayBeDefault(conversion.Expression);
-            case BoundLocalAccess localAccess:
-                return LocalDeclaredFromDefault(localAccess.Local);
-            default:
-                return false;
-        }
-    }
-
-    private static bool LocalDeclaredFromDefault(ILocalSymbol local)
-    {
-        foreach (var reference in local.DeclaringSyntaxReferences)
-        {
-            if (reference.GetSyntax() is VariableDeclaratorSyntax
-                {
-                    Initializer.Value: DefaultExpressionSyntax
-                })
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)

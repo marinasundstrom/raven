@@ -5637,7 +5637,7 @@ partial class BlockBinder : Binder
         }
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, scrutineeType, union);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, scrutineeType, union);
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
         bool? guaranteedInactiveStructStateRemaining = null;
@@ -5713,7 +5713,7 @@ partial class BlockBinder : Binder
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, scrutineeType, union);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, scrutineeType, union);
 
         HashSet<ITypeSymbol>? guaranteedRemaining = null;
         Dictionary<ITypeSymbol, HashSet<object?>>? guaranteedLiteralCoverage = null;
@@ -5840,7 +5840,8 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private static bool RequiresInactiveStructUnionStateCoverage(
+    private bool RequiresInactiveStructUnionStateCoverage(
+        SyntaxNode matchSyntax,
         BoundExpression scrutinee,
         ITypeSymbol scrutineeType,
         IUnionSymbol union)
@@ -5848,7 +5849,7 @@ partial class BlockBinder : Binder
         if (!CanRepresentInactiveStructUnionState(scrutineeType, union))
             return false;
 
-        return UnionContentsMayBeDefault(scrutinee);
+        return StructUnionDefaultStateFlow.ContentsMayBeDefault(scrutinee, matchSyntax, TryGetCachedBoundNode);
     }
 
     private static bool CanRepresentInactiveStructUnionState(ITypeSymbol scrutineeType, IUnionSymbol union)
@@ -5876,39 +5877,6 @@ partial class BlockBinder : Binder
         return pattern is BoundOrPattern orPattern &&
                (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
                 PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
-    }
-
-    private static bool UnionContentsMayBeDefault(BoundExpression expression)
-    {
-        switch (expression)
-        {
-            case BoundDefaultValueExpression:
-                return true;
-            case BoundParenthesizedExpression parenthesized:
-                return UnionContentsMayBeDefault(parenthesized.Expression);
-            case BoundConversionExpression conversion:
-                return UnionContentsMayBeDefault(conversion.Expression);
-            case BoundLocalAccess localAccess:
-                return LocalDeclaredFromDefault(localAccess.Local);
-            default:
-                return false;
-        }
-    }
-
-    private static bool LocalDeclaredFromDefault(ILocalSymbol local)
-    {
-        foreach (var reference in local.DeclaringSyntaxReferences)
-        {
-            if (reference.GetSyntax() is VariableDeclaratorSyntax
-                {
-                    Initializer.Value: DefaultExpressionSyntax
-                })
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern)

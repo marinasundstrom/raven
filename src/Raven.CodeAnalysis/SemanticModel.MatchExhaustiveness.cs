@@ -27,7 +27,7 @@ public partial class SemanticModel
         if (boundMatch is null)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
 
-        var evaluator = new MatchExhaustivenessEvaluator(Compilation);
-        return evaluator.Evaluate(boundMatch, options);
+        var evaluator = new MatchExhaustivenessEvaluator(Compilation, node => TryGetCachedBoundNode(node) ?? GetBoundNode(node));
+        return evaluator.Evaluate(matchExpression, boundMatch, options);
     }
 }

@@ -1732,6 +1732,112 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionMatch_DefaultLocalReassignedToActiveValueIsExhaustive()
+    {
+        const string source = """
+func format() -> string {
+    var result: Result<int> = default
+    result = .Ok(1)
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_BranchAssignedDefaultRequiresInactiveDefaultState()
+    {
+        const string source = """
+func format(useDefault: bool) -> string {
+    var result: Result<int> = .Ok(1)
+
+    if useDefault {
+        result = default
+    }
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
+        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Contains("default", info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_NestedMatchSeesOuterDefaultState()
+    {
+        const string source = """
+func format(useNested: bool) -> string {
+    var result: Result<int> = default
+
+    if useNested {
+        return match result {
+            .Ok(val payload) => payload.ToString()
+            .Error(val message) => message
+        }
+    }
+
+    return ""
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
+        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Contains("default", info.MissingCases);
+    }
+
+    [Fact]
     public void StructUnionMatch_CatchAllArmCoversInactiveState()
     {
         const string source = """

@@ -44,7 +44,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   are exhaustive for ordinary active values and parameters, while flow-known
   `default` carriers require a catch-all/default-state arm. Defensive catch-all
   arms on struct unions are still allowed because the inactive carrier state is
-  physically representable.
+  physically representable. Local assignment flow now updates that default-state
+  analysis, so assigning an active case after `default` removes the requirement
+  and branch assignments to `default` preserve it.
 - Fixed extension member completion after partially typed member names so
   imported metadata extension methods are offered for prefixes such as
   `widget.Dou`.
