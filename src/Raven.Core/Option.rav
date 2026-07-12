@@ -209,7 +209,7 @@ extension OptionExtensions1<T : class> for Option<T> {
         if opt is Some(val value) {
             return value
         }
-        null
+        return null
     }
 
     static func implicit(value: T?) -> Option<T> {
@@ -225,7 +225,7 @@ extension OptionExtensions2<T : struct> for Option<T> {
         if opt is Some(val value) {
             return value
         }
-        null
+        return null
     }
 
     static func implicit(value: T?) -> Option<T> {
