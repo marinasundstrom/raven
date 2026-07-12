@@ -1670,10 +1670,41 @@ union struct Result {
     }
 
     [Fact]
-    public void StructUnionMatch_ExhaustivenessIncludesInactiveDefaultState()
+    public void StructUnionMatch_ParameterAllCasesCoveredIsExhaustive()
     {
         const string source = """
 func format(result: Result<int>) -> string {
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_DefaultLocalRequiresInactiveDefaultState()
+    {
+        const string source = """
+func format() -> string {
+    val result: Result<int> = default
+
     return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message

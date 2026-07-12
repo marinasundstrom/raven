@@ -5364,7 +5364,7 @@ partial class BlockBinder : Binder
 
         if (discriminatedUnion is not null)
         {
-            EnsureDiscriminatedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, scrutineeType, discriminatedUnion, catchAllIndex);
+            EnsureDiscriminatedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, scrutinee, scrutineeType, discriminatedUnion, catchAllIndex);
             return;
         }
 
@@ -5625,25 +5625,26 @@ partial class BlockBinder : Binder
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
+        BoundExpression scrutinee,
         ITypeSymbol scrutineeType,
         IUnionSymbol union,
         int catchAllIndex)
     {
         if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
         {
-            EnsureParenthesizedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, union, catchAllIndex);
+            EnsureParenthesizedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, scrutinee, scrutineeType, union, catchAllIndex);
             return;
         }
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutineeType, union);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, scrutineeType, union);
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
         bool? guaranteedInactiveStructStateRemaining = null;
         if (catchAllIndex >= 0)
         {
             guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
-            guaranteedInactiveStructStateRemaining = inactiveStructStateRemaining;
+            guaranteedInactiveStructStateRemaining = CanRepresentInactiveStructUnionState(scrutineeType, union);
         }
 
         var reportedRedundantCatchAll = false;
@@ -5703,6 +5704,8 @@ partial class BlockBinder : Binder
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
+        BoundExpression scrutinee,
+        ITypeSymbol scrutineeType,
         IUnionSymbol union,
         int catchAllIndex)
     {
@@ -5710,13 +5713,16 @@ partial class BlockBinder : Binder
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, scrutineeType, union);
 
         HashSet<ITypeSymbol>? guaranteedRemaining = null;
         Dictionary<ITypeSymbol, HashSet<object?>>? guaranteedLiteralCoverage = null;
+        bool? guaranteedInactiveStructStateRemaining = null;
         if (catchAllIndex >= 0)
         {
             guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
             guaranteedLiteralCoverage = CloneLiteralCoverage(literalCoverage);
+            guaranteedInactiveStructStateRemaining = CanRepresentInactiveStructUnionState(scrutineeType, union);
         }
 
         var reportedRedundantCatchAll = false;
@@ -5727,14 +5733,20 @@ partial class BlockBinder : Binder
             var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
 
             if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+            {
                 RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern, guaranteedLiteralCoverage);
+                guaranteedInactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
 
             if (guardGuaranteesMatch)
-                RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
-
-            if (remaining.Count == 0)
             {
-                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+                RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
+                inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
+
+            if (remaining.Count == 0 && !inactiveStructStateRemaining)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
                 {
                     ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                     reportedRedundantCatchAll = true;
@@ -5743,7 +5755,7 @@ partial class BlockBinder : Binder
                 return;
             }
 
-            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
             {
                 ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                 reportedRedundantCatchAll = true;
@@ -5764,6 +5776,12 @@ partial class BlockBinder : Binder
 
         if (catchAllIndex >= 0)
             return;
+
+        if (inactiveStructStateRemaining)
+        {
+            ReportMatchNotExhaustive(matchSyntax, "default");
+            return;
+        }
 
         foreach (var missing in remaining
             .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
@@ -5822,12 +5840,26 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private static bool RequiresInactiveStructUnionStateCoverage(ITypeSymbol scrutineeType, IUnionSymbol union)
+    private static bool RequiresInactiveStructUnionStateCoverage(
+        BoundExpression scrutinee,
+        ITypeSymbol scrutineeType,
+        IUnionSymbol union)
+    {
+        if (!CanRepresentInactiveStructUnionState(scrutineeType, union))
+            return false;
+
+        return UnionContentsMayBeDefault(scrutinee);
+    }
+
+    private static bool CanRepresentInactiveStructUnionState(ITypeSymbol scrutineeType, IUnionSymbol union)
     {
         if (union.TypeKind != TypeKind.Struct)
             return false;
 
-        return scrutineeType.TryGetUnion() is not null;
+        if (scrutineeType.TryGetUnion() is null)
+            return false;
+
+        return true;
     }
 
     private bool PatternCoversInactiveStructUnionState(
@@ -5844,6 +5876,39 @@ partial class BlockBinder : Binder
         return pattern is BoundOrPattern orPattern &&
                (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
                 PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
+    }
+
+    private static bool UnionContentsMayBeDefault(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundDefaultValueExpression:
+                return true;
+            case BoundParenthesizedExpression parenthesized:
+                return UnionContentsMayBeDefault(parenthesized.Expression);
+            case BoundConversionExpression conversion:
+                return UnionContentsMayBeDefault(conversion.Expression);
+            case BoundLocalAccess localAccess:
+                return LocalDeclaredFromDefault(localAccess.Local);
+            default:
+                return false;
+        }
+    }
+
+    private static bool LocalDeclaredFromDefault(ILocalSymbol local)
+    {
+        foreach (var reference in local.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is VariableDeclaratorSyntax
+                {
+                    Initializer.Value: DefaultExpressionSyntax
+                })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern)

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -23,10 +24,6 @@ internal sealed class MatchExhaustivenessEvaluator
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
 
         scrutineeType = UnwrapAlias(scrutineeType);
-        // Normalize named types so we can recognize source symbols even when the binder wraps them
-        // (e.g. substituted/constructed named types).
-        if (scrutineeType is INamedTypeSymbol namedScrutinee && namedScrutinee.OriginalDefinition is not null)
-            scrutineeType = (ITypeSymbol)namedScrutinee.OriginalDefinition;
 
         if (scrutineeType.TypeKind == TypeKind.Error)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
@@ -47,7 +44,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
             if (discriminatedUnion is not null)
             {
-                missingCases = GetMissingDiscriminatedUnionCases(scrutineeType, arms, discriminatedUnion, options);
+                missingCases = GetMissingDiscriminatedUnionCases(matchExpression.Expression, scrutineeType, arms, discriminatedUnion, options);
             }
             else if (scrutineeType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
             {
@@ -162,16 +159,17 @@ internal sealed class MatchExhaustivenessEvaluator
     }
 
     private ImmutableArray<string> GetMissingDiscriminatedUnionCases(
+        BoundExpression scrutinee,
         ITypeSymbol scrutineeType,
         ImmutableArray<BoundMatchArm> arms,
         IUnionSymbol union,
         MatchExhaustivenessOptions options)
     {
         if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
-            return GetMissingParenthesizedUnionCases(scrutineeType, arms, union, options);
+            return GetMissingParenthesizedUnionCases(scrutinee, scrutineeType, arms, union, options);
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutineeType, union);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, union);
 
         foreach (var arm in arms)
         {
@@ -201,6 +199,7 @@ internal sealed class MatchExhaustivenessEvaluator
     }
 
     private ImmutableArray<string> GetMissingParenthesizedUnionCases(
+        BoundExpression scrutinee,
         ITypeSymbol scrutineeType,
         ImmutableArray<BoundMatchArm> arms,
         IUnionSymbol union,
@@ -210,6 +209,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(scrutinee, union);
 
         foreach (var arm in arms)
         {
@@ -220,10 +220,16 @@ internal sealed class MatchExhaustivenessEvaluator
                 continue;
 
             RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
+            inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
 
-            if (remaining.Count == 0)
+            if (remaining.Count == 0 && !inactiveStructStateRemaining)
                 break;
         }
+
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        if (inactiveStructStateRemaining)
+            builder.Add("default");
 
         if (literalCoverage is not null && literalCoverage.Count > 0)
         {
@@ -233,15 +239,19 @@ internal sealed class MatchExhaustivenessEvaluator
                 {
                     var literalMissing = GetMissingLiteralCoverage(type, constants);
                     if (!literalMissing.IsDefaultOrEmpty)
-                        return literalMissing;
+                    {
+                        builder.AddRange(literalMissing);
+                        return builder.ToImmutable();
+                    }
                 }
             }
         }
 
-        return remaining
+        builder.AddRange(remaining
             .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToImmutableArray();
+            .OrderBy(name => name, StringComparer.Ordinal));
+
+        return builder.ToImmutable();
     }
 
     private ImmutableArray<string> GetMissingEnumCases(
@@ -991,12 +1001,15 @@ internal sealed class MatchExhaustivenessEvaluator
         return false;
     }
 
-    private static bool RequiresInactiveStructUnionStateCoverage(ITypeSymbol scrutineeType, IUnionSymbol union)
+    private static bool RequiresInactiveStructUnionStateCoverage(BoundExpression scrutinee, IUnionSymbol union)
     {
         if (union.TypeKind != TypeKind.Struct)
             return false;
 
-        return scrutineeType.TryGetUnion() is not null;
+        if (scrutinee.Type?.TryGetUnion() is null)
+            return false;
+
+        return UnionContentsMayBeDefault(scrutinee);
     }
 
     private static bool PatternCoversInactiveStructUnionState(
@@ -1013,6 +1026,39 @@ internal sealed class MatchExhaustivenessEvaluator
         return pattern is BoundOrPattern orPattern &&
                (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
                 PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
+    }
+
+    private static bool UnionContentsMayBeDefault(BoundExpression expression)
+    {
+        switch (expression)
+        {
+            case BoundDefaultValueExpression:
+                return true;
+            case BoundParenthesizedExpression parenthesized:
+                return UnionContentsMayBeDefault(parenthesized.Expression);
+            case BoundConversionExpression conversion:
+                return UnionContentsMayBeDefault(conversion.Expression);
+            case BoundLocalAccess localAccess:
+                return LocalDeclaredFromDefault(localAccess.Local);
+            default:
+                return false;
+        }
+    }
+
+    private static bool LocalDeclaredFromDefault(ILocalSymbol local)
+    {
+        foreach (var reference in local.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is VariableDeclaratorSyntax
+                {
+                    Initializer.Value: DefaultExpressionSyntax
+                })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)

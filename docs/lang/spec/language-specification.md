@@ -5239,13 +5239,14 @@ Union invariants:
 * `union struct` reserves its default state as an uninitialized carrier. For
   `default(U)`, `Value` is `null`, `HasValue` is `false`, and no case is active
   until a union constructor populates the carrier.
-* In pattern exhaustiveness, that default `union struct` carrier state is a
-  distinct `default` state. An ordinary catch-all arm covers it; a `null` arm
-  covers only active nullable union contents.
-* Function parameters of `union struct` type are definitely assigned variables,
-  but their incoming value may still be `default(U)`. Parameter matches therefore
-  require the same inactive-state coverage unless flow analysis proves an active
-  case.
+* The default `union struct` carrier state is not a formal union case. Pattern
+  exhaustiveness checks the declared case set, then separately checks whether
+  flow analysis knows the matched value may be the inactive/default carrier.
+  When that inactive state is required, an ordinary catch-all arm covers it.
+* Function parameters of `union struct` type are treated according to their
+  declared non-null union contract. Matching a parameter does not require
+  inactive/default-state coverage solely because a caller could pass
+  `default(U)`.
 * `union class` does not have that extra carrier state; a class carrier exists
   only after construction through one of its union cases or constructors.
 * For ordinary class carriers with no nullable active member state, `null` is
