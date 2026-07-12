@@ -115,18 +115,26 @@ union Result<T, E> {
 
     /// Runs `action` if this is `Ok`, returning the original result.
     func Tap(action: T -> ()) -> Result<T, E> {
-        if self is Ok(val value) {
-            action(value)
+        self match {
+            Ok(val value) => {
+                action(value)
+                Ok(value)
+            }
+            Error(val e) => Error(e)
+            _ => Error(default(E))
         }
-        self
     }
 
     /// Runs `action` if this is `Error`, returning the original result.
     func TapError(action: E -> ()) -> Result<T, E> {
-        if self is Error(val e) {
-            action(e)
+        self match {
+            Ok(val value) => Ok(value)
+            Error(val e) => {
+                action(e)
+                Error(e)
+            }
+            _ => Error(default(E))
         }
-        self
     }
 
     /// Recovers from an error by mapping it to a new result.

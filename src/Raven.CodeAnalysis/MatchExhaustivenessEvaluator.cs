@@ -25,7 +25,24 @@ internal sealed class MatchExhaustivenessEvaluator
         BoundMatchExpression matchExpression,
         MatchExhaustivenessOptions options)
     {
-        if (matchExpression.Expression.Type is not ITypeSymbol scrutineeType)
+        return Evaluate(matchSyntax, matchExpression.Expression, matchExpression.Arms, options);
+    }
+
+    public MatchExhaustivenessInfo Evaluate(
+        SyntaxNode matchSyntax,
+        BoundMatchStatement matchStatement,
+        MatchExhaustivenessOptions options)
+    {
+        return Evaluate(matchSyntax, matchStatement.Expression, matchStatement.Arms, options);
+    }
+
+    private MatchExhaustivenessInfo Evaluate(
+        SyntaxNode matchSyntax,
+        BoundExpression scrutinee,
+        ImmutableArray<BoundMatchArm> arms,
+        MatchExhaustivenessOptions options)
+    {
+        if (scrutinee.Type is not ITypeSymbol scrutineeType)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
 
         scrutineeType = UnwrapAlias(scrutineeType);
@@ -33,7 +50,6 @@ internal sealed class MatchExhaustivenessEvaluator
         if (scrutineeType.TypeKind == TypeKind.Error)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
 
-        var arms = matchExpression.Arms;
         var hasCatchAll = arms.Any(arm => arm.Guard is null && IsCatchAllPattern(scrutineeType, arm.Pattern));
 
         ImmutableArray<string> missingCases;
@@ -49,7 +65,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
             if (discriminatedUnion is not null)
             {
-                missingCases = GetMissingDiscriminatedUnionCases(matchSyntax, matchExpression.Expression, scrutineeType, arms, discriminatedUnion, options);
+                missingCases = GetMissingDiscriminatedUnionCases(matchSyntax, scrutinee, scrutineeType, arms, discriminatedUnion, options);
             }
             else if (scrutineeType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
             {

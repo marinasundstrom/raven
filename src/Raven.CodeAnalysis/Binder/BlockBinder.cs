@@ -5651,7 +5651,7 @@ partial class BlockBinder : Binder
         if (catchAllIndex >= 0)
         {
             guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
-            guaranteedInactiveStructStateRemaining = CanRepresentInactiveStructUnionState(scrutineeType, union);
+            guaranteedInactiveStructStateRemaining = inactiveStructStateRemaining;
         }
 
         var reportedRedundantCatchAll = false;
@@ -5729,7 +5729,7 @@ partial class BlockBinder : Binder
         {
             guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
             guaranteedLiteralCoverage = CloneLiteralCoverage(literalCoverage);
-            guaranteedInactiveStructStateRemaining = CanRepresentInactiveStructUnionState(scrutineeType, union);
+            guaranteedInactiveStructStateRemaining = inactiveStructStateRemaining;
         }
 
         var reportedRedundantCatchAll = false;

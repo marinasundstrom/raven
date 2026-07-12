@@ -1340,7 +1340,7 @@ val result = match state {
     }
 
     [Fact]
-    public void MatchExpression_WithStructUnionScrutinee_DefensiveCatchAllIsNotRedundant()
+    public void MatchExpression_WithActiveStructUnionScrutinee_DefensiveCatchAllIsRedundant()
     {
         const string code = """
 union State {
@@ -1357,7 +1357,9 @@ val result = match state {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan()]);
 
         verifier.Verify();
     }
@@ -1423,7 +1425,7 @@ val result = match value {
     }
 
     [Fact]
-    public void MatchExpression_WithParenthesizedStructUnionScrutinee_DefensiveCatchAllIsNotRedundant()
+    public void MatchExpression_WithActiveParenthesizedStructUnionScrutinee_DefensiveCatchAllIsRedundant()
     {
         const string code = """
 union Value(int | string)
@@ -1437,7 +1439,9 @@ val result = match value {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan()]);
 
         verifier.Verify();
     }

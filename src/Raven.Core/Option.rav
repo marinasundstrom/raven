@@ -90,7 +90,7 @@ union Option<T> {
     /// Returns this option if it is `Some`, otherwise returns `alternative()`.
     func OrElse(alternative: () -> Option<T>) -> Option<T> {
         self match {
-            Some(_) => self
+            Some(val value) => Some(value)
             None => alternative()
             _ => alternative()
         }
@@ -116,18 +116,26 @@ union Option<T> {
 
     /// Runs `action` if this is `Some`, returning the original option.
     func Tap(action: T -> ()) -> Option<T> {
-        if self is Some(val value) {
-            action(value)
+        self match {
+            Some(val value) => {
+                action(value)
+                Some(value)
+            }
+            None => None
+            _ => None
         }
-        self
     }
 
     /// Runs `action` if this is `None`, returning the original option.
     func TapNone(action: () -> ()) -> Option<T> {
-        if self is None {
-            action()
+        self match {
+            Some(val value) => Some(value)
+            None => {
+                action()
+                None
+            }
+            _ => None
         }
-        self
     }
 
     /// Converts `Some(x)` to a single-item sequence and `None` to an empty sequence.

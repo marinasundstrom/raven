@@ -135,7 +135,9 @@ union Either(Left | Right)
     public void ParenthesizedUnionMatch_WithMissingMember_ReportsExhaustivenessDiagnostic()
     {
         const string source = """
-func Test(value: Either) -> int {
+func Test() -> int {
+    val value: Either = "text"
+
     return match value {
         string text => text.Length
     }
@@ -164,7 +166,9 @@ union Either(int | string)
     public void ParenthesizedUnionMatch_WithAllMembers_IsExhaustive()
     {
         const string source = """
-func Test(value: Either) -> int {
+func Test() -> int {
+    val value: Either = 1
+
     return match value {
         int number => number
         string text => text.Length
@@ -236,7 +240,9 @@ union Foo(int | double)
     public void ParenthesizedUnionMatch_WithNullableMemberPattern_StillRequiresNullArm()
     {
         const string source = """
-func Test(value: Foo) -> int {
+func Test() -> int {
+    val value: Foo = 1
+
     return match value {
         int number => number
         double? number => 0
@@ -340,7 +346,9 @@ union Test2(int?)
     public void ParenthesizedUnionMatch_WithOnlyNullArm_ReportsMissingMemberDiagnostic()
     {
         const string source = """
-func Test(x2: Test2) -> int {
+func Test() -> int {
+    val x2: Test2 = 1
+
     val r = match x2 {
         null => 2
     }
@@ -372,7 +380,9 @@ union Test2(int?)
     public void ParenthesizedUnionMatch_WithTypedMemberAndNull_IsExhaustive()
     {
         const string source = """
-func Test(x2: Test2) -> int {
+func Test() -> int {
+    val x2: Test2 = 1
+
     return match x2 {
         int value => value
         null => 2
@@ -600,6 +610,7 @@ func Describe(value: Payment) -> string {
     return match value {
         Cash(val amount) => "cash $amount"
         Card(val reference) => "card $reference"
+        _ => "default"
     }
 }
 """;
@@ -1670,7 +1681,7 @@ union struct Result {
     }
 
     [Fact]
-    public void StructUnionMatch_ParameterAllCasesCoveredIsExhaustive()
+    public void StructUnionMatch_ParameterAllCasesCoveredStillRequiresInactiveDefaultState()
     {
         const string source = """
 func format(result: Result<int>) -> string {
@@ -1688,14 +1699,15 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.True(info.IsExhaustive);
-        Assert.Empty(info.MissingCases);
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("default", missing));
     }
 
     [Fact]
@@ -2095,7 +2107,7 @@ union struct Result<T> {
     }
 
     [Fact]
-    public void StructUnionArgument_ParameterDoesNotReportInactiveDefaultState()
+    public void StructUnionArgument_ParameterReportsInactiveDefaultState()
     {
         const string source = """
 func consume(result: Result<int>) {
@@ -2114,7 +2126,7 @@ union struct Result<T> {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
 
-        Assert.DoesNotContain(compilation.GetDiagnostics(),
+        Assert.Contains(compilation.GetDiagnostics(),
             static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
     }
 
@@ -2295,7 +2307,7 @@ union struct Result<T> {
     }
 
     [Fact]
-    public void StructUnionReturn_ParameterDoesNotReportInactiveDefaultState()
+    public void StructUnionReturn_ParameterReportsInactiveDefaultState()
     {
         const string source = """
 func forward(result: Result<int>) -> Result<int> {
@@ -2311,7 +2323,7 @@ union struct Result<T> {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
 
-        Assert.DoesNotContain(compilation.GetDiagnostics(),
+        Assert.Contains(compilation.GetDiagnostics(),
             static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
     }
 

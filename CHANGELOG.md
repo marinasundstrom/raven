@@ -41,18 +41,22 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   default, matching the C# generated-union direction. Raven.Core `Union<...>`,
   `Option<T>`, and `Result<T, E>` now use that default struct carrier shape.
   Struct-union match exhaustiveness now follows the C# contract: declared cases
-  are exhaustive for ordinary active values and parameters, while flow-known
-  `default` carriers require a catch-all/default-state arm. Defensive catch-all
-  arms on struct unions are still allowed because the inactive carrier state is
-  physically representable. Local assignment flow now updates that default-state
-  analysis, so assigning an active case after `default` removes the requirement
-  and branch assignments to `default` preserve it. Passing a struct-union value
-  that may still be the inactive `default` carrier to a struct-union parameter
-  now reports `RAV0405` at the call site, so callee parameters can keep their
-  active-value contract.
+  are exhaustive for ordinary active values, while parameters, `self`, fields,
+  properties, and flow-known `default` carriers require a catch-all/default-state
+  arm. Defensive catch-all arms on struct unions are still allowed when the
+  inactive carrier state is physically possible, but active local values now
+  report redundant catch-all arms. Local assignment flow now updates that
+  default-state analysis, so assigning an active case after `default` removes
+  the requirement and branch assignments to `default` preserve it. Passing a
+  struct-union value that may still be the inactive `default` carrier to a
+  struct-union parameter now reports `RAV0405` at the call site, so callee
+  parameters can keep their active-value contract.
 - Returning a struct-union value that may still be the inactive `default`
   carrier now reports `RAV0406` at the return boundary, preserving the same
   active-value contract for callers.
+- Added `SemanticModel.GetMatchExhaustiveness(MatchStatementSyntax)` so tooling
+  can query the same exhaustiveness information for match statements that it
+  already can for keyword-first and postfix match expressions.
 - Raven.Core `Result<T, E>` combinators now return an active `Error(default(E))`
   carrier when invoked on an inactive default receiver, avoiding propagation of
   the struct-union default carrier state from `Map`, `Then`, `MapError`, and

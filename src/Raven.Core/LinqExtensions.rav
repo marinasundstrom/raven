@@ -166,7 +166,6 @@ extension EnumerableOption<T> for IEnumerable<T> {
         return opt match {
             Some(val v) => Ok(v)
             None => Error(errorFactory())
-            _ => Error(errorFactory())
         }
     }
 

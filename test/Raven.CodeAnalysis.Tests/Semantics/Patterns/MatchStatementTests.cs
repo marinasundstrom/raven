@@ -147,6 +147,39 @@ func ping(name: string) -> PingStatus {
     }
 
     [Fact]
+    public void MatchStatement_WithStructUnionDefaultLocal_ReportsDefaultInExhaustivenessInfo()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+match state {
+    .On => 1
+    .Off => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_statement_struct_union_default_exhaustiveness",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var statement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(statement);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Contains("default", info.MissingCases);
+    }
+
+    [Fact]
     public void MatchStatement_WithOpenGenericDeclarationPattern_InfersTypeArgumentsFromScrutinee()
     {
         const string code = """
