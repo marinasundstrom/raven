@@ -10,6 +10,11 @@ namespace Raven.CodeAnalysis;
 
 internal static class StructUnionDefaultStateFlow
 {
+    // Narrow internal value-state analysis for struct-union match exhaustiveness.
+    // This is intentionally not public AnalyzeDataFlow and not nullable-flow
+    // analysis: it only tracks local struct-union carrier default state through
+    // straight-line statements, if joins, loops, try/catch/finally, and nested
+    // statement context.
     private enum DefaultState
     {
         Active,
@@ -146,6 +151,15 @@ internal static class StructUnionDefaultStateFlow
             case BoundIfStatement ifStatement:
                 ApplyIfStatement(ifStatement, states);
                 break;
+            case BoundWhileStatement whileStatement:
+                ApplyMayExecuteStatement(whileStatement.Body, states);
+                break;
+            case BoundForStatement forStatement:
+                ApplyMayExecuteStatement(forStatement.Body, states);
+                break;
+            case BoundTryStatement tryStatement:
+                ApplyTryStatement(tryStatement, states);
+                break;
         }
     }
 
@@ -182,6 +196,61 @@ internal static class StructUnionDefaultStateFlow
             var thenState = thenStates.TryGetValue(local, out var thenValue) ? thenValue : DefaultState.Active;
             var elseState = elseStates.TryGetValue(local, out var elseValue) ? elseValue : DefaultState.Active;
             states[local] = Join(thenState, elseState);
+        }
+    }
+
+    private static void ApplyMayExecuteStatement(
+        BoundStatement statement,
+        Dictionary<ILocalSymbol, DefaultState> states)
+    {
+        var before = Clone(states);
+        var after = Clone(before);
+        ApplyStatement(statement, after);
+        JoinInto(states, before, after);
+    }
+
+    private static void ApplyTryStatement(
+        BoundTryStatement tryStatement,
+        Dictionary<ILocalSymbol, DefaultState> states)
+    {
+        var before = Clone(states);
+
+        var tryStates = Clone(before);
+        ApplyStatement(tryStatement.TryBlock, tryStates);
+
+        var joined = Clone(tryStates);
+
+        foreach (var catchClause in tryStatement.CatchClauses)
+        {
+            var catchStates = Clone(before);
+            ApplyStatement(catchClause.Block, catchStates);
+            var currentJoined = Clone(joined);
+            JoinInto(joined, currentJoined, catchStates);
+        }
+
+        states.Clear();
+        foreach (var (local, state) in joined)
+            states[local] = state;
+
+        if (tryStatement.FinallyBlock is not null)
+            ApplyStatement(tryStatement.FinallyBlock, states);
+    }
+
+    private static void JoinInto(
+        Dictionary<ILocalSymbol, DefaultState> target,
+        Dictionary<ILocalSymbol, DefaultState> left,
+        Dictionary<ILocalSymbol, DefaultState> right)
+    {
+        target.Clear();
+
+        var locals = new HashSet<ILocalSymbol>(left.Keys, SymbolEqualityComparer.Default);
+        locals.UnionWith(right.Keys);
+
+        foreach (var local in locals)
+        {
+            var leftState = left.TryGetValue(local, out var leftValue) ? leftValue : DefaultState.Active;
+            var rightState = right.TryGetValue(local, out var rightValue) ? rightValue : DefaultState.Active;
+            target[local] = Join(leftState, rightState);
         }
     }
 
