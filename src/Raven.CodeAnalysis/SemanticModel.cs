@@ -687,7 +687,29 @@ public partial class SemanticModel
                     ? GetBinder(expressionBody, methodBodyBinder)
                     : GetBinderForDiagnostics(expressionBody, methodBodyBinder);
                 Traverse(expressionBody, expressionBinder);
+                ReportStructUnionDefaultExpressionBodyReturn(functionBinder, expressionBody, expressionBinder);
             }
+        }
+
+        void ReportStructUnionDefaultExpressionBodyReturn(
+            FunctionBinder functionBinder,
+            ArrowExpressionClauseSyntax expressionBody,
+            Binder expressionBinder)
+        {
+            if (expressionBody.Expression is not DefaultExpressionSyntax defaultExpression)
+                return;
+
+            var method = functionBinder.GetMethodSymbol();
+            var returnType = method.IsAsync &&
+                AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, method.ReturnType) is { } asyncReturnType
+                    ? asyncReturnType
+                    : method.ReturnType;
+
+            if (returnType.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+                return;
+
+            var unionType = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            expressionBinder.Diagnostics.ReportStructUnionReturnMayBeDefault(unionType, defaultExpression.GetLocation());
         }
 
         bool TryTraverseTypeMemberDeclaration(SyntaxNode node, Binder currentBinder)

@@ -2227,6 +2227,137 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionReturn_DefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    return default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_DefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    val result: Result<int> = default
+    return result
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ReassignedActiveLocalDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    var result: Result<int> = default
+    result = .Ok(1)
+    return result
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ParameterDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func forward(result: Result<int>) -> Result<int> {
+    return result
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ImplicitDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ArrowBodyDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> => default
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnionCarrierConstructor_HasSynthesizedBody()
     {
         const string source = """

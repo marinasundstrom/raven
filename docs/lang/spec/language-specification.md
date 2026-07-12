@@ -5251,6 +5251,10 @@ Union invariants:
   argument to be known active at the call site. A value that flow analysis knows
   may still be the inactive/default carrier is rejected before entering the
   callee.
+* Returning a `union struct` value from a function or property requires the
+  value to be known active at the return boundary. A value that flow analysis
+  knows may still be the inactive/default carrier is rejected before it leaves
+  the declaring member.
 * `union class` does not have that extra carrier state; a class carrier exists
   only after construction through one of its union cases or constructors.
 * For ordinary class carriers with no nullable active member state, `null` is

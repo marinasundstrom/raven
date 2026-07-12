@@ -2221,6 +2221,13 @@ partial class BlockBinder : Binder
                 return cached;
 
             var expression = BindExpression(arrow.Expression, allowReturn: true);
+            if (GetContainingReturnTargetType() is { } targetType &&
+                targetType.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void &&
+                ReportStructUnionReturnMayBeDefault(targetType, expression, arrow.Expression))
+            {
+                expression = new BoundErrorExpression(targetType, null, BoundExpressionReason.OtherError);
+            }
+
             BoundBlockStatement bound = expression is BoundBlockExpression blockExpression
                 ? new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose)
                 : new BoundBlockStatement([new BoundExpressionStatement(expression)]);
@@ -8056,7 +8063,14 @@ partial class BlockBinder : Binder
         if (targetType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
-        return new BoundDefaultValueExpression(targetType.GetDefaultValueType());
+        var expression = new BoundDefaultValueExpression(targetType.GetDefaultValueType());
+        if (syntax.Parent is ArrowExpressionClauseSyntax &&
+            ReportStructUnionReturnMayBeDefault(targetType, expression, syntax))
+        {
+            return new BoundErrorExpression(targetType, null, BoundExpressionReason.OtherError);
+        }
+
+        return expression;
     }
 
     private BoundExpression BindUnitExpression(UnitExpressionSyntax syntax)
@@ -13273,6 +13287,32 @@ partial class BlockBinder : Binder
         return true;
     }
 
+    protected bool ReportStructUnionReturnMayBeDefault(
+        ITypeSymbol returnType,
+        BoundExpression expression,
+        SyntaxNode? syntaxNode)
+    {
+        if (returnType.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+            return false;
+
+        if (expression.Type is { } expressionType &&
+            expressionType.TypeKind != TypeKind.Error &&
+            expressionType.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+        {
+            return false;
+        }
+
+        if (syntaxNode is null)
+            return false;
+
+        if (!StructUnionDefaultStateFlow.ExpressionMayBeDefault(expression, syntaxNode, TryGetCachedBoundNode))
+            return false;
+
+        var unionType = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportStructUnionReturnMayBeDefault(unionType, syntaxNode.GetLocation());
+        return true;
+    }
+
     private bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
     {
         parameterType = parameterType.GetPlainType();
@@ -16777,6 +16817,10 @@ partial class BlockBinder : Binder
                     SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true } => true,
                     _ => false,
                 };
+                var returnTargetType = symbol.IsAsync &&
+                    AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) is { } asyncReturnTargetType
+                        ? asyncReturnTargetType
+                        : returnType;
 
                 if (!skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
                     returnType.TypeKind != TypeKind.Error)
@@ -16806,6 +16850,8 @@ partial class BlockBinder : Binder
                             targetType = awaitedType;
                         }
 
+                        returnTargetType = targetType;
+
                         if (!expressionBinder.IsAssignable(targetType, converted.Type, out var conversion))
                         {
                             expressionBinder.ReportCannotConvertExpressionToType(
@@ -16818,6 +16864,11 @@ partial class BlockBinder : Binder
                             converted = expressionBinder.ApplyConversion(converted, targetType, conversion, function.ExpressionBody.Expression);
                         }
                     }
+                }
+
+                if (expressionBinder.ReportStructUnionReturnMayBeDefault(returnTargetType, converted, function.ExpressionBody.Expression))
+                {
+                    converted = new BoundErrorExpression(returnTargetType, null, BoundExpressionReason.OtherError);
                 }
 
                 converted = expressionBinder.ValidateByRefReturnExpression(symbol, converted, function.ExpressionBody.Expression);

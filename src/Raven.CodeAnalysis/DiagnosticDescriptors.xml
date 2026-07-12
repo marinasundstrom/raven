@@ -480,6 +480,10 @@
     Title="Struct union argument may be default"
     Message="Struct union argument for parameter '{parameterName}' of type '{unionType}' may be the inactive default state"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0406" Identifier="StructUnionReturnMayBeDefault"
+    Title="Struct union return value may be default"
+    Message="Struct union return value of type '{unionType}' may be the inactive default state"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0410" Identifier="EnumUnderlyingTypeMustBeSingle"
     Title="Enum underlying type list must be a single type"
     Message="Enum declarations may specify only one underlying type" Category="compiler"

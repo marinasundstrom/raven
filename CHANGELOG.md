@@ -50,6 +50,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   that may still be the inactive `default` carrier to a struct-union parameter
   now reports `RAV0405` at the call site, so callee parameters can keep their
   active-value contract.
+- Returning a struct-union value that may still be the inactive `default`
+  carrier now reports `RAV0406` at the return boundary, preserving the same
+  active-value contract for callers.
 - Fixed expanded `params` argument target typing so extra positional arguments
   are bound against the params element type, including target-typed union cases.
 - Fixed extension member completion after partially typed member names so
