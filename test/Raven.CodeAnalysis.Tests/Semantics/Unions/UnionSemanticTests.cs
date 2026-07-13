@@ -2467,6 +2467,124 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionArgument_IfExpressionAllBranchesActiveDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    val result: Result<int> = if flag { .Ok(1) } else { .Error("boom") }
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionArgument_IfExpressionDefaultBranchReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    val result: Result<int> = if flag { .Ok(1) } else { default }
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_IfStatementAllBranchesActiveDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    var result: Result<int> = default
+
+    if flag {
+        result = .Ok(1)
+    } else {
+        result = .Error("boom")
+    }
+
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionArgument_IfStatementDefaultBranchReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    var result: Result<int> = .Ok(1)
+
+    if flag {
+        result = .Error("boom")
+    } else {
+        result = default
+    }
+
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StructUnionReturn_DefaultLiteralReportsInactiveDefaultState()
     {
         const string source = """
@@ -2581,6 +2699,55 @@ union struct Result<T> {
             static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
         Assert.DoesNotContain(compilation.GetDiagnostics(),
             static d => d.Descriptor == CompilerDiagnostics.MatchExpressionCatchAllRedundant);
+    }
+
+    [Fact]
+    public void StructUnionReturn_MatchExpressionAllBranchesActiveDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func make(flag: bool) -> Result<int> {
+    return match flag {
+        true => .Ok(1)
+        false => .Error("boom")
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionReturn_MatchExpressionDefaultBranchReportsInactiveDefaultState()
+    {
+        const string source = """
+func make(flag: bool) -> Result<int> {
+    return match flag {
+        true => .Ok(1)
+        false => default
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
