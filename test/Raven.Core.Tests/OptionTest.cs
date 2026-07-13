@@ -115,31 +115,25 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
-    public void DefaultReceiver_CombinatorsReturnActiveNoneOrFallback()
+    public void DefaultReceiver_CombinatorsThrowFromMatchFallback()
     {
         var asm = LoadRavenCoreAssembly();
         var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
         var defaultOption = Activator.CreateInstance(optionType)!;
 
-        var mappedType = GetConstructedType(asm, "System.Option`1", typeof(string));
-        var mapped = optionType.GetMethod("Map")!
+        var mappedException = Assert.Throws<TargetInvocationException>(() => optionType.GetMethod("Map")!
             .MakeGenericMethod(typeof(string))
-            .Invoke(defaultOption, [new Func<int, string>(value => value.ToString())])!;
+            .Invoke(defaultOption, [new Func<int, string>(value => value.ToString())]));
+        Assert.IsType<InvalidOperationException>(mappedException.InnerException);
 
-        Assert.Equal(true, mappedType.GetProperty("HasValue")!.GetValue(mapped));
-        AssertOptionCase(mapped, mappedType, "None");
+        var filteredException = Assert.Throws<TargetInvocationException>(() => optionType.GetMethod("Where")!
+            .Invoke(defaultOption, [new Func<int, bool>(value => value > 0)]));
+        Assert.IsType<InvalidOperationException>(filteredException.InnerException);
 
-        var filtered = optionType.GetMethod("Where")!
-            .Invoke(defaultOption, [new Func<int, bool>(value => value > 0)])!;
-
-        Assert.Equal(true, optionType.GetProperty("HasValue")!.GetValue(filtered));
-        AssertOptionCase(filtered, optionType, "None");
-
-        var matched = optionType.GetMethod("Match")!
+        var matchedException = Assert.Throws<TargetInvocationException>(() => optionType.GetMethod("Match")!
             .MakeGenericMethod(typeof(int))
-            .Invoke(defaultOption, [new Func<int, int>(value => value), new Func<int>(() => 42)]);
-
-        Assert.Equal(42, matched);
+            .Invoke(defaultOption, [new Func<int, int>(value => value), new Func<int>(() => 42)]));
+        Assert.IsType<InvalidOperationException>(matchedException.InnerException);
     }
 
     [Fact]

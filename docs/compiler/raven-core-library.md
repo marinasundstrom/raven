@@ -47,13 +47,15 @@ itself is the stable runtime type; `Value` is the authoritative active-case
 projection.
 
 Because `Option<T>` is a struct union, `default(Option<T>)` is an inactive
-carrier state rather than `None`. Raven code that receives an `Option<T>`
-through a parameter, `self`, field, or property must treat that boundary value
-as possibly inactive until local flow proves it active. Match exhaustiveness is
-still source-checked over the semantic cases (`Some` and `None`); the inactive
-carrier is not a source case. Use a catch-all arm only when the program
-intentionally handles a physically possible inactive carrier. Locals initialized
-from `Some(...)` or `None` are known active and report redundant catch-all arms.
+carrier state rather than `None`. Raven code that receives an `Option<T>` as a
+parameter or `self` can assume an active carrier because the call boundary
+rejects possibly inactive arguments before entry. Fields and properties remain
+storage/interop boundaries until local flow proves them active. Match
+exhaustiveness is still source-checked over the semantic cases (`Some` and
+`None`); the inactive carrier is not a source case. Use a catch-all arm only when
+the program intentionally handles a physically possible inactive carrier. Locals
+initialized from `Some(...)` or `None` are known active and report redundant
+catch-all arms.
 
 `Option<T>` extension helpers:
 
@@ -87,11 +89,13 @@ For constructed `Result<T, E>` values, `Value` points at either the active
 `Ok<T>` or `Error<E>` case object.
 
 Because `Result<T, E>` is a struct union, `default(Result<T, E>)` is an inactive
-carrier state rather than an `Error`. Raven.Core combinators that receive
-`self` defensively handle that inactive state by returning an active fallback
-carrier or throwing from `Match`, rather than returning the raw default carrier.
-Code that forwards a `Result<T, E>` across a call or return boundary must pass
-or return a value that flow analysis knows is active.
+carrier state rather than an `Error`. Raven code that calls a `Result<T, E>`
+helper with a visible default-capable receiver is diagnosed at the call boundary.
+If external code or unsafe construction still forces an inactive carrier into a
+helper, the source match is exhaustive over `Ok` and `Error` and the emitted
+defensive fallback handles the invalid representation state. Code that forwards
+a `Result<T, E>` across a call or return boundary must pass or return a value
+that flow analysis knows is active.
 
 `Result<T, E>` extension helpers:
 
@@ -147,24 +151,23 @@ default. This keeps the ABI aligned with the C# generated-union direction:
 - `default(Option<T>)`, `default(Result<T, E>)`, and default values of standard
   `Union<...>` carriers are inactive carrier states. They are not semantic
   `None`, `Error`, or `null` cases.
-- Raven.Core helpers must not return an inactive carrier when they can return a
-  meaningful active fallback. For example, `Option<T>` helpers normalize default
-  receivers to active `None`, and `Result<T, E>` helpers normalize default
-  receivers to active `Error(default(E))` where a fallback error channel is the
-  only available representation.
+- Raven.Core helpers should rely on the active `self` contract rather than
+  writing source-level default arms. Visible default-capable receivers are
+  rejected at the call boundary; forced invalid carriers are handled by the
+  emitted match fallback.
 - Match expressions and statements are source-exhaustive when they cover the
   declared semantic cases. Raven source does not require a discard/default arm
   just because a struct carrier has a physical inactive default state.
-- Lowering and emit should still preserve a defensive runtime fallback for
-  source-exhaustive matches, such as throwing `SwitchExpressionException`, so
-  metadata consumers and forced default carriers cannot fall through silently.
+- Lowering and emit preserve a defensive runtime fallback for source-exhaustive
+  matches, throwing when no arm matches so metadata consumers and forced default
+  carriers cannot fall through silently.
 - Code may still write an explicit discard/default arm when it intentionally
   wants to handle a possible inactive carrier at runtime. Such an arm is not
   redundant when flow says the matched struct-union value may be default.
 - Passing or returning a struct-union value across a method boundary requires a
-  value that flow analysis knows is active. When code receives a boundary value
-  and wants to forward it, it should pattern-match and reconstruct the active
-  case, or choose an explicit fallback for the inactive default state.
+  value that flow analysis knows is active. Parameters and `self` are already
+  active inside the callee; fields, properties, and default-capable locals must
+  be proven active before they are forwarded.
 - Local struct-union variables may temporarily hold the inactive default state,
   either because they were explicitly assigned `default` or because analysis has
   not yet proved an active assignment. That is a valid intermediate program
@@ -184,9 +187,9 @@ zero-initialized state.
 The current implementation is intentionally conservative. Future Raven.Core and
 compiler work should focus on:
 
-- Exhaustiveness: ensure lowering and emit consistently generate defensive
-  fallback paths for source-exhaustive matches over struct unions, including
-  match statements and expressions.
+- Exhaustiveness: keep fallback lowering covered as new match forms are added,
+  including the planned prefix-standard and trailing/postfix match expression
+  split.
 - Boundary analysis: extend assignment/active-state analysis for more call
   shapes, including generic helper returns, delegate calls, and nested member
   projections, while keeping diagnostics at the call or return boundary.

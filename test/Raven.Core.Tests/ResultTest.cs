@@ -179,32 +179,25 @@ extension TestExt<T> for IEnumerable<T> {
     }
 
     [Fact]
-    public void DefaultReceiver_CombinatorsReturnActiveErrorCarrier()
+    public void DefaultReceiver_CombinatorsThrowFromMatchFallback()
     {
         var asm = LoadRavenCoreAssembly();
         var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
         var defaultResult = Activator.CreateInstance(resultType)!;
 
-        var mapped = resultType.GetMethod("Map")!
+        var mappedException = Assert.Throws<TargetInvocationException>(() => resultType.GetMethod("Map")!
             .MakeGenericMethod(typeof(int))
-            .Invoke(defaultResult, [new Func<int, int>(value => value + 1)])!;
+            .Invoke(defaultResult, [new Func<int, int>(value => value + 1)]));
+        Assert.IsType<InvalidOperationException>(mappedException.InnerException);
 
-        Assert.Equal(true, resultType.GetProperty("HasValue")!.GetValue(mapped));
-        AssertCasePayload(mapped, resultType, "Error", "Data", expected: null);
-
-        var mappedError = resultType.GetMethod("MapError")!
+        var mappedErrorException = Assert.Throws<TargetInvocationException>(() => resultType.GetMethod("MapError")!
             .MakeGenericMethod(typeof(Exception))
-            .Invoke(defaultResult, [new Func<string, Exception>(message => new InvalidOperationException(message))])!;
+            .Invoke(defaultResult, [new Func<string, Exception>(message => new InvalidOperationException(message))]));
+        Assert.IsType<InvalidOperationException>(mappedErrorException.InnerException);
 
-        var mappedErrorType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(Exception));
-        Assert.Equal(true, mappedErrorType.GetProperty("HasValue")!.GetValue(mappedError));
-        AssertCasePayload(mappedError, mappedErrorType, "Error", "Data", expected: null);
-
-        var recovered = resultType.GetMethod("OrElse")!
-            .Invoke(defaultResult, [null])!;
-
-        Assert.Equal(true, resultType.GetProperty("HasValue")!.GetValue(recovered));
-        AssertCasePayload(recovered, resultType, "Error", "Data", expected: null);
+        var recoveredException = Assert.Throws<TargetInvocationException>(() => resultType.GetMethod("OrElse")!
+            .Invoke(defaultResult, [null]));
+        Assert.IsType<InvalidOperationException>(recoveredException.InnerException);
     }
 
     [Fact]

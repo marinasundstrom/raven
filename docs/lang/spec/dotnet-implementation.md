@@ -180,10 +180,13 @@ union case. Raven therefore keeps it separate from the source case set:
 * A local initialized with `default`, or a local that may flow from `default`,
   may still use a catch-all arm to intentionally handle the inactive carrier,
   but the inactive carrier is not a source exhaustiveness case.
-* Function parameters, `self`, fields, and properties are treated as boundary
-  values that may be inactive/default. Forwarding those values across another
-  call or return boundary requires local flow to prove an active value, usually
-  by copying or reconstructing a declared case.
+* Function parameters and `self` are active inside the callee because the call
+  boundary rejects possibly inactive arguments before entry. Forwarding them
+  across another call or return boundary is allowed.
+* Fields and properties are storage/interop boundaries that may be
+  inactive/default. Forwarding those values across another call or return
+  boundary requires local flow to prove an active value, usually by copying or
+  reconstructing a declared case.
 * Passing a possibly inactive struct-union value to a struct-union parameter is
   rejected at the call site with `RAV0405`.
 * Returning a possibly inactive struct-union value is rejected at the return

@@ -58,10 +58,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added `SemanticModel.GetMatchExhaustiveness(MatchStatementSyntax)` so tooling
   can query the same exhaustiveness information for match statements that it
   already can for keyword-first and postfix match expressions.
-- Raven.Core `Result<T, E>` combinators now return an active `Error(default(E))`
-  carrier when invoked on an inactive default receiver, avoiding propagation of
-  the struct-union default carrier state from `Map`, `Then`, `MapError`, and
-  `OrElse`.
+- Struct-union parameters and `self` are now treated as active inside the
+  callee, relying on call-site diagnostics to reject possibly inactive carriers
+  before entry. Raven.Core `Option<T>` and `Result<T, E>` helpers no longer need
+  source-level defensive default arms, and lowered source-exhaustive matches now
+  throw when no arm matches instead of falling through with a default result.
 - Raven.Core `Option<T>` and `Result<T, E>` JSON converters now serialize the
   inactive default carrier as JSON `null` instead of emitting no token or an
   empty object.

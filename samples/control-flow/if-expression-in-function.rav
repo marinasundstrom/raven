@@ -16,7 +16,6 @@ func TapIfPositiveScore(opt: Option<int>) -> Option<int> {
     return match opt {
         Some(val value) => Some(value)
         None => None
-        _ => None
     }
 }
 

@@ -28,7 +28,6 @@ func tap(value: Option<int>) -> Option<int> {
     return match value {
         Some(val x) => Some(x)
         None => None
-        _ => None
     }
 }
 

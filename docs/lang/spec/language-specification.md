@@ -5243,10 +5243,13 @@ Union invariants:
   exhaustiveness checks the declared case set only. Lowering and emit must still
   preserve a defensive runtime fallback for source-exhaustive matches so
   metadata consumers or forced default carriers cannot fall through silently.
-* Function parameters, `self`, fields, and properties of `union struct` type are
-  treated as boundary values that may be the inactive/default carrier unless
-  narrowed by local flow. Passing or returning one of these values requires an
-  active-state proof at the boundary rather than an extra source match arm.
+* Function parameters and `self` of `union struct` type are active inside the
+  callee because the call boundary rejects possibly inactive arguments before
+  entry. Matching or forwarding them does not require an extra source catch-all.
+* Fields and properties of `union struct` type are storage/interop boundaries
+  that may still contain the inactive/default carrier unless narrowed by local
+  flow. Passing or returning one of those values requires an active-state proof
+  at the boundary rather than an extra source match arm.
 * Local values initialized from a union case or assigned an active union value
   are known active. Matching such a local requires only the declared case set;
   a catch-all arm after all cases is redundant.

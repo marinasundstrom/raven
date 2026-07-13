@@ -62,6 +62,7 @@ internal static class StructUnionDefaultStateFlow
                 return localStates.TryGetValue(localAccess.Local, out var state) ? state : GetUnknownExpressionState(localAccess);
             case BoundParameterAccess:
             case BoundSelfExpression:
+                return DefaultState.Active;
             case BoundFieldAccess:
             case BoundPropertyAccess:
                 return GetMaybeDefaultExpressionState(expression);

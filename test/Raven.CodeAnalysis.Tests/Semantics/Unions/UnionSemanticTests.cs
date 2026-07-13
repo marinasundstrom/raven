@@ -610,7 +610,6 @@ func Describe(value: Payment) -> string {
     return match value {
         Cash(val amount) => "cash $amount"
         Card(val reference) => "card $reference"
-        _ => "default"
     }
 }
 """;
@@ -2057,7 +2056,7 @@ union struct Result<T> {
     }
 
     [Fact]
-    public void StructUnionMatch_CatchAllArmCoversInactiveState()
+    public void StructUnionMatch_ParameterCatchAllArmReportsRedundant()
     {
         const string source = """
 func format(result: Result<int>) -> string {
@@ -2076,6 +2075,9 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
+        Assert.Contains(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.MatchExpressionCatchAllRedundant);
+
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
@@ -2164,7 +2166,7 @@ union struct Result<T> {
     }
 
     [Fact]
-    public void StructUnionArgument_ParameterReportsInactiveDefaultState()
+    public void StructUnionArgument_ParameterForwardingDoesNotReportInactiveDefaultState()
     {
         const string source = """
 func consume(result: Result<int>) {
@@ -2183,7 +2185,7 @@ union struct Result<T> {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
 
-        Assert.Contains(compilation.GetDiagnostics(),
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
             static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
     }
 
@@ -2390,7 +2392,7 @@ union struct Result<T> {
     }
 
     [Fact]
-    public void StructUnionReturn_ParameterReportsInactiveDefaultState()
+    public void StructUnionReturn_ParameterDoesNotReportInactiveDefaultState()
     {
         const string source = """
 func forward(result: Result<int>) -> Result<int> {
@@ -2406,8 +2408,36 @@ union struct Result<T> {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
 
-        Assert.Contains(compilation.GetDiagnostics(),
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
             static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ParameterMatchReconstructionDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func forward(result: Result<int>) -> Result<int> {
+    return match result {
+        .Ok(val value) => .Ok(value)
+        .Error(val message) => .Error(message)
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.MatchExpressionCatchAllRedundant);
     }
 
     [Fact]

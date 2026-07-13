@@ -61,7 +61,6 @@ union Result<T, E> {
             self match {
                 Ok(val value) => Some(value)
                 Error(_) => None
-                _ => None
             }
         }
     }
@@ -72,7 +71,6 @@ union Result<T, E> {
             self match {
                 Error(val e) => Some(e)
                 Ok(_) => None
-                _ => None
             }
         }
     }
@@ -82,7 +80,6 @@ union Result<T, E> {
         self match {
             Ok(val value) => Ok(mapper(value))
             Error(val error) => Error(error)
-            _ => Error(default(E))
         }
     }
 
@@ -91,7 +88,6 @@ union Result<T, E> {
         self match {
             Ok(val value) => binder(value)
             Error(val error) => Error(error)
-            _ => Error(default(E))
         }
     }
 
@@ -100,7 +96,6 @@ union Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val error) => Error(mapper(error))
-            _ => Error(default(E2))
         }
     }
 
@@ -109,7 +104,6 @@ union Result<T, E> {
         self match {
             Ok(val value) => ok(value)
             Error(val e) => error(e)
-            _ => throw InvalidOperationException("Result is uninitialized")
         }
     }
 
@@ -121,7 +115,6 @@ union Result<T, E> {
                 Ok(value)
             }
             Error(val e) => Error(e)
-            _ => Error(default(E))
         }
     }
 
@@ -133,7 +126,6 @@ union Result<T, E> {
                 action(e)
                 Error(e)
             }
-            _ => Error(default(E))
         }
     }
 
@@ -142,7 +134,6 @@ union Result<T, E> {
         self match {
             Ok(val value) => Ok(value)
             Error(val e) => recover(e)
-            _ => Error(default(E))
         }
     }
 
@@ -151,7 +142,6 @@ union Result<T, E> {
         self match {
             Ok(val value) => value
             Error(_) => factory()
-            _ => factory()
         }
     }
 

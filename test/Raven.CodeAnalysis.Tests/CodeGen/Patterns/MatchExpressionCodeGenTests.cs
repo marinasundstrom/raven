@@ -91,6 +91,44 @@ class Describer {
     }
 
     [Fact]
+    public void MatchExpression_SourceExhaustiveUnion_ThrowsWhenForcedDefaultCarrierDoesNotMatch()
+    {
+        const string code = """
+class Program {
+    public static func Describe(value: State) -> string {
+        return match value {
+            .On => "on"
+            .Off => "off"
+        }
+    }
+}
+
+union State {
+    case On
+    case Off
+}
+""";
+
+        var syntaxTree = RavenSyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("match_union_default_fallback", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(RuntimeMetadataReferences);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var programType = assembly.GetType("Program", throwOnError: true)!;
+        var stateType = assembly.GetType("State", throwOnError: true)!;
+        var describe = programType.GetMethod("Describe", BindingFlags.Public | BindingFlags.Static)!;
+        var defaultState = Activator.CreateInstance(stateType);
+
+        var exception = Assert.Throws<TargetInvocationException>(() => describe.Invoke(null, [defaultState]));
+        Assert.IsType<InvalidOperationException>(exception.InnerException);
+    }
+
+    [Fact]
     public void MatchExpression_WithStringLiteralPattern_MatchesExactValue()
     {
         const string code = """
