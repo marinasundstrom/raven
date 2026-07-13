@@ -3637,21 +3637,46 @@ explicit cast and is not validated for named membership at compile time.
 
 ### Enums vs. discriminated unions
 
-When modeling a *closed* set of alternatives where:
+Enums and discriminated unions both name a finite set of concepts, but they
+model different things.
 
-* every case must be handled exhaustively, or
-* individual cases need to carry associated data,
+Use an enum when the value is fundamentally a named numeric value:
 
-**discriminated unions** should be used instead of enums.
+* the runtime representation must be a CLR enum;
+* values may be cast to or from an underlying integer type;
+* the type is used for flags, bit operations, or metadata/API interop; or
+* the names are labels for stable numeric values rather than distinct data
+  variants.
 
-Discriminated unions provide:
+Use a discriminated union when modeling a *closed* set of alternatives where:
 
-* compile-time exhaustiveness checking in `match` expressions,
-* strongly typed payloads attached to each case, and
-* safer evolution as new cases are added.
+* every case must be handled exhaustively;
+* individual cases need to carry associated data; or
+* adding a new alternative should be visible through match exhaustiveness
+  diagnostics.
 
-Enums remain appropriate for simple symbolic values, flags, and CLR-compatible
-APIs.
+Even when every union case is payload-free, a body-form union is still a tagged
+union, not an enum. Each case is a distinct semantic case in the union's closed
+case set and participates in case construction, case-to-carrier conversion, and
+match exhaustiveness. The cases are not integer constants, do not have an
+underlying numeric type, and are not interchangeable with enum members.
+
+```raven
+enum Direction {
+    North
+    South
+}
+
+union Command {
+    case Start
+    case Stop
+}
+```
+
+`Direction.North` is a named CLR enum value. `Command.Start` is a union case
+value that can be converted to the `Command` carrier and matched as one of the
+declared cases. Both declarations have two named alternatives, but only the
+union expresses a closed tagged domain for exhaustiveness over semantic cases.
 
 ### Runtime representation
 
