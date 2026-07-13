@@ -3,12 +3,12 @@
 This is a playground for modeling the structure of JSON with Raven records and
 unions.
 
-It uses a parenthesized `JsonValue` union to model scalar, object, array, and
-null values, and a `JsonObject` record to hold object properties. Serialization
-uses both built-in Raven.Core JSON converter support and a custom converter:
+It uses a tagged `JsonValue` union to model scalar, object, array, and explicit
+JSON null values, and a `JsonObject` record to hold object properties.
+Serialization uses custom converters:
 
-- `RavenParenthesizedUnionJsonConverterFactory` serializes `JsonValue` as plain
-  JSON values whenever possible.
+- `JsonValueConverter` serializes `JsonValue` cases as plain JSON values,
+  including the `.Null` case as a JSON null token.
 - `JsonObjectConverter` serializes the `JsonObject.Properties` dictionary as
   the JSON object body, similar to extension-data behavior but with a strongly
   typed `IDictionary<string, JsonValue>`.

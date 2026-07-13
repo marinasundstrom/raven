@@ -10,19 +10,19 @@ val options = JsonSerializerOptions with {
 }
 
 val items = List<JsonValue>()
-items.Add(JsonValue("true"))
-items.Add(JsonValue(42.0))
-items.Add(null)
+items.Add(.Text("true"))
+items.Add(.Number(42.0))
+items.Add(.Null)
 
 val value = JsonObject([ 
-    "name": 32.0,
-    "items": items.ToArray()
+    "name": JsonValue.Number(32.0),
+    "items": JsonValue.Array(items.ToArray()),
     /*"items": [
         "true",
         42.0
         //null
     ]*/
-    "metadata": null
+    "metadata": JsonValue.Null
 ])
 
 val json = JsonSerializer.Serialize(value, options)
@@ -32,11 +32,45 @@ val roundTripped = JsonSerializer.Deserialize<JsonObject>(json, options)
 val propertyCount = roundTripped.Properties.Count
 WriteLine("Round-tripped property count: $propertyCount")
 
-[JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+[JsonConverter(typeof(JsonValueConverter))]
+union JsonValue {
+    case Text(value: string)
+    case Number(value: double)
+    case Boolean(value: bool)
+    case Object(value: JsonObject)
+    case Array(value: JsonValue[])
+    case Null
+}
 
 [JsonConverter(typeof(JsonObjectConverter))]
 record JsonObject(Properties: IDictionary<string, JsonValue>)
+
+class JsonValueConverter : JsonConverter<JsonValue> {
+
+    override func Read(
+        reader: &Utf8JsonReader,
+        typeToConvert: Type,
+        options: JsonSerializerOptions
+    ) -> JsonValue {
+        use doc = JsonDocument.ParseValue(reader)
+        return JsonObjectConverter.ReadJsonValue(doc.RootElement, options)
+    }
+
+    override func Write(
+        writer: Utf8JsonWriter,
+        value: JsonValue,
+        options: JsonSerializerOptions
+    ) -> () {
+        match value {
+            .Text(val text) => writer.WriteStringValue(text),
+            .Number(val number) => writer.WriteNumberValue(number),
+            .Boolean(val boolean) => writer.WriteBooleanValue(boolean),
+            .Object(val obj) => JsonSerializer.Serialize(writer, obj, options),
+            .Array(val values) => JsonSerializer.Serialize(writer, values, options),
+            .Null => writer.WriteNullValue(),
+        }
+    }
+}
 
 class JsonObjectConverter : JsonConverter<JsonObject> {
 
@@ -77,25 +111,25 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         writer.WriteEndObject()
     }
 
-    private static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
+    static func ReadJsonValue(element: JsonElement, options: JsonSerializerOptions) -> JsonValue {
         if element.ValueKind is JsonValueKind.Null {
-            return null
+            return .Null
         }
 
         if element.ValueKind is JsonValueKind.String {
-            return JsonValue(element.GetString() ?? "")
+            return .Text(element.GetString() ?? "")
         }
 
         if element.ValueKind is JsonValueKind.Number {
-            return JsonValue(element.GetDouble())
+            return .Number(element.GetDouble())
         }
 
         if element.ValueKind is JsonValueKind.True {
-            return JsonValue(true)
+            return .Boolean(true)
         }
 
         if element.ValueKind is JsonValueKind.False {
-            return JsonValue(false)
+            return .Boolean(false)
         }
 
         if element.ValueKind is JsonValueKind.Array {
@@ -105,7 +139,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
                 values.Add(ReadJsonValue(item, options))
             }
 
-            return JsonValue(values.ToArray())
+            return .Array(values.ToArray())
         }
 
         if element.ValueKind is JsonValueKind.Object {
@@ -115,7 +149,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
                 properties.Add(property.Name, ReadJsonValue(property.Value, options))
             }
 
-            return JsonValue(JsonObject(properties))
+            return .Object(JsonObject(properties))
         }
 
         #pragma warning disable-next-line RAV9013
