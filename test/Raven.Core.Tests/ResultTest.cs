@@ -72,6 +72,18 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
+    public void JsonSerializer_Serializes_DefaultCarrierAsJsonNull()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var defaultResult = Activator.CreateInstance(resultType)!;
+
+        var json = JsonSerializer.Serialize(defaultResult, resultType);
+
+        Assert.Equal("null", json);
+    }
+
+    [Fact]
     public void CarrierProperties_ReportActiveCase_ForOk()
     {
         var asm = LoadRavenCoreAssembly();

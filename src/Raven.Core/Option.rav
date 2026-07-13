@@ -265,7 +265,7 @@ class OptionJsonConverter<T> : JsonConverter<Option<T>> {
     override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
         if value is Some(val someValue) {
             JsonSerializer.Serialize(writer, someValue, options)
-        } else if value is None {
+        } else {
             writer.WriteNullValue()
         }
     }

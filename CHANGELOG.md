@@ -63,6 +63,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   carrier when invoked on an inactive default receiver, avoiding propagation of
   the struct-union default carrier state from `Map`, `Then`, `MapError`, and
   `OrElse`.
+- Raven.Core `Option<T>` and `Result<T, E>` JSON converters now serialize the
+  inactive default carrier as JSON `null` instead of emitting no token or an
+  empty object.
 - Fixed expanded `params` argument target typing so extra positional arguments
   are bound against the params element type, including target-typed union cases.
 - Fixed extension member completion after partially typed member names so

@@ -65,6 +65,18 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
+    public void JsonSerializer_Serializes_DefaultCarrierAsJsonNull()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var defaultOption = Activator.CreateInstance(optionType)!;
+
+        var json = JsonSerializer.Serialize(defaultOption, optionType);
+
+        Assert.Equal("null", json);
+    }
+
+    [Fact]
     public void CarrierProperties_ReportActiveCase_ForSome()
     {
         var asm = LoadRavenCoreAssembly();
