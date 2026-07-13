@@ -2626,6 +2626,135 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionReturn_FieldAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val current: Result<int> = .Ok(1)
+
+    func make() -> Result<int> {
+        return self.current
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_PropertyAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val Current: Result<int> {
+        get {
+            .Ok(1)
+        }
+    }
+
+    func make() -> Result<int> {
+        return self.Current
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_PropertyGetterDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val Current: Result<int> {
+        get {
+            default
+        }
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_AsyncDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func make() -> Task<Result<int>> {
+    await Task.FromResult(0)
+    return default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_LambdaDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func run() {
+    val factory: () -> Result<int> = () -> Result<int> => default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnionCarrierConstructor_HasSynthesizedBody()
     {
         const string source = """
