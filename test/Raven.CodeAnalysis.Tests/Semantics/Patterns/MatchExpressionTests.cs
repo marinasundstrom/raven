@@ -1316,7 +1316,7 @@ val result = match state {
     }
 
     [Fact]
-    public void MatchExpression_WithStructUnionDefaultLocal_AllCasesCoveredStillRequiresDefault()
+    public void MatchExpression_WithStructUnionDefaultLocal_AllCasesCoveredIsSourceExhaustive()
     {
         const string code = """
 union State {
@@ -1332,9 +1332,30 @@ val result = match state {
 }
 """;
 
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithStructUnionDefaultLocal_MissingSemanticCaseIsReported()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+val result = match state {
+    .On => 1
+}
+""";
+
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("default")]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Off")]);
 
         verifier.Verify();
     }
@@ -1384,7 +1405,7 @@ val result = match value {
     }
 
     [Fact]
-    public void MatchExpression_WithParenthesizedStructUnionDefaultLocal_AllPayloadsCoveredStillRequiresDefault()
+    public void MatchExpression_WithParenthesizedStructUnionDefaultLocal_AllPayloadsCoveredIsSourceExhaustive()
     {
         const string code = """
 union Value(int | string)
@@ -1397,9 +1418,27 @@ val result = match value {
 }
 """;
 
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithParenthesizedStructUnionDefaultLocal_MissingPayloadIsReported()
+    {
+        const string code = """
+union Value(int | string)
+
+val value: Value = default
+
+val result = match value {
+    int number => number
+}
+""";
+
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("default")]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
 
         verifier.Verify();
     }
@@ -1487,7 +1526,7 @@ public union Union<T1, T2>(T1 | T2)
     }
 
     [Fact]
-    public void MatchExpression_WithRavenCoreUnionDefaultLocal_AllPayloadsCoveredStillRequiresDefault()
+    public void MatchExpression_WithRavenCoreUnionDefaultLocal_AllPayloadsCoveredIsSourceExhaustive()
     {
         const string code = """
 import System.*
@@ -1516,15 +1555,14 @@ public union Union<T1, T2>(T1 | T2)
             new CompilationOptions(OutputKind.ConsoleApplication));
 
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100"));
-        Assert.Equal("default", Assert.Single(diagnostic.GetMessageArgs()));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
 
         var model = compilation.GetSemanticModel(syntaxTree);
         var match = syntaxTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(match);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]

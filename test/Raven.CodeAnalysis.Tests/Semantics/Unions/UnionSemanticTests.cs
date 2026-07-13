@@ -1681,7 +1681,7 @@ union struct Result {
     }
 
     [Fact]
-    public void StructUnionMatch_ParameterAllCasesCoveredStillRequiresInactiveDefaultState()
+    public void StructUnionMatch_ParameterAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format(result: Result<int>) -> string {
@@ -1699,19 +1699,18 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Collection(info.MissingCases, missing => Assert.Equal("default", missing));
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_FieldAllCasesCoveredStillRequiresInactiveDefaultState()
+    public void StructUnionMatch_FieldAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 class Holder {
@@ -1733,19 +1732,18 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Collection(info.MissingCases, missing => Assert.Equal("default", missing));
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_PropertyAllCasesCoveredStillRequiresInactiveDefaultState()
+    public void StructUnionMatch_PropertyAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 class Holder {
@@ -1771,19 +1769,18 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Collection(info.MissingCases, missing => Assert.Equal("default", missing));
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_DefaultLocalRequiresInactiveDefaultState()
+    public void StructUnionMatch_DefaultLocalAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format() -> string {
@@ -1803,16 +1800,14 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics()
-            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
@@ -1848,7 +1843,7 @@ union struct Result<T> {
     }
 
     [Fact]
-    public void StructUnionMatch_BranchAssignedDefaultRequiresInactiveDefaultState()
+    public void StructUnionMatch_BranchAssignedDefaultAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format(useDefault: bool) -> string {
@@ -1872,20 +1867,18 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics()
-            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_NestedMatchSeesOuterDefaultState()
+    public void StructUnionMatch_NestedMatchAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format(useNested: bool) -> string {
@@ -1909,20 +1902,18 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics()
-            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_WhileAssignedDefaultRequiresInactiveDefaultState()
+    public void StructUnionMatch_WhileAssignedDefaultAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format(useDefault: bool) -> string {
@@ -1947,20 +1938,18 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics()
-            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_ForAssignedDefaultRequiresInactiveDefaultState()
+    public void StructUnionMatch_ForAssignedDefaultAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format(values: int[]) -> string {
@@ -1984,20 +1973,18 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics()
-            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
-    public void StructUnionMatch_TryAssignedDefaultRequiresInactiveDefaultState()
+    public void StructUnionMatch_TryAssignedDefaultAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format() -> string {
@@ -2022,16 +2009,14 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics()
-            .Where(static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive));
-        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]
@@ -3348,7 +3333,7 @@ union class Result<T> {
     }
 
     [Fact]
-    public void CasePattern_UnqualifiedSingleArm_ReportsExhaustivenessDiagnostic()
+    public void CasePattern_UnqualifiedSingleArm_BindsFromImportedCaseAndReportsMissingCase()
     {
         const string source = """
 import Result.*
@@ -3368,8 +3353,9 @@ union Result<T> {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
 
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal("RAV2100", diagnostic.Descriptor.Id);
+        Assert.Contains("Error", diagnostic.GetMessage());
     }
 
     [Fact]
@@ -3432,7 +3418,7 @@ union Result<T> {
         const string source = """
 func format(result: Result<int>) -> string {
     return match result {
-        .Ok(val payload) => "ok ${payload}" when payload > 1
+        .Ok(val payload) when payload > 1 => "ok ${payload}"
         .Error(val message) => "error ${message}"
     }
 }

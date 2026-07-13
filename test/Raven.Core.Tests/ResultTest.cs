@@ -208,6 +208,28 @@ extension TestExt<T> for IEnumerable<T> {
     }
 
     [Fact]
+    public void DefaultReceiver_WithContextReportsBoundaryDiagnostic()
+    {
+        const string code = """
+import System.*
+
+val result: Result<int, ParseIntError> = default
+val wrapped = result.WithContext("reading value")
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult("RAV0405")
+                    .WithAnySpan()
+                    .WithArguments("self", "Result<int, ParseIntError>")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ToString_QuotesStringPayload_ForGenericResult()
     {
         var asm = LoadRavenCoreAssembly();

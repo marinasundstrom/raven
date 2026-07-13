@@ -191,8 +191,6 @@ internal sealed class MatchExhaustivenessEvaluator
             return GetMissingParenthesizedUnionCases(matchSyntax, scrutinee, scrutineeType, arms, union, options);
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, union);
-
         foreach (var arm in arms)
         {
             if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
@@ -202,16 +200,12 @@ internal sealed class MatchExhaustivenessEvaluator
                 continue;
 
             RemoveCoveredCases(remaining, arm.Pattern, union);
-            inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
 
-            if (remaining.Count == 0 && !inactiveStructStateRemaining)
+            if (remaining.Count == 0)
                 break;
         }
 
         var builder = ImmutableArray.CreateBuilder<string>();
-
-        if (inactiveStructStateRemaining)
-            builder.Add("default");
 
         builder.AddRange(remaining
             .Select(MatchCaseDisplay.ForDiscriminatedUnionCase)
@@ -232,7 +226,6 @@ internal sealed class MatchExhaustivenessEvaluator
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
-        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, union);
 
         foreach (var arm in arms)
         {
@@ -243,16 +236,12 @@ internal sealed class MatchExhaustivenessEvaluator
                 continue;
 
             RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
-            inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
 
-            if (remaining.Count == 0 && !inactiveStructStateRemaining)
+            if (remaining.Count == 0)
                 break;
         }
 
         var builder = ImmutableArray.CreateBuilder<string>();
-
-        if (inactiveStructStateRemaining)
-            builder.Add("default");
 
         if (literalCoverage is not null && literalCoverage.Count > 0)
         {
@@ -708,10 +697,15 @@ internal sealed class MatchExhaustivenessEvaluator
                         break;
                     }
 
-                    var declarationUnion = declaredType.TryGetUnion()
-                        ?? declaredType.TryGetUnionCase()?.Union;
-
-                    if (declarationUnion is not null &&
+                    if (declaredType.TryGetUnionCase() is { } declarationCase &&
+                        AreSameUnionPatternTarget(UnwrapAlias(declarationCase.Union), UnwrapAlias(union)))
+                    {
+                        var matchedCase = declarationCase.OriginalDefinition as IUnionCaseTypeSymbol ?? declarationCase;
+                        remaining.RemoveWhere(candidate =>
+                            candidate.Ordinal == matchedCase.Ordinal ||
+                            SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
+                    }
+                    else if (declaredType.TryGetUnion() is { } declarationUnion &&
                         AreSameUnionPatternTarget(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
                     {
                         remaining.Clear();
@@ -1022,36 +1016,6 @@ internal sealed class MatchExhaustivenessEvaluator
         }
 
         return false;
-    }
-
-    private bool RequiresInactiveStructUnionStateCoverage(
-        SyntaxNode matchSyntax,
-        BoundExpression scrutinee,
-        IUnionSymbol union)
-    {
-        if (union.TypeKind != TypeKind.Struct)
-            return false;
-
-        if (scrutinee.Type?.TryGetUnion() is null)
-            return false;
-
-        return StructUnionDefaultStateFlow.ContentsMayBeDefault(scrutinee, matchSyntax, _getBoundNode);
-    }
-
-    private static bool PatternCoversInactiveStructUnionState(
-        ITypeSymbol scrutineeType,
-        BoundPattern pattern,
-        IUnionSymbol union)
-    {
-        if (union.TypeKind != TypeKind.Struct)
-            return false;
-
-        if (IsCatchAllPattern(scrutineeType, pattern))
-            return true;
-
-        return pattern is BoundOrPattern orPattern &&
-               (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
-                PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
     }
 
     private bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType)

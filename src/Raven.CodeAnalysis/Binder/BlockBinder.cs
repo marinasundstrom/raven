@@ -5691,11 +5691,8 @@ partial class BlockBinder : Binder
             }
         }
 
-        if (inactiveStructStateRemaining)
-        {
-            ReportMatchNotExhaustive(matchSyntax, "default");
+        if (remaining.Count == 0)
             return;
-        }
 
         var missingCase = remaining.FirstOrDefault();
 
@@ -5784,11 +5781,8 @@ partial class BlockBinder : Binder
         if (catchAllIndex >= 0)
             return;
 
-        if (inactiveStructStateRemaining)
-        {
-            ReportMatchNotExhaustive(matchSyntax, "default");
+        if (remaining.Count == 0)
             return;
-        }
 
         foreach (var missing in remaining
             .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
@@ -6171,10 +6165,15 @@ partial class BlockBinder : Binder
                         break;
                     }
 
-                    var declarationUnion = declaredType.TryGetUnion()
-                        ?? declaredType.TryGetUnionCase()?.Union;
-
-                    if (declarationUnion is not null &&
+                    if (declaredType.TryGetUnionCase() is { } declarationCase &&
+                        AreSameUnionPatternTarget(UnwrapAlias(declarationCase.Union), UnwrapAlias(union)))
+                    {
+                        var matchedCase = declarationCase.OriginalDefinition as IUnionCaseTypeSymbol ?? declarationCase;
+                        remaining.RemoveWhere(candidate =>
+                            candidate.Ordinal == matchedCase.Ordinal ||
+                            SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
+                    }
+                    else if (declaredType.TryGetUnion() is { } declarationUnion &&
                         AreSameUnionPatternTarget(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
                     {
                         remaining.Clear();

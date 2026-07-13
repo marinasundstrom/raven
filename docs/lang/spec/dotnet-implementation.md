@@ -178,11 +178,12 @@ union case. Raven therefore keeps it separate from the source case set:
   exhaustive when every declared case/member is covered. A catch-all arm after
   all cases is redundant.
 * A local initialized with `default`, or a local that may flow from `default`,
-  requires a catch-all/default-state arm when matched.
+  may still use a catch-all arm to intentionally handle the inactive carrier,
+  but the inactive carrier is not a source exhaustiveness case.
 * Function parameters, `self`, fields, and properties are treated as boundary
-  values that may be inactive/default. Matching those values requires a
-  catch-all/default-state arm unless local flow has copied or reconstructed an
-  active value.
+  values that may be inactive/default. Forwarding those values across another
+  call or return boundary requires local flow to prove an active value, usually
+  by copying or reconstructing a declared case.
 * Passing a possibly inactive struct-union value to a struct-union parameter is
   rejected at the call site with `RAV0405`.
 * Returning a possibly inactive struct-union value is rejected at the return

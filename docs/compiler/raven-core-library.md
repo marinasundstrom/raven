@@ -49,10 +49,11 @@ projection.
 Because `Option<T>` is a struct union, `default(Option<T>)` is an inactive
 carrier state rather than `None`. Raven code that receives an `Option<T>`
 through a parameter, `self`, field, or property must treat that boundary value
-as possibly inactive until local flow proves it active. Match expressions over
-those boundary values should include a catch-all/default-state arm when the
-inactive carrier must be handled. Locals initialized from `Some(...)` or `None`
-are known active and do not need that extra arm.
+as possibly inactive until local flow proves it active. Match exhaustiveness is
+still source-checked over the semantic cases (`Some` and `None`); the inactive
+carrier is not a source case. Use a catch-all arm only when the program
+intentionally handles a physically possible inactive carrier. Locals initialized
+from `Some(...)` or `None` are known active and report redundant catch-all arms.
 
 `Option<T>` extension helpers:
 
@@ -133,6 +134,74 @@ or return a value that flow analysis knows is active.
 
 These unions provide lightweight error-handling primitives while keeping Raven
 programs compatible with the .NET type system.
+
+## Raven.Core union stability contract
+
+Raven.Core treats its built-in union carriers as .NET-compatible value types by
+default. This keeps the ABI aligned with the C# generated-union direction:
+
+- Plain `union` declarations synthesize struct carriers.
+- `union class` remains available for reference-type carrier semantics and is
+  the right choice when a union must satisfy `class` constraints or intentionally
+  behave like an object hierarchy at runtime.
+- `default(Option<T>)`, `default(Result<T, E>)`, and default values of standard
+  `Union<...>` carriers are inactive carrier states. They are not semantic
+  `None`, `Error`, or `null` cases.
+- Raven.Core helpers must not return an inactive carrier when they can return a
+  meaningful active fallback. For example, `Option<T>` helpers normalize default
+  receivers to active `None`, and `Result<T, E>` helpers normalize default
+  receivers to active `Error(default(E))` where a fallback error channel is the
+  only available representation.
+- Match expressions and statements are source-exhaustive when they cover the
+  declared semantic cases. Raven source does not require a discard/default arm
+  just because a struct carrier has a physical inactive default state.
+- Lowering and emit should still preserve a defensive runtime fallback for
+  source-exhaustive matches, such as throwing `SwitchExpressionException`, so
+  metadata consumers and forced default carriers cannot fall through silently.
+- Code may still write an explicit discard/default arm when it intentionally
+  wants to handle a possible inactive carrier at runtime. Such an arm is not
+  redundant when flow says the matched struct-union value may be default.
+- Passing or returning a struct-union value across a method boundary requires a
+  value that flow analysis knows is active. When code receives a boundary value
+  and wants to forward it, it should pattern-match and reconstruct the active
+  case, or choose an explicit fallback for the inactive default state.
+- Local struct-union variables may temporarily hold the inactive default state,
+  either because they were explicitly assigned `default` or because analysis has
+  not yet proved an active assignment. That is a valid intermediate program
+  state. The diagnostic boundary is where such a value is passed, returned, or
+  otherwise exposed to code that expects an initialized carrier.
+- JSON converters defensively serialize inactive default carriers as JSON
+  `null`. This is a runtime safety behavior for forced serialization of an
+  invalid carrier state, not a language-level `null` union case.
+
+This contract deliberately separates Raven semantics from the physical .NET
+carrier representation. A union's declared cases describe the semantic domain;
+the inactive default carrier exists because struct values in .NET always have a
+zero-initialized state.
+
+## Future work
+
+The current implementation is intentionally conservative. Future Raven.Core and
+compiler work should focus on:
+
+- Exhaustiveness: ensure lowering and emit consistently generate defensive
+  fallback paths for source-exhaustive matches over struct unions, including
+  match statements and expressions.
+- Boundary analysis: extend assignment/active-state analysis for more call
+  shapes, including generic helper returns, delegate calls, and nested member
+  projections, while keeping diagnostics at the call or return boundary.
+- JSON deserialization policy: decide whether JSON `null` should deserialize to
+  active `None`/fallback `Error`, remain a serializer-only representation for
+  inactive carriers, or become configurable per converter.
+- Null modeling: defer any `null` pseudo-type, `Null` case-stand-in, or
+  nullable union extension until the C# union design settles further. Raven
+  should not reintroduce `null` as a pseudo member type in the core union ABI.
+- Analyzer support: add lightweight Raven.Core audits that flag helper methods
+  returning raw boundary carriers or unconstrained `default` values from
+  `Option`, `Result`, or `Union<...>` APIs.
+- Extension coverage: continue adding focused runtime tests for Raven.Core
+  extension helpers that accept union receivers, especially helpers that forward
+  `self`, return nested unions, or bridge `Option` and `Result`.
 
 Project builds include a generated prelude source file that globally imports
 the standard `System` namespaces, `System.Result.*`, and `System.Option.*`.

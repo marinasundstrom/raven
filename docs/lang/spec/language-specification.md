@@ -5240,13 +5240,13 @@ Union invariants:
   `default(U)`, `Value` is `null`, `HasValue` is `false`, and no case is active
   until a union constructor populates the carrier.
 * The default `union struct` carrier state is not a formal union case. Pattern
-  exhaustiveness checks the declared case set, then separately checks whether
-  flow analysis knows the matched value may be the inactive/default carrier.
-  When that inactive state is required, an ordinary catch-all arm covers it.
+  exhaustiveness checks the declared case set only. Lowering and emit must still
+  preserve a defensive runtime fallback for source-exhaustive matches so
+  metadata consumers or forced default carriers cannot fall through silently.
 * Function parameters, `self`, fields, and properties of `union struct` type are
   treated as boundary values that may be the inactive/default carrier unless
-  narrowed by local flow. Matching one of these values requires
-  inactive/default-state coverage.
+  narrowed by local flow. Passing or returning one of these values requires an
+  active-state proof at the boundary rather than an extra source match arm.
 * Local values initialized from a union case or assigned an active union value
   are known active. Matching such a local requires only the declared case set;
   a catch-all arm after all cases is redundant.
@@ -5300,17 +5300,19 @@ Pattern matching exhaustively checks every case; see
 
 ### Closed-shape types
 
-Raven has two primary ways to model a finite, closed set of alternatives:
+Raven has three primary ways to model a finite, closed set of alternatives:
 
 1. **Unions** (`union`)
-2. **Sealed hierarchies** (`sealed class` / `sealed record class`)
+2. **Enums** (`enum`)
+3. **Sealed hierarchies** (`sealed class` / `sealed record class`)
 
-Both participate in exhaustiveness analysis for `match`, and both represent a
-known closed shape at compile time. The key difference is modeling style:
+Each can participate in exhaustiveness analysis for `match`, and each represents
+a known closed shape at compile time. The key difference is modeling style:
 
 | Use this | When you need |
 | --- | --- |
 | `union` | Algebraic data modeling with explicit case payloads, carrier-based construction/extraction (`Ok(...)`, `.Ok(...)`, `TryGetValue`), and closed alternatives. |
+| `enum` | Named constants over a single integral value domain, numeric interop, flags-style values, or compact status codes with no case payloads. |
 | `sealed` hierarchy | Object-oriented subtype modeling with shared base behavior, virtual/interface-style design, and class hierarchy semantics. |
 
 #### Choosing between them
@@ -5319,7 +5321,15 @@ Choose **unions** when:
 
 * the alternatives are primarily data cases,
 * payloads are part of the case definition,
-* construction/pattern matching is the dominant interaction.
+* construction/pattern matching is the dominant interaction,
+* parameterless alternatives are still semantic tagged cases rather than named
+  numeric constants.
+
+Choose **enums** when:
+
+* every alternative is just a name for an integral constant,
+* numeric representation, ordering, bitwise flags, or .NET enum interop matters,
+* no alternative carries payload data or needs a distinct generated case type.
 
 Choose **sealed hierarchies** when:
 

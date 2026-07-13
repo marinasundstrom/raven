@@ -147,7 +147,7 @@ func ping(name: string) -> PingStatus {
     }
 
     [Fact]
-    public void MatchStatement_WithStructUnionDefaultLocal_ReportsDefaultInExhaustivenessInfo()
+    public void MatchStatement_WithStructUnionDefaultLocal_AllCasesCoveredIsSourceExhaustive()
     {
         const string code = """
 union State {
@@ -175,8 +175,8 @@ match state {
         var statement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
         var info = model.GetMatchExhaustiveness(statement);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("default", info.MissingCases);
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
     }
 
     [Fact]

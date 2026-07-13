@@ -143,6 +143,30 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
+    public void DefaultReceiver_FlattenReportsBoundaryDiagnostic()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+val nested: Option<Option<int>> = default
+val flattened = nested.Flatten()
+val value = flattened.UnwrapOr(0)
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult("RAV0405")
+                    .WithAnySpan()
+                    .WithArguments("self", "Option<Option<int>>")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MapThenWhere_BindsFromRavenCore()
     {
         const string code = """

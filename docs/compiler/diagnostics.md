@@ -251,12 +251,11 @@ Behavior note: Raven also uses `RAV1602` for named deconstruction elements such 
 | `RAV2111` | Error | Union member name is reserved | Union '{unionName}' reserves the member name '{memberName}' for synthesized members. | — |
 | `RAV2112` | Error | Union special member not supported | Union '{unionName}' does not support authored member '{memberName}'. | — |
 
-Behavior note: for struct unions, `RAV2100` considers both the declared union
-case set and the inactive/default carrier state. Active locals initialized from
-cases can be exhaustive without a catch-all; parameters, `self`, fields,
-properties, and flow-known `default` values require catch-all/default-state
-coverage. `RAV2103` reports a catch-all only when flow proves there is no
-remaining case or inactive/default state to match.
+Behavior note: for struct unions, `RAV2100` considers the declared semantic
+case set. The inactive/default carrier state is not a formal source case and is
+handled by boundary diagnostics such as `RAV0405` and `RAV0406`, plus defensive
+lowering/runtime fallback. `RAV2103` reports a catch-all only when flow proves
+there is no remaining declared case or inactive/default state to match.
 | `RAV2200` | Error | Lambda parameter type cannot be inferred | Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context | — |
 | `RAV2201` | Error | Method group requires delegate type | Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context | — |
 | `RAV2202` | Error | Method group conversion is ambiguous | Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload | — |

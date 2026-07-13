@@ -25,7 +25,11 @@ func tap(value: Option<int>) -> Option<int> {
     if value is Some(val x) {
         WriteLine(x)
     }
-    return value
+    return match value {
+        Some(val x) => Some(x)
+        None => None
+        _ => None
+    }
 }
 
 func inferLabel(x: int) -> string {

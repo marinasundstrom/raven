@@ -78,7 +78,7 @@ enum Color {
     }
 
     [Fact]
-    public void MatchStatement_WithStructUnionDefaultLocal_AllCasesCoveredStillRequiresDefault()
+    public void MatchStatement_WithStructUnionDefaultLocal_AllCasesCoveredIsSourceExhaustive()
     {
         const string code = """
 union State {
@@ -94,9 +94,30 @@ match state {
 }
 """;
 
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithStructUnionDefaultLocal_MissingSemanticCaseIsReported()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+match state {
+    .On => 1
+}
+""";
+
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("default")]);
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Off")]);
 
         verifier.Verify();
     }
@@ -150,7 +171,7 @@ match state {
     }
 
     [Fact]
-    public void MatchStatement_WithStructUnionParameter_AllCasesCoveredStillRequiresDefault()
+    public void MatchStatement_WithStructUnionParameter_AllCasesCoveredIsSourceExhaustive()
     {
         const string code = """
 union State {
@@ -166,9 +187,7 @@ func eval(state: State) -> int {
 }
 """;
 
-        var verifier = CreateVerifier(
-            code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("default")]);
+        var verifier = CreateVerifier(code);
 
         verifier.Verify();
     }

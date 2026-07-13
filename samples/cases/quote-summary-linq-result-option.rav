@@ -42,7 +42,11 @@ func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerabl
 func QuoteShipment(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Result<Quote, QuoteError> {
     val plan = FindRatePlan(plans, request.Carrier)?
     val surcharge = ResolveSurcharge(request.Tags)
-    val promoCents = PromoCents(request.PromoCode).UnwrapOr(0)
+    val promoCode: Option<string> = match request.PromoCode {
+        Some(val code) => Option<string>.Some(code)
+        None => None
+    }
+    val promoCents = PromoCents(promoCode).UnwrapOr(0)
     val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents) + surcharge.UnwrapOr(0) - promoCents
 
     val note = match surcharge {

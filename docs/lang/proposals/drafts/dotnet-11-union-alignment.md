@@ -397,11 +397,11 @@ Exhaustiveness should be based on the same case set that C# sees:
 A switch/match is exhaustive when every case type is handled. If the incoming
 union contents are maybe-null according to C# nullability flow, `null` must also
 be handled. Struct union default/inactive state is separate from the declared
-case set: `default(U)` has `Value == null` and no active case. Raven requires
-default-state coverage when flow cannot prove a struct-union value is active,
-such as for parameters, `self`, fields, properties, and locals that may have
-flowed from `default(U)`. Active locals initialized from union construction do
-not require that extra arm.
+case set: `default(U)` has `Value == null` and no active case. Raven source
+exhaustiveness does not require a default-state arm for that representation
+state. Flow analysis instead rejects possibly inactive carriers when they cross
+call or return boundaries, while lowering/emit keeps defensive runtime fallback
+paths for source-exhaustive matches.
 
 ### 5.2 Propagation and carrier conditional access
 
@@ -499,9 +499,9 @@ Raven is aligned with the C# union pattern when all of the following are true:
 * Raven pattern matching unwraps to `Value` according to C# rules, including the
   `var`/discard exceptions and class/nullable-struct carrier null states.
 * Raven exhaustiveness diagnostics use the C# case set, require `null` only
-  when the C# null state of the incoming union contents is maybe-null, and
-  require default-state coverage for struct-union values whose active carrier
-  state is not proven by flow.
+  when the C# null state of the incoming union contents is maybe-null, and keep
+  struct-union inactive/default carrier handling in boundary diagnostics plus
+  defensive lowering/runtime fallback.
 * Raven standard union sugar does not invent metadata beyond the C# union
   pattern; nullable content is represented by nullable case types.
 

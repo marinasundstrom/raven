@@ -41,18 +41,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   default, matching the C# generated-union direction. Raven.Core `Union<...>`,
   `Option<T>`, and `Result<T, E>` now use that default struct carrier shape.
   Struct-union match exhaustiveness now follows the C# contract: declared cases
-  are exhaustive for ordinary active values, while parameters, `self`, fields,
-  properties, and flow-known `default` carriers require a catch-all/default-state
-  arm. Defensive catch-all arms on struct unions are still allowed when the
-  inactive carrier state is physically possible, but active local values now
-  report redundant catch-all arms. Local assignment flow now updates that
-  default-state analysis, so assigning an active case after `default` removes
-  the requirement and branch assignments to `default` preserve it. Passing a
-  struct-union value that may still be the inactive `default` carrier to a
-  struct-union parameter now reports `RAV0405` at the call site, so callee
-  parameters can keep their active-value contract. Omitted optional
-  struct-union arguments whose default is the inactive carrier now report the
-  same diagnostic.
+  are source-exhaustive, and the inactive `default` carrier is not treated as a
+  semantic case that must be written in source. Defensive catch-all arms on
+  struct unions are still allowed when local flow says the inactive carrier
+  state is physically possible, but active local values report redundant
+  catch-all arms. Passing a struct-union value that may still be the inactive
+  `default` carrier to a struct-union parameter now reports `RAV0405` at the
+  call site, so callee parameters can keep their active-value contract. Omitted
+  optional struct-union arguments whose default is the inactive carrier now
+  report the same diagnostic. Lowering and emit keep responsibility for
+  defensive runtime fallbacks when metadata consumers or forced default carriers
+  bypass Raven's source checks.
 - Returning a struct-union value that may still be the inactive `default`
   carrier now reports `RAV0406` at the return boundary, preserving the same
   active-value contract for callers.
