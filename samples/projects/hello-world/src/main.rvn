@@ -30,7 +30,7 @@ func Main() {
     }
 }
 
-union Foo(int | string | null)
+union Foo(int | string)
 
 union Status {
     case Closed(reason: string)
