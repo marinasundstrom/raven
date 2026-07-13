@@ -1711,6 +1711,78 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionMatch_FieldAllCasesCoveredStillRequiresInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val current: Result<int> = .Ok(1)
+
+    func format() -> string {
+        return match self.current {
+            .Ok(val payload) => payload.ToString()
+            .Error(val message) => message
+        }
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("default", missing));
+    }
+
+    [Fact]
+    public void StructUnionMatch_PropertyAllCasesCoveredStillRequiresInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val Current: Result<int> {
+        get {
+            .Ok(1)
+        }
+    }
+
+    func format() -> string {
+        return match self.Current {
+            .Ok(val payload) => payload.ToString()
+            .Error(val message) => message
+        }
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        Assert.Contains("default", diagnostic.GetMessage(), StringComparison.Ordinal);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("default", missing));
+    }
+
+    [Fact]
     public void StructUnionMatch_DefaultLocalRequiresInactiveDefaultState()
     {
         const string source = """

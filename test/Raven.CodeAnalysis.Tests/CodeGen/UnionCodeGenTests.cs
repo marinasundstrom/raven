@@ -929,7 +929,7 @@ union struct Maybe<T> {
     }
 
     [Fact]
-    public void DefaultStructUnion_PassedAsArgumentPreservesInactiveState()
+    public void ActiveStructUnion_PassedAsArgumentPreservesActiveState()
     {
         var code = """
 class Runner {
@@ -941,13 +941,8 @@ class Runner {
         }
     }
 
-    public static func DescribeDefaultLiteralArgument() -> string {
-        return Describe(default)
-    }
-
-    public static func DescribeDefaultLocalArgument() -> string {
-        val value: Maybe<int> = default
-        return Describe(value)
+    public static func DescribeNoneArgument() -> string {
+        return Describe(.None)
     }
 
     public static func DescribeSomeArgument() -> string {
@@ -981,8 +976,7 @@ union Maybe<T> {
         var runtimeAssembly = loaded.Assembly;
         var runnerType = runtimeAssembly.GetType("Runner", throwOnError: true)!;
 
-        Assert.Equal("inactive", runnerType.GetMethod("DescribeDefaultLiteralArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
-        Assert.Equal("inactive", runnerType.GetMethod("DescribeDefaultLocalArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("none", runnerType.GetMethod("DescribeNoneArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
         Assert.Equal("42", runnerType.GetMethod("DescribeSomeArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
     }
 

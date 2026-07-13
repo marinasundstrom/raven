@@ -65,6 +65,8 @@ internal static class StructUnionDefaultStateFlow
             case BoundFieldAccess:
             case BoundPropertyAccess:
                 return GetMaybeDefaultExpressionState(expression);
+            case BoundMemberAccessExpression { Member: IFieldSymbol or IPropertySymbol }:
+                return GetMaybeDefaultExpressionState(expression);
             case BoundIfExpression ifExpression:
                 {
                     var thenState = GetExpressionState(ifExpression.ThenBranch, localStates);
