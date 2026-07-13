@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests;
@@ -13,6 +14,122 @@ namespace Raven.CodeAnalysis.Semantics.Tests.Metadata;
 
 public sealed class CSharpUnionInteropTests
 {
+    [Fact]
+    public void RavenUnionFromCompiler_IsConsumedByCSharpNet11Application()
+    {
+        if (!TryGetLatestDotNet11Sdk(out var sdkVersion))
+            return;
+
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-produced-union-csharp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directory, "global.json"),
+                $$"""
+                {
+                  "sdk": {
+                    "version": "{{sdkVersion}}",
+                    "rollForward": "disable"
+                  }
+                }
+                """);
+
+            var ravenAssemblyPath = Path.Combine(directory, "RavenProduced.dll");
+            EmitRavenProducedUnionAssembly(ravenAssemblyPath);
+            var ravenCorePath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");
+            Assert.True(File.Exists(ravenCorePath), ravenCorePath);
+
+            File.WriteAllText(
+                Path.Combine(directory, "CSharpConsumer.csproj"),
+                $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <OutputType>Exe</OutputType>
+                    <TargetFramework>net11.0</TargetFramework>
+                    <LangVersion>preview</LangVersion>
+                    <Nullable>enable</Nullable>
+                    <ImplicitUsings>enable</ImplicitUsings>
+                  </PropertyGroup>
+
+                  <ItemGroup>
+                    <Reference Include="RavenProduced">
+                      <HintPath>{{ravenAssemblyPath}}</HintPath>
+                      <Private>true</Private>
+                    </Reference>
+                    <Reference Include="Raven.Core">
+                      <HintPath>{{ravenCorePath}}</HintPath>
+                      <Private>true</Private>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(
+                Path.Combine(directory, "Program.cs"),
+                """
+                using RavenProduced;
+
+                static int Fail(string message)
+                {
+                    Console.Error.WriteLine(message);
+                    return 1;
+                }
+
+                var value = new Choice(new Choice_Int32(42));
+                if (!value.HasValue)
+                    return Fail("Constructed struct union carrier should have HasValue.");
+
+                if (value.Value is not Choice_Int32 boxedInt || boxedInt.Value != 42)
+                    return Fail("Struct union Value should expose the active case object.");
+
+                if (!value.TryGetValue(out Choice_Int32 extractedInt) || extractedInt.Value != 42)
+                    return Fail("Struct union TryGetValue should extract the active case.");
+
+                if (value.TryGetValue(out Choice_Text _))
+                    return Fail("Struct union TryGetValue should reject inactive cases.");
+
+                var none = new Choice(new Choice_None());
+                if (!none.HasValue || none.Value is not Choice_None)
+                    return Fail("Parameterless case should still produce an active carrier.");
+
+                Choice defaultChoice = default;
+                if (defaultChoice.HasValue)
+                    return Fail("Default struct union carrier should be inactive.");
+
+                if (defaultChoice.Value is not null)
+                    return Fail("Default struct union Value should be null.");
+
+                if (defaultChoice.TryGetValue(out Choice_Int32 _))
+                    return Fail("Default struct union should not extract a case.");
+
+                var referenceValue = new ReferenceChoice(new ReferenceChoice_Text("ok"));
+                if (!referenceValue.HasValue)
+                    return Fail("Constructed class union carrier should have HasValue.");
+
+                if (referenceValue.Value is not ReferenceChoice_Text text || text.Value != "ok")
+                    return Fail("Class union Value should expose the active case object.");
+
+                if (!referenceValue.TryGetValue(out ReferenceChoice_Text extractedText) || extractedText.Value != "ok")
+                    return Fail("Class union TryGetValue should extract the active case.");
+
+                return 0;
+                """);
+
+            var build = RunDotnet(["build", "/property:WarningLevel=0", "-v:minimal"], directory);
+            Assert.True(build.ExitCode == 0, build.Output);
+
+            var run = RunDotnet(["run", "--no-build", "--project", "CSharpConsumer.csproj"], directory);
+            Assert.True(run.ExitCode == 0, run.Output);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public void CSharpUnionFromLatestSdk_ImportsNullableContent()
     {
@@ -178,6 +295,41 @@ public sealed class CSharpUnionInteropTests
             .LastOrDefault() ?? string.Empty;
 
         return sdkVersion.Length > 0;
+    }
+
+    private static void EmitRavenProducedUnionAssembly(string assemblyPath)
+    {
+        var net11Version = TargetFrameworkResolver.ResolveVersion("net11.0");
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(net11Version)
+            .Where(File.Exists)
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
+
+        var syntaxTree = SyntaxTree.ParseText(
+            """
+            namespace RavenProduced
+
+            public union Choice {
+                case Int32(value: int)
+                case Text(value: string)
+                case None
+            }
+
+            public union class ReferenceChoice {
+                case Text(value: string)
+                case Number(value: int)
+            }
+            """);
+
+        var compilation = Compilation.Create(
+            "RavenProduced",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = File.Create(assemblyPath);
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
     }
 
     private static bool IsNullableOf(ITypeSymbol type, SpecialType underlyingSpecialType)

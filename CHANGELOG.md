@@ -59,6 +59,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   checked against the underlying union while `null` is treated as a separate
   nullable-wrapper case for exhaustiveness. This applies to both `union struct`
   and `union class` carriers and does not make `null` a union pseudo-case.
+- Added .NET 11 C# interop coverage for Raven-produced union carriers and made
+  metadata nullability loading tolerate preview reflection types that do not
+  support `NullabilityInfoContext`.
 - Added `SemanticModel.GetMatchExhaustiveness(MatchStatementSyntax)` so tooling
   can query the same exhaustiveness information for match statements that it
   already can for keyword-first and postfix match expressions.

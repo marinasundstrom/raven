@@ -35,13 +35,13 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (elementType is null)
                 return null;
 
-            System.Reflection.NullabilityInfo nullInfo;
-            lock (_nullabilityContextGate)
-                nullInfo = _nullabilityContext.Create(parameterInfo);
             if (TryGetExplicitNullableFlags(attributes, out var explicitFlags))
                 elementType = ApplyExplicitNullableFlags(elementType, explicitFlags);
-            if (nullInfo.ElementType is not null)
+            if (TryCreateNullabilityInfo(parameterInfo, out var nullInfo) &&
+                nullInfo.ElementType is not null)
+            {
                 elementType = ApplyNullability(elementType, nullInfo.ElementType);
+            }
 
             return elementType;
         }
@@ -52,10 +52,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (TryGetExplicitNullableFlags(attributes, out var parameterFlags))
             type = ApplyExplicitNullableFlags(type!, parameterFlags);
 
-        System.Reflection.NullabilityInfo parameterNullInfo;
-        lock (_nullabilityContextGate)
-            parameterNullInfo = _nullabilityContext.Create(parameterInfo);
-        type = ApplyNullability(type!, parameterNullInfo);
+        if (TryCreateNullabilityInfo(parameterInfo, out var parameterNullInfo))
+            type = ApplyNullability(type!, parameterNullInfo);
         return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
@@ -66,10 +64,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (TryGetExplicitNullableFlags(attributes, out var fieldFlags))
             type = ApplyExplicitNullableFlags(type!, fieldFlags);
 
-        System.Reflection.NullabilityInfo nullInfo;
-        lock (_nullabilityContextGate)
-            nullInfo = _nullabilityContext.Create(fieldInfo);
-        type = ApplyNullability(type!, nullInfo);
+        if (TryCreateNullabilityInfo(fieldInfo, out var nullInfo))
+            type = ApplyNullability(type!, nullInfo);
         return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
@@ -80,10 +76,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (TryGetExplicitNullableFlags(attributes, out var propertyFlags))
             type = ApplyExplicitNullableFlags(type!, propertyFlags);
 
-        System.Reflection.NullabilityInfo nullInfo;
-        lock (_nullabilityContextGate)
-            nullInfo = _nullabilityContext.Create(propertyInfo);
-        type = ApplyNullability(type!, nullInfo);
+        if (TryCreateNullabilityInfo(propertyInfo, out var nullInfo))
+            type = ApplyNullability(type!, nullInfo);
         return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
@@ -98,11 +92,69 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (TryGetExplicitNullableFlags(attributes, out var eventFlags))
             type = ApplyExplicitNullableFlags(type!, eventFlags);
 
-        System.Reflection.NullabilityInfo nullInfo;
-        lock (_nullabilityContextGate)
-            nullInfo = _nullabilityContext.Create(eventInfo);
-        type = ApplyNullability(type!, nullInfo);
+        if (TryCreateNullabilityInfo(eventInfo, out var nullInfo))
+            type = ApplyNullability(type!, nullInfo);
         return type;
+    }
+
+    private bool TryCreateNullabilityInfo(ParameterInfo parameterInfo, out System.Reflection.NullabilityInfo nullabilityInfo)
+    {
+        try
+        {
+            lock (_nullabilityContextGate)
+                nullabilityInfo = _nullabilityContext.Create(parameterInfo);
+            return true;
+        }
+        catch (NotSupportedException)
+        {
+            nullabilityInfo = null!;
+            return false;
+        }
+    }
+
+    private bool TryCreateNullabilityInfo(FieldInfo fieldInfo, out System.Reflection.NullabilityInfo nullabilityInfo)
+    {
+        try
+        {
+            lock (_nullabilityContextGate)
+                nullabilityInfo = _nullabilityContext.Create(fieldInfo);
+            return true;
+        }
+        catch (NotSupportedException)
+        {
+            nullabilityInfo = null!;
+            return false;
+        }
+    }
+
+    private bool TryCreateNullabilityInfo(PropertyInfo propertyInfo, out System.Reflection.NullabilityInfo nullabilityInfo)
+    {
+        try
+        {
+            lock (_nullabilityContextGate)
+                nullabilityInfo = _nullabilityContext.Create(propertyInfo);
+            return true;
+        }
+        catch (NotSupportedException)
+        {
+            nullabilityInfo = null!;
+            return false;
+        }
+    }
+
+    private bool TryCreateNullabilityInfo(EventInfo eventInfo, out System.Reflection.NullabilityInfo nullabilityInfo)
+    {
+        try
+        {
+            lock (_nullabilityContextGate)
+                nullabilityInfo = _nullabilityContext.Create(eventInfo);
+            return true;
+        }
+        catch (NotSupportedException)
+        {
+            nullabilityInfo = null!;
+            return false;
+        }
     }
 
     public FieldInfo? ResolveRuntimeField(FieldInfo fieldInfo)
