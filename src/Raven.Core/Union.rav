@@ -5,16 +5,16 @@ import System.Text.Json.Serialization.*
 
 /// Represents a value that can be one of two alternative types.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union class Union<T1, T2>(T1 | T2)
+union Union<T1, T2>(T1 | T2)
 
 /// Represents a value that can be one of three alternative types.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union class Union<T1, T2, T3>(T1 | T2 | T3)
+union Union<T1, T2, T3>(T1 | T2 | T3)
 
 /// Represents a value that can be one of four alternative types.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union class Union<T1, T2, T3, T4>(T1 | T2 | T3 | T4)
+union Union<T1, T2, T3, T4>(T1 | T2 | T3 | T4)
 
 /// Represents a value that can be one of five alternative types.
 [JsonConverter(typeof(RavenParenthesizedUnionJsonConverterFactory))]
-union class Union<T1, T2, T3, T4, T5>(T1 | T2 | T3 | T4 | T5)
+union Union<T1, T2, T3, T4, T5>(T1 | T2 | T3 | T4 | T5)

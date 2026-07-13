@@ -10,6 +10,18 @@ namespace Raven.Core.Tests;
 public sealed class OptionTest : RavenCoreDiagnosticTestBase
 {
     [Fact]
+    public void Option_IsStructCarrier_WithDefaultUninitializedState()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var defaultOption = Activator.CreateInstance(optionType)!;
+
+        Assert.True(optionType.IsValueType);
+        Assert.Equal(false, optionType.GetProperty("HasValue")!.GetValue(defaultOption));
+        Assert.Null(optionType.GetProperty("Value")!.GetValue(defaultOption));
+    }
+
+    [Fact]
     public void JsonSerializer_SerializesAndDeserializes_Some()
     {
         var asm = LoadRavenCoreAssembly();
@@ -53,6 +65,18 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
+    public void JsonSerializer_Serializes_DefaultCarrierAsJsonNull()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var defaultOption = Activator.CreateInstance(optionType)!;
+
+        var json = JsonSerializer.Serialize(defaultOption, optionType);
+
+        Assert.Equal("null", json);
+    }
+
+    [Fact]
     public void CarrierProperties_ReportActiveCase_ForSome()
     {
         var asm = LoadRavenCoreAssembly();
@@ -88,6 +112,52 @@ public sealed class OptionTest : RavenCoreDiagnosticTestBase
         Assert.Equal(true, hasValue!.GetValue(option));
         Assert.NotNull(valueProperty!.GetValue(option));
         Assert.Equal(noneType, valueProperty.GetValue(option)!.GetType());
+    }
+
+    [Fact]
+    public void DefaultReceiver_CombinatorsThrowFromMatchFallback()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var optionType = GetConstructedType(asm, "System.Option`1", typeof(int));
+        var defaultOption = Activator.CreateInstance(optionType)!;
+
+        var mappedException = Assert.Throws<TargetInvocationException>(() => optionType.GetMethod("Map")!
+            .MakeGenericMethod(typeof(string))
+            .Invoke(defaultOption, [new Func<int, string>(value => value.ToString())]));
+        Assert.IsType<InvalidOperationException>(mappedException.InnerException);
+
+        var filteredException = Assert.Throws<TargetInvocationException>(() => optionType.GetMethod("Where")!
+            .Invoke(defaultOption, [new Func<int, bool>(value => value > 0)]));
+        Assert.IsType<InvalidOperationException>(filteredException.InnerException);
+
+        var matchedException = Assert.Throws<TargetInvocationException>(() => optionType.GetMethod("Match")!
+            .MakeGenericMethod(typeof(int))
+            .Invoke(defaultOption, [new Func<int, int>(value => value), new Func<int>(() => 42)]));
+        Assert.IsType<InvalidOperationException>(matchedException.InnerException);
+    }
+
+    [Fact]
+    public void DefaultReceiver_FlattenReportsBoundaryDiagnostic()
+    {
+        const string code = """
+import System.*
+import System.Linq.*
+
+val nested: Option<Option<int>> = default
+val flattened = nested.Flatten()
+val value = flattened.UnwrapOr(0)
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult("RAV0405")
+                    .WithAnySpan()
+                    .WithArguments("self", "Option<Option<int>>")
+            ]);
+
+        verifier.Verify();
     }
 
     [Fact]
@@ -158,6 +228,21 @@ val _ = input.Map((v: string) => v)
 
         return caseType
             ?? throw new InvalidOperationException($"Missing TryGetValue overload for case '{caseName}' on '{optionType}'.");
+    }
+
+    private static void AssertOptionCase(
+        object carrier,
+        Type carrierType,
+        string caseName)
+    {
+        var caseType = GetCaseTypeFromTryGetValue(carrierType, caseName);
+        var tryGetValue = GetTryGetValueMethod(carrierType, caseType);
+        var args = new object?[] { null };
+        var matched = (bool)(tryGetValue.Invoke(carrier, args) ?? false);
+
+        Assert.True(matched);
+        Assert.NotNull(args[0]);
+        Assert.Equal(caseType, args[0]!.GetType());
     }
 
     private static object ConvertCaseToCarrier(Type carrierType, object caseValue)

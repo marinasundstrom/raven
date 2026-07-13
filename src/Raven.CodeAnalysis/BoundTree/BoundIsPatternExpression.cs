@@ -492,7 +492,7 @@ internal partial class BlockBinder
         {
             // Prefer DU-case interpretation for bare identifiers in pattern position.
             // Example: `match r { Ok => ...; Error(val e) => ... }`
-            var lookupType = inputType;
+            var lookupType = inputType?.GetPlainType();
             var unionType = lookupType?.TryGetUnion()
                 ?? lookupType?.TryGetUnionCase()?.Union;
 
@@ -1931,8 +1931,10 @@ internal partial class BlockBinder
     {
         pattern = null;
 
-        if (inputType is not null &&
-            (inputType.TryGetUnion() ?? inputType.TryGetUnionCase()?.Union) is IUnionSymbol union &&
+        var lookupInputType = inputType?.GetPlainType();
+
+        if (lookupInputType is not null &&
+            (lookupInputType.TryGetUnion() ?? lookupInputType.TryGetUnionCase()?.Union) is IUnionSymbol union &&
             !union.DeclaredCaseTypes.IsDefaultOrEmpty &&
             TryGetCasePatternHead(syntax.Type, out var caseName, out var qualifierType, out _) &&
             !string.IsNullOrEmpty(caseName))
@@ -2067,7 +2069,7 @@ internal partial class BlockBinder
 
         if (!canUseUnqualifiedUnionCase &&
             qualifierType is null &&
-            (inputType.TryGetUnion() ?? inputType.TryGetUnionCase()?.Union) is { } inputUnion &&
+            (inputType?.GetPlainType().TryGetUnion() ?? inputType?.GetPlainType().TryGetUnionCase()?.Union) is { } inputUnion &&
             inputUnion.DeclaredCaseTypes.Any(@case => string.Equals(@case.Name, caseName, StringComparison.Ordinal)))
         {
             _diagnostics.ReportTheNameDoesNotExistInTheCurrentContext(caseName!, caseNameLocation);
@@ -2126,7 +2128,7 @@ internal partial class BlockBinder
     {
         pattern = null;
 
-        var lookupType = qualifierType ?? inputType;
+        var lookupType = (qualifierType ?? inputType)?.GetPlainType();
         if (lookupType is null)
             return false;
 
@@ -2227,7 +2229,7 @@ internal partial class BlockBinder
     {
         pattern = null;
 
-        var lookupType = qualifierType ?? inputType;
+        var lookupType = (qualifierType ?? inputType)?.GetPlainType();
         if (lookupType is null)
             return false;
 
@@ -2564,8 +2566,9 @@ internal partial class BlockBinder
         if (inputType is null)
             return false;
 
-        var unionType = inputType.TryGetUnion()
-            ?? inputType.TryGetUnionCase()?.Union;
+        var lookupInputType = inputType.GetPlainType();
+        var unionType = lookupInputType.TryGetUnion()
+            ?? lookupInputType.TryGetUnionCase()?.Union;
 
         if (unionType is null || unionType.MemberTypes.IsDefaultOrEmpty)
             return false;
@@ -2581,7 +2584,7 @@ internal partial class BlockBinder
         if (projectedMemberType is null)
             return false;
 
-        var resolvedTryGetMethod = FindTryGetMethod(inputType, unionType, projectedMemberType);
+        var resolvedTryGetMethod = FindTryGetMethod(lookupInputType, unionType, projectedMemberType);
         if (resolvedTryGetMethod is null)
             return false;
 

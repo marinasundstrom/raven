@@ -15,7 +15,7 @@ public sealed class CommonTypeInferenceTests : DiagnosticTestBase
 import System.*
 
 func Test(y: int) -> int {
-    val r = y match {
+    val r = match y {
         0 => return 0
         1 => 42
         _ => throw Exception("x")
@@ -62,7 +62,7 @@ val value = if true { A() } else { B() }
     {
         const string code = """
 val seed = 0
-val value = 1 match {
+val value = match 1 {
     1 => seed
     _ => 42
 }

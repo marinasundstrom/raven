@@ -242,7 +242,8 @@ public partial class Compilation
             return Conversion.None;
         }
 
-        if (destinationUnion is not null &&
+        if (source.TypeKind != TypeKind.Null &&
+            destinationUnion is not null &&
             (sourceUnionCase is null || sourceUnionForCase is null))
         {
             var fallbackUnionConstructor = FindUnionCarrierConstructor(source, destination);
@@ -353,9 +354,6 @@ public partial class Compilation
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             if (destination is ITypeUnionSymbol unionDest && UnionContainsNull(unionDest))
-                return Finalize(new Conversion(isImplicit: true, isReference: true));
-
-            if (destination is IUnionSymbol { ContentMayBeNull: true })
                 return Finalize(new Conversion(isImplicit: true, isReference: true));
 
             return Conversion.None;
@@ -638,6 +636,9 @@ public partial class Compilation
                 }
 
                 if (!SatisfiesMethodAndContainingTypeConstraints(method))
+                    continue;
+
+                if (source.TypeKind == TypeKind.Null)
                     continue;
 
                 var sourceConversion = ClassifyConversion(source, method.Parameters[0].Type, includeUserDefined: false);

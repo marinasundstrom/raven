@@ -337,7 +337,7 @@ import System.*
 
 val expr: Expr = Lit()
 
-val result = expr match {
+val result = match expr {
     Lit lit => 1
 }
 
@@ -360,7 +360,7 @@ import System.Console.*
 
 val expr: Expr = Lit()
 
-val result = expr match {
+val result = match expr {
     Lit lit => 1
 }
 
@@ -406,7 +406,7 @@ import System.*
 
 val expr: Expr = Lit()
 
-val result = expr match {
+val result = match expr {
     Lit lit => 1
     Add add => 2
     _ => 0
@@ -458,7 +458,7 @@ import System.*
 
 val expr: Expr = Lit()
 
-val result = expr match {
+val result = match expr {
     Lit lit => 1
     Add add => 2
 }
@@ -485,7 +485,7 @@ import System.*
 
 val expr: Expr = Lit()
 
-val result = expr match {
+val result = match expr {
     Lit _ => 1
 }
 
@@ -561,7 +561,7 @@ import System.*
 
 val expr: Expr = Lit(42)
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     Add(val left, val right) => 0
 }
@@ -584,7 +584,7 @@ import System.*
 
 val expr: Expr = Lit(42)
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
 }
 
@@ -606,7 +606,7 @@ import System.*
 
 val expr: Expr = Lit(42)
 
-val result = expr match {
+val result = match expr {
     Lit(0) => 0
     Add(val left, val right) => 1
 }
@@ -629,7 +629,7 @@ import System.*
 
 val expr: Expr = Lit(42)
 
-val result = expr match {
+val result = match expr {
     Lit(0) => 0
     Add(val left, val right) => 1
     _ => -1
@@ -678,7 +678,7 @@ import System.*
 
 val expr: Expr = Lit(42)
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     Add(val left, val right) => 0
 }
@@ -704,7 +704,7 @@ import System.*
 
 val expr: Expr = Lit(42)
 
-val result = expr match {
+val result = match expr {
     Add(val left, val right) => 0
 }
 
@@ -730,7 +730,7 @@ import System.*
 
 val expr: Expr = Lit(42)
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     Add(val left, val right) => 0
 }
@@ -753,7 +753,7 @@ import System.*
 
 val expr: Expr = Add(Lit(1), Lit(2))
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     Add(val left, val right) => 0
     Sub(val left, val right) => 0
@@ -779,7 +779,7 @@ import System.*
 
 val expr: Expr = Add(Lit(1), Lit(2))
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     BinaryExpr(val left, val right) => 0
 }
@@ -804,7 +804,7 @@ import System.*
 
 val expr: Expr = Add(Lit(1), Lit(2))
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     Add(val left, val right) => 0
     Sub(val left, val right) => 0
@@ -830,7 +830,7 @@ import System.*
 
 val expr: Expr = Add(Lit(1), Lit(2))
 
-val result = expr match {
+val result = match expr {
     Lit(val value) => value
     Add(val left, val right) => 0
     Sub(val left, val right) => 0
@@ -903,7 +903,7 @@ import System.*
 
 val expr: Expr = Add(Lit(1), Lit(2))
 
-val result = expr match {
+val result = match expr {
     Lit(val v) => v
     Add(val left, val right) => 0
     Sub(val left, val right) => 0

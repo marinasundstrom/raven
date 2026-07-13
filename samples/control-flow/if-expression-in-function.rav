@@ -12,7 +12,11 @@ func TapIfPositiveScore(opt: Option<int>) -> Option<int> {
             WriteLine("Positive score observed: ${value}")
         }
     }
-    return opt
+
+    return match opt {
+        Some(val value) => Some(value)
+        None => None
+    }
 }
 
 func ClassifyRisk(value: int) -> string {

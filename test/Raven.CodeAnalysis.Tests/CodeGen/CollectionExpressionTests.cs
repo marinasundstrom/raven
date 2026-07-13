@@ -1086,7 +1086,7 @@ import System.Collections.Generic.*
 class Foo {
     static func GetValue() -> int {
         val values: Dictionary<string, int> = !["a": 5, "b": 2]
-        return values match {
+        return match values {
             ["a": val first, "b": 2] => first
             _ => 0
         }

@@ -86,7 +86,7 @@ class VehicleStatusDto {
     }
 
     static func FromStatus(status: VehicleStatus) -> VehicleStatusDto {
-        return status match {
+        match status {
             .Operational(val driverName, val sinceUtc, val currentOdometerKm) => {
                 VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm)
             }
@@ -101,7 +101,7 @@ class VehicleStatusDto {
 
     func ToStatus() -> VehicleStatus {
         val normalized = Kind.Trim().ToLowerInvariant()
-        return normalized match {
+        match normalized {
             "operational" => {
                 val driver = DriverName ?? "Unknown"
                 val since = SinceUtc ?? DateTimeOffset.UtcNow

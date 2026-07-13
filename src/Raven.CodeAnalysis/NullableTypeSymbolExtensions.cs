@@ -6,12 +6,7 @@ public static class NullableTypeSymbolExtensions
 {
     public static ITypeSymbol GetPlainType(this ITypeSymbol typeSymbol)
     {
-        if (typeSymbol is NullableTypeSymbol { UnderlyingType: var underlying })
-        {
-            return underlying;
-        }
-
-        return typeSymbol;
+        return typeSymbol.StripNullable() ?? typeSymbol;
     }
 
     public static ITypeSymbol MakeNullable(this ITypeSymbol typeSymbol)

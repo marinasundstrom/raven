@@ -283,7 +283,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var source = """
             val value: object = Person(1, "Ada");
 
-            val result = value match {
+            val result = match value {
                 Person(1, val name) => name
                 _ => ""
             };

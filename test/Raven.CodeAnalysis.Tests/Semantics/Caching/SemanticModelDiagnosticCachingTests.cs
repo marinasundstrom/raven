@@ -412,7 +412,7 @@ class C {
         var tree = SyntaxTree.ParseText("""
 val result: Result<int, string> = .Ok(42)
 
-val text = result match {
+val text = match result {
     .Ok(val value) => value.ToString()
 }
 

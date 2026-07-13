@@ -152,7 +152,11 @@ internal static partial class SynthesizedMethodBodyFactory
         if (property.GetMethod is null)
             throw new InvalidOperationException($"Property '{property.Name}' does not have a getter.");
 
-        return new BoundInvocationExpression(property.GetMethod, Array.Empty<BoundExpression>(), receiver);
+        return new BoundInvocationExpression(
+            property.GetMethod,
+            Array.Empty<BoundExpression>(),
+            receiver,
+            requiresReceiverAddress: property.ContainingType?.IsValueType == true);
     }
 
     private static bool TryGetFieldOnlyBackingField(

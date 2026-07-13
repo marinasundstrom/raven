@@ -6,7 +6,7 @@ Console.WriteLine(f())
 func f() -> Result<int, Err> {
     val len: int? = null 
 
-    return len match {
+    match len {
         null       => Error(.MissingName)
         val value  => Ok(value ?? 0)
     }

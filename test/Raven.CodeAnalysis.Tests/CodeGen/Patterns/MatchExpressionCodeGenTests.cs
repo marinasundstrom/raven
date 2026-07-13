@@ -47,7 +47,7 @@ public class MatchExpressionCodeGenTests
     {
         const string code = """
 val value: object = 42
-val result = value match {
+val result = match value {
     int i => i.ToString()
     _ => "None"
 }
@@ -76,7 +76,7 @@ class Program {
 
 class Describer {
     public func Describe(value: int) -> string {
-        return value match {
+        return match value {
             0 => "zero"
             _ => value.ToString()
         }
@@ -91,17 +91,55 @@ class Describer {
     }
 
     [Fact]
+    public void MatchExpression_SourceExhaustiveUnion_ThrowsWhenForcedDefaultCarrierDoesNotMatch()
+    {
+        const string code = """
+class Program {
+    public static func Describe(value: State) -> string {
+        return match value {
+            .On => "on"
+            .Off => "off"
+        }
+    }
+}
+
+union State {
+    case On
+    case Off
+}
+""";
+
+        var syntaxTree = RavenSyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("match_union_default_fallback", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(RuntimeMetadataReferences);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var programType = assembly.GetType("Program", throwOnError: true)!;
+        var stateType = assembly.GetType("State", throwOnError: true)!;
+        var describe = programType.GetMethod("Describe", BindingFlags.Public | BindingFlags.Static)!;
+        var defaultState = Activator.CreateInstance(stateType);
+
+        var exception = Assert.Throws<TargetInvocationException>(() => describe.Invoke(null, [defaultState]));
+        Assert.IsType<InvalidOperationException>(exception.InnerException);
+    }
+
+    [Fact]
     public void MatchExpression_WithStringLiteralPattern_MatchesExactValue()
     {
         const string code = """
 val fooValue: string = "foo"
-val foo = fooValue match {
+val foo = match fooValue {
     "foo" => "str"
     _ => "None"
 }
 
 val emptyValue: string = ""
-val empty = emptyValue match {
+val empty = match emptyValue {
     "foo" => "str"
     _ => "None"
 }
@@ -121,7 +159,7 @@ System.Console.WriteLine(foo + "," + empty)
         const string code = """
 class Formatter {
     public func Describe(values: int[]) -> string {
-        return values match {
+        return match values {
             [val first, val second] => (first + second).ToString()
             _ => "none"
         }
@@ -149,7 +187,7 @@ class Program {
         const string code = """
 class Formatter {
     public func Describe(values: int[]) -> string {
-        return values match {
+        return match values {
             [val first, ..val middle, val last] => (first + middle[0] + last).ToString()
             _ => "none"
         }
@@ -179,7 +217,7 @@ import System.Collections.Generic.*
 
 class Formatter {
     public func Describe(values: List<int>) -> string {
-        return values match {
+        return match values {
             [val first, ..val middle, val last] => (first + middle[0] + last).ToString()
             _ => "none"
         }
@@ -207,7 +245,7 @@ class Program {
         const string code = """
 class Formatter {
     public func Describe(values: int[]) -> string {
-        return values match {
+        return match values {
             [..2 val start, val end] => (start[0] + start[1] + end).ToString()
             _ => "none"
         }
@@ -235,7 +273,7 @@ class Program {
         const string code = """
 class Formatter {
     public func Describe(text: string) -> string {
-        return text match {
+        return match text {
             [val first, ..2 val middle, val last] => first.ToString() + ":" + middle + ":" + last.ToString()
             _ => "none"
         }
@@ -268,7 +306,7 @@ union Result<T, TError> {
 
 class Formatter {
     public func Format(result: Result<int, string>) -> string {
-        return result match {
+        return match result {
             .Ok(val value) => "ok ${value}"
             .Error(val message) => "error ${message}"
         }
@@ -309,7 +347,7 @@ union Test {
 
 class Formatter {
     public func Describe(value: Test) -> string {
-        return value match {
+        return match value {
             .Something(val text) => text
             .Nothing => "none"
         }
@@ -346,7 +384,7 @@ System.Console.WriteLine(format(ok))
 System.Console.WriteLine(format((Result<int, string>)err))
 
 func format<T>(result: Result<T, string>) -> string {
-    return result match {
+    return match result {
         .Ok(val value) => "ok ${value}"
         .Error(val message) => "error '${message}'"
     }
@@ -376,7 +414,7 @@ union Test {
 
 class Program {
     static func describe(value: Test) -> string {
-        return value match {
+        return match value {
             .Something(val text) => text
             .Nothing => "none"
         }

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added keyword-first `match scrutinee { ... }` as the normal match expression
+  form, aligning match expressions with match statements. The older postfix
+  expression form remains supported for composition cases such as
+  `try expr match { ... }`.
 - Added support for `[method: ...]` attributes on class, struct, and record
   declarations with primary constructors, applying them to the synthesized
   constructor metadata.
@@ -22,14 +26,55 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   satisfy inherited interface contracts such as `IDisposable.Dispose`.
 - Added code fixes for compiler-owned match exhaustiveness diagnostics: `RAV2100`
   can insert a missing match arm, and `RAV2103` can remove a redundant catch-all arm.
-- Added union-only `null` syntax in parenthesized union declarations, so
-  declarations such as `union Foo(int | null)` lower to nullable-capable public
-  case constructors without creating a null member type or constructor.
 - Aligned union content nullability with C# unions: Raven now tracks nullable
   parenthesized union contents from constructor/member case types, treats
   `TryGetValue(out T)` as an extraction helper instead of an extra case source
-  when constructors exist, allows `null` conversions when union content may be
-  null, and imports nullable C# union contents from .NET 11 metadata.
+  when constructors exist, and imports nullable C# union contents from .NET 11
+  metadata.
+- Aligned nullable union contents with the C# access pattern: `HasValue` now
+  follows `Value != null`, `null` patterns over class unions check both the
+  carrier reference and active `Value`, and nullable-content parenthesized
+  unions no longer expose `null` as a pseudo member type. Bare `null` no longer
+  implicitly converts to nominal or Raven.Core union carriers just because one
+  payload type is nullable.
+- Changed plain Raven `union` declarations to synthesize struct carriers by
+  default, matching the C# generated-union direction. Raven.Core `Union<...>`,
+  `Option<T>`, and `Result<T, E>` now use that default struct carrier shape.
+  Struct-union match exhaustiveness now follows the C# contract: declared cases
+  are source-exhaustive, and the inactive `default` carrier is not treated as a
+  semantic case that must be written in source. Defensive catch-all arms on
+  struct unions are still allowed when local flow says the inactive carrier
+  state is physically possible, but active local values report redundant
+  catch-all arms. Passing a struct-union value that may still be the inactive
+  `default` carrier to a struct-union parameter now reports `RAV0405` at the
+  call site, so callee parameters can keep their active-value contract. Omitted
+  optional struct-union arguments whose default is the inactive carrier now
+  report the same diagnostic. Lowering and emit keep responsibility for
+  defensive runtime fallbacks when metadata consumers or forced default carriers
+  bypass Raven's source checks.
+- Returning a struct-union value that may still be the inactive `default`
+  carrier now reports `RAV0406` at the return boundary, preserving the same
+  active-value contract for callers.
+- Fixed matching over nullable union carriers (`U?`) so union case patterns are
+  checked against the underlying union while `null` is treated as a separate
+  nullable-wrapper case for exhaustiveness. This applies to both `union struct`
+  and `union class` carriers and does not make `null` a union pseudo-case.
+- Added .NET 11 C# interop coverage for Raven-produced union carriers and made
+  metadata nullability loading tolerate preview reflection types that do not
+  support `NullabilityInfoContext`.
+- Added `SemanticModel.GetMatchExhaustiveness(MatchStatementSyntax)` so tooling
+  can query the same exhaustiveness information for match statements that it
+  already can for keyword-first and postfix match expressions.
+- Struct-union parameters and `self` are now treated as active inside the
+  callee, relying on call-site diagnostics to reject possibly inactive carriers
+  before entry. Raven.Core `Option<T>` and `Result<T, E>` helpers no longer need
+  source-level defensive default arms, and lowered source-exhaustive matches now
+  throw when no arm matches instead of falling through with a default result.
+- Raven.Core `Option<T>` and `Result<T, E>` JSON converters now serialize the
+  inactive default carrier as JSON `null` instead of emitting no token or an
+  empty object.
+- Fixed expanded `params` argument target typing so extra positional arguments
+  are bound against the params element type, including target-typed union cases.
 - Fixed extension member completion after partially typed member names so
   imported metadata extension methods are offered for prefixes such as
   `widget.Dou`.

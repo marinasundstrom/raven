@@ -455,7 +455,7 @@ import System.*
 
 func Main() {
     val value = 2
-    val label = value match {
+    val label = match value {
         1 => "one"
         _ => "other"
     }
@@ -485,7 +485,7 @@ import System.*
 
 func Main() {
     val value = 2
-    val label = value match {
+    val label = match value {
         1 => {
             "one"
         }
@@ -518,7 +518,7 @@ func Main() {
         var code = """
 func Main() {
     val value = GetValue()
-    val text = value match {
+    val text = match value {
         1 when value > 0 => "ok"
         _ => "no"
     }
@@ -714,7 +714,7 @@ class Program {
         var code = """
 class C {
     func Evaluate(value: int) -> string {
-        return value match {
+        return match value {
             1 => "one"
             _ => "other"
         }

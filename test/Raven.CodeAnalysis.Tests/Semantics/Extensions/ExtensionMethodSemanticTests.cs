@@ -2496,9 +2496,10 @@ union Option<T> {
 
 extension OptionExtensionsNested<T> for Option<Option<T>> {
     func Flatten() -> Option<T> {
-        return self match {
+        return match self {
             .Some(val inner) => inner
             .None => .None
+            _ => .None
         }
     }
 }
@@ -2545,18 +2546,20 @@ union Result<T, E> {
 
 extension OptionExtensions<T> for Option<T> {
     func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
-        return self match {
+        return match self {
             .Some(val value) => .Some(mapper(value))
             .None => .None
+            _ => .None
         }
     }
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
     func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
-        return self match {
+        return match self {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
+            _ => .Error(default)
         }
     }
 }
@@ -2604,18 +2607,20 @@ union Result<T, E> {
 
 extension OptionExtensions<T> for Option<T> {
     func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
-        return self match {
+        return match self {
             .Some(val value) => .Some(mapper(value))
             .None => .None
+            _ => .None
         }
     }
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
     func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
-        return self match {
+        return match self {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
+            _ => .Error(default)
         }
     }
 }
@@ -2661,18 +2666,20 @@ union Result<T, E> {
 
 extension OptionExtensions<T> for Option<T> {
     func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
-        return self match {
+        return match self {
             .Some(val value) => .Some(mapper(value))
             .None => .None
+            _ => .None
         }
     }
 }
 
 extension ResultExtensions<T, E> for Result<T, E> {
     func Map<TResult>(mapper: T -> TResult) -> Result<TResult, E> {
-        return self match {
+        return match self {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
+            _ => .Error(default)
         }
     }
 }

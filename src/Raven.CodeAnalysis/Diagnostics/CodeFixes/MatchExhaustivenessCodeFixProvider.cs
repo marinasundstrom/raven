@@ -56,7 +56,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         var sourceText = context.Document.GetTextAsync(context.CancellationToken).GetAwaiter().GetResult();
         var text = sourceText.ToString();
         var armText = CreateMissingArmText(text, matchExpression, patternText);
-        var insertionPosition = GetLineStart(text, matchExpression.CloseBraceToken.Span.Start);
+        var insertionPosition = GetLineStart(text, GetMatchExpressionCloseBraceToken(matchExpression).Span.Start);
         var change = new TextChange(new TextSpan(insertionPosition, 0), armText);
 
         context.RegisterCodeFix(
@@ -75,7 +75,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
 
         var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
         var arm = token.Parent?.FirstAncestorOrSelf<MatchArmSyntax>();
-        var matchExpression = arm?.FirstAncestorOrSelf<MatchExpressionSyntax>();
+        var matchExpression = FindContainingMatchExpression(arm);
         if (arm is null || matchExpression is null)
             return;
 
@@ -83,7 +83,8 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         if (semanticModel is null)
             return;
 
-        var ignoreCatchAllInfo = semanticModel.GetMatchExhaustiveness(
+        var ignoreCatchAllInfo = GetMatchExhaustiveness(
+            semanticModel,
             matchExpression,
             new MatchExhaustivenessOptions(ignoreCatchAllPatterns: true));
 
@@ -124,10 +125,10 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
                 new TextChange(span, string.Empty)));
     }
 
-    private static MatchExpressionSyntax? FindMatchExpression(SyntaxNode root, TextSpan diagnosticSpan)
+    private static SyntaxNode? FindMatchExpression(SyntaxNode root, TextSpan diagnosticSpan)
     {
         var token = root.FindToken(diagnosticSpan.Start);
-        return token.Parent?.FirstAncestorOrSelf<MatchExpressionSyntax>();
+        return FindContainingMatchExpression(token.Parent);
     }
 
     private static bool TryGetMissingCase(Diagnostic diagnostic, out string missingCase)
@@ -172,12 +173,12 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
     private static string FormatPatternText(
         string missingCase,
         SemanticModel semanticModel,
-        MatchExpressionSyntax matchExpression)
+        SyntaxNode matchExpression)
     {
         if (missingCase is "_" or "null" or "true" or "false" || missingCase.StartsWith(".", StringComparison.Ordinal))
             return missingCase;
 
-        var scrutineeType = semanticModel.GetTypeInfo(matchExpression.Expression).Type;
+        var scrutineeType = semanticModel.GetTypeInfo(GetMatchExpressionScrutinee(matchExpression)).Type;
         var union = scrutineeType.TryGetUnion() ?? scrutineeType.TryGetUnionCase()?.Union;
         if (union is not null)
         {
@@ -203,7 +204,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         return missingCase;
     }
 
-    private static string CreateMissingArmText(string sourceText, MatchExpressionSyntax matchExpression, string patternText)
+    private static string CreateMissingArmText(string sourceText, SyntaxNode matchExpression, string patternText)
     {
         var newLine = sourceText.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         var armIndent = GetArmIndent(sourceText, matchExpression);
@@ -211,13 +212,53 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         return $"{armIndent}{patternText} => {ThrowPlaceholderExpression}{newLine}";
     }
 
-    private static string GetArmIndent(string sourceText, MatchExpressionSyntax matchExpression)
+    private static string GetArmIndent(string sourceText, SyntaxNode matchExpression)
     {
-        if (matchExpression.Arms.Count > 0)
-            return GetLineIndent(sourceText, matchExpression.Arms[0].Span.Start);
+        var arms = GetMatchExpressionArms(matchExpression);
+        if (arms.Count > 0)
+            return GetLineIndent(sourceText, arms[0].Span.Start);
 
-        return GetLineIndent(sourceText, matchExpression.CloseBraceToken.Span.Start) + "    ";
+        return GetLineIndent(sourceText, GetMatchExpressionCloseBraceToken(matchExpression).Span.Start) + "    ";
     }
+
+    private static SyntaxNode? FindContainingMatchExpression(SyntaxNode? node)
+        => node?.FirstAncestorOrSelf<MatchExpressionSyntax>()
+            ?? (SyntaxNode?)node?.FirstAncestorOrSelf<PostfixMatchExpressionSyntax>();
+
+    private static MatchExhaustivenessInfo GetMatchExhaustiveness(
+        SemanticModel semanticModel,
+        SyntaxNode matchExpression,
+        MatchExhaustivenessOptions options)
+        => matchExpression switch
+        {
+            MatchExpressionSyntax keywordFirst => semanticModel.GetMatchExhaustiveness(keywordFirst, options),
+            PostfixMatchExpressionSyntax postfix => semanticModel.GetMatchExhaustiveness(postfix, options),
+            _ => new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false),
+        };
+
+    private static ExpressionSyntax GetMatchExpressionScrutinee(SyntaxNode matchExpression)
+        => matchExpression switch
+        {
+            MatchExpressionSyntax keywordFirst => keywordFirst.Expression,
+            PostfixMatchExpressionSyntax postfix => postfix.Expression,
+            _ => throw new ArgumentException("Expected match expression syntax.", nameof(matchExpression)),
+        };
+
+    private static SyntaxList<MatchArmSyntax> GetMatchExpressionArms(SyntaxNode matchExpression)
+        => matchExpression switch
+        {
+            MatchExpressionSyntax keywordFirst => keywordFirst.Arms,
+            PostfixMatchExpressionSyntax postfix => postfix.Arms,
+            _ => default,
+        };
+
+    private static SyntaxToken GetMatchExpressionCloseBraceToken(SyntaxNode matchExpression)
+        => matchExpression switch
+        {
+            MatchExpressionSyntax keywordFirst => keywordFirst.CloseBraceToken,
+            PostfixMatchExpressionSyntax postfix => postfix.CloseBraceToken,
+            _ => default,
+        };
 
     private static string GetLineIndent(string sourceText, int position)
     {

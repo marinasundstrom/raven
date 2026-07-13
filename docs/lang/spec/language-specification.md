@@ -667,7 +667,7 @@ func userNameLength() -> Result<int, LookupError> {
 func selectedItemName() -> Result<string, LookupError> {
     val maybeItem = getUser()?.Item?
 
-    return maybeItem match {
+    match maybeItem {
         .Some(val item) => .Ok(item.Name)
         .None => .Error(.MissingItem)
     }
@@ -735,10 +735,9 @@ Raven ships `Option<T>`, `Result<T, E>`, and related extension helpers in
 standard language experience and are expected by diagnostics, samples, and
 tooling.
 
-`Option<T>` and `Result<T, E>` are defined in `Raven.Core` as `union class`
-carriers. This is intentional: the standard carriers follow the conventional
-`.NET` union contract without exposing the extra default/uninitialized state
-that exists for `union struct` values.
+`Option<T>` and `Result<T, E>` are defined in `Raven.Core` as plain `union`
+carriers, so they use Raven's default struct-union representation and follow the
+conventional `.NET` union contract.
 
 Raven.Core also provides `System.Text.Json` converters for `Option<T>`,
 `Result<T, E>`, and standard type unions. These converters prefer plain JSON
@@ -2002,7 +2001,7 @@ the stage boundaries explicit:
 val normalized =
     userOrError
         |> EnsureActive()
-        |> (x => x match {
+        |> (x => match x {
             Ok(val u) => u.Name
             Error(val e) => "ERR: " + e.ToString()
         })
@@ -2718,6 +2717,11 @@ case set (equivalent to sealed-hierarchy reasoning over a closed subtype set).
 Each declared case must be matched by an unguarded arm, or covered by an
 unguarded catch-all arm.
 
+For nullable discriminated union carriers (`U?`), exhaustiveness is computed
+from the underlying union's declared case set plus the nullable wrapper's
+`null` value. This rule is the same for `union struct` and `union class`; the
+`null` arm covers the nullable wrapper state, not a union pseudo-case.
+
 In addition, exhaustiveness may be proven through type analysis even when no
 explicit finite-case construct is involved. For example:
 
@@ -2743,13 +2747,28 @@ discard arm, or type pattern for type `object`.
 
 ### `match` forms
 
-Raven supports both expression and statement-position `match` syntax:
+Raven supports `match` in expression and statement positions. The normal
+expression form is keyword-first so it reads the same way as statement-form
+`match`, which matches the shape most programmers expect:
 
-* **Expression form**: `scrutinee match { ... }`
+* **Expression form**: `match scrutinee { ... }`
 * **Statement form**: `match scrutinee { ... }`
+* **Postfix expression form**: `scrutinee match { ... }`
 
-The parser represents these as distinct syntax nodes: expression form produces
-`MatchExpressionSyntax`, while statement form produces `MatchStatementSyntax`.
+The postfix expression form remains valid for composition cases where the
+scrutinee is already a prefix expression, such as `try int.Parse(text) match {
+... }`.
+
+In statement context, `match scrutinee { ... }` is parsed as a
+`MatchStatementSyntax` before expression statements are considered. The
+keyword-first match expression form is used only when the parser is already
+expecting an expression, such as after `=`, `return`, an argument separator, or
+another expression-only position.
+
+The parser represents these as distinct syntax nodes: keyword-first expression
+form produces `MatchExpressionSyntax`, postfix expression form produces
+`PostfixMatchExpressionSyntax`, and statement form produces
+`MatchStatementSyntax`.
 
 Both forms use the same pattern binder and diagnostics, including exhaustiveness
 checking and unreachable-arm detection.
@@ -2773,7 +2792,7 @@ remains disallowed and reports `RAV1900`/`RAV1907`.
 Arm bodies accept any expression, including block expressions:
 
 ```raven
-val label = value match {
+val label = match value {
     0 => { "zero" }
     _ => {
         val text = "other"
@@ -2787,6 +2806,13 @@ match value {
         Console.WriteLine("other")
         ()
     }
+}
+```
+
+```raven
+val label = try int.Parse(text) match {
+    Ok(val value) => "Parsed ${value}"
+    Error(_) => "Invalid"
 }
 ```
 
@@ -2934,7 +2960,7 @@ patterns, and other pure match-only forms are not assignment/declaration heads.
   This inference applies uniformly in:
 
   * `is` patterns (`if value is Box box { ... }`)
-  * `match` expression arms (`value match { Box box => ... }`)
+  * `match` expression arms (`match value { Box box => ... }`)
   * `match` statement arms (`match value { Box box => ... }`)
 
   Example:
@@ -3050,7 +3076,7 @@ Bounds are written as expressions, but the binder may restrict them to constantâ
 ```raven
 val value = 42
 
-val result = value match {
+val result = match value {
     ..4 => "No"
     40..43 => "Yes"
     _ => "Other"
@@ -3308,7 +3334,7 @@ ordinary pattern for one of their declared member types:
 ```raven
 union Payment(Cash | Card)
 
-val description = payment match {
+val description = match payment {
     Cash(val amount) => "cash $amount"
     Card(val reference) => "card $reference"
 }
@@ -3616,21 +3642,46 @@ explicit cast and is not validated for named membership at compile time.
 
 ### Enums vs. discriminated unions
 
-When modeling a *closed* set of alternatives where:
+Enums and discriminated unions both name a finite set of concepts, but they
+model different things.
 
-* every case must be handled exhaustively, or
-* individual cases need to carry associated data,
+Use an enum when the value is fundamentally a named numeric value:
 
-**discriminated unions** should be used instead of enums.
+* the runtime representation must be a CLR enum;
+* values may be cast to or from an underlying integer type;
+* the type is used for flags, bit operations, or metadata/API interop; or
+* the names are labels for stable numeric values rather than distinct data
+  variants.
 
-Discriminated unions provide:
+Use a discriminated union when modeling a *closed* set of alternatives where:
 
-* compile-time exhaustiveness checking in `match` expressions,
-* strongly typed payloads attached to each case, and
-* safer evolution as new cases are added.
+* every case must be handled exhaustively;
+* individual cases need to carry associated data; or
+* adding a new alternative should be visible through match exhaustiveness
+  diagnostics.
 
-Enums remain appropriate for simple symbolic values, flags, and CLR-compatible
-APIs.
+Even when every union case is payload-free, a body-form union is still a tagged
+union, not an enum. Each case is a distinct semantic case in the union's closed
+case set and participates in case construction, case-to-carrier conversion, and
+match exhaustiveness. The cases are not integer constants, do not have an
+underlying numeric type, and are not interchangeable with enum members.
+
+```raven
+enum Direction {
+    North
+    South
+}
+
+union Command {
+    case Start
+    case Stop
+}
+```
+
+`Direction.North` is a named CLR enum value. `Command.Start` is a union case
+value that can be converted to the `Command` carrier and matched as one of the
+declared cases. Both declarations have two named alternatives, but only the
+union expresses a closed tagged domain for exhaustiveness over semantic cases.
 
 ### Runtime representation
 
@@ -4987,10 +5038,8 @@ default, and `null` can only flow through nullable annotations (`T?`). The same
 rules apply uniformly to reference and value types; the distinction only
 affects runtime representation, not the surface type rules.
 
-`null` is not a general type annotation spelling. The scoped exception is
-parenthesized union declarations, where `null` may appear in the member list to
-mark nullable active union contents; `T?` remains the canonical nullable type
-syntax everywhere else.
+`null` is not a general type annotation spelling and is not a union member type.
+Use nullable annotations such as `T?` to mark nullable active union contents.
 
 #### Nullable suppression (`!`)
 
@@ -5032,6 +5081,10 @@ Unions define nominal carrier types with a fixed set of cases. A union value is
 always stored as the declared carrier type, and case values convert to that
 carrier implicitly when required.
 
+Plain `union` declarations synthesize struct carriers by default. Use
+`union class` when a reference carrier is intended, such as for APIs that must
+not expose the default struct-union state.
+
 For non-normative rationale and interop notes, see
 [Design notes](design-notes.md#unions-and-carrier-types).
 
@@ -5054,7 +5107,7 @@ record Cash(amount: decimal)
 record Card(last4: string)
 
 union Payment(Cash | Card)
-union OptionalPayment(Cash | Card | null)
+union OptionalPayment(Cash | Card?)
 
 val paidInCash: Payment = Cash(12.50m)
 val paidByCard: Payment = Card("4242")
@@ -5063,14 +5116,8 @@ val paidByCard: Payment = Card("4242")
 ##### Rules
 
 * Each listed member type is part of the carrier's closed case set.
-* A `null` alternative in the member list is not a member type. It marks the
-  carrier's active contents as nullable. Raven pattern matching treats the
-  domain as the non-null listed member cases plus a distinct `null` case.
-  For C# metadata compatibility, the emitted public case constructors use
-  nullable-capable parameter types for the listed members rather than a
-  synthetic null constructor.
-* The `null` alternative is valid only in parenthesized union declaration member
-  lists. Ordinary type annotations use `T?` for nullability.
+* `null` is not a member type. Use nullable member annotations such as `T?` when
+  a parenthesized union member may actively carry null.
 * Pattern matching uses ordinary patterns over those member types. Nullable
   member patterns do not cover the `null` branch for exhaustiveness; include a
   `null` arm when the union contents may be null.
@@ -5095,7 +5142,7 @@ union LookupResult {
     case Missing
 
     func Describe() -> string {
-        return self match {
+        match self {
             Found(val id) => "found $id"
             Missing => "missing"
         }
@@ -5159,8 +5206,8 @@ val left = (int)outcome
 * `Value` has a C#-compatible `object` or `object?` shape. This property shape
   is not the source of truth for nullable active contents; Raven derives that
   from the case construction surface.
-* Every union carrier also exposes `HasValue: bool`, which reports whether the
-  carrier currently has an active case/member.
+* Every union carrier also exposes `HasValue: bool`, which follows the
+  C# union access pattern and reports whether `Value` is not `null`.
 * Public one-parameter constructors define the C#-compatible case set.
   `TryGetValue(out CaseType)` exposes carrier inspection for each case type but
   does not add extra cases when constructors already define the case set.
@@ -5214,20 +5261,48 @@ Binding model:
 
 Union invariants:
 
+* Plain `union` declares a struct carrier by default. `union struct` is explicit
+  spelling for the same carrier category, and `union class` opts into a
+  reference carrier.
 * Case constructors are independent case-type constructors; they are not
   rebound as union constructors.
 * `union struct` reserves its default state as an uninitialized carrier. For
   `default(U)`, `Value` is `null`, `HasValue` is `false`, and no case is active
   until a union constructor populates the carrier.
-* In pattern exhaustiveness, that default `union struct` carrier state behaves
-  like an additional `null`-like pseudo-case. A `null` arm or ordinary
-  catch-all arm covers it.
+* The default `union struct` carrier state is not a formal union case. Pattern
+  exhaustiveness checks the declared case set only. Lowering and emit must still
+  preserve a defensive runtime fallback for source-exhaustive matches so
+  metadata consumers or forced default carriers cannot fall through silently.
+* Nullable union carriers (`U?`) add the nullable wrapper's `null` value to the
+  source match domain. A match over `U?` must cover the declared union cases and
+  `null`, or use a catch-all. This nullable `null` value is separate from the
+  inactive/default carrier state of `union struct`.
+* Function parameters and `self` of `union struct` type are active inside the
+  callee because the call boundary rejects possibly inactive arguments before
+  entry. Matching or forwarding them does not require an extra source catch-all.
+* Fields and properties of `union struct` type are storage/interop boundaries
+  that may still contain the inactive/default carrier unless narrowed by local
+  flow. Passing or returning one of those values requires an active-state proof
+  at the boundary rather than an extra source match arm.
+* Local values initialized from a union case or assigned an active union value
+  are known active. Matching such a local requires only the declared case set;
+  a catch-all arm after all cases is redundant.
+* Passing a `union struct` value to a `union struct` parameter requires the
+  argument to be known active at the call site. A value that flow analysis knows
+  may still be the inactive/default carrier is rejected before entering the
+  callee. Omitting an optional argument whose default value is the carrier
+  default is also rejected at the call site.
+* Returning a `union struct` value from a function or property requires the
+  value to be known active at the return boundary. A value that flow analysis
+  knows may still be the inactive/default carrier is rejected before it leaves
+  the declaring member.
 * `union class` does not have that extra carrier state; a class carrier exists
   only after construction through one of its union cases or constructors.
 * For ordinary class carriers with no nullable active member state, `null` is
   not a valid pseudo-case for `Value`.
-* `HasValue` is independent from `Value != null`; an active case may still
-  project `null` through `Value` when the selected member itself is nullable.
+* `HasValue` follows the public C# union access pattern and is equivalent to
+  `Value != null`. Raven does not expose active-null contents as a separate
+  public `HasValue` state.
 * Union wrapping is represented by carrier construction from a case value.
 * Compatibility is decided by case-to-union conversion rules (including
   payload subtype-to-supertype widening where valid).
@@ -5262,17 +5337,19 @@ Pattern matching exhaustively checks every case; see
 
 ### Closed-shape types
 
-Raven has two primary ways to model a finite, closed set of alternatives:
+Raven has three primary ways to model a finite, closed set of alternatives:
 
 1. **Unions** (`union`)
-2. **Sealed hierarchies** (`sealed class` / `sealed record class`)
+2. **Enums** (`enum`)
+3. **Sealed hierarchies** (`sealed class` / `sealed record class`)
 
-Both participate in exhaustiveness analysis for `match`, and both represent a
-known closed shape at compile time. The key difference is modeling style:
+Each can participate in exhaustiveness analysis for `match`, and each represents
+a known closed shape at compile time. The key difference is modeling style:
 
 | Use this | When you need |
 | --- | --- |
 | `union` | Algebraic data modeling with explicit case payloads, carrier-based construction/extraction (`Ok(...)`, `.Ok(...)`, `TryGetValue`), and closed alternatives. |
+| `enum` | Named constants over a single integral value domain, numeric interop, flags-style values, or compact status codes with no case payloads. |
 | `sealed` hierarchy | Object-oriented subtype modeling with shared base behavior, virtual/interface-style design, and class hierarchy semantics. |
 
 #### Choosing between them
@@ -5281,7 +5358,15 @@ Choose **unions** when:
 
 * the alternatives are primarily data cases,
 * payloads are part of the case definition,
-* construction/pattern matching is the dominant interaction.
+* construction/pattern matching is the dominant interaction,
+* parameterless alternatives are still semantic tagged cases rather than named
+  numeric constants.
+
+Choose **enums** when:
+
+* every alternative is just a name for an integral constant,
+* numeric representation, ordering, bitwise flags, or .NET enum interop matters,
+* no alternative carries payload data or needs a distinct generated case type.
 
 Choose **sealed hierarchies** when:
 

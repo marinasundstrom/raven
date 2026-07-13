@@ -135,7 +135,7 @@ public union Result<T> {
 class Runner {
     public static func Run(flag: bool) -> Option<int> {
         val input: Option<int> = Some(42)
-        return input match {
+        return match input {
             Some(val value) => Option<int>.Some(value)
             None => None
         }
@@ -191,7 +191,7 @@ import System.*
 class Runner {
     public static func Run() -> string {
         val result: Result<string, Exception> = Error(InvalidOperationException("x"))
-        return result match {
+        return match result {
             Error(val e) => e.GetType().Name
             Ok(val value) => value
         }
@@ -368,7 +368,7 @@ union Option {
     }
 
     [Fact]
-    public void UnionWithoutStorageModifier_EmitsReferenceTypeCarrier()
+    public void UnionWithoutStorageModifier_EmitsValueTypeCarrier()
     {
         var code = """
 union Option {
@@ -396,8 +396,8 @@ union Option {
         var runtimeAssembly = loaded.Assembly;
         var unionType = runtimeAssembly.GetType("Option", throwOnError: true)!;
 
-        Assert.True(unionType.IsClass);
-        Assert.False(unionType.IsValueType);
+        Assert.False(unionType.IsClass);
+        Assert.True(unionType.IsValueType);
     }
 
     [Fact]
@@ -514,7 +514,7 @@ union struct Maybe<T> {
     public void ClassUnion_WithNullableMember_EmitsNullableValueProperty()
     {
         var code = """
-union Maybe(string? | int)
+union class Maybe(string? | int)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -547,12 +547,12 @@ union Maybe(string? | int)
     }
 
     [Fact]
-    public void ClassUnion_WithExplicitNullMember_EmitsNullableCaseConstructorsWithoutNullConstructor()
+    public void ClassUnion_WithNullableMember_EmitsNullableCaseConstructors()
     {
         var code = """
 import System.Collections.Generic.*
 
-union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+union class JsonValue(string? | double | bool | JsonObject | JsonValue[])
 
 record JsonObject(Properties: IDictionary<string, JsonValue>)
 """;
@@ -647,7 +647,7 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
     }
 
     [Fact]
-    public void StructUnion_ConstructedWithNullablePayload_HasValueIsTrueWhenValueIsNull()
+    public void StructUnion_ConstructedWithNullablePayload_HasValueFollowsValueNullState()
     {
         var code = """
 union struct Maybe<T>(T)
@@ -677,7 +677,7 @@ union struct Maybe<T>(T)
         var valueProperty = closedUnionType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public)!;
         var hasValueProperty = closedUnionType.GetProperty("HasValue", BindingFlags.Instance | BindingFlags.Public)!;
 
-        Assert.Equal(true, hasValueProperty.GetValue(instance));
+        Assert.Equal(false, hasValueProperty.GetValue(instance));
         Assert.Null(valueProperty.GetValue(instance));
     }
 
@@ -688,7 +688,7 @@ union struct Maybe<T>(T)
 class Runner {
     public static func NullCase() -> int {
         val v: Foo = null
-        return v match {
+        return match v {
             3 => 30
             int i => i
             null => -1
@@ -697,7 +697,7 @@ class Runner {
 
     public static func ConstantCase() -> int {
         val v: Foo = 3
-        return v match {
+        return match v {
             3 => 30
             int i => i
             null => -1
@@ -706,7 +706,7 @@ class Runner {
 
     public static func IntCase() -> int {
         val v: Foo = 42
-        return v match {
+        return match v {
             3 => 30
             int i => i
             null => -1
@@ -714,7 +714,7 @@ class Runner {
     }
 }
 
-union Foo(int | null)
+union class Foo(int?)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -743,6 +743,85 @@ union Foo(int | null)
     }
 
     [Fact]
+    public void ClassUnion_WithNullableValuePayload_MatchExpressionAndStatementUseValueNullState()
+    {
+        var code = """
+class Runner {
+    public static func NullValueIsNull() -> bool {
+        val v: Foo = null
+        return v.Value is null
+    }
+
+    public static func NullHasValue() -> bool {
+        val v: Foo = null
+        return v.HasValue
+    }
+
+    public static func ExpressionNullCase() -> int {
+        val v: Foo = null
+        return match v {
+            int i => i
+            null => -1
+        }
+    }
+
+    public static func ExpressionValueCase() -> int {
+        val v: Foo = 42
+        return match v {
+            int i => i
+            null => -1
+        }
+    }
+
+    public static func StatementNullCase() -> int {
+        val v: Foo = null
+        match v {
+            int i => i
+            null => -1
+        }
+    }
+
+    public static func StatementValueCase() -> int {
+        val v: Foo = 42
+        match v {
+            int i => i
+            null => -1
+        }
+    }
+}
+
+union class Foo(int?)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var runnerType = runtimeAssembly.GetType("Runner", throwOnError: true)!;
+
+        Assert.Equal(true, runnerType.GetMethod("NullValueIsNull", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(false, runnerType.GetMethod("NullHasValue", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(-1, runnerType.GetMethod("ExpressionNullCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(42, runnerType.GetMethod("ExpressionValueCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(-1, runnerType.GetMethod("StatementNullCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal(42, runnerType.GetMethod("StatementValueCase", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
     public void ClassUnion_WithNullableValuePayload_IsDeclarationPatternExtractsMember()
     {
         var code = """
@@ -766,7 +845,7 @@ class Runner {
     }
 }
 
-union Foo(int | null)
+union class Foo(int?)
 """;
 
         var syntaxTree = SyntaxTree.ParseText(code);
@@ -794,25 +873,25 @@ union Foo(int | null)
     }
 
     [Fact]
-    public void DefaultStructUnion_NullPatternMatchesInactiveState()
+    public void DefaultStructUnion_CatchAllPatternMatchesInactiveState()
     {
         var code = """
 class Runner {
     public static func DescribeDefault() -> string {
         val value: Maybe<int> = default
-        return value match {
-            null => "inactive"
+        return match value {
             .Some(val payload) => payload.ToString()
             .None => "none"
+            _ => "inactive"
         }
     }
 
     public static func DescribeSome() -> string {
         val value: Maybe<int> = .Some(42)
-        return value match {
-            null => "inactive"
+        return match value {
             .Some(val payload) => payload.ToString()
             .None => "none"
+            _ => "inactive"
         }
     }
 }
@@ -847,6 +926,58 @@ union struct Maybe<T> {
 
         Assert.Equal("inactive", defaultMethod.Invoke(null, Array.Empty<object?>()));
         Assert.Equal("42", someMethod.Invoke(null, Array.Empty<object?>()));
+    }
+
+    [Fact]
+    public void ActiveStructUnion_PassedAsArgumentPreservesActiveState()
+    {
+        var code = """
+class Runner {
+    public static func Describe(value: Maybe<int>) -> string {
+        return match value {
+            .Some(val payload) => payload.ToString()
+            .None => "none"
+            _ => "inactive"
+        }
+    }
+
+    public static func DescribeNoneArgument() -> string {
+        return Describe(.None)
+    }
+
+    public static func DescribeSomeArgument() -> string {
+        return Describe(.Some(42))
+    }
+}
+
+union Maybe<T> {
+    case None
+    case Some(value: T)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var version = TargetFrameworkResolver.ResolveVersion(TestTargetFramework.Default);
+        MetadataReference[] references = [
+            .. TargetFrameworkResolver
+                .GetReferenceAssemblies(version)
+                .Select(path => MetadataReference.CreateFromFile(path))
+        ];
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var runnerType = runtimeAssembly.GetType("Runner", throwOnError: true)!;
+
+        Assert.Equal("none", runnerType.GetMethod("DescribeNoneArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
+        Assert.Equal("42", runnerType.GetMethod("DescribeSomeArgument", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, Array.Empty<object?>()));
     }
 
     [Fact]
@@ -1055,7 +1186,7 @@ union Either<T1, T2>(T1 | T2)
 class Runner {
     public static func DescribeLeft() -> string {
         val value: Either<int, string> = 42
-        return value match {
+        return match value {
             int amount => "cash $amount"
             string reference => "card $reference"
         }
@@ -1063,7 +1194,7 @@ class Runner {
 
     public static func DescribeRight() -> string {
         val value: Either<int, string> = "invoice"
-        return value match {
+        return match value {
             int amount => "cash $amount"
             string reference => "card $reference"
         }
@@ -1140,7 +1271,7 @@ union MyResult3(List<int> | string)
 class Runner {
     public static func DescribeCash() -> string {
         val value = Payment(Cash(42.0m))
-        return value match {
+        return match value {
             Cash(val amount) => "cash $amount"
             Card(val reference) => "card $reference"
         }
@@ -1148,7 +1279,7 @@ class Runner {
 
     public static func DescribeCard() -> string {
         val value = Payment(Card("invoice"))
-        return value match {
+        return match value {
             Cash(val amount) => "cash $amount"
             Card(val reference) => "card $reference"
         }
@@ -2125,7 +2256,7 @@ class Container {
     }
 
     static func describe(user: Option<User>) -> string {
-        return user match {
+        return match user {
             Some(User(Profile: Some(Profile(Settings: Some(Settings(Theme: Some(Theme(PrimaryColor: Some(val color)))))))) => "Primary color: $color"
             _ => "Could not access primary color"
         }

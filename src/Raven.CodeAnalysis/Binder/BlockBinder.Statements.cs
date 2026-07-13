@@ -44,6 +44,15 @@ partial class BlockBinder
             ? BindExpressionWithTargetType(expressionStmt.Expression, GetReturnTargetType(method))
             : BindExpression(expressionStmt.Expression, allowReturn: true);
 
+        if (isImplicitReturnTarget && _containingSymbol is IMethodSymbol implicitReturnMethod)
+        {
+            var targetType = GetReturnTargetType(implicitReturnMethod);
+            if (ReportStructUnionReturnMayBeDefault(targetType, expr, expressionStmt.Expression))
+            {
+                expr = new BoundErrorExpression(targetType, null, BoundExpressionReason.OtherError);
+            }
+        }
+
         if (expr is BoundMethodGroupExpression methodGroup && methodGroup.GetConvertedType() is null)
         {
             expr = ReportMethodGroupRequiresDelegate(methodGroup, expressionStmt.Expression);
@@ -2016,6 +2025,11 @@ partial class BlockBinder
                             expr = ApplyConversion(expr, targetType, conversion, expressionSyntax!);
                         }
                     }
+
+                    if (ReportStructUnionReturnMayBeDefault(targetType, expr, expressionSyntax))
+                    {
+                        expr = new BoundErrorExpression(targetType, null, BoundExpressionReason.OtherError);
+                    }
                 }
             }
 
@@ -2054,6 +2068,11 @@ partial class BlockBinder
                 else
                 {
                     expr = ApplyConversion(expr, propertyType, conversion, expressionSyntax!);
+                }
+
+                if (ReportStructUnionReturnMayBeDefault(propertyType, expr, expressionSyntax))
+                {
+                    expr = new BoundErrorExpression(propertyType, null, BoundExpressionReason.OtherError);
                 }
             }
         }

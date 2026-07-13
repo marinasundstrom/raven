@@ -154,7 +154,7 @@ Nested bindings use the same `type name` layout. Use `as` to rename a field whil
 The `match` expression evaluates an input value against a sequence of patterns and returns the result of the first matching arm:
 
 ```raven
-let result = value match {
+let result = match value {
     0        => "zero"
     int x    => "an int ${x}"
     _        => "other"
@@ -205,7 +205,7 @@ value match {
 Arm bodies can be block expressions in both forms:
 
 ```raven
-val output = value match {
+val output = match value {
     0 => { "zero" }
     _ => {
         val fallback = "other"

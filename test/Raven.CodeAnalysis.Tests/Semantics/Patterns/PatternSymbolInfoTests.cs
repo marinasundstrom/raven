@@ -21,7 +21,7 @@ union VehicleStatus {
 }
 
 func StatusMatches(status: VehicleStatus) -> bool {
-    return status match {
+    return match status {
         .Operational(_) => true
         _ => false
     }

@@ -40,7 +40,7 @@ import System.Console.*
 func Main() -> () {
     val inputs = ["10", "3", "abc", "42"]
 
-    val message = ProcessNumbers(inputs) match {
+    val message = match ProcessNumbers(inputs) {
         Ok(_) => "All numbers processed"
         Error(val err) => "Failed: $err"
     }
@@ -52,7 +52,7 @@ func ProcessNumbers(inputs: string[]) -> Result<(), string> {
     for text in inputs {
         val no = ParseInt(text)?
 
-        val line = no match {
+        val line = match no {
             10 => "Ten exactly!"
             val value => "Parsed: $value"
         }
@@ -136,7 +136,7 @@ Raven also accepts `let` as an alias for `val`, but current docs and examples pr
 `if` and `match` are commonly used in expression position, but Raven is not expression-only. Loops, disposal, mutation, and early returns remain ordinary statement forms when that keeps intent clearer.
 
 ```raven
-val label = value match {
+val label = match value {
     0 => "zero"
     _ => "non-zero"
 }
@@ -165,7 +165,7 @@ for val [first, ...rest] in rows {
     WriteLine(first)
 }
 
-val label = input match {
+val label = match input {
     val Some((x, y)) => "($x, $y)"
     _ => "none"
 }
@@ -193,10 +193,9 @@ There is also an important surface distinction:
 
 Raven treats recoverable flow as data. In domain code, `Option<T>` is preferred for absence and `Result<T, E>` for expected failures.
 
-In the standard library, both carriers are defined as `union class` types.
-That keeps them aligned with the intended .NET-style union contract while
-avoiding the implicit default-state problem that exists for `union struct`
-carriers.
+In the standard library, both carriers are defined as plain `union` types, which
+means they use the default struct carrier shape aligned with the .NET union
+contract.
 
 ```raven
 func Divide(a: int, b: int) -> Result<int, string> {
@@ -250,7 +249,7 @@ val requests = List<ShipmentRequest> {
     ShipmentRequest("REQ-1002", "Oceanic", 3, None)
 }
 
-val summary = BuildQuoteSummary(requests, plans) match {
+val summary = match BuildQuoteSummary(requests, plans) {
     Ok(val message) => message
     Error(val err) => "Quote failed: $err"
 }
@@ -272,7 +271,7 @@ func PromoCents(code: Option<string>) -> Option<int> {
     val raw = code?
     val normalized = raw.Trim().ToUpperInvariant()
 
-    return normalized match {
+    match normalized {
         "SAVE5" => Some(500)
         _ => None
     }
@@ -360,7 +359,7 @@ union Token {
 }
 
 func Describe(token: Token) -> string {
-    return token match {
+    match token {
         .Identifier(val text) => "id: $text"
         .Number(val value) => "number: $value"
         .End => "end"

@@ -90,7 +90,7 @@ label:
 	}
 
 	func Render(result: Result) -> int {
-	    return result match {
+	    return match result {
 	        .Case(val value) => value
 	    }
 	}
@@ -120,7 +120,7 @@ union Option<T> {
 }
 
 func Render(input: Option<int>) -> int {
-    return input match {
+    return match input {
         None => 0
         .Some(val value) => value
     }

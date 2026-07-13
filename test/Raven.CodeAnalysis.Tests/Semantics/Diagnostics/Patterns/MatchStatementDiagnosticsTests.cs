@@ -78,6 +78,167 @@ enum Color {
     }
 
     [Fact]
+    public void MatchStatement_WithStructUnionDefaultLocal_AllCasesCoveredIsSourceExhaustive()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+match state {
+    .On => 1
+    .Off => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithStructUnionDefaultLocal_MissingSemanticCaseIsReported()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+match state {
+    .On => 1
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Off")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithActiveStructUnionScrutinee_DefensiveCatchAllIsRedundant()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = .On
+
+match state {
+    .On => 1
+    .Off => 0
+    _ => -1
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithStructUnionDefaultLocal_CatchAllForDefaultIsNotRedundant()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+match state {
+    .On => 1
+    .Off => 0
+    _ => -1
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithStructUnionParameter_AllCasesCoveredIsSourceExhaustive()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+func eval(state: State) -> int {
+    match state {
+        .On => 1
+        .Off => 0
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithStructUnionParameter_CatchAllForDefaultIsNotRedundant()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+func eval(state: State) -> int {
+    match state {
+        .On => 1
+        .Off => 0
+        _ => -1
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchStatement_WithStructUnionSelf_CatchAllForDefaultIsNotRedundant()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+
+    func eval() -> int {
+        self match {
+            On => 1
+            Off => 0
+            _ => -1
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchStatement_WithDiscriminatedUnionScrutinee_RedundantCatchAllReportsDiagnosticAtCatchAllPattern()
     {
         const string code = """
@@ -174,12 +335,12 @@ import Status.*
 val a = Status.Open("foo")
 val b = Status.Closed("done")
 
-val textA = a match {
+val textA = match a {
     .Open(val reason) => reason
     .Closed(_) => ""
 }
 
-val textB = b match {
+val textB = match b {
     Open(val reason) => reason
     Closed(_) => ""
 }

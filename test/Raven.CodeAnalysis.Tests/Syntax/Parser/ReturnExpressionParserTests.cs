@@ -40,7 +40,7 @@ public class ReturnExpressionParserTests
     public void MatchExpressionArm_WithReturnExpression_ParsesReturnArm()
     {
         var lexer = new Lexer(new StringReader("""
-value match {
+match value {
     0 => return 0
     _ => 1
 }

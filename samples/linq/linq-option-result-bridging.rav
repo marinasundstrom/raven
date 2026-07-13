@@ -9,7 +9,7 @@ val firstOrNone = shipmentWeights.FirstOrNone(x => x > 2)
 
 Console.WriteLine(firstOrNone)
 
-val result = firstOrNone match {
+val result = match firstOrNone {
     Some(val v) => "Value is: $v"
     None => "No value"
 }

@@ -113,6 +113,11 @@ class MethodBodyBinder : BlockBinder
                 }
             }
 
+            if (ReportStructUnionReturnMayBeDefault(targetType, convertedExpression, clause.Expression))
+            {
+                convertedExpression = new BoundErrorExpression(targetType, null, BoundExpressionReason.OtherError);
+            }
+
             statement = new BoundReturnStatement(ValidateByRefReturnExpression(_methodSymbol, convertedExpression, clause.Expression));
         }
 

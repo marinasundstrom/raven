@@ -14,7 +14,7 @@ public class PositionalPatternSyntaxTests
         const string code = """
 val value: object = (1, "two")
 
-val result = value match {
+val result = match value {
     (first: int, second: string) => second
     _ => ""
 }

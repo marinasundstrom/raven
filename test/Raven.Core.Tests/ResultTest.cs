@@ -12,6 +12,18 @@ namespace Raven.Core.Tests;
 public sealed class ResultTest : RavenCoreDiagnosticTestBase
 {
     [Fact]
+    public void Result_IsStructCarrier_WithDefaultUninitializedState()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var defaultResult = Activator.CreateInstance(resultType)!;
+
+        Assert.True(resultType.IsValueType);
+        Assert.Equal(false, resultType.GetProperty("HasValue")!.GetValue(defaultResult));
+        Assert.Null(resultType.GetProperty("Value")!.GetValue(defaultResult));
+    }
+
+    [Fact]
     public void JsonSerializer_SerializesAndDeserializes_Ok()
     {
         var asm = LoadRavenCoreAssembly();
@@ -57,6 +69,18 @@ public sealed class ResultTest : RavenCoreDiagnosticTestBase
 
         var data = args[0]!.GetType().GetProperty("Data")!.GetValue(args[0]);
         Assert.Equal("boom", data);
+    }
+
+    [Fact]
+    public void JsonSerializer_Serializes_DefaultCarrierAsJsonNull()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var defaultResult = Activator.CreateInstance(resultType)!;
+
+        var json = JsonSerializer.Serialize(defaultResult, resultType);
+
+        Assert.Equal("null", json);
     }
 
     [Fact]
@@ -155,6 +179,50 @@ extension TestExt<T> for IEnumerable<T> {
     }
 
     [Fact]
+    public void DefaultReceiver_CombinatorsThrowFromMatchFallback()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var defaultResult = Activator.CreateInstance(resultType)!;
+
+        var mappedException = Assert.Throws<TargetInvocationException>(() => resultType.GetMethod("Map")!
+            .MakeGenericMethod(typeof(int))
+            .Invoke(defaultResult, [new Func<int, int>(value => value + 1)]));
+        Assert.IsType<InvalidOperationException>(mappedException.InnerException);
+
+        var mappedErrorException = Assert.Throws<TargetInvocationException>(() => resultType.GetMethod("MapError")!
+            .MakeGenericMethod(typeof(Exception))
+            .Invoke(defaultResult, [new Func<string, Exception>(message => new InvalidOperationException(message))]));
+        Assert.IsType<InvalidOperationException>(mappedErrorException.InnerException);
+
+        var recoveredException = Assert.Throws<TargetInvocationException>(() => resultType.GetMethod("OrElse")!
+            .Invoke(defaultResult, [null]));
+        Assert.IsType<InvalidOperationException>(recoveredException.InnerException);
+    }
+
+    [Fact]
+    public void DefaultReceiver_WithContextReportsBoundaryDiagnostic()
+    {
+        const string code = """
+import System.*
+
+val result: Result<int, ParseIntError> = default
+val wrapped = result.WithContext("reading value")
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult("RAV0405")
+                    .WithAnySpan()
+                    .WithArguments("self", "Result<int, ParseIntError>")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ToString_QuotesStringPayload_ForGenericResult()
     {
         var asm = LoadRavenCoreAssembly();
@@ -246,6 +314,23 @@ extension TestExt<T> for IEnumerable<T> {
 
         return caseType
             ?? throw new InvalidOperationException($"Missing TryGetValue overload for case '{caseName}' on '{resultType}'.");
+    }
+
+    private static void AssertCasePayload(
+        object carrier,
+        Type carrierType,
+        string caseName,
+        string propertyName,
+        object? expected)
+    {
+        var caseType = GetCaseTypeFromTryGetValue(carrierType, caseName);
+        var tryGetValue = GetTryGetValueMethod(carrierType, caseType);
+        var args = new object?[] { null };
+        var matched = (bool)(tryGetValue.Invoke(carrier, args) ?? false);
+
+        Assert.True(matched);
+        Assert.NotNull(args[0]);
+        Assert.Equal(expected, args[0]!.GetType().GetProperty(propertyName)!.GetValue(args[0]));
     }
 
     private static object ConvertCaseToCarrier(Type carrierType, object caseValue)

@@ -5,7 +5,7 @@ val orderId = 1001
 val statusPayload: object = "paid"
 val paidCode = "paid"
 
-val label = statusPayload match {
+val label = match statusPayload {
   paidCode => "Invoice cleared"
   string code => "Unknown string status: ${code}"
   _ => "Non-string status"

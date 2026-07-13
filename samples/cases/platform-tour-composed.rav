@@ -72,7 +72,7 @@ async func Main() -> Task {
 
     // Result/Option + pattern matching.
     val input = "2"
-    val id = ParseId(input) match {
+    val id = match ParseId(input) {
         Ok(val value) => value
         Error(val err) => {
             logger.Log("Bad input: $err")
@@ -80,7 +80,7 @@ async func Main() -> Task {
         }
     }
 
-    val label = FindUserName(users, id) match {
+    val label = match FindUserName(users, id) {
         Some(val n) => "Found user name: $n"
         None => "No user with id $id"
     }
@@ -90,7 +90,7 @@ async func Main() -> Task {
     val url = "https://example.com"
     val downloaded = await DownloadText(url)
 
-    val summary = downloaded match {
+    val summary = match downloaded {
         Ok(val text) => "Downloaded ${text.Length} chars from $url"
         Error(.NotFound(val missingId)) => "Not found: $missingId"
         Error(.Invalid(val message)) => "Invalid: $message"

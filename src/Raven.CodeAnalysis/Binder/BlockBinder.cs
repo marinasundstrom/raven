@@ -201,6 +201,12 @@ partial class BlockBinder : Binder
             return true;
         }
 
+        if (designation.GetAncestor<PostfixMatchExpressionSyntax>() is { } postfixMatchExpression)
+        {
+            owner = postfixMatchExpression;
+            return true;
+        }
+
         if (designation.GetAncestor<MatchStatementSyntax>() is { } matchStatement)
         {
             owner = matchStatement;
@@ -2155,7 +2161,14 @@ partial class BlockBinder : Binder
             BlockSyntax block => BindBlock(block, allowReturn: _allowReturnsInExpression || _allowReturnsInBlockExpressionsOnly),
             UnsafeExpressionSyntax unsafeExpression => BindUnsafeExpression(unsafeExpression),
             IsPatternExpressionSyntax isPatternExpression => BindIsPatternExpression(isPatternExpression),
-            MatchExpressionSyntax matchExpression => BindMatchExpression(matchExpression),
+            MatchExpressionSyntax matchExpression => BindMatchExpression(
+                matchExpression,
+                matchExpression.Expression,
+                matchExpression.Arms),
+            PostfixMatchExpressionSyntax matchExpression => BindMatchExpression(
+                matchExpression,
+                matchExpression.Expression,
+                matchExpression.Arms),
             TryExpressionSyntax tryExpression => BindTryExpression(tryExpression),
             ReturnExpressionSyntax returnExpression => BindReturnExpression(returnExpression),
             ThrowExpressionSyntax throwExpression => BindThrowExpression(throwExpression),
@@ -2194,6 +2207,7 @@ partial class BlockBinder : Binder
             or IdentifierNameSyntax
             or DefaultExpressionSyntax
             or MatchExpressionSyntax
+            or PostfixMatchExpressionSyntax
             or IfExpressionSyntax
             || syntax is PostfixOperatorExpressionSyntax { OperatorToken.Kind: SyntaxKind.ExclamationToken };
 
@@ -2207,6 +2221,13 @@ partial class BlockBinder : Binder
                 return cached;
 
             var expression = BindExpression(arrow.Expression, allowReturn: true);
+            if (GetContainingReturnTargetType() is { } targetType &&
+                targetType.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void &&
+                ReportStructUnionReturnMayBeDefault(targetType, expression, arrow.Expression))
+            {
+                expression = new BoundErrorExpression(targetType, null, BoundExpressionReason.OtherError);
+            }
+
             BoundBlockStatement bound = expression is BoundBlockExpression blockExpression
                 ? new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose)
                 : new BoundBlockStatement([new BoundExpressionStatement(expression)]);
@@ -4027,14 +4048,17 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private BoundExpression BindMatchExpression(MatchExpressionSyntax matchExpression)
+    private BoundExpression BindMatchExpression(
+        SyntaxNode matchExpression,
+        ExpressionSyntax expression,
+        SyntaxList<MatchArmSyntax> matchArms)
     {
         var armTargetType = GetTargetType(matchExpression);
 
         var (scrutinee, arms) = BindMatchCommon(
             matchExpression,
-            matchExpression.Expression,
-            matchExpression.Arms,
+            expression,
+            matchArms,
             allowReturnInArmExpressions: _allowReturnsInExpression,
             requireArmValue: true,
             armTargetType: armTargetType);
@@ -4684,8 +4708,9 @@ partial class BlockBinder : Binder
                 }
             case BoundCasePattern casePattern:
                 {
-                    var scrutineeUnion = scrutineeType.TryGetUnion()
-                        ?? scrutineeType.TryGetUnionCase()?.Union;
+                    var scrutineePatternType = scrutineeType.GetPlainType();
+                    var scrutineeUnion = scrutineePatternType.TryGetUnion()
+                        ?? scrutineePatternType.TryGetUnionCase()?.Union;
 
                     var caseUnion = UnwrapAlias(casePattern.CaseSymbol.Union);
 
@@ -4978,6 +5003,13 @@ partial class BlockBinder : Binder
         if (patternType is NullTypeSymbol)
             return CanBeNull(scrutineeType);
 
+        var nonNullableScrutineeType = scrutineeType.GetPlainType();
+        if (!SymbolEqualityComparer.Default.Equals(nonNullableScrutineeType, scrutineeType) &&
+            PatternCanMatch(nonNullableScrutineeType, patternType))
+        {
+            return true;
+        }
+
         if (scrutineeType is ITypeUnionSymbol scrutineeUnion)
         {
             foreach (var member in scrutineeUnion.Types)
@@ -5044,9 +5076,6 @@ partial class BlockBinder : Binder
             return true;
 
         if (type.TryGetUnion() is { ContentMayBeNull: true })
-            return true;
-
-        if (type.TryGetUnion() is { TypeKind: TypeKind.Struct })
             return true;
 
         // Union can be null if any member can be null.
@@ -5345,12 +5374,31 @@ partial class BlockBinder : Binder
             return;
         }
 
+        var nullableUnderlyingType = scrutineeType.GetPlainType();
+        if (!SymbolEqualityComparer.Default.Equals(nullableUnderlyingType, scrutineeType))
+        {
+            var nullableUnderlyingUnion = nullableUnderlyingType.TryGetUnion()
+                ?? nullableUnderlyingType.TryGetUnionCase()?.Union;
+
+            if (nullableUnderlyingUnion is not null)
+            {
+                EnsureNullableUnionMatchExhaustive(
+                    matchSyntax,
+                    armSyntaxes,
+                    arms,
+                    nullableScrutineeType: scrutineeType,
+                    nullableUnderlyingUnion,
+                    catchAllIndex);
+                return;
+            }
+        }
+
         var discriminatedUnion = scrutineeType.TryGetUnion()
             ?? scrutineeType.TryGetUnionCase()?.Union;
 
         if (discriminatedUnion is not null)
         {
-            EnsureDiscriminatedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, discriminatedUnion, catchAllIndex);
+            EnsureDiscriminatedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, scrutinee, scrutineeType, discriminatedUnion, catchAllIndex);
             return;
         }
 
@@ -5534,97 +5582,30 @@ partial class BlockBinder : Binder
         }
     }
 
-    private int GetCatchAllArmIndex(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
-    {
-        for (var i = 0; i < arms.Length; i++)
-        {
-            var arm = arms[i];
-
-            if (arm.Guard is not null)
-                continue;
-
-            if (IsCatchAllPattern(scrutineeType, arm.Pattern))
-                return i;
-        }
-
-        return -1;
-    }
-
-    private void ReportRedundantCatchAll(SyntaxList<MatchArmSyntax> armSyntaxes, int catchAllIndex)
-    {
-        var patternLocation = armSyntaxes[catchAllIndex].Pattern.GetLocation();
-        _diagnostics.ReportMatchExpressionCatchAllRedundant(patternLocation);
-    }
-
-    private bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
-    {
-        // Value-testing patterns are never catch-all.
-        // This keeps reachability/exhaustiveness conservative when patterns depend on runtime values.
-        if (pattern is BoundConstantPattern)
-            return false;
-
-        if (pattern is BoundComparisonPattern)
-            return false;
-
-        switch (pattern)
-        {
-            case BoundDiscardPattern:
-                return true;
-            case BoundDeclarationPattern declaration:
-                {
-                    var declaredType = UnwrapAlias(declaration.DeclaredType);
-
-                    // A declaration pattern is catch-all regardless of whether it binds a name or discards.
-                    // (e.g. `string? x` should still cover all values of `string?`.)
-                    if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
-                        return true;
-
-                    return declaredType.SpecialType == SpecialType.System_Object;
-                }
-            case BoundOrPattern orPattern:
-                return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
-                       IsCatchAllPattern(scrutineeType, orPattern.Right);
-            case BoundPositionalPattern tuplePattern:
-                {
-                    var elementTypes = GetTupleElementTypes(scrutineeType);
-
-                    if (elementTypes.Length == 0 && tuplePattern.Elements.Length == 0)
-                        return true;
-
-                    if (elementTypes.Length != tuplePattern.Elements.Length)
-                        return false;
-
-                    for (var i = 0; i < tuplePattern.Elements.Length; i++)
-                    {
-                        if (!IsCatchAllPattern(elementTypes[i], tuplePattern.Elements[i]))
-                            return false;
-                    }
-
-                    return true;
-                }
-        }
-
-        return false;
-    }
-
-    private void EnsureDiscriminatedUnionMatchExhaustive(
+    private void EnsureNullableUnionMatchExhaustive(
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
+        ITypeSymbol nullableScrutineeType,
         IUnionSymbol union,
         int catchAllIndex)
     {
         if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
         {
-            EnsureParenthesizedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, union, catchAllIndex);
+            EnsureNullableParenthesizedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, union, catchAllIndex);
             return;
         }
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var nullRemaining = true;
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
+        bool? guaranteedNullRemaining = null;
         if (catchAllIndex >= 0)
+        {
             guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+            guaranteedNullRemaining = nullRemaining;
+        }
 
         var reportedRedundantCatchAll = false;
 
@@ -5634,14 +5615,20 @@ partial class BlockBinder : Binder
             var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
 
             if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+            {
                 RemoveCoveredCases(guaranteedRemaining, arm.Pattern, union);
+                guaranteedNullRemaining &= !PatternCoversNull(nullableScrutineeType, arm.Pattern);
+            }
 
             if (guardGuaranteesMatch)
-                RemoveCoveredCases(remaining, arm.Pattern, union);
-
-            if (remaining.Count == 0)
             {
-                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+                RemoveCoveredCases(remaining, arm.Pattern, union);
+                nullRemaining &= !PatternCoversNull(nullableScrutineeType, arm.Pattern);
+            }
+
+            if (remaining.Count == 0 && !nullRemaining)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedNullRemaining))
                 {
                     ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                     reportedRedundantCatchAll = true;
@@ -5650,24 +5637,28 @@ partial class BlockBinder : Binder
                 return;
             }
 
-            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedNullRemaining))
             {
                 ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
                 reportedRedundantCatchAll = true;
             }
         }
 
-        var missingCase = remaining.FirstOrDefault();
+        if (catchAllIndex >= 0)
+            return;
 
+        var missingCase = remaining.FirstOrDefault();
         if (missingCase is not null)
         {
-            ReportMatchNotExhaustive(
-                matchSyntax,
-                MatchCaseDisplay.ForDiscriminatedUnionCase(missingCase));
+            ReportMatchNotExhaustive(matchSyntax, MatchCaseDisplay.ForDiscriminatedUnionCase(missingCase));
+            return;
         }
+
+        if (nullRemaining)
+            ReportMatchNotExhaustive(matchSyntax, "null");
     }
 
-    private void EnsureParenthesizedUnionMatchExhaustive(
+    private void EnsureNullableParenthesizedUnionMatchExhaustive(
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
@@ -5675,6 +5666,8 @@ partial class BlockBinder : Binder
         int catchAllIndex)
     {
         var memberTypes = UnionContentNullability.GetPatternDomainTypes(union, Compilation.NullTypeSymbol);
+        if (!memberTypes.Any(static type => UnwrapAlias(type).TypeKind == TypeKind.Null))
+            memberTypes = memberTypes.Add(Compilation.NullTypeSymbol);
 
         var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
         var literalCoverage = CreateLiteralCoverage(remaining);
@@ -5741,6 +5734,289 @@ partial class BlockBinder : Binder
         }
     }
 
+    private int GetCatchAllArmIndex(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
+    {
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+
+            if (arm.Guard is not null)
+                continue;
+
+            if (IsCatchAllPattern(scrutineeType, arm.Pattern))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private bool PatternCoversNull(ITypeSymbol scrutineeType, BoundPattern pattern)
+    {
+        if (IsCatchAllPattern(scrutineeType, pattern))
+            return true;
+
+        if (IsNullConstantPattern(pattern))
+            return true;
+
+        return pattern is BoundOrPattern orPattern &&
+               (PatternCoversNull(scrutineeType, orPattern.Left) ||
+                PatternCoversNull(scrutineeType, orPattern.Right));
+    }
+
+    private static bool IsNullConstantPattern(BoundPattern pattern)
+    {
+        // Preferred/normalized form: literal-backed null constant pattern
+        if (pattern is BoundConstantPattern { Expression: null, ConstantValue: null })
+            return true;
+
+        // Expression-backed null literals are also exhaustive for null.
+        if (pattern is BoundConstantPattern
+            {
+                Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
+            })
+        {
+            return true;
+        }
+
+        if (pattern is BoundConstantPattern
+            {
+                Expression: BoundConversionExpression
+                {
+                    Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
+                }
+            })
+        {
+            return true;
+        }
+
+        // Defensive: treat expression-backed `NullType` as null too.
+        if (pattern is BoundConstantPattern { Expression: BoundTypeExpression { Type: NullTypeSymbol } })
+            return true;
+
+        return false;
+    }
+
+    private void ReportRedundantCatchAll(SyntaxList<MatchArmSyntax> armSyntaxes, int catchAllIndex)
+    {
+        var patternLocation = armSyntaxes[catchAllIndex].Pattern.GetLocation();
+        _diagnostics.ReportMatchExpressionCatchAllRedundant(patternLocation);
+    }
+
+    private bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
+    {
+        // Value-testing patterns are never catch-all.
+        // This keeps reachability/exhaustiveness conservative when patterns depend on runtime values.
+        if (pattern is BoundConstantPattern)
+            return false;
+
+        if (pattern is BoundComparisonPattern)
+            return false;
+
+        switch (pattern)
+        {
+            case BoundDiscardPattern:
+                return true;
+            case BoundDeclarationPattern declaration:
+                {
+                    var declaredType = UnwrapAlias(declaration.DeclaredType);
+
+                    // A declaration pattern is catch-all regardless of whether it binds a name or discards.
+                    // (e.g. `string? x` should still cover all values of `string?`.)
+                    if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
+                        return true;
+
+                    return declaredType.SpecialType == SpecialType.System_Object;
+                }
+            case BoundOrPattern orPattern:
+                return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
+                       IsCatchAllPattern(scrutineeType, orPattern.Right);
+            case BoundPositionalPattern tuplePattern:
+                {
+                    var elementTypes = GetTupleElementTypes(scrutineeType);
+
+                    if (elementTypes.Length == 0 && tuplePattern.Elements.Length == 0)
+                        return true;
+
+                    if (elementTypes.Length != tuplePattern.Elements.Length)
+                        return false;
+
+                    for (var i = 0; i < tuplePattern.Elements.Length; i++)
+                    {
+                        if (!IsCatchAllPattern(elementTypes[i], tuplePattern.Elements[i]))
+                            return false;
+                    }
+
+                    return true;
+                }
+        }
+
+        return false;
+    }
+
+    private void EnsureDiscriminatedUnionMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        BoundExpression scrutinee,
+        ITypeSymbol scrutineeType,
+        IUnionSymbol union,
+        int catchAllIndex)
+    {
+        if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
+        {
+            EnsureParenthesizedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, scrutinee, scrutineeType, union, catchAllIndex);
+            return;
+        }
+
+        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, scrutineeType, union);
+
+        HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
+        bool? guaranteedInactiveStructStateRemaining = null;
+        if (catchAllIndex >= 0)
+        {
+            guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+            guaranteedInactiveStructStateRemaining = inactiveStructStateRemaining;
+        }
+
+        var reportedRedundantCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+            {
+                RemoveCoveredCases(guaranteedRemaining, arm.Pattern, union);
+                guaranteedInactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
+
+            if (guardGuaranteesMatch)
+            {
+                RemoveCoveredCases(remaining, arm.Pattern, union);
+                inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
+
+            if (remaining.Count == 0 && !inactiveStructStateRemaining)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
+                {
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                    reportedRedundantCatchAll = true;
+                }
+
+                return;
+            }
+
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
+            {
+                ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                reportedRedundantCatchAll = true;
+            }
+        }
+
+        if (remaining.Count == 0)
+            return;
+
+        var missingCase = remaining.FirstOrDefault();
+
+        if (missingCase is not null)
+        {
+            ReportMatchNotExhaustive(
+                matchSyntax,
+                MatchCaseDisplay.ForDiscriminatedUnionCase(missingCase));
+        }
+    }
+
+    private void EnsureParenthesizedUnionMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        BoundExpression scrutinee,
+        ITypeSymbol scrutineeType,
+        IUnionSymbol union,
+        int catchAllIndex)
+    {
+        var memberTypes = UnionContentNullability.GetPatternDomainTypes(union, Compilation.NullTypeSymbol);
+
+        var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
+        var literalCoverage = CreateLiteralCoverage(remaining);
+        var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, scrutineeType, union);
+
+        HashSet<ITypeSymbol>? guaranteedRemaining = null;
+        Dictionary<ITypeSymbol, HashSet<object?>>? guaranteedLiteralCoverage = null;
+        bool? guaranteedInactiveStructStateRemaining = null;
+        if (catchAllIndex >= 0)
+        {
+            guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
+            guaranteedLiteralCoverage = CloneLiteralCoverage(literalCoverage);
+            guaranteedInactiveStructStateRemaining = inactiveStructStateRemaining;
+        }
+
+        var reportedRedundantCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+            {
+                RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern, guaranteedLiteralCoverage);
+                guaranteedInactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
+
+            if (guardGuaranteesMatch)
+            {
+                RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
+                inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
+            }
+
+            if (remaining.Count == 0 && !inactiveStructStateRemaining)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
+                {
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                    reportedRedundantCatchAll = true;
+                }
+
+                return;
+            }
+
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedInactiveStructStateRemaining))
+            {
+                ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                reportedRedundantCatchAll = true;
+            }
+        }
+
+        if (literalCoverage is not null && literalCoverage.Count > 0)
+        {
+            foreach (var (type, constants) in literalCoverage)
+            {
+                if (remaining.Contains(type))
+                {
+                    ReportMissingLiteralCoverage(matchSyntax, type, constants);
+                    return;
+                }
+            }
+        }
+
+        if (catchAllIndex >= 0)
+            return;
+
+        if (remaining.Count == 0)
+            return;
+
+        foreach (var missing in remaining
+            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal))
+        {
+            ReportMatchNotExhaustive(matchSyntax, missing);
+        }
+    }
+
     private void EnsureEnumMatchExhaustive(
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
@@ -5788,6 +6064,45 @@ partial class BlockBinder : Binder
         }
 
         return true;
+    }
+
+    private bool RequiresInactiveStructUnionStateCoverage(
+        SyntaxNode matchSyntax,
+        BoundExpression scrutinee,
+        ITypeSymbol scrutineeType,
+        IUnionSymbol union)
+    {
+        if (!CanRepresentInactiveStructUnionState(scrutineeType, union))
+            return false;
+
+        return StructUnionDefaultStateFlow.ContentsMayBeDefault(scrutinee, matchSyntax, TryGetCachedBoundNode);
+    }
+
+    private static bool CanRepresentInactiveStructUnionState(ITypeSymbol scrutineeType, IUnionSymbol union)
+    {
+        if (union.TypeKind != TypeKind.Struct)
+            return false;
+
+        if (scrutineeType.TryGetUnion() is null)
+            return false;
+
+        return true;
+    }
+
+    private bool PatternCoversInactiveStructUnionState(
+        ITypeSymbol scrutineeType,
+        BoundPattern pattern,
+        IUnionSymbol union)
+    {
+        if (union.TypeKind != TypeKind.Struct)
+            return false;
+
+        if (IsCatchAllPattern(scrutineeType, pattern))
+            return true;
+
+        return pattern is BoundOrPattern orPattern &&
+               (PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Left, union) ||
+                PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
     }
 
     private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern)
@@ -6075,10 +6390,15 @@ partial class BlockBinder : Binder
                         break;
                     }
 
-                    var declarationUnion = declaredType.TryGetUnion()
-                        ?? declaredType.TryGetUnionCase()?.Union;
-
-                    if (declarationUnion is not null &&
+                    if (declaredType.TryGetUnionCase() is { } declarationCase &&
+                        AreSameUnionPatternTarget(UnwrapAlias(declarationCase.Union), UnwrapAlias(union)))
+                    {
+                        var matchedCase = declarationCase.OriginalDefinition as IUnionCaseTypeSymbol ?? declarationCase;
+                        remaining.RemoveWhere(candidate =>
+                            candidate.Ordinal == matchedCase.Ordinal ||
+                            SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
+                    }
+                    else if (declaredType.TryGetUnion() is { } declarationUnion &&
                         AreSameUnionPatternTarget(UnwrapAlias(declarationUnion), UnwrapAlias(union)))
                     {
                         remaining.Clear();
@@ -7967,7 +8287,14 @@ partial class BlockBinder : Binder
         if (targetType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
-        return new BoundDefaultValueExpression(targetType.GetDefaultValueType());
+        var expression = new BoundDefaultValueExpression(targetType.GetDefaultValueType());
+        if (syntax.Parent is ArrowExpressionClauseSyntax &&
+            ReportStructUnionReturnMayBeDefault(targetType, expression, syntax))
+        {
+            return new BoundErrorExpression(targetType, null, BoundExpressionReason.OtherError);
+        }
+
+        return expression;
     }
 
     private BoundExpression BindUnitExpression(UnitExpressionSyntax syntax)
@@ -9433,6 +9760,7 @@ partial class BlockBinder : Binder
                     boundArguments,
                     pipelineValue,
                     pipelineSyntax,
+                    callSyntax,
                     out var convertedExtensionReceiver);
                 return new BoundInvocationExpression(method, converted, methodGroup.Receiver, convertedExtensionReceiver);
             }
@@ -9503,6 +9831,7 @@ partial class BlockBinder : Binder
                 boundArguments,
                 pipelineValue,
                 pipelineSyntax,
+                callSyntax,
                 out var convertedExtensionReceiver);
             return new BoundInvocationExpression(method, converted, memberExpr.Receiver, convertedExtensionReceiver);
         }
@@ -9579,10 +9908,10 @@ partial class BlockBinder : Binder
         if (parameters.Length == 1)
             return converted;
 
-        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments);
+        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments, callSyntax);
         Array.Copy(rest, 0, converted, 1, rest.Length);
         for (int i = 1 + rest.Length; i < converted.Length; i++)
-            converted[i] = CreateOptionalArgument(parameters[i]);
+            converted[i] = CreateOptionalArgument(parameters[i], callSyntax);
 
         return converted;
     }
@@ -9773,7 +10102,7 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        var converted = ConvertArguments(method.Parameters, arguments);
+        var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
         return new BoundInvocationExpression(method, converted);
     }
 
@@ -9848,7 +10177,7 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        var convertedArguments = ConvertArguments(method.Parameters, liftedArguments);
+        var convertedArguments = ConvertArguments(method.Parameters, liftedArguments, callSyntax);
         var invocation = (BoundExpression)new BoundInvocationExpression(method, convertedArguments);
         var isInequality = opKind == SyntaxKind.NotEqualsToken;
 
@@ -9887,7 +10216,11 @@ partial class BlockBinder : Binder
                     SymbolEqualityComparer.Default.Equals(property.ContainingType, namedUnionType));
 
             if (hasValueProperty?.GetMethod is not null)
-                return new BoundInvocationExpression(hasValueProperty.GetMethod, Array.Empty<BoundExpression>(), nullableOperand);
+                return new BoundInvocationExpression(
+                    hasValueProperty.GetMethod,
+                    Array.Empty<BoundExpression>(),
+                    nullableOperand,
+                    requiresReceiverAddress: true);
         }
 
         var nullLiteral = new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, nullableType);
@@ -9948,7 +10281,7 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        var converted = ConvertArguments(method.Parameters, arguments);
+        var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
         return new BoundInvocationExpression(method, converted);
     }
 
@@ -10053,7 +10386,7 @@ partial class BlockBinder : Binder
 
                     if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
                     {
-                        var convertedArgs = ConvertArguments(method.Parameters, argExprs);
+                        var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax);
                         ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
                         return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                     }
@@ -10135,7 +10468,7 @@ partial class BlockBinder : Binder
 
                     if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
                     {
-                        var convertedArgs = ConvertArguments(method.Parameters, argExprs);
+                        var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax);
                         ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
                         return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                     }
@@ -10788,7 +11121,7 @@ partial class BlockBinder : Binder
                     return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                 }
 
-                var converted = ConvertArguments(invokeMethod.Parameters, boundArguments);
+                var converted = ConvertArguments(invokeMethod.Parameters, boundArguments, callSyntax);
                 ReportObsoleteIfNeeded(invokeMethod, callSyntax.GetLocation());
                 return new BoundInvocationExpression(invokeMethod, converted, receiver);
             }
@@ -10819,7 +11152,7 @@ partial class BlockBinder : Binder
                 {
                     var method = resolution.Method!;
                     ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                     return new BoundInvocationExpression(method, convertedArgs, methodGroupReceiver);
                 }
 
@@ -10892,7 +11225,7 @@ partial class BlockBinder : Binder
                 {
                     var method = resolution.Method!;
                     ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                     return new BoundInvocationExpression(method, convertedArgs, receiver);
                 }
 
@@ -10988,7 +11321,7 @@ partial class BlockBinder : Binder
             {
                 var method = resolution.Method!;
                 ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArgs, receiver);
             }
 
@@ -11032,7 +11365,7 @@ partial class BlockBinder : Binder
             {
                 var method = resolution.Method!;
                 ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArgs, null);
             }
 
@@ -12922,7 +13255,10 @@ partial class BlockBinder : Binder
             BoundExpressionReason.OverloadResolutionFailed);
     }
 
-    protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundArgument> arguments)
+    protected BoundExpression[] ConvertArguments(
+        ImmutableArray<IParameterSymbol> parameters,
+        IReadOnlyList<BoundArgument> arguments,
+        SyntaxNode? callSyntax = null)
     {
         var converted = new BoundExpression[parameters.Length];
         BoundArgument[] paramsArguments = Array.Empty<BoundArgument>();
@@ -13033,6 +13369,12 @@ partial class BlockBinder : Binder
                             continue;
                         }
 
+                        if (ReportStructUnionArgumentMayBeDefault(parameter, elementType, paramsExpression, paramsSyntaxNode))
+                        {
+                            paramsElements.Add(new BoundErrorExpression(elementType, null, BoundExpressionReason.ArgumentBindingFailed));
+                            continue;
+                        }
+
                         paramsElements.Add(ApplyConversion(paramsExpression, elementType, elementConversion, paramsSyntaxNode));
                     }
 
@@ -13045,7 +13387,7 @@ partial class BlockBinder : Binder
 
             if (argument is null)
             {
-                converted[i] = CreateOptionalArgument(parameter);
+                converted[i] = CreateOptionalArgument(parameter, callSyntax);
                 continue;
             }
 
@@ -13122,6 +13464,13 @@ partial class BlockBinder : Binder
                 converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
                 continue;
             }
+
+            if (ReportStructUnionArgumentMayBeDefault(parameter, parameter.Type, expression, syntaxNode))
+            {
+                converted[i] = new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
+                continue;
+            }
+
             var convertedExpr = ApplyConversion(expression, conversionTargetType, conversion, syntaxNode);
 
             // When a method group is resolved to a concrete delegate type during argument
@@ -13139,6 +13488,58 @@ partial class BlockBinder : Binder
         }
 
         return converted;
+    }
+
+    private bool ReportStructUnionArgumentMayBeDefault(
+        IParameterSymbol parameter,
+        ITypeSymbol parameterType,
+        BoundExpression expression,
+        SyntaxNode? syntaxNode)
+    {
+        if (parameterType.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+            return false;
+
+        if (expression.Type?.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+            return false;
+
+        if (syntaxNode is null)
+            return false;
+
+        if (!StructUnionDefaultStateFlow.ExpressionMayBeDefault(expression, syntaxNode, TryGetCachedBoundNode))
+            return false;
+
+        var parameterName = string.IsNullOrEmpty(parameter.Name)
+            ? "<unnamed>"
+            : parameter.Name;
+        var unionType = parameterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportStructUnionArgumentMayBeDefault(parameterName, unionType, syntaxNode.GetLocation());
+        return true;
+    }
+
+    protected bool ReportStructUnionReturnMayBeDefault(
+        ITypeSymbol returnType,
+        BoundExpression expression,
+        SyntaxNode? syntaxNode)
+    {
+        if (returnType.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+            return false;
+
+        if (expression.Type is { } expressionType &&
+            expressionType.TypeKind != TypeKind.Error &&
+            expressionType.TryGetUnion() is not { TypeKind: TypeKind.Struct })
+        {
+            return false;
+        }
+
+        if (syntaxNode is null)
+            return false;
+
+        if (!StructUnionDefaultStateFlow.ExpressionMayBeDefault(expression, syntaxNode, TryGetCachedBoundNode))
+            return false;
+
+        var unionType = returnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        _diagnostics.ReportStructUnionReturnMayBeDefault(unionType, syntaxNode.GetLocation());
+        return true;
     }
 
     private bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
@@ -13192,7 +13593,12 @@ partial class BlockBinder : Binder
         var value = parameter.ExplicitDefaultValue;
 
         if (value is null)
+        {
+            if (parameterType.TryGetUnion() is { TypeKind: TypeKind.Struct })
+                return new BoundDefaultValueExpression(parameterType);
+
             return BoundFactory.NullLiteral(parameterType);
+        }
 
         if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true }
             && parameterType.IsValueType
@@ -13222,6 +13628,16 @@ partial class BlockBinder : Binder
         }
 
         return ApplyConversion(literal, parameterType, conversion);
+    }
+
+    protected BoundExpression CreateOptionalArgument(IParameterSymbol parameter, SyntaxNode? callSyntax)
+    {
+        var expression = CreateOptionalArgument(parameter);
+
+        if (ReportStructUnionArgumentMayBeDefault(parameter, parameter.Type, expression, callSyntax))
+            return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        return expression;
     }
 
     private void ReportOptionalParameterDefaultValueCannotConvert(IParameterSymbol parameter, ITypeSymbol parameterType)
@@ -13325,6 +13741,7 @@ partial class BlockBinder : Binder
         BoundArgument[] invocationArguments,
         BoundExpression? extensionReceiver,
         SyntaxNode receiverSyntax,
+        SyntaxNode callSyntax,
         out BoundExpression? convertedExtensionReceiver)
     {
         convertedExtensionReceiver = null;
@@ -13340,10 +13757,10 @@ partial class BlockBinder : Binder
             if (parameters.Length == 1)
                 return Array.Empty<BoundExpression>();
 
-            return ConvertArguments(parameters.RemoveAt(0), invocationArguments);
+            return ConvertArguments(parameters.RemoveAt(0), invocationArguments, callSyntax);
         }
 
-        return ConvertArguments(method.Parameters, invocationArguments);
+        return ConvertArguments(method.Parameters, invocationArguments, callSyntax);
     }
 
     private BoundExpression ConvertSingleArgument(BoundExpression argument, IParameterSymbol parameter, SyntaxNode syntax)
@@ -13369,6 +13786,9 @@ partial class BlockBinder : Binder
 
             return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.TypeMismatch);
         }
+
+        if (ReportStructUnionArgumentMayBeDefault(parameter, parameter.Type, argument, syntax))
+            return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
 
         return ApplyConversion(argument, conversionTargetType, conversion, syntax);
     }
@@ -14371,7 +14791,7 @@ partial class BlockBinder : Binder
         if (method is null)
             return false;
 
-        var convertedArguments = ConvertArguments(method.Parameters, arguments);
+        var convertedArguments = ConvertArguments(method.Parameters, arguments, syntax);
 
         BoundExpression invocation = new BoundInvocationExpression(method, convertedArguments);
         if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, namedTarget))
@@ -16642,6 +17062,10 @@ partial class BlockBinder : Binder
                     SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true } => true,
                     _ => false,
                 };
+                var returnTargetType = symbol.IsAsync &&
+                    AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) is { } asyncReturnTargetType
+                        ? asyncReturnTargetType
+                        : returnType;
 
                 if (!skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
                     returnType.TypeKind != TypeKind.Error)
@@ -16671,6 +17095,8 @@ partial class BlockBinder : Binder
                             targetType = awaitedType;
                         }
 
+                        returnTargetType = targetType;
+
                         if (!expressionBinder.IsAssignable(targetType, converted.Type, out var conversion))
                         {
                             expressionBinder.ReportCannotConvertExpressionToType(
@@ -16683,6 +17109,11 @@ partial class BlockBinder : Binder
                             converted = expressionBinder.ApplyConversion(converted, targetType, conversion, function.ExpressionBody.Expression);
                         }
                     }
+                }
+
+                if (expressionBinder.ReportStructUnionReturnMayBeDefault(returnTargetType, converted, function.ExpressionBody.Expression))
+                {
+                    converted = new BoundErrorExpression(returnTargetType, null, BoundExpressionReason.OtherError);
                 }
 
                 converted = expressionBinder.ValidateByRefReturnExpression(symbol, converted, function.ExpressionBody.Expression);
@@ -17916,6 +18347,7 @@ partial class BlockBinder : Binder
         return matchSyntax switch
         {
             MatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
+            PostfixMatchExpressionSyntax matchExpression => matchExpression.MatchKeyword.GetLocation(),
             MatchStatementSyntax matchStatement => matchStatement.MatchKeyword.GetLocation(),
             _ => UnexpectedMatchSyntaxLocation(matchSyntax),
         };
@@ -17925,16 +18357,27 @@ partial class BlockBinder : Binder
         int armIndex,
         int catchAllIndex,
         ICollection<T>? guaranteedRemaining)
+        => ShouldReportRedundantCatchAll(armIndex, catchAllIndex, guaranteedRemaining, inactiveStructStateRemaining: null);
+
+    private static bool ShouldReportRedundantCatchAll<T>(
+        int armIndex,
+        int catchAllIndex,
+        ICollection<T>? guaranteedRemaining,
+        bool? inactiveStructStateRemaining)
     {
         if (catchAllIndex < 0)
             return false;
 
+        var noRemainingCases = guaranteedRemaining is null || guaranteedRemaining.Count == 0;
+        var noRemainingInactiveState = inactiveStructStateRemaining is not true;
+
         if (armIndex < catchAllIndex)
-            return guaranteedRemaining is null || guaranteedRemaining.Count == 0;
+            return noRemainingCases && noRemainingInactiveState;
 
         return armIndex == catchAllIndex &&
                guaranteedRemaining is not null &&
-               guaranteedRemaining.Count == 0;
+               noRemainingCases &&
+               noRemainingInactiveState;
     }
 
     private static Location UnexpectedMatchSyntaxLocation(SyntaxNode matchSyntax)

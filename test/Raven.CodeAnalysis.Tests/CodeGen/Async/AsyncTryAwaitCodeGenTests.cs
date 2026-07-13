@@ -70,12 +70,12 @@ class Program {
         val success = await Program.Fetch(false)
         val failure = await Program.Fetch(true)
 
-        val successText = success match {
+        val successText = match success {
             .Ok(val v) => "ok:" + v.ToString()
             .Error(val e) => "err:" + e.Message
         }
 
-        val failureText = failure match {
+        val failureText = match failure {
             .Ok(val v) => "ok:" + v.ToString()
             .Error(val e) => "err:" + e.Message
         }
@@ -303,7 +303,7 @@ class Program {
         val maybeItem = GetUser()?.Item?
         await Task.Delay(1)
 
-        return maybeItem match {
+        return match maybeItem {
             .Some(val item) => .Ok(item.Name)
             .None => .Error(Err.MissingName)
         }
@@ -411,7 +411,7 @@ union TaskState<T> {
 class Program {
     static async func AwaitState<T>(task: Task<T>) -> Task<TaskState<T>> {
         await task
-        return task.Status match {
+        return match task.Status {
             .RanToCompletion => .Success(task.Result)
             .Faulted => .Fault(task.Exception)
             .Canceled => .Canceled

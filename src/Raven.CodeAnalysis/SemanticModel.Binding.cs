@@ -3777,13 +3777,20 @@ public partial class SemanticModel
             }
         }
 
-        void RegisterUnionMemberArtifacts(ITypeSymbol memberType, Location location, SyntaxReference reference)
+        static ITypeSymbol GetUnionContentMemberType(ITypeSymbol memberType)
+            => UnionContentNullability.GetNonNullContentType(memberType, out _);
+
+        void RegisterUnionMemberArtifacts(
+            ITypeSymbol memberType,
+            ITypeSymbol artifactType,
+            Location location,
+            SyntaxReference reference)
         {
             memberTypes.Add(memberType);
 
             var payloadField = new SourceFieldSymbol(
                 UnionFieldUtilities.GetPayloadFieldName(GetUnionMemberMetadataName(memberType)),
-                memberType,
+                artifactType,
                 isStatic: false,
                 isMutable: true,
                 isConst: false,
@@ -3813,7 +3820,7 @@ public partial class SemanticModel
 
             var unionConstructorParameter = new SourceParameterSymbol(
                 "value",
-                memberType,
+                artifactType,
                 unionConstructor,
                 unionSymbol,
                 namespaceSymbol,
@@ -3822,6 +3829,9 @@ public partial class SemanticModel
 
             unionConstructor.SetParameters([unionConstructorParameter]);
             RegisterMember(unionSymbol, unionConstructor);
+
+            if (UnionContentNullability.IsNullableContentType(artifactType))
+                return;
 
             var tryGetMethod = new SourceMethodSymbol(
                 "TryGetValue",
@@ -3838,7 +3848,9 @@ public partial class SemanticModel
 
             var tryGetParameter = new SourceParameterSymbol(
                 "value",
-                memberType,
+                artifactType is NullableTypeSymbol { UnderlyingType.IsValueType: true } nullableValueArtifact
+                    ? nullableValueArtifact.UnderlyingType
+                    : artifactType,
                 tryGetMethod,
                 unionSymbol,
                 namespaceSymbol,
@@ -3967,28 +3979,18 @@ public partial class SemanticModel
 
         if (unionDecl.MemberTypes is { } memberTypeList)
         {
-            var boundMemberTypes = new List<(ITypeSymbol Type, Location Location, SyntaxReference Reference)>();
-            var hasExplicitNullMember = false;
+            var boundMemberTypes = new List<(ITypeSymbol MemberType, ITypeSymbol ArtifactType, Location Location, SyntaxReference Reference)>();
 
             foreach (var memberTypeSyntax in memberTypeList.Types)
             {
                 if (memberTypeSyntax is NullTypeSyntax)
                 {
-                    hasExplicitNullMember = true;
+                    _declarationDiagnostics.ReportTypeExpectedWithoutWildcard(memberTypeSyntax.GetLocation());
                     continue;
                 }
 
                 var memberType = unionBinder.BindTypeSyntaxAndReport(memberTypeSyntax);
-                boundMemberTypes.Add((memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference()));
-            }
-
-            if (hasExplicitNullMember)
-            {
-                for (var i = 0; i < boundMemberTypes.Count; i++)
-                {
-                    var (memberType, location, reference) = boundMemberTypes[i];
-                    boundMemberTypes[i] = (memberType.IsNullable ? memberType : memberType.MakeNullable(), location, reference);
-                }
+                boundMemberTypes.Add((GetUnionContentMemberType(memberType), memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference()));
             }
 
             if (unionSymbol.PayloadFields.IsDefaultOrEmpty)
@@ -3996,13 +3998,14 @@ public partial class SemanticModel
                 memberTypes.Clear();
                 payloadFields.Clear();
 
-                foreach (var (memberType, location, reference) in boundMemberTypes)
-                    RegisterUnionMemberArtifacts(memberType, location, reference);
+                foreach (var (memberType, artifactType, location, reference) in boundMemberTypes)
+                    RegisterUnionMemberArtifacts(memberType, artifactType, location, reference);
             }
 
             unionSymbol.SetCases(caseSymbols);
             unionSymbol.SetCaseTypes(caseSymbols.Cast<ITypeSymbol>().Concat(memberTypes));
             unionSymbol.SetMemberTypes(memberTypes);
+            unionSymbol.SetContentMayBeNull(boundMemberTypes.Any(static member => UnionContentNullability.IsNullableContentType(member.ArtifactType)));
             unionSymbol.SetPayloadFields(payloadFields);
 
             if (synthesizeUnionSurface)
@@ -4399,7 +4402,7 @@ public partial class SemanticModel
                 caseToString.SetOverriddenMethod(objectToString);
                 RegisterUnionCaseSymbol(caseClause, caseSymbol);
                 caseSymbols.Add(caseSymbol);
-                RegisterUnionMemberArtifacts(caseTypeForUnionMembers, caseClause.GetLocation(), caseClause.GetReference());
+                RegisterUnionMemberArtifacts(caseTypeForUnionMembers, caseTypeForUnionMembers, caseClause.GetLocation(), caseClause.GetReference());
             }
         }
 
@@ -4652,7 +4655,7 @@ public partial class SemanticModel
         {
             SyntaxKind.StructKeyword => TypeKind.Struct,
             SyntaxKind.ClassKeyword => TypeKind.Class,
-            _ => TypeKind.Class
+            _ => TypeKind.Struct
         };
     }
 

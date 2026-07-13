@@ -56,6 +56,8 @@ internal sealed partial class Lowerer
             statements.Add(new BoundIfStatement(condition, armResult, null));
         }
 
+        statements.Add(CreateMatchFallbackThrowStatement(compilation));
+
         if (needsEndLabel)
             statements.Add(CreateLabelStatement(endLabel));
         return new BoundBlockStatement(statements);
@@ -104,10 +106,25 @@ internal sealed partial class Lowerer
             statements.Add(new BoundIfStatement(condition, armResult, null));
         }
 
+        statements.Add(CreateMatchFallbackThrowStatement(compilation));
         statements.Add(CreateLabelStatement(endLabel));
         statements.Add(new BoundExpressionStatement(new BoundLocalAccess(resultLocal)));
 
         return new BoundBlockExpression(statements, unitType);
+    }
+
+    private static BoundStatement CreateMatchFallbackThrowStatement(Compilation compilation)
+    {
+        var exceptionType = compilation.GetTypeByMetadataName("System.InvalidOperationException") as INamedTypeSymbol;
+        var constructor = exceptionType?
+            .Constructors
+            .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
+
+        if (constructor is null)
+            return new BoundThrowStatement(new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)));
+
+        var creation = new BoundObjectCreationExpression(constructor, ImmutableArray<BoundExpression>.Empty);
+        return new BoundThrowStatement(creation);
     }
 
     private ImmutableArray<RewrittenMatchArm> RewriteMatchArms(

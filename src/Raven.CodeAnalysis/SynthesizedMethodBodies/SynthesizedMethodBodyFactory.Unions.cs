@@ -155,13 +155,17 @@ internal static partial class SynthesizedMethodBodyFactory
         IMethodSymbol method,
         SourceUnionSymbol unionSymbol)
     {
-        var tagField = unionSymbol.DiscriminatorField;
-        var tagAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), tagField);
+        var valueProperty = unionSymbol
+            .GetMembers("Value")
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(static property => property.GetMethod is not null)
+            ?? throw new InvalidOperationException($"Union '{unionSymbol.Name}' is missing synthesized Value property.");
+        var valueAccess = CreateSelfPropertyGetterAccess(method, valueProperty);
         var hasValue = CreateBinaryExpression(
             compilation,
             SyntaxKind.NotEqualsToken,
-            tagAccess,
-            CreateByteLiteral(compilation, 0));
+            valueAccess,
+            CreateNullLiteral(compilation));
 
         return new BoundBlockStatement([
             new BoundReturnStatement(hasValue)
@@ -842,15 +846,34 @@ internal static partial class SynthesizedMethodBodyFactory
         var targetType = targetParameter.GetByRefElementType();
         var convertedPayload = CreateConversion(compilation, payloadAccess, targetType);
         var factory = new BoundNodeFactory(compilation);
+        var successStatements = new List<BoundStatement>
+        {
+            new BoundAssignmentStatement(
+                factory.CreateByRefAssignmentExpression(parameterAccess, targetType, convertedPayload)),
+            new BoundReturnStatement(CreateBoolLiteral(compilation, true))
+        };
+        BoundStatement successBody = new BoundBlockStatement(successStatements);
+
+        if (UnionContentNullability.IsNullableContentType(payloadFieldSymbol.Type))
+        {
+            var valueProperty = unionSymbol
+                .GetMembers("Value")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(static property => property.GetMethod is not null)
+                ?? throw new InvalidOperationException($"Union '{unionSymbol.Name}' is missing synthesized Value property.");
+
+            successBody = new BoundIfStatement(
+                CreateBinaryExpression(
+                    compilation,
+                    SyntaxKind.NotEqualsToken,
+                    CreateSelfPropertyGetterAccess(method, valueProperty),
+                    CreateNullLiteral(compilation)),
+                successBody);
+        }
 
         statements.Add(new BoundIfStatement(
             CreateUnionTagEquality(compilation, method, unionSymbol, ordinal),
-            new BoundBlockStatement(
-            [
-                new BoundAssignmentStatement(
-                    factory.CreateByRefAssignmentExpression(parameterAccess, targetType, convertedPayload)),
-                new BoundReturnStatement(CreateBoolLiteral(compilation, true))
-            ])));
+            successBody));
 
         statements.Add(new BoundReturnStatement(CreateBoolLiteral(compilation, false)));
         return new BoundBlockStatement(statements);
@@ -1078,7 +1101,10 @@ internal static partial class SynthesizedMethodBodyFactory
         for (var index = 0; index < payloadFields.Length; index++)
         {
             var payloadField = payloadFields[index];
-            if (!SymbolEqualityComparer.Default.Equals(payloadField.Type, memberType))
+            var payloadMemberType = UnionContentNullability.GetNonNullContentType(payloadField.Type, out _);
+            var normalizedMemberType = UnionContentNullability.GetNonNullContentType(memberType, out _);
+
+            if (!SymbolEqualityComparer.Default.Equals(payloadMemberType, normalizedMemberType))
                 continue;
 
             ordinal = index;

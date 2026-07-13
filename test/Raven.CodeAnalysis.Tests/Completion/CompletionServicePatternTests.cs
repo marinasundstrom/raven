@@ -205,7 +205,7 @@ class C {
         const string code = """
 class C {
     func Run(values: int[]) -> int {
-        return values match {
+        return match values {
             [val head, ..val rest] => rest.
             _ => 0
         }
@@ -231,7 +231,7 @@ class C {
         const string code = """
 class C {
     func Run(values: int[4]) -> int {
-        return values match {
+        return match values {
             [val first, val second, ...val rest] => rest.
             _ => 0
         }

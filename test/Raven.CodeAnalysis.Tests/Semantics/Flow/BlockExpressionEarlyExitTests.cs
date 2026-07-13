@@ -147,7 +147,7 @@ class Foo {
         const string code = """
 class C {
     func M(value: int) -> int {
-        val x = value match {
+        val x = match value {
             0 => {
                 return 1
             }

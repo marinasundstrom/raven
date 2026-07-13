@@ -42,7 +42,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(ResultJsonConverterFactory))]
-union class Result<T, E> {
+union Result<T, E> {
     /// Represents a result value
     case Ok(value: T)
 
@@ -109,18 +109,24 @@ union class Result<T, E> {
 
     /// Runs `action` if this is `Ok`, returning the original result.
     func Tap(action: T -> ()) -> Result<T, E> {
-        if self is Ok(val value) {
-            action(value)
+        self match {
+            Ok(val value) => {
+                action(value)
+                Ok(value)
+            }
+            Error(val e) => Error(e)
         }
-        self
     }
 
     /// Runs `action` if this is `Error`, returning the original result.
     func TapError(action: E -> ()) -> Result<T, E> {
-        if self is Error(val e) {
-            action(e)
+        self match {
+            Ok(val value) => Ok(value)
+            Error(val e) => {
+                action(e)
+                Error(e)
+            }
         }
-        self
     }
 
     /// Recovers from an error by mapping it to a new result.
@@ -215,19 +221,21 @@ class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
     }
 
     override func Write(writer: Utf8JsonWriter, value: Result<T, E>, options: JsonSerializerOptions) -> () {
-        writer.WriteStartObject()
-
         if value is Ok(val okValue) {
+            writer.WriteStartObject()
             writer.WriteString("case", "Ok")
             writer.WritePropertyName("value")
             JsonSerializer.Serialize(writer, okValue, options)
+            writer.WriteEndObject()
         } else if value is Error(val errorData) {
+            writer.WriteStartObject()
             writer.WriteString("case", "Error")
             writer.WritePropertyName("data")
             JsonSerializer.Serialize(writer, errorData, options)
+            writer.WriteEndObject()
+        } else {
+            writer.WriteNullValue()
         }
-
-        writer.WriteEndObject()
     }
 }
 

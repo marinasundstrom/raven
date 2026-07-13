@@ -21,7 +21,7 @@ class NullPatterns {
     }
 
     public static func MatchNull(value: object?) -> int {
-        return value match {
+        return match value {
             null => 1
             _ => 0
         }
@@ -62,7 +62,7 @@ class EmptyPropertyPatterns {
     }
 
     public static func MatchNonNull(value: object?) -> int {
-        return value match {
+        return match value {
             { } => 1
             _ => 0
         }
@@ -103,7 +103,7 @@ class EmptyPropertyPatterns {
     }
 
     public static func MatchWidget(value: object?) -> int {
-        return value match {
+        return match value {
             Widget { } => 1
             _ => 0
         }
@@ -158,21 +158,21 @@ class RangePatterns {
     }
 
     public static func MatchClosed(value: int) -> int {
-        return value match {
+        return match value {
             2..4 => 1
             _ => 0
         }
     }
 
     public static func MatchExclusive(value: int) -> int {
-        return value match {
+        return match value {
             2..<4 => 1
             _ => 0
         }
     }
 
     public static func MatchOpen(value: int) -> int {
-        return value match {
+        return match value {
             ..1 => 10
             5.. => 20
             _ => 0

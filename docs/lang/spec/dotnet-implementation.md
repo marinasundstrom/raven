@@ -112,16 +112,16 @@ additional cases when constructors are present. Nullable active contents are
 derived from nullable constructor parameter types, not from `Value` being
 `object?`.
 
-For `null` in a parenthesized union declaration, Raven emits nullable-capable
-constructor parameter types for the listed members and does not emit a
-synthetic null constructor:
+For nullable members in a parenthesized union declaration, Raven emits
+nullable-capable constructor parameter types for the listed members and does not
+emit a synthetic null constructor:
 
 ```raven
-union JsonValue(string | double | bool | JsonObject | JsonValue[] | null)
+union JsonValue(string? | double | bool | JsonObject | JsonValue[])
 ```
 
-Raven pattern matching still treats that source form as the non-null listed
-member cases plus a distinct `null` branch.
+Raven pattern matching still treats nullable member contents as the non-null
+listed member cases plus a distinct `null` branch.
 
 Producing a union from C# is done by constructing the case and then converting
 it to the carrier:
@@ -162,6 +162,40 @@ if (value.TryGetValue(out int left))
 These members allow C# callers to work with Raven unions without
 needing reflection, while Raven still relies on the synthesized metadata
 attributes to preserve the union semantics for other tools.
+
+## Struct union default state
+
+Raven source `union` declarations emit struct carriers by default, matching the
+C# union direction. Like any value type, a struct union can be zero-initialized
+with `default(U)` before any union constructor has populated it. In that
+inactive carrier state, `Value` is `null`, `HasValue` is `false`, and no case is
+active.
+
+The inactive carrier state is a runtime representation state, not a declared
+union case. Raven therefore keeps it separate from the source case set:
+
+* A local value initialized from a union case is known active, so matching it is
+  exhaustive when every declared case/member is covered. A catch-all arm after
+  all cases is redundant.
+* A local initialized with `default`, or a local that may flow from `default`,
+  may still use a catch-all arm to intentionally handle the inactive carrier,
+  but the inactive carrier is not a source exhaustiveness case.
+* Function parameters and `self` are active inside the callee because the call
+  boundary rejects possibly inactive arguments before entry. Forwarding them
+  across another call or return boundary is allowed.
+* Fields and properties are storage/interop boundaries that may be
+  inactive/default. Forwarding those values across another call or return
+  boundary requires local flow to prove an active value, usually by copying or
+  reconstructing a declared case.
+* Passing a possibly inactive struct-union value to a struct-union parameter is
+  rejected at the call site with `RAV0405`.
+* Returning a possibly inactive struct-union value is rejected at the return
+  boundary with `RAV0406`.
+
+`union class` carriers do not have an extra zero-initialized carrier state. A
+class union value exists only after construction or conversion through one of
+its union cases or constructors, subject to normal nullable-reference rules for
+the carrier reference itself.
 
 ## Generic variance
 

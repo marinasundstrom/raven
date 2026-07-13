@@ -185,7 +185,7 @@ val first : Result<int, string> = .Success(1)
 val second : Result<int, string> = .Error(2, "Bang!")
 
 func describe(result: Result<int, string>) -> string {
-    return result match {
+    return match result {
         Success(42) => "Yay!"
         Success(val value) => "Result: '$value'"
         Error(2, val error) => "$error (!!!)"

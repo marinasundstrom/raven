@@ -143,6 +143,8 @@ func parseRequiredInt(text: string) -> Result<int, Exception> {
 * `try? expr` is valid only in an enclosing `Result<_, _>` or `Option<_>`
   return context.
 * Directly nested `try` expressions are invalid.
+* Postfix `match` remains valid after `try expr`, making `try expr match { ... }`
+  the concise form for handling success and error cases inline.
 * A trailing `match` after `try?` is invalid.
 * A bare `Ok` pattern matches `Ok(())` when the success payload is `unit`;
   `.Ok` remains available as the target-typed shorthand.

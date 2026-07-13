@@ -7,7 +7,7 @@ Console.WriteLine(area(.Circle(2)))
 Console.WriteLine(area(.Rectangle(3, 4)))
 
 func area(shape: Shape) -> int {
-    return shape match {
+    match shape {
         .Circle(val r) => r * r * 3,
         .Rectangle(3, val h) => 42
         _ => 2

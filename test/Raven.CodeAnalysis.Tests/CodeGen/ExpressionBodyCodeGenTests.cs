@@ -78,7 +78,7 @@ class Program {
         func GetMessage() -> Option<string> => Some("Hello, World!")
 
         val message = GetMessage()
-        return message match {
+        return match message {
             Some(val value) => value
             None => "<none>"
         }
@@ -168,7 +168,7 @@ class Program {
     public static func Run() -> string {
         val holder = Holder()
         val message = holder.Message
-        return message match {
+        return match message {
             Some(val value) => value
             None => "<none>"
         }
@@ -216,7 +216,7 @@ class Program {
     public static func Run() -> string {
         val holder = Holder()
         val message = holder.Message
-        return message match {
+        return match message {
             Some(val value) => value
             None => "<none>"
         }

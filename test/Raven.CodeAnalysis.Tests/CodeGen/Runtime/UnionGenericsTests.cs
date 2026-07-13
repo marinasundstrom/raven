@@ -25,7 +25,7 @@ Console.WriteLine(format(err))
 
 
 func format(result: Result<int, string>) -> string {
-    return result match {
+    return match result {
         .Ok(val value) => "ok ${value}"
         .Error(val message) => "error '${message}'"
     }

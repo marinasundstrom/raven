@@ -71,8 +71,8 @@ these relevant properties:
   whether the carrier reference is null; for nullable struct-union values it
   also checks whether the nullable wrapper has no value.
 * `HasValue` and `TryGetValue(out T)`, when present, participate in the same
-  nullability flow as checking `Value` and make the contents not-null on the
-  true branch.
+  nullability flow as checking `Value`; `HasValue` means `Value` is not null,
+  and successful access makes the contents not-null on the true branch.
 * C# recognizes custom class or struct unions marked with
   `[System.Runtime.CompilerServices.Union]` when they provide the basic union
   pattern.
@@ -372,7 +372,7 @@ place, ordinary case patterns continue to work:
 import System.Result.*
 
 func Render(result: Result<int, string>) -> string {
-    return result match {
+    match result {
         Ok(val value) => value.ToString()
         Error(val error) => error
     }
@@ -396,8 +396,12 @@ Exhaustiveness should be based on the same case set that C# sees:
 
 A switch/match is exhaustive when every case type is handled. If the incoming
 union contents are maybe-null according to C# nullability flow, `null` must also
-be handled. Struct union default/inactive state should be modeled as `Value ==
-null`; nullable struct-union wrappers add the wrapper-null state on top.
+be handled. Struct union default/inactive state is separate from the declared
+case set: `default(U)` has `Value == null` and no active case. Raven source
+exhaustiveness does not require a default-state arm for that representation
+state. Flow analysis instead rejects possibly inactive carriers when they cross
+call or return boundaries, while lowering/emit keeps defensive runtime fallback
+paths for source-exhaustive matches.
 
 ### 5.2 Propagation and carrier conditional access
 
@@ -416,7 +420,7 @@ func GetUser() -> Result<User, Err> {
 func GetItem() -> Result<string, Err> {
     val maybeItem = GetUser()?.Item?
 
-    return maybeItem match {
+    match maybeItem {
         Some(val item) => Ok(item.Name)
         None => Error(Err.MissingName)
     }
@@ -494,8 +498,10 @@ Raven is aligned with the C# union pattern when all of the following are true:
   conversion priority.
 * Raven pattern matching unwraps to `Value` according to C# rules, including the
   `var`/discard exceptions and class/nullable-struct carrier null states.
-* Raven exhaustiveness diagnostics use the C# case set and require `null` only
-  when the C# null state of the incoming union contents is maybe-null.
+* Raven exhaustiveness diagnostics use the C# case set, require `null` only
+  when the C# null state of the incoming union contents is maybe-null, and keep
+  struct-union inactive/default carrier handling in boundary diagnostics plus
+  defensive lowering/runtime fallback.
 * Raven standard union sugar does not invent metadata beyond the C# union
   pattern; nullable content is represented by nullable case types.
 

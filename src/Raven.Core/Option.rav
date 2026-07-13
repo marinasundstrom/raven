@@ -42,7 +42,7 @@ import System.Text.Json.Serialization.*
 /// }
 /// ```
 [JsonConverter(typeof(OptionJsonConverterFactory))]
-union class Option<T> {
+union Option<T> {
     /// Represents some value
     case Some(value: T)
 
@@ -87,7 +87,7 @@ union class Option<T> {
     /// Returns this option if it is `Some`, otherwise returns `alternative()`.
     func OrElse(alternative: () -> Option<T>) -> Option<T> {
         self match {
-            Some(_) => self
+            Some(val value) => Some(value)
             None => alternative()
         }
     }
@@ -110,18 +110,24 @@ union class Option<T> {
 
     /// Runs `action` if this is `Some`, returning the original option.
     func Tap(action: T -> ()) -> Option<T> {
-        if self is Some(val value) {
-            action(value)
+        self match {
+            Some(val value) => {
+                action(value)
+                Some(value)
+            }
+            None => None
         }
-        self
     }
 
     /// Runs `action` if this is `None`, returning the original option.
     func TapNone(action: () -> ()) -> Option<T> {
-        if self is None {
-            action()
+        self match {
+            Some(val value) => Some(value)
+            None => {
+                action()
+                None
+            }
         }
-        self
     }
 
     /// Converts `Some(x)` to a single-item sequence and `None` to an empty sequence.
@@ -201,7 +207,7 @@ extension OptionExtensions1<T : class> for Option<T> {
         if opt is Some(val value) {
             return value
         }
-        null
+        return null
     }
 
     static func implicit(value: T?) -> Option<T> {
@@ -217,7 +223,7 @@ extension OptionExtensions2<T : struct> for Option<T> {
         if opt is Some(val value) {
             return value
         }
-        null
+        return null
     }
 
     static func implicit(value: T?) -> Option<T> {
@@ -249,7 +255,7 @@ class OptionJsonConverter<T> : JsonConverter<Option<T>> {
     override func Write(writer: Utf8JsonWriter, value: Option<T>, options: JsonSerializerOptions) -> () {
         if value is Some(val someValue) {
             JsonSerializer.Serialize(writer, someValue, options)
-        } else if value is None {
+        } else {
             writer.WriteNullValue()
         }
     }

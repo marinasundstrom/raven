@@ -157,6 +157,12 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
                     current = matchExpression;
                     continue;
 
+                case MatchArmSyntax { Parent: PostfixMatchExpressionSyntax matchExpression } matchArm
+                    when matchArm.Expression.SyntaxTree == current.SyntaxTree &&
+                         matchArm.Expression.Span == current.Span:
+                    current = matchExpression;
+                    continue;
+
                 case ParenthesizedExpressionSyntax parenthesized
                     when parenthesized.Expression.SyntaxTree == current.SyntaxTree &&
                          parenthesized.Expression.Span == current.Span:

@@ -308,7 +308,7 @@ func GetUser() -> Result<User, Err> {
 func GetItem() -> Result<string, Err> {
     val maybeItem = GetUser()?.Item?
 
-    return maybeItem match {
+    return match maybeItem {
         .Some(val item) => .Ok(item.Name)
         .None => .Error(Err.MissingName)
     }

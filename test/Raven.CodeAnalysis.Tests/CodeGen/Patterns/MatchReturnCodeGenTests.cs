@@ -21,7 +21,7 @@ union Flag {
 
 class Program {
     public static func IsOn(flag: Flag) -> bool {
-        return flag match {
+        return match flag {
             .On => true
             .Off => false
         }

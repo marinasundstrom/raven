@@ -701,6 +701,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = ParseIfExpressionSyntax();
                 break;
 
+            case SyntaxKind.MatchKeyword:
+                expr = ParseMatchExpressionKeywordFirst();
+                break;
+
             case SyntaxKind.TryKeyword:
                 expr = ParseTryExpression();
                 break;
@@ -2691,13 +2695,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         {
             var disallowTryPropagationMatch = expression is TryExpressionSyntax tryExpression &&
                                              tryExpression.QuestionToken.Kind != SyntaxKind.None;
-            expression = ParseMatchExpressionSuffix(expression, disallowTryPropagationMatch);
+            expression = ParsePostfixMatchExpression(expression, disallowTryPropagationMatch);
         }
 
         return expression;
     }
 
-    internal MatchExpressionSyntax ParseMatchExpressionStatementForm()
+    internal MatchExpressionSyntax ParseMatchExpressionKeywordFirst()
     {
         var matchKeyword = ExpectToken(SyntaxKind.MatchKeyword);
         var scrutinee = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false, stopOnOpenBrace: true).ParseExpression();
@@ -2705,18 +2709,18 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         var disallowTryPropagationMatch = scrutinee is TryExpressionSyntax tryExpression &&
                                           tryExpression.QuestionToken.Kind != SyntaxKind.None;
 
-        return ParseMatchExpressionCore(scrutinee, matchKeyword, disallowTryPropagationMatch);
+        var (openBraceToken, arms, closeBraceToken) = ParseMatchExpressionBody(disallowTryPropagationMatch);
+        return MatchExpression(matchKeyword, scrutinee, openBraceToken, arms, closeBraceToken);
     }
 
-    private MatchExpressionSyntax ParseMatchExpressionSuffix(ExpressionSyntax scrutinee, bool disallowTryPropagationMatch)
+    private PostfixMatchExpressionSyntax ParsePostfixMatchExpression(ExpressionSyntax scrutinee, bool disallowTryPropagationMatch)
     {
         var matchKeyword = ReadToken();
-        return ParseMatchExpressionCore(scrutinee, matchKeyword, disallowTryPropagationMatch);
+        var (openBraceToken, arms, closeBraceToken) = ParseMatchExpressionBody(disallowTryPropagationMatch);
+        return PostfixMatchExpression(scrutinee, matchKeyword, openBraceToken, arms, closeBraceToken);
     }
 
-    private MatchExpressionSyntax ParseMatchExpressionCore(
-        ExpressionSyntax scrutinee,
-        SyntaxToken matchKeyword,
+    private (SyntaxToken OpenBraceToken, SyntaxList Arms, SyntaxToken CloseBraceToken) ParseMatchExpressionBody(
         bool disallowTryPropagationMatch)
     {
         if (disallowTryPropagationMatch)
@@ -2821,7 +2825,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(false);
 
-        return MatchExpression(scrutinee, matchKeyword, openBraceToken, List(arms.ToArray()), closeBraceToken);
+        return (openBraceToken, List(arms.ToArray()), closeBraceToken);
     }
 
     private bool ShouldParseMatchArmOuterBindingKeyword()

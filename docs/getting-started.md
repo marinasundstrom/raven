@@ -93,7 +93,7 @@ Example:
 record class ShipmentRequest(val Id: string, val Carrier: string, val WeightKg: int)
 
 func Resolve(requests: ShipmentRequest[]) -> Result<ShipmentRequest, string> {
-    val req = requests.FirstOrNone(r => r.Id == "REQ-1002") match {
+    val req = match requests.FirstOrNone(r => r.Id == "REQ-1002") {
         Some(val item) => item
         None => return Error("Request not found")
     }

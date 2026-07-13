@@ -10,12 +10,46 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class MatchExpressionSyntaxTests
 {
     [Fact]
+    public void MatchExpression_KeywordFirst_ParsesAsMatchExpressionSyntax()
+    {
+        const string code = """
+let result = match value {
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        Assert.IsType<IdentifierNameSyntax>(match.Expression);
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<PostfixMatchExpressionSyntax>());
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
+    public void MatchExpression_PostfixForm_ParsesAsPostfixMatchExpressionSyntax()
+    {
+        const string code = """
+let result = value match {
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<PostfixMatchExpressionSyntax>().Single();
+        Assert.IsType<IdentifierNameSyntax>(match.Expression);
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>());
+        AssertNoErrors(tree);
+    }
+
+    [Fact]
     public void MatchExpression_WithStringArmOnNewLine_ParsesArms()
     {
         const string code = """
 let value = "hi"
 
-let result = value match {
+let result = match value {
     "hi" => "match"
     _ => "default"
 }
@@ -79,7 +113,7 @@ let result = value match {
     public void MatchExpression_WithTargetTypedCaseInvocationArm_ParsesAsExpression()
     {
         const string code = """
-let result = option match {
+let result = match option {
     .Some(val value) => .Some(mapper(value))
     .None => .None
 }
@@ -191,7 +225,7 @@ let result = option match {
     public void MatchExpression_WithCommentedOutCatchAll_ParsesArms()
     {
         const string code = """
-let r = x match {
+let r = match x {
     bool => "foo"
     (a: bool, b: string) => "tuple"
     //_ => "none"
@@ -211,7 +245,7 @@ let r = x match {
     public void MatchExpression_WithCommentBetweenArms_ParsesArms()
     {
         const string code = """
-let r = x match {
+let r = match x {
     bool => "foo"
     // comment
     (a: bool, b: string) => "tuple"
@@ -231,7 +265,7 @@ let r = x match {
     public void MatchExpression_WithTrailingCommentAfterArmExpression_ParsesArms()
     {
         const string code = """
-let r = x match {
+let r = match x {
     bool => "foo" // comment
     (a: bool, b: string) => "tuple"
 }
@@ -250,7 +284,7 @@ let r = x match {
     public void MatchExpression_WithBlankLineBetweenArms_ParsesArms()
     {
         const string code = """
-let r = x match {
+let r = match x {
     bool => "foo"
 
     (a: bool, b: string) => "tuple"
@@ -270,7 +304,7 @@ let r = x match {
     public void MatchExpression_WithLeadingDotPatternsOnSeparateLines_ParsesArms()
     {
         const string code = """
-let result = token match {
+let result = match token {
     .Identifier(val text) => text
     .Number(val value) => value.ToString()
     _ => ""
@@ -299,7 +333,7 @@ union Status {
 
 let status: Status = .A(value: 1)
 
-let result = status match {
+let result = match status {
     .A(val value) =>
         value
     .B(val value) =>
@@ -319,7 +353,7 @@ let result = status match {
     public void MatchExpression_InvalidTokenBetweenArms_RecoversAndParsesFollowingArm()
     {
         const string code = """
-let result = value match {
+let result = match value {
     1 => 1
     )
     _ => 0
@@ -337,7 +371,7 @@ let result = value match {
     public void MatchExpression_MissingArmExpression_RecoversAndParsesFollowingArm()
     {
         const string code = """
-let result = value match {
+let result = match value {
     1 =>
     _ => 0
 }
@@ -358,7 +392,7 @@ let result = value match {
 func Main() {
     val value = 1
 
-    val result = value match {
+    val result = match value {
         1 => WriteLine("oops)
         _ => 0
     }
@@ -409,7 +443,7 @@ union MyResult(string | int)
     public void MatchExpression_WithBlockExpressionArms_ParsesArmExpressionsAsBlocks()
     {
         const string code = """
-let result = 1 match {
+let result = match 1 {
     1 => {
         let x = 40
         x + 2
@@ -434,7 +468,7 @@ let result = 1 match {
         const string code = """
 class C {
     func F() -> C {
-        1 match {
+        return match 1 {
             1 => self
             _ => self
         }
@@ -455,7 +489,7 @@ class C {
         var code = $$"""
 let value = 0
 
-let result = value match {
+let result = match value {
     {{patternText}} => value
     _ => value
 }

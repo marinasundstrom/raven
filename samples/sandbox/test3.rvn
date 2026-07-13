@@ -4,7 +4,7 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 val r: Option<int> = Some(42)
-val w = r match {
+val w = match r {
     Some(val x) => Option<int>.Some(x * 2)
     None => None
 }
@@ -25,7 +25,10 @@ func tap(value: Option<int>) -> Option<int> {
     if value is Some(val x) {
         WriteLine(x)
     }
-    return value
+    return match value {
+        Some(val x) => Some(x)
+        None => None
+    }
 }
 
 func inferLabel(x: int) -> string {

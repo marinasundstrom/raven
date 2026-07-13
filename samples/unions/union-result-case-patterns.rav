@@ -16,7 +16,7 @@ Console.WriteLine(describe(fifth))
 func describe(result: Result<int, string>) -> string {
     val errorCode = 5
 
-    return result match {
+    match result {
         .Success(42) => "Yay!"
         .Success(val value) => "Result: '$value'"
         .Error(2, val error) => "$error (!!!)"

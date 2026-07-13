@@ -5,7 +5,7 @@ val invoiceTotal: Result<int, string> = Ok(42)
 
 Console.WriteLine(invoiceTotal)
 
-val label = invoiceTotal match {
+val label = match invoiceTotal {
     Ok(val total) => "Total: ${total}"
     Error(val message) => message
 }

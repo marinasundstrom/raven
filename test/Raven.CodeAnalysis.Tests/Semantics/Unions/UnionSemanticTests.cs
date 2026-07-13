@@ -35,7 +35,7 @@ union Option {
     }
 
     [Fact]
-    public void UnionDeclaration_WithoutStorageModifier_DefaultsToClassUnionAndClassCases()
+    public void UnionDeclaration_WithoutStorageModifier_DefaultsToStructUnionAndStructCases()
     {
         const string source = """
 union Option {
@@ -51,8 +51,8 @@ union Option {
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
         var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        Assert.Equal(TypeKind.Class, unionSymbol.TypeKind);
-        Assert.All(unionSymbol.CaseTypes, static @case => Assert.Equal(TypeKind.Class, @case.TypeKind));
+        Assert.Equal(TypeKind.Struct, unionSymbol.TypeKind);
+        Assert.All(unionSymbol.CaseTypes, static @case => Assert.Equal(TypeKind.Struct, @case.TypeKind));
         Assert.Equal(2, unionSymbol.MemberTypes.Length);
     }
 
@@ -119,7 +119,7 @@ union Either(Left | Right)
         var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
         var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
 
-        Assert.Equal(TypeKind.Class, unionSymbol.TypeKind);
+        Assert.Equal(TypeKind.Struct, unionSymbol.TypeKind);
         Assert.Empty(unionSymbol.DeclaredCaseTypes);
         Assert.Collection(
             unionSymbol.CaseTypes,
@@ -135,8 +135,10 @@ union Either(Left | Right)
     public void ParenthesizedUnionMatch_WithMissingMember_ReportsExhaustivenessDiagnostic()
     {
         const string source = """
-func Test(value: Either) -> int {
-    return value match {
+func Test() -> int {
+    val value: Either = "text"
+
+    return match value {
         string text => text.Length
     }
 }
@@ -164,8 +166,10 @@ union Either(int | string)
     public void ParenthesizedUnionMatch_WithAllMembers_IsExhaustive()
     {
         const string source = """
-func Test(value: Either) -> int {
-    return value match {
+func Test() -> int {
+    val value: Either = 1
+
+    return match value {
         int number => number
         string text => text.Length
     }
@@ -206,7 +210,8 @@ union Foo(int | double?)
 
         Assert.True(unionSymbol.ContentMayBeNull);
         Assert.Equal(2, unionSymbol.MemberTypes.Length);
-        Assert.True(unionSymbol.MemberTypes[1].IsNullable);
+        Assert.False(unionSymbol.MemberTypes[1].IsNullable);
+        Assert.Equal(SpecialType.System_Double, unionSymbol.MemberTypes[1].SpecialType);
     }
 
     [Fact]
@@ -235,8 +240,10 @@ union Foo(int | double)
     public void ParenthesizedUnionMatch_WithNullableMemberPattern_StillRequiresNullArm()
     {
         const string source = """
-func Test(value: Foo) -> int {
-    return value match {
+func Test() -> int {
+    val value: Foo = 1
+
+    return match value {
         int number => number
         double? number => 0
     }
@@ -261,7 +268,7 @@ union Foo(int | double?)
     }
 
     [Fact]
-    public void NullLiteral_ConvertsToUnionWithNullableContent()
+    public void NullLiteral_DoesNotConvertToUnionWithNullableContent()
     {
         const string source = """
 union Foo(int | double?)
@@ -275,43 +282,21 @@ func Test() -> () {
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        Assert.Empty(diagnostics);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotAssignNullToType);
     }
 
     [Fact]
-    public void NominalUnionDeclaration_WithExplicitNull_MarksNullableContentWithoutNullMember()
+    public void NominalUnionDeclaration_WithExplicitNullMember_ReportsDiagnostic()
     {
         const string source = """
 union Foo(int | double | null)
 """;
 
-        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
         var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        Assert.Empty(diagnostics);
 
-        var model = compilation.GetSemanticModel(tree);
-        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-
-        Assert.True(unionSymbol.ContentMayBeNull);
-        Assert.DoesNotContain(unionSymbol.MemberTypes, static member => member.TypeKind == TypeKind.Null);
-        Assert.DoesNotContain(unionSymbol.CaseTypes, static member => member.TypeKind == TypeKind.Null);
-        Assert.Collection(
-            unionSymbol.MemberTypes,
-            first =>
-            {
-                Assert.True(first.IsNullable);
-                Assert.Equal(SpecialType.System_Int32, first.GetNullableUnderlyingType()?.SpecialType);
-            },
-            second =>
-            {
-                Assert.True(second.IsNullable);
-                Assert.Equal(SpecialType.System_Double, second.GetNullableUnderlyingType()?.SpecialType);
-            });
-
-        var valueProperty = Assert.Single(unionSymbol.GetMembers("Value").OfType<IPropertySymbol>());
-        Assert.True(valueProperty.Type.IsNullable);
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.TypeExpectedWithoutWildcard);
     }
 
     [Fact]
@@ -330,29 +315,11 @@ func Test(value: int | null) -> () {
     }
 
     [Fact]
-    public void NullLiteral_ConvertsToUnionWithExplicitNullContent()
-    {
-        const string source = """
-union Foo(int | double | null)
-
-func Test() -> () {
-    val value: Foo = null
-}
-""";
-
-        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        compilation.EnsureSetup();
-
-        var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        Assert.Empty(diagnostics);
-    }
-
-    [Fact]
     public void ParenthesizedUnionMatch_WithLiteralAndNull_CoversNullButNotEntireMemberType()
     {
         const string source = """
 func Test(x2: Test2) -> int {
-    val r = x2 match {
+    val r = match x2 {
         42 => 3
         null => 2
     }
@@ -360,7 +327,7 @@ func Test(x2: Test2) -> int {
     return r
 }
 
-union Test2(int | null)
+union Test2(int?)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -379,15 +346,17 @@ union Test2(int | null)
     public void ParenthesizedUnionMatch_WithOnlyNullArm_ReportsMissingMemberDiagnostic()
     {
         const string source = """
-func Test(x2: Test2) -> int {
-    val r = x2 match {
+func Test() -> int {
+    val x2: Test2 = 1
+
+    val r = match x2 {
         null => 2
     }
 
     return r
 }
 
-union Test2(int | null)
+union Test2(int?)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -411,14 +380,16 @@ union Test2(int | null)
     public void ParenthesizedUnionMatch_WithTypedMemberAndNull_IsExhaustive()
     {
         const string source = """
-func Test(x2: Test2) -> int {
-    return x2 match {
+func Test() -> int {
+    val x2: Test2 = 1
+
+    return match x2 {
         int value => value
         null => 2
     }
 }
 
-union Test2(int | null)
+union Test2(int?)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -606,7 +577,7 @@ func build<T>(payload: T) -> Option<T> {
     return option
 }
 
-union Option<T> {
+union class Option<T> {
     case None
     case Some(value: T)
 }
@@ -636,7 +607,7 @@ record Card(reference: string)
 union Payment(Cash | Card)
 
 func Describe(value: Payment) -> string {
-    return value match {
+    return match value {
         Cash(val amount) => "cash $amount"
         Card(val reference) => "card $reference"
     }
@@ -692,14 +663,14 @@ class C<T> {
         const string source = """
 import Option.*
 
-union Option<T> {
+union class Option<T> {
     case Some(value: T)
     case None
 
     func Normalize(fallback: T) -> Option<T> {
         val current: Option<T> = Some(fallback)
 
-        return self match {
+        return match self {
             Some(val value) => Some(value)
             None => current
         }
@@ -722,7 +693,7 @@ func build() {
     val result = TempTooLow(12)
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -745,7 +716,7 @@ func build() -> HeaterResult {
     return TempTooLow(12)
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -826,12 +797,12 @@ union HeaterResult {
     {
         const string source = """
 func describe(result: HeaterResult) -> int {
-    return result match {
+    return match result {
         TempTooLow(val temp) => temp
     }
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -852,12 +823,12 @@ union HeaterResult {
 import HeaterResult.*
 
 func describe(result: HeaterResult) -> int {
-    return result match {
+    return match result {
         TempTooLow(val temp) => temp
     }
 }
 
-union HeaterResult {
+union class HeaterResult {
     case TempTooLow(value: int)
 }
 """;
@@ -1057,13 +1028,13 @@ union Result<T, E> {
     {
         const string source = """
 func format(option: Option<int>) -> string {
-    return option match {
+    return match option {
         .Some(val value) => "some ${value}"
         .None => "none"
     }
 }
 
-union Option<T> {
+union class Option<T> {
     case Some(value: T)
     case None
 }
@@ -1128,7 +1099,7 @@ union Result<T, E> {
 func build() -> Result<int, Err> {
     val value: int? = null
 
-    return value match {
+    return match value {
         null => .Error(.MissingName)
         val v => .Ok(v ?? 0)
     }
@@ -1157,13 +1128,13 @@ union Result<T, E> {
     {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
-    return flag match {
+    return match flag {
         true => .Ok(42)
         false => .Error("boom")
     }
 }
 
-union Response<T, E> {
+union class Response<T, E> {
     case Ok(value: T)
     case Error(error: E)
 }
@@ -1186,13 +1157,13 @@ union Response<T, E> {
     {
         const string source = """
 func build(flag: bool) -> Response<int, string> {
-    flag match {
+    match flag {
         true => .Ok(42)
         false => .Error("boom")
     }
 }
 
-union Response<T, E> {
+union class Response<T, E> {
     case Ok(value: T)
     case Error(error: E)
 }
@@ -1204,8 +1175,9 @@ union Response<T, E> {
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
 
         var model = compilation.GetSemanticModel(tree);
-        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
-        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(matchExpression));
+        var matchStatement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var boundStatement = Assert.IsType<BoundExpressionStatement>(model.GetBoundNode(matchStatement));
+        var boundMatch = Assert.IsType<BoundMatchExpression>(boundStatement.Expression);
         var matchType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundMatch.Type);
         Assert.Equal("Response", matchType.Name);
     }
@@ -1324,7 +1296,7 @@ async func fetch() -> Task<Result<string>> {
     return .Ok(value: "done")
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -1415,7 +1387,7 @@ union Result<T, E> {
     public void Union_ToStringOverride_SuppressesSynthesizedToString()
     {
         const string source = """
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
 
     override func ToString() -> string {
@@ -1708,11 +1680,11 @@ union struct Result {
     }
 
     [Fact]
-    public void StructUnionMatch_ExhaustivenessIncludesInactiveNullState()
+    public void StructUnionMatch_ParameterAllCasesCoveredIsSourceExhaustive()
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
@@ -1726,40 +1698,1227 @@ union struct Result<T> {
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
-        var model = compilation.GetSemanticModel(tree);
-        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
-        var info = model.GetMatchExhaustiveness(matchExpression);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
 
-        Assert.False(info.IsExhaustive);
-        Assert.Contains("null", info.MissingCases);
-    }
-
-    [Fact]
-    public void StructUnionMatch_NullArmCoversInactiveState()
-    {
-        const string source = """
-func format(result: Result<int>) -> string {
-    return result match {
-        null => "uninitialized"
-        .Ok(val payload) => payload.ToString()
-        .Error(val message) => message
-    }
-}
-
-union struct Result<T> {
-    case Ok(value: T)
-    case Error(message: string)
-}
-""";
-
-        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = model.GetMatchExhaustiveness(matchExpression);
 
         Assert.True(info.IsExhaustive);
         Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_FieldAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+class Holder {
+    val current: Result<int> = .Ok(1)
+
+    func format() -> string {
+        return match self.current {
+            .Ok(val payload) => payload.ToString()
+            .Error(val message) => message
+        }
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_PropertyAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+class Holder {
+    val Current: Result<int> {
+        get {
+            .Ok(1)
+        }
+    }
+
+    func format() -> string {
+        return match self.Current {
+            .Ok(val payload) => payload.ToString()
+            .Error(val message) => message
+        }
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_DefaultLocalAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+func format() -> string {
+    val result: Result<int> = default
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_DefaultLocalReassignedToActiveValueIsExhaustive()
+    {
+        const string source = """
+func format() -> string {
+    var result: Result<int> = default
+    result = .Ok(1)
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_BranchAssignedDefaultAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+func format(useDefault: bool) -> string {
+    var result: Result<int> = .Ok(1)
+
+    if useDefault {
+        result = default
+    }
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_NestedMatchAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+func format(useNested: bool) -> string {
+    var result: Result<int> = default
+
+    if useNested {
+        return match result {
+            .Ok(val payload) => payload.ToString()
+            .Error(val message) => message
+        }
+    }
+
+    return ""
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_WhileAssignedDefaultAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+func format(useDefault: bool) -> string {
+    var result: Result<int> = .Ok(1)
+
+    while useDefault {
+        result = default
+        break
+    }
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_ForAssignedDefaultAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+func format(values: int[]) -> string {
+    var result: Result<int> = .Ok(1)
+
+    for value in values {
+        result = default
+    }
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_TryAssignedDefaultAllCasesCoveredIsSourceExhaustive()
+    {
+        const string source = """
+func format() -> string {
+    var result: Result<int> = .Ok(1)
+
+    try {
+        result = default
+    } catch {
+    }
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_FinallyAssignedActiveValueIsExhaustive()
+    {
+        const string source = """
+func format() -> string {
+    var result: Result<int> = default
+
+    try {
+        result = default
+    } finally {
+        result = .Ok(1)
+    }
+
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionMatch_ParameterCatchAllArmReportsRedundant()
+    {
+        const string source = """
+func format(result: Result<int>) -> string {
+    return match result {
+        .Ok(val payload) => payload.ToString()
+        .Error(val message) => message
+        _ => "uninitialized"
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        Assert.Contains(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.MatchExpressionCatchAllRedundant);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpression = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(matchExpression);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void StructUnionArgument_DefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run() {
+    consume(default)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_DefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run() {
+    val result: Result<int> = default
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ReassignedActiveLocalDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run() {
+    var result: Result<int> = default
+    result = .Ok(1)
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ParameterForwardingDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func forward(result: Result<int>) {
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionArgument_NamedDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run() {
+    consume(result: default)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_OmittedDefaultOptionalReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int> = default) {
+}
+
+func run() {
+    consume()
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_InstanceMethodDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+class Sink {
+    func consume(result: Result<int>) {
+    }
+}
+
+func run() {
+    val sink = Sink()
+    sink.consume(default)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ConstructorDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+class Box(result: Result<int>) {
+}
+
+func run() {
+    Box(default)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ParamsElementDefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func consumeAll(results: Result<int> ...) {
+}
+
+func run() {
+    val result: Result<int> = default
+    consumeAll(.Ok(1), result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("results", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_GenericMethodDefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume<T>(result: Result<T>) {
+}
+
+func run() {
+    val result: Result<int> = default
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ExtensionReceiverDefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+extension ResultExtensions<T> for Result<T> {
+    func Touch() -> unit {
+    }
+}
+
+func run() {
+    val result: Result<int> = default
+    result.Touch()
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_DelegateInvocationDefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func run() {
+    val sink: Result<int> -> unit = value => ()
+    val result: Result<int> = default
+    sink(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_FieldAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+class Holder {
+    val current: Result<int> = .Ok(1)
+
+    func run() {
+        consume(self.current)
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_PropertyAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+class Holder {
+    val Current: Result<int> {
+        get {
+            .Ok(1)
+        }
+    }
+
+    func run() {
+        consume(self.Current)
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_IfExpressionAllBranchesActiveDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    val result: Result<int> = if flag { .Ok(1) } else { .Error("boom") }
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionArgument_IfExpressionDefaultBranchReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    val result: Result<int> = if flag { .Ok(1) } else { default }
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_IfStatementAllBranchesActiveDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    var result: Result<int> = default
+
+    if flag {
+        result = .Ok(1)
+    } else {
+        result = .Error("boom")
+    }
+
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionArgument_IfStatementDefaultBranchReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+func run(flag: bool) {
+    var result: Result<int> = .Ok(1)
+
+    if flag {
+        result = .Error("boom")
+    } else {
+        result = default
+    }
+
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_DefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    return default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_DefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    val result: Result<int> = default
+    return result
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ReassignedActiveLocalDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    var result: Result<int> = default
+    result = .Ok(1)
+    return result
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ParameterDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func forward(result: Result<int>) -> Result<int> {
+    return result
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ParameterMatchReconstructionDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func forward(result: Result<int>) -> Result<int> {
+    return match result {
+        .Ok(val value) => .Ok(value)
+        .Error(val message) => .Error(message)
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.MatchExpressionCatchAllRedundant);
+    }
+
+    [Fact]
+    public void StructUnionReturn_MatchExpressionAllBranchesActiveDoesNotReportInactiveDefaultState()
+    {
+        const string source = """
+func make(flag: bool) -> Result<int> {
+    return match flag {
+        true => .Ok(1)
+        false => .Error("boom")
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(),
+            static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault);
+    }
+
+    [Fact]
+    public void StructUnionReturn_MatchExpressionDefaultBranchReportsInactiveDefaultState()
+    {
+        const string source = """
+func make(flag: bool) -> Result<int> {
+    return match flag {
+        true => .Ok(1)
+        false => default
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ImplicitDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> {
+    default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_ArrowBodyDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func make() -> Result<int> => default
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_FieldAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val current: Result<int> = .Ok(1)
+
+    func make() -> Result<int> {
+        return self.current
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_PropertyAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val Current: Result<int> {
+        get {
+            .Ok(1)
+        }
+    }
+
+    func make() -> Result<int> {
+        return self.Current
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_PropertyGetterDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+class Holder {
+    val Current: Result<int> {
+        get {
+            default
+        }
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_AsyncDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+
+async func make() -> Task<Result<int>> {
+    await Task.FromResult(0)
+    return default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionReturn_LambdaDefaultLiteralReportsInactiveDefaultState()
+    {
+        const string source = """
+func run() {
+    val factory: () -> Result<int> = () -> Result<int> => default
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionReturnMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2551,13 +3710,13 @@ union Result<T, E> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2575,13 +3734,13 @@ union Result<T> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2599,13 +3758,13 @@ union Result<T> {
     {
         const string source = """
 func describe(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2623,13 +3782,13 @@ union Result<T> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
         .Error(val message) => message
     }
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -2643,13 +3802,13 @@ union Result<T> {
     }
 
     [Fact]
-    public void CasePattern_UnqualifiedSingleArm_ReportsExhaustivenessDiagnostic()
+    public void CasePattern_UnqualifiedSingleArm_BindsFromImportedCaseAndReportsMissingCase()
     {
         const string source = """
 import Result.*
 
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         Ok(val payload) => payload.ToString()
     }
 }
@@ -2663,8 +3822,9 @@ union Result<T> {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
 
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal("RAV2100", diagnostic.Descriptor.Id);
+        Assert.Contains("Error", diagnostic.GetMessage());
     }
 
     [Fact]
@@ -2672,13 +3832,13 @@ union Result<T> {
     {
         const string source = """
 func describe(value: Test) -> string {
-    return value match {
+    return match value {
         .Something(val text) => text
         .Nothing => "none"
     }
 }
 
-union Test {
+union class Test {
     case Something(value: string)
     case Nothing
 }
@@ -2701,7 +3861,7 @@ union Test {
     {
         const string source = """
 func describe(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok(val payload) => payload.ToString()
     }
 }
@@ -2726,8 +3886,8 @@ union Result<T> {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
-        .Ok(val payload) => "ok ${payload}" when payload > 1
+    return match result {
+        .Ok(val payload) when payload > 1 => "ok ${payload}"
         .Error(val message) => "error ${message}"
     }
 }
@@ -2752,7 +3912,7 @@ union Result<T> {
     {
         const string source = """
 func area(shape: Shape) -> int {
-    return shape match {
+    return match shape {
         .Circle(val r) => r * r * 3
         .Rectangle(4, val h) => 42
     }
@@ -2778,7 +3938,7 @@ union Shape {
     {
         const string source = """
 func format(result: Result<int>) -> string {
-    return result match {
+    return match result {
         .Ok() => "ok"
         _ => "none"
     }

@@ -15,7 +15,7 @@ WriteLine(Describe(first))
 WriteLine(Describe(second))
 
 func Describe(token: Token) -> string {
-    return token match {
+    match token {
         .Number(_, val value) => "Number $value"
         .Identifier(val text) => "Identifier $text"
         .EOF => "EOF"

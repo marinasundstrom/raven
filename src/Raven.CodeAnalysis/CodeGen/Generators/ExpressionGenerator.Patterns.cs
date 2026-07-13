@@ -332,6 +332,16 @@ internal partial class ExpressionGenerator
                     ILGenerator.MarkLabel(labelTryGetDone);
                     return;
                 }
+
+                if (unionType.TypeKind == TypeKind.Class)
+                {
+                    EmitClassUnionValuePattern(inputNamedType, ResolveClrType(inputType), scrutineeLocal2, () => EmitPattern(
+                        declarationPattern,
+                        Compilation.GetSpecialType(SpecialType.System_Object)!,
+                        scope,
+                        scrutineeLocal2: null));
+                    return;
+                }
             }
 
             // Fast path: if the scrutinee is already exactly the declared type, bind directly
@@ -1807,9 +1817,21 @@ internal partial class ExpressionGenerator
             return;
         }
 
+        if (!IsNullConstantPattern(constantPattern) &&
+            inputType.TryGetUnion() is IUnionSymbol { TypeKind: TypeKind.Class } &&
+            inputType is INamedTypeSymbol classUnionType)
+        {
+            EmitClassUnionValuePattern(classUnionType, ResolveClrType(inputType), scrutineeLocal2, () =>
+                EmitConstantPattern(
+                    constantPattern,
+                    Compilation.GetSpecialType(SpecialType.System_Object)!,
+                    scrutineeLocal2: null));
+            return;
+        }
+
         // Runtime "value pattern" (e.g. identifier/member access) – compare by object.Equals.
         if (constantPattern.Expression is not null
-            && constantPattern.Expression is not BoundTypeExpression { Type: NullTypeSymbol })
+            && !IsNullConstantExpression(constantPattern.Expression))
         {
             if (TryEmitCompileTimeConstantPattern(constantPattern.Expression, inputType, scrutineeLocal2))
                 return;
@@ -1969,6 +1991,45 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(hasValueGetter));
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
             ILGenerator.Emit(OpCodes.Ceq);
+            return;
+        }
+
+        if (scrutineeType.TryGetUnion() is IUnionSymbol { TypeKind: TypeKind.Class } &&
+            scrutineeType is INamedTypeSymbol classUnionType)
+        {
+            var valueGetter = classUnionType
+                .GetMembers("Value")
+                .OfType<IPropertySymbol>()
+                .Where(static property => property.GetMethod is not null)
+                .Select(property => property.GetMethod!)
+                .FirstOrDefault(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, classUnionType))
+                ?? classUnionType
+                    .GetMembers("Value")
+                    .OfType<IPropertySymbol>()
+                    .Where(static property => property.GetMethod is not null)
+                    .Select(property => property.GetMethod!)
+                    .First();
+
+            var unionLocal = scrutineeLocal2;
+            if (unionLocal is null)
+            {
+                unionLocal = ILGenerator.DeclareLocal(scrutineeClr);
+                ILGenerator.Emit(OpCodes.Stloc, unionLocal);
+            }
+
+            var isNullLabel = ILGenerator.DefineLabel();
+            var doneLabel = ILGenerator.DefineLabel();
+
+            ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
+            ILGenerator.Emit(OpCodes.Brfalse, isNullLabel);
+            ILGenerator.Emit(OpCodes.Ldloc, unionLocal);
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(valueGetter));
+            ILGenerator.Emit(OpCodes.Ldnull);
+            ILGenerator.Emit(OpCodes.Ceq);
+            ILGenerator.Emit(OpCodes.Br, doneLabel);
+            ILGenerator.MarkLabel(isNullLabel);
+            ILGenerator.Emit(OpCodes.Ldc_I4_1);
+            ILGenerator.MarkLabel(doneLabel);
             return;
         }
 
@@ -2263,9 +2324,55 @@ internal partial class ExpressionGenerator
     }
 
     private static bool IsNullConstantPattern(BoundConstantPattern pattern)
-        => pattern.Expression is null &&
-           pattern.ConstantValue is null &&
-           pattern.LiteralType is null;
+        => pattern.LiteralType is null &&
+           (pattern.Expression is null && pattern.ConstantValue is null ||
+            pattern.Expression is not null && IsNullConstantExpression(pattern.Expression));
+
+    private static bool IsNullConstantExpression(BoundExpression expression)
+        => expression is BoundTypeExpression { Type: NullTypeSymbol }
+            or BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral };
+
+    private void EmitClassUnionValuePattern(INamedTypeSymbol classUnionType, Type unionClrType, IILocal? scrutineeLocal2, Action emitValuePattern)
+    {
+        var valueGetter = classUnionType
+            .GetMembers("Value")
+            .OfType<IPropertySymbol>()
+            .Where(static property => property.GetMethod is not null)
+            .Select(property => property.GetMethod!)
+            .FirstOrDefault(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, classUnionType))
+            ?? classUnionType
+                .GetMembers("Value")
+                .OfType<IPropertySymbol>()
+                .Where(static property => property.GetMethod is not null)
+                .Select(property => property.GetMethod!)
+                .First();
+
+        unionClrType = Generator.InstantiateType(unionClrType);
+        var unionCarrierLocal = scrutineeLocal2 ?? ILGenerator.DeclareLocal(unionClrType);
+        var labelCarrierPresent = ILGenerator.DefineLabel();
+        var labelDone = ILGenerator.DefineLabel();
+
+        if (scrutineeLocal2 is null)
+        {
+            ILGenerator.Emit(OpCodes.Stloc, unionCarrierLocal);
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Pop);
+        }
+
+        ILGenerator.Emit(OpCodes.Ldloc, unionCarrierLocal);
+        ILGenerator.Emit(OpCodes.Brtrue, labelCarrierPresent);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Br, labelDone);
+
+        ILGenerator.MarkLabel(labelCarrierPresent);
+        ILGenerator.Emit(OpCodes.Ldloc, unionCarrierLocal);
+        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(valueGetter));
+        emitValuePattern();
+
+        ILGenerator.MarkLabel(labelDone);
+    }
 
     private bool TryEmitAnd_UnboxedDU(
         BoundPattern left,

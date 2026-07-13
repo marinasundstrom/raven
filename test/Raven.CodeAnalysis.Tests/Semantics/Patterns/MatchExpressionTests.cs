@@ -35,7 +35,7 @@ val r = v match
     public void MatchExpression_InValuePosition_BindsDirectlyAsBoundMatchExpression()
     {
         const string code = """
-val result = 1 match {
+val result = match 1 {
     1 => 10
     _ => 0
 }
@@ -59,12 +59,39 @@ val result = 1 match {
     }
 
     [Fact]
+    public void PostfixMatchExpression_InValuePosition_BindsDirectlyAsBoundMatchExpression()
+    {
+        const string code = """
+val result = 1 match {
+    1 => 10
+    _ => 0
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "postfix_match_expression_bound_shape",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<PostfixMatchExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
+        Assert.Equal(2, bound.Arms.Length);
+    }
+
+    [Fact]
     public void MatchExpression_WithTypeArms_MissingDefaultReportsDiagnostic()
     {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object obj => obj.ToString()
 }
@@ -83,7 +110,7 @@ class Box<T> {}
 
 val value: Box<int> = Box<int>()
 
-val result = value match {
+val result = match value {
     Box box => 1
 }
 """;
@@ -115,7 +142,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object => value.ToString()
 }
@@ -134,7 +161,7 @@ import System.Collections.Generic.*
 
 val values: Dictionary<string, int> = !["a": 1, "b": 2]
 
-val result = values match {
+val result = match values {
     ["a": val first, "b": 2] => first
     _ => 0
 }
@@ -170,7 +197,7 @@ val result = values match {
         const string code = """
 val value = 42
 
-val result = value match {
+val result = match value {
     ["a": 1] => 1
     _ => 0
 }
@@ -193,7 +220,7 @@ import System.Collections.Generic.*
 
 val values: Dictionary<string, int> = !["a": 1]
 
-val result = values match {
+val result = match values {
     ["a": val first, "a": 1] => first
     _ => 0
 }
@@ -218,7 +245,7 @@ class Box {
 
 val value = Box(Value: 1)
 
-val result = value match {
+val result = match value {
     Box { Value: 1, Value: val other } => other
     _ => 0
 }
@@ -239,7 +266,7 @@ val result = value match {
         const string code = """
 val value: object = Person("Ada", 42)
 
-val result = value match {
+val result = match value {
     Person(Height: 170, Name: val name) => name
     _ => ""
 }
@@ -260,7 +287,7 @@ record class Person(Name: string, Age: int)
     public void MatchExpression_WithUndefinedNestedNominalDeconstructionPattern_ReportsInvalidArmPattern()
     {
         const string code = """
-union UserOrError {
+union class UserOrError {
     case Ok(value: int)
     case Error(error: string)
 }
@@ -269,7 +296,7 @@ func GetUser() -> UserOrError {
     return .Ok(1)
 }
 
-val result = GetUser() match {
+val result = match GetUser() {
     .Ok(User(val name, val isActive)) => 1
     .Error(val error) => 0
 }
@@ -293,7 +320,7 @@ val result = GetUser() match {
     public void MatchExpression_WithMismatchedNestedNominalDeconstructionPattern_ReportsTypeMismatch()
     {
         const string code = """
-union UserOrError {
+union class UserOrError {
     case Ok(value: int)
     case Error(error: string)
 }
@@ -302,7 +329,7 @@ func GetUser() -> UserOrError {
     return .Ok(1)
 }
 
-val result = GetUser() match {
+val result = match GetUser() {
     .Ok(User(val name, val isActive)) => 1
     .Error(val error) => 0
 }
@@ -333,7 +360,7 @@ record class User(Name: string, IsActive: bool);
         const string code = """
 val value: bool = true
 
-val result = value match {
+val result = match value {
     true => "true"
     false => "false"
 }
@@ -348,14 +375,14 @@ val result = value match {
     public void MatchExpression_WithBooleanLiteralArmsOnUnion_IsExhaustive()
     {
         const string code = """
-union Value {
+union class Value {
     case Flag(value: bool)
     case Pair(flag: bool, text: string)
 }
 
 val value: Value = .Flag(value: false)
 
-val result = value match {
+val result = match value {
     .Flag(val flag) => if flag { "true" } else { "false" }
     .Pair(val flag, val text) => "tuple ${text}"
 }
@@ -371,7 +398,7 @@ val result = value match {
     {
         const string code = """
 func ping(name: string) -> string {
-    return name match {
+    return match name {
         "Bob" | "bob" => "pong"
         _ => "invalid"
     }
@@ -389,7 +416,7 @@ func ping(name: string) -> string {
         const string code = """
 val value: int = -1
 
-val result = value match {
+val result = match value {
     -1 => "minus one"
     _ => "other"
 }
@@ -406,7 +433,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     _ => ""
 }
@@ -421,7 +448,7 @@ val result = value match {
     public void MatchExpression_WithDiscardArmOnNewLine_DoesNotInsertEmptyArm()
     {
         const string code = """
-val result = false match {
+val result = match false {
     _ => "none"
 }
 """;
@@ -456,7 +483,7 @@ class Character(name: string, species: Species, age: int) {
 
 val character = Character("Rex", .Dog, 4)
 
-val result = character match {
+val result = match character {
     { Age: not > 34, Species: .Dog } => true
     _ => false
 }
@@ -527,7 +554,7 @@ sealed interface Expr<T>
 
 func Evaluate<T>(expr: Expr<T>) -> T
     where T: INumber<T> {
-    return expr match {
+    return match expr {
         .Literal(val value) => value
         .Add(val left, val right) => Evaluate(left) + Evaluate(right)
     }
@@ -564,7 +591,7 @@ enum Color {
 
 val value: Color = .Red
 
-val result = value match {
+val result = match value {
     .Red => 1
     .Green => 2
 }
@@ -583,7 +610,7 @@ val result = value match {
         const string code = """
 class Program {
     func eval(color: Color) -> int {
-        return color match {
+        return match color {
             .Red => 1
         }
     }
@@ -612,7 +639,7 @@ enum Color {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object _ => value.ToString()
 }
@@ -633,7 +660,7 @@ enum PingStatus {
 }
 
 func ping(name: string) -> PingStatus {
-    return name match {
+    return match name {
         "Bob" | "bob" => .Ok
         _ => .Error
     }
@@ -648,14 +675,14 @@ func ping(name: string) -> PingStatus {
     public void MatchExpression_WithPositionalPatternOnUnion_BindsElementDesignations()
     {
         const string code = """
-union Value {
+union class Value {
     case Bool(flag: bool)
     case Pair(a: int, b: string)
 }
 
 val x: Value = .Bool(flag: false)
 
-val result = x match {
+val result = match x {
     .Bool(val flag) => "hej"
     .Pair(val a, val b) => "tuple ${a} ${b}"
 }
@@ -685,7 +712,7 @@ val result = x match {
 import System.*
 
 func Test(y: int) -> int {
-    val r = y match {
+    val r = match y {
         0 => return 0
         1 => 42
         _ => throw Exception("x")
@@ -705,7 +732,7 @@ func Test(y: int) -> int {
         const string code = """
 val items: int[] = [1, 2]
 
-val result = items match {
+val result = match items {
     [val first, val second] => first + second
     _ => 0
 }
@@ -749,7 +776,7 @@ val result = items match {
         const string code = """
 val items: int[] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
@@ -785,7 +812,7 @@ import System.Collections.Generic.*
 
 val items: List<int> = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
@@ -821,7 +848,7 @@ import System.Collections.Immutable.*
 
 val items: ImmutableList<int> = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..val middle, val last] => first + middle[0] + last
     _ => 0
 }
@@ -855,7 +882,7 @@ val result = items match {
         const string code = """
 val items: int[4] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, val second, ...val rest] => first + second + rest.Length
     _ => 0
 }
@@ -891,7 +918,7 @@ val result = items match {
         const string code = """
 val items: int[] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ...] => first
     _ => 0
 }
@@ -921,7 +948,7 @@ val result = items match {
         const string code = """
 val items: int[] = [1, 2, 3, 4]
 
-val result = items match {
+val result = match items {
     [val first, ..., val last] => first + last
     _ => 0
 }
@@ -951,7 +978,7 @@ val result = items match {
         const string code = """
 val text = "rune"
 
-val result = text match {
+val result = match text {
     [val first, ..2 val middle, val last] => middle
     _ => ""
 }
@@ -990,7 +1017,7 @@ import System.Linq.*
 
 val items: IEnumerable<int> = [1, 2, 3].Where(v => v > 0)
 
-val result = items match {
+val result = match items {
     [val first, val second] => first + second
     _ => 0
 }
@@ -1013,7 +1040,7 @@ val result = items match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     _ => ""
     string text => text
 }
@@ -1032,7 +1059,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     object _ => value.ToString()
     string text => text
 }
@@ -1051,14 +1078,14 @@ val result = value match {
     public void MatchExpression_WithDuplicateCasePattern_ReportsDiagnostic()
     {
         const string code = """
-union Result<T, E> {
+union class Result<T, E> {
     case Ok(value: T)
     case Error(message: E)
 }
 
 val value: Result<int, string> = .Ok(2)
 
-val result = value match {
+val result = match value {
     .Ok(2) => "Lucky you!"
     .Ok(2) => "Still lucky!"
     .Ok(val payload) => payload.ToString()
@@ -1079,7 +1106,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     string text => text
     object obj => obj.ToString()
     _ => "None"
@@ -1105,7 +1132,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     val text => text
 }
 """;
@@ -1136,7 +1163,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     var text => text
 }
 """;
@@ -1167,7 +1194,7 @@ val result = value match {
         const string code = """
 val value: object = "hello"
 
-val result = value match {
+val result = match value {
     val text: string => text
     _ => ""
 }
@@ -1199,7 +1226,7 @@ val result = value match {
         const string code = """
 val value: object = [1, 2, 3]
 
-val result = value match {
+val result = match value {
     int[] numbers => numbers.Length
     _ => 0
 }
@@ -1231,7 +1258,7 @@ val result = value match {
     {
         const string code = """
 func describe(value: object) -> string? {
-    value match {
+    match value {
         string text when text.Length > 3 => text
         string text => text.ToUpper()
         object obj => obj.ToString()
@@ -1248,14 +1275,14 @@ func describe(value: object) -> string? {
     public void MatchExpression_WithUnionScrutinee_AllCasesCovered()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
 }
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 0
 }
@@ -1267,12 +1294,284 @@ val result = state match {
     }
 
     [Fact]
+    public void MatchExpression_WithStructUnionScrutinee_AllCasesCoveredIsExhaustiveForActiveValue()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = .On
+
+val result = match state {
+    .On => 1
+    .Off => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithStructUnionDefaultLocal_AllCasesCoveredIsSourceExhaustive()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+val result = match state {
+    .On => 1
+    .Off => 0
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithStructUnionDefaultLocal_MissingSemanticCaseIsReported()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = default
+
+val result = match state {
+    .On => 1
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Off")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithActiveStructUnionScrutinee_DefensiveCatchAllIsRedundant()
+    {
+        const string code = """
+union State {
+    case On
+    case Off
+}
+
+val state: State = .On
+
+val result = match state {
+    .On => 1
+    .Off => 0
+    _ => -1
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithParenthesizedStructUnionScrutinee_AllPayloadsCoveredIsExhaustiveForActiveValue()
+    {
+        const string code = """
+union Value(int | string)
+
+val value: Value = 1
+
+val result = match value {
+    int number => number
+    string text => text.Length
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithParenthesizedStructUnionDefaultLocal_AllPayloadsCoveredIsSourceExhaustive()
+    {
+        const string code = """
+union Value(int | string)
+
+val value: Value = default
+
+val result = match value {
+    int number => number
+    string text => text.Length
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithParenthesizedStructUnionDefaultLocal_MissingPayloadIsReported()
+    {
+        const string code = """
+union Value(int | string)
+
+val value: Value = default
+
+val result = match value {
+    int number => number
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("string")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithParenthesizedStructUnionDefaultLocal_CatchAllForDefaultIsNotRedundant()
+    {
+        const string code = """
+union Value(int | string)
+
+val value: Value = default
+
+val result = match value {
+    int number => number
+    string text => text.Length
+    _ => -1
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithActiveParenthesizedStructUnionScrutinee_DefensiveCatchAllIsRedundant()
+    {
+        const string code = """
+union Value(int | string)
+
+val value: Value = 1
+
+val result = match value {
+    int number => number
+    string text => text.Length
+    _ => -1
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithRavenCoreUnionScrutinee_AllPayloadsCoveredIsExhaustiveForActiveValue()
+    {
+        const string code = """
+import System.*
+
+val value: Union<int, string> = 1
+
+val result = match value {
+    int number => number
+    string text => text.Length
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var unionReference = TestMetadataFactory.CreateFromSource(
+            """
+namespace System
+
+public union Union<T1, T2>(T1 | T2)
+""",
+            assemblyName: "raven-core-union-match-fixture");
+
+        var compilation = Compilation.Create(
+            "raven_core_union_match_exhaustiveness",
+            [syntaxTree],
+            [.. TestMetadataReferences.Default, unionReference],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var match = syntaxTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(match);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void MatchExpression_WithRavenCoreUnionDefaultLocal_AllPayloadsCoveredIsSourceExhaustive()
+    {
+        const string code = """
+import System.*
+
+val value: Union<int, string> = default
+
+val result = match value {
+    int number => number
+    string text => text.Length
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var unionReference = TestMetadataFactory.CreateFromSource(
+            """
+namespace System
+
+public union Union<T1, T2>(T1 | T2)
+""",
+            assemblyName: "raven-core-union-default-match-fixture");
+
+        var compilation = Compilation.Create(
+            "raven_core_union_default_match_exhaustiveness",
+            [syntaxTree],
+            [.. TestMetadataReferences.Default, unionReference],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV2100");
+
+        var model = compilation.GetSemanticModel(syntaxTree);
+        var match = syntaxTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(match);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
     public void MatchExpression_WithNullArm_BindsToConstantPattern()
     {
         const string code = """
 val value: string? = null
 
-val result = value match {
+val result = match value {
     null => "empty"
     string text => text
 }
@@ -1291,6 +1590,115 @@ val result = value match {
 
         var constantPattern = Assert.IsType<BoundConstantPattern>(bound.Arms.First().Pattern);
         Assert.Null(constantPattern.ConstantValue);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableStructUnionScrutinee_RequiresNullArm()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+    }
+}
+
+union Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("null")]);
+
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "nullable_struct_union_missing_null_exhaustiveness",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(match);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("null", missing));
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableStructUnionScrutinee_AndNullArmIsExhaustive()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+        null => 0
+    }
+}
+
+union Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableClassUnionScrutinee_RequiresNullArm()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+    }
+}
+
+union class Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("null")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableClassUnionScrutinee_AndNullArmIsExhaustive()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+        null => 0
+    }
+}
+
+union class Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
     }
 
     [Fact]
@@ -1318,14 +1726,14 @@ func describe(input: bool) -> string {
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnostic()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
 }
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1343,11 +1751,11 @@ val result = state match {
         const string code = """
 val value: Result<int, string> = .Ok(1)
 
-val result = value match {
+val result = match value {
     .Ok(val payload) => payload
 }
 
-union Result<T, E> {
+union class Result<T, E> {
     case Ok(value: T)
     case Error(message: E)
 }
@@ -1364,14 +1772,14 @@ union Result<T, E> {
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnosticAtMatchKeyword()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
 }
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1394,7 +1802,7 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_MultipleMissingArmsReportDiagnostics()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
     case Unknown
@@ -1402,7 +1810,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1420,7 +1828,7 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_MultipleMissingArmsReportDiagnosticsAtMatchKeyword()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
     case Unknown
@@ -1428,7 +1836,7 @@ union State {
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
 }
 """;
@@ -1453,14 +1861,14 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_RedundantCatchAllReportsDiagnostic()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
 }
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 0
     _ => -1
@@ -1478,14 +1886,14 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_RedundantCatchAllReportsDiagnosticAtCatchAllPattern()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
 }
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off => 0
     _ => -1
@@ -1510,14 +1918,14 @@ val result = state match {
     public void MatchExpression_WithUnionScrutinee_CatchAllWithGuardDoesNotReportDiagnostic()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
 }
 
 val state: State = .On
 
-val result = state match {
+val result = match state {
     .On => 1
     .Off when false => 0
     _ => -1
@@ -1535,13 +1943,13 @@ val result = state match {
         const string code = """
 val result: Result<int> = .Ok(value: 1)
 
-val value = result match {
+val value = match result {
     .Ok(val payload) => payload
     .Error(val message) => 0
     _ => -1
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -1560,13 +1968,13 @@ union Result<T> {
         const string code = """
 val result: Result<int> = .Ok(value: 1)
 
-val value = result match {
+val value = match result {
     .Ok(val payload) => payload
     .Error(val message) => 0
     _ => -1
 }
 
-union Result<T> {
+union class Result<T> {
     case Ok(value: T)
     case Error(message: string)
 }
@@ -1590,13 +1998,13 @@ union Result<T> {
     public void MatchExpression_WithBodyFormUnionCasePatterns_IsExhaustive()
     {
         const string code = """
-union Response<T> {
+union class Response<T> {
     case Success(value: T)
     case Failure(message: string)
 }
 
 func Describe(result: Response<int>) -> string {
-    return result match {
+    return match result {
         .Success(val value) => value.ToString()
         .Failure(val message) => message
     }
@@ -1616,7 +2024,7 @@ import System.*
 
 val result: Result<string, Exception> = .Ok(value: "ok")
 
-val value = result match {
+val value = match result {
     .Ok(val text) => text
     .Error((val message)) => message
     _ => ""
@@ -1628,7 +2036,7 @@ extension ExceptionExt for Exception {
     }
 }
 
-union Result<T, E> {
+union class Result<T, E> {
     case Ok(value: T)
     case Error(error: E)
 }
@@ -1645,7 +2053,7 @@ union Result<T, E> {
     public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll()
     {
         const string code = """
-union Input {
+union class Input {
     case Text(value: string)
     case Number(value: int)
     case Empty
@@ -1653,7 +2061,7 @@ union Input {
 
 val input: Input = .Text(value: "")
 
-val result = input match {
+val result = match input {
     .Text(val text) when text.Length > 0 => "Saw \"${text}\""
     .Number(val number) => "Counted ${number}"
 }
@@ -1670,7 +2078,7 @@ val result = input match {
     public void MatchExpression_WithUnionScrutineeAndGuard_NotExhaustiveWithoutCatchAll_ReportsAtMatchKeyword()
     {
         const string code = """
-union Input {
+union class Input {
     case Text(value: string)
     case Number(value: int)
     case Empty
@@ -1678,7 +2086,7 @@ union Input {
 
 val input: Input = .Text(value: "")
 
-val result = input match {
+val result = match input {
     .Text(val text) when text.Length > 0 => "Saw \"${text}\""
     .Number(val number) => "Counted ${number}"
 }
@@ -1704,7 +2112,7 @@ val result = input match {
         const string code = """
 val input: string? = null
 
-val result = input match {
+val result = match input {
     null => "Nothing to report."
     string text => text
 }
@@ -1721,7 +2129,7 @@ val result = input match {
         const string code = """
 val pair: object = (1, "two")
 
-val result = pair match {
+val result = match pair {
     (val first: int, val second: string) => second
     _ => ""
 }
@@ -1762,7 +2170,7 @@ val result = pair match {
 val existingValue = 2
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (val a, == existingValue) => a
     _ => 0
 }
@@ -1798,7 +2206,7 @@ val a = 1
 val existingValue = 2
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (a, == existingValue) => 1
     _ => 0
 }
@@ -1829,7 +2237,7 @@ val result = pair match {
         const string code = """
 val input = [1, 2, 3, 4]
 
-val result = input match {
+val result = match input {
     val [first, second, ...rest] => first + second + rest.Count
     _ => 0
 }
@@ -1855,7 +2263,7 @@ union Option<T> {
 
 val value: Option<(int, int)> = .Some((1, 2))
 
-val result = value match {
+val result = match value {
     val Some((x, y)) => x + y
     _ => 0
 }
@@ -1876,7 +2284,7 @@ record class Person(Name: string, Age: int)
 
 val person = Person("Ada", 42)
 
-val result = person match {
+val result = match person {
     val (Name: name, Age: age) => name.Length + age
     _ => 0
 }
@@ -1897,7 +2305,7 @@ record class Person(Name: string, Age: int)
 
 val person = Person("Ada", 42)
 
-val result = person match {
+val result = match person {
     val (Name: name: string, Age: age: int) => name.Length + age
     _ => 0
 }
@@ -1923,7 +2331,7 @@ val result = person match {
         const string code = """
 val input = [1, 2, 3]
 
-val result = input match {
+val result = match input {
     val [val first, second, ...rest] => first
     _ => 0
 }
@@ -1943,7 +2351,7 @@ val result = input match {
         const string code = """
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (1, > 0.5) => 1
     _ => 0
 }
@@ -1966,7 +2374,7 @@ val result = pair match {
         const string code = """
 val value: int = 2
 
-val result = value match {
+val result = match value {
     0..0.5 => 1
     _ => 0
 }
@@ -1988,7 +2396,7 @@ val result = value match {
     {
         const string code = """
 func IsEligible(year: int, lower: int, upper: int) -> bool {
-    return year match {
+    return match year {
         lower..upper => true
         _ => false
     }
@@ -2025,7 +2433,7 @@ union Option<T> {
 
 class C {
     func Run(value: Option<(string, int)>) -> int {
-        return value match {
+        return match value {
             val Some((first, >= 18)) whole => first.Length
             _ => 0
         }
@@ -2055,7 +2463,7 @@ class C {
         const string code = """
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (int a, int b, int c) => c
 }
 """;
@@ -2076,7 +2484,7 @@ val result = pair match {
         const string code = """
 val pair: (int, int) = (1, 2)
 
-val result = pair match {
+val result = match pair {
     (int a, int b, int c) => c
 }
 """;
@@ -2101,7 +2509,7 @@ val result = pair match {
         const string code = """
 val value: int = 0
 
-val result = value match {
+val result = match value {
     string text => text
     _ => ""
 }
@@ -2118,14 +2526,14 @@ val result = value match {
     public void MatchExpression_WithUnionScrutineeAndIncompatiblePattern_ReportsDiagnostic()
     {
         const string code = """
-union State {
+union class State {
     case On
     case Off
 }
 
 val value: State = .On
 
-val result = value match {
+val result = match value {
     bool flag => 1
     _ => 0
 }
@@ -2144,7 +2552,7 @@ val result = value match {
         const string code = """
 val value: int = 0
 
-val result = value match {
+val result = match value {
     "foo" => 1
     _ => 0
 }
@@ -2170,7 +2578,7 @@ record Lit(Value: int) : Expr
 record Add(Left: Expr, Right: Expr) : Expr
 
 func Evaluate(expr: Expr) -> int {
-    return expr match {
+    return match expr {
         Add(val left, val right) => 0
         _ => 0
     }
@@ -2207,7 +2615,7 @@ func Evaluate(expr: Expr) -> int {
         const string code = """
 val value: int = 9
 
-val result = value match {
+val result = match value {
     2..<10 => 1
     _ => 0
 }
