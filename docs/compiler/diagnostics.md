@@ -254,8 +254,11 @@ Behavior note: Raven also uses `RAV1602` for named deconstruction elements such 
 Behavior note: for struct unions, `RAV2100` considers the declared semantic
 case set. The inactive/default carrier state is not a formal source case and is
 handled by boundary diagnostics such as `RAV0405` and `RAV0406`, plus defensive
-lowering/runtime fallback. `RAV2103` reports a catch-all only when flow proves
-there is no remaining declared case or inactive/default state to match.
+lowering/runtime fallback. For nullable union carriers (`U?`), `RAV2100`
+requires the declared union cases plus `null`; that `null` is the nullable
+wrapper state, not a union pseudo-case. `RAV2103` reports a catch-all only when
+flow proves there is no remaining declared case, nullable wrapper `null`, or
+inactive/default state to match.
 | `RAV2200` | Error | Lambda parameter type cannot be inferred | Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context | — |
 | `RAV2201` | Error | Method group requires delegate type | Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context | — |
 | `RAV2202` | Error | Method group conversion is ambiguous | Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload | — |

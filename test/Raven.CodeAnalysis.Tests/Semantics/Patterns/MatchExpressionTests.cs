@@ -1593,6 +1593,115 @@ val result = match value {
     }
 
     [Fact]
+    public void MatchExpression_WithNullableStructUnionScrutinee_RequiresNullArm()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+    }
+}
+
+union Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("null")]);
+
+        verifier.Verify();
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "nullable_struct_union_missing_null_exhaustiveness",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var model = compilation.GetSemanticModel(tree);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(match);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Collection(info.MissingCases, missing => Assert.Equal("null", missing));
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableStructUnionScrutinee_AndNullArmIsExhaustive()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+        null => 0
+    }
+}
+
+union Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableClassUnionScrutinee_RequiresNullArm()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+    }
+}
+
+union class Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("null")]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableClassUnionScrutinee_AndNullArmIsExhaustive()
+    {
+        const string code = """
+func area(shape: Shape?) -> int {
+    return match shape {
+        .Circle(val radius) => radius * radius * 3
+        .Rectangle(val width, val height) => width * height
+        null => 0
+    }
+}
+
+union class Shape {
+    case Circle(radius: int)
+    case Rectangle(width: int, height: int)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_AfterIfExpression_EvaluatesScrutineeOnce()
     {
         const string code = """

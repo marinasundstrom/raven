@@ -2717,6 +2717,11 @@ case set (equivalent to sealed-hierarchy reasoning over a closed subtype set).
 Each declared case must be matched by an unguarded arm, or covered by an
 unguarded catch-all arm.
 
+For nullable discriminated union carriers (`U?`), exhaustiveness is computed
+from the underlying union's declared case set plus the nullable wrapper's
+`null` value. This rule is the same for `union struct` and `union class`; the
+`null` arm covers the nullable wrapper state, not a union pseudo-case.
+
 In addition, exhaustiveness may be proven through type analysis even when no
 explicit finite-case construct is involved. For example:
 
@@ -5268,6 +5273,10 @@ Union invariants:
   exhaustiveness checks the declared case set only. Lowering and emit must still
   preserve a defensive runtime fallback for source-exhaustive matches so
   metadata consumers or forced default carriers cannot fall through silently.
+* Nullable union carriers (`U?`) add the nullable wrapper's `null` value to the
+  source match domain. A match over `U?` must cover the declared union cases and
+  `null`, or use a catch-all. This nullable `null` value is separate from the
+  inactive/default carrier state of `union struct`.
 * Function parameters and `self` of `union struct` type are active inside the
   callee because the call boundary rejects possibly inactive arguments before
   entry. Matching or forwarding them does not require an extra source catch-all.

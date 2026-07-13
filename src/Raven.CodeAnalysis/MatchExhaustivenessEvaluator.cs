@@ -54,7 +54,16 @@ internal sealed class MatchExhaustivenessEvaluator
 
         ImmutableArray<string> missingCases;
 
-        if (IsBooleanType(scrutineeType))
+        var nullableUnderlyingType = scrutineeType.GetPlainType();
+        var nullableUnderlyingUnion = !SymbolEqualityComparer.Default.Equals(nullableUnderlyingType, scrutineeType)
+            ? nullableUnderlyingType.TryGetUnion() ?? nullableUnderlyingType.TryGetUnionCase()?.Union
+            : null;
+
+        if (nullableUnderlyingUnion is not null)
+        {
+            missingCases = GetMissingNullableUnionCases(matchSyntax, scrutinee, scrutineeType, nullableUnderlyingType, arms, nullableUnderlyingUnion, options);
+        }
+        else if (IsBooleanType(scrutineeType))
         {
             missingCases = GetMissingBooleanCases(scrutineeType, arms, options);
         }
@@ -212,6 +221,80 @@ internal sealed class MatchExhaustivenessEvaluator
             .OrderBy(name => name, StringComparer.Ordinal));
 
         return builder.ToImmutable();
+    }
+
+    private ImmutableArray<string> GetMissingNullableUnionCases(
+        SyntaxNode matchSyntax,
+        BoundExpression scrutinee,
+        ITypeSymbol nullableScrutineeType,
+        ITypeSymbol underlyingScrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        IUnionSymbol union,
+        MatchExhaustivenessOptions options)
+    {
+        if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
+            return GetMissingNullableParenthesizedUnionCases(nullableScrutineeType, arms, union, options);
+
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        builder.AddRange(GetMissingDiscriminatedUnionCases(
+            matchSyntax,
+            scrutinee,
+            underlyingScrutineeType,
+            arms,
+            union,
+            options));
+
+        if (!NullableNullCovered(nullableScrutineeType, arms, options))
+            builder.Add("null");
+
+        return builder.ToImmutable();
+    }
+
+    private ImmutableArray<string> GetMissingNullableParenthesizedUnionCases(
+        ITypeSymbol nullableScrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        IUnionSymbol union,
+        MatchExhaustivenessOptions options)
+    {
+        var memberTypes = UnionContentNullability.GetPatternDomainTypes(union, _compilation.NullTypeSymbol);
+        if (!memberTypes.Any(static type => UnwrapAlias(type).TypeKind == TypeKind.Null))
+            memberTypes = memberTypes.Add(_compilation.NullTypeSymbol);
+
+        var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
+        var literalCoverage = CreateLiteralCoverage(remaining);
+
+        foreach (var arm in arms)
+        {
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(nullableScrutineeType, arm.Pattern))
+                continue;
+
+            RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
+
+            if (remaining.Count == 0)
+                break;
+        }
+
+        if (literalCoverage is not null && literalCoverage.Count > 0)
+        {
+            foreach (var (type, constants) in literalCoverage)
+            {
+                if (remaining.Contains(type))
+                {
+                    var literalMissing = GetMissingLiteralCoverage(type, constants);
+                    if (!literalMissing.IsDefaultOrEmpty)
+                        return literalMissing;
+                }
+            }
+        }
+
+        return remaining
+            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToImmutableArray();
     }
 
     private ImmutableArray<string> GetMissingParenthesizedUnionCases(
@@ -651,6 +734,48 @@ internal sealed class MatchExhaustivenessEvaluator
                 literalCoverage?.Remove(candidate);
             }
         }
+    }
+
+    private static bool NullableNullCovered(
+        ITypeSymbol nullableScrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        MatchExhaustivenessOptions options)
+    {
+        foreach (var arm in arms)
+        {
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(nullableScrutineeType, arm.Pattern))
+                continue;
+
+            if (PatternCoversNull(nullableScrutineeType, arm.Pattern))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool PatternCoversNull(ITypeSymbol scrutineeType, BoundPattern pattern)
+    {
+        if (IsCatchAllPattern(scrutineeType, pattern))
+            return true;
+
+        if (IsNullPattern(pattern))
+            return true;
+
+        return pattern is BoundOrPattern orPattern &&
+               (PatternCoversNull(scrutineeType, orPattern.Left) ||
+                PatternCoversNull(scrutineeType, orPattern.Right));
+    }
+
+    private static bool IsNullPattern(BoundPattern pattern)
+    {
+        if (pattern is BoundConstantPattern { Expression: null, ConstantValue: null })
+            return true;
+
+        return pattern is BoundConstantPattern { Expression: { } expression } &&
+               IsNullLiteralPatternExpression(expression);
     }
 
     private void RemoveUnionMemberPatternCoverage(

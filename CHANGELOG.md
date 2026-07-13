@@ -55,6 +55,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Returning a struct-union value that may still be the inactive `default`
   carrier now reports `RAV0406` at the return boundary, preserving the same
   active-value contract for callers.
+- Fixed matching over nullable union carriers (`U?`) so union case patterns are
+  checked against the underlying union while `null` is treated as a separate
+  nullable-wrapper case for exhaustiveness. This applies to both `union struct`
+  and `union class` carriers and does not make `null` a union pseudo-case.
 - Added `SemanticModel.GetMatchExhaustiveness(MatchStatementSyntax)` so tooling
   can query the same exhaustiveness information for match statements that it
   already can for keyword-first and postfix match expressions.

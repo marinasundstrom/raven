@@ -4708,8 +4708,9 @@ partial class BlockBinder : Binder
                 }
             case BoundCasePattern casePattern:
                 {
-                    var scrutineeUnion = scrutineeType.TryGetUnion()
-                        ?? scrutineeType.TryGetUnionCase()?.Union;
+                    var scrutineePatternType = scrutineeType.GetPlainType();
+                    var scrutineeUnion = scrutineePatternType.TryGetUnion()
+                        ?? scrutineePatternType.TryGetUnionCase()?.Union;
 
                     var caseUnion = UnwrapAlias(casePattern.CaseSymbol.Union);
 
@@ -5001,6 +5002,13 @@ partial class BlockBinder : Binder
 
         if (patternType is NullTypeSymbol)
             return CanBeNull(scrutineeType);
+
+        var nonNullableScrutineeType = scrutineeType.GetPlainType();
+        if (!SymbolEqualityComparer.Default.Equals(nonNullableScrutineeType, scrutineeType) &&
+            PatternCanMatch(nonNullableScrutineeType, patternType))
+        {
+            return true;
+        }
 
         if (scrutineeType is ITypeUnionSymbol scrutineeUnion)
         {
@@ -5366,6 +5374,25 @@ partial class BlockBinder : Binder
             return;
         }
 
+        var nullableUnderlyingType = scrutineeType.GetPlainType();
+        if (!SymbolEqualityComparer.Default.Equals(nullableUnderlyingType, scrutineeType))
+        {
+            var nullableUnderlyingUnion = nullableUnderlyingType.TryGetUnion()
+                ?? nullableUnderlyingType.TryGetUnionCase()?.Union;
+
+            if (nullableUnderlyingUnion is not null)
+            {
+                EnsureNullableUnionMatchExhaustive(
+                    matchSyntax,
+                    armSyntaxes,
+                    arms,
+                    nullableScrutineeType: scrutineeType,
+                    nullableUnderlyingUnion,
+                    catchAllIndex);
+                return;
+            }
+        }
+
         var discriminatedUnion = scrutineeType.TryGetUnion()
             ?? scrutineeType.TryGetUnionCase()?.Union;
 
@@ -5555,6 +5582,158 @@ partial class BlockBinder : Binder
         }
     }
 
+    private void EnsureNullableUnionMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        ITypeSymbol nullableScrutineeType,
+        IUnionSymbol union,
+        int catchAllIndex)
+    {
+        if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
+        {
+            EnsureNullableParenthesizedUnionMatchExhaustive(matchSyntax, armSyntaxes, arms, union, catchAllIndex);
+            return;
+        }
+
+        var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var nullRemaining = true;
+
+        HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
+        bool? guaranteedNullRemaining = null;
+        if (catchAllIndex >= 0)
+        {
+            guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+            guaranteedNullRemaining = nullRemaining;
+        }
+
+        var reportedRedundantCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+            {
+                RemoveCoveredCases(guaranteedRemaining, arm.Pattern, union);
+                guaranteedNullRemaining &= !PatternCoversNull(nullableScrutineeType, arm.Pattern);
+            }
+
+            if (guardGuaranteesMatch)
+            {
+                RemoveCoveredCases(remaining, arm.Pattern, union);
+                nullRemaining &= !PatternCoversNull(nullableScrutineeType, arm.Pattern);
+            }
+
+            if (remaining.Count == 0 && !nullRemaining)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedNullRemaining))
+                {
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                    reportedRedundantCatchAll = true;
+                }
+
+                return;
+            }
+
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining, guaranteedNullRemaining))
+            {
+                ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                reportedRedundantCatchAll = true;
+            }
+        }
+
+        if (catchAllIndex >= 0)
+            return;
+
+        var missingCase = remaining.FirstOrDefault();
+        if (missingCase is not null)
+        {
+            ReportMatchNotExhaustive(matchSyntax, MatchCaseDisplay.ForDiscriminatedUnionCase(missingCase));
+            return;
+        }
+
+        if (nullRemaining)
+            ReportMatchNotExhaustive(matchSyntax, "null");
+    }
+
+    private void EnsureNullableParenthesizedUnionMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        IUnionSymbol union,
+        int catchAllIndex)
+    {
+        var memberTypes = UnionContentNullability.GetPatternDomainTypes(union, Compilation.NullTypeSymbol);
+        if (!memberTypes.Any(static type => UnwrapAlias(type).TypeKind == TypeKind.Null))
+            memberTypes = memberTypes.Add(Compilation.NullTypeSymbol);
+
+        var remaining = new HashSet<ITypeSymbol>(memberTypes, TypeSymbolReferenceComparer.Instance);
+        var literalCoverage = CreateLiteralCoverage(remaining);
+
+        HashSet<ITypeSymbol>? guaranteedRemaining = null;
+        Dictionary<ITypeSymbol, HashSet<object?>>? guaranteedLiteralCoverage = null;
+        if (catchAllIndex >= 0)
+        {
+            guaranteedRemaining = new HashSet<ITypeSymbol>(remaining, TypeSymbolReferenceComparer.Instance);
+            guaranteedLiteralCoverage = CloneLiteralCoverage(literalCoverage);
+        }
+
+        var reportedRedundantCatchAll = false;
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            var guardGuaranteesMatch = BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard);
+
+            if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
+                RemoveCoveredUnionMembers(guaranteedRemaining, arm.Pattern, guaranteedLiteralCoverage);
+
+            if (guardGuaranteesMatch)
+                RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
+
+            if (remaining.Count == 0)
+            {
+                if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+                {
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                    reportedRedundantCatchAll = true;
+                }
+
+                return;
+            }
+
+            if (!reportedRedundantCatchAll && ShouldReportRedundantCatchAll(i, catchAllIndex, guaranteedRemaining))
+            {
+                ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+                reportedRedundantCatchAll = true;
+            }
+        }
+
+        if (literalCoverage is not null && literalCoverage.Count > 0)
+        {
+            foreach (var (type, constants) in literalCoverage)
+            {
+                if (remaining.Contains(type))
+                {
+                    ReportMissingLiteralCoverage(matchSyntax, type, constants);
+                    return;
+                }
+            }
+        }
+
+        if (catchAllIndex >= 0)
+            return;
+
+        foreach (var missing in remaining
+            .Select(member => member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .OrderBy(name => name, StringComparer.Ordinal))
+        {
+            ReportMatchNotExhaustive(matchSyntax, missing);
+        }
+    }
+
     private int GetCatchAllArmIndex(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
     {
         for (var i = 0; i < arms.Length; i++)
@@ -5569,6 +5748,52 @@ partial class BlockBinder : Binder
         }
 
         return -1;
+    }
+
+    private bool PatternCoversNull(ITypeSymbol scrutineeType, BoundPattern pattern)
+    {
+        if (IsCatchAllPattern(scrutineeType, pattern))
+            return true;
+
+        if (IsNullConstantPattern(pattern))
+            return true;
+
+        return pattern is BoundOrPattern orPattern &&
+               (PatternCoversNull(scrutineeType, orPattern.Left) ||
+                PatternCoversNull(scrutineeType, orPattern.Right));
+    }
+
+    private static bool IsNullConstantPattern(BoundPattern pattern)
+    {
+        // Preferred/normalized form: literal-backed null constant pattern
+        if (pattern is BoundConstantPattern { Expression: null, ConstantValue: null })
+            return true;
+
+        // Expression-backed null literals are also exhaustive for null.
+        if (pattern is BoundConstantPattern
+            {
+                Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
+            })
+        {
+            return true;
+        }
+
+        if (pattern is BoundConstantPattern
+            {
+                Expression: BoundConversionExpression
+                {
+                    Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
+                }
+            })
+        {
+            return true;
+        }
+
+        // Defensive: treat expression-backed `NullType` as null too.
+        if (pattern is BoundConstantPattern { Expression: BoundTypeExpression { Type: NullTypeSymbol } })
+            return true;
+
+        return false;
     }
 
     private void ReportRedundantCatchAll(SyntaxList<MatchArmSyntax> armSyntaxes, int catchAllIndex)
