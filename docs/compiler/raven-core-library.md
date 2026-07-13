@@ -190,9 +190,13 @@ compiler work should focus on:
 - Exhaustiveness: keep fallback lowering covered as new match forms are added,
   including the planned prefix-standard and trailing/postfix match expression
   split.
-- Boundary analysis: extend assignment/active-state analysis for more call
-  shapes, including generic helper returns, delegate calls, and nested member
-  projections, while keeping diagnostics at the call or return boundary.
+- Boundary analysis: keep expanding assignment/active-state analysis only where
+  new language constructs create genuinely new boundaries. The current
+  contract covers ordinary calls, generic method calls, extension receivers,
+  delegate invocation, params elements, constructors, async/lambda returns, and
+  field/property forwarding; future work should focus on richer control-flow
+  joins, nested projections, and interop/imported-union cases while keeping
+  diagnostics at the call or return boundary.
 - JSON deserialization policy: decide whether JSON `null` should deserialize to
   active `None`/fallback `Error`, remain a serializer-only representation for
   inactive carriers, or become configurable per converter.
