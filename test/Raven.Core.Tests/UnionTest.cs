@@ -18,6 +18,23 @@ public sealed class UnionTest : RavenCoreDiagnosticTestBase
     }
 
     [Fact]
+    public void JsonSerializer_SerializesAndDeserializes_DefaultCarrierAsJsonNull()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var unionType = GetConstructedType(asm, "System.Union`2", typeof(string), typeof(int));
+        var defaultUnion = Activator.CreateInstance(unionType)!;
+
+        var json = JsonSerializer.Serialize(defaultUnion, unionType);
+
+        Assert.Equal("null", json);
+
+        var parsed = JsonSerializer.Deserialize("null", unionType)!;
+
+        Assert.Equal(false, unionType.GetProperty("HasValue")!.GetValue(parsed));
+        Assert.Null(unionType.GetProperty("Value")!.GetValue(parsed));
+    }
+
+    [Fact]
     public void JsonSerializer_SerializesAndDeserializes_FirstMemberType()
     {
         var asm = LoadRavenCoreAssembly();

@@ -54,6 +54,47 @@ Console.WriteLine(ping("alice"))
         Assert.Equal("1\n0", output);
     }
 
+    [Fact]
+    public void MatchStatement_SourceExhaustiveUnion_ThrowsWhenForcedDefaultCarrierDoesNotMatch()
+    {
+        const string code = """
+class Program {
+    public static func Touch(value: State) -> unit {
+        match value {
+            .On => ()
+            .Off => ()
+        }
+    }
+}
+
+union State {
+    case On
+    case Off
+}
+""";
+
+        var syntaxTree = RavenSyntaxTree.ParseText(code);
+
+        var compilation = Compilation.Create("match_statement_union_default_fallback", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(RuntimeMetadataReferences);
+
+        compilation.EnsureSetup();
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        var assembly = Assembly.Load(peStream.ToArray());
+        var programType = assembly.GetType("Program", throwOnError: true)!;
+        var stateType = assembly.GetType("State", throwOnError: true)!;
+        var touch = programType.GetMethod("Touch", BindingFlags.Public | BindingFlags.Static)!;
+        var defaultState = Activator.CreateInstance(stateType);
+
+        var exception = Assert.Throws<TargetInvocationException>(() => touch.Invoke(null, [defaultState]));
+        Assert.IsType<InvalidOperationException>(exception.InnerException);
+    }
+
     private static string EmitAndRun(string code, string assemblyName)
     {
         var syntaxTree = RavenSyntaxTree.ParseText(code);
