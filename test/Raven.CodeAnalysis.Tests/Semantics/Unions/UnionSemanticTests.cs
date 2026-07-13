@@ -2324,6 +2324,149 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionArgument_GenericMethodDefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume<T>(result: Result<T>) {
+}
+
+func run() {
+    val result: Result<int> = default
+    consume(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_ExtensionReceiverDefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+extension ResultExtensions<T> for Result<T> {
+    func Touch() -> unit {
+    }
+}
+
+func run() {
+    val result: Result<int> = default
+    result.Touch()
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_DelegateInvocationDefaultLocalReportsInactiveDefaultState()
+    {
+        const string source = """
+func run() {
+    val sink: Result<int> -> unit = value => ()
+    val result: Result<int> = default
+    sink(result)
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_FieldAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+class Holder {
+    val current: Result<int> = .Ok(1)
+
+    func run() {
+        consume(self.current)
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructUnionArgument_PropertyAccessReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int>) {
+}
+
+class Holder {
+    val Current: Result<int> {
+        get {
+            .Ok(1)
+        }
+    }
+
+    func run() {
+        consume(self.Current)
+    }
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StructUnionReturn_DefaultLiteralReportsInactiveDefaultState()
     {
         const string source = """
