@@ -5253,7 +5253,8 @@ Union invariants:
 * Passing a `union struct` value to a `union struct` parameter requires the
   argument to be known active at the call site. A value that flow analysis knows
   may still be the inactive/default carrier is rejected before entering the
-  callee.
+  callee. Omitting an optional argument whose default value is the carrier
+  default is also rejected at the call site.
 * Returning a `union struct` value from a function or property requires the
   value to be known active at the return boundary. A value that flow analysis
   knows may still be the inactive/default carrier is rejected before it leaves

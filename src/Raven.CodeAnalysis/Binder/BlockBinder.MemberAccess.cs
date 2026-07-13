@@ -172,6 +172,7 @@ partial class BlockBinder
                             boundArguments,
                             preparation.ExtensionReceiver,
                             preparation.ReceiverSyntax,
+                            syntax,
                             out var convertedExtensionReceiver);
                         _binder.ReportObsoleteIfNeeded(selected, syntax.Expression.GetLocation());
                         return CompleteSuccessfulInvocation(
@@ -203,6 +204,7 @@ partial class BlockBinder
                     boundArguments,
                     preparation.ExtensionReceiver,
                     preparation.ReceiverSyntax,
+                    syntax,
                     out var convertedExtensionReceiver);
                 _binder.ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
                 return CompleteSuccessfulInvocation(
@@ -4520,6 +4522,7 @@ partial class BlockBinder
             chosen,
             boundArguments,
             extensionReceiver,
+            receiverSyntax,
             receiverSyntax,
             out var convertedExtensionReceiver);
 

@@ -120,7 +120,9 @@ Behavior note: `RAV0405` and `RAV0406` protect struct-union call and return
 boundaries. A struct-union value must be known active before it is passed to a
 struct-union parameter or returned from a member. Values that may still be the
 zero-initialized carrier state, such as `default(U)` or a parameter forwarded
-unchanged, are rejected at the boundary.
+unchanged, are rejected at the boundary. Omitting an optional struct-union
+argument whose default is the carrier default is treated the same way at the
+call site.
 | `RAV0410` | Error | Enum underlying type list must be a single type | Enum declarations may specify only one underlying type | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0411` | Error | Enum underlying type must be integral | Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0412` | Error | Enum member value must be constant | Enum member '{name}' must be initialized with a constant expression | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |

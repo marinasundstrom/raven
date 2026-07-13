@@ -2229,6 +2229,32 @@ union struct Result<T> {
     }
 
     [Fact]
+    public void StructUnionArgument_OmittedDefaultOptionalReportsInactiveDefaultState()
+    {
+        const string source = """
+func consume(result: Result<int> = default) {
+}
+
+func run() {
+    consume()
+}
+
+union struct Result<T> {
+    case Ok(value: T)
+    case Error(message: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(static d => d.Descriptor == CompilerDiagnostics.StructUnionArgumentMayBeDefault));
+        Assert.Contains("result", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Result<int>", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StructUnionArgument_InstanceMethodDefaultLiteralReportsInactiveDefaultState()
     {
         const string source = """

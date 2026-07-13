@@ -2499,6 +2499,7 @@ extension OptionExtensionsNested<T> for Option<Option<T>> {
         return match self {
             .Some(val inner) => inner
             .None => .None
+            _ => .None
         }
     }
 }
@@ -2548,6 +2549,7 @@ extension OptionExtensions<T> for Option<T> {
         return match self {
             .Some(val value) => .Some(mapper(value))
             .None => .None
+            _ => .None
         }
     }
 }
@@ -2557,6 +2559,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
         return match self {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
+            _ => .Error(default)
         }
     }
 }
@@ -2607,6 +2610,7 @@ extension OptionExtensions<T> for Option<T> {
         return match self {
             .Some(val value) => .Some(mapper(value))
             .None => .None
+            _ => .None
         }
     }
 }
@@ -2616,6 +2620,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
         return match self {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
+            _ => .Error(default)
         }
     }
 }
@@ -2664,6 +2669,7 @@ extension OptionExtensions<T> for Option<T> {
         return match self {
             .Some(val value) => .Some(mapper(value))
             .None => .None
+            _ => .None
         }
     }
 }
@@ -2673,6 +2679,7 @@ extension ResultExtensions<T, E> for Result<T, E> {
         return match self {
             .Ok(val value) => .Ok(mapper(value))
             .Error(val error) => .Error(error)
+            _ => .Error(default)
         }
     }
 }

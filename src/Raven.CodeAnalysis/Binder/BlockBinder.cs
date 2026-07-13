@@ -9536,6 +9536,7 @@ partial class BlockBinder : Binder
                     boundArguments,
                     pipelineValue,
                     pipelineSyntax,
+                    callSyntax,
                     out var convertedExtensionReceiver);
                 return new BoundInvocationExpression(method, converted, methodGroup.Receiver, convertedExtensionReceiver);
             }
@@ -9606,6 +9607,7 @@ partial class BlockBinder : Binder
                 boundArguments,
                 pipelineValue,
                 pipelineSyntax,
+                callSyntax,
                 out var convertedExtensionReceiver);
             return new BoundInvocationExpression(method, converted, memberExpr.Receiver, convertedExtensionReceiver);
         }
@@ -9682,10 +9684,10 @@ partial class BlockBinder : Binder
         if (parameters.Length == 1)
             return converted;
 
-        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments);
+        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments, callSyntax);
         Array.Copy(rest, 0, converted, 1, rest.Length);
         for (int i = 1 + rest.Length; i < converted.Length; i++)
-            converted[i] = CreateOptionalArgument(parameters[i]);
+            converted[i] = CreateOptionalArgument(parameters[i], callSyntax);
 
         return converted;
     }
@@ -9876,7 +9878,7 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        var converted = ConvertArguments(method.Parameters, arguments);
+        var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
         return new BoundInvocationExpression(method, converted);
     }
 
@@ -9951,7 +9953,7 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        var convertedArguments = ConvertArguments(method.Parameters, liftedArguments);
+        var convertedArguments = ConvertArguments(method.Parameters, liftedArguments, callSyntax);
         var invocation = (BoundExpression)new BoundInvocationExpression(method, convertedArguments);
         var isInequality = opKind == SyntaxKind.NotEqualsToken;
 
@@ -10055,7 +10057,7 @@ partial class BlockBinder : Binder
 
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
-        var converted = ConvertArguments(method.Parameters, arguments);
+        var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
         return new BoundInvocationExpression(method, converted);
     }
 
@@ -10160,7 +10162,7 @@ partial class BlockBinder : Binder
 
                     if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
                     {
-                        var convertedArgs = ConvertArguments(method.Parameters, argExprs);
+                        var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax);
                         ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
                         return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                     }
@@ -10242,7 +10244,7 @@ partial class BlockBinder : Binder
 
                     if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
                     {
-                        var convertedArgs = ConvertArguments(method.Parameters, argExprs);
+                        var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax);
                         ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
                         return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                     }
@@ -10895,7 +10897,7 @@ partial class BlockBinder : Binder
                     return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);
                 }
 
-                var converted = ConvertArguments(invokeMethod.Parameters, boundArguments);
+                var converted = ConvertArguments(invokeMethod.Parameters, boundArguments, callSyntax);
                 ReportObsoleteIfNeeded(invokeMethod, callSyntax.GetLocation());
                 return new BoundInvocationExpression(invokeMethod, converted, receiver);
             }
@@ -10926,7 +10928,7 @@ partial class BlockBinder : Binder
                 {
                     var method = resolution.Method!;
                     ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                     return new BoundInvocationExpression(method, convertedArgs, methodGroupReceiver);
                 }
 
@@ -10999,7 +11001,7 @@ partial class BlockBinder : Binder
                 {
                     var method = resolution.Method!;
                     ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                    var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                     return new BoundInvocationExpression(method, convertedArgs, receiver);
                 }
 
@@ -11095,7 +11097,7 @@ partial class BlockBinder : Binder
             {
                 var method = resolution.Method!;
                 ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArgs, receiver);
             }
 
@@ -11139,7 +11141,7 @@ partial class BlockBinder : Binder
             {
                 var method = resolution.Method!;
                 ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
-                var convertedArgs = ConvertArguments(method.Parameters, boundArguments);
+                var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArgs, null);
             }
 
@@ -13029,7 +13031,10 @@ partial class BlockBinder : Binder
             BoundExpressionReason.OverloadResolutionFailed);
     }
 
-    protected BoundExpression[] ConvertArguments(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<BoundArgument> arguments)
+    protected BoundExpression[] ConvertArguments(
+        ImmutableArray<IParameterSymbol> parameters,
+        IReadOnlyList<BoundArgument> arguments,
+        SyntaxNode? callSyntax = null)
     {
         var converted = new BoundExpression[parameters.Length];
         BoundArgument[] paramsArguments = Array.Empty<BoundArgument>();
@@ -13158,7 +13163,7 @@ partial class BlockBinder : Binder
 
             if (argument is null)
             {
-                converted[i] = CreateOptionalArgument(parameter);
+                converted[i] = CreateOptionalArgument(parameter, callSyntax);
                 continue;
             }
 
@@ -13364,7 +13369,12 @@ partial class BlockBinder : Binder
         var value = parameter.ExplicitDefaultValue;
 
         if (value is null)
+        {
+            if (parameterType.TryGetUnion() is { TypeKind: TypeKind.Struct })
+                return new BoundDefaultValueExpression(parameterType);
+
             return BoundFactory.NullLiteral(parameterType);
+        }
 
         if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true }
             && parameterType.IsValueType
@@ -13394,6 +13404,16 @@ partial class BlockBinder : Binder
         }
 
         return ApplyConversion(literal, parameterType, conversion);
+    }
+
+    protected BoundExpression CreateOptionalArgument(IParameterSymbol parameter, SyntaxNode? callSyntax)
+    {
+        var expression = CreateOptionalArgument(parameter);
+
+        if (ReportStructUnionArgumentMayBeDefault(parameter, parameter.Type, expression, callSyntax))
+            return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
+
+        return expression;
     }
 
     private void ReportOptionalParameterDefaultValueCannotConvert(IParameterSymbol parameter, ITypeSymbol parameterType)
@@ -13497,6 +13517,7 @@ partial class BlockBinder : Binder
         BoundArgument[] invocationArguments,
         BoundExpression? extensionReceiver,
         SyntaxNode receiverSyntax,
+        SyntaxNode callSyntax,
         out BoundExpression? convertedExtensionReceiver)
     {
         convertedExtensionReceiver = null;
@@ -13512,10 +13533,10 @@ partial class BlockBinder : Binder
             if (parameters.Length == 1)
                 return Array.Empty<BoundExpression>();
 
-            return ConvertArguments(parameters.RemoveAt(0), invocationArguments);
+            return ConvertArguments(parameters.RemoveAt(0), invocationArguments, callSyntax);
         }
 
-        return ConvertArguments(method.Parameters, invocationArguments);
+        return ConvertArguments(method.Parameters, invocationArguments, callSyntax);
     }
 
     private BoundExpression ConvertSingleArgument(BoundExpression argument, IParameterSymbol parameter, SyntaxNode syntax)
@@ -14546,7 +14567,7 @@ partial class BlockBinder : Binder
         if (method is null)
             return false;
 
-        var convertedArguments = ConvertArguments(method.Parameters, arguments);
+        var convertedArguments = ConvertArguments(method.Parameters, arguments, syntax);
 
         BoundExpression invocation = new BoundInvocationExpression(method, convertedArguments);
         if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, namedTarget))

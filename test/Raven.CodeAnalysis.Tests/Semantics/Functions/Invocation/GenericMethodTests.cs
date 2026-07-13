@@ -180,7 +180,7 @@ public sealed class GenericMethodTests : CompilationTestBase
     public void ImplementedGenericInterface_ConstraintFailure_ReportsDiagnostic()
     {
         var source = """
-            union Response<T> {
+            union class Response<T> {
                 case Success(value: T)
                 case Failure(message: string)
             }

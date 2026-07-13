@@ -50,7 +50,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   the requirement and branch assignments to `default` preserve it. Passing a
   struct-union value that may still be the inactive `default` carrier to a
   struct-union parameter now reports `RAV0405` at the call site, so callee
-  parameters can keep their active-value contract.
+  parameters can keep their active-value contract. Omitted optional
+  struct-union arguments whose default is the inactive carrier now report the
+  same diagnostic.
 - Returning a struct-union value that may still be the inactive `default`
   carrier now reports `RAV0406` at the return boundary, preserving the same
   active-value contract for callers.
