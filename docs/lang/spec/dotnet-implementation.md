@@ -163,6 +163,36 @@ These members allow C# callers to work with Raven unions without
 needing reflection, while Raven still relies on the synthesized metadata
 attributes to preserve the union semantics for other tools.
 
+## Struct union default state
+
+Raven source `union` declarations emit struct carriers by default, matching the
+C# union direction. Like any value type, a struct union can be zero-initialized
+with `default(U)` before any union constructor has populated it. In that
+inactive carrier state, `Value` is `null`, `HasValue` is `false`, and no case is
+active.
+
+The inactive carrier state is a runtime representation state, not a declared
+union case. Raven therefore keeps it separate from the source case set:
+
+* A local value initialized from a union case is known active, so matching it is
+  exhaustive when every declared case/member is covered. A catch-all arm after
+  all cases is redundant.
+* A local initialized with `default`, or a local that may flow from `default`,
+  requires a catch-all/default-state arm when matched.
+* Function parameters, `self`, fields, and properties are treated as boundary
+  values that may be inactive/default. Matching those values requires a
+  catch-all/default-state arm unless local flow has copied or reconstructed an
+  active value.
+* Passing a possibly inactive struct-union value to a struct-union parameter is
+  rejected at the call site with `RAV0405`.
+* Returning a possibly inactive struct-union value is rejected at the return
+  boundary with `RAV0406`.
+
+`union class` carriers do not have an extra zero-initialized carrier state. A
+class union value exists only after construction or conversion through one of
+its union cases or constructors, subject to normal nullable-reference rules for
+the carrier reference itself.
+
 ## Generic variance
 
 The Raven compiler surfaces the CLR's variance metadata directly. When importing

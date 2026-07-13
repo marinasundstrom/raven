@@ -5243,10 +5243,13 @@ Union invariants:
   exhaustiveness checks the declared case set, then separately checks whether
   flow analysis knows the matched value may be the inactive/default carrier.
   When that inactive state is required, an ordinary catch-all arm covers it.
-* Function parameters of `union struct` type are treated according to their
-  declared non-null union contract. Matching a parameter does not require
-  inactive/default-state coverage solely because a caller could pass
-  `default(U)`.
+* Function parameters, `self`, fields, and properties of `union struct` type are
+  treated as boundary values that may be the inactive/default carrier unless
+  narrowed by local flow. Matching one of these values requires
+  inactive/default-state coverage.
+* Local values initialized from a union case or assigned an active union value
+  are known active. Matching such a local requires only the declared case set;
+  a catch-all arm after all cases is redundant.
 * Passing a `union struct` value to a `union struct` parameter requires the
   argument to be known active at the call site. A value that flow analysis knows
   may still be the inactive/default carrier is rejected before entering the

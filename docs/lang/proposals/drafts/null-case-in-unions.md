@@ -4,19 +4,20 @@
 
 ## Summary
 
-Allow `null` to participate in parenthesized Raven union declarations, building
-on the .NET 11-compatible union model described in
-[Align Raven Unions with .NET 11](dotnet-11-union-alignment.md).
+This draft records a possible future extension for allowing `null` to
+participate in parenthesized Raven union declarations. It is intentionally
+deferred while Raven aligns its union ABI and flow rules with the C#/.NET union
+direction described in [Align Raven Unions with .NET 11](dotnet-11-union-alignment.md).
 
-The implemented source spelling:
+The possible future source spelling:
 
 ```raven
 union Value(string | Expression<() -> object> | null)
 ```
 
-means a union carrier whose active contents may be `null`. The implementation
-treats `null` as union content nullability metadata, not as a generated nominal
-case type or a generally valid type name.
+would mean a union carrier whose active contents may be `null`. Raven does not
+currently treat `null` as a union member type or pseudo-type. Current Raven code
+uses nullable member annotations such as `T?` to model nullable active contents.
 
 ## Dependency
 
@@ -30,7 +31,8 @@ support relies on the same core distinctions:
 * pattern matching over unwrapped union contents.
 
 Implementing null support before the compatibility model is settled risks
-encoding the wrong distinction between nullable carriers and nullable contents.
+encoding the wrong distinction between nullable carriers, nullable contents, and
+the inactive/default state of struct union carriers.
 
 ## Motivation
 
@@ -110,7 +112,7 @@ failed conversion, or default carrier.
 * Do not define the .NET 11 union compatibility surface here; that belongs to
   the alignment proposal.
 
-## Proposed design
+## Deferred design
 
 ### 1. Deferred: null in standard union type syntax
 
@@ -155,9 +157,10 @@ These declarations define a carrier whose active contents may be null. `null`
 does not introduce an addressable case type, constructor, or `TryGetValue(out
 Null)` member.
 
-Current implementation scope: the `null` spelling is accepted as syntactic
-sugar only in parenthesized union declaration member lists. It marks the union's
-contents as maybe-null and is not a generally valid Raven type annotation.
+Deferred implementation scope: if Raven later accepts the `null` spelling, it
+should be syntactic sugar only in parenthesized union declaration member lists.
+It should mark the union's contents as maybe-null and should not become a
+generally valid Raven type annotation.
 
 The Raven source-domain model preserves the non-null member cases and records
 that the union's contents are nullable:

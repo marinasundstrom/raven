@@ -46,6 +46,14 @@ the active case object (`Some<T>` or `None`) when initialized. The carrier
 itself is the stable runtime type; `Value` is the authoritative active-case
 projection.
 
+Because `Option<T>` is a struct union, `default(Option<T>)` is an inactive
+carrier state rather than `None`. Raven code that receives an `Option<T>`
+through a parameter, `self`, field, or property must treat that boundary value
+as possibly inactive until local flow proves it active. Match expressions over
+those boundary values should include a catch-all/default-state arm when the
+inactive carrier must be handled. Locals initialized from `Some(...)` or `None`
+are known active and do not need that extra arm.
+
 `Option<T>` extension helpers:
 
 - State checks: `HasSome`, `HasNone`
@@ -76,6 +84,13 @@ The carrier also exposes `HasValue: bool`, where constructed values report
 
 For constructed `Result<T, E>` values, `Value` points at either the active
 `Ok<T>` or `Error<E>` case object.
+
+Because `Result<T, E>` is a struct union, `default(Result<T, E>)` is an inactive
+carrier state rather than an `Error`. Raven.Core combinators that receive
+`self` defensively handle that inactive state by returning an active fallback
+carrier or throwing from `Match`, rather than returning the raw default carrier.
+Code that forwards a `Result<T, E>` across a call or return boundary must pass
+or return a value that flow analysis knows is active.
 
 `Result<T, E>` extension helpers:
 

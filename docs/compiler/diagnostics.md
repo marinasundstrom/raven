@@ -115,6 +115,12 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0404` | Error | Conditional access requires nullable receiver | Conditional access requires a nullable receiver; '{receiverType}' is not nullable | — |
 | `RAV0405` | Error | Struct union argument may be default | Struct union argument for parameter '{parameterName}' of type '{unionType}' may be the inactive default state | — |
 | `RAV0406` | Error | Struct union return value may be default | Struct union return value of type '{unionType}' may be the inactive default state | — |
+
+Behavior note: `RAV0405` and `RAV0406` protect struct-union call and return
+boundaries. A struct-union value must be known active before it is passed to a
+struct-union parameter or returned from a member. Values that may still be the
+zero-initialized carrier state, such as `default(U)` or a parameter forwarded
+unchanged, are rejected at the boundary.
 | `RAV0410` | Error | Enum underlying type list must be a single type | Enum declarations may specify only one underlying type | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0411` | Error | Enum underlying type must be integral | Enum underlying type must be a non-nullable integral type; '{typeName}' is not valid | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
 | `RAV0412` | Error | Enum member value must be constant | Enum member '{name}' must be initialized with a constant expression | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |
@@ -242,6 +248,13 @@ Behavior note: Raven also uses `RAV1602` for named deconstruction elements such 
 | `RAV2110` | Warning | Match arm pattern does not fully cover subtype/case | Pattern for '{typeName}' does not cover all values. Add broader sub-patterns or a catch-all arm. | `samples/oop/sealed-record-hierarchy-json-basic.rav`, `samples/unions/union-basic.rav` |
 | `RAV2111` | Error | Union member name is reserved | Union '{unionName}' reserves the member name '{memberName}' for synthesized members. | — |
 | `RAV2112` | Error | Union special member not supported | Union '{unionName}' does not support authored member '{memberName}'. | — |
+
+Behavior note: for struct unions, `RAV2100` considers both the declared union
+case set and the inactive/default carrier state. Active locals initialized from
+cases can be exhaustive without a catch-all; parameters, `self`, fields,
+properties, and flow-known `default` values require catch-all/default-state
+coverage. `RAV2103` reports a catch-all only when flow proves there is no
+remaining case or inactive/default state to match.
 | `RAV2200` | Error | Lambda parameter type cannot be inferred | Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context | — |
 | `RAV2201` | Error | Method group requires delegate type | Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context | — |
 | `RAV2202` | Error | Method group conversion is ambiguous | Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload | — |
