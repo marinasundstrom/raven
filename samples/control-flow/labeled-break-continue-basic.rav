@@ -1,0 +1,23 @@
+import System.Console.*
+
+// Feature: labeled break and continue for nested loop control.
+var processed = 0
+var skippedRows = 0
+
+outer: for row in 0..<4 {
+    for column in 0..<4 {
+        if row == 1 {
+            skippedRows += 1
+            continue outer
+        }
+
+        if row == 2 && column == 1 {
+            break outer
+        }
+
+        processed += 1
+    }
+}
+
+WriteLine("Processed cells: $processed")
+WriteLine("Skipped rows: $skippedRows")
