@@ -928,6 +928,10 @@
     Title="Continue statement not within loop"
     Message="Continue statements are only valid inside loops" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2606" Identifier="LabelDoesNotIdentifyEnclosingLoop"
+    Title="Label does not identify an enclosing loop"
+    Message="The label '{name}' does not identify an enclosing loop" Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2602" Identifier="RangeForLoopRequiresEnd"
     Title="Range for-loop requires an end value"
     Message="Ranges in for loops must specify an end value" Category="compiler" Severity="Error"

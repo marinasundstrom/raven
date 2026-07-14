@@ -794,9 +794,11 @@ internal static class IteratorLowerer
         private readonly HashSet<string> _hoistedFieldNames = new(StringComparer.Ordinal);
         private readonly Stack<FinallyFrame> _finallyStack = new();
         private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopLabels = new();
+        private readonly Dictionary<ILabelSymbol, (ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
         private readonly Dictionary<int, ImmutableArray<FinallyFrame>> _pendingFinallyStates = new();
         private readonly ITypeSymbol _boolType;
         private readonly ITypeSymbol _unitType;
+        private ImmutableArray<ILabelSymbol> _pendingSourceLoopLabels = ImmutableArray<ILabelSymbol>.Empty;
         private bool _isTopLevelBlock = true;
         private StateEntry _startState;
         private LabelSymbol? _returnLabel;
@@ -1090,14 +1092,13 @@ internal static class IteratorLowerer
             if (node is null)
                 return null;
 
+            var sourceLabels = TakePendingSourceLoopLabels();
             var breakLabel = CreateLabel("while_break");
             var continueLabel = CreateLabel("while_continue");
 
             var condition = (BoundExpression)(VisitExpression(node.Condition) ?? node.Condition);
 
-            _loopLabels.Push((breakLabel, continueLabel));
-            var body = (BoundStatement)VisitStatement(node.Body)!;
-            _loopLabels.Pop();
+            var body = VisitLoopBody(node.Body, breakLabel, continueLabel, sourceLabels);
 
             return new BoundBlockStatement([
                 new BoundLabeledStatement(continueLabel, new BoundBlockStatement([
@@ -1114,12 +1115,11 @@ internal static class IteratorLowerer
             if (node is null)
                 return null;
 
+            var sourceLabels = TakePendingSourceLoopLabels();
             var breakLabel = CreateLabel("loop_break");
             var continueLabel = CreateLabel("loop_continue");
 
-            _loopLabels.Push((breakLabel, continueLabel));
-            var body = (BoundStatement)VisitStatement(node.Body)!;
-            _loopLabels.Pop();
+            var body = VisitLoopBody(node.Body, breakLabel, continueLabel, sourceLabels);
 
             return new BoundBlockStatement([
                 new BoundLabeledStatement(continueLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
@@ -1131,6 +1131,14 @@ internal static class IteratorLowerer
 
         public override BoundNode? VisitBreakStatement(BoundBreakStatement node)
         {
+            if (node.TargetLabel is { } targetLabel)
+            {
+                if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+                    return new BoundGotoStatement(target.BreakLabel);
+
+                return base.VisitBreakStatement(node);
+            }
+
             if (_loopLabels.Count == 0)
                 return base.VisitBreakStatement(node);
 
@@ -1140,11 +1148,45 @@ internal static class IteratorLowerer
 
         public override BoundNode? VisitContinueStatement(BoundContinueStatement node)
         {
+            if (node.TargetLabel is { } targetLabel)
+            {
+                if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+                    return new BoundGotoStatement(target.ContinueLabel, isBackward: true);
+
+                return base.VisitContinueStatement(node);
+            }
+
             if (_loopLabels.Count == 0)
                 return base.VisitContinueStatement(node);
 
             var (_, continueLabel) = _loopLabels.Peek();
             return new BoundGotoStatement(continueLabel, isBackward: true);
+        }
+
+        public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
+        {
+            var labels = new List<ILabelSymbol>();
+            BoundStatement current = node;
+            while (current is BoundLabeledStatement labeled)
+            {
+                labels.Add(labeled.Label);
+                current = labeled.Statement;
+            }
+
+            if (!IsLoopStatement(current))
+                return base.VisitLabeledStatement(node);
+
+            var previousLabels = _pendingSourceLoopLabels;
+            _pendingSourceLoopLabels = previousLabels.AddRange(labels);
+            try
+            {
+                var lowered = (BoundStatement)VisitStatement(current)!;
+                return WrapLabels(labels, lowered);
+            }
+            finally
+            {
+                _pendingSourceLoopLabels = previousLabels;
+            }
         }
 
         public override BoundNode? VisitForStatement(BoundForStatement node)
@@ -1159,6 +1201,52 @@ internal static class IteratorLowerer
                 ForIterationKind.Generic or ForIterationKind.NonGeneric => RewriteEnumeratorForStatement(node),
                 _ => base.VisitForStatement(node),
             };
+        }
+
+        private ImmutableArray<ILabelSymbol> TakePendingSourceLoopLabels()
+        {
+            var labels = _pendingSourceLoopLabels;
+            _pendingSourceLoopLabels = ImmutableArray<ILabelSymbol>.Empty;
+            return labels;
+        }
+
+        private BoundStatement VisitLoopBody(
+            BoundStatement body,
+            ILabelSymbol breakLabel,
+            ILabelSymbol continueLabel,
+            ImmutableArray<ILabelSymbol> sourceLabels)
+        {
+            foreach (var label in sourceLabels)
+                _labeledLoopTargets[label] = (breakLabel, continueLabel);
+
+            _loopLabels.Push((breakLabel, continueLabel));
+            try
+            {
+                return (BoundStatement)VisitStatement(body)!;
+            }
+            finally
+            {
+                _loopLabels.Pop();
+
+                foreach (var label in sourceLabels)
+                    _labeledLoopTargets.Remove(label);
+            }
+        }
+
+        private static bool IsLoopStatement(BoundStatement statement)
+        {
+            while (statement is BoundLabeledStatement labeled)
+                statement = labeled.Statement;
+
+            return statement is BoundWhileStatement or BoundLoopStatement or BoundForStatement;
+        }
+
+        private static BoundStatement WrapLabels(List<ILabelSymbol> labels, BoundStatement statement)
+        {
+            for (var i = labels.Count - 1; i >= 0; i--)
+                statement = new BoundLabeledStatement(labels[i], statement);
+
+            return statement;
         }
 
         private BoundBlockStatement? BuildDisposeBody()
@@ -1338,6 +1426,7 @@ internal static class IteratorLowerer
 
         private BoundBlockStatement RewriteRangeForStatement(BoundForStatement node)
         {
+            var sourceLabels = TakePendingSourceLoopLabels();
             var breakLabel = CreateLabel("for_break");
             var continueLabel = CreateLabel("for_continue");
             var beginLabel = CreateLabel("for_begin");
@@ -1353,9 +1442,7 @@ internal static class IteratorLowerer
             var end = VisitExpression(node.Iteration.RangeEnd!) ?? node.Iteration.RangeEnd!;
             var step = VisitExpression(node.Iteration.RangeStep!) ?? node.Iteration.RangeStep!;
 
-            _loopLabels.Push((breakLabel, continueLabel));
-            var body = (BoundStatement)VisitStatement(node.Body)!;
-            _loopLabels.Pop();
+            var body = VisitLoopBody(node.Body, breakLabel, continueLabel, sourceLabels);
 
             var statements = new List<BoundStatement>
             {
@@ -1415,6 +1502,7 @@ internal static class IteratorLowerer
 
         private BoundBlockStatement RewriteArrayForStatement(BoundForStatement node)
         {
+            var sourceLabels = TakePendingSourceLoopLabels();
             var arrayType = node.Iteration.ArrayType
                 ?? throw new InvalidOperationException("Array for-loop rewrite requires array type.");
 
@@ -1430,9 +1518,7 @@ internal static class IteratorLowerer
                 ?? arrayType.BaseType?.GetMembers("Length").OfType<IPropertySymbol>().FirstOrDefault()
                 ?? throw new InvalidOperationException("Array for-loop rewrite requires Length property.");
 
-            _loopLabels.Push((breakLabel, continueLabel));
-            var body = (BoundStatement)VisitStatement(node.Body)!;
-            _loopLabels.Pop();
+            var body = VisitLoopBody(node.Body, breakLabel, continueLabel, sourceLabels);
 
             var arrayAccess = new BoundArrayAccessExpression(
                 CreateHoistedAccess(collectionLocal),
@@ -1470,6 +1556,7 @@ internal static class IteratorLowerer
 
         private BoundBlockStatement RewriteEnumeratorForStatement(BoundForStatement node)
         {
+            var sourceLabels = TakePendingSourceLoopLabels();
             var getEnumeratorMethod = node.Iteration.GetEnumeratorMethod
                 ?? throw new InvalidOperationException("Enumerator for-loop rewrite requires GetEnumerator.");
             var moveNextMethod = node.Iteration.MoveNextMethod
@@ -1484,9 +1571,7 @@ internal static class IteratorLowerer
             var collection = VisitExpression(node.Collection) ?? node.Collection;
             var enumeratorLocal = CreateHoistedTempLocal("forEnumerator", getEnumeratorMethod.ReturnType);
 
-            _loopLabels.Push((breakLabel, continueLabel));
-            var body = (BoundStatement)VisitStatement(node.Body)!;
-            _loopLabels.Pop();
+            var body = VisitLoopBody(node.Body, breakLabel, continueLabel, sourceLabels);
 
             var currentValue = new BoundInvocationExpression(
                 currentGetter,

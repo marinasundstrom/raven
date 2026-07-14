@@ -14,6 +14,7 @@ class Scope : Generator
     private ILLabel _breakLabel;
     private bool _hasContinueLabel;
     private ILLabel _continueLabel;
+    private readonly Dictionary<ILabelSymbol, (ILLabel BreakLabel, ILLabel ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
     private bool _hasExceptionExitLabel;
     private ILLabel _exceptionExitLabel;
     private bool _isInsideExceptionHandler;
@@ -65,6 +66,11 @@ class Scope : Generator
         _hasContinueLabel = true;
     }
 
+    public void SetLoopTargets(ILabelSymbol label, ILLabel breakLabel, ILLabel continueLabel)
+    {
+        _labeledLoopTargets[label] = (breakLabel, continueLabel);
+    }
+
     public bool TryGetBreakLabel(out ILLabel label)
     {
         if (_hasBreakLabel)
@@ -77,11 +83,35 @@ class Scope : Generator
         return false;
     }
 
+    public bool TryGetBreakLabel(ILabelSymbol targetLabel, out ILLabel label)
+    {
+        if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+        {
+            label = target.BreakLabel;
+            return true;
+        }
+
+        label = default;
+        return false;
+    }
+
     public bool TryGetContinueLabel(out ILLabel label)
     {
         if (_hasContinueLabel)
         {
             label = _continueLabel;
+            return true;
+        }
+
+        label = default;
+        return false;
+    }
+
+    public bool TryGetContinueLabel(ILabelSymbol targetLabel, out ILLabel label)
+    {
+        if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
+        {
+            label = target.ContinueLabel;
             return true;
         }
 

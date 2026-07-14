@@ -268,6 +268,7 @@ inactive/default state to match.
 | `RAV2502` | Error | Reserved word cannot be used as a label | The identifier '{name}' is a reserved word and cannot be used as a label | `samples/control-flow/goto-statement-basic.rav` |
 | `RAV2600` | Error | Break statement not within loop | Break statements are only valid inside loops | — |
 | `RAV2601` | Error | Continue statement not within loop | Continue statements are only valid inside loops | — |
+| `RAV2606` | Error | Label does not identify an enclosing loop | The label '{name}' does not identify an enclosing loop | — |
 | `RAV2602` | Error | Range for-loop requires an end value | Ranges in for loops must specify an end value | — |
 | `RAV2603` | Error | Range for-loop does not support from-end indices | Range boundaries in for loops must count from the start | — |
 | `RAV2604` | Error | Range for-loop step cannot be zero | Range for-loop step cannot be zero | — |

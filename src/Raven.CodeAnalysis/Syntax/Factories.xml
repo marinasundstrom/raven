@@ -99,6 +99,7 @@
   <Factory Node="BreakStatement">
     <Overload>
       <Default Slot="BreakKeyword" Token="BreakKeyword" />
+      <Default Slot="Identifier" Token="None" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>
@@ -106,6 +107,7 @@
   <Factory Node="ContinueStatement">
     <Overload>
       <Default Slot="ContinueKeyword" Token="ContinueKeyword" />
+      <Default Slot="Identifier" Token="None" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>

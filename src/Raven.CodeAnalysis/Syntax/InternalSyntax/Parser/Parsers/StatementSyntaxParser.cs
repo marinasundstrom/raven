@@ -291,19 +291,36 @@ internal class StatementSyntaxParser : SyntaxParser
     private BreakStatementSyntax ParseBreakStatementSyntax()
     {
         var breakKeyword = ReadToken();
+        var identifier = ParseOptionalControlFlowLabel();
 
         var terminatorToken = ConsumeTerminator();
 
-        return BreakStatement(breakKeyword, terminatorToken);
+        return BreakStatement(breakKeyword, identifier, terminatorToken);
     }
 
     private ContinueStatementSyntax ParseContinueStatementSyntax()
     {
         var continueKeyword = ReadToken();
+        var identifier = ParseOptionalControlFlowLabel();
 
         var terminatorToken = ConsumeTerminator();
 
-        return ContinueStatement(continueKeyword, terminatorToken);
+        return ContinueStatement(continueKeyword, identifier, terminatorToken);
+    }
+
+    private SyntaxToken ParseOptionalControlFlowLabel()
+    {
+        if (HasLineBreakBeforePeekToken())
+            return Token(SyntaxKind.None);
+
+        var next = PeekToken();
+        if (CanTokenBeIdentifier(next))
+            return ReadIdentifierToken();
+
+        if (global::Raven.CodeAnalysis.Syntax.SyntaxFacts.IsReservedWordKind(next.Kind))
+            return ReadToken();
+
+        return Token(SyntaxKind.None);
     }
 
     private StatementSyntax ParseYieldStatementSyntax()

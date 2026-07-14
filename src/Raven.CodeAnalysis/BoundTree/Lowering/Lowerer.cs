@@ -14,6 +14,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
     private static int s_lowererInstanceSeed;
     private readonly ISymbol _containingSymbol;
     private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopStack = new();
+    private readonly Dictionary<ILabelSymbol, (ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
     private readonly ILoweringTraceSink? _loweringTrace;
     private readonly int _lowererInstanceId;
     private int _labelCounter;

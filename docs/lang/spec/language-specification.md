@@ -2385,8 +2385,10 @@ than or equal to the end bound. With `..<`, the comparisons are strict (`<` and
 
 `break` immediately exits the innermost loop (`loop`, `while`, or `for`).
 `continue` skips the remainder of the current iteration and jumps to the next
-loop pass. Both keywords are only valid inside loops; using them elsewhere
-produces diagnostics (`RAV2600` for `break`, `RAV2601` for `continue`). They are
+loop pass. `break label` and `continue label` target the enclosing labeled loop
+with that name, allowing nested loops to exit or continue an outer loop directly.
+Both keywords are only valid inside loops; using them elsewhere produces
+diagnostics (`RAV2600` for `break`, `RAV2601` for `continue`). They are
 statements, not expressions, so placing them in an expression context also
 triggers an error.
 
@@ -2401,6 +2403,20 @@ while cond {
     }
 
     work()
+}
+```
+
+A labeled `break` or `continue` must name an enclosing labeled loop. A label on
+an ordinary statement is still a valid `goto` target, but it is not a loop target;
+using it with `break` or `continue` reports `RAV2606`.
+
+```raven
+outer: loop {
+    for value in values {
+        if shouldStop(value) {
+            break outer
+        }
+    }
 }
 ```
 

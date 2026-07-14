@@ -126,10 +126,12 @@ public interface IDefaultValueOperation : IOperation
 
 public interface IBreakOperation : IOperation
 {
+    ILabelSymbol? TargetLabel { get; }
 }
 
 public interface IContinueOperation : IOperation
 {
+    ILabelSymbol? TargetLabel { get; }
 }
 
 public interface IGotoOperation : IOperation

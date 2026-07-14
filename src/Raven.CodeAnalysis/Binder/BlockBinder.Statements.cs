@@ -2304,14 +2304,15 @@ partial class BlockBinder
         }
 
         var name = identifier.ValueText;
-        if (!_labelsByName.TryGetValue(name, out var label))
+        EnsureLabelsDeclaredForLookup(gotoStatement);
+        if (!TryLookupLabel(name, out var label, out var labeledSyntax))
         {
             _diagnostics.ReportLabelNotFound(name, identifier.GetLocation());
             label = CreateLabelSymbol(name, identifier.GetLocation(), gotoStatement.GetReference());
         }
 
         var isBackward = false;
-        if (_syntaxByLabel.TryGetValue(label, out var labeledSyntax))
+        if (labeledSyntax is not null)
         {
             isBackward = labeledSyntax.Span.Start < gotoStatement.Span.Start;
             if (DoesGotoExitUseScope(gotoStatement, labeledSyntax))
@@ -2365,17 +2366,18 @@ partial class BlockBinder
     private BoundStatement BindBreakStatement(BreakStatementSyntax breakStatement)
     {
         var location = breakStatement.BreakKeyword.GetLocation();
+        var targetLabel = BindControlFlowLabel(breakStatement.Identifier, breakStatement);
 
         if (_expressionContextDepth > 0)
         {
             _diagnostics.ReportBreakStatementInExpression(location);
         }
-        else if (_loopDepth == 0)
+        else if (IsMissingControlFlowLabel(breakStatement.Identifier) && _loopDepth == 0)
         {
             _diagnostics.ReportBreakStatementNotWithinLoop(location);
         }
 
-        var bound = new BoundBreakStatement();
+        var bound = new BoundBreakStatement(targetLabel);
         CacheBoundNode(breakStatement, bound);
         return bound;
     }
@@ -2383,19 +2385,119 @@ partial class BlockBinder
     private BoundStatement BindContinueStatement(ContinueStatementSyntax continueStatement)
     {
         var location = continueStatement.ContinueKeyword.GetLocation();
+        var targetLabel = BindControlFlowLabel(continueStatement.Identifier, continueStatement);
 
         if (_expressionContextDepth > 0)
         {
             _diagnostics.ReportContinueStatementInExpression(location);
         }
-        else if (_loopDepth == 0)
+        else if (IsMissingControlFlowLabel(continueStatement.Identifier) && _loopDepth == 0)
         {
             _diagnostics.ReportContinueStatementNotWithinLoop(location);
         }
 
-        var bound = new BoundContinueStatement();
+        var bound = new BoundContinueStatement(targetLabel);
         CacheBoundNode(continueStatement, bound);
         return bound;
+    }
+
+    private ILabelSymbol? BindControlFlowLabel(SyntaxToken identifier, StatementSyntax transferStatement)
+    {
+        if (IsMissingControlFlowLabel(identifier))
+            return null;
+
+        if (SyntaxFacts.IsReservedWordKind(identifier.Kind))
+        {
+            var identifierName = identifier.ValueText;
+            _diagnostics.ReportReservedWordCannotBeLabel(identifierName, identifier.GetLocation());
+            return null;
+        }
+
+        var name = identifier.ValueText;
+        EnsureLabelsDeclaredForLookup(transferStatement);
+        if (!TryLookupLabel(name, out var label, out var labeledSyntax) || labeledSyntax is null)
+        {
+            _diagnostics.ReportLabelNotFound(name, identifier.GetLocation());
+            return null;
+        }
+
+        if (!IsEnclosingLoopLabel(labeledSyntax, transferStatement))
+        {
+            _diagnostics.ReportLabelDoesNotIdentifyEnclosingLoop(name, identifier.GetLocation());
+            return null;
+        }
+
+        return label;
+    }
+
+    private static bool IsMissingControlFlowLabel(SyntaxToken identifier)
+        => identifier.IsMissing || identifier.Kind == SyntaxKind.None;
+
+    private void EnsureLabelsDeclaredForLookup(SyntaxNode node)
+    {
+        var scope = node.AncestorsAndSelf().OfType<BlockStatementSyntax>().LastOrDefault() as SyntaxNode
+            ?? node.AncestorsAndSelf().OfType<BlockSyntax>().LastOrDefault();
+
+        if (scope is null)
+            return;
+
+        GetOutermostBlockBinder().EnsureLabelsDeclared(scope);
+    }
+
+    private bool TryLookupLabel(
+        string name,
+        out ILabelSymbol label,
+        out LabeledStatementSyntax? labeledSyntax)
+    {
+        foreach (var binder in EnumerateBlockBindersOutermostFirst())
+        {
+            if (binder._labelsByName.TryGetValue(name, out label) &&
+                binder._syntaxByLabel.TryGetValue(label, out labeledSyntax))
+            {
+                return true;
+            }
+        }
+
+        label = null!;
+        labeledSyntax = null;
+        return false;
+    }
+
+    private BlockBinder GetOutermostBlockBinder()
+        => EnumerateBlockBindersOutermostFirst().FirstOrDefault() ?? this;
+
+    private IEnumerable<BlockBinder> EnumerateBlockBindersOutermostFirst()
+    {
+        var binders = new Stack<BlockBinder>();
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current is BlockBinder blockBinder)
+                binders.Push(blockBinder);
+        }
+
+        while (binders.Count > 0)
+            yield return binders.Pop();
+    }
+
+    private static bool IsEnclosingLoopLabel(LabeledStatementSyntax labeledSyntax, StatementSyntax transferStatement)
+    {
+        if (!transferStatement.Ancestors().OfType<LabeledStatementSyntax>().Any(ancestor =>
+                ancestor.Span == labeledSyntax.Span &&
+                ancestor.Identifier.ValueText == labeledSyntax.Identifier.ValueText))
+        {
+            return false;
+        }
+
+        var targetStatement = UnwrapLabeledStatement(labeledSyntax.Statement);
+        return targetStatement is WhileStatementSyntax or WhilePatternStatementSyntax or ForStatementSyntax or LoopStatementSyntax;
+    }
+
+    private static StatementSyntax UnwrapLabeledStatement(StatementSyntax statement)
+    {
+        while (statement is LabeledStatementSyntax labeled)
+            statement = labeled.Statement;
+
+        return statement;
     }
 
     public BoundStatement BindStatementInLoop(StatementSyntax syntax)

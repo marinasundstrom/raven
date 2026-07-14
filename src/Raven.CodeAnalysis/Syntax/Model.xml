@@ -347,10 +347,12 @@
   </Node>
   <Node Name="BreakStatement" Inherits="Statement">
     <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" DefaultToken="None" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
   <Node Name="ContinueStatement" Inherits="Statement">
     <Slot Name="ContinueKeyword" Type="Token" DefaultToken="ContinueKeyword" />
+    <Slot Name="Identifier" Type="Token" IsOptionalToken="true" DefaultToken="None" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
   <Node Name="ThrowStatement" Inherits="Statement">

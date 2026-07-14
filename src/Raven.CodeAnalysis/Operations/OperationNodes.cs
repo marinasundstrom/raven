@@ -523,20 +523,30 @@ internal sealed class DefaultValueOperation : Operation, IDefaultValueOperation
 
 internal sealed class BreakOperation : Operation, IBreakOperation
 {
+    private readonly BoundBreakStatement _bound;
+
     internal BreakOperation(SemanticModel semanticModel, BoundBreakStatement bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.Break, syntax, null, isImplicit)
     {
+        _bound = bound;
     }
+
+    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
 
 internal sealed class ContinueOperation : Operation, IContinueOperation
 {
+    private readonly BoundContinueStatement _bound;
+
     internal ContinueOperation(SemanticModel semanticModel, BoundContinueStatement bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.Continue, syntax, null, isImplicit)
     {
+        _bound = bound;
     }
+
+    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }

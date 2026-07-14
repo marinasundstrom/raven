@@ -47,6 +47,28 @@ func Main() {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void BreakToNonLoopLabel_ReportsDiagnostic()
+    {
+        var code = """
+func Main() {
+outer: {
+        loop {
+            break outer;
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.LabelDoesNotIdentifyEnclosingLoop.Id).WithSpan(5, 19, 5, 24)
+            ]);
+
+        verifier.Verify();
+    }
 }
 
 public class ContinueStatementDiagnosticsTests : DiagnosticTestBase
@@ -86,6 +108,30 @@ func Main() {
             [
                 new DiagnosticResult(CompilerDiagnostics.ContinueStatementNotWithinLoop.Id).WithSpan(3, 9, 3, 17),
                 new DiagnosticResult(CompilerDiagnostics.UnreachableCodeDetected.Id).WithSpan(4, 9, 4, 11)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ContinueToNonEnclosingLoopLabel_ReportsDiagnostic()
+    {
+        var code = """
+func Main() {
+outer: loop {
+        break;
+    }
+
+    loop {
+        continue outer;
+    }
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.LabelDoesNotIdentifyEnclosingLoop.Id).WithSpan(8, 18, 8, 23)
             ]);
 
         verifier.Verify();
@@ -177,6 +223,27 @@ class C {
         var bound = model.GetBoundNode(breakSyntax);
         Assert.IsType<BoundBreakStatement>(bound);
     }
+
+    [Fact]
+    public void LabeledBreak_BindsTargetLabel()
+    {
+        var code = """
+func Main() {
+outer: loop {
+        loop {
+            break outer;
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var breakSyntax = tree.GetRoot().DescendantNodes().OfType<BreakStatementSyntax>().Single();
+
+        var bound = Assert.IsType<BoundBreakStatement>(model.GetBoundNode(breakSyntax));
+        Assert.Equal("outer", bound.TargetLabel?.Name);
+    }
 }
 
 public class ContinueStatementSemanticTests : CompilationTestBase
@@ -263,5 +330,26 @@ class C {
 
         var bound = model.GetBoundNode(continueSyntax);
         Assert.IsType<BoundContinueStatement>(bound);
+    }
+
+    [Fact]
+    public void LabeledContinue_BindsTargetLabel()
+    {
+        var code = """
+func Main() {
+outer: loop {
+        loop {
+            continue outer;
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var continueSyntax = tree.GetRoot().DescendantNodes().OfType<ContinueStatementSyntax>().Single();
+
+        var bound = Assert.IsType<BoundContinueStatement>(model.GetBoundNode(continueSyntax));
+        Assert.Equal("outer", bound.TargetLabel?.Name);
     }
 }

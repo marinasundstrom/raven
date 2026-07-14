@@ -515,7 +515,8 @@ bodies.
 ## `break` statements
 
 `break` exits the innermost enclosing loop statement immediately. Execution
-resumes at the statement following that loop.
+resumes at the statement following that loop. `break label` exits the enclosing
+loop statement marked with `label`.
 
 ```raven
 var i = 0
@@ -531,12 +532,15 @@ while true {
 A `break` statement must appear within a `loop`, `while`, or `for` *statement*.
 Placing `break` in any expression context, including the bodies of `if`, `while`,
 or `for` expressions, produces diagnostic `RAV1902`. Using `break` outside a
-loop reports diagnostic `RAV2600`.
+loop reports diagnostic `RAV2600`. A labeled `break` must name an enclosing
+labeled loop. Labels on ordinary statements remain `goto` targets and produce
+diagnostic `RAV2606` when used as a `break` target.
 
 ## `continue` statements
 
 `continue` skips the remainder of the current loop iteration and jumps to the
-loop's re-check point.
+loop's re-check point. `continue label` skips to the next iteration of the
+enclosing loop statement marked with `label`.
 
 ```raven
 for value in values {
@@ -551,7 +555,21 @@ for value in values {
 `continue` follows the same placement rules as `break`: it may only appear inside
 `loop`, `while`, or `for` statements. Using it from an expression context results
 in diagnostic `RAV1903`, and placing it outside a loop reports diagnostic
-`RAV2601`.
+`RAV2601`. A labeled `continue` must name an enclosing labeled loop. Labels on
+ordinary statements remain `goto` targets and produce diagnostic `RAV2606` when
+used as a `continue` target.
+
+```raven
+outer: loop {
+    inner: loop {
+        if shouldStop {
+            break outer
+        }
+
+        continue inner
+    }
+}
+```
 
 ## Labeled statements
 

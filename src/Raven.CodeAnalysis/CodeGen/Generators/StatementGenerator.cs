@@ -17,10 +17,12 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal class StatementGenerator : Generator
 {
     private readonly BoundStatement _statement;
+    private readonly ImmutableArray<ILabelSymbol> _activeLoopLabels;
 
-    public StatementGenerator(Generator parent, BoundStatement statement) : base(parent)
+    public StatementGenerator(Generator parent, BoundStatement statement, ImmutableArray<ILabelSymbol> activeLoopLabels = default) : base(parent)
     {
         _statement = statement;
+        _activeLoopLabels = activeLoopLabels.IsDefault ? ImmutableArray<ILabelSymbol>.Empty : activeLoopLabels;
     }
 
     public override void Emit()
@@ -59,12 +61,12 @@ internal class StatementGenerator : Generator
                 EmitForStatement(forStatement);
                 break;
 
-            case BoundBreakStatement:
-                EmitBreakStatement();
+            case BoundBreakStatement breakStatement:
+                EmitBreakStatement(breakStatement);
                 break;
 
-            case BoundContinueStatement:
-                EmitContinueStatement();
+            case BoundContinueStatement continueStatement:
+                EmitContinueStatement(continueStatement);
                 break;
 
             case BoundTryStatement tryStatement:
@@ -125,36 +127,48 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Nop);
     }
 
-    private void EmitBreakStatement()
+    private void EmitBreakStatement(BoundBreakStatement breakStatement)
     {
-        if (TryGetLoopBreakLabel(this, out var breakLabel))
+        if (TryGetLoopBreakLabel(this, breakStatement.TargetLabel, out var breakLabel))
             ILGenerator.Emit(OpCodes.Br, breakLabel);
     }
 
-    private void EmitContinueStatement()
+    private void EmitContinueStatement(BoundContinueStatement continueStatement)
     {
-        if (TryGetLoopContinueLabel(this, out var continueLabel))
+        if (TryGetLoopContinueLabel(this, continueStatement.TargetLabel, out var continueLabel))
             ILGenerator.Emit(OpCodes.Br, continueLabel);
     }
 
-    private static bool TryGetLoopBreakLabel(Generator generator, out ILLabel label)
+    private static bool TryGetLoopBreakLabel(Generator generator, ILabelSymbol? targetLabel, out ILLabel label)
     {
         for (Generator? current = generator; current is not null; current = current.Parent)
         {
-            if (current is Scope scope && scope.TryGetBreakLabel(out label))
-                return true;
+            if (current is Scope scope)
+            {
+                if (targetLabel is not null && scope.TryGetBreakLabel(targetLabel, out label))
+                    return true;
+
+                if (targetLabel is null && scope.TryGetBreakLabel(out label))
+                    return true;
+            }
         }
 
         label = default;
         return false;
     }
 
-    private static bool TryGetLoopContinueLabel(Generator generator, out ILLabel label)
+    private static bool TryGetLoopContinueLabel(Generator generator, ILabelSymbol? targetLabel, out ILLabel label)
     {
         for (Generator? current = generator; current is not null; current = current.Parent)
         {
-            if (current is Scope scope && scope.TryGetContinueLabel(out label))
-                return true;
+            if (current is Scope scope)
+            {
+                if (targetLabel is not null && scope.TryGetContinueLabel(targetLabel, out label))
+                    return true;
+
+                if (targetLabel is null && scope.TryGetContinueLabel(out label))
+                    return true;
+            }
         }
 
         label = default;
@@ -490,6 +504,8 @@ internal class StatementGenerator : Generator
 
         var scope = new Scope(this);
         scope.SetLoopTargets(endLabel, continueLabel);
+        foreach (var label in _activeLoopLabels)
+            scope.SetLoopTargets(label, endLabel, continueLabel);
 
         var iteration = forStatement.Iteration;
 
@@ -1163,7 +1179,19 @@ internal class StatementGenerator : Generator
         ILGenerator.MarkLabel(ilLabel);
         ILGenerator.Emit(OpCodes.Nop);
 
-        new StatementGenerator(scope, labeledStatement.Statement).Emit();
+        var activeLoopLabels = IsLabeledLoopStatement(labeledStatement.Statement)
+            ? _activeLoopLabels.Add(labeledStatement.Label)
+            : _activeLoopLabels;
+
+        new StatementGenerator(scope, labeledStatement.Statement, activeLoopLabels).Emit();
+    }
+
+    private static bool IsLabeledLoopStatement(BoundStatement statement)
+    {
+        while (statement is BoundLabeledStatement labeled)
+            statement = labeled.Statement;
+
+        return statement is BoundForStatement or BoundWhileStatement or BoundLoopStatement;
     }
 
     private void EmitGotoStatement(BoundGotoStatement gotoStatement)

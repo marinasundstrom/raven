@@ -7,6 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added statement-form `loop { ... }` for unconditional loops. `break` exits the
   loop and `continue` jumps to the next iteration using the same structured
   loop rules as `while` and `for`.
+- Added labeled `break label` and `continue label` for targeting enclosing
+  labeled loops. Unlabeled `break` and `continue` still target the closest
+  enclosing loop, and labels on ordinary statements remain `goto` targets.
 - Added keyword-first `match scrutinee { ... }` as the normal match expression
   form, aligning match expressions with match statements. The older postfix
   expression form remains supported for composition cases such as
