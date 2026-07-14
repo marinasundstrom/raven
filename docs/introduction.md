@@ -165,6 +165,14 @@ for val [first, ...rest] in rows {
     WriteLine(first)
 }
 
+loop {
+    if work.IsComplete {
+        break
+    }
+
+    work.Step()
+}
+
 val label = match input {
     val Some((x, y)) => "($x, $y)"
     _ => "none"

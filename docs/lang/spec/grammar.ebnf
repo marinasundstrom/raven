@@ -329,6 +329,7 @@ Statement                ::= LocalDeclaration
                            | BlockStatement
                            | IfStatement
                            | IfPatternStatement
+                           | LoopStatement
                            | WhileStatement
                            | WhilePatternStatement
                            | ForStatement
@@ -367,6 +368,7 @@ IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression Embedded
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression EmbeddedStatement ;
 WhilePatternStatement    ::= 'while' BindingKeyword Pattern '=' Expression EmbeddedStatement ;
+LoopStatement            ::= 'loop' EmbeddedStatement ;
 ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? EmbeddedStatement ;
 ForBindingKeyword        ::= 'val' | 'let' | 'var' ;
 ForIterationTarget       ::= TypedForIdentifierTarget | Identifier | Pattern ;

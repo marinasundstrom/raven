@@ -313,6 +313,11 @@
     <Slot Name="Statement" Type="Statement" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
+  <Node Name="LoopStatement" Inherits="Statement">
+    <Slot Name="LoopKeyword" Type="Token" DefaultToken="LoopKeyword" />
+    <Slot Name="Statement" Type="Statement" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+  </Node>
   <Node Name="UseDeclarationStatement" Inherits="Statement">
     <Slot Name="UseKeyword" Type="Token" DefaultToken="UseKeyword" />
     <Slot Name="Declaration" Type="VariableDeclaration" />

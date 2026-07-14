@@ -2091,6 +2091,21 @@ internal static class AsyncLowerer
             return node;
         }
 
+        public override BoundNode? VisitLoopStatement(BoundLoopStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var body = VisitStatement(node.Body);
+
+            if (!ReferenceEquals(body, node.Body))
+            {
+                return new BoundLoopStatement(body);
+            }
+
+            return node;
+        }
+
         public override BoundNode? VisitForStatement(BoundForStatement node)
         {
             if (node is null)

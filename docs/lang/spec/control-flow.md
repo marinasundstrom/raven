@@ -133,7 +133,7 @@ expression statements.
 Most other expressions can appear as statements, in which case their values are
 discarded.
 
-* Statement-form `if`, `while`, `for`, `match`, and `try` have dedicated
+* Statement-form `if`, `loop`, `while`, `for`, `match`, and `try` have dedicated
   statement nodes.
 * Remaining standalone expressions become expression statements and evaluate to
   `unit`.
@@ -319,6 +319,25 @@ while val Person(1, name, _) person = NextPerson() {
 
 `while val pattern = expr` uses the same general pattern surface as `is`,
 `match`, `if val pattern = expr`, and `for` pattern targets.
+
+Statement-form `loop` is an unconditional loop. It evaluates its body repeatedly
+until control leaves through `break`, `return`, `throw`, or another abrupt exit:
+
+```raven
+var attempts = 0
+
+loop {
+    attempts += 1
+
+    if attempts == 3 {
+        break
+    }
+}
+```
+
+The `loop` body is an embedded statement. A block body is the normal spelling for
+multi-statement loops, and a non-block embedded statement must begin on the next
+line just like `if`, `while`, and `for` bodies.
 
 In value-returning functions, Raven warns when statement-form control flow
 produces branch values that are discarded instead of returned:
@@ -509,10 +528,10 @@ while true {
 }
 ```
 
-A `break` statement must appear within a `while` or `for` *statement*. Placing
-`break` in any expression context, including the bodies of `if`, `while`, or `for`
-expressions, produces diagnostic `RAV1902`. Using `break` outside a loop reports
-diagnostic `RAV2600`.
+A `break` statement must appear within a `loop`, `while`, or `for` *statement*.
+Placing `break` in any expression context, including the bodies of `if`, `while`,
+or `for` expressions, produces diagnostic `RAV1902`. Using `break` outside a
+loop reports diagnostic `RAV2600`.
 
 ## `continue` statements
 
@@ -530,8 +549,9 @@ for value in values {
 ```
 
 `continue` follows the same placement rules as `break`: it may only appear inside
-`while` or `for` statements. Using it from an expression context results in
-diagnostic `RAV1903`, and placing it outside a loop reports diagnostic `RAV2601`.
+`loop`, `while`, or `for` statements. Using it from an expression context results
+in diagnostic `RAV1903`, and placing it outside a loop reports diagnostic
+`RAV2601`.
 
 ## Labeled statements
 

@@ -350,6 +350,12 @@ partial class BlockBinder
         return new BoundWhileStatement(condition, body);
     }
 
+    private BoundStatement BindLoopStatement(LoopStatementSyntax loopStmt)
+    {
+        var body = BindStatementInLoop(loopStmt.Statement);
+        return new BoundLoopStatement(body);
+    }
+
     private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
     {
         var tryBlock = BindBlockStatement(tryStmt.Block);

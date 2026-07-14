@@ -1109,6 +1109,26 @@ internal static class IteratorLowerer
             ]);
         }
 
+        public override BoundNode? VisitLoopStatement(BoundLoopStatement node)
+        {
+            if (node is null)
+                return null;
+
+            var breakLabel = CreateLabel("loop_break");
+            var continueLabel = CreateLabel("loop_continue");
+
+            _loopLabels.Push((breakLabel, continueLabel));
+            var body = (BoundStatement)VisitStatement(node.Body)!;
+            _loopLabels.Pop();
+
+            return new BoundBlockStatement([
+                new BoundLabeledStatement(continueLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+                body,
+                new BoundGotoStatement(continueLabel, isBackward: true),
+                new BoundLabeledStatement(breakLabel, new BoundBlockStatement(Array.Empty<BoundStatement>())),
+            ]);
+        }
+
         public override BoundNode? VisitBreakStatement(BoundBreakStatement node)
         {
             if (_loopLabels.Count == 0)

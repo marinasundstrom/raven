@@ -66,6 +66,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseWhileStatementSyntax();
                     break;
 
+                case SyntaxKind.LoopKeyword:
+                    statement = ParseLoopStatementSyntax();
+                    break;
+
                 case SyntaxKind.UseKeyword:
                     statement = ParseUseDeclarationStatementSyntax();
                     break;
@@ -480,6 +484,17 @@ internal class StatementSyntaxParser : SyntaxParser
             expression!,
             statement!,
             terminatorToken);
+    }
+
+    private LoopStatementSyntax ParseLoopStatementSyntax()
+    {
+        var loopKeyword = ReadToken();
+        var statement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return LoopStatement(loopKeyword, statement!, terminatorToken);
     }
 
     private TryStatementSyntax ParseTryStatementSyntax()

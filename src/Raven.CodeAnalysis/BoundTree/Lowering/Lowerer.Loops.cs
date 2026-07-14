@@ -23,6 +23,23 @@ internal sealed partial class Lowerer
         ]);
     }
 
+    public override BoundNode? VisitLoopStatement(BoundLoopStatement node)
+    {
+        var breakLabel = CreateLabel("loop_break");
+        var continueLabel = CreateLabel("loop_continue");
+
+        _loopStack.Push((breakLabel, continueLabel));
+        var body = (BoundStatement)VisitStatement(node.Body);
+        _loopStack.Pop();
+
+        return new BoundBlockStatement([
+            CreateLabelStatement(continueLabel),
+            body,
+            new BoundGotoStatement(continueLabel, isBackward: true),
+            CreateLabelStatement(breakLabel),
+        ]);
+    }
+
     public override BoundNode? VisitBreakStatement(BoundBreakStatement node)
     {
         if (_loopStack.Count == 0)
@@ -41,4 +58,3 @@ internal sealed partial class Lowerer
         return new BoundGotoStatement(continueLabel, isBackward: true);
     }
 }
-

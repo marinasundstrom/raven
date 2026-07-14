@@ -147,6 +147,73 @@ class C {
     }
 
     [Fact]
+    public void Lowerer_LoopStatement_RewritesToUnconditionalLoopControlFlow()
+    {
+        const string source = """
+class C {
+    func Test() {
+        loop {
+            break
+        }
+    }
+}
+""";
+
+        var (methodSymbol, boundBody) = BindMethodBody(source, "Test");
+        var boundLoop = boundBody.Statements.OfType<BoundLoopStatement>().Single();
+
+        var lowered = Assert.IsType<BoundBlockStatement>(Lowerer.LowerStatement(methodSymbol, boundLoop));
+        var statements = lowered.Statements.ToArray();
+
+        Assert.Equal(4, statements.Length);
+
+        var continueLabel = Assert.IsType<BoundLabeledStatement>(statements[0]);
+        var bodyBlock = Assert.IsType<BoundBlockStatement>(statements[1]);
+        var breakGoto = Assert.IsType<BoundGotoStatement>(bodyBlock.Statements.Single());
+
+        var loopGoto = Assert.IsType<BoundGotoStatement>(statements[2]);
+        Assert.True(loopGoto.IsBackward);
+        Assert.Same(continueLabel.Label, loopGoto.Target);
+
+        var breakLabel = Assert.IsType<BoundLabeledStatement>(statements[3]);
+        Assert.Same(breakLabel.Label, breakGoto.Target);
+    }
+
+    [Fact]
+    public void Lowerer_LoopStatement_RewritesContinueToBackwardGoto()
+    {
+        const string source = """
+class C {
+    func Test() {
+        loop {
+            continue
+        }
+    }
+}
+""";
+
+        var (methodSymbol, boundBody) = BindMethodBody(source, "Test");
+        var boundLoop = boundBody.Statements.OfType<BoundLoopStatement>().Single();
+
+        var lowered = Assert.IsType<BoundBlockStatement>(Lowerer.LowerStatement(methodSymbol, boundLoop));
+        var statements = lowered.Statements.ToArray();
+
+        Assert.Equal(4, statements.Length);
+
+        var continueLabel = Assert.IsType<BoundLabeledStatement>(statements[0]);
+        var bodyBlock = Assert.IsType<BoundBlockStatement>(statements[1]);
+        var continueGoto = Assert.IsType<BoundGotoStatement>(Assert.Single(bodyBlock.Statements));
+        Assert.True(continueGoto.IsBackward);
+        Assert.Same(continueLabel.Label, continueGoto.Target);
+
+        var loopGoto = Assert.IsType<BoundGotoStatement>(statements[2]);
+        Assert.True(loopGoto.IsBackward);
+        Assert.Same(continueLabel.Label, loopGoto.Target);
+
+        Assert.IsType<BoundLabeledStatement>(statements[3]);
+    }
+
+    [Fact]
     public void Lowerer_LambdaBody_RewritesNestedLoop()
     {
         const string source = """
@@ -207,6 +274,11 @@ class C {
         public int GotoCount { get; private set; }
 
         public override void VisitWhileStatement(BoundWhileStatement node)
+        {
+            SeenWhile = true;
+        }
+
+        public override void VisitLoopStatement(BoundLoopStatement node)
         {
             SeenWhile = true;
         }

@@ -530,7 +530,7 @@
                 },
                 {
                     "name": "keyword.control.loop.raven",
-                    "match": "\\b(for|while|do)\\b"
+                    "match": "\\b(for|loop|while|do)\\b"
                 },
                 {
                     "name": "keyword.control.exception.raven",

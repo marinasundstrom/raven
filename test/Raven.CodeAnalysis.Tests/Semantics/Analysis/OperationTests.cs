@@ -262,6 +262,32 @@ class C {
     }
 
     [Fact]
+    public void GetOperation_LoopStatement_ReturnsLoopWithStatementBody()
+    {
+        const string source = """
+class C {
+    func Test() {
+        loop
+            return
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var loopSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<LoopStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<ILoopOperation>(model.GetOperation(loopSyntax));
+
+        operation.Kind.ShouldBe(OperationKind.Loop);
+        operation.Body.ShouldNotBeNull();
+        operation.Body!.Kind.ShouldBe(OperationKind.Return);
+    }
+
+    [Fact]
     public void GetOperation_ParameterReference_ExposesNamedAccessor()
     {
         const string source = """

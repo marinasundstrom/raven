@@ -1766,6 +1766,23 @@ internal sealed class WhileLoopOperation : LoopOperation, IWhileLoopOperation
     }
 }
 
+internal sealed class LoopStatementOperation : LoopOperation
+{
+    internal LoopStatementOperation(SemanticModel semanticModel, BoundLoopStatement bound, SyntaxNode syntax, bool isImplicit)
+        : base(semanticModel, OperationKind.Loop, syntax, isImplicit)
+    {
+    }
+
+    protected override StatementSyntax BodySyntax => ((LoopStatementSyntax)Syntax).Statement;
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        return ImmutableArray.CreateBuilder<IOperation>()
+            .AddIfNotNull(Body)
+            .ToImmutable();
+    }
+}
+
 internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
 {
     private readonly BoundForStatement _bound;

@@ -114,6 +114,25 @@ func Main() {
     }
 
     [Fact]
+    public void BreakInLoopStatement_BindsToBoundBreakStatement()
+    {
+        var code = """
+func Main() {
+    loop {
+        break;
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var breakSyntax = tree.GetRoot().DescendantNodes().OfType<BreakStatementSyntax>().Single();
+
+        var bound = model.GetBoundNode(breakSyntax);
+        Assert.IsType<BoundBreakStatement>(bound);
+    }
+
+    [Fact]
     public void BreakInForLoop_BindsToBoundBreakStatement()
     {
         var code = """
@@ -168,6 +187,25 @@ public class ContinueStatementSemanticTests : CompilationTestBase
         var code = """
 func Main() {
     while true {
+        continue;
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(code);
+        var model = compilation.GetSemanticModel(tree);
+        var continueSyntax = tree.GetRoot().DescendantNodes().OfType<ContinueStatementSyntax>().Single();
+
+        var bound = model.GetBoundNode(continueSyntax);
+        Assert.IsType<BoundContinueStatement>(bound);
+    }
+
+    [Fact]
+    public void ContinueInLoopStatement_BindsToBoundContinueStatement()
+    {
+        var code = """
+func Main() {
+    loop {
         continue;
     }
 }

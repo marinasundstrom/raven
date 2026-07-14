@@ -391,6 +391,9 @@ class MethodBodyBinder : BlockBinder
                 case BoundWhileStatement whileStatement:
                     _ = AnalyzeStatement(whileStatement.Body, assigned);
                     return new AnalysisState(assigned, true);
+                case BoundLoopStatement loopStatement:
+                    _ = AnalyzeStatement(loopStatement.Body, assigned);
+                    return new AnalysisState(assigned, true);
                 case BoundForStatement forStatement:
                     _ = AnalyzeStatement(forStatement.Body, assigned);
                     return new AnalysisState(assigned, true);

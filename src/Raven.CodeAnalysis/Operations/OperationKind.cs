@@ -231,6 +231,11 @@ public enum OperationKind
     WhileLoop,
 
     /// <summary>
+    /// An unconditional loop statement.
+    /// </summary>
+    Loop,
+
+    /// <summary>
     /// A for loop statement or expression.
     /// </summary>
     ForLoop,

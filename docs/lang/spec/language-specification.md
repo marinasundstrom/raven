@@ -82,7 +82,7 @@ classifies each keyword as either reserved or contextual.
 
 | Kind | Keywords |
 | --- | --- |
-| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `else`, `enum`, `false`, `finally`, `fixed`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `permits`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
+| Reserved | `and`, `as`, `await`, `base`, `bool`, `break`, `byte`, `catch`, `char`, `class`, `const`, `continue`, `decimal`, `default`, `double`, `else`, `enum`, `false`, `finally`, `fixed`, `float`, `for`, `func`, `goto`, `if`, `int`, `interface`, `is`, `let`, `long`, `loop`, `match`, `new`, `nint`, `not`, `null`, `nuint`, `object`, `or`, `permits`, `return`, `sbyte`, `self`, `short`, `sizeof`, `string`, `struct`, `throw`, `true`, `try`, `typeof`, `uint`, `ulong`, `ushort`, `var`, `when`, `while`, `yield` |
 | Contextual | `abstract`, `alias`, `explicit`, `final`, `get`, `implicit`, `import`, `in`, `init`, `internal`, `namespace`, `open`, `operator`, `partial`, `out`, `override`, `private`, `protected`, `public`, `ref`, `sealed`, `set`, `static`, `unit`, `use`, `val`, `virtual` |
 
 Reserved keywords are always treated as keywords and therefore unavailable for use as identifiers. Contextual keywords behave like ordinary
@@ -2212,10 +2212,9 @@ branch is permitted and the value is ignored. In value contexts, provide an
 questions](#outstanding-questions-and-suggested-follow-ups) for current gaps and
 suggested fixes.)
 
-### `while` expression
+### `while` statement
 
 `while` repeatedly executes its body while the condition evaluates to `true`.
-Because loops are expressions, the overall value of a `while` expression is `()`.
 
 ```raven
 var i = 0
@@ -2247,7 +2246,24 @@ while val Person(1, name, _) person = NextPerson() {
 }
 ```
 
-### `for` expression
+### `loop` statement
+
+`loop` repeatedly executes its body until control leaves through `break`,
+`return`, `throw`, or another abrupt exit.
+
+```raven
+var attempts = 0
+
+loop {
+    attempts += 1
+
+    if attempts == 3 {
+        break
+    }
+}
+```
+
+### `for` statement
 
 Iterates over each element of a collection. The iteration target may bind a fresh
 local, discard the element, omit the target entirely, or match a pattern
@@ -2328,7 +2344,6 @@ for in items {
 
 Both forms still enumerate the collection but do not introduce a new binding.
 Pattern targets are lowered as a per-element `is` check around the loop body.
-Like other looping constructs, a `for` expression evaluates to `()`.
 
 Async enumeration uses `await for`:
 
@@ -2349,7 +2364,7 @@ iterates over integral, floating-point, `char`, or `decimal` values beginning
 at the range's lower bound and continuing through the upper bound. `..` uses an
 inclusive upper bound, while `..<` uses an exclusive upper bound.
 Omitting the start defaults it to `0`, while omitting the end or using
-from-end bounds in a `for` expression reports a diagnostic.
+from-end bounds in a `for` statement reports a diagnostic.
 
 Range-based `for` statements may include an optional `by` clause:
 
@@ -2368,13 +2383,12 @@ than or equal to the end bound. With `..<`, the comparisons are strict (`<` and
 
 ### `break` and `continue`
 
-`break` immediately exits the innermost loop (`while`, `for`, or other
-expression-oriented loop construct). `continue` skips the remainder of the
-current iteration and evaluates the loop condition for the next pass. Both
-keywords are only valid inside loops; using them elsewhere produces diagnostics
-(`RAV2600` for `break`, `RAV2601` for `continue`). They are statements, not
-expressions, so placing them in an expression context—such as inside an
-expression-bodied lambda—also triggers an error. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L614-L648】【F:src/Raven.CodeAnalysis/DiagnosticDescriptors.xml†L346-L351】
+`break` immediately exits the innermost loop (`loop`, `while`, or `for`).
+`continue` skips the remainder of the current iteration and jumps to the next
+loop pass. Both keywords are only valid inside loops; using them elsewhere
+produces diagnostics (`RAV2600` for `break`, `RAV2601` for `continue`). They are
+statements, not expressions, so placing them in an expression context also
+triggers an error.
 
 ```raven
 while cond {

@@ -1794,6 +1794,7 @@ partial class BlockBinder : Binder
             IfPatternStatementSyntax ifPatternStmt => BindIfPatternStatement(ifPatternStmt),
             WhileStatementSyntax whileStmt => BindWhileStatement(whileStmt),
             WhilePatternStatementSyntax whilePatternStmt => BindWhilePatternStatement(whilePatternStmt),
+            LoopStatementSyntax loopStmt => BindLoopStatement(loopStmt),
             TryStatementSyntax tryStmt => BindTryStatement(tryStmt),
             FunctionStatementSyntax function => BindFunction(function),
             TypeDeclarationStatementSyntax typeDeclarationStatement => BindTypeDeclarationStatement(typeDeclarationStatement),
