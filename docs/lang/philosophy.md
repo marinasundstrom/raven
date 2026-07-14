@@ -4,6 +4,26 @@ Raven is a .NET language that leans toward expression-oriented code, structural 
 
 This document describes the design pressures that should guide language changes and documentation. It is intentionally grounded in Raven's current shape rather than a wishlist of future ideas.
 
+Use this document as a review aid. A proposed feature does not need to maximize
+every principle here, but it should be able to explain which tradeoff it is
+making and why that tradeoff belongs in Raven.
+
+## Short version
+
+Raven optimizes for readable, toolable .NET code where important semantic
+choices are visible at the point of use.
+
+That means Raven generally chooses:
+
+- composition over cleverness
+- explicit semantic markers over ambiguous shorthand
+- declaration keywords over context-only interpretation
+- carrier-based recoverable flow over exception-heavy domain paths
+- one reusable pattern model over unrelated special forms
+- plain functions for standalone behavior, without forcing class wrappers
+- direct .NET interop over runtime isolation
+- compiler and editor clarity over syntax tricks that are hard to diagnose
+
 ## Core stance
 
 Raven is not trying to be purely functional, purely object-oriented, or novel for its own sake. It favors a small set of consistent ideas:
@@ -11,10 +31,32 @@ Raven is not trying to be purely functional, purely object-oriented, or novel fo
 - expressions where values help composition
 - statements where effects and control flow are clearer
 - explicit mutability and explicit narrowing of visibility
+- explicit declaration keywords for functions, bindings, events, types, and
+  union cases
 - explicit bindings when patterns introduce new names
 - `Option<T>` and `Result<T, E>` as normal control-flow shapes
 - one reusable pattern system across branching, iteration, and deconstruction
 - direct, ergonomic interop with the .NET ecosystem
+
+These are design defaults, not slogans. When a feature pulls against them, the
+feature should bring a concrete benefit that is visible in real Raven programs,
+not only in isolated syntax examples.
+
+## Current shape and direction
+
+Raven is experimental, so documentation must separate implemented behavior from
+design direction. Philosophy pages can explain where the language wants to go,
+but user-facing walkthroughs and examples should prefer syntax and APIs that
+work today.
+
+When documenting future-leaning ideas:
+
+- call them proposals, investigations, or design direction
+- link to the relevant proposal or spec chapter
+- avoid making examples look like current supported syntax unless they are
+  covered by tests or samples
+
+This keeps Raven ambitious without making the docs unreliable.
 
 ## Expression-oriented, not expression-only
 
@@ -66,6 +108,10 @@ Raven does not chase minimal syntax at all costs. It removes ceremony when the s
 That is why Raven uses:
 
 - `val` and `var` to make mutability visible
+- `func` to declare functions and methods
+- `event` to declare events
+- `class`, `struct`, `interface`, `record`, `union`, and `case` to make type
+  and union declarations scan clearly
 - access modifiers to narrow visibility from the public-by-default baseline
 - explicit pattern forms when introducing bindings
 - explicit return and propagation behavior for carrier-based flow
@@ -73,9 +119,22 @@ That is why Raven uses:
 ```raven
 val name = "Raven"
 var retries = 0
+
+func Normalize(name: string) -> string => name.Trim()
+
+union Decision {
+    case Approve
+    case Reject(reason: string)
+}
 ```
 
 The principle is simple: if a choice affects how code behaves or what other code may rely on, the source should show that choice plainly.
+
+This is also why Raven favors keyword-led declarations. The reader should not
+have to infer whether a member is a method, property, event, union case, or local
+binding solely from punctuation or where the declaration appears. Raven syntax
+tries to announce the declaration kind first, then let modifiers and types refine
+it.
 
 This also guides Raven's shorthand forms. Target-typed expressions such as
 `.Active` and `.(1, "Ada")` are useful when the target is visible from an
@@ -95,6 +154,34 @@ The language still supports shorthand forms such as:
 - `match value { val pattern => ... }`
 
 but the rule remains the same: the syntax that introduces a binding should say so.
+
+## Functions do not need class wrappers
+
+Raven supports top-level functions because many useful operations are not
+naturally methods on an object. Parsing, validation, formatting, lookup,
+workflow orchestration, and small domain transformations should be easy to name
+directly.
+
+```raven
+func NormalizeCarrier(name: string) -> string {
+    return name.Trim().ToUpperInvariant()
+}
+
+func TryParseQuantity(text: string) -> Result<int, string> {
+    return try int.Parse(text) match {
+        Ok(val value) => Ok(value)
+        Error(_) => Error("\"$text\" is not a quantity")
+    }
+}
+```
+
+This is a deliberate divergence from the C# habit of creating static utility
+classes solely to hold functions. Raven still has classes, records, structs,
+interfaces, extensions, and methods when behavior belongs with a type. It just
+does not require a container type when the function itself is the useful unit.
+
+The design pressure is simple: choose the declaration shape that describes the
+program, not the shape required by an older host language.
 
 ## Consistency beats novelty
 

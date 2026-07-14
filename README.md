@@ -1,162 +1,140 @@
 # Raven Programming Language
 
-<!---
-[![Build](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml/badge.svg)](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml)
-[![Tests](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml/badge.svg?event=push)](https://github.com/marinasundstrom/raven/actions/workflows/dotnet.yml)-->
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-available-brightgreen.svg)](docs/)
 
-**Raven** is a modern general-purpose programming language and compiler inspired by the [.NET Roslyn](https://github.com/dotnet/roslyn) architecture.
+Raven is an experimental .NET language and compiler. It combines an
+expression-oriented surface, explicit mutability, structural pattern matching,
+`Option`/`Result`-based flow, and direct interoperability with existing .NET
+libraries.
 
-✨ **Key traits**:
-- **Expression-first Raven syntax** — explicit `val`/`var`, `match`, `record class`, and `Result`/`Option`-centric flow
-- **Targets the .NET runtime** — compiles directly to IL and interoperates with .NET libraries
-- **Compiler-as-a-Service architecture** — immutable, service-oriented compiler APIs
+The implementation is also a compiler-as-a-service playground. The compiler
+core follows a Roslyn-like shape with immutable syntax trees, semantic models,
+diagnostics, and services that can support command-line compilation, editor
+features, analyzers, and language experiments.
 
-Raven is aimed at:
-- Building a modern programming language and compiler for .NET
-- Providing a clean API for syntax manipulation and analysis
-- Documenting language and compiler design clearly
+Raven is source-build oriented today. The long-term distribution goal is to
+package the `rvn` frontend, `rvnc` compiler driver, language server, build
+assets, and `Raven.Core` together so projects do not depend on repo-relative
+paths.
 
+## Start Here
 
-## 🔰 Language Overview
+- [Getting Started](docs/getting-started.md) - build the compiler, run a sample,
+  and create a small project.
+- [Language Introduction](docs/introduction.md) - guided language overview.
+- [Language Philosophy](docs/lang/philosophy.md) - design principles for Raven
+  language changes.
+- [Language Specification](docs/lang/spec/language-specification.md) - current
+  normative language docs and grammar links.
+- [Compiler Docs](docs/compiler/index.md) - architecture, APIs, diagnostics,
+  language server, and development notes.
 
-Raven is expression-oriented and blends functional and imperative styles. It uses `()` (`unit`) instead of `void`, models recoverable failure with `Result<T, E>` and absence with `Option<T>`, and uses explicit mutability (`val` vs `var`). As a .NET language, Raven interops directly with existing .NET APIs while keeping Raven-native syntax and semantics.
-Type members are public by default; add access modifiers only when you intentionally narrow visibility.
+## Language Snapshot
 
-### Example
+Raven favors:
+
+- expression-oriented code, while keeping statements for effects and early exits
+- plain top-level functions for standalone operations and workflows
+- signposted declarations: `func`, `val`, `var`, `event`, `class`, `union`,
+  `case`, and related keywords say what is being declared
+- explicit immutable and mutable bindings with `val` and `var`
+- explicit pattern bindings in `match`, `if`, `while`, `for`, and deconstruction
+- `Option<T>` for absence and `Result<T, E>` for expected failure
+- records, primary constructors, unions, and target-typed shorthand
+- direct use of .NET libraries, async APIs, collections, and IL tooling
+
+Raven has no `void`; the empty result type is `unit`, written as `()`.
 
 ```raven
-import System.*
 import System.Console.*
-import System.Text.Json.*
-import System.Threading.Tasks.*
+import System.Linq.*
 
-async func Main() -> Task {
-    val users: User[] = [
-        .(1, "Ada", Some("compiler engineer"), .Active),
-        .(2, "Bo", None, .Suspended("email bounced"))
+func Main() -> () {
+    val requests = [
+        ShipmentRequest("REQ-1001", "NorthStar", 10),
+        ShipmentRequest("REQ-1002", "Oceanic", 3)
     ]
 
-    val label = FindUser(users, 1) match {
-        Ok(val user) => user.Display()
-        Error(.NotFound(val id)) => "No user with id $id"
+    val message = FindRequest(requests, "REQ-1002") match {
+        Ok(val request) => "Ready: ${request.Id} via ${request.Carrier}"
+        Error(val err) => "Cannot quote shipment: $err"
     }
 
-    val options = JsonSerializerOptions with {
-        WriteIndented = true
-        PropertyNamingPolicy = .CamelCase
-    }
-
-    await Task.Delay(10)
-    WriteLine(JsonSerializer.Serialize(label, options))
+    WriteLine(message)
 }
 
-func FindUser(users: User[], id: int) -> Result<User, LookupError> {
-    for user in users {
-        if user.Id == id {
-            return Ok(user)
-        }
-    }
-
-    return Error(.NotFound(id))
+func FindRequest(requests: ShipmentRequest[], id: string) -> Result<ShipmentRequest, string> {
+    return requests.FirstOrError(r => r.Id == id, () => "request not found")
 }
 
-record class User(val Id: int, val Name: string, val Role: Option<string>, val Status: UserStatus) {
-    func Display() -> string {
-        val role = Role match {
-            Some(val value) => value
-            None => "member"
-        }
-
-        val status = Status match {
-            .Active => "active"
-            .Suspended(val reason) => "suspended ($reason)"
-        }
-
-        return "$Name is $status as a $role"
-    }
-}
-
-union UserStatus {
-    case Active
-    case Suspended(reason: string)
-}
-
-union LookupError {
-    case NotFound(id: int)
-}
+record class ShipmentRequest(val Id: string, val Carrier: string, val WeightKg: int)
 ```
 
-**Highlights**:
+The example shows ordinary .NET interop (`System.Console`, LINQ-style extension
+methods), explicit immutable bindings, records with promoted constructor
+parameters, and `Result`-driven recoverable flow.
 
-* `async`/`await` and direct .NET interop
-* Collection expressions and explicit `val`/`var` mutability
-* Target-typed member and constructor shorthand such as `.Active` and `.(...)`
-* Object initialization with `Type with { ... }`
-* `Result`/`Option` for recoverable flow and absence
-* `match` as a first-class expression
-* `record class` + promoted constructor parameters
-* Discriminated unions with typed cases
+## If You Are Coming From C#
 
-Read the full [Introduction](docs/introduction.md) and [Getting Started](docs/getting-started.md) for the complete flow.
+Raven is not trying to replace the .NET ecosystem around C#. It is exploring a
+different source model for common application and compiler problems while still
+emitting regular .NET assemblies.
 
----
+| In many C# codebases | Raven's preferred shape |
+| --- | --- |
+| Static helper classes used only to hold methods | Plain top-level functions |
+| Context-dependent declarations where shape is inferred from placement | Declaration keywords such as `func`, `val`, `var`, `event`, and `union` |
+| `null` as absence in domain data | `Option<T>` with `Some(...)` and `None` |
+| Exceptions for expected lookup or validation failure | `Result<T, E>` with `Ok(...)` and `Error(...)` |
+| `enum` plus nullable detail fields | `union` cases with typed payloads |
+| `switch` plus type/null checks spread across methods | `match` expressions over values and patterns |
+| Mutable locals by convention unless avoided | `val` by default, `var` when mutation is intended |
+| `void` methods | `()` (`unit`) return values |
 
-## 🪶 Why the Name "Raven"?
+The [Getting Started](docs/getting-started.md) walkthrough uses a C#-style
+shipment quote problem to show these differences in running Raven code.
 
-Ravens are remarkable birds, known for their intelligence and adaptability.  
+## Repository Layout
 
-In Old Norse mythology, ravens held significant importance as messengers of Odin. His two ravens, **Huginn** ("thought") and **Muninn** ("memory/mind"), symbolized intellect and reflection—qualities that align with the goals of this language.  
+```text
+src/
+  Raven.CodeAnalysis/         Compiler core: syntax, binding, semantic model, emit
+  Raven.Compiler/             rvnc compiler driver
+  Raven/                      rvn developer/project command frontend
+  Raven.Core/                 Raven core library
+  Raven.LanguageServer/       Language server implementation
 
-The name reflects both the **mythological roots** and the **clever traits** of these birds.  
-Alternative names considered: Old Norse **"Hrafn"** or Danish **"Ravn."**
+test/
+  Raven.CodeAnalysis.Tests/   Compiler unit tests
+  Raven.Core.Tests/           Core library tests
 
----
+samples/                      Runnable Raven files and project samples
+tools/                        Syntax, bound node, operation, and diagnostic generators
+docs/                         Language, compiler, and contributor documentation
+```
 
-## 🎯 Project Goals
+`test/Raven.CodeAnalysis.Samples.Tests` is a legacy sample-test project and is
+not part of the normal test focus.
 
-- **Create a Programming Language** — build a language from the ground up, covering design and implementation.  
-- **Focus on Parsing & Semantics** — implement parsing, binding, and analysis as the backbone of compilation.  
-- **Serve as a Reference** — provide a well-documented example for compiler enthusiasts.  
-- **Pragmatic Scope** — aim for a practical subset of Roslyn-like features, not full parity.  
+## Prerequisites
 
----
+- A .NET SDK with `net10.0` targeting support.
+- A shell that can run the repository scripts.
+- Optional: [DocFX](https://dotnet.github.io/docfx/) for generated API docs.
 
-## ✨ Syntax
+Some samples target `net11.0`; those samples include or require a project-local
+`global.json` that selects an SDK with `net11.0` support.
 
-See the pseudo-specification [here](/docs/lang/spec/language-specification.md).
+## Quick Start
 
-More [samples](samples/).
-
----
- 
-## 🧩 API
-
-* Compiler API reference: [docs/compiler/api](docs/compiler/api)
-* Example usage: [Raven.Compiler project](src/Raven.Compiler/Program.cs)
-
----
-
-## 🛠 Prerequisites
-
-* [.NET SDK 9.0](https://dotnet.microsoft.com/)
-* Optional: [DocFX](https://dotnet.github.io/docfx/) for docs
-
----
-
-## 🚀 Quick Start
+Build the compiler and generated sources:
 
 ```bash
-# Build essentials
 scripts/codex-build.sh
-
-# Run baseline tests (runtime/emission-heavy suites excluded)
-scripts/test-baseline.sh
 ```
 
-Compile and run a sample case:
+Compile and run a Raven sample:
 
 ```bash
 dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- \
@@ -164,179 +142,107 @@ dotnet run -f net10.0 --project src/Raven.Compiler --property WarningLevel=0 -- 
 dotnet /tmp/raven-sample.dll
 ```
 
-Useful frontend/debug commands:
+Inspect compiler views for the same file:
 
 ```bash
 dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
   dev syntax samples/cases/quote-summary-linq-result-option.rav
+
 dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
   dev bound-tree samples/cases/quote-summary-linq-result-option.rav
 ```
 
-### Developer environment setup
+For a guided walkthrough, including a first `hello.rav` file and project
+scaffolding, see [Getting Started](docs/getting-started.md).
 
-There are three source-workspace setup modes:
+## Using `rvn` and `rvnc`
 
-1. Run tools through `dotnet run`. This requires no shell setup and is the most explicit form:
-
-   ```bash
-   dotnet run -f net10.0 --project src/Raven -- dev syntax path/to/file.rvn
-   dotnet run -f net10.0 --project src/Raven.Compiler -- path/to/file.rvn -o /tmp/app.dll
-   ```
-
-2. Build once and source session helpers:
-
-   ```bash
-   dotnet build src/Raven/Raven.csproj -f net10.0
-   dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
-   source scripts/raven-env.sh
-   rvn dev syntax path/to/file.rvn
-   rvnc path/to/file.rvn -o /tmp/app.dll
-   ```
-
-   Set `RAVEN_CONFIGURATION` or `RAVEN_FRAMEWORK` before sourcing to select a different build output.
-
-3. Use normal .NET project commands for applications:
-
-   ```bash
-   dotnet build path/to/App.rvnproj
-   dotnet run --project path/to/App.rvnproj
-   ```
-
-   The `rvn` frontend also provides convenience commands over the same SDK
-   workflow:
-
-   ```bash
-   rvn build path/to/App.rvnproj
-   rvn run path/to/App.rvnproj
-   rvn clean path/to/App.rvnproj
-   ```
-
-   When testing `net11.0` projects, use a project-local `global.json` to pin an SDK that supports `net11.0`; the .NET CLI otherwise selects the highest installed SDK.
-
-Distribution goal: package `rvn`, `rvnc`, the language server, Raven build assets, and `Raven.Core` together so users do not need repo-relative paths. Until then, source checkouts use `Directory.Build.props` for in-repo `.rvnproj` builds, and external projects can set `LanguageTargets`/`RavenCompilerHost` explicitly.
-
-### End-to-end project workflow
-
-Create and run a Raven app project:
+You can run tools explicitly through `dotnet run`:
 
 ```bash
-mkdir hello-raven
-cd hello-raven
-
-# Create a project scaffold (default type: app)
-rvn init
-
-# Build and run through rvn's SDK-backed frontend commands
-rvn build
-rvn run
-
+dotnet run -f net10.0 --project src/Raven -- dev syntax path/to/file.rav
+dotnet run -f net10.0 --project src/Raven.Compiler -- path/to/file.rav -o /tmp/app.dll
 ```
 
-Create a class library scaffold instead:
+Or build once and source helper functions for the current shell:
 
 ```bash
-rvn init --type classlib --name MyLibrary
+dotnet build src/Raven/Raven.csproj -f net10.0
+dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
+source scripts/raven-env.sh
+
+rvn dev syntax path/to/file.rav
+rvnc path/to/file.rav -o /tmp/app.dll
 ```
 
-Project-system and NuGet details:
+Project commands use the SDK workflow:
 
-- [Compiler project system docs](docs/compiler/project-system.md)
-- [NuGet project sample](samples/projects/nuget-demo/README.md)
+```bash
+rvn init --type console --name HelloRaven
+rvn build HelloRaven.rvnproj
+rvn run HelloRaven.rvnproj
+```
 
-### Run the compiler manually
+Equivalent .NET SDK commands work for `.rvnproj` applications:
 
-Command:
+```bash
+dotnet build path/to/App.rvnproj
+dotnet run --project path/to/App.rvnproj
+```
+
+## Compiler Driver
+
+Direct compiler invocation:
 
 ```bash
 dotnet run --project src/Raven.Compiler -- <path-to-file> -o <output-file-path>
 ```
 
-Options:
+Common options:
 
-- `--framework <tfm>` &ndash; target framework
-- `--refs <path>` &ndash; additional metadata reference (repeatable)
-- `--raven-core <path>` &ndash; reference a specific `Raven.Core.dll`
-- `--emit-core-types-only` &ndash; embed Raven core shims instead of using `Raven.Core.dll`
-- `-o <path>` &ndash; output assembly path
-- `--highlight` &ndash; display diagnostics with highlighted source snippets and severity-coloured underlines (covers
-  compiler, analyzer, and emit diagnostics)
-- `--no-emit` &ndash; analyze only
-- `-h`, `--help` &ndash; show help
+- `--framework <tfm>` - target framework.
+- `--refs <path>` - additional metadata reference; repeatable.
+- `--raven-core <path>` - reference a specific `Raven.Core.dll`.
+- `--emit-core-types-only` - embed Raven core shims instead of referencing
+  `Raven.Core.dll`.
+- `--no-emit` - analyze only.
+- `--highlight` - print diagnostics with highlighted source snippets.
+- `-o <path>` - output assembly path.
+- `-h`, `--help` - show help.
 
-`rvnc` references `Raven.Core.dll` by default. Use `--raven-core` to point to a different build of Raven.Core, or `--emit-core-types-only` to embed shimmed core types instead of referencing the DLL.
+Creating a `.debug/` directory in the current or a parent folder causes the
+compiler to emit per-file dumps such as syntax tree, highlighted syntax, raw
+source, bound tree, and binder tree into that directory.
 
-Creating a `.debug/` directory in the current or parent folder causes the
-compiler to emit per-file dumps (syntax tree, highlighted syntax, raw source,
-bound tree, and binder tree) into that directory.
-
-Use `rvn dev` for console debug views such as `syntax`, `dump`, `bound-tree`,
+`rvn dev` provides console debug views including `syntax`, `dump`, `bound-tree`,
 `symbols`, and `quote`.
 
-### Run the editor
+## Editor Support
 
-```bash
-dotnet run --project src/Raven.Editor -- <path-to-file>
-```
-
-When a file path is supplied, the editor opens the file and displays its name in the window title.
-
-### VS Code F5 (compile + debug)
-
-The Raven VS Code extension now supports F5 compile-and-debug for both single files and project files:
-
-- `.rvn` active file
-- `.ravenproj` project
-
-Repository launch presets are included in [`.vscode/launch.json`](.vscode/launch.json):
+The Raven VS Code extension supports F5 compile-and-debug for active `.rav`
+files and `.rvnproj` projects. Repository launch presets live in
+[.vscode/launch.json](.vscode/launch.json):
 
 - `Raven: Compile and Debug (active file)`
 - `Raven: Compile and Debug (project)`
 
-The debug flow compiles with `Raven.Compiler` into `${workspaceFolder}/.raven-debug`, then launches `dotnet <output.dll>` under the debugger.
-For details and configuration options (`raven.sdkPath`, `raven.compilerProjectPath`, `raven.languageServerPath`, `raven.targetFramework`), see [docs/compiler/raven-vscode-extension.md](docs/compiler/raven-vscode-extension.md).
+The debug flow compiles through `Raven.Compiler` into `.raven-debug`, then
+launches `dotnet <output.dll>` under the debugger. See
+[Raven VS Code extension docs](docs/compiler/raven-vscode-extension.md) for
+settings such as `raven.sdkPath`, `raven.compilerProjectPath`,
+`raven.languageServerPath`, and `raven.targetFramework`.
 
----
+## Development Notes
 
-## 📂 Repository Structure
+- Generated syntax files live under `Syntax/generated/` and
+  `Syntax/InternalSyntax/generated/`; do not edit them by hand.
+- Generator-affecting changes require `scripts/codex-build.sh`.
+- For focused compiler work, use
+  [docs/testing/test-impact-map.md](docs/testing/test-impact-map.md) to choose a
+  targeted build and test baseline.
+- Format touched code files with `dotnet format whitespace ... --include ...`.
 
-```
-src/
-  Raven.CodeAnalysis/         # Compiler core: syntax, binder, semantic model, code gen
-  Raven.Compiler/             # Command-line compiler
-  Raven.CodeAnalysis.Testing/ # Diagnostic test helpers
-  TestDep/                    # Auxiliary test project
+## Contributing
 
-test/                         # Unit tests
-samples/                      # Example Raven programs and CLI demos
-tools/
-  NodeGenerator/              # Generates syntax node code from Model.xml
-  Generator/                  # Shared Roslyn generator framework
-docs/                         # Language spec & design docs
-```
-
----
-
-## 🔧 Development Notes
-
-* The `RunNodeGenerator` target in `Raven.CodeAnalysis.csproj` runs automatically, but if generated files are missing, run the command manually.
-* Generated files reside in `Syntax/generated/` and `Syntax/InternalSyntax/generated/` — **do not edit by hand**.
-* Always run `dotnet build` and `dotnet test` before committing.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome!
-See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards, git conventions, and workflow.
-
----
-
-## 📚 Documentation
-
-* Full documentation: [docs/](docs/)
-* Unit tests for the language: [Raven.CodeAnalysis.Tests](test/Raven.CodeAnalysis.Tests)
-
----
-
-💡 *Raven is a playground for exploring compilers and language design — your ideas and contributions can directly shape its evolution!*
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for coding
+standards, git conventions, and workflow details.
