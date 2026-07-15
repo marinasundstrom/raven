@@ -191,7 +191,7 @@ public class SemanticFactsTests
     public void SatisfiesConstructorConstraint_ReturnsFalseForUnionClassWithoutPublicParameterlessConstructor()
     {
         var source = """
-union Response<T> {
+union class Response<T> {
     case Success(value: T)
     case Failure(message: string)
 }
