@@ -6689,7 +6689,7 @@ public partial class SemanticModel
 
     private static bool ImplementsInterfaceMethod(INamedTypeSymbol typeSymbol, IMethodSymbol interfaceMethod)
     {
-        foreach (var candidate in EnumerateTypeAndBaseMethods(typeSymbol, interfaceMethod.Name))
+        foreach (var candidate in EnumerateTypeAndBaseMethods(typeSymbol))
         {
             if (candidate.IsStatic)
                 continue;
@@ -6700,11 +6700,13 @@ public partial class SemanticModel
                 return true;
             }
 
+            if (candidate.Name != interfaceMethod.Name)
+                continue;
+
             if (candidate is SourceMethodSymbol { IsSignatureSkeleton: true })
                 return true;
 
-            if (candidate.Name == interfaceMethod.Name &&
-                MethodSignaturesMatch(candidate, interfaceMethod))
+            if (MethodSignaturesMatch(candidate, interfaceMethod))
             {
                 return true;
             }
@@ -6715,7 +6717,7 @@ public partial class SemanticModel
 
     private static bool ImplementsInterfaceProperty(INamedTypeSymbol typeSymbol, IPropertySymbol interfaceProperty)
     {
-        foreach (var candidate in EnumerateTypeAndBaseProperties(typeSymbol, interfaceProperty.Name))
+        foreach (var candidate in EnumerateTypeAndBaseProperties(typeSymbol))
         {
             if (candidate.IsStatic)
                 continue;
@@ -6726,8 +6728,10 @@ public partial class SemanticModel
                 return true;
             }
 
-            if (candidate.Name == interfaceProperty.Name &&
-                PropertySignaturesMatch(candidate, interfaceProperty))
+            if (candidate.Name != interfaceProperty.Name)
+                continue;
+
+            if (PropertySignaturesMatch(candidate, interfaceProperty))
             {
                 return true;
             }
@@ -6785,11 +6789,29 @@ public partial class SemanticModel
         }
     }
 
+    private static IEnumerable<IMethodSymbol> EnumerateTypeAndBaseMethods(INamedTypeSymbol typeSymbol)
+    {
+        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        {
+            foreach (var candidate in current.GetMembers().OfType<IMethodSymbol>())
+                yield return candidate;
+        }
+    }
+
     private static IEnumerable<IPropertySymbol> EnumerateTypeAndBaseProperties(INamedTypeSymbol typeSymbol, string name)
     {
         for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
         {
             foreach (var candidate in current.GetMembers(name).OfType<IPropertySymbol>())
+                yield return candidate;
+        }
+    }
+
+    private static IEnumerable<IPropertySymbol> EnumerateTypeAndBaseProperties(INamedTypeSymbol typeSymbol)
+    {
+        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        {
+            foreach (var candidate in current.GetMembers().OfType<IPropertySymbol>())
                 yield return candidate;
         }
     }

@@ -89,4 +89,20 @@ class Error : IError {
 
         CreateVerifier(source).Verify();
     }
+
+    [Fact]
+    public void ExplicitInterfaceMethod_SatisfiesInterfaceContract()
+    {
+        const string source = """
+interface ILogger {
+    func Log(message: string) -> unit
+}
+
+class Logger : ILogger {
+    func ILogger.Log(message: string) -> unit { }
+}
+""";
+
+        CreateVerifier(source).Verify();
+    }
 }

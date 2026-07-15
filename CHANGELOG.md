@@ -23,6 +23,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   a statically non-null receiver while preserving member binding for tooling.
 - Fixed interface contract diagnostics so concrete classes report missing
   required interface members such as `IDisposable.Dispose`.
+- Fixed interface contract diagnostics so source explicit interface method
+  implementations satisfy the required interface member even when the emitted
+  method name is interface-qualified.
 - Fixed union case binding so bare case constructor calls require an explicit
   target type, while pattern hovers report case symbols projected from the
   matched union type arguments.
