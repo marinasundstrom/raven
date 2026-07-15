@@ -64,7 +64,7 @@ outer: {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.LabelDoesNotIdentifyEnclosingLoop.Id).WithSpan(5, 19, 5, 24)
+                new DiagnosticResult(CompilerDiagnostics.LabelDoesNotIdentifyEnclosingLoop.Id).WithSpan(4, 19, 4, 24).WithArguments("outer")
             ]);
 
         verifier.Verify();
@@ -131,7 +131,7 @@ outer: loop {
         var verifier = CreateVerifier(code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(CompilerDiagnostics.LabelDoesNotIdentifyEnclosingLoop.Id).WithSpan(8, 18, 8, 23)
+                new DiagnosticResult(CompilerDiagnostics.LabelDoesNotIdentifyEnclosingLoop.Id).WithSpan(7, 18, 7, 23).WithArguments("outer")
             ]);
 
         verifier.Verify();
