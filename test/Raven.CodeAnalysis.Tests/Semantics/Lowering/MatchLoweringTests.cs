@@ -105,7 +105,7 @@ val result = match next() {
         var lowered = Assert.IsType<BoundBlockExpression>(model.GetBoundNode(match, BoundTreeView.Lowered));
         var statements = lowered.Statements.ToArray();
 
-        Assert.Equal(6, statements.Length);
+        Assert.Equal(7, statements.Length);
 
         var scrutineeDeclaration = Assert.IsType<BoundLocalDeclarationStatement>(statements[0]);
         var scrutineeDeclarator = Assert.Single(scrutineeDeclaration.Declarators);
@@ -122,8 +122,9 @@ val result = match next() {
         Assert.IsType<BoundIsPatternExpression>(fallbackArm.Condition);
         AssertAssignsMatchResult(fallbackArm.ThenNode, resultLocal, expectedValue: 0);
 
-        Assert.IsType<BoundLabeledStatement>(statements[4]);
-        var finalExpression = Assert.IsType<BoundExpressionStatement>(statements[5]);
+        Assert.IsType<BoundThrowStatement>(statements[4]);
+        Assert.IsType<BoundLabeledStatement>(statements[5]);
+        var finalExpression = Assert.IsType<BoundExpressionStatement>(statements[6]);
         var finalAccess = Assert.IsType<BoundLocalAccess>(finalExpression.Expression);
         Assert.Same(resultLocal, finalAccess.Local);
     }
@@ -158,7 +159,7 @@ func evaluate(flag: bool) -> int {
         var lowered = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(match, BoundTreeView.Lowered));
         var statements = lowered.Statements.ToArray();
 
-        Assert.Equal(4, statements.Length);
+        Assert.Equal(5, statements.Length);
 
         Assert.IsType<BoundLocalDeclarationStatement>(statements[0]);
 
@@ -171,7 +172,8 @@ func evaluate(flag: bool) -> int {
         Assert.IsType<BoundAssignmentStatement>(fallbackStatements[0]);
         Assert.IsType<BoundGotoStatement>(fallbackStatements[1]);
 
-        Assert.IsType<BoundLabeledStatement>(statements[3]);
+        Assert.IsType<BoundThrowStatement>(statements[3]);
+        Assert.IsType<BoundLabeledStatement>(statements[4]);
     }
 
     private sealed class MatchNodeFinder : BoundTreeWalker

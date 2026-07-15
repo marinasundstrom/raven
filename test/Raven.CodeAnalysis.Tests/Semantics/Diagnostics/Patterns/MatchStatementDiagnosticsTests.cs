@@ -193,7 +193,7 @@ func eval(state: State) -> int {
     }
 
     [Fact]
-    public void MatchStatement_WithStructUnionParameter_CatchAllForDefaultIsNotRedundant()
+    public void MatchStatement_WithStructUnionParameter_DefensiveCatchAllIsRedundant()
     {
         const string code = """
 union State {
@@ -210,13 +210,15 @@ func eval(state: State) -> int {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan()]);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void MatchStatement_WithStructUnionSelf_CatchAllForDefaultIsNotRedundant()
+    public void MatchStatement_WithStructUnionSelf_DefensiveCatchAllIsRedundant()
     {
         const string code = """
 union State {
@@ -233,7 +235,9 @@ union State {
 }
 """;
 
-        var verifier = CreateVerifier(code);
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan()]);
 
         verifier.Verify();
     }
