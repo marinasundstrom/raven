@@ -56,7 +56,7 @@ val parsed = int.parse("42")
 
         Assert.Equal("Int32Extensions", boundInvocation.Method.ContainingType?.Name);
         Assert.Null(boundInvocation.ExtensionReceiver);
-        Assert.Equal("union class Result<int, ParseIntError>", boundInvocation.Type.ToDisplayString());
+        Assert.Equal("union struct Result<int, ParseIntError>", boundInvocation.Type.ToDisplayString());
     }
 
     [Fact]
@@ -121,7 +121,7 @@ val wrapped = int.parse("42").WithContext("wrapped")
 
         Assert.Equal("ResultErrorContextExtensions", boundInvocation.Method.ContainingType?.Name);
         Assert.NotNull(boundInvocation.ExtensionReceiver);
-        Assert.Equal("union class Result<int, ContextError<ParseIntError>>", boundInvocation.Type.ToDisplayString());
+        Assert.Equal("union struct Result<int, ContextError<ParseIntError>>", boundInvocation.Type.ToDisplayString());
     }
 
     [Fact]
