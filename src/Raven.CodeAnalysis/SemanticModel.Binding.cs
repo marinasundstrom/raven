@@ -6658,7 +6658,7 @@ public partial class SemanticModel
 
             foreach (var interfaceProperty in interfaceType.GetMembers().OfType<IPropertySymbol>())
             {
-                if (interfaceProperty.IsStatic)
+                if (!RequiresInterfacePropertyImplementation(interfaceProperty))
                     continue;
 
                 if (ImplementsInterfaceProperty(typeSymbol, interfaceProperty))
@@ -6684,7 +6684,39 @@ public partial class SemanticModel
         if (interfaceMethod.AssociatedSymbol is IPropertySymbol or IEventSymbol)
             return false;
 
-        return interfaceMethod.MethodKind is not MethodKind.Constructor and not MethodKind.StaticConstructor;
+        if (interfaceMethod.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
+            return false;
+
+        if (interfaceMethod.IsAbstract)
+            return true;
+
+        return IsSourceInterfaceMethodWithoutBody(interfaceMethod);
+    }
+
+    private static bool IsSourceInterfaceMethodWithoutBody(IMethodSymbol interfaceMethod)
+    {
+        if (interfaceMethod.ContainingType?.TypeKind != TypeKind.Interface)
+            return false;
+
+        if (interfaceMethod is not SourceMethodSymbol)
+            return false;
+
+        foreach (var reference in interfaceMethod.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is MethodDeclarationSyntax declaration)
+                return declaration.Body is null && declaration.ExpressionBody is null;
+        }
+
+        return false;
+    }
+
+    private static bool RequiresInterfacePropertyImplementation(IPropertySymbol interfaceProperty)
+    {
+        if (interfaceProperty.IsStatic)
+            return false;
+
+        return interfaceProperty.GetMethod is { IsAbstract: true } ||
+               interfaceProperty.SetMethod is { IsAbstract: true };
     }
 
     private static bool ImplementsInterfaceMethod(INamedTypeSymbol typeSymbol, IMethodSymbol interfaceMethod)

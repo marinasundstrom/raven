@@ -105,4 +105,34 @@ class Logger : ILogger {
 
         CreateVerifier(source).Verify();
     }
+
+    [Fact]
+    public void DefaultInterfaceProperty_DoesNotRequireImplementation()
+    {
+        const string source = """
+interface IMacroDefinition {
+    val AcceptsArguments: bool => false
+}
+
+class ObservableMacro : IMacroDefinition {
+}
+""";
+
+        CreateVerifier(source).Verify();
+    }
+
+    [Fact]
+    public void DefaultInterfaceMethod_DoesNotRequireImplementation()
+    {
+        const string source = """
+interface ILogger {
+    func Log(message: string) -> unit { }
+}
+
+class Logger : ILogger {
+}
+""";
+
+        CreateVerifier(source).Verify();
+    }
 }
