@@ -26,6 +26,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed union case binding so bare case constructor calls require an explicit
   target type, while pattern hovers report case symbols projected from the
   matched union type arguments.
+- Fixed union declaration attribute validation so source unions accept
+  type-level attributes whose usage targets either class or struct carriers.
 - Changed `RAV9016` member-can-be-private and `RAV9017`
   member-can-be-static analyzer diagnostics to default to informational
   suggestions. `RAV9017` no longer suggests making methods static when they

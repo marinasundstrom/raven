@@ -321,6 +321,9 @@ internal static class AttributeUsageHelper
 
     private static AttributeTargets GetTypeTarget(INamedTypeSymbol type)
     {
+        if (type is IUnionSymbol)
+            return AttributeTargets.Class | AttributeTargets.Struct;
+
         return type.TypeKind switch
         {
             TypeKind.Class => AttributeTargets.Class,
