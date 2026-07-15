@@ -88,13 +88,14 @@ class Counter {
 class Program {
     static func Run() -> int {
         Counter.Hits = 0
-        val logger = ConsoleLogger()
+        val actual = ConsoleLogger()
+        val logger: ConsoleLogger? = actual
 
         logger?.Logged += (msg: string) => {
             Counter.Increment()
         }
 
-        logger.Log("hello")
+        actual.Log("hello")
         return Counter.Hits
     }
 }
