@@ -547,7 +547,7 @@ func Render(result: Result) -> int {
         {
             ConsoleSyntaxHighlighter.ColorScheme = ColorScheme.Light;
 
-            var text = ConsoleSyntaxHighlighter.WriteTextToTextLight(source);
+            var text = ConsoleSyntaxHighlighter.WriteTextToTextLight(source).StripAnsiCodes();
             Assert.Contains(".Case(", text, StringComparison.Ordinal);
         }
         finally
