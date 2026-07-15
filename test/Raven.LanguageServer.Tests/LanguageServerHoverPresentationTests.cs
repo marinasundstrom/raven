@@ -494,7 +494,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union class Option<string>");
+        signature.ShouldBe("union struct Option<string>");
     }
 
     [Fact]
@@ -538,7 +538,7 @@ class C {
             null,
             [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, resolution.Value.Node.Span.Start])!;
 
-        signature.ShouldBe("union class Union<Left, Right>: IUnion");
+        signature.ShouldBe("union struct Union<Left, Right>: IUnion");
     }
 
     [Fact]

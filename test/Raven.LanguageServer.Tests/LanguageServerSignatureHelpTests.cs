@@ -154,9 +154,9 @@ union Foo(int | string)
         result.ShouldNotBeNull();
         result.Signatures.ShouldNotBeNull();
         result.Signatures.Select(signature => signature.Label).Count().ShouldBe(2);
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(int | string)(value: int)");
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Foo(int | string)(value: string)");
-        result.Signatures.Select(signature => signature.Label).ShouldNotContain("union class Foo(int | string)()");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union struct Foo(int | string)(value: int)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union struct Foo(int | string)(value: string)");
+        result.Signatures.Select(signature => signature.Label).ShouldNotContain("union struct Foo(int | string)()");
     }
 
     [Fact]
@@ -200,8 +200,8 @@ union Either<T1, T2>(T1 | T2)
         result.ShouldNotBeNull();
         result.Signatures.ShouldNotBeNull();
         result.Signatures.Select(signature => signature.Label).Count().ShouldBe(2);
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Either<int, string>(int | string)(value: int)");
-        result.Signatures.Select(signature => signature.Label).ShouldContain("union class Either<int, string>(int | string)(value: string)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union struct Either<int, string>(int | string)(value: int)");
+        result.Signatures.Select(signature => signature.Label).ShouldContain("union struct Either<int, string>(int | string)(value: string)");
     }
 
     [Fact]
