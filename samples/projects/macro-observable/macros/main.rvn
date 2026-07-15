@@ -12,6 +12,7 @@ class ObservableMacroPlugin : IRavenMacroPlugin {
 
 class ObservableMacro : IAttachedDeclarationMacro {
     val Name: string => "Observable"
+    val Kind: MacroKind => MacroKind.AttachedDeclaration
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {

@@ -12,6 +12,7 @@ class ReactiveMacroPlugin : IRavenMacroPlugin {
 
 class ObservableMacro : IAttachedDeclarationMacro {
     val Name: string => "Observable"
+    val Kind: MacroKind => MacroKind.AttachedDeclaration
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
@@ -188,6 +189,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
 
 class SubscribeMacro : IFreestandingExpressionMacro {
     val Name: string => "subscribe"
+    val Kind: MacroKind => MacroKind.FreestandingExpression
     val Targets: MacroTarget => MacroTarget.None
     val AcceptsArguments: bool => true
 
