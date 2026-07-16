@@ -789,6 +789,12 @@ internal static partial class SymbolResolver
         if (IsInvocationTargetPosition(node, token))
             return null;
 
+        if (node is LabeledStatementSyntax labeledStatement &&
+            token != labeledStatement.Identifier)
+        {
+            return null;
+        }
+
         if (TryGetSymbolInfo(semanticModel, node, out var symbolInfo) &&
             (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty))
         {

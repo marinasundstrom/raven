@@ -1223,6 +1223,81 @@ import System.Text.Json.Serialization.*
     }
 
     [Fact]
+    public void LoopKeywordHover_DoesNotResolveEnclosingLabel()
+    {
+        const string code = """
+func Main() {
+    outer: loop {
+        inner: loop {
+            break outer
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var loopToken = root.DescendantTokens()
+            .Where(static token => token.Kind == SyntaxKind.LoopKeyword)
+            .Last();
+        var hoverOffset = loopToken.SpanStart + 1;
+
+        var shouldSuppressSemanticHover = typeof(HoverHandler)
+            .GetMethod("ShouldSuppressSemanticHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var suppressed = (bool)shouldSuppressSemanticHover.Invoke(null, [root, hoverOffset])!;
+
+        suppressed.ShouldBeTrue();
+        SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset).ShouldBeNull();
+    }
+
+    [Fact]
+    public void LabelHoverRange_UsesLabelIdentifier()
+    {
+        const string code = """
+func Main() {
+    outer: loop {
+        inner: loop {
+            break outer
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        _ = compilation.GetDiagnostics();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var labeledStatement = root.DescendantNodes()
+            .OfType<LabeledStatementSyntax>()
+            .Single(label => label.Identifier.ValueText == "inner");
+        var labelSymbol = semanticModel.GetDeclaredSymbol(labeledStatement).ShouldBeAssignableTo<ILabelSymbol>();
+        var loopStatement = labeledStatement.Statement.ShouldBeAssignableTo<LoopStatementSyntax>();
+        var resolution = new SymbolResolutionResult(SymbolResolutionKind.SymbolInfo, labelSymbol, loopStatement);
+
+        var getHoverSpanForResolution = typeof(HoverHandler)
+            .GetMethod("GetHoverSpanForResolution", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var span = (TextSpan)getHoverSpanForResolution.Invoke(null, [resolution])!;
+
+        span.ShouldBe(labeledStatement.Identifier.Span);
+    }
+
+    [Fact]
     public void GenericConstructorInvocationHover_UsesConstructedConstructor()
     {
         const string code = """

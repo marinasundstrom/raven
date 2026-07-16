@@ -1814,6 +1814,7 @@ internal sealed class HoverHandler : IHoverHandler
             or SyntaxKind.InternalKeyword
             or SyntaxKind.IsKeyword
             or SyntaxKind.LetKeyword
+            or SyntaxKind.LoopKeyword
             or SyntaxKind.MatchKeyword
             or SyntaxKind.NameOfKeyword
             or SyntaxKind.NamespaceKeyword
@@ -2613,6 +2614,9 @@ internal sealed class HoverHandler : IHoverHandler
                     return true;
                 case FunctionStatementSyntax function when !function.Identifier.IsMissing:
                     span = function.Identifier.Span;
+                    return true;
+                case LabeledStatementSyntax labeledStatement when !labeledStatement.Identifier.IsMissing:
+                    span = labeledStatement.Identifier.Span;
                     return true;
             }
         }

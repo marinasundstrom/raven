@@ -273,6 +273,7 @@ internal static partial class SymbolResolver
             MethodDeclarationSyntax method when !method.Identifier.IsMissing => method.Identifier.Span,
             PropertyDeclarationSyntax property when !property.Identifier.IsMissing => property.Identifier.Span,
             EventDeclarationSyntax @event when !@event.Identifier.IsMissing => @event.Identifier.Span,
+            LabeledStatementSyntax labeledStatement when !labeledStatement.Identifier.IsMissing => labeledStatement.Identifier.Span,
             FieldDeclarationSyntax field => field.Declaration?.Declarators.FirstOrDefault()?.Identifier.Span,
             _ => null
         };
