@@ -3546,6 +3546,147 @@ union Option {
     }
 
     [Fact]
+    public void StructLikeCaseFields_AreExposedAsConstructorParametersAndGetterOnlyProperties()
+    {
+        const string source = """
+union Status {
+    case Closed {
+        Code: int
+        Reason: string? = null
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single());
+        var constructor = caseSymbol.InstanceConstructors.Single();
+
+        Assert.Collection(
+            constructor.Parameters,
+            code =>
+            {
+                Assert.Equal("Code", code.Name);
+                Assert.Equal(SpecialType.System_Int32, code.Type.SpecialType);
+                Assert.False(code.HasExplicitDefaultValue);
+            },
+            reason =>
+            {
+                Assert.Equal("Reason", reason.Name);
+                Assert.Equal(SpecialType.System_String, reason.Type.GetPlainType().SpecialType);
+                Assert.True(reason.Type.IsNullable);
+                Assert.True(reason.HasExplicitDefaultValue);
+                Assert.Null(reason.ExplicitDefaultValue);
+            });
+
+        var codeProperty = caseSymbol.GetMembers("Code").OfType<IPropertySymbol>().Single();
+        var reasonProperty = caseSymbol.GetMembers("Reason").OfType<IPropertySymbol>().Single();
+        Assert.Null(codeProperty.SetMethod);
+        Assert.Null(reasonProperty.SetMethod);
+    }
+
+    [Fact]
+    public void StructLikeCaseFieldDefaults_MayPrecedeRequiredFields()
+    {
+        const string source = """
+union Status {
+    case Closed {
+        Reason: string? = null
+        Code: int
+    }
+}
+
+class Factory {
+    func Create() -> Status {
+        return .Closed {
+            Code = 7
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        _ = unionSymbol.CaseTypes.ToArray();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void StructLikeCaseConstruction_BindsTrailingAssignmentsAsNamedConstructorArguments()
+    {
+        const string source = """
+union Status {
+    case Closed {
+        Code: int
+        Reason: string? = null
+    }
+}
+
+class Factory {
+    func Create() -> Status {
+        return .Closed {
+            Code = 7
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var methodSyntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
+        var returnStatement = boundBody.Statements.OfType<BoundReturnStatement>().Single();
+        var unionCaseExpression = Assert.IsType<BoundUnionCaseExpression>(returnStatement.Expression);
+
+        Assert.Equal("Closed", unionCaseExpression.CaseType.Name);
+        Assert.Equal(2, unionCaseExpression.Arguments.Length);
+        Assert.Equal(SpecialType.System_Int32, unionCaseExpression.Arguments[0].Type.SpecialType);
+        Assert.True(unionCaseExpression.Arguments[1] is BoundLiteralExpression { Value: null });
+    }
+
+    [Fact]
+    public void StructLikeCaseConstruction_ReportsMissingRequiredField()
+    {
+        const string source = """
+union Status {
+    case Closed {
+        Code: int
+        Reason: string? = null
+    }
+}
+
+class Factory {
+    func Create() -> Status {
+        return .Closed {
+            Reason = "done"
+        }
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.NoOverloadForMethod);
+    }
+
+    [Fact]
     public void SynthesizedUnionMembers_AreRegisteredOnUnionAndCaseSymbols()
     {
         const string source = """

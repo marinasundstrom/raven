@@ -3705,8 +3705,18 @@ enum Direction {
 union Command {
     case Start
     case Stop
+    case Fail {
+        Message: string
+        Code: int? = null
+    }
 }
 ```
+
+Union cases support three payload shapes: a bare case is unit-like, a
+parenthesized case is tuple-like, and a braced case is struct-like with named
+payload fields. Braced case fields without defaults are required during case
+construction; fields with defaults are optional. The field block declares the
+case payload shape and does not introduce mutable object-initializer semantics.
 
 `Direction.North` is a named CLR enum value. `Command.Start` is a union case
 value that can be converted to the `Command` carrier and matched as one of the

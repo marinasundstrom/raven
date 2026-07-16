@@ -4055,7 +4055,7 @@ public partial class SemanticModel
                 namespaceSymbol?.AddMember(caseSymbol);
                 RegisterMember(unionSymbol, caseSymbol);
 
-                var rawParameters = new List<(ParameterSyntax Syntax, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams)>();
+                var rawParameters = new List<(SyntaxNode Syntax, SyntaxToken Identifier, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams)>();
                 var seenOptionalParameter = false;
 
                 if (caseClause.ParameterList is { } parameterList)
@@ -4096,12 +4096,38 @@ public partial class SemanticModel
                         var isMutable = refKind is RefKind.Ref or RefKind.Out;
                         rawParameters.Add((
                             Syntax: parameterSyntax,
+                            Identifier: parameterSyntax.Identifier,
                             Type: parameterType,
                             RefKind: refKind,
                             HasExplicitDefaultValue: defaultResult.HasExplicitDefaultValue,
                             ExplicitDefaultValue: defaultResult.ExplicitDefaultValue,
                             IsMutable: isMutable,
                             IsVarParams: isVarParams));
+                    }
+                }
+                else if (caseClause.FieldClause is { } fieldClause)
+                {
+                    foreach (var fieldSyntax in fieldClause.Fields)
+                    {
+                        var parameterType = unionBinder.BindTypeSyntaxAndReport(fieldSyntax.TypeAnnotation.Type);
+                        var defaultResult = TypeMemberBinder.ProcessParameterDefault(
+                            fieldSyntax.Initializer,
+                            parameterType,
+                            fieldSyntax.Identifier.ValueText,
+                            fieldSyntax.Identifier.GetLocation(),
+                            unionBinder.Diagnostics,
+                            ref seenOptionalParameter,
+                            requireTrailingOptional: false);
+
+                        rawParameters.Add((
+                            Syntax: fieldSyntax,
+                            Identifier: fieldSyntax.Identifier,
+                            Type: parameterType,
+                            RefKind: RefKind.None,
+                            HasExplicitDefaultValue: defaultResult.HasExplicitDefaultValue,
+                            ExplicitDefaultValue: defaultResult.ExplicitDefaultValue,
+                            IsMutable: false,
+                            IsVarParams: false));
                     }
                 }
 
@@ -4177,18 +4203,19 @@ public partial class SemanticModel
                 foreach (var rawParameter in rawParameters)
                 {
                     var parameterSyntax = rawParameter.Syntax;
+                    var parameterIdentifier = rawParameter.Identifier;
                     var refKind = rawParameter.RefKind;
                     var parameterType = rawParameter.Type;
                     if (caseTypeParameterMap.Count > 0)
                         parameterType = SubstituteTypeParameters(parameterType, caseTypeParameterMap);
 
                     var parameterSymbol = new SourceParameterSymbol(
-                        parameterSyntax.Identifier.ValueText,
+                        parameterIdentifier.ValueText,
                         parameterType,
                         constructor,
                         caseSymbol,
                         namespaceSymbol,
-                        [parameterSyntax.Identifier.GetLocation()],
+                        [parameterIdentifier.GetLocation()],
                         [parameterSyntax.GetReference()],
                         refKind,
                         rawParameter.HasExplicitDefaultValue,
@@ -4200,11 +4227,11 @@ public partial class SemanticModel
 
                     if (refKind == RefKind.None)
                     {
-                        var parameterName = parameterSyntax.Identifier.ValueText;
+                        var parameterName = parameterIdentifier.ValueText;
                         var propertyName = UnionFacts.GetCasePropertyName(parameterName);
 
                         var backingField = new SourceFieldSymbol(
-                            $"<{parameterSyntax.Identifier.ValueText}>k__BackingField",
+                            $"<{parameterIdentifier.ValueText}>k__BackingField",
                             parameterType,
                             isStatic: false,
                             isMutable: parameterSymbol.IsMutable,

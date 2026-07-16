@@ -1018,6 +1018,18 @@
     <Slot Name="CaseKeyword" Type="Token" DefaultToken="CaseKeyword" />
     <Slot Name="Identifier" Type="Token" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
+    <Slot Name="FieldClause" Type="CaseFieldClause" IsNullable="true" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
+  <Node Name="CaseFieldClause" Inherits="Node">
+    <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
+    <Slot Name="Fields" Type="List" ElementType="CaseField" />
+    <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
+  </Node>
+  <Node Name="CaseField" Inherits="Node">
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeAnnotation" Type="TypeAnnotationClause" />
+    <Slot Name="Initializer" Type="EqualsValueClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="IndexerDeclaration" Inherits="BasePropertyDeclaration">

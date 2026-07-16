@@ -13,12 +13,19 @@ Discriminated unions are value types that represent a fixed set of alternative s
 union Token {
     case Identifier(text: string)
     case Number(text: string)
+    case Error {
+        Message: string
+        Position: int? = null
+    }
     case Unknown
 }
 ```
 
 * `union` introduces a discriminated union declaration.
-* Each clause declares a case and is prefixed with the `case` keyword. A case name followed by a parameter list defines a constructor. A bare case name (e.g. `case Unknown`) produces a parameterless constructor.
+* Each clause declares a case and is prefixed with the `case` keyword.
+* A bare case name (e.g. `case Unknown`) produces a parameterless unit-like case.
+* A case name followed by a parameter list defines a tuple-like case constructor.
+* A case name followed by a field block defines a struct-like case. Fields without defaults are required during construction; fields with defaults are optional and may appear before or after required fields because construction is name-based.
 * The compiler emits one nested `struct` per case with a constructor.
 * The outer union struct exposes one constructor per case (`.ctor(CaseType)`), used for case-to-union conversion.
 * The outer union struct exposes `TryGetIdentifier(ref Identifier?)`, `TryGetNumber(ref Number?)`, etc. to interrogate the active case.
@@ -30,7 +37,12 @@ Cases are constructed either by qualifying with the union name or by using the s
 ```csharp
 let id1 = Token.Identifier("foo")
 let id2 : Token = .Identifier("test")
+let err : Token = .Error {
+    Message = "invalid token"
+}
 ```
+
+Struct-like cases use the same case construction model. The brace form is named constructor syntax for the case value, not object-initializer mutation; the resulting case payload remains immutable.
 
 Each case struct exposes the payload values via immutable fields or properties. Assigning a case to the union still converts implicitly at the language level, but the conversion is implemented by calling the matching union constructor (`.ctor(CaseType)`), not by synthesizing `op_Implicit`.
 

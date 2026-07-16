@@ -43,6 +43,47 @@ public class UnionDeclarationParserTests
     }
 
     [Fact]
+    public void UnionDeclaration_WithStructLikeCase_ParsesCaseFields()
+    {
+        var source = """
+            union Status {
+                case Closed {
+                    Reason: string? = null
+                    Code: int
+                }
+                case Open(reason: string)
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(root.Members));
+        var closed = declaration.Members.OfType<CaseDeclarationSyntax>().First();
+
+        Assert.Equal("Closed", closed.Identifier.Text);
+        Assert.Null(closed.ParameterList);
+        Assert.NotNull(closed.FieldClause);
+
+        var fields = closed.FieldClause!.Fields.ToArray();
+        Assert.Collection(
+            fields,
+            first =>
+            {
+                Assert.Equal("Reason", first.Identifier.Text);
+                Assert.Equal("string?", first.TypeAnnotation.Type.ToString());
+                Assert.NotNull(first.Initializer);
+            },
+            second =>
+            {
+                Assert.Equal("Code", second.Identifier.Text);
+                Assert.Equal("int", second.TypeAnnotation.Type.ToString());
+                Assert.Null(second.Initializer);
+            });
+
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void UnionDeclaration_WithSemicolonSeparatedCases_ParsesCaseList()
     {
         var source = "union Token { case Identifier(text: string); case Unknown }";

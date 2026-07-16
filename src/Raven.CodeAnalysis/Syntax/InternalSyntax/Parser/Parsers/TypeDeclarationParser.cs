@@ -571,8 +571,81 @@ internal class TypeDeclarationParser : SyntaxParser
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
             parameterList = ParseParameterList();
 
+        CaseFieldClauseSyntax? fieldClause = null;
+        if (parameterList is null && PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+            fieldClause = ParseCaseFieldClause();
+
         var terminatorToken = ConsumeOptionalCaseTerminator();
-        return CaseDeclaration(attributeLists, modifiers, caseKeyword, identifier, parameterList, terminatorToken);
+        return CaseDeclaration(attributeLists, modifiers, caseKeyword, identifier, parameterList, fieldClause, terminatorToken);
+    }
+
+    private CaseFieldClauseSyntax ParseCaseFieldClause()
+    {
+        var openBraceToken = ExpectToken(SyntaxKind.OpenBraceToken);
+        var fields = new List<GreenNode>();
+
+        while (true)
+        {
+            var current = PeekToken();
+
+            if (current.IsKind(SyntaxKind.CloseBraceToken) || current.IsKind(SyntaxKind.EndOfFileToken))
+                break;
+
+            var fieldStart = Position;
+            fields.Add(ParseCaseField());
+
+            if (Position == fieldStart)
+            {
+                var skippedToken = ParseIncompleteTypeMemberTokens();
+                TryConsumeTerminator(out _);
+                fields.Add(CaseField(
+                    skippedToken,
+                    CreateMissingTypeAnnotationClause(),
+                    null,
+                    Token(SyntaxKind.None)));
+            }
+        }
+
+        ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
+        return CaseFieldClause(openBraceToken, List(fields), closeBraceToken);
+    }
+
+    private CaseFieldSyntax ParseCaseField()
+    {
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = ExpectToken(SyntaxKind.IdentifierToken);
+        }
+
+        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation()
+            ?? CreateMissingTypeAnnotationClause();
+
+        EqualsValueClauseSyntax? initializer = null;
+        if (PeekToken().IsKind(SyntaxKind.EqualsToken))
+        {
+            var equalsToken = ReadToken();
+            var value = new ExpressionSyntaxParser(this).ParseExpression();
+            initializer = EqualsValueClause(equalsToken, value);
+        }
+
+        TryConsumeCaseFieldTerminator(out var terminatorToken);
+        return CaseField(identifier, typeAnnotation, initializer, terminatorToken);
+    }
+
+    private void TryConsumeCaseFieldTerminator(out SyntaxToken terminatorToken)
+    {
+        if (PeekToken().IsKind(SyntaxKind.CommaToken))
+        {
+            terminatorToken = ReadToken();
+            return;
+        }
+
+        TryConsumeTerminator(out terminatorToken);
     }
 
     private SyntaxToken ConsumeOptionalCaseTerminator()

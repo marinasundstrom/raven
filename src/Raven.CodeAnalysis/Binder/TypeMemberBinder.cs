@@ -3999,7 +3999,7 @@ internal partial class TypeMemberBinder : Binder
         DiagnosticBag diagnostics,
         ref bool seenOptionalParameter)
     {
-        var evaluation = EvaluateParameterDefaultValue(parameterSyntax, parameterType);
+        var evaluation = EvaluateParameterDefaultValue(parameterSyntax.DefaultValue, parameterType);
 
         if (!evaluation.HasDefaultSyntax)
         {
@@ -4016,6 +4016,53 @@ internal partial class TypeMemberBinder : Binder
         if (!evaluation.Success)
         {
             var defaultLocation = parameterSyntax.DefaultValue!.Value.GetLocation();
+
+            switch (evaluation.Failure)
+            {
+                case ParameterDefaultEvaluationFailure.NotConstant:
+                    diagnostics.ReportParameterDefaultValueMustBeConstant(parameterName, defaultLocation);
+                    break;
+                case ParameterDefaultEvaluationFailure.NotConvertible:
+                    if (parameterType.TypeKind != TypeKind.Error)
+                    {
+                        var parameterTypeDisplay = parameterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        diagnostics.ReportParameterDefaultValueCannotConvert(parameterName, parameterTypeDisplay, defaultLocation);
+                    }
+                    break;
+            }
+
+            return ParameterDefaultProcessingResult.None;
+        }
+
+        return new ParameterDefaultProcessingResult(true, evaluation.Value);
+    }
+
+    internal static ParameterDefaultProcessingResult ProcessParameterDefault(
+        EqualsValueClauseSyntax? defaultValue,
+        ITypeSymbol parameterType,
+        string parameterName,
+        Location parameterLocation,
+        DiagnosticBag diagnostics,
+        ref bool seenOptionalParameter,
+        bool requireTrailingOptional = true)
+    {
+        var evaluation = EvaluateParameterDefaultValue(defaultValue, parameterType);
+
+        if (!evaluation.HasDefaultSyntax)
+        {
+            if (requireTrailingOptional && seenOptionalParameter)
+            {
+                diagnostics.ReportOptionalParameterMustBeTrailing(parameterName, parameterLocation);
+            }
+
+            return ParameterDefaultProcessingResult.None;
+        }
+
+        seenOptionalParameter = true;
+
+        if (!evaluation.Success)
+        {
+            var defaultLocation = defaultValue!.Value.GetLocation();
 
             switch (evaluation.Failure)
             {
@@ -4140,18 +4187,23 @@ internal partial class TypeMemberBinder : Binder
     internal static ParameterDefaultEvaluationResult EvaluateParameterDefaultValue(
         ParameterSyntax parameterSyntax,
         ITypeSymbol parameterType)
+        => EvaluateParameterDefaultValue(parameterSyntax.DefaultValue, parameterType);
+
+    internal static ParameterDefaultEvaluationResult EvaluateParameterDefaultValue(
+        EqualsValueClauseSyntax? defaultClause,
+        ITypeSymbol parameterType)
     {
-        if (parameterSyntax.DefaultValue is null)
+        if (defaultClause is null)
             return new ParameterDefaultEvaluationResult(false, success: false, value: null, ParameterDefaultEvaluationFailure.None);
 
-        if (parameterSyntax.DefaultValue.Value is DefaultExpressionSyntax)
+        if (defaultClause.Value is DefaultExpressionSyntax)
             return new ParameterDefaultEvaluationResult(
                 true,
                 success: true,
                 value: CreateParameterTypeDefaultValue(parameterType),
                 ParameterDefaultEvaluationFailure.None);
 
-        var defaultExpression = parameterSyntax.DefaultValue.Value;
+        var defaultExpression = defaultClause.Value;
         if (TryEvaluateTargetTypedEnumDefault(defaultExpression, parameterType, out var enumDefaultValue))
             return new ParameterDefaultEvaluationResult(
                 true,

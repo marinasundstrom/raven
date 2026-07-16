@@ -10876,7 +10876,9 @@ partial class BlockBinder : Binder
     {
         unionCaseCallee = RefineInvokedUnionCaseCalleeForContext(unionCaseCallee, syntax);
 
-        var caseCreation = BindConstructorInvocation(unionCaseCallee.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
+        var caseCreation = TryBindUnionCaseFieldInitializer(unionCaseCallee, syntax, out var fieldInitializerCreation)
+            ? fieldInitializerCreation
+            : BindConstructorInvocation(unionCaseCallee.CaseType, syntax, receiverSyntax: syntax.Expression, receiver: null);
         if (caseCreation is not BoundObjectCreationExpression creationExpr)
             return caseCreation;
 
@@ -10938,6 +10940,136 @@ partial class BlockBinder : Binder
             caseType,
             constructor,
             arguments);
+    }
+
+    private bool TryBindUnionCaseFieldInitializer(
+        BoundUnionCaseExpression unionCaseCallee,
+        InvocationExpressionSyntax syntax,
+        out BoundExpression boundExpression)
+    {
+        boundExpression = null!;
+
+        if (syntax.TrailingBlock is not { } trailingBlock)
+            return false;
+
+        if (GetTrailingBlockParameterSyntaxes(trailingBlock).Length > 0)
+            return false;
+
+        var assignmentEntries = trailingBlock.Statements.OfType<AssignmentStatementSyntax>().ToArray();
+        if (assignmentEntries.Length != trailingBlock.Statements.Count)
+            return false;
+
+        var typeSymbol = unionCaseCallee.CaseType;
+        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol) &&
+            TryInferConstructedUnionCaseTypeFromTargetType(typeSymbol, syntax, out var targetTypedUnionCase))
+        {
+            typeSymbol = targetTypedUnionCase;
+        }
+
+        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol))
+        {
+            _diagnostics.ReportTypeRequiresTypeArguments(typeSymbol.Name, typeSymbol.Arity, syntax.Expression.GetLocation());
+            boundExpression = new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
+            return true;
+        }
+
+        var constructors = typeSymbol.Constructors;
+        if (constructors.IsDefaultOrEmpty)
+            return false;
+
+        var constructorForBinding = constructors[0];
+        var arguments = new List<BoundArgument>(syntax.ArgumentList.Arguments.Count + assignmentEntries.Length);
+        var seenNames = new HashSet<string>(StringComparer.Ordinal);
+        var seenErrors = false;
+
+        for (var i = 0; i < syntax.ArgumentList.Arguments.Count; i++)
+        {
+            var argumentSyntax = syntax.ArgumentList.Arguments[i];
+            var targetParameter = i < constructorForBinding.Parameters.Length
+                ? constructorForBinding.Parameters[i]
+                : null;
+            var syntaxRefKind = argumentSyntax.RefKindKeyword.Kind switch
+            {
+                SyntaxKind.RefKeyword => RefKind.Ref,
+                SyntaxKind.OutKeyword => RefKind.Out,
+                SyntaxKind.InKeyword => RefKind.In,
+                _ => RefKind.None,
+            };
+            var boundArgument = BindInvocationArgumentExpression(argumentSyntax, targetParameter?.Type, syntaxRefKind);
+            if (HasExpressionErrors(boundArgument))
+                seenErrors = true;
+
+            var name = argumentSyntax.NameColon?.Name.Identifier.ValueText;
+            if (string.IsNullOrEmpty(name))
+                name = null;
+            else
+                seenNames.Add(name);
+
+            var isSpread = argumentSyntax.DotDotDotToken.Kind == SyntaxKind.DotDotDotToken;
+            arguments.Add(new BoundArgument(boundArgument, syntaxRefKind, name, argumentSyntax, isSpread));
+        }
+
+        foreach (var assignment in assignmentEntries)
+        {
+            if (assignment.OperatorToken.Kind != SyntaxKind.EqualsToken)
+            {
+                _ = BindExpression(assignment.Right, allowReturn: false);
+                boundExpression = ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+                return true;
+            }
+
+            if (assignment.Left is not IdentifierNameSyntax assignmentName)
+            {
+                _ = BindExpression(assignment.Right, allowReturn: false);
+                boundExpression = ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+                return true;
+            }
+
+            var name = assignmentName.Identifier.ValueText;
+            if (!seenNames.Add(name))
+                _diagnostics.ReportWithExpressionMemberAssignedMultipleTimes(name, assignmentName.GetLocation());
+
+            var targetParameter = constructorForBinding.Parameters.FirstOrDefault(parameter =>
+                string.Equals(parameter.Name, name, StringComparison.Ordinal) ||
+                string.Equals(UnionFacts.GetCasePropertyName(parameter.Name), name, StringComparison.Ordinal));
+
+            var boundArgument = targetParameter is not null
+                ? BindExpressionWithTargetType(assignment.Right, targetParameter.Type, allowReturn: false)
+                : BindExpression(assignment.Right, allowReturn: false);
+
+            if (HasExpressionErrors(boundArgument))
+                seenErrors = true;
+
+            arguments.Add(new BoundArgument(boundArgument, RefKind.None, name, assignment));
+        }
+
+        if (seenErrors)
+        {
+            boundExpression = new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
+            return true;
+        }
+
+        if (!OverloadResolver.TryMapArguments(
+                constructorForBinding.Parameters,
+                arguments,
+                treatAsExtension: false,
+                out _))
+        {
+            _diagnostics.ReportNoOverloadForMethod("constructor for type", typeSymbol.Name, arguments.Count, syntax.GetLocation());
+            boundExpression = new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OverloadResolutionFailed);
+            return true;
+        }
+
+        if (!EnsureMemberAccessible(constructorForBinding, syntax.Expression.GetLocation(), "constructor"))
+        {
+            boundExpression = new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
+            return true;
+        }
+
+        ReportObsoleteIfNeeded(constructorForBinding, syntax.Expression.GetLocation());
+        var convertedArguments = ConvertArguments(constructorForBinding.Parameters, arguments, syntax);
+        boundExpression = new BoundObjectCreationExpression(constructorForBinding, convertedArguments, receiver: null);
+        return true;
     }
 
     private BoundUnionCaseExpression RefineInvokedUnionCaseCalleeForContext(

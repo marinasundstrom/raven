@@ -164,7 +164,9 @@ DelegateDeclaration      ::= TypeModifiers? 'delegate' Identifier TypeParameterL
                              TypeTerminator? ;
 
 UnionCaseList            ::= {UnionCaseClause} ;
-UnionCaseClause          ::= 'case' Identifier ParameterList? UnionCaseTerminator? ;
+UnionCaseClause          ::= 'case' Identifier (ParameterList | CaseFieldClause)? UnionCaseTerminator? ;
+CaseFieldClause          ::= '{' {CaseField} '}' ;
+CaseField                ::= Identifier ':' Type ('=' Expression)? UnionCaseTerminator? ;
 UnionCaseTerminator      ::= ',' | TypeTerminator ;
 (* Case-construction surface forms are semantically equivalent:
      Ok(2)

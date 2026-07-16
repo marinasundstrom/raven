@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added struct-like discriminated union cases with named payload fields, e.g.
+  `case Closed { Reason: string? = null }`. Defaulted fields are optional in
+  named case construction, and `.Closed { ... }` lowers through the synthesized
+  case constructor rather than mutable object initialization.
 - Added statement-form `loop { ... }` for unconditional loops. `break` exits the
   loop and `continue` jumps to the next iteration using the same structured
   loop rules as `while` and `for`.
