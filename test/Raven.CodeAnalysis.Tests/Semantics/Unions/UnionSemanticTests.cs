@@ -3546,6 +3546,61 @@ union Option {
     }
 
     [Fact]
+    public void UnitLikeCase_HasNoPayloadPropertiesOrDeconstructMethod()
+    {
+        const string source = """
+union Option {
+    case None
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single());
+        var constructor = caseSymbol.InstanceConstructors.Single();
+
+        Assert.Empty(constructor.Parameters);
+        Assert.Empty(caseSymbol.GetMembers().OfType<IPropertySymbol>());
+        Assert.Empty(caseSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>());
+    }
+
+    [Fact]
+    public void PositionalCaseParameters_ProjectCamelCaseToPascalCasePropertiesAndDeconstructParameters()
+    {
+        const string source = """
+union Status {
+    case Open(reason: string)
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var model = compilation.GetSemanticModel(tree);
+        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
+        var caseSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(unionSymbol.CaseTypes.Single());
+        var constructor = caseSymbol.InstanceConstructors.Single();
+
+        var parameter = Assert.Single(constructor.Parameters);
+        Assert.Equal("reason", parameter.Name);
+        Assert.Equal(SpecialType.System_String, parameter.Type.SpecialType);
+
+        var property = caseSymbol.GetMembers("Reason").OfType<IPropertySymbol>().Single();
+        Assert.Equal(SpecialType.System_String, property.Type.SpecialType);
+        Assert.Null(property.SetMethod);
+        Assert.Empty(caseSymbol.GetMembers("reason").OfType<IPropertySymbol>());
+
+        var deconstruct = caseSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>().Single();
+        var deconstructParameter = Assert.Single(deconstruct.Parameters);
+        Assert.Equal("Reason", deconstructParameter.Name);
+        Assert.Equal(RefKind.Out, deconstructParameter.RefKind);
+        Assert.Equal(SpecialType.System_String, deconstructParameter.Type.SpecialType);
+    }
+
+    [Fact]
     public void StructLikeCaseFields_AreExposedAsConstructorParametersAndGetterOnlyProperties()
     {
         const string source = """
@@ -3589,6 +3644,23 @@ union Status {
         var reasonProperty = caseSymbol.GetMembers("Reason").OfType<IPropertySymbol>().Single();
         Assert.Null(codeProperty.SetMethod);
         Assert.Null(reasonProperty.SetMethod);
+
+        var deconstruct = caseSymbol.GetMembers("Deconstruct").OfType<IMethodSymbol>().Single();
+        Assert.Collection(
+            deconstruct.Parameters,
+            code =>
+            {
+                Assert.Equal("Code", code.Name);
+                Assert.Equal(RefKind.Out, code.RefKind);
+                Assert.Equal(SpecialType.System_Int32, code.Type.SpecialType);
+            },
+            reason =>
+            {
+                Assert.Equal("Reason", reason.Name);
+                Assert.Equal(RefKind.Out, reason.RefKind);
+                Assert.Equal(SpecialType.System_String, reason.Type.GetPlainType().SpecialType);
+                Assert.True(reason.Type.IsNullable);
+            });
     }
 
     [Fact]
@@ -3940,6 +4012,107 @@ union class Result<T> {
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
+    public void CasePattern_DeconstructsUnitPositionalAndStructLikeDeclaredCases()
+    {
+        const string source = """
+func describe(status: Status) -> string {
+    return match status {
+        .Unknown => "unknown"
+        .Open(val openReason) => openReason
+        .Closed(val closedReason, val closedCode) => closedReason + closedCode.ToString()
+    }
+}
+
+union Status {
+    case Unknown
+    case Open(reason: string)
+    case Closed {
+        Reason: string
+        Code: int
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var designations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .ToDictionary(designation => designation.Identifier.ValueText);
+
+        var openReason = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["openReason"]));
+        var closedReason = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["closedReason"]));
+        var closedCode = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["closedCode"]));
+
+        Assert.Equal("string", openReason.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("string", closedReason.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("int", closedCode.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void ParenthesizedUnionPattern_DeconstructsNominalAlternativesThroughTheirOwnShape()
+    {
+        const string source = """
+record Cash(Amount: decimal)
+record Card(Reference: string)
+
+union Payment(Cash | Card)
+
+func describe(payment: Payment) -> string {
+    return match payment {
+        Cash(val amount) => amount.ToString()
+        Card(val reference) => reference
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var designations = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<SingleVariableDesignationSyntax>()
+            .ToDictionary(designation => designation.Identifier.ValueText);
+
+        var amount = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["amount"]));
+        var reference = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["reference"]));
+
+        Assert.Equal("decimal", amount.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("string", reference.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void CasePattern_UnitLikeCaseWithPayloadReportsArgumentCountMismatch()
+    {
+        const string source = """
+func describe(status: Status) -> string {
+    return match status {
+        .Unknown(val payload) => payload.ToString()
+        .Open(val reason) => reason
+    }
+}
+
+union Status {
+    case Unknown
+    case Open(reason: string)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.CasePatternArgumentCountMismatch);
     }
 
     [Fact]
