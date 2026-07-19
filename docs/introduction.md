@@ -1,6 +1,12 @@
 # Raven
 
-Raven is a .NET language built around a few clear ideas: expression-oriented code where values help, statement forms where effects are clearer, explicit mutability, explicit pattern bindings, and pragmatic interop with the .NET ecosystem.
+Raven is a pragmatic, typed application language for .NET that makes functional
+composition, algebraic modeling, and object-oriented design complementary parts
+of one toolset, with direct access to the .NET runtime and ecosystem.
+
+It is built around a few clear ideas: expression-oriented code where values
+help, statement forms where effects are clearer, explicit mutability, explicit
+pattern bindings, and pragmatic interop with the .NET ecosystem.
 
 It takes visible inspiration from Swift, Rust, and F#, but Raven is not trying to imitate any one of them exactly. Its current shape is defined more by consistency than by novelty:
 
@@ -12,6 +18,51 @@ It takes visible inspiration from Swift, Rust, and F#, but Raven is not trying t
 - direct use of .NET libraries, collections, async APIs, and IL-based tooling
 
 > Raven has no `void`; it uses `unit`, written as `()`.
+
+## Start without ceremony
+
+Raven introduces behavior with functions because a function is often the most
+direct way to name a calculation, validation rule, or workflow step. Functions
+can be composed, stored in values, and passed as dependencies without first
+creating a class or one-method service interface.
+
+Even the program itself does not need a class wrapper. Top-level statements can
+form a small application directly, and a named entry point is a plain `Main`
+function rather than a method that must live on a `Program` class.
+
+The same is true for reusable behavior: parsing, validation, formatting, and
+workflow functions can live directly in a namespace. They do not need to be
+wrapped in a static utility class just to give them somewhere to live.
+
+This low-ceremony starting point does not make Raven a purely functional
+language. Object-oriented programming is a first-class part of Raven's toolset,
+not merely a compatibility layer for .NET. Classes, interfaces, methods, and
+mutable state are available where identity, encapsulation, lifecycle, or
+polymorphism are part of the model. Records and unions cover other useful domain
+shapes without forcing everything into an object hierarchy.
+
+```raven
+record struct Temperature(Value: decimal)
+
+func IsTooHot(limit: Temperature, reading: Temperature) -> bool {
+    return reading.Value > limit.Value
+}
+
+func Monitor(read: () -> Temperature, report: (Temperature) -> ()) -> () {
+    val reading = read()
+    report(reading)
+}
+```
+
+Here `Monitor` receives behavior through function parameters. A production
+program can pass device and telemetry functions; a test can pass deterministic
+ones. No service wrapper is required. When a stateful device connection really
+has a lifecycle, it can still be modeled as a class and expose one of its methods
+as the same function-shaped dependency.
+
+If these choices are unfamiliar from C#, the [Raven for C#
+developers](raven-for-csharp-developers.md) guide compares common C# structures
+with their Raven counterparts.
 
 ---
 

@@ -8,7 +8,10 @@ extensions/traits, and direct .NET interop.
 ## Start here
 
 * [Introduction](../introduction.md)
+* [Raven for absolute beginners](../raven-for-absolute-beginners.md)
+* [Raven for C# developers](../raven-for-csharp-developers.md)
 * [Language philosophy](philosophy.md)
+* [Domain modeling](domain-modeling.md)
 * [Language specification](spec/language-specification.md)
 * [Type system](spec/type-system.md)
 * [Style guide](style-guide.md)

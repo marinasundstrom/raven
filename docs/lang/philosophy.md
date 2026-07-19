@@ -21,6 +21,8 @@ That means Raven generally chooses:
 - carrier-based recoverable flow over exception-heavy domain paths
 - one reusable pattern model over unrelated special forms
 - plain functions for standalone behavior, without forcing class wrappers
+- classes and interfaces when identity, lifecycle, encapsulation, or open
+  polymorphism belong in the model
 - direct .NET interop over runtime isolation
 - compiler and editor clarity over syntax tricks that are hard to diagnose
 
@@ -37,6 +39,15 @@ Raven is not trying to be purely functional, purely object-oriented, or novel fo
 - `Option<T>` and `Result<T, E>` as normal control-flow shapes
 - one reusable pattern system across branching, iteration, and deconstruction
 - direct, ergonomic interop with the .NET ecosystem
+
+Functional and object-oriented modeling are therefore not competing modes in
+Raven. The language should make it natural to use functions and algebraic data
+for rules and state transitions, objects for identity and lifecycle, and narrow
+function-shaped boundaries between them where that keeps dependencies explicit.
+Object-oriented programming is part of the language's intended toolset, not a
+compatibility feature kept only because Raven targets .NET. At the same time,
+Raven does not require an object merely to contain an entry point, a standalone
+operation, or a small group of functions.
 
 These are design defaults, not slogans. When a feature pulls against them, the
 feature should bring a concrete benefit that is visible in real Raven programs,
@@ -180,8 +191,41 @@ classes solely to hold functions. Raven still has classes, records, structs,
 interfaces, extensions, and methods when behavior belongs with a type. It just
 does not require a container type when the function itself is the useful unit.
 
+The same applies at the application boundary: top-level statements and plain
+`Main` functions are valid entry shapes. A `Program` class is not part of the
+language's conceptual or syntactic ceremony.
+
 The design pressure is simple: choose the declaration shape that describes the
-program, not the shape required by an older host language.
+program, not a container shape inherited from another language's conventions.
+
+## Objects are domain tools
+
+Raven's support for functions outside types does not demote object-oriented
+programming. A class is the natural Raven shape when a concept has identity,
+owns mutable state or a resource lifecycle, protects invariants through
+encapsulation, or participates in an open polymorphic contract.
+
+```raven
+class GreenhouseDevice private (val DeviceId: string) {
+    static func Connect(deviceId: string) -> Result<GreenhouseDevice, string> {
+        return Ok(GreenhouseDevice(deviceId))
+    }
+
+    func ReadTemperature() -> Result<decimal, string> {
+        return Ok(21.5)
+    }
+}
+```
+
+The important distinction is between an object that models something and a
+class used only as a container. Raven removes the need for the latter while
+making the former an intentional part of the language.
+
+Function parameters also provide a narrow composition boundary between these
+styles. A workflow can accept `() -> Result<decimal, string>` without knowing
+whether the supplied operation is a plain function, a lambda, or a method on a
+stateful `GreenhouseDevice`. Use an interface instead when the abstraction is a
+cohesive, open protocol rather than one capability.
 
 ## Consistency beats novelty
 
@@ -286,11 +330,13 @@ Then scale into:
 
 - pattern matching
 - primary constructors and records
+- classes, interfaces, and encapsulated object models
 - async workflows
 - extensions and traits
 - richer `Option`/`Result` pipelines
 
-The preferred path is depth through composition, not depth through syntax inflation.
+The preferred path is depth through composing functions, data, and objects, not
+depth through syntax inflation.
 
 ## What Raven is optimizing for
 

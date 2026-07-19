@@ -15,6 +15,15 @@ enum-plus-state objects, `match` instead of scattered type/enum tests,
 instead of nullable-heavy domain code. Raven also leans on declaration keywords
 so a reader can scan source and immediately see what each declaration is.
 
+Part of learning Raven is unlearning ceremony that C# can make feel inherent to
+program structure. You are not unlearning object-oriented programming. You are
+learning to distinguish a real object—with identity, state, lifecycle, or
+polymorphic behavior—from a class that exists only to contain `Main` or a set of
+utility functions.
+
+For a broader collection of side-by-side translations, see [Raven for C#
+developers](raven-for-csharp-developers.md).
+
 ## Prerequisites
 
 - A .NET SDK with `net10.0` targeting support.
@@ -97,9 +106,15 @@ The sample is intentionally shaped like a small C# service: load a request, find
 a rate plan, apply optional discounts/surcharges, and return a decision. Raven's
 approach is different in a few important places.
 
+The first adjustment is conceptual: do not begin by asking which class should
+contain the code. Begin with the values and operations in the problem, then add
+a class when the domain gives you a reason for one.
+
 | Common C# shape | Raven idiom |
 | --- | --- |
+| Class-based `Program.Main` entry point | Top-level statements or a plain `Main` function |
 | Static helper classes used only to hold functions | Plain top-level functions |
+| One-method service interface | A function parameter describing the required operation |
 | Declaration shape inferred mostly from context | Keywords such as `func`, `val`, `var`, `event`, `class`, `union`, and `case` |
 | `FirstOrDefault()` followed by `null` checks | `FirstOrNone()` returns `Option<T>` |
 | Throwing for expected validation or lookup failure | Return `Result<T, E>` |
@@ -129,6 +144,26 @@ func HasTag(tags: string[], tag: string) -> bool {
 Use types when they model data or behavior that belongs together. Use plain
 functions when the operation is just a named transformation, lookup, validation,
 or workflow step.
+
+This is not a preference against classes. A device connection, stateful
+aggregate, cache, UI component, or resource owner may naturally be a class.
+Raven asks whether the object represents something, not whether code needs a
+container.
+
+For a dependency with one operation, a function parameter can state the needed
+capability without inventing an interface:
+
+```raven
+func ReportTemperature(
+    read: () -> Result<decimal, string>,
+    publish: (decimal) -> ()) -> Result<decimal, string> {
+    val temperature = read()?
+    publish(temperature)
+    return Ok(temperature)
+}
+```
+
+Use an interface when several related operations form a real, open protocol.
 
 Raven also makes declaration kinds visible. A function starts with `func`; an
 immutable value or property starts with `val`; a mutable value or property starts
@@ -292,6 +327,10 @@ rules:
 - Use `val` for immutable bindings and `var` for mutable bindings.
 - Prefer plain top-level functions for standalone operations; do not create a
   class only to hold methods.
+- Use classes and interfaces when identity, lifecycle, encapsulated state, or
+  open polymorphism are part of the model.
+- Consider a function parameter for a dependency that consists of one
+  operation.
 - Let declaration keywords carry meaning: `func` declares behavior, `val` and
   `var` declare storage/bindings, `event` declares events, and `case` declares
   union alternatives.
@@ -363,7 +402,13 @@ dotnet run --project path/to/App.rvnproj
 
 ## 9. Where to go next
 
+- [Raven for absolute beginners](raven-for-absolute-beginners.md) if you are new
+  to programming itself.
 - [Language introduction](introduction.md) for a guided feature overview.
+- [Raven for C# developers](raven-for-csharp-developers.md) for side-by-side
+  migration guidance.
+- [Domain modeling](lang/domain-modeling.md) for choosing among functions,
+  records, unions, classes, and interfaces.
 - [Language philosophy](lang/philosophy.md) for design principles.
 - [Language specification](lang/spec/language-specification.md) for precise
   rules.

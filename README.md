@@ -3,7 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-available-brightgreen.svg)](docs/)
 
-Raven is an experimental .NET language and compiler. It combines an
+Raven is a pragmatic, typed application language for .NET that makes functional
+composition, algebraic modeling, and object-oriented design complementary parts
+of one toolset, with direct access to the .NET runtime and ecosystem.
+
+Raven is experimental today. Its language and compiler combine an
 expression-oriented surface, explicit mutability, structural pattern matching,
 `Option`/`Result`-based flow, and direct interoperability with existing .NET
 libraries.
@@ -22,9 +26,15 @@ paths.
 
 - [Getting Started](docs/getting-started.md) - build the compiler, run a sample,
   and create a small project.
+- [Raven for Absolute Beginners](docs/raven-for-absolute-beginners.md) - learn
+  programming from the beginning with Raven.
 - [Language Introduction](docs/introduction.md) - guided language overview.
+- [Raven for C# Developers](docs/raven-for-csharp-developers.md) - common C#
+  shapes translated into Raven idioms.
 - [Language Philosophy](docs/lang/philosophy.md) - design principles for Raven
   language changes.
+- [Domain Modeling](docs/lang/domain-modeling.md) - patterns for values, states,
+  behavior, dependencies, and object-oriented models.
 - [Language Specification](docs/lang/spec/language-specification.md) - current
   normative language docs and grammar links.
 - [Compiler Docs](docs/compiler/index.md) - architecture, APIs, diagnostics,
@@ -43,6 +53,17 @@ Raven favors:
 - `Option<T>` for absence and `Result<T, E>` for expected failure
 - records, primary constructors, unions, and target-typed shorthand
 - direct use of .NET libraries, async APIs, collections, and IL tooling
+
+These are defaults, not restrictions. Start with values and functions when they
+describe the problem directly. Use records and unions to make domain states
+explicit. Use classes, interfaces, methods, and mutable state when identity,
+lifecycle, encapsulation, or polymorphism are part of the domain.
+
+Raven does not make objects the mandatory container for code. A program can
+begin with top-level statements and plain functions—there is no required
+`Program` class, and utility functions do not need to be wrapped in a class.
+Introduce classes where they improve the model, not merely to satisfy a
+structural convention.
 
 Raven has no `void`; the empty result type is `unit`, written as `()`.
 
@@ -81,6 +102,12 @@ Raven is not trying to replace the .NET ecosystem around C#. It is exploring a
 different source model for common application and compiler problems while still
 emitting regular .NET assemblies.
 
+Learning Raven from C# therefore involves some deliberate unlearning. The goal
+is not to unlearn object-oriented design; it is to stop treating a class as the
+required home for every entry point, helper, operation, or dependency. First ask
+what the concept is. Introduce an object when identity, state, lifecycle, or
+polymorphism is actually part of the answer.
+
 | In many C# codebases | Raven's preferred shape |
 | --- | --- |
 | Static helper classes used only to hold methods | Plain top-level functions |
@@ -92,8 +119,10 @@ emitting regular .NET assemblies.
 | Mutable locals by convention unless avoided | `val` by default, `var` when mutation is intended |
 | `void` methods | `()` (`unit`) return values |
 
-The [Getting Started](docs/getting-started.md) walkthrough uses a C#-style
-shipment quote problem to show these differences in running Raven code.
+The [Raven for C# Developers](docs/raven-for-csharp-developers.md) guide develops
+these comparisons with side-by-side examples. The [Getting
+Started](docs/getting-started.md) walkthrough uses a C#-style shipment quote
+problem to show the differences in running Raven code.
 
 ## Repository Layout
 
