@@ -436,8 +436,33 @@ public class Workspace
         var project = solution.GetProject(projectId)
             ?? throw new ArgumentException("Project not found", nameof(projectId));
 
+        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
+        return GetProjectAnalyzerDiagnostics(project, compilation, analyzerOptions, cancellationToken);
+    }
+
+    internal ImmutableArray<Diagnostic> GetProjectAnalyzerDiagnostics(
+        ProjectId projectId,
+        Compilation compilation,
+        CompilationWithAnalyzersOptions? analyzerOptions = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(compilation);
+
+        var solution = CurrentSolution;
+        var project = solution.GetProject(projectId)
+            ?? throw new ArgumentException("Project not found", nameof(projectId));
+
+        return GetProjectAnalyzerDiagnostics(project, compilation, analyzerOptions, cancellationToken);
+    }
+
+    private ImmutableArray<Diagnostic> GetProjectAnalyzerDiagnostics(
+        Project project,
+        Compilation compilation,
+        CompilationWithAnalyzersOptions? analyzerOptions,
+        CancellationToken cancellationToken)
+    {
         var cacheKey = new ProjectAnalyzerDiagnosticsCacheKey(
-            projectId,
+            project.Id,
             project.Version,
             analyzerOptions?.ReportSuppressedDiagnostics ?? false);
         if (_projectAnalyzerDiagnosticsCache.TryGetValue(cacheKey, out var cachedDiagnostics))
@@ -460,7 +485,6 @@ public class Workspace
             $"projectVersion={project.Version}"));
 
         var diagnostics = new HashSet<Diagnostic>();
-        var compilation = CreateAnalysisCompilation(project, new HashSet<ProjectId>());
         AddDiagnostics(
             diagnostics,
             compilation.GetDiagnostics(analyzerOptions, cancellationToken),

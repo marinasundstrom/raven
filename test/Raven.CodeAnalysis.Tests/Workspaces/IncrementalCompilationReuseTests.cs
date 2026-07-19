@@ -3475,6 +3475,150 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_DiagnosticsAfterRapidTriviaEdits_ReusesDiagnosticsAcrossIntermediateSnapshot()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var initialSource = """
+            class Runner {
+                func Compute(value: int) -> int {
+                    val answer = value + 1
+                    return answer
+                }
+            }
+            """;
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        initialCompilation.GetDiagnostics().ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var intermediateSource = initialSource.Replace("value + 1", "value  + 1", StringComparison.Ordinal);
+        var intermediateSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(intermediateSource));
+
+        workspace.TryApplyChanges(intermediateSolution);
+        _ = workspace.GetCompilation(projectId);
+
+        document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(intermediateSource.Replace("value  + 1", "value   + 1", StringComparison.Ordinal)));
+
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedMethod = updatedCompilation.SyntaxTrees.Single().GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single();
+
+        updatedCompilation.HasTransferredSemanticDiagnosticsForTesting(updatedMethod).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_DocumentDiagnosticsAfterBodyEdit_DeclaresSourceTypesOnDemand()
+    {
+        const int stableDocumentCount = 30;
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                performanceInstrumentation: instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        for (var index = 0; index < stableDocumentCount; index++)
+        {
+            project = project.AddDocument(
+                $"stable{index}.rav",
+                SourceText.From($$"""
+                    class Stable{{index}} {
+                        func Value() -> int {
+                            {{index}}
+                        }
+                    }
+                    """),
+                $"/tmp/stable{index}.rav").Project;
+        }
+
+        const string initialSource = """
+            class Runner {
+                func Read(value: Stable0) -> int {
+                    return value.Value() + 1
+                }
+            }
+            """;
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        initialCompilation.GetDiagnostics()
+            .ShouldNotContain(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents
+            .Single(document => document.FilePath == "/tmp/edited.rav");
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("+ 1", "+ 2", StringComparison.Ordinal)));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        AssertDocumentDiagnosticsAreDemandDriven(updatedCompilation, updatedTree);
+
+        editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents
+            .Single(document => document.FilePath == "/tmp/edited.rav");
+        updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            editedDocument.Id,
+            SourceText.From(initialSource.Replace("+ 1", "+ 3", StringComparison.Ordinal)));
+        workspace.TryApplyChanges(updatedSolution);
+
+        updatedCompilation = workspace.GetCompilation(projectId);
+        updatedTree = updatedCompilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/edited.rav");
+        AssertDocumentDiagnosticsAreDemandDriven(updatedCompilation, updatedTree);
+
+        void AssertDocumentDiagnosticsAreDemandDriven(Compilation compilation, SyntaxTree tree)
+        {
+            var setupBefore = instrumentation.Setup.CaptureSnapshot();
+            var errors = compilation.GetDocumentDiagnostics(tree)
+                .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                .Select(diagnostic => $"{diagnostic.Descriptor.Id}: {diagnostic.GetMessage()}")
+                .ToArray();
+            errors.ShouldBeEmpty(string.Join(Environment.NewLine, errors));
+
+            var setupDelta = CompilerSetupInstrumentation.Subtract(
+                instrumentation.Setup.CaptureSnapshot(),
+                setupBefore);
+            setupDelta.DeclarationPasses.ShouldBeLessThanOrEqualTo(2);
+            setupDelta.EnsureSourceDeclarationsCompleteCalls.ShouldBe(0);
+        }
+    }
+
+    [Fact]
     public void WorkspaceCompilation_DiagnosticsAfterEdit_RemovingRequiredObjectCreationArgumentReportsNoOverload()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);

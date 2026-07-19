@@ -661,6 +661,33 @@ internal static class AnalyzerOperationEnumerator
             yield break;
 
         var root = syntaxTree.GetRoot(cancellationToken);
+        if (operationKinds.Count == 1 && operationKinds.Contains(OperationKind.ExpressionStatement))
+        {
+            foreach (var expressionStatement in root.DescendantNodesAndSelf().OfType<ExpressionStatementSyntax>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                IOperation? operation;
+                try
+                {
+                    operation = semanticModel.GetOperation(expressionStatement, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (operation?.Kind == OperationKind.ExpressionStatement)
+                    yield return operation;
+            }
+
+            yield break;
+        }
+
         var visited = new HashSet<OperationVisitKey>();
 
         foreach (var rootSyntax in EnumerateOperationRootSyntaxNodes(root))

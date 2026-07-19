@@ -49,11 +49,15 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
             return;
 
         var candidateSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var candidateNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var candidate in candidates)
+        {
             candidateSymbols.Add(candidate.Symbol.UnderlyingSymbol);
+            candidateNames.Add(candidate.Symbol.Name);
+        }
 
         var invoked = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        MarkInvokedMethods(context.Compilation, candidateSymbols, invoked, context.CancellationToken);
+        MarkInvokedMethods(context.Compilation, candidateSymbols, candidateNames, invoked, context.CancellationToken);
 
         foreach (var candidate in candidates)
         {
@@ -229,6 +233,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
     private static void MarkInvokedMethods(
         Compilation compilation,
         HashSet<ISymbol> candidateSymbols,
+        HashSet<string> candidateNames,
         HashSet<ISymbol> invoked,
         CancellationToken cancellationToken)
     {
@@ -239,6 +244,12 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
             foreach (var invocation in root.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
             {
+                if (!TryGetInvokedSourceName(invocation.Expression, out var invokedName) ||
+                    !candidateNames.Contains(invokedName))
+                {
+                    continue;
+                }
+
                 ISymbol? symbol = null;
                 try
                 {
@@ -258,6 +269,22 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
                 invoked.Add(symbol);
             }
+        }
+    }
+
+    private static bool TryGetInvokedSourceName(ExpressionSyntax expression, out string name)
+    {
+        switch (expression)
+        {
+            case SimpleNameSyntax simpleName:
+                name = simpleName.Identifier.ValueText;
+                return true;
+            case MemberAccessExpressionSyntax memberAccess:
+                name = memberAccess.Name.Identifier.ValueText;
+                return true;
+            default:
+                name = string.Empty;
+                return false;
         }
     }
 

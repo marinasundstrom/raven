@@ -2,17 +2,11 @@ namespace Utilities
 
 import System.Console.*
 
-func Test() {
-    WriteLine("Hello")
-}
-
-func A(x: int) -> int {
-    42 + x
-}
-
-[Obsolete("Test")]
-func A(x: string) -> int {
-    42 + int.Parse(x)
+func getTemperature() -> Result<Temperature, TemperatureError> {
+    if let Ok(no) = int.parse("42") {
+        return Ok(Temperature(no))
+    }
+    return Error(TemperatureError("Unable to fetch temperature"))
 }
 
 func Test2() -> IDisposable {

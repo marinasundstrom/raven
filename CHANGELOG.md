@@ -4,6 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Improved language-server recovery after rapid edits by keeping analyzer
+  diagnostics on the active compiler snapshot and forwarding reusable
+  incremental semantic state across intermediate snapshots.
+- Reduced analyzer latency by enumerating narrowly registered expression-statement
+  operation actions without constructing unrelated operation graphs, and by
+  filtering unused-method invocation candidates before semantic lookup.
+- Reused metadata load contexts across incremental compilations when portable
+  metadata references are unchanged.
+- Kept document diagnostics demand-driven for source declarations instead of
+  eagerly declaring every project syntax tree after each edit.
 - Added struct-like discriminated union cases with named payload fields, e.g.
   `case Closed { Reason: string? = null }`. Defaulted fields are optional in
   named case construction, and `.Closed { ... }` lowers through the synthesized

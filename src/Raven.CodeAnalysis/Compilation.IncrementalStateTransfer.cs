@@ -77,32 +77,40 @@ public partial class Compilation
         {
             new ExactIncrementalStateTransferTable<ExecutableOwnerKey, ExecutableOwnerDescriptor>(
                 _descriptorState.ExecutableOwnerDescriptors,
-                state.ExecutableOwnerDescriptors),
+                state.ExecutableOwnerDescriptors,
+                _incrementalState?.ExecutableOwnerDescriptors),
             new ExactIncrementalStateTransferTable<FunctionExpressionRebindRootKey, FunctionExpressionRebindRootDescriptor>(
                 _descriptorState.FunctionExpressionRebindRootDescriptors,
-                state.FunctionExpressionRebindRootDescriptors),
+                state.FunctionExpressionRebindRootDescriptors,
+                _incrementalState?.FunctionExpressionRebindRootDescriptors),
             new ExactIncrementalStateTransferTable<BinderParentAnchorKey, BinderParentAnchorDescriptor>(
                 _descriptorState.BinderParentAnchorDescriptors,
-                state.BinderParentAnchorDescriptors)
+                state.BinderParentAnchorDescriptors,
+                _incrementalState?.BinderParentAnchorDescriptors)
         };
 
         if (includeDeclarationSensitiveDescriptors)
         {
             tables.Add(new ExactIncrementalStateTransferTable<VisibleValueScopeKey, ImmutableArray<VisibleValueDeclarationDescriptor>>(
                 _descriptorState.VisibleValueScopeDeclarations,
-                state.VisibleValueScopeDeclarations));
+                state.VisibleValueScopeDeclarations,
+                _incrementalState?.VisibleValueScopeDeclarations));
             tables.Add(new ExactIncrementalStateTransferTable<NodeInterestSymbolKey, NodeInterestSymbolDescriptor>(
                 _descriptorState.NodeInterestSymbolDescriptors,
-                state.NodeInterestSymbolDescriptors));
+                state.NodeInterestSymbolDescriptors,
+                _incrementalState?.NodeInterestSymbolDescriptors));
             tables.Add(new ExactIncrementalStateTransferTable<ContextualBindingRootKey, ContextualBindingRootDescriptor>(
                 _descriptorState.ContextualBindingRootDescriptors,
-                state.ContextualBindingRootDescriptors));
+                state.ContextualBindingRootDescriptors,
+                _incrementalState?.ContextualBindingRootDescriptors));
             tables.Add(new ExactIncrementalStateTransferTable<InterestBindingRootKey, InterestBindingRootDescriptor>(
                 _descriptorState.InterestBindingRootDescriptors,
-                state.InterestBindingRootDescriptors));
+                state.InterestBindingRootDescriptors,
+                _incrementalState?.InterestBindingRootDescriptors));
             tables.Add(new ExactIncrementalStateTransferTable<ExecutableOwnerDescriptor, ImmutableArray<SemanticDiagnosticDescriptor>>(
                 _descriptorState.SemanticDiagnosticsByOwner,
-                state.SemanticDiagnosticsByOwner));
+                state.SemanticDiagnosticsByOwner,
+                _incrementalState?.SemanticDiagnosticsByOwner));
         }
 
         return tables.ToArray();
@@ -114,30 +122,37 @@ public partial class Compilation
             new OwnerRelativeIncrementalStateTransferTable<ImmutableArray<VisibleValueDeclarationDescriptor>>(
                 _descriptorState.VisibleValueScopeDeclarationsByOwner,
                 state.VisibleValueScopeDeclarationsByOwner,
+                _incrementalState?.VisibleValueScopeDeclarationsByOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapDeclarationSensitiveDescriptorKey),
             new OwnerRelativeIncrementalStateTransferTable<NodeInterestSymbolDescriptor>(
                 _descriptorState.NodeInterestSymbolDescriptorsByOwner,
                 state.NodeInterestSymbolDescriptorsByOwner,
+                _incrementalState?.NodeInterestSymbolDescriptorsByOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapOwnerRelativeDescriptorKey),
             new OwnerRelativeIncrementalStateTransferTable<ContextualBindingRootDescriptor>(
                 _descriptorState.ContextualBindingRootDescriptorsByOwner,
                 state.ContextualBindingRootDescriptorsByOwner,
+                _incrementalState?.ContextualBindingRootDescriptorsByOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapDeclarationSensitiveDescriptorKey),
             new OwnerRelativeIncrementalStateTransferTable<InterestBindingRootDescriptor>(
                 _descriptorState.InterestBindingRootDescriptorsByOwner,
                 state.InterestBindingRootDescriptorsByOwner,
+                _incrementalState?.InterestBindingRootDescriptorsByOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapDeclarationSensitiveDescriptorKey),
             new OwnerRelativeIncrementalStateTransferTable<FunctionExpressionRebindRootDescriptor>(
                 _descriptorState.FunctionExpressionRebindRootDescriptorsByOwner,
                 state.FunctionExpressionRebindRootDescriptorsByOwner,
+                _incrementalState?.FunctionExpressionRebindRootDescriptorsByOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapOwnerRelativeDescriptorKey),
             new OwnerRelativeIncrementalStateTransferTable<BinderParentAnchorDescriptor>(
                 _descriptorState.BinderParentAnchorDescriptorsByOwner,
                 state.BinderParentAnchorDescriptorsByOwner,
+                _incrementalState?.BinderParentAnchorDescriptorsByOwner,
                 IncrementalBindingStateTransferPolicy.TryRemapOwnerRelativeDescriptorKey),
             new SemanticDiagnosticsIncrementalStateTransferTable(
                 _descriptorState.SemanticDiagnosticsByRelativeOwner,
-                state.SemanticDiagnosticsByRelativeOwner)
+                state.SemanticDiagnosticsByRelativeOwner,
+                _incrementalState?.SemanticDiagnosticsByRelativeOwner)
         ];
 
     private interface IExactIncrementalStateTransferTable
@@ -152,23 +167,41 @@ public partial class Compilation
     {
         private readonly IDictionary<SyntaxTree, ConcurrentDictionary<TKey, TValue>> _source;
         private readonly IDictionary<SyntaxTree, Dictionary<TKey, TValue>> _destination;
+        private readonly IDictionary<SyntaxTree, Dictionary<TKey, TValue>>? _transferredSource;
 
         public ExactIncrementalStateTransferTable(
             IDictionary<SyntaxTree, ConcurrentDictionary<TKey, TValue>> source,
-            IDictionary<SyntaxTree, Dictionary<TKey, TValue>> destination)
+            IDictionary<SyntaxTree, Dictionary<TKey, TValue>> destination,
+            IDictionary<SyntaxTree, Dictionary<TKey, TValue>>? transferredSource)
         {
             _source = source;
             _destination = destination;
+            _transferredSource = transferredSource;
         }
 
         public bool HasTransferredState => _destination.Count != 0;
 
         public void Copy(SyntaxTree syntaxTree)
         {
-            if (!_source.TryGetValue(syntaxTree, out var values) || values.Count == 0)
+            _source.TryGetValue(syntaxTree, out var materializedValues);
+            Dictionary<TKey, TValue>? transferredValues = null;
+            _transferredSource?.TryGetValue(syntaxTree, out transferredValues);
+            if ((materializedValues is null || materializedValues.Count == 0) &&
+                (transferredValues is null || transferredValues.Count == 0))
+            {
                 return;
+            }
 
-            _destination[syntaxTree] = new Dictionary<TKey, TValue>(values);
+            var values = transferredValues is null
+                ? new Dictionary<TKey, TValue>()
+                : new Dictionary<TKey, TValue>(transferredValues);
+            if (materializedValues is not null)
+            {
+                foreach (var (key, value) in materializedValues)
+                    values[key] = value;
+            }
+
+            _destination[syntaxTree] = values;
         }
     }
 
@@ -183,15 +216,18 @@ public partial class Compilation
     {
         private readonly IDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, TValue>> _source;
         private readonly IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, TValue>> _destination;
+        private readonly IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, TValue>>? _transferredSource;
         private readonly TryRemapOwnerRelativeDescriptorKeyDelegate _tryRemapKey;
 
         public OwnerRelativeIncrementalStateTransferTable(
             IDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, TValue>> source,
             IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, TValue>> destination,
+            IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, TValue>>? transferredSource,
             TryRemapOwnerRelativeDescriptorKeyDelegate tryRemapKey)
         {
             _source = source;
             _destination = destination;
+            _transferredSource = transferredSource;
             _tryRemapKey = tryRemapKey;
         }
 
@@ -199,7 +235,11 @@ public partial class Compilation
 
         public void Copy(IncrementalMatchedSyntaxTree matchedTree, MatchedExecutableOwner match)
         {
-            if (!_source.TryGetValue(matchedTree.PreviousTree, out var values) || values.Count == 0)
+            _source.TryGetValue(matchedTree.PreviousTree, out var materializedValues);
+            Dictionary<OwnerRelativeDescriptorKey, TValue>? transferredValues = null;
+            _transferredSource?.TryGetValue(matchedTree.PreviousTree, out transferredValues);
+            if ((materializedValues is null || materializedValues.Count == 0) &&
+                (transferredValues is null || transferredValues.Count == 0))
                 return;
 
             var ownerChange = TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var change)
@@ -207,7 +247,7 @@ public partial class Compilation
                 : (OwnerRelativeTextChange?)null;
             Dictionary<OwnerRelativeDescriptorKey, TValue>? remappedValues = null;
 
-            foreach (var (key, value) in values)
+            foreach (var (key, value) in EnumerateValues())
             {
                 if (key.Owner != match.PreviousOwner)
                     continue;
@@ -232,6 +272,21 @@ public partial class Compilation
 
             if (remappedValues is not null)
                 _destination[matchedTree.CurrentTree] = remappedValues;
+
+            IEnumerable<KeyValuePair<OwnerRelativeDescriptorKey, TValue>> EnumerateValues()
+            {
+                if (transferredValues is not null)
+                {
+                    foreach (var value in transferredValues)
+                        yield return value;
+                }
+
+                if (materializedValues is not null)
+                {
+                    foreach (var value in materializedValues)
+                        yield return value;
+                }
+            }
         }
     }
 
@@ -239,20 +294,27 @@ public partial class Compilation
     {
         private readonly IDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> _source;
         private readonly IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> _destination;
+        private readonly IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>>? _transferredSource;
 
         public SemanticDiagnosticsIncrementalStateTransferTable(
             IDictionary<SyntaxTree, ConcurrentDictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> source,
-            IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> destination)
+            IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> destination,
+            IDictionary<SyntaxTree, Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>>? transferredSource)
         {
             _source = source;
             _destination = destination;
+            _transferredSource = transferredSource;
         }
 
         public bool HasTransferredState => _destination.Count != 0;
 
         public void Copy(IncrementalMatchedSyntaxTree matchedTree, MatchedExecutableOwner match)
         {
-            if (!_source.TryGetValue(matchedTree.PreviousTree, out var values) || values.Count == 0)
+            _source.TryGetValue(matchedTree.PreviousTree, out var materializedValues);
+            Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>? transferredValues = null;
+            _transferredSource?.TryGetValue(matchedTree.PreviousTree, out transferredValues);
+            if ((materializedValues is null || materializedValues.Count == 0) &&
+                (transferredValues is null || transferredValues.Count == 0))
                 return;
 
             var ownerChange = TryGetOwnerChange(matchedTree.OwnerChanges, match.CurrentOwner, out var change)
@@ -261,7 +323,7 @@ public partial class Compilation
 
             Dictionary<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>? remappedValues = null;
 
-            foreach (var (key, value) in values)
+            foreach (var (key, value) in EnumerateValues())
             {
                 if (key.Owner != match.PreviousOwner ||
                     !IsSemanticDiagnosticOwnerKey(key))
@@ -290,6 +352,21 @@ public partial class Compilation
 
             if (remappedValues is not null)
                 _destination[matchedTree.CurrentTree] = remappedValues;
+
+            IEnumerable<KeyValuePair<OwnerRelativeDescriptorKey, ImmutableArray<SemanticDiagnosticDescriptor>>> EnumerateValues()
+            {
+                if (transferredValues is not null)
+                {
+                    foreach (var value in transferredValues)
+                        yield return value;
+                }
+
+                if (materializedValues is not null)
+                {
+                    foreach (var value in materializedValues)
+                        yield return value;
+                }
+            }
         }
 
         private static bool IsSemanticDiagnosticOwnerKey(OwnerRelativeDescriptorKey key)

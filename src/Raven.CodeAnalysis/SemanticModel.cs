@@ -366,6 +366,9 @@ public partial class SemanticModel
                 diagnosticInstrumentation.RecordCall(requireCompleteDeclarations);
                 cancellationToken.ThrowIfCancellationRequested();
                 var root = SyntaxTree.GetRoot();
+                using var sourceNamespaceLookupSuppression = requireCompleteDeclarations
+                    ? null
+                    : Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
 
                 if (!requireCompleteDeclarations &&
                     TryCollectTransferredDocumentDiagnostics(root, out var transferredDiagnostics))
@@ -383,16 +386,10 @@ public partial class SemanticModel
                 }
                 else
                 {
-                    // Document diagnostics should first try the owner-scoped path.
-                    // Cross-file type names in signatures still need source declarations
-                    // from the current project. This declares symbols without binding every
-                    // body, keeping the pass document-scoped while avoiding fallback errors
-                    // for types declared in another file.
-                    Compilation.EnsureSourceDeclarationsDeclared();
-
-                    // Full project declaration completion is still available as a fallback
-                    // below, but doing it eagerly makes ordinary body edits pay for every
-                    // file.
+                    // Document diagnostics should first use demand-driven source declaration
+                    // lookup. Eagerly declaring every syntax tree here makes each edit pay a
+                    // project-wide declaration cost even when the edited owner only references
+                    // metadata or declarations already available from its own file.
                     if (!Compilation.IsSemanticDiagnosticTransferBlocked(SyntaxTree) &&
                         root is CompilationUnitSyntax compilationUnit)
                     {

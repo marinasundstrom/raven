@@ -1178,6 +1178,7 @@ internal sealed class WorkspaceManager
 
     internal bool TryGetProjectAnalyzerDiagnostics(
         DocumentUri uri,
+        Compilation compilation,
         out ImmutableArray<CodeDiagnostic> diagnostics,
         CompilationWithAnalyzersOptions? analyzerOptions = null,
         CancellationToken cancellationToken = default)
@@ -1186,6 +1187,7 @@ internal sealed class WorkspaceManager
         {
             return TryGetProjectAnalyzerDiagnostics(
                 ownedDocument.ProjectId,
+                compilation,
                 out diagnostics,
                 analyzerOptions,
                 cancellationToken);
@@ -1340,13 +1342,14 @@ internal sealed class WorkspaceManager
 
     private bool TryGetProjectAnalyzerDiagnostics(
         ProjectId projectId,
+        Compilation compilation,
         out ImmutableArray<CodeDiagnostic> diagnostics,
         CompilationWithAnalyzersOptions? analyzerOptions,
         CancellationToken cancellationToken)
     {
         try
         {
-            diagnostics = _workspace.GetProjectAnalyzerDiagnostics(projectId, analyzerOptions, cancellationToken);
+            diagnostics = _workspace.GetProjectAnalyzerDiagnostics(projectId, compilation, analyzerOptions, cancellationToken);
             return true;
         }
         catch (ArgumentException)

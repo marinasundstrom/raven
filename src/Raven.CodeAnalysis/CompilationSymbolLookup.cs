@@ -173,6 +173,12 @@ internal sealed class CompilationSymbolLookup
         if (string.IsNullOrWhiteSpace(name))
             return null;
 
+        if (_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
+            _compilation.TryDeclareIndexedSourceType(currentNamespace, name, out var indexedSourceType))
+        {
+            return indexedSourceType;
+        }
+
         var sourceType = currentNamespace is SourceNamespaceSymbol sourceNamespace
             ? sourceNamespace.LookupTypeDeclared(name)
             : null;

@@ -705,7 +705,9 @@ public partial class Compilation
         }
 
         var coreAssemblyName = typeof(object).Assembly.GetName().Name;
-        _metadataLoadContext = CreateMetadataLoadContext(paths, coreAssemblyName);
+        _metadataLoadContext = TryReuseMetadataLoadContext(out var reusedMetadataLoadContext)
+            ? reusedMetadataLoadContext
+            : CreateMetadataLoadContext(paths, coreAssemblyName);
 
         CoreAssembly = _metadataLoadContext.CoreAssembly!;
         EmitCoreAssembly = ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
@@ -730,6 +732,42 @@ public partial class Compilation
         _macroRegistry = MacroRegistry.Create(_macroReferences);
 
         InitializeTopLevelPrograms();
+    }
+
+    private bool TryReuseMetadataLoadContext(out MetadataLoadContext metadataLoadContext)
+    {
+        metadataLoadContext = null!;
+        var previousCompilation = _previousCompilationForReuse;
+        if (previousCompilation is null ||
+            !previousCompilation.setup ||
+            !HaveEquivalentPortableReferences(previousCompilation))
+        {
+            return false;
+        }
+
+        metadataLoadContext = previousCompilation._metadataLoadContext;
+        return true;
+    }
+
+    private bool HaveEquivalentPortableReferences(Compilation previousCompilation)
+    {
+        var currentPaths = GetPortableReferencePaths(_references);
+        var previousPaths = GetPortableReferencePaths(previousCompilation._references);
+        return currentPaths.SetEquals(previousPaths);
+
+        static HashSet<string> GetPortableReferencePaths(IEnumerable<MetadataReference> references)
+        {
+            var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var reference in references.OfType<PortableExecutableReference>())
+            {
+                if (string.IsNullOrWhiteSpace(reference.FilePath))
+                    continue;
+
+                paths.Add(Path.GetFullPath(reference.FilePath));
+            }
+
+            return paths;
+        }
     }
 
     private DeclarationTable EnsureDeclarationTableCreated()
@@ -1233,6 +1271,32 @@ public partial class Compilation
             return ImmutableArray<FunctionStatementSyntax>.Empty;
 
         return SourceDeclarationIndex.GetNamespaceFunctions(GetNamespaceMetadataName(namespaceSymbol), name);
+    }
+
+    internal bool TryDeclareIndexedSourceType(
+        INamespaceSymbol? namespaceSymbol,
+        string name,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out INamedTypeSymbol? type)
+    {
+        type = null;
+        var namespaceMetadataName = namespaceSymbol is null
+            ? string.Empty
+            : GetNamespaceMetadataName(namespaceSymbol);
+
+        foreach (var declaration in SourceDeclarationIndex.GetNamespaceTypes(namespaceMetadataName, name))
+        {
+            if (!TryGetSemanticModelForDeclarationBinding(declaration.SyntaxTree, out var model) ||
+                !model.TryDeclareAvailableSourceTypeSymbol(declaration, out var declaredType))
+            {
+                continue;
+            }
+
+            model.EnsureMemberSignaturesDeclared();
+            type = declaredType;
+            return true;
+        }
+
+        return false;
     }
 
     internal bool IsNamespaceMemberContainer(INamedTypeSymbol type)

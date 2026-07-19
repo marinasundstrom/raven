@@ -7427,7 +7427,7 @@ public partial class SemanticModel
     internal SourceNamedTypeSymbol GetDeclaredTypeSymbolForDeclaration(SyntaxNode node)
         => GetDeclaredTypeSymbol(node);
 
-    private bool TryDeclareAvailableSourceTypeSymbol(
+    internal bool TryDeclareAvailableSourceTypeSymbol(
         SyntaxNode node,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out SourceNamedTypeSymbol? symbol)
     {
