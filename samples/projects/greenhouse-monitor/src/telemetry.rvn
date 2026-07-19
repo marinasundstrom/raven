@@ -1,15 +1,43 @@
 namespace Utilities
 
 import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+import System.Threading.Tasks.*
 
-func LoadTelemetry() -> Result<SensorReading[], TelemetryError> {
-    // A real monitor would read these values from devices or a service.
-    val received: SensorReading[] = [
-        SensorReading("Propagation", 23.5, 68.0, 720),
-        SensorReading("Tomatoes", 30.5, 64.0, 910),
-        SensorReading("Herbs", 21.0, 42.0, 1510)
-    ]
+interface ITelemetrySource {
+    func Poll(cancellationToken: CancellationToken) -> IAsyncEnumerable<Result<SensorReading[], TelemetryError>>
+}
 
+class SimulatedTelemetrySource : ITelemetrySource {
+    async func Poll(
+        [EnumeratorCancellation] cancellationToken: CancellationToken
+    ) -> IAsyncEnumerable<Result<SensorReading[], TelemetryError>> {
+        yield ValidateSnapshot([
+            SensorReading("Propagation", 23.5, 68.0, 720),
+            SensorReading("Tomatoes", 26.0, 64.0, 910),
+            SensorReading("Herbs", 21.0, 52.0, 760)
+        ])
+
+        await Task.Delay(150, cancellationToken)
+
+        yield ValidateSnapshot([
+            SensorReading("Propagation", 24.0, 67.0, 740),
+            SensorReading("Tomatoes", 30.5, 64.0, 930),
+            SensorReading("Herbs", 21.5, 48.0, 810)
+        ])
+
+        await Task.Delay(150, cancellationToken)
+
+        yield ValidateSnapshot([
+            SensorReading("Propagation", 24.5, 66.0, 780),
+            SensorReading("Tomatoes", 31.0, 63.0, 960),
+            SensorReading("Herbs", 22.0, 42.0, 1510)
+        ])
+    }
+}
+
+func ValidateSnapshot(received: SensorReading[]) -> Result<SensorReading[], TelemetryError> {
     if received.Length == 0 {
         val error: TelemetryError = .NoReadings
         return Error(error)

@@ -1,14 +1,16 @@
 # Greenhouse Monitor (.rvnproj)
 
-This Raven sample models a small greenhouse-monitoring domain. It loads and
-validates sensor telemetry, evaluates each growing zone, and prints an operator
-report.
+This Raven sample models a small greenhouse-monitoring domain. It polls a
+simulated device for telemetry snapshots, validates each result, evaluates every
+growing zone, and prints a changing operator report.
 
 The example demonstrates:
 
 - records for domain data
 - unions and pattern matching for states and errors
 - `Result` propagation with `?`
+- an `IAsyncEnumerable` polling interface and `await for` consumption
+- cancellation propagated across the simulated device boundary
 - arrays, mutable accumulators, and collection interop
 - expression-oriented `if` and string interpolation
 - code split across a namespace and multiple source files
@@ -20,7 +22,8 @@ Project file:
 Source files:
 
 - `src/main.rvn` contains the domain model, evaluation rules, and console report
-- `src/telemetry.rvn` simulates an external telemetry source and validates its data
+- `src/telemetry.rvn` defines the polling interface, simulates a device, and
+  validates its data
 
 ## Build
 

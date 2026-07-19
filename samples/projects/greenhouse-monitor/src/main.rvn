@@ -1,17 +1,29 @@
 import System.Console.*
 import System.Collections.Generic.*
+import System.Threading.*
+import System.Threading.Tasks.*
 import Utilities.*
 
-func Main() {
+async func Main() -> Task {
     WriteLine("== Cedar Grove Greenhouse Monitor ==")
     WriteLine("")
 
-    match LoadTelemetry() {
-        Ok(val readings) => {
-            PrintReadings(readings)
-            PrintReport(BuildReport(readings))
+    val telemetry: ITelemetrySource = SimulatedTelemetrySource()
+    var pollNumber = 0
+
+    await for result in telemetry.Poll(CancellationToken.None) {
+        pollNumber = pollNumber + 1
+        WriteLine("Poll #${pollNumber}")
+
+        match result {
+            Ok(val readings) => {
+                PrintReadings(readings)
+                PrintReport(BuildReport(readings))
+            }
+            Error(val error) => PrintError(error)
         }
-        Error(val error) => PrintError(error)
+
+        WriteLine()
     }
 }
 
@@ -71,16 +83,21 @@ func EvaluateZone(reading: SensorReading) -> ZoneHealth {
 func PrintReadings(readings: SensorReading[]) {
     WriteLine("Latest zone readings")
     for reading in readings {
-        WriteLine("- ${reading.Zone}: ${reading.TemperatureCelsius} C, ${reading.HumidityPercent}% humidity, ${reading.CarbonDioxidePpm} ppm CO2")
+        val temperature = reading.TemperatureCelsius.ToString("0.0")
+        val humidity = reading.HumidityPercent.ToString("0.0")
+        WriteLine("- ${reading.Zone}: ${temperature} C, ${humidity}% humidity, ${reading.CarbonDioxidePpm} ppm CO2")
     }
     WriteLine("")
 }
 
 func PrintReport(report: GreenhouseReport) {
+    val averageTemperature = report.AverageTemperatureCelsius.ToString("0.0")
+    val averageHumidity = report.AverageHumidityPercent.ToString("0.0")
+
     WriteLine("Greenhouse summary")
     WriteLine("- Zones online: ${report.ZonesOnline}")
-    WriteLine("- Average temperature: ${report.AverageTemperatureCelsius} C")
-    WriteLine("- Average humidity: ${report.AverageHumidityPercent}%")
+    WriteLine("- Average temperature: ${averageTemperature} C")
+    WriteLine("- Average humidity: ${averageHumidity}%")
 
     match report.Status {
         .OperatingNormally => WriteLine("- Status: all zones are within their growing targets")
