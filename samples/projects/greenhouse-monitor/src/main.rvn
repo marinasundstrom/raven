@@ -28,8 +28,8 @@ async func Main() -> Task {
 }
 
 func BuildReport(readings: SensorReading[]) -> GreenhouseReport {
-    var totalTemperature = 0.0
-    var totalHumidity = 0.0
+    var totalTemperature = .0
+    var totalHumidity = .0
     val notices = List<string>()
 
     for reading in readings {
