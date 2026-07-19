@@ -122,21 +122,22 @@ EnumMembers              ::= EnumMember {',' EnumMember} [','] ;
 EnumMember               ::= Identifier ['=' Expression] ;
 
 ClassDeclaration         ::= TypeModifiers? 'class' Identifier TypeParameterList?
-                             PrimaryConstructor? BaseList?
+                             PrimaryConstructorAccessibility? PrimaryConstructor? BaseList?
                              WhereClauseList? PermitsClause?
                              ClassBody? ;
 
 RecordDeclaration        ::= TypeModifiers? 'record' ['class' | 'struct'] Identifier TypeParameterList?
-                             BaseList? PrimaryConstructor?
+                             PrimaryConstructorAccessibility? PrimaryConstructor? BaseList?
                              WhereClauseList? PermitsClause?
                              ClassBody? ;
 
 PermitsClause            ::= 'permits' Type {',' Type} ;
 
 PrimaryConstructor       ::= '(' ParameterList? ')' ;
+PrimaryConstructorAccessibility ::= AccessModifier ;
 
 StructDeclaration        ::= TypeModifiers? 'struct' Identifier TypeParameterList?
-                             BaseList?
+                             PrimaryConstructorAccessibility? PrimaryConstructor? BaseList?
                              WhereClauseList?
                              ClassBody? ;
 

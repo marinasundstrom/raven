@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added primary-constructor accessibility modifiers after the type name and any
+  type parameters, e.g. `record struct Year private (Value: int)`. Constructor
+  accessibility is independent of accessibility on promoted parameters, so
+  records and other primary-constructor types can expose data while restricting
+  construction to factories or the containing assembly.
 - Improved language-server recovery after rapid edits by keeping analyzer
   diagnostics on the active compiler snapshot and forwarding reusable
   incremental semantic state across intermediate snapshots.

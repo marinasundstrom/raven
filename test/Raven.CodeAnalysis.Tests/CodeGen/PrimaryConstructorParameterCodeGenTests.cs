@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Semantics.Tests;
@@ -11,6 +12,37 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public sealed class PrimaryConstructorParameterCodeGenTests : CompilationTestBase
 {
+    [Fact]
+    public void Emit_PrivateRecordStructPrimaryConstructor_HasPrivateMetadataAccessibility()
+    {
+        const string source = """
+record struct Year private (Value: int) {
+    static func Create(value: int) -> Year => Year(value)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(
+            result.Success,
+            string.Join(Environment.NewLine, result.Diagnostics.Select(diagnostic => diagnostic.ToString())));
+
+        peStream.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var type = loaded.Assembly.GetType("Year", throwOnError: true)!;
+        var constructor = Assert.Single(type
+            .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Where(static constructor =>
+                constructor.GetParameters() is [{ ParameterType: var parameterType }] &&
+                parameterType == typeof(int)));
+
+        Assert.True(constructor.IsPrivate);
+    }
+
     [Fact]
     public void Emit_AsyncPrimaryConstructorClassMethod_ResolvesBodyParameterBuilder()
     {

@@ -5740,6 +5740,24 @@ public partial class SemanticModel
             return;
         }
 
+        var constructorAccessibility = classDecl.PrimaryConstructorAccessibilityKeyword.Kind switch
+        {
+            SyntaxKind.PrivateKeyword => Accessibility.Private,
+            SyntaxKind.InternalKeyword => Accessibility.Internal,
+            SyntaxKind.ProtectedKeyword => Accessibility.ProtectedAndProtected,
+            _ => Accessibility.Public,
+        };
+
+        if (constructorAccessibility == Accessibility.ProtectedAndProtected &&
+            classSymbol.TypeKind == TypeKind.Struct)
+        {
+            classBinder.Diagnostics.ReportModifierNotValidOnMember(
+                classDecl.PrimaryConstructorAccessibilityKeyword.Text,
+                "constructor",
+                classSymbol.Name,
+                classDecl.PrimaryConstructorAccessibilityKeyword.GetLocation());
+        }
+
         var constructorSymbol = new SourceMethodSymbol(
             ".ctor",
             unitType,
@@ -5751,7 +5769,7 @@ public partial class SemanticModel
             [classDecl.GetReference()],
             isStatic: false,
             methodKind: MethodKind.Constructor,
-            declaredAccessibility: Accessibility.Public);
+            declaredAccessibility: constructorAccessibility);
 
         if (isRecord)
         {

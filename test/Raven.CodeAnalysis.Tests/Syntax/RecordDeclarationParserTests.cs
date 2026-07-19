@@ -49,6 +49,24 @@ public class RecordDeclarationParserTests : DiagnosticTestBase
         Assert.Empty(tree.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData("public", SyntaxKind.PublicKeyword)]
+    [InlineData("internal", SyntaxKind.InternalKeyword)]
+    [InlineData("protected", SyntaxKind.ProtectedKeyword)]
+    [InlineData("private", SyntaxKind.PrivateKeyword)]
+    public void RecordStructDeclaration_WithPrimaryConstructorAccessibility_ParsesModifier(
+        string modifier,
+        SyntaxKind expectedKind)
+    {
+        var source = $"record struct Year {modifier} (Value: int) {{}}";
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<RecordDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+
+        Assert.Equal(expectedKind, declaration.PrimaryConstructorAccessibilityKeyword.Kind);
+        Assert.NotNull(declaration.ParameterList);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
     [Fact]
     public void RecordDeclaration_WithTypeParametersPrimaryConstructorAndConstraints_Parses()
     {

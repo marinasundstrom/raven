@@ -68,9 +68,19 @@ internal class TypeDeclarationParser : SyntaxParser
             typeParameterList = ParseTypeParameterList();
         }
 
+        var canHavePrimaryConstructor = typeKeyword.IsKind(SyntaxKind.ClassKeyword) ||
+                                        typeKeyword.IsKind(SyntaxKind.StructKeyword) ||
+                                        typeKeyword.IsKind(SyntaxKind.RecordKeyword);
+        var primaryConstructorAccessibilityKeyword = Token(SyntaxKind.None);
+        if (canHavePrimaryConstructor &&
+            IsAccessibilityKeyword(PeekToken().Kind) &&
+            PeekToken(1).IsKind(SyntaxKind.OpenParenToken))
+        {
+            primaryConstructorAccessibilityKeyword = ReadToken();
+        }
+
         ParameterListSyntax? parameterList = null;
-        if ((typeKeyword.IsKind(SyntaxKind.ClassKeyword) || typeKeyword.IsKind(SyntaxKind.StructKeyword) || typeKeyword.IsKind(SyntaxKind.RecordKeyword)) &&
-            PeekToken().IsKind(SyntaxKind.OpenParenToken))
+        if (canHavePrimaryConstructor && PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
             parameterList = ParseParameterList(allowAccessModifiers: true);
         }
@@ -142,21 +152,27 @@ internal class TypeDeclarationParser : SyntaxParser
 
         if (typeKeyword.IsKind(SyntaxKind.InterfaceKeyword))
         {
-            return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, null, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return InterfaceDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, baseList, primaryConstructorAccessibilityKeyword, null, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
         if (typeKeyword.IsKind(SyntaxKind.StructKeyword))
         {
-            return StructDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, parameterList, baseList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return StructDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, primaryConstructorAccessibilityKeyword, parameterList, baseList, constraintClauses, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
         if (isRecordDecl)
         {
-            return RecordDeclaration(attributeLists, modifiers, typeKeyword, classOrStructKeyword, identifier, typeParameterList, parameterList, baseList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+            return RecordDeclaration(attributeLists, modifiers, typeKeyword, classOrStructKeyword, identifier, typeParameterList, primaryConstructorAccessibilityKeyword, parameterList, baseList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
         }
 
-        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, parameterList, baseList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
+        return ClassDeclaration(attributeLists, modifiers, typeKeyword, identifier, typeParameterList, primaryConstructorAccessibilityKeyword, parameterList, baseList, constraintClauses, permitsClause, openBraceToken, List(memberList), closeBraceToken, terminatorToken);
     }
+
+    private static bool IsAccessibilityKeyword(SyntaxKind kind)
+        => kind is SyntaxKind.PublicKeyword or
+                   SyntaxKind.InternalKeyword or
+                   SyntaxKind.ProtectedKeyword or
+                   SyntaxKind.PrivateKeyword;
 
     private static bool IsPossibleTypeMemberStart(SyntaxToken token)
     {

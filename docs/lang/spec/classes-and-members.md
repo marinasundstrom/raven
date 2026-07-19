@@ -217,6 +217,27 @@ Classes and structs may declare primary-constructor parameters by adding an
 argument list to the type header. The compiler synthesizes an instance
 constructor whose signature matches those parameters.
 
+An access modifier between the type name (and any type parameters) and the
+primary-constructor parameter list controls the synthesized constructor's
+accessibility. The default is `public`:
+
+```raven
+class Session internal (token: string) {}
+
+record struct Year private (val Value: int) {
+    static func Create(value: int) -> Year => Year(value)
+}
+```
+
+Constructor accessibility is independent of promoted-property accessibility.
+For example, `record struct Year private (val Value: int)` has a private
+constructor and a public `Value` property, while
+`record struct Year(private val Value: int)` has a public constructor and a
+private property. `public`, `internal`, and `private` are valid on every primary
+constructor. `protected` is also valid on class and record-class primary
+constructors, but is diagnosed on struct and record-struct declarations because
+value types cannot be inherited.
+
 For `class` / `struct`, parameter promotion is explicit:
 
 * `val` parameter: promoted to an instance `val` auto-property.

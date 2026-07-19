@@ -255,6 +255,26 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData("internal", Accessibility.Internal)]
+    [InlineData("protected", Accessibility.ProtectedAndProtected)]
+    [InlineData("private", Accessibility.Private)]
+    public void PrimaryConstructor_ExplicitAccessibility_AppliesToSynthesizedConstructor(
+        string modifier,
+        Accessibility expectedAccessibility)
+    {
+        var source = $"class Foo {modifier} (value: int) {{}}";
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var typeDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
+        var constructor = Assert.Single(type.InstanceConstructors.Where(static constructor =>
+            constructor.Parameters.Length == 1));
+
+        Assert.Equal(expectedAccessibility, constructor.DeclaredAccessibility);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void PrimaryConstructor_WithPromotedParameters_SynthesizesDeconstruct()
     {
