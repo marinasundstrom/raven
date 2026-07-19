@@ -29,9 +29,46 @@ language construct second.
 
 ## Give domain values their own identity
 
+Values such as `string`, `int`, or `Guid` often carry domain meaning only
+through variable names and conventions. For example, a function that accepts
+two `Guid` values cannot prevent callers from swapping a customer ID and an
+order ID. This modeling problem is often called **primitive obsession**.
+
+Raven can replace the primitive with a strongly typed ID, a validated value
+object, or an opaque object. Choose the smallest shape that expresses the
+domain boundary.
+
+### Prevent identifiers from being mixed up
+
+Give each kind of identifier its own small type so identifiers from different
+domains cannot be interchanged accidentally. This is commonly called a
+**strongly typed ID**.
+
+```raven
+record struct CustomerId private (Value: Guid) {
+    static func From(value: Guid) -> CustomerId => CustomerId(value)
+}
+
+record struct OrderId private (Value: Guid) {
+    static func From(value: Guid) -> OrderId => OrderId(value)
+}
+
+func LoadOrder(customerId: CustomerId, orderId: OrderId) -> Option<Order> {
+    // The two arguments cannot be swapped even though both IDs store a Guid.
+    return None
+}
+```
+
+The restricted constructor makes creation policy explicit. A domain may offer
+`New`, `Parse`, or persistence-oriented factories instead of a general `From`
+function. The public `Value` property is reasonable when infrastructure needs
+the storage value and revealing it does not violate an invariant.
+
+### Validate a value at its boundary
+
 A type alias gives another name to an existing type; it does not create a new
 domain identity. When an integer means a year, quantity, account number, or
-temperature, wrap it in a record or record struct.
+temperature, wrap it in a record or record struct and validate it at creation.
 
 ```raven
 union YearError {
@@ -54,9 +91,49 @@ callers use `Create`, while the result type makes validation failure part of the
 API. This is an ordinary record and accessibility pattern, not a special opaque
 type feature.
 
-Use a class instead when instances have identity independent of their current
-values. Use a struct when value semantics and compact representation fit the
-domain.
+As a record, `Year` has value equality: two valid instances containing the same
+year represent the same domain value. This kind of model is commonly called a
+**value object**. Use a record class when reference storage fits better, or a
+record struct when compact value semantics fit the domain.
+
+### Keep the representation from escaping
+
+Sometimes even a read-only `Value` property exposes too much. Callers should be
+able to construct the value through approved factories and ask domain
+questions, but not extract or mutate its underlying representation. This API
+shape is often described as an **opaque object**.
+
+```raven
+union AccessTokenError {
+    case Empty
+}
+
+class AccessToken private (private val value: string) {
+    static func Create(value: string) -> Result<AccessToken, AccessTokenError> {
+        if String.IsNullOrWhiteSpace(value) {
+            return Error(.Empty)
+        }
+
+        return Ok(AccessToken(value))
+    }
+
+    func Matches(candidate: string) -> bool => value == candidate
+
+    override func ToString() -> string => "<access-token>"
+}
+```
+
+Unlike the strongly typed ID example, `AccessToken` does not expose a `Value`
+property. Its useful surface is behavioral. This is appropriate for secrets,
+capabilities, validated handles, or values whose raw representation should not
+spread through application code.
+
+Opacity is an API/accessibility pattern here, not a new Raven type category.
+Serialization and persistence adapters may need a deliberately narrow internal
+operation rather than making the representation public.
+
+Use a class when instances have identity independent of their current values.
+Use a record when structural value equality is part of the concept.
 
 ## Make valid states explicit
 
@@ -87,6 +164,8 @@ are made.
 
 Use an enum when cases are simple named constants without case-specific data.
 Use an open class or interface hierarchy when third parties must add new cases.
+This approach is also described as **making illegal states unrepresentable**:
+the model has no case for combinations the domain does not permit.
 
 ## Keep rules as functions
 
@@ -139,6 +218,8 @@ service classes.
 Prefer a class or interface when the dependency is a cohesive protocol with
 several related operations, shared state, disposal, or a lifecycle contract.
 Function injection should remove accidental ceremony, not hide a real object.
+For a single capability, this is sometimes called **function-based dependency
+injection**.
 
 ## Compose functional rules with stateful objects
 
@@ -168,6 +249,8 @@ func CheckDevice(device: GreenhouseDevice, range: ClimateRange) -> Result<Greenh
 `GreenhouseDevice` represents identity and a connection lifecycle. `Evaluate`
 remains a pure domain rule. `ObserveClimate` coordinates capabilities through
 function parameters. Each construct is used for what it describes best.
+Separating pure decisions from stateful integration in this way is commonly
+called a **functional core with an imperative shell**.
 
 ## Model expected outcomes as data
 
@@ -192,6 +275,34 @@ record class Registration(val Name: string, val Year: Year)
 Exceptions remain appropriate for unexpected failures and are unavoidable at
 some .NET boundaries. The domain-facing API should still distinguish expected
 outcomes from exceptional faults.
+Composing workflows from `Result`-returning operations is sometimes called
+**railway-oriented programming**.
+
+## Keep identity stable as data changes
+
+Some domain objects must remain the same conceptual thing while their data
+changes. Give that identity its own type, and use a class or record class for
+the object depending on the desired equality contract. In domain-driven design,
+this kind of model is called an **entity**.
+
+```raven
+record struct CustomerId private (Value: Guid) {
+    static func From(value: Guid) -> CustomerId => CustomerId(value)
+}
+
+class Customer(
+    val Id: CustomerId,
+    var DisplayName: string) {
+
+    func Rename(displayName: string) {
+        DisplayName = displayName
+    }
+}
+```
+
+Changing `DisplayName` does not create a different customer. The `CustomerId`
+establishes continuity, while the class encapsulates the entity's lifecycle and
+allowed mutation.
 
 ## Choosing a modeling shape
 
