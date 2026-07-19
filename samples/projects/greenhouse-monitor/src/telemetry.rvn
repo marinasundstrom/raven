@@ -1,0 +1,43 @@
+namespace Utilities
+
+import System.Collections.Generic.*
+
+func LoadTelemetry() -> Result<SensorReading[], TelemetryError> {
+    // A real monitor would read these values from devices or a service.
+    val received: SensorReading[] = [
+        SensorReading("Propagation", 23.5, 68.0, 720),
+        SensorReading("Tomatoes", 30.5, 64.0, 910),
+        SensorReading("Herbs", 21.0, 42.0, 1510)
+    ]
+
+    if received.Length == 0 {
+        val error: TelemetryError = .NoReadings
+        return Error(error)
+    }
+
+    val validated = List<SensorReading>()
+    for reading in received {
+        validated.Add(ValidateReading(reading)?)
+    }
+
+    return Ok(validated.ToArray())
+}
+
+func ValidateReading(reading: SensorReading) -> Result<SensorReading, TelemetryError> {
+    if reading.Zone.Trim().Length == 0 {
+        val error: TelemetryError = .InvalidReading("unknown", "zone name is required")
+        return Error(error)
+    }
+
+    if 0.0 > reading.HumidityPercent || reading.HumidityPercent > 100.0 {
+        val error: TelemetryError = .InvalidReading(reading.Zone, "humidity must be between 0 and 100 percent")
+        return Error(error)
+    }
+
+    if 0 > reading.CarbonDioxidePpm {
+        val error: TelemetryError = .InvalidReading(reading.Zone, "CO2 cannot be negative")
+        return Error(error)
+    }
+
+    return Ok(reading)
+}

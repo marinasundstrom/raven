@@ -1,20 +1,36 @@
 import Utilities.*
 
 func Main() {
+    Test()
+    val x = A(42)
+    Test()
+    A(x)
+    A("42")
+
+    use test = Test2()
+    test.Dispose()
+
+    val v: Foo = 3
+    val r = match v {
+        int i => i
+        string => 2
+        _ => 4
+    }
+
+    Console.WriteLine(r)
+
     val s = Status.Open("foo")
     match s {
         .Open(val reason) => Console.WriteLine("Reason $reason")
         .Closed(_) => ()
     }
 
-    if let Ok(temp) = getTemperature() {
-        Console.WriteLine(temp.Value)
+    if let Ok(no) = int.parse("42") {
+        Console.WriteLine(no)
     }
 }
 
-record Temperature(val Value: double)
-
-record TemperatureError(val Message: string)
+union Foo(int | string)
 
 union Status {
     case Closed(reason: string)

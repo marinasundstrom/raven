@@ -1,0 +1,131 @@
+import System.Console.*
+import System.Collections.Generic.*
+import Utilities.*
+
+func Main() {
+    WriteLine("== Cedar Grove Greenhouse Monitor ==")
+    WriteLine("")
+
+    match LoadTelemetry() {
+        Ok(val readings) => {
+            PrintReadings(readings)
+            PrintReport(BuildReport(readings))
+        }
+        Error(val error) => PrintError(error)
+    }
+}
+
+func BuildReport(readings: SensorReading[]) -> GreenhouseReport {
+    var totalTemperature = 0.0
+    var totalHumidity = 0.0
+    val notices = List<string>()
+
+    for reading in readings {
+        totalTemperature = totalTemperature + reading.TemperatureCelsius
+        totalHumidity = totalHumidity + reading.HumidityPercent
+
+        match EvaluateZone(reading) {
+            .Healthy => ()
+            .Attention(val reason) => notices.Add("${reading.Zone}: ${reason}")
+            .Critical(val reason) => notices.Add("${reading.Zone}: CRITICAL - ${reason}")
+        }
+    }
+
+    val count = readings.Length
+    val averageTemperature = totalTemperature / count
+    val averageHumidity = totalHumidity / count
+    val status: GreenhouseStatus = if notices.Count == 0 {
+        .OperatingNormally
+    } else {
+        .NeedsAttention(notices.ToArray())
+    }
+
+    return GreenhouseReport(
+        readings.Length,
+        averageTemperature,
+        averageHumidity,
+        status
+    )
+}
+
+func EvaluateZone(reading: SensorReading) -> ZoneHealth {
+    if reading.CarbonDioxidePpm >= 1400 {
+        return .Critical("CO2 is ${reading.CarbonDioxidePpm} ppm; ventilate immediately")
+    }
+
+    if 18.0 > reading.TemperatureCelsius {
+        return .Attention("temperature is below the 18 C growing target")
+    }
+
+    if reading.TemperatureCelsius > 29.0 {
+        return .Attention("temperature is above the 29 C growing target")
+    }
+
+    if 45.0 > reading.HumidityPercent || reading.HumidityPercent > 75.0 {
+        return .Attention("humidity is outside the 45-75% target")
+    }
+
+    return .Healthy
+}
+
+func PrintReadings(readings: SensorReading[]) {
+    WriteLine("Latest zone readings")
+    for reading in readings {
+        WriteLine("- ${reading.Zone}: ${reading.TemperatureCelsius} C, ${reading.HumidityPercent}% humidity, ${reading.CarbonDioxidePpm} ppm CO2")
+    }
+    WriteLine("")
+}
+
+func PrintReport(report: GreenhouseReport) {
+    WriteLine("Greenhouse summary")
+    WriteLine("- Zones online: ${report.ZonesOnline}")
+    WriteLine("- Average temperature: ${report.AverageTemperatureCelsius} C")
+    WriteLine("- Average humidity: ${report.AverageHumidityPercent}%")
+
+    match report.Status {
+        .OperatingNormally => WriteLine("- Status: all zones are within their growing targets")
+        .NeedsAttention(val notices) => {
+            WriteLine("- Status: operator attention required")
+            for notice in notices {
+                WriteLine("  * ${notice}")
+            }
+        }
+    }
+}
+
+func PrintError(error: TelemetryError) {
+    match error {
+        .NoReadings => WriteLine("Monitor unavailable: no sensor readings were received.")
+        .InvalidReading(val zone, val reason) => WriteLine("Monitor unavailable: invalid reading for ${zone}: ${reason}")
+    }
+}
+
+record SensorReading(
+    Zone: string,
+    TemperatureCelsius: double,
+    HumidityPercent: double,
+    CarbonDioxidePpm: int
+)
+
+record GreenhouseReport(
+    ZonesOnline: int,
+    AverageTemperatureCelsius: double,
+    AverageHumidityPercent: double,
+    Status: GreenhouseStatus
+)
+
+union ZoneHealth {
+    case Healthy
+    case Attention(reason: string)
+    case Critical(reason: string)
+}
+
+union GreenhouseStatus {
+    case OperatingNormally
+    case NeedsAttention(notices: string[])
+}
+
+union TelemetryError {
+    case NoReadings
+    case InvalidReading(zone: string, reason: string)
+}
