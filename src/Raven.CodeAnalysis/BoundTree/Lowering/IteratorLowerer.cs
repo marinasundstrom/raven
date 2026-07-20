@@ -114,11 +114,28 @@ internal static class IteratorLowerer
         SynthesizedIteratorTypeSymbol stateMachine,
         BoundBlockStatement body)
     {
-        var builder = new MoveNextBuilder(compilation, stateMachine);
+        var targetMethod = stateMachine.AsyncMoveNextMethod ?? stateMachine.MoveNextMethod;
+        var builder = new MoveNextBuilder(compilation, stateMachine, targetMethod);
         var moveNext = builder.Rewrite(body);
 
         if (stateMachine.DisposeBody is null && builder.DisposeBody is not null)
             stateMachine.SetDisposeBody(builder.DisposeBody);
+
+        if (stateMachine.IteratorMethod is not SourceLambdaSymbol &&
+            stateMachine.AsyncMoveNextMethod is { } asyncMoveNextMethod &&
+            AsyncLowerer.ContainsAwait(moveNext))
+        {
+            var asyncMoveNextBody = AsyncLowerer.Rewrite(asyncMoveNextMethod, moveNext);
+            stateMachine.SetAsyncMoveNextBody(asyncMoveNextBody);
+
+            return new BoundBlockStatement(new BoundStatement[]
+            {
+                new BoundReturnStatement(new BoundLiteralExpression(
+                    BoundLiteralExpressionKind.NumericLiteral,
+                    0,
+                    compilation.GetSpecialType(SpecialType.System_Boolean))),
+            });
+        }
 
         return moveNext;
     }
@@ -807,11 +824,14 @@ internal static class IteratorLowerer
 
         public BoundBlockStatement? DisposeBody { get; private set; }
 
-        public MoveNextBuilder(Compilation compilation, SynthesizedIteratorTypeSymbol stateMachine)
+        public MoveNextBuilder(
+            Compilation compilation,
+            SynthesizedIteratorTypeSymbol stateMachine,
+            SourceMethodSymbol moveNextMethod)
         {
             _compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
             _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
-            _moveNextMethod = stateMachine.MoveNextMethod ?? throw new ArgumentNullException(nameof(stateMachine.MoveNextMethod));
+            _moveNextMethod = moveNextMethod ?? throw new ArgumentNullException(nameof(moveNextMethod));
             _boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
             _unitType = compilation.GetSpecialType(SpecialType.System_Unit);
         }
@@ -867,7 +887,11 @@ internal static class IteratorLowerer
                 {
                     if (initializer is not null)
                     {
-                        var assignment = new BoundFieldAssignmentExpression(null, field, initializer, _unitType);
+                        var assignment = new BoundFieldAssignmentExpression(
+                            new BoundSelfExpression(_stateMachine),
+                            field,
+                            initializer,
+                            _unitType);
                         hoistedStatements.Add(new BoundAssignmentStatement(assignment));
                     }
                 }
@@ -951,7 +975,11 @@ internal static class IteratorLowerer
             var right = VisitExpression(node.Right) ?? node.Right;
 
             if (_hoistedLocals.TryGetValue(node.Local, out var field))
-                return new BoundFieldAssignmentExpression(null, field, right, _unitType);
+                return new BoundFieldAssignmentExpression(
+                    new BoundSelfExpression(_stateMachine),
+                    field,
+                    right,
+                    _unitType);
 
             if (!ReferenceEquals(right, node.Right))
             {
@@ -1047,7 +1075,11 @@ internal static class IteratorLowerer
             var currentValue = ApplyElementConversion(expression);
 
             var assignCurrent = new BoundAssignmentStatement(
-                new BoundFieldAssignmentExpression(null, _stateMachine.CurrentField, currentValue, _unitType));
+                new BoundFieldAssignmentExpression(
+                    new BoundSelfExpression(_stateMachine),
+                    _stateMachine.CurrentField,
+                    currentValue,
+                    _unitType));
 
             var assignState = CreateStateAssignment(resumeState.Value);
 
@@ -1349,7 +1381,11 @@ internal static class IteratorLowerer
         private BoundAssignmentStatement CreateStateAssignment(int value)
         {
             var literal = CreateIntLiteral(value);
-            var assignment = new BoundFieldAssignmentExpression(null, _stateMachine.StateField, literal, _unitType);
+            var assignment = new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(_stateMachine),
+                _stateMachine.StateField,
+                literal,
+                _unitType);
             return new BoundAssignmentStatement(assignment);
         }
 
@@ -1663,7 +1699,11 @@ internal static class IteratorLowerer
         private BoundAssignmentStatement CreateHoistedAssignment(ILocalSymbol local, BoundExpression value)
         {
             EnsureHoistedLocal(local);
-            return new BoundAssignmentStatement(new BoundFieldAssignmentExpression(null, _hoistedLocals[local], value, _unitType));
+            return new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(_stateMachine),
+                _hoistedLocals[local],
+                value,
+                _unitType));
         }
 
         private IEnumerable<BoundStatement> CreateLoopBodyStatements(ILocalSymbol? loopLocal, BoundExpression valueExpression, BoundStatement body)

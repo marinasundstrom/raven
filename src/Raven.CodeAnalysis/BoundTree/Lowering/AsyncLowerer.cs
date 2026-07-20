@@ -728,8 +728,18 @@ internal static class AsyncLowerer
 
         if (constructedMembers.ThisField is IFieldSymbol closureField)
         {
-            closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
-            originalBody = closureRewriter.Rewrite(originalBody);
+            if (stateMachine.AsyncMethod.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
+            {
+                originalBody = new AsyncIteratorReceiverRewriter(
+                    stateMachine,
+                    iteratorType,
+                    closureField).Rewrite(originalBody);
+            }
+            else
+            {
+                closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, closureField);
+                originalBody = closureRewriter.Rewrite(originalBody);
+            }
         }
         else if (stateMachine.ThisField is IFieldSymbol definitionClosureField)
         {
@@ -1024,7 +1034,8 @@ internal static class AsyncLowerer
         {
             if (_stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } &&
                 node.Type is { } type &&
-                !SymbolEqualityComparer.Default.Equals(type, _stateMachine))
+                !SymbolEqualityComparer.Default.Equals(type, _stateMachine) &&
+                SymbolEqualityComparer.Default.Equals(type, _closureField.Type))
             {
                 var receiver = new BoundSelfExpression(_stateMachine);
                 return new BoundMemberAccessExpression(receiver, _closureField);
@@ -3447,6 +3458,57 @@ internal static class AsyncLowerer
                 return locals;
 
             return builder.ToImmutable();
+        }
+    }
+
+    private sealed class AsyncIteratorReceiverRewriter : BoundTreeRewriter
+    {
+        private readonly SynthesizedAsyncStateMachineTypeSymbol _asyncStateMachine;
+        private readonly SynthesizedIteratorTypeSymbol _iteratorType;
+        private readonly IFieldSymbol _iteratorField;
+
+        public AsyncIteratorReceiverRewriter(
+            SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine,
+            SynthesizedIteratorTypeSymbol iteratorType,
+            IFieldSymbol iteratorField)
+        {
+            _asyncStateMachine = asyncStateMachine;
+            _iteratorType = iteratorType;
+            _iteratorField = iteratorField;
+        }
+
+        public BoundBlockStatement Rewrite(BoundBlockStatement body)
+            => (BoundBlockStatement)VisitBlockStatement(body)!;
+
+        public override BoundNode? VisitAssignmentExpression(BoundAssignmentExpression node)
+        {
+            if (node is not BoundFieldAssignmentExpression fieldAssignment ||
+                fieldAssignment.Field.ContainingType is not { } containingType ||
+                !SymbolEqualityComparer.Default.Equals(containingType, _iteratorType))
+            {
+                return base.VisitAssignmentExpression(node);
+            }
+
+            var receiver = new BoundMemberAccessExpression(
+                new BoundSelfExpression(_asyncStateMachine),
+                _iteratorField);
+            var right = (BoundExpression)(VisitExpression(fieldAssignment.Right) ?? fieldAssignment.Right);
+
+            return new BoundMemberAssignmentExpression(
+                fieldAssignment.Field,
+                receiver,
+                right,
+                fieldAssignment.UnitType);
+        }
+
+        public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(node.Type, _iteratorType))
+                return (BoundExpression?)base.VisitSelfExpression(node);
+
+            return new BoundMemberAccessExpression(
+                new BoundSelfExpression(_asyncStateMachine),
+                _iteratorField);
         }
     }
 

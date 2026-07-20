@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -13,6 +14,48 @@ namespace Raven.CodeAnalysis.Tests.CodeGen.Async;
 
 public sealed class AsyncIteratorCancellationCodeGenTests
 {
+    [Fact]
+    public async Task AsyncIterator_IncompleteAwait_ReturnsPendingMoveNextWithoutBlocking()
+    {
+        const string code = """
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import System.Threading.*
+import System.Threading.Tasks.*
+
+class Counter {
+    async func Values([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
+        yield return 1
+        await Task.Delay(5000, cancellationToken)
+        yield return 2
+    }
+}
+""";
+
+        var method = CompileValuesMethod(code);
+        var instance = Activator.CreateInstance(method.DeclaringType!)!;
+
+        Assert.Contains(
+            method.GetCustomAttributesData(),
+            attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.AsyncIteratorStateMachineAttribute");
+
+        using var cts = new CancellationTokenSource();
+        var values = (IAsyncEnumerable<int>)method.Invoke(instance, new object[] { cts.Token })!;
+        await using var enumerator = values.GetAsyncEnumerator();
+
+        Assert.True(await enumerator.MoveNextAsync());
+
+        var stopwatch = Stopwatch.StartNew();
+        var pendingMove = enumerator.MoveNextAsync();
+        stopwatch.Stop();
+
+        Assert.False(pendingMove.IsCompleted);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1), $"MoveNextAsync blocked for {stopwatch.Elapsed}.");
+
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => _ = await pendingMove);
+    }
+
     [Fact]
     public async Task AsyncIterator_EnumeratorCancellationAttribute_UsesGetAsyncEnumeratorToken()
     {

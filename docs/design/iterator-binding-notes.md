@@ -30,6 +30,13 @@ All helper bodies are cached during lowering so code generation can emit them. �
 
 Async iterator **declarations** (`yield` inside methods returning `IAsyncEnumerable<T>`/`IAsyncEnumerator<T>`) are lowered and emitted through the same iterator-lowering pipeline. Consumer-side async loop syntax (`await for`) is now lowered in the async pipeline as well.
 
+When an async iterator method declaration contains `await`, its synthesized
+`MoveNextAsync` uses the ordinary async-method lowering pipeline around the
+iterator's yield-state dispatcher. An incomplete await therefore returns a
+pending `ValueTask<bool>` and resumes through a registered continuation instead
+of blocking the caller. The kickoff method is marked with
+`AsyncIteratorStateMachineAttribute`.
+
 `await for` consumption is now lowered before async rewriting. The binder classifies async enumerator patterns (`GetAsyncEnumerator` + `MoveNextAsync` + `Current`) and a dedicated lowering pass rewrites the loop into explicit `while (await MoveNextAsync())` shape with `await DisposeAsync()` in `finally` when available.
 
 `MoveNextBuilder` provides the first pass at state-machine rewriting: it allocates numeric states, injects a dispatch table at the top of `MoveNext`, rewrites each `yield return` into assignments to `_current`/`_state` followed by `return true`, and turns `yield break` into `_state = -1` with `return false`. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L400-L583】

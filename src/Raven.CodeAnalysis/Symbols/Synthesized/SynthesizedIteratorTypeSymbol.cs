@@ -389,6 +389,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             s_emptySyntax,
             isStatic: false,
             methodKind: MethodKind.ExplicitInterfaceImplementation,
+            isAsync: true,
             declaredAccessibility: Accessibility.Private);
 
         var asyncEnumerator = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1") as INamedTypeSymbol;

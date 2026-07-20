@@ -446,8 +446,11 @@ internal class MethodGenerator
             if (systemTypeSymbol is IErrorTypeSymbol)
                 return;
 
-            var stateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute);
-            if (stateMachineAttributeSymbol is IErrorTypeSymbol)
+            var isAsyncIterator = stateMachine.IteratorKind is IteratorMethodKind.AsyncEnumerable or IteratorMethodKind.AsyncEnumerator;
+            var stateMachineAttributeSymbol = isAsyncIterator
+                ? compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncIteratorStateMachineAttribute")
+                : compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute);
+            if (stateMachineAttributeSymbol is null or IErrorTypeSymbol)
                 return;
 
             var systemType = codeGen.RuntimeSymbolResolver.GetType(systemTypeSymbol);

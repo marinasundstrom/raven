@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Async-iterator method declarations now suspend incomplete awaits in
+  `MoveNextAsync` and return a
+  pending `ValueTask<bool>` instead of synchronously blocking in
+  `TaskAwaiter.GetResult()`. Their kickoff methods now carry
+  `AsyncIteratorStateMachineAttribute` metadata, so async streams such as the
+  greenhouse telemetry sample no longer occupy the caller thread while
+  awaiting delays or I/O.
 - Added primary-constructor accessibility modifiers after the type name and any
   type parameters, e.g. `record struct Year private (Value: int)`. Constructor
   accessibility is independent of accessibility on promoted parameters, so
