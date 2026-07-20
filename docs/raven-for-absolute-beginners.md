@@ -274,6 +274,17 @@ WriteLine("$personName is $personAge years old")
 `Person` groups a name and age into one value. The `val` parameters become
 properties that can be read as `person.Name` and `person.Age`.
 
+Records are compared by their values. Two separately created records are equal
+when all their data is equal:
+
+```raven
+let anotherPerson = Person("Mira", 12)
+let peopleAreEqual = person == anotherPerson
+```
+
+Here, `peopleAreEqual` is `true`, even though `person` and `anotherPerson` were
+created separately.
+
 ## Taking data apart with patterns
 
 A pattern describes the shape of a value. You can use one to take a record
@@ -416,10 +427,22 @@ class ScoreBoard {
 
 let board = ScoreBoard()
 board.Add(10)
+
+let anotherBoard = ScoreBoard()
+anotherBoard.Add(10)
+
+let scoresAreEqual = board.Score == anotherBoard.Score
+let boardsAreEqual = board == anotherBoard
 ```
 
 The score board owns changing state, so a class is a natural model. A standalone
 calculation such as `Add(a, b)` does not need an object merely to contain it.
+
+By default, classes are compared by reference: two variables are equal only
+when they refer to the same object. In this example, `scoresAreEqual` is `true`,
+but `boardsAreEqual` is `false` because the two score boards were created
+separately. A class can define different equality behavior when a program needs
+it.
 
 Functional and object-oriented programming are not rival modes in Raven. They
 are tools that can be combined in one application.
