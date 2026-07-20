@@ -1,0 +1,65 @@
+import System.Console.*
+import System.Collections.Generic.*
+
+let plans = [
+    RatePlan("NorthStar", 500, 120)
+    RatePlan("Oceanic", 450, 150)
+]
+
+let request = ShipmentRequest("REQ-1002", "Oceanic", 3, Some("RAVEN"))
+
+let message = match Quote(request, plans) {
+    Ok(let quote) => match quote.Decision {
+        .Approved => "✓ ${quote.Id}: ${quote.TotalCents} cents"
+        .Review(let reason) => "⚠ ${quote.Id}: $reason"
+    }
+    Error(let error) => match error {
+        .UnknownCarrier(let carrier) => "✗ No rate plan for $carrier"
+        .InvalidWeight(let weight) => "✗ Invalid weight: ${weight}kg"
+    }
+}
+
+WriteLine(message)
+
+func Quote(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Result<Quote, QuoteError> {
+    if request.WeightKg <= 0 {
+        return Error(.InvalidWeight(request.WeightKg))
+    }
+
+    let plan = plans.FirstOrError(
+        p => p.Carrier == request.Carrier,
+        () => QuoteError.UnknownCarrier(request.Carrier))?
+
+    let discount = match request.PromoCode {
+        Some("RAVEN") => 500
+        Some(_) | None => 0
+    }
+
+    let total = plan.BaseCents + request.WeightKg * plan.PerKgCents - discount
+    let decision: Decision = if request.WeightKg > 20 {
+        .Review("Heavy shipment requires approval")
+    } else {
+        .Approved
+    }
+
+    return Ok(Quote(request.Id, total, decision))
+}
+
+record class ShipmentRequest(
+    val Id: string,
+    val Carrier: string,
+    val WeightKg: int,
+    val PromoCode: Option<string>)
+
+record class RatePlan(val Carrier: string, val BaseCents: int, val PerKgCents: int)
+record class Quote(val Id: string, val TotalCents: int, val Decision: Decision)
+
+union Decision {
+    case Approved
+    case Review(reason: string)
+}
+
+union QuoteError {
+    case UnknownCarrier(carrier: string)
+    case InvalidWeight(weight: int)
+}
