@@ -1403,6 +1403,7 @@ internal sealed class HoverHandler : IHoverHandler
                 var declaredLocal = SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, designation, out var designationInfo)
                     ? (designationInfo.Symbol ?? designationInfo.CandidateSymbols.FirstOrDefault()) as ILocalSymbol
                     : null;
+                declaredLocal ??= semanticModel.GetDeclaredSymbol(designation) as ILocalSymbol;
                 var binding = declaredLocal is { IsMutable: true }
                     ? "var"
                     : designation.BindingKeyword.Kind == SyntaxKind.VarKeyword ? "var" : "val";
@@ -1525,8 +1526,11 @@ internal sealed class HoverHandler : IHoverHandler
             if (token.Parent is SingleVariableDesignationSyntax single &&
                 token == single.Identifier)
             {
-                if (SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, single, out var singleInfo) &&
-                    (singleInfo.Symbol ?? singleInfo.CandidateSymbols.FirstOrDefault()) is { } singleSymbol)
+                var singleSymbol = SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, single, out var singleInfo)
+                    ? singleInfo.Symbol ?? singleInfo.CandidateSymbols.FirstOrDefault()
+                    : null;
+                singleSymbol ??= semanticModel.GetDeclaredSymbol(single);
+                if (singleSymbol is not null)
                 {
                     return new SymbolResolutionResult(SymbolResolutionKind.Declaration, singleSymbol, single);
                 }
@@ -1536,8 +1540,11 @@ internal sealed class HoverHandler : IHoverHandler
                 typed.Designation is SingleVariableDesignationSyntax typedSingle &&
                 token == typedSingle.Identifier)
             {
-                if (SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, typedSingle, out var typedInfo) &&
-                    (typedInfo.Symbol ?? typedInfo.CandidateSymbols.FirstOrDefault()) is { } typedSymbol)
+                var typedSymbol = SymbolResolutionHelpers.TryGetPreferredSymbolInfo(semanticModel, typedSingle, out var typedInfo)
+                    ? typedInfo.Symbol ?? typedInfo.CandidateSymbols.FirstOrDefault()
+                    : null;
+                typedSymbol ??= semanticModel.GetDeclaredSymbol(typedSingle);
+                if (typedSymbol is not null)
                 {
                     return new SymbolResolutionResult(SymbolResolutionKind.Declaration, typedSymbol, typedSingle);
                 }

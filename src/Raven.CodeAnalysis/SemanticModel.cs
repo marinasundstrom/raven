@@ -11188,7 +11188,23 @@ public partial class SemanticModel
         Compilation.EnsureSourceDeclarationsDeclared();
         EnsureDeclarations();
 
-        var declaredSymbol = GetBinderForIncrementalSemanticQuery(designation).BindDeclaredSymbol(designation);
+        if (designation.Ancestors().OfType<BlockStatementSyntax>().LastOrDefault() is { } executableRoot)
+        {
+            _ = GetBoundNode(executableRoot);
+            if (TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator contextualDesignator &&
+                (allowErrorType || !contextualDesignator.Local.Type.ContainsErrorType()))
+            {
+                localSymbol = contextualDesignator.Local;
+                return true;
+            }
+        }
+
+        var bindingOwner = GetPatternDesignationBindingOwner(designation) ?? designation;
+        var binder = GetBinderForIncrementalSemanticQuery(bindingOwner);
+        while (binder is not BlockBinder && binder.ParentBinder is not null)
+            binder = binder.ParentBinder;
+
+        var declaredSymbol = binder.BindDeclaredSymbol(designation);
         if (declaredSymbol is ILocalSymbol declaredLocal &&
             (allowErrorType || !declaredLocal.Type.ContainsErrorType()))
         {
@@ -11206,6 +11222,17 @@ public partial class SemanticModel
         localSymbol = null;
         return false;
     }
+
+    private static SyntaxNode? GetPatternDesignationBindingOwner(SingleVariableDesignationSyntax designation)
+        => designation.Ancestors().FirstOrDefault(static ancestor => ancestor is
+            MatchExpressionSyntax or
+            PostfixMatchExpressionSyntax or
+            MatchStatementSyntax or
+            IsPatternExpressionSyntax or
+            IfPatternStatementSyntax or
+            WhilePatternStatementSyntax or
+            ForStatementSyntax or
+            PatternDeclarationAssignmentStatementSyntax);
 
     private ITypeSymbol? TryInferPatternDesignationType(PatternSyntax pattern, string name, ITypeSymbol expectedType)
     {

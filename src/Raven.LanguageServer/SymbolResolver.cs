@@ -119,8 +119,16 @@ internal static partial class SymbolResolver
             return false;
         }
 
-        if (!TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
-            return false;
+        SymbolInfo symbolInfo;
+        try
+        {
+            symbolInfo = semanticModel.GetSymbolInfo(identifier);
+        }
+        catch
+        {
+            if (!TryGetSymbolInfo(semanticModel, identifier, out symbolInfo))
+                return false;
+        }
 
         var symbol = ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, identifier);
         if (symbol is not ILocalSymbol and not IParameterSymbol)

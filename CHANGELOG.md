@@ -64,6 +64,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Fixed union case binding so bare case constructor calls require an explicit
   target type, while pattern hovers report case symbols projected from the
   matched union type arguments.
+- Fixed cold language-server hover resolution for pattern locals nested in
+  executable scopes such as `await for`, including both declarations and uses.
 - Fixed union declaration attribute validation so source unions accept
   type-level attributes whose usage targets either class or struct carriers.
 - Changed `RAV9016` member-can-be-private and `RAV9017`

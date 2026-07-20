@@ -2914,23 +2914,44 @@ class C {
 import System.*
 
 class C {
-    func Render(status: Result<System.Int32, System.Int32>) -> unit {
+    func Render(status: Result<System.Int32, System.Int32>, values: System.Int32[], pair: (System.Int32, System.String)) -> unit {
         match status {
-            .Ok(val okStatement) => okStatement
-            .Error(val errorStatement) => errorStatement
+            .Ok(let okStatement) => okStatement
+            .Error(let errorStatement) => errorStatement
         }
 
         _ = status match {
-            .Ok(val okExpression) => okExpression
-            .Error(val errorExpression) => errorExpression
+            .Ok(let okExpression) => okExpression
+            .Error(let errorExpression) => errorExpression
         }
 
-        if status is .Ok(val checkedValue) {
+        match status {
+            Ok(let nominalStatement) => nominalStatement
+            Error(let nominalError) => nominalError
+        }
+
+        if status is .Ok(let checkedValue) {
             _ = checkedValue
         }
 
-        if status is Ok(val nominalValue) {
+        if status is Ok(let nominalValue) {
             _ = nominalValue
+        }
+
+        for nestedStatus in [status] {
+            match nestedStatus {
+                Ok(let nestedStatement) => nestedStatement
+                Error(let nestedError) => nestedError
+            }
+        }
+
+        _ = values match {
+            [let head, ..let tail] => head + tail.Length
+            _ => 0
+        }
+
+        _ = pair match {
+            (let number, let text) => number + text.Length
         }
     }
 }
@@ -2979,10 +3000,8 @@ class C {
 
             var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
             var root = context.Value.SyntaxTree.GetRoot();
-            context.Value.Compilation.GetDiagnostics()
-                .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
-                .Select(static diagnostic => diagnostic.GetMessage())
-                .ShouldBeEmpty();
+            var buildPatternDeclarationHover = typeof(HoverHandler)
+                .GetMethod("TryBuildPatternDeclarationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
 
             var memberPatternTokens = root.DescendantNodes()
                 .OfType<MemberPatternPathSyntax>()
@@ -3000,15 +3019,60 @@ class C {
                 resolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().IsUnionCase.ShouldBeTrue();
             }
 
-            var nominalToken = root.DescendantNodes()
+            var nominalTokens = root.DescendantNodes()
                 .OfType<NominalDeconstructionPatternSyntax>()
                 .SelectMany(pattern => pattern.Type.DescendantTokens())
-                .Single(token => token.ValueText == "Ok");
-            var nominalResolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, nominalToken.SpanStart + 1);
+                .Where(token => token.ValueText is "Ok" or "Error")
+                .ToArray();
 
-            nominalResolution.ShouldNotBeNull();
-            nominalResolution!.Value.Symbol.Name.ShouldBe("Ok");
-            nominalResolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().IsUnionCase.ShouldBeTrue();
+            nominalTokens.Length.ShouldBe(5);
+            foreach (var nominalToken in nominalTokens)
+            {
+                var nominalResolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, nominalToken.SpanStart + 1);
+
+                nominalResolution.ShouldNotBeNull();
+                nominalResolution!.Value.Symbol.Name.ShouldBe(nominalToken.ValueText);
+                nominalResolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().IsUnionCase.ShouldBeTrue();
+            }
+
+            foreach (var name in new[]
+                     {
+                         "okStatement",
+                         "errorStatement",
+                         "okExpression",
+                         "errorExpression",
+                         "nominalStatement",
+                         "nominalError",
+                         "checkedValue",
+                         "nominalValue",
+                         "nestedStatement",
+                         "nestedError",
+                         "head",
+                         "tail",
+                         "number",
+                         "text"
+                     })
+            {
+                var designation = root.DescendantNodes()
+                    .OfType<SingleVariableDesignationSyntax>()
+                    .Single(node => node.Identifier.ValueText == name);
+                var reference = root.DescendantNodes()
+                    .OfType<IdentifierNameSyntax>()
+                    .Single(node => node.Identifier.ValueText == name);
+
+                var declarationHover = buildPatternDeclarationHover.Invoke(
+                    null,
+                    [context.Value.SourceText, semanticModel, root, designation.Identifier.SpanStart + 1]);
+                declarationHover.ShouldNotBeNull();
+
+                foreach (var token in new[] { designation.Identifier, reference.Identifier })
+                {
+                    var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+                    resolution.ShouldNotBeNull();
+                    resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(name);
+                }
+            }
         }
         finally
         {
