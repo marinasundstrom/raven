@@ -92,6 +92,45 @@ let isLearning: bool = true
 Raven can infer these types, so the annotations are often optional. Types help
 the compiler find mistakes before the program runs.
 
+## Doing calculations and comparisons
+
+Operators combine or compare values. The arithmetic operators work much like
+they do in ordinary mathematics:
+
+```raven
+let sum = 8 + 4
+let difference = 8 - 4
+let product = 8 * 4
+let quotient = 8 / 4
+let remainder = 9 % 4
+```
+
+`%` gives the remainder after division, so `9 % 4` is `1`. This is useful for
+questions such as whether a number is even: `number % 2 == 0`.
+
+Comparison operators produce a `bool` value:
+
+```raven
+let isEqual = 5 == 5
+let isDifferent = 5 != 3
+let isSmaller = 3 < 5
+let isAtLeastFive = 7 >= 5
+```
+
+Use `&&` when both conditions must be true, `||` when either condition may be
+true, and `!` to reverse a condition:
+
+```raven
+let hasTicket = true
+let doorIsOpen = false
+
+let canEnter = hasTicket && doorIsOpen
+let shouldWait = hasTicket && !doorIsOpen
+```
+
+These expressions create values just like any other expression. You can store
+their results in a variable or use them directly as an `if` condition.
+
 ## Making decisions
 
 Use `if` when a program should choose between two paths:
@@ -225,10 +264,45 @@ types.
 record class Person(val Name: string, val Age: int)
 
 let person = Person("Mira", 12)
+
+let personName = person.Name
+let personAge = person.Age
+
+WriteLine("$personName is $personAge years old")
 ```
 
 `Person` groups a name and age into one value. The `val` parameters become
 properties that can be read as `person.Name` and `person.Age`.
+
+## Taking data apart with patterns
+
+A pattern describes the shape of a value. You can use one to take a record
+apart and give names to its parts:
+
+```raven
+let (name, age) = person
+
+WriteLine("$name is $age years old")
+```
+
+The parts appear in the same order as the parameters in the `Person`
+declaration. Use `_` when you do not need one of them:
+
+```raven
+let (firstName, _) = person
+WriteLine(firstName)
+```
+
+You can also name the parts of the record explicitly. Named parts may appear in
+any order:
+
+```raven
+let (Age: yearsOld, Name: fullName) = person
+```
+
+Here, `let` creates the new names captured by the pattern. Patterns also appear
+in `if`, `for`, and `match`, where they can both inspect a value and take it
+apart.
 
 ## Modeling alternatives
 
