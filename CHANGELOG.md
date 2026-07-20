@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Stopped enabling `PreferValInsteadOfLetAnalyzer` by default. `let` remains a
+  supported immutable-binding spelling, while projects that enforce `val` can
+  explicitly add the analyzer and use its existing code fix.
 - Async-iterator method declarations now suspend incomplete awaits in
   `MoveNextAsync` and return a
   pending `ValueTask<bool>` instead of synchronously blocking in

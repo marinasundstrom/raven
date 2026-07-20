@@ -717,7 +717,7 @@ func Main() -> unit {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> () {
-    let count = 0
+    var count = 0
     fb
 }
 """;
@@ -766,7 +766,7 @@ func Main() -> () {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> () {
-    let count = 0
+    var count = 0
     count
 }
 """;
@@ -797,7 +797,7 @@ func Main() -> () {
         secondAnalyzerResult.WasSkipped.ShouldBeFalse();
         secondAnalyzerResult.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
     }
 
@@ -822,7 +822,7 @@ func Main() -> () {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> () {
-    let count = 0
+    var count = 0
     count
 }
 """;
@@ -836,7 +836,7 @@ func Main() -> () {
         firstResult.WasSkipped.ShouldBeFalse();
         firstResult.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
 
         using var semanticAccess = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
@@ -872,7 +872,7 @@ func Main() -> () {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> () {
-    let count = 0
+    var count = 0
     fb
 }
 """;
@@ -912,7 +912,7 @@ func Main() -> () {
         var testUri = DocumentUri.FromFileSystemPath(testPath);
         const string mainCode = """
 func Main() -> () {
-    let count = 0
+    var count = 0
     Test()
 }
 """;
@@ -945,7 +945,7 @@ func Test() -> () {
             diagnostic.Message.Contains("Test", StringComparison.Ordinal)).ShouldBeFalse();
         analyzerResult.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
     }
 
@@ -970,7 +970,7 @@ func Test() -> () {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> () {
-    let count = 0
+    var count = 0
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -1011,7 +1011,7 @@ func Main() -> () {
         var uri = DocumentUri.FromFileSystemPath(documentPath);
         const string code = """
 func Main() -> unit {
-    let count = 0
+    var count = 0
     count
 }
 """;
@@ -1025,7 +1025,7 @@ func Main() -> unit {
         result.WasSkipped.ShouldBeFalse();
         result.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.PreferValInsteadOfLetAnalyzer.PreferValInsteadOfLetDiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
     }
 

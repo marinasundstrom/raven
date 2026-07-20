@@ -82,7 +82,6 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `EventDelegateMustBeNullableAnalyzer`
 - `NonNullDeclarationsAnalyzer`
 - `VarCanBeValAnalyzer`
-- `PreferValInsteadOfLetAnalyzer`
 - `UninitializedPropertyAnalyzer`
 - `UninitializedFieldAnalyzer`
 - `PreferNewLineBetweenDeclarationsAnalyzer`
@@ -98,6 +97,11 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `PreferDuLinqExtensionsAnalyzer`
 - `PreferIsNullOverEqualityAnalyzer`
 - `ConstructorParameterNamingAnalyzer`
+
+`PreferValInsteadOfLetAnalyzer` (`RAV9009`) remains available as an optional
+style-policy analyzer with a corresponding code fix, but it is not registered
+by `AddBuiltInAnalyzers`. Hosts or projects that want to enforce `val` as the
+only immutable-binding spelling must add it explicitly.
 
 The following built-in rewrites are now exposed through the refactoring/suggestion pipeline instead of
 the built-in analyzer set:

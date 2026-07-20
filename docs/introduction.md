@@ -178,7 +178,16 @@ val a = 1, b = 2
 var left = 10, right = 20
 ```
 
-Raven also accepts `let` as an alias for `val`, but current docs and examples prefer `val`.
+Raven also accepts `let` as an alternative spelling for an immutable binding.
+The language's standard style and generated examples use `val`, preserving the
+Kotlin-like `val`/`var` contrast while following the F#-influenced principle of
+immutable bindings by default. Choosing `let` does not produce a diagnostic
+unless a project explicitly enables the optional `PreferValInsteadOfLetAnalyzer`
+style policy.
+
+`val` and `let` make the binding read-only; they do not make the referenced
+object deeply immutable. A `val` binding cannot be reassigned, but a mutable
+object reached through it may still change.
 
 ---
 

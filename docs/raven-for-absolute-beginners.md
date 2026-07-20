@@ -60,8 +60,10 @@ val age = 12
 WriteLine("$name is $age years old")
 ```
 
-`val` creates an immutable binding. That means its value does not change. The
-`$name` and `$age` parts insert those values into the surrounding string.
+`val` creates a read-only binding. That means the name cannot be assigned a
+different value later. The `$name` and `$age` parts insert those values into the
+surrounding string. Raven also accepts `let` for a read-only binding, while its
+standard examples use `val` so the contrast with `var` stays visible.
 
 When a value really needs to change, use `var`:
 

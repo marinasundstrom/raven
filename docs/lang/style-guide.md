@@ -41,6 +41,16 @@ func Max(x: int, y: int) -> int {
 - Leave a blank line between top-level declarations and between logical groups
   of members.
 
+## Bindings
+
+- Use `val` for immutable bindings in standard Raven style.
+- Use `var` when the binding must be reassigned.
+- `let` is a supported alternative to `val`, not an error. Teams that want to
+  enforce the standard spelling may explicitly enable
+  `PreferValInsteadOfLetAnalyzer`.
+- Remember that `val` and `let` prevent reassignment of the binding; they do not
+  guarantee that a referenced object is deeply immutable.
+
 ## Braces
 
 - Use braces for type declarations, functions, and multi-statement control flow.
