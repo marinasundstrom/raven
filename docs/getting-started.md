@@ -115,13 +115,13 @@ a class when the domain gives you a reason for one.
 | Class-based `Program.Main` entry point | Top-level statements or a plain `Main` function |
 | Static helper classes used only to hold functions | Plain top-level functions |
 | One-method service interface | A function parameter describing the required operation |
-| Declaration shape inferred mostly from context | Keywords such as `func`, `val`, `var`, `event`, `class`, `union`, and `case` |
+| Declaration shape inferred mostly from context | Keywords such as `func`, `let`, `var`, `event`, `class`, `union`, and `case` |
 | `FirstOrDefault()` followed by `null` checks | `FirstOrNone()` returns `Option<T>` |
 | Throwing for expected validation or lookup failure | Return `Result<T, E>` |
 | `try`/`catch` around ordinary parsing or service calls | `try expr` produces a `Result` value |
 | `enum` plus extra properties, or a small inheritance hierarchy | `union` cases with typed payloads |
 | `switch` expressions mixed with null/type checks | `match` over values, options, results, and unions |
-| Mutable locals unless marked `readonly` or avoided by convention | `val` by default; `var` when mutation is intentional |
+| Mutable locals unless marked `readonly` or avoided by convention | `let` by default; `var` when mutation is intentional |
 | `void` | `()` (`unit`) |
 
 You do not need to invent a class just to write a function. Raven supports
@@ -157,7 +157,7 @@ capability without inventing an interface:
 func ReportTemperature(
     read: () -> Result<decimal, string>,
     publish: (decimal) -> ()) -> Result<decimal, string> {
-    val temperature = read()?
+    let temperature = read()?
     publish(temperature)
     return Ok(temperature)
 }
@@ -166,8 +166,9 @@ func ReportTemperature(
 Use an interface when several related operations form a real, open protocol.
 
 Raven also makes declaration kinds visible. A function starts with `func`; an
-immutable value or property starts with `val`; a mutable value or property starts
-with `var`; an event starts with `event`; union alternatives start with `case`.
+immutable lexical binding starts with `let`; a read-only property starts with
+`val`; mutable bindings and properties start with `var`; an event starts with
+`event`; union alternatives start with `case`.
 
 ```raven
 import System.*
@@ -214,8 +215,8 @@ Consumers handle every visible shape in one `match` expression:
 func FormatDecision(decision: Decision) -> string {
     match decision {
         .Approve => "Approved"
-        .ManualReview(val reason) => "Review: $reason"
-        .Reject(val reason) => "Rejected: $reason"
+        .ManualReview(let reason) => "Review: $reason"
+        .Reject(let reason) => "Rejected: $reason"
     }
 }
 ```
@@ -238,8 +239,8 @@ The caller can keep the happy path linear with `?`. If `FindRatePlan` returns
 
 ```raven
 func QuoteShipment(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Result<Quote, QuoteError> {
-    val plan = FindRatePlan(plans, request.Carrier)?
-    val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents)
+    let plan = FindRatePlan(plans, request.Carrier)?
+    let total = plan.BaseCents + (request.WeightKg * plan.PerKgCents)
     return Ok(Quote(request.Id, request.Carrier, total))
 }
 ```
@@ -249,8 +250,8 @@ logic, use `Option<string>` and match it where the decision matters:
 
 ```raven
 func PromoCents(code: Option<string>) -> Option<int> {
-    val raw = code?
-    val normalized = raw.Trim().ToUpperInvariant()
+    let raw = code?
+    let normalized = raw.Trim().ToUpperInvariant()
 
     match normalized {
         "SAVE5" => Some(500)
@@ -300,7 +301,7 @@ Create `hello.rav` in the repository root or another scratch directory:
 import System.Console.*
 
 func Main() -> () {
-    val message = BuildGreeting("Raven")
+    let message = BuildGreeting("Raven")
     WriteLine(message)
 }
 
@@ -331,16 +332,16 @@ rules:
   open polymorphism are part of the model.
 - Consider a function parameter for a dependency that consists of one
   operation.
-- Let declaration keywords carry meaning: `func` declares behavior, `val` and
-  `var` declare storage/bindings, `event` declares events, and `case` declares
+- Let declaration keywords carry meaning: `func` declares behavior, `let` and
+  `var` declare lexical bindings, `event` declares events, and `case` declares
   union alternatives.
 - Members are public by default; use access modifiers to narrow visibility.
 - Use `match` when branching should stay visible.
 - Use `Option<T>` for absence in Raven domain code.
 - Use `Result<T, E>` for expected failure and `?` to propagate it.
-- Prefer explicit pattern bindings: `Some(val value)`, `val (a, b) = pair`,
+- Prefer explicit pattern bindings: `Some(let value)`, `let (a, b) = pair`,
   `if let Some(item) = maybe`.
-- Use function type arrows, such as `val op: (int, int) -> int`.
+- Use function type arrows, such as `let op: (int, int) -> int`.
 - Use explicit constructors such as `ShipmentRequest(...)` unless the target
   type is already obvious.
 - Use target-typed shorthand such as `.Active` and `.(...)` only when the
@@ -354,7 +355,7 @@ import System.Linq.*
 record class ShipmentRequest(val Id: string, val Carrier: string, val WeightKg: int)
 
 func Resolve(requests: ShipmentRequest[]) -> Result<ShipmentRequest, string> {
-    val request = requests.FirstOrError(
+    let request = requests.FirstOrError(
         r => r.Id == "REQ-1002",
         () => "Request not found")?
 

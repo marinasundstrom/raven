@@ -42,8 +42,8 @@ JSON shape:
 Example:
 
 ```raven
-val name: Option<string> = Some("Raven")
-val missing: Option<string> = None
+let name: Option<string> = Some("Raven")
+let missing: Option<string> = None
 ```
 
 ```json
@@ -79,8 +79,8 @@ JSON shape:
 Example:
 
 ```raven
-val ok: Result<int, string> = Ok(42)
-val error: Result<int, string> = Error("not found")
+let ok: Result<int, string> = Ok(42)
+let error: Result<int, string> = Error("not found")
 ```
 
 ```json
@@ -132,8 +132,8 @@ On read, `null` produces the default union value.
 Simple member types serialize directly as their payload JSON:
 
 ```raven
-val text: string | int = "hello"
-val number: string | int = 42
+let text: string | int = "hello"
+let number: string | int = 42
 ```
 
 ```json
@@ -174,7 +174,7 @@ object, the converter injects a `$type` discriminator and then copies the
 payload object's properties:
 
 ```raven
-val value: Car | string = Car("Volvo")
+let value: Car | string = Car("Volvo")
 ```
 
 ```json
@@ -197,7 +197,7 @@ If a non-simple member serializes to a non-object JSON value, the current
 parenthesized union converter writes that JSON value through unchanged:
 
 ```raven
-val values: string[] | int = ["a", "b"]
+let values: string[] | int = ["a", "b"]
 ```
 
 ```json
@@ -211,7 +211,7 @@ slot in a JSON array and does not infer array member types from `JsonValueKind.A
 The same limitation applies when the array element type is itself a union:
 
 ```raven
-val values: (string | int)[] | bool = ["a", 42]
+let values: (string | int)[] | bool = ["a", 42]
 ```
 
 The array elements can serialize and deserialize correctly once the array type

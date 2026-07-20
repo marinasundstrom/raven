@@ -151,9 +151,9 @@ union GreenhouseStatus {
 func Describe(status: GreenhouseStatus) -> string {
     return status match {
         .Healthy => "Greenhouse conditions are healthy"
-        .TooCold(val actual, val minimum) => "$actual is below $minimum"
-        .TooHot(val actual, val maximum) => "$actual is above $maximum"
-        .SensorUnavailable(val message) => "Sensor unavailable: $message"
+        .TooCold(let actual, let minimum) => "$actual is below $minimum"
+        .TooHot(let actual, let maximum) => "$actual is above $maximum"
+        .SensorUnavailable(let message) => "Sensor unavailable: $message"
     }
 }
 ```
@@ -204,8 +204,8 @@ func ObserveClimate(
     read: () -> Result<ClimateReading, string>,
     evaluate: (ClimateReading) -> GreenhouseStatus,
     publish: (GreenhouseStatus) -> ()) -> Result<GreenhouseStatus, string> {
-    val reading = read()?
-    val status = evaluate(reading)
+    let reading = read()?
+    let status = evaluate(reading)
     publish(status)
     return Ok(status)
 }
@@ -265,7 +265,7 @@ union RegistrationError {
 }
 
 func Register(name: string, yearValue: int) -> Result<Registration, RegistrationError> {
-    val year = Year.Create(yearValue).MapError(error => .InvalidYear(error))?
+    let year = Year.Create(yearValue).MapError(error => .InvalidYear(error))?
     return Ok(Registration(name, year))
 }
 

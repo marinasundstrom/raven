@@ -74,9 +74,9 @@ This keeps Raven ambitious without making the docs unreliable.
 Raven prefers expressions because they compose well and keep local logic compact. `if`, `match`, `try`, and function bodies are designed to work naturally in value position.
 
 ```raven
-val message = match status {
-    Ok(val value) => "Ready: $value"
-    Error(val err) => "Failed: $err"
+let message = match status {
+    Ok(let value) => "Ready: $value"
+    Error(let err) => "Failed: $err"
 }
 ```
 
@@ -90,8 +90,8 @@ Raven wants happy-path code to stay linear while still making failure and absenc
 
 ```raven
 func BuildQuote(id: string) -> Result<string, string> {
-    val request = LoadRequest(id)?
-    val plan = LoadPlan(request.Carrier)?
+    let request = LoadRequest(id)?
+    let plan = LoadPlan(request.Carrier)?
     return Ok("${request.Id}: ${plan.Name}")
 }
 ```
@@ -118,7 +118,7 @@ Raven does not chase minimal syntax at all costs. It removes ceremony when the s
 
 That is why Raven uses:
 
-- `val` and `var` to make mutability visible
+- `let` and `var` to make lexical mutability visible
 - `func` to declare functions and methods
 - `event` to declare events
 - `class`, `struct`, `interface`, `record`, `union`, and `case` to make type
@@ -128,7 +128,7 @@ That is why Raven uses:
 - explicit return and propagation behavior for carrier-based flow
 
 ```raven
-val name = "Raven"
+let name = "Raven"
 var retries = 0
 
 func Normalize(name: string) -> string => name.Trim()
@@ -159,10 +159,10 @@ away from implicit capture in freestanding and inline patterns because pattern
 code becomes harder to read once bare identifiers can silently introduce names.
 The language still supports shorthand forms such as:
 
-- `val (a, b) = expr`
+- `let (a, b) = expr`
 - `if let pattern = expr`
 - `for let pattern in values`
-- `match value { val pattern => ... }`
+- `match value { let pattern => ... }`
 
 but the rule remains the same: the syntax that introduces a binding should say so.
 
@@ -180,7 +180,7 @@ func NormalizeCarrier(name: string) -> string {
 
 func TryParseQuantity(text: string) -> Result<int, string> {
     return try int.Parse(text) match {
-        Ok(val value) => Ok(value)
+        Ok(let value) => Ok(value)
         Error(_) => Error("\"$text\" is not a quantity")
     }
 }
@@ -234,7 +234,7 @@ Raven prefers a small number of reusable surface patterns over many one-off synt
 ```raven
 func Add(a: int, b: int) -> int => a + b
 
-val op: (int, int) -> int = (x, y) => x + y
+let op: (int, int) -> int = (x, y) => x + y
 
 record class ShipmentRequest(val Id: string, val Carrier: string)
 ```
@@ -263,7 +263,7 @@ Raven is designed for .NET, not merely capable of targeting it. Importing namesp
 import System.Console.*
 import System.Linq.*
 
-val names = users.Where(x => x.IsActive).Select(x => x.Name)
+let names = users.Where(x => x.IsActive).Select(x => x.Name)
 WriteLine(names.Count().ToString())
 ```
 
@@ -322,7 +322,7 @@ Beginners should be able to start with:
 
 ```raven
 func Main() -> () {
-    val greeting = "Hello, Raven!"
+    let greeting = "Hello, Raven!"
 }
 ```
 

@@ -34,9 +34,9 @@ extensions/traits, and direct .NET interop.
 import System.Console.*
 
 func Main() -> () {
-    val result = match ParsePort("8080") {
-        Ok(val port) => "Listening on $port"
-        Error(val err) => "Invalid port: $err"
+    let result = match ParsePort("8080") {
+        Ok(let port) => "Listening on $port"
+        Error(let err) => "Invalid port: $err"
     }
 
     WriteLine(result)
@@ -44,7 +44,7 @@ func Main() -> () {
 
 func ParsePort(text: string) -> Result<int, string> {
     return try int.Parse(text) match {
-        Ok(val value) => Ok(value)
+        Ok(let value) => Ok(value)
         Error(_) => Error("not a number")
     }
 }

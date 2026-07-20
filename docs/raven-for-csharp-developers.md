@@ -25,7 +25,7 @@ fit the problem.
 | Exception for an expected outcome | `Result<T, E>` |
 | Enum plus associated nullable fields | Union with case payloads |
 | `switch` plus type and null checks | Structural `match` |
-| Mutable local by default | `val`, with `var` when mutation is intentional |
+| Mutable local by default | `let`, with `var` when mutation is intentional |
 | Object hierarchy for a closed set of variants | Union |
 | Class with identity or resource lifecycle | Class |
 | Open implementation boundary | Interface, class, or struct implementation |
@@ -113,7 +113,7 @@ In Raven, a function type can describe that capability directly:
 import System.Threading.Tasks.*
 
 async func IsTooHot(read: () -> Task<decimal>, limit: decimal) -> Task<bool> {
-    val temperature = await read()
+    let temperature = await read()
     return temperature > limit
 }
 ```
@@ -196,8 +196,8 @@ func FindCustomer(id: string) -> Option<Customer> {
 Handle the alternatives with a match:
 
 ```raven
-val message = FindCustomer("C-100") match {
-    Some(val customer) => "Found ${customer.Name}"
+let message = FindCustomer("C-100") match {
+    Some(let customer) => "Found ${customer.Name}"
     None => "Customer not found"
 }
 ```
@@ -228,7 +228,7 @@ union QuoteError {
 }
 
 func BuildQuote(id: string) -> Result<Quote, QuoteError> {
-    val request = FindRequest(id)
+    let request = FindRequest(id)
         .IsOkOr(() => .RequestNotFound(id))?
 
     if request.WeightKg < 1 {
@@ -273,8 +273,8 @@ union DeliveryStatus {
 func Describe(status: DeliveryStatus) -> string {
     return status match {
         .Pending => "Pending"
-        .Delivered(val at) => "Delivered at $at"
-        .Failed(val reason) => "Failed: $reason"
+        .Delivered(let at) => "Delivered at $at"
+        .Failed(let reason) => "Failed: $reason"
     }
 }
 ```
@@ -295,13 +295,13 @@ total -= discount;
 Raven distinguishes the intent at the declaration:
 
 ```raven
-val subtotal = 1000
-val tax = 250
+let subtotal = 1000
+let tax = 250
 var total = subtotal + tax
 total = total - discount
 ```
 
-Use `val` for a binding that does not change and `var` when mutation is part of
+Use `let` for a lexical binding that does not change and `var` when mutation is part of
 the algorithm. Mutable objects and fields remain available when stateful
 modeling is appropriate.
 
@@ -319,8 +319,8 @@ union CustomerError {
 
 func Message(result: Result<Customer, CustomerError>) -> string {
     return result match {
-        Ok(val customer) => "Welcome ${customer.Name}"
-        Error(.NotFound(val id)) => "No customer named $id"
+        Ok(let customer) => "Welcome ${customer.Name}"
+        Error(.NotFound(let id)) => "No customer named $id"
         Error(.Unavailable) => "Customer service unavailable"
     }
 }

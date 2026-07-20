@@ -97,8 +97,8 @@ namespace Geometry
 public const OriginName: string = "origin"
 
 public func Distance(a: Point, b: Point) -> double {
-    val dx = a.X - b.X
-    val dy = a.Y - b.Y
+    let dx = a.X - b.X
+    let dy = a.Y - b.Y
     return Math.Sqrt(dx * dx + dy * dy)
 }
 
@@ -299,8 +299,8 @@ namespace Formatting
 public func Parse(text: string) -> Format => ...
 
 func Main() {
-    val token = Parsing.Parse("id")
-    val format = Formatting.Parse("json")
+    let token = Parsing.Parse("id")
+    let format = Formatting.Parse("json")
 }
 ```
 

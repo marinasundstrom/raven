@@ -46,9 +46,9 @@ Raven favors:
 
 - expression-oriented code, while keeping statements for effects and early exits
 - plain top-level functions for standalone operations and workflows
-- signposted declarations: `func`, `val`, `var`, `event`, `class`, `union`,
+- signposted declarations: `func`, `let`, `var`, `event`, `class`, `union`,
   `case`, and related keywords say what is being declared
-- explicit immutable and mutable bindings with `val` and `var`
+- explicit immutable and mutable lexical bindings with `let` and `var`
 - explicit pattern bindings in `match`, `if`, `while`, `for`, and deconstruction
 - `Option<T>` for absence and `Result<T, E>` for expected failure
 - records, primary constructors, unions, and target-typed shorthand
@@ -72,14 +72,14 @@ import System.Console.*
 import System.Linq.*
 
 func Main() -> () {
-    val requests = [
+    let requests = [
         ShipmentRequest("REQ-1001", "NorthStar", 10),
         ShipmentRequest("REQ-1002", "Oceanic", 3)
     ]
 
-    val message = FindRequest(requests, "REQ-1002") match {
-        Ok(val request) => "Ready: ${request.Id} via ${request.Carrier}"
-        Error(val err) => "Cannot quote shipment: $err"
+    let message = FindRequest(requests, "REQ-1002") match {
+        Ok(let request) => "Ready: ${request.Id} via ${request.Carrier}"
+        Error(let err) => "Cannot quote shipment: $err"
     }
 
     WriteLine(message)
@@ -111,12 +111,12 @@ polymorphism is actually part of the answer.
 | In many C# codebases | Raven's preferred shape |
 | --- | --- |
 | Static helper classes used only to hold methods | Plain top-level functions |
-| Context-dependent declarations where shape is inferred from placement | Declaration keywords such as `func`, `val`, `var`, `event`, and `union` |
+| Context-dependent declarations where shape is inferred from placement | Declaration keywords such as `func`, `let`, `var`, `event`, and `union` |
 | `null` as absence in domain data | `Option<T>` with `Some(...)` and `None` |
 | Exceptions for expected lookup or validation failure | `Result<T, E>` with `Ok(...)` and `Error(...)` |
 | `enum` plus nullable detail fields | `union` cases with typed payloads |
 | `switch` plus type/null checks spread across methods | `match` expressions over values and patterns |
-| Mutable locals by convention unless avoided | `val` by default, `var` when mutation is intended |
+| Mutable locals by convention unless avoided | `let` by default, `var` when mutation is intended |
 | `void` methods | `()` (`unit`) return values |
 
 The [Raven for C# Developers](docs/raven-for-csharp-developers.md) guide develops

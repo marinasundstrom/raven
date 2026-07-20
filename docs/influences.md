@@ -16,7 +16,7 @@ Raven draws from several languages, but combines them into its own model and sty
 
 ## Kotlin
 
-- Explicit mutability (`val` and `var`).
+- Explicit lexical mutability (`let` and `var`).
 - Primary-constructor ergonomics that influenced promoted constructor parameters.
 - Pragmatic blend of OO and functional styles.
 
@@ -29,7 +29,7 @@ Raven draws from several languages, but combines them into its own model and sty
 ## Rust
 
 - Explicit handling of fallible flow as data.
-- Immutable-by-default mindset (mirrored by idiomatic `val` usage in Raven).
+- Immutable-by-default mindset (mirrored by idiomatic `let` usage in Raven).
 - Lightweight propagation patterns (`?`) for linear success paths.
 
 ## Beef
@@ -45,4 +45,4 @@ Raven is not a clone of any single language. Its current style intentionally com
 - F#/Rust-like explicit flow modeling (`Result`/`Option`),
 - Kotlin/Swift-like syntax ergonomics and mutability clarity.
 
-That combination results in Raven's own identity: expression-first code, public-by-default members, explicit `val`/`var`, and carrier-based control flow.
+That combination results in Raven's own identity: expression-first code, public-by-default members, explicit lexical `let`/`var`, and carrier-based control flow.

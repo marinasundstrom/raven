@@ -11,7 +11,7 @@ pattern bindings, and pragmatic interop with the .NET ecosystem.
 It takes visible inspiration from Swift, Rust, and F#, but Raven is not trying to imitate any one of them exactly. Its current shape is defined more by consistency than by novelty:
 
 - expression-oriented code with statement forms where control flow is clearer
-- explicit mutability with `val` and `var`
+- explicit lexical mutability with `let` and `var`
 - explicit pattern bindings, including deconstruction and control-flow patterns
 - `Option<T>` and `Result<T, E>` as ordinary control-flow shapes
 - records, primary constructors, unions, and structural patterns
@@ -49,7 +49,7 @@ func IsTooHot(limit: Temperature, reading: Temperature) -> bool {
 }
 
 func Monitor(read: () -> Temperature, report: (Temperature) -> ()) -> () {
-    val reading = read()
+    let reading = read()
     report(reading)
 }
 ```
@@ -89,11 +89,11 @@ import System.*
 import System.Console.*
 
 func Main() -> () {
-    val inputs = ["10", "3", "abc", "42"]
+    let inputs = ["10", "3", "abc", "42"]
 
-    val message = match ProcessNumbers(inputs) {
+    let message = match ProcessNumbers(inputs) {
         Ok(_) => "All numbers processed"
-        Error(val err) => "Failed: $err"
+        Error(let err) => "Failed: $err"
     }
 
     WriteLine(message)
@@ -101,11 +101,11 @@ func Main() -> () {
 
 func ProcessNumbers(inputs: string[]) -> Result<(), string> {
     for text in inputs {
-        val no = ParseInt(text)?
+        let no = ParseInt(text)?
 
-        val line = match no {
+        let line = match no {
             10 => "Ten exactly!"
-            val value => "Parsed: $value"
+            let value => "Parsed: $value"
         }
 
         WriteLine(line)
@@ -116,7 +116,7 @@ func ProcessNumbers(inputs: string[]) -> Result<(), string> {
 
 func ParseInt(text: string) -> Result<int, string> {
     return try int.Parse(text) match {
-        Ok(val v) => Ok(v)
+        Ok(let v) => Ok(v)
         Error(_) => Error("\"$text\" is not a number")
     }
 }
@@ -150,7 +150,7 @@ record class User(
     val Role: Option<string>,
     val Status: UserStatus)
 
-val users: User[] = [
+let users: User[] = [
     .(1, "Ada", Some("compiler engineer"), .Active),
     .(2, "Bo", None, .Suspended("email bounced"))
 ]
@@ -207,7 +207,7 @@ let label = match value {
 ```
 
 ```raven
-val message = if isAnonymous {
+let message = if isAnonymous {
     "Welcome"
 } else {
     "Welcome back"
@@ -237,26 +237,26 @@ loop {
     work.Step()
 }
 
-val label = match input {
-    val Some((x, y)) => "($x, $y)"
+let label = match input {
+    let Some((x, y)) => "($x, $y)"
     _ => "none"
 }
 ```
 
 The important rule is that pattern bindings stay explicit. In inline and freestanding
 patterns, a capture uses a binding keyword. When Raven offers an outer shorthand
-form such as `val (...) = expr`, `if let pattern = expr`,
+form such as `let (...) = expr`, `if let pattern = expr`,
 `while let pattern = expr`, `for let pattern in values`, or
-`match { val pattern => ... }`, that outer keyword supplies the binding mode for
+`match { let pattern => ... }`, that outer keyword supplies the binding mode for
 otherwise bare captures inside the pattern. Those implicit captures may still
-carry inline type annotations, as in `val (key: string, value: int) = entry`.
+carry inline type annotations, as in `let (key: string, value: int) = entry`.
 
 There is also an important surface distinction:
 
 - `is`, `match`, `if let pattern = expr`, `while let pattern = expr`, and
   `for ... in` pattern targets use the general pattern language.
-- deconstruction assignment/declaration (`val (...) = expr`, `(...) = expr`,
-  `val [...] = expr`, `[...] = expr`) use the deconstruction subset rather than
+- deconstruction assignment/declaration (`let (...) = expr`, `(...) = expr`,
+  `let [...] = expr`, `[...] = expr`) use the deconstruction subset rather than
   every match-only pattern form.
 
 ---
@@ -277,7 +277,7 @@ func Divide(a: int, b: int) -> Result<int, string> {
     return Ok(a / b)
 }
 
-val value = Divide(10, 2)?
+let value = Divide(10, 2)?
 ```
 
 ```raven
@@ -297,8 +297,8 @@ Use `?` to forward failure/absence and keep the happy path linear.
 
 ```raven
 func BuildLabel(values: int[]) -> Result<string, string> {
-    val firstEven = FindFirstEven(values)?
-    val quotient = Divide(100, firstEven)?
+    let firstEven = FindFirstEven(values)?
+    let quotient = Divide(100, firstEven)?
     return Ok("Result: $quotient")
 }
 ```
@@ -311,37 +311,37 @@ Raven also supports pipeline-friendly methods on `Result` and `Option` so transf
 import System.Linq.*
 import System.Collections.Generic.*
 
-val plans = List<RatePlan> {
+let plans = List<RatePlan> {
     RatePlan("NorthStar", 500, 120)
     RatePlan("Oceanic", 450, 150)
 }
 
-val requests = List<ShipmentRequest> {
+let requests = List<ShipmentRequest> {
     ShipmentRequest("REQ-1001", "NorthStar", 10, Some("SAVE5"))
     ShipmentRequest("REQ-1002", "Oceanic", 3, None)
 }
 
-val summary = match BuildQuoteSummary(requests, plans) {
-    Ok(val message) => message
-    Error(val err) => "Quote failed: $err"
+let summary = match BuildQuoteSummary(requests, plans) {
+    Ok(let message) => message
+    Error(let err) => "Quote failed: $err"
 }
 
 func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerable<RatePlan>) -> Result<string, string> {
-    val request = requests
+    let request = requests
         .FirstOrError(r => r.Id == "REQ-1002", () => "Request not found")?
 
-    val total = plans
+    let total = plans
         .FirstOrError(p => p.Carrier == request.Carrier, () => "Rate plan not found")
         .Map(plan => plan.BaseCents + (request.WeightKg * plan.PerKgCents))?
 
-    val promoDiscount = PromoCents(request.PromoCode).UnwrapOr(0)
+    let promoDiscount = PromoCents(request.PromoCode).UnwrapOr(0)
 
     return Ok("Quote ${request.Id}: ${total - promoDiscount} cents")
 }
 
 func PromoCents(code: Option<string>) -> Option<int> {
-    val raw = code?
-    val normalized = raw.Trim().ToUpperInvariant()
+    let raw = code?
+    let normalized = raw.Trim().ToUpperInvariant()
 
     match normalized {
         "SAVE5" => Some(500)
@@ -366,11 +366,11 @@ In Raven, `null` still exists for .NET interop, but it is not the preferred doma
 ```raven
 func Add(a: int, b: int) -> int => a + b
 
-val addA = func (x: int) => x + 42
-val addB = func (x: int) {
+let addA = func (x: int) => x + 42
+let addB = func (x: int) {
     x + 42
 }
-val result = addA(1)
+let result = addA(1)
 ```
 
 Raven treats declarations and expressions as one function concept:
@@ -381,29 +381,29 @@ Raven treats declarations and expressions as one function concept:
 In practice, the difference is binding shape:
 
 - Named declarations introduce top-level, member, or local function symbols.
-- Function expressions produce a function value that you bind to `val`/`var` or pass as an argument.
+- Function expressions produce a function value that you bind to `let`/`var` or pass as an argument.
 
 Function type signatures use arrow notation:
 
 ```raven
-val f: (int, int) -> int
-val g = func (a: int, b: int) => a + b
+let f: (int, int) -> int
+let g = func (a: int, b: int) => a + b
 ```
 
 Function expressions may omit `func` as shorthand. This is mainly a convenience for higher-order call sites such as LINQ-style APIs:
 
 ```raven
-val projected = [1, 2, 3].Where(x => x > 1).Select(x => x * 2)
+let projected = [1, 2, 3].Where(x => x > 1).Select(x => x * 2)
 ```
 
 Function expressions also support `async`, `static`, and `static async` modifier forms:
 
 ```raven
-val add = static func (a: int, b: int) {
+let add = static func (a: int, b: int) {
     a + b
 }
 
-val delayedAdd = async func (a: int, b: int) {
+let delayedAdd = async func (a: int, b: int) {
     await Task.Delay(2)
     return a + b
 }
@@ -432,8 +432,8 @@ union Token {
 
 func Describe(token: Token) -> string {
     match token {
-        .Identifier(val text) => "id: $text"
-        .Number(val value) => "number: $value"
+        .Identifier(let text) => "id: $text"
+        .Number(let value) => "number: $value"
         .End => "end"
     }
 }
@@ -473,17 +473,17 @@ still distinguishing between:
 
 - general matching surfaces such as `is`, `match`, `if let pattern = expr`,
   `while let pattern = expr`, and `for let pattern in values`
-- deconstruction surfaces such as `val (a, b) = expr` and `[head, ..tail] = values`
+- deconstruction surfaces such as `let (a, b) = expr` and `[head, ..tail] = values`
 
 When deconstruction uses a `Deconstruct` shape, Raven also supports named
 elements so existing code can stay stable as new properties are added. Both
 matching and declaration/assignment deconstruction may spell element names in
-any order, for example `Person(Items: val items, Name: val name, Age: 42)` or
-`val (Items: items, Name: name, Age: age) = person`. Named elements bind by the
+any order, for example `Person(Items: let items, Name: let name, Age: 42)` or
+`let (Items: items, Name: name, Age: age) = person`. Named elements bind by the
 selected `Deconstruct` parameter name; unknown names report the same
 member-not-found diagnostic Raven uses for property patterns.
 Typed captures inside named elements use the explicit nested-binding spelling
-`Name: val name: string`; the ambiguous shorthand `Name: name: string` is
+`Name: let name: string`; the ambiguous shorthand `Name: name: string` is
 diagnosed.
 
 ---
@@ -498,7 +498,7 @@ extension StringExt for string {
 
 import MyApp.StringExt.*
 
-val slug = "Hello World".ToSlug()
+let slug = "Hello World".ToSlug()
 ```
 
 Raven also supports `trait` as an alternate declaration keyword for the same construct. Both spellings participate in the same extension lookup model.
@@ -557,7 +557,7 @@ import System.Threading.Tasks.*
 
 async func DownloadLength(url: string) -> Task<int> {
     use http = HttpClient()
-    val text = await http.GetStringAsync(url)
+    let text = await http.GetStringAsync(url)
     return text.Length
 }
 ```
@@ -570,7 +570,7 @@ async func DownloadLength(url: string) -> Task<int> {
 import System.Console.*
 import System.Collections.Generic.*
 
-val numbers: List<int> = [1, 2, 3]
+let numbers: List<int> = [1, 2, 3]
 WriteLine(numbers.Count)
 ```
 

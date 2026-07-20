@@ -23,7 +23,7 @@ The server code lives in `src/Raven.LanguageServer` and boots from `Program.cs`,
 Raven currently emits two inlay hint categories:
 
 - **Inferred type annotations:** locals, functions, and pattern declarations with omitted type annotations surface inferred `: T` and `-> T` hints. Assignment patterns that deconstruct into existing variables do not receive declaration hints. Applying the hint inserts the annotation into source.
-- **Names:** positional invocation arguments surface their resolved parameter name before the argument. For example, `StackPanel(8.0)` displays as `StackPanel(spacing: 8.0)` when `8.0` binds to the `spacing` parameter. Positional and nominal deconstruction patterns also surface inferred element names, so `val (left, top) = point` can display as `val (x: left, y: top) = point` when the source tuple or `Deconstruct` shape provides `x` and `y`. Arguments or elements that already use named syntax do not receive duplicate hints. Applying the hint inserts the `name: ` prefix into source.
+- **Names:** positional invocation arguments surface their resolved parameter name before the argument. For example, `StackPanel(8.0)` displays as `StackPanel(spacing: 8.0)` when `8.0` binds to the `spacing` parameter. Positional and nominal deconstruction patterns also surface inferred element names, so `let (left, top) = point` can display as `let (x: left, y: top) = point` when the source tuple or `Deconstruct` shape provides `x` and `y`. Arguments or elements that already use named syntax do not receive duplicate hints. Applying the hint inserts the `name: ` prefix into source.
 
 The VS Code extension exposes a master setting plus per-category settings:
 

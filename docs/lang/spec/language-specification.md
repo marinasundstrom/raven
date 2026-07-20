@@ -251,20 +251,19 @@ Structured exception handling is covered in [Error handling](error-handling.md).
 
 ### Variable bindings
 
-`val` introduces an immutable binding, `var` introduces a mutable one, and `const`
+`let` introduces an immutable lexical binding, `var` introduces a mutable one, and `const`
 produces an immutable binding whose value is baked in at compile time. A binding may
 declare its type explicitly or rely on the compiler to infer it from the initializer
 expression.
 
 ```raven
-val answer = 42         // inferred int
-let answer = 42         // alias for 'val': inferred int
+let answer = 42         // inferred int
 
 var name = "Alice"    // inferred string, mutable
 
 const greeting = "Hi"  // inferred string constant
 
-val count: long = 0     // explicit type
+let count: long = 0     // explicit type
 ```
 
 Standard Raven style prefers `let` for immutable lexical bindings. `val`
@@ -281,14 +280,14 @@ statement forms are described in [Control flow](control-flow.md).
 
 Later declarations in the same scope may **shadow** earlier bindings. Each declaration
 introduces a new symbol; code that follows binds to the most recent declaration.
-Shadowing is permitted for both `val` and `var` bindings, but it produces the
+Shadowing is permitted for both `let` and `var` bindings, but it produces the
 warning diagnostic `RAV0168` to help catch unintentional redeclarations. Parameters of
 the enclosing function count as previous declarations for this purpose, so a local that
 reuses a parameter name both shadows it and triggers the same warning.
 
 ```raven
-val answer = 41
-val answer = answer + 1 // RAV0168 (warning)
+let answer = 41
+let answer = answer + 1 // RAV0168 (warning)
 ```
 
 ### File-scope code
@@ -4660,20 +4659,20 @@ annotations; write one when inference is ambiguous, when an empty or otherwise
 targetless expression needs a type, or when the binding must have a specific
 supertype or converted type.
 
-### Value binding (`val`)
+### Read-only lexical binding (`let`)
 
-A `val` binding is **immutable** (not reassignable). Types are inferred
+A `let` binding is **immutable** (not reassignable). Types are inferred
 unless annotated. A single declaration may declare multiple bindings by
 separating declarators with commas.
 
 ```raven
-val x = "Foo"
-val y: int = 2
-val a = 1, b = 2
-val a: int = 2, b: string = ""
+let x = "Foo"
+let y: int = 2
+let a = 1, b = 2
+let a: int = 2, b: string = ""
 ```
 
-Raven treats `let` as an alias for `val`.
+Raven also accepts `val` as an alternative spelling for an immutable local.
 
 ### Variable binding (`var`)
 

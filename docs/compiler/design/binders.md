@@ -84,8 +84,8 @@ Its responsibilities are:
 The key rule is that declaration-producing syntax should be registered by the
 binder that owns that body. Examples:
 
-- `val x = 1` creates a local in the current `BlockBinder`
-- `val (key, value) = pair` creates pattern locals in the current `BlockBinder`
+- `let x = 1` creates a local in the current `BlockBinder`
+- `let (key, value) = pair` creates pattern locals in the current `BlockBinder`
 - `if let (key, value) = pair { ... }` creates pattern locals owned by the
   current `BlockBinder`, scoped to the `IfPatternStatement`
 - `async func (...) { ... }` has parameters owned by the function-expression
@@ -122,7 +122,7 @@ Pattern declarations have two related but different owners:
 - the lexical scope owner is the syntax that controls where the local is visible
 
 For `if let pattern = value`, both are the `IfPatternStatement`. For
-`val pattern = value`, the binding owner is the pattern declaration assignment
+`let pattern = value`, the binding owner is the pattern declaration assignment
 statement, while the lexical scope owner is the containing block.
 
 Keep this distinction explicit. It avoids bugs where declared-symbol queries

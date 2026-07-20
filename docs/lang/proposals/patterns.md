@@ -60,7 +60,7 @@ if expr is int _ {
 ### Tuple patterns
 
 ```raven
-if expr is (int x, val y, 0) {
+if expr is (int x, let y, 0) {
     // first element must be int (bound as x)
     // second element bound as y
     // third must equal literal 0
@@ -72,19 +72,19 @@ Each element follows the standard `type name` convention.
 ### Collection and sequence-segment patterns
 
 ```raven
-if expr is [val first, ...val rest] {
+if expr is [let first, ...let rest] {
     Console.WriteLine(first)
 }
 
-if expr is [..2 val start, val end] {
+if expr is [..2 let start, let end] {
     Console.WriteLine(start[0] + start[1] + end)
 }
 ```
 
 Plain element patterns consume one element. `..N pattern` consumes a fixed-size
 subsequence, while `...pattern` consumes the remaining subsequence. Inline
-captures remain explicit, so a segment capture is written `..2 val start` or
-`...val rest`. Captured rest segments may appear in the middle or at the end of
+captures remain explicit, so a segment capture is written `..2 let start` or
+`...let rest`. Captured rest segments may appear in the middle or at the end of
 the sequence pattern.
 
 ### Conditional pattern binding
@@ -95,7 +95,7 @@ if let (id, name) = person {
 }
 ```
 
-This is statement-form sugar for `if person is (val id, val name) { ... }`.
+This is statement-form sugar for `if person is (let id, let name) { ... }`.
 The leading binding keyword is required; Raven does not allow `if Pattern = expr`
 without `let` / `val` / `var`.
 Implicit captures may carry inline type annotations, including inside
@@ -181,9 +181,9 @@ When a subtype/case arm is only partially covered by subpatterns, Raven reports
 
 ```raven
 match expr {
-    Lit(val value) => value
-    Add(val left, val right) => left + right
-    Sub(2, val right) => right   // RAV2110 without catch-all
+    Lit(let value) => value
+    Add(let left, let right) => left + right
+    Sub(2, let right) => right   // RAV2110 without catch-all
     _ => 0                       // suppresses RAV2110 and closes exhaustiveness
 }
 ```
@@ -205,10 +205,10 @@ value match {
 Arm bodies can be block expressions in both forms:
 
 ```raven
-val output = match value {
+let output = match value {
     0 => { "zero" }
     _ => {
-        val fallback = "other"
+        let fallback = "other"
         fallback
     }
 }
