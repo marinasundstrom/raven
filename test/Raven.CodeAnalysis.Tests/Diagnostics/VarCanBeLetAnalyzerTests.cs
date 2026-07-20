@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
-public class VarCanBeValAnalyzerTests : AnalyzerTestBase
+public class VarCanBeLetAnalyzerTests : AnalyzerTestBase
 {
     [Fact]
     public void VarLocal_NotReassigned_ReportsDiagnostic()
@@ -17,11 +17,11 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(VarCanBeValAnalyzer.DiagnosticId)
+                new DiagnosticResult(VarCanBeLetAnalyzer.DiagnosticId)
                     .WithLocation(3, 9)
                     .WithArguments("count")
             ],
@@ -42,7 +42,7 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -55,11 +55,11 @@ class C {
     {
         const string code = "var count = 0";
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(VarCanBeValAnalyzer.DiagnosticId)
+                new DiagnosticResult(VarCanBeLetAnalyzer.DiagnosticId)
                     .WithLocation(1, 1)
                     .WithArguments("count")
             ],
@@ -76,7 +76,7 @@ var count = 0
 count = 1
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -96,7 +96,7 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -116,7 +116,7 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -142,7 +142,7 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -163,7 +163,7 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -188,7 +188,7 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
@@ -216,11 +216,11 @@ class C {
 }
 """;
 
-        var verifier = CreateAnalyzerVerifier<VarCanBeValAnalyzer>(
+        var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics:
             [
-                new DiagnosticResult(VarCanBeValAnalyzer.DiagnosticId)
+                new DiagnosticResult(VarCanBeLetAnalyzer.DiagnosticId)
                     .WithLocation(10, 9)
                     .WithArguments("query")
             ],
@@ -254,9 +254,9 @@ class C {
             .AddReferences(TestMetadataReferences.Default);
 
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
-        var diagnostics = new VarCanBeValAnalyzer()
+        var diagnostics = new VarCanBeLetAnalyzer()
             .Analyze(compilation)
-            .Where(d => d.Id == VarCanBeValAnalyzer.DiagnosticId)
+            .Where(d => d.Id == VarCanBeLetAnalyzer.DiagnosticId)
             .ToArray();
         var delta = SemanticQueryInstrumentation.Subtract(
             instrumentation.SemanticQuery.CaptureSnapshot(),
@@ -290,9 +290,9 @@ class C {
             .AddReferences(TestMetadataReferences.Default);
 
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
-        var diagnostics = new VarCanBeValAnalyzer()
+        var diagnostics = new VarCanBeLetAnalyzer()
             .Analyze(compilation)
-            .Where(d => d.Id == VarCanBeValAnalyzer.DiagnosticId)
+            .Where(d => d.Id == VarCanBeLetAnalyzer.DiagnosticId)
             .ToArray();
         var delta = SemanticQueryInstrumentation.Subtract(
             instrumentation.SemanticQuery.CaptureSnapshot(),

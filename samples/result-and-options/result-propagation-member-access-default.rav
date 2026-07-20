@@ -9,9 +9,9 @@ func GetUser() -> Result<User, Err> {
 }
 
 func f() -> Result<int, Err> {
-    val wrapped = GetUser()?.Name // Result<string, Err>
+    let wrapped = GetUser()?.Name // Result<string, Err>
 
-    val str = wrapped.UnwrapOrDefault()
+    let str = wrapped.UnwrapOrDefault()
 
     return Ok(str.Length + 1)
 }

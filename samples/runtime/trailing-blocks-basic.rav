@@ -65,7 +65,7 @@ Around(name: "method") {
     WriteLine("inside method trailing block")
 }
 
-val command = Command(name: "constructor") {
+let command = Command(name: "constructor") {
     WriteLine("inside constructor trailing block")
 }
 
@@ -75,18 +75,18 @@ command.Invoke()
     WriteLine("inside extension-method trailing block")
 }
 
-val next = Apply(41) { (no: int) => 
+let next = Apply(41) { (no: int) =>
     no + 1
 }
 
-val combined = Combine(20, 22) { (left: int, right: int) => 
+let combined = Combine(20, 22) { (left: int, right: int) =>
     left + right
 }
 
 WriteLine("it result: " + next.ToString())
 WriteLine("left/right result: " + combined.ToString())
 
-val markup = Markup {
+let markup = Markup {
     "<window>"
     "<button text=\"OK\" />"
     "</window>"

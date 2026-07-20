@@ -81,7 +81,7 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `MissingReturnTypeAnnotationAnalyzer`
 - `EventDelegateMustBeNullableAnalyzer`
 - `NonNullDeclarationsAnalyzer`
-- `VarCanBeValAnalyzer`
+- `VarCanBeLetAnalyzer`
 - `UninitializedPropertyAnalyzer`
 - `UninitializedFieldAnalyzer`
 - `PreferNewLineBetweenDeclarationsAnalyzer`
@@ -98,10 +98,12 @@ Built-in analyzers that should remain diagnostic-backed include:
 - `PreferIsNullOverEqualityAnalyzer`
 - `ConstructorParameterNamingAnalyzer`
 
-`PreferValInsteadOfLetAnalyzer` (`RAV9009`) remains available as an optional
+`PreferLetInsteadOfValAnalyzer` (`RAV9035`) remains available as an optional
 style-policy analyzer with a corresponding code fix, but it is not registered
-by `AddBuiltInAnalyzers`. Hosts or projects that want to enforce `val` as the
-only immutable-binding spelling must add it explicitly.
+by `AddBuiltInAnalyzers`. Hosts or projects that want to enforce `let` for
+immutable lexical bindings must add it explicitly. It does not apply to
+properties or other signature-like declarations, where `val` remains the
+preferred read-only spelling.
 
 The following built-in rewrites are now exposed through the refactoring/suggestion pipeline instead of
 the built-in analyzer set:

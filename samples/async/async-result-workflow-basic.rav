@@ -4,17 +4,17 @@ import System.Threading.Tasks.*
 import System.Threading.Tasks.Task.*
 
 // Feature: basic async workflow returning `Task<Result<T,E>>`.
-val orderService = ShipmentOrderService()
+let orderService = ShipmentOrderService()
 WriteLine(orderService.PendingCount)
 
 orderService.RecordPending(2)
 WriteLine(orderService.PendingCount)
 
-val quoteResult = await orderService.BuildQuote(21)
+let quoteResult = await orderService.BuildQuote(21)
 
-val message = match quoteResult {
-    Ok(val x) => "Value is: $x"
-    Error(val msg) => "Error: $msg"
+let message = match quoteResult {
+    Ok(let x) => "Value is: $x"
+    Error(let msg) => "Error: $msg"
 }
 
 WriteLine(message)

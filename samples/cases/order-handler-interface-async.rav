@@ -5,22 +5,22 @@ import System.Threading.Tasks.*
 
 // Feature: composed async generic interface handler case.
 async func Main() -> Task {
-    val handler: IRequestHandler<SubmitOrder, Response<decimal>> = SubmitOrderHandler()
+    let handler: IRequestHandler<SubmitOrder, Response<decimal>> = SubmitOrderHandler()
 
-    val items = [|
+    let items = [|
         OrderItem("Item 1", 20.99m, "pc", 1),
         OrderItem("Item 2", 5.0m, "pc", 11),
         OrderItem("Item 3", 10.0m, "l", 2)
     |]
 
-    val request = SubmitOrder(items)
+    let request = SubmitOrder(items)
 
-    val result = await handler.Handle(request, default)
+    let result = await handler.Handle(request, default)
     WriteLine("Result $result")
 
-    val str = match result {
-        .Success(val value) => value.ToString(),
-        .Failure(val message) => message
+    let str = match result {
+        .Success(let value) => value.ToString(),
+        .Failure(let message) => message
     }
 
     WriteLine("$str")
@@ -31,11 +31,11 @@ union class Response<T> {
     case Failure(message: string)
 }
 
-interface IRequestHandler<TRequest, TReturn> 
-    where TRequest : class 
+interface IRequestHandler<TRequest, TReturn>
+    where TRequest : class
     where TReturn : class {
- 
-    func Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>; 
+
+    func Handle(request: TRequest, cancellationToken: CancellationToken) -> Task<TReturn>;
 }
 
 record class SubmitOrder(OrderItems: OrderItem[])
@@ -52,7 +52,7 @@ class SubmitOrderHandler : IRequestHandler<SubmitOrder, Response<decimal>> {
         var total = .0m
         for item in request.OrderItems {
             var lineTotal = item.UnitPrice * item.Quantity
-            if item is { Product: discountedProduct, Quantity: > discountedQuantityThreshold } val p {
+            if item is { Product: discountedProduct, Quantity: > discountedQuantityThreshold } let p {
                 WriteLine("Applied 20% discount to: ${p.Product}")
                 lineTotal = lineTotal * 0.8m
             }

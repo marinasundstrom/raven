@@ -1,6 +1,6 @@
 import System.Console.*
 
-val foo = Foo
+let foo = Foo
 
 WriteLine("Foo ${foo(2)}")
 

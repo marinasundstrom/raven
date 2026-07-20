@@ -6,27 +6,27 @@ import System.IO.*
 import System.Threading.Tasks.*
 
 async func Main() -> Task {
-    val result = await GetPerson("Derek")
+    let result = await GetPerson("Derek")
 
     match result {
-        Ok(val person) => {
+        Ok(let person) => {
             Console.WriteLine("Person is: ${person.Name}")
 
-            val displayFunction = (product: Product) => Console.WriteLine("* ${product.Name}")
+            let displayFunction = (product: Product) => Console.WriteLine("* ${product.Name}")
 
             match DisplayProducts(person, displayFunction) {
                 Ok => ()
                 Error(CustomError error) => Console.WriteLine(error.Message)
             }
         }
-        Error(val error) => Console.WriteLine(error.Message)
+        Error(let error) => Console.WriteLine(error.Message)
     }
 
     await Task.CompletedTask
 }
 
 func DisplayProducts(person: Person, action: Product -> ()) -> Result<(), CustomError> {
-    val products = person.Products
+    let products = person.Products
 
     if products.Length == 0 {
         return Error(CustomError("No products"))
@@ -40,7 +40,7 @@ func DisplayProducts(person: Person, action: Product -> ()) -> Result<(), Custom
 }
 
 async func GetPerson(name: string) -> Task<Result<Person, CustomError>> {
-    val results = await GetPersons()
+    let results = await GetPersons()
     return FindPerson(results?, name)
 }
 
@@ -54,20 +54,20 @@ func FindPerson(persons: Person[], name: string) -> Result<Person, CustomError> 
 }
 
 async func GetPersons() -> Task<Result<Person[], CustomError>> {
-    val personResult = await GetPersonsCore()
+    let personResult = await GetPersonsCore()
     match personResult {
-        Ok(val persons) => Ok(persons)
-        Error(val exception) => Error(CustomError(exception.Message))
+        Ok(let persons) => Ok(persons)
+        Error(let exception) => Error(CustomError(exception.Message))
     }
 }
 
 // Demonstrates exception handling with 'try'
 async func GetPersonsCore() -> Task<Result<Person[], Exception>> {
-    val textResult = try await File.ReadAllTextAsync("sandbox/sample.json")
-    val options = JsonSerializerOptions with {
+    let textResult = try await File.ReadAllTextAsync("sandbox/sample.json")
+    let options = JsonSerializerOptions with {
         IncludeFields = true
     }
-    val results = try JsonSerializer.Deserialize<Person[]>(textResult?, options)
+    let results = try JsonSerializer.Deserialize<Person[]>(textResult?, options)
     return Ok(results?)
 }
 

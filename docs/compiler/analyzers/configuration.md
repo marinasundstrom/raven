@@ -30,7 +30,7 @@ Example MSBuild-style `.rvnproj`:
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
-    <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeValAnalyzer</RavenDisabledAnalyzers>
+    <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
   </PropertyGroup>
 </Project>
 ```

@@ -5,7 +5,7 @@ import Samples.Docs.*
 
 /// Creates a sample consumer flow over [Widget](xref:T:Samples.Docs.Widget).
 func RenderSample() -> unit {
-    val widget = WidgetFactory.CreateDefault()
+    let widget = WidgetFactory.CreateDefault()
     WidgetPrinter.Print(widget)
 }
 

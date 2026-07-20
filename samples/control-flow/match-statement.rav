@@ -1,7 +1,7 @@
 import System.Console.*
 
 // Feature: statement-form `match` as control flow (constants, ranges, and non-int patterns).
-val ticket = SupportTicket(4217, 2)
+let ticket = SupportTicket(4217, 2)
 
 match ticket.Priority {
     1 => WriteLine("Ticket ${ticket.Id}: route to critical-response queue")
@@ -12,10 +12,10 @@ match ticket.Priority {
     }
 }
 
-val escalationTarget: object = ticket
+let escalationTarget: object = ticket
 
 match escalationTarget {
-    SupportTicket(val id, val priority) => {
+    SupportTicket(let id, let priority) => {
         Do()
         WriteLine("Done")
     }

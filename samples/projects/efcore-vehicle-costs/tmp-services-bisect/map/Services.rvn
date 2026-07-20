@@ -3,7 +3,7 @@ import System.Linq.*
 
 static class VehicleAppServices {
     static func MapVehicle(vehicle: VehicleEntity) -> VehicleResponse {
-        val entries = vehicle.FuelConsumptions
+        let entries = vehicle.FuelConsumptions
             .OrderByDescending(entry => entry.RecordedAtUtc)
             .Select(entry => FuelConsumptionResponse(
                 entry.Id,

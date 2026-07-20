@@ -9,6 +9,6 @@ async func Compute<T>(value: T) -> Task<T> {
     return value
 }
 
-val x = await Compute(42)
+let x = await Compute(42)
 WriteLine("After Compute")
 WriteLine(x)

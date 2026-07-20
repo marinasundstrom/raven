@@ -1,8 +1,8 @@
 import System.Console.*
 
 // Feature: basic discriminated union cases (non-generic + generic).
-val x: Test1 = .A(42)
-val x2: Test2<int> = .A(42)
+let x: Test1 = .A(42)
+let x2: Test2<int> = .A(42)
 
 WriteLine(x)
 WriteLine(x2)

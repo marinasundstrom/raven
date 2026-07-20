@@ -160,8 +160,8 @@ code becomes harder to read once bare identifiers can silently introduce names.
 The language still supports shorthand forms such as:
 
 - `val (a, b) = expr`
-- `if val pattern = expr`
-- `for val pattern in values`
+- `if let pattern = expr`
+- `for let pattern in values`
 - `match value { val pattern => ... }`
 
 but the rule remains the same: the syntax that introduces a binding should say so.
@@ -249,7 +249,7 @@ This is one reason Raven keeps reusing the same pattern model across:
 
 - `match` arms
 - `if value is pattern`
-- `if val pattern = expr`
+- `if let pattern = expr`
 - `for` pattern targets
 - deconstruction assignment and declaration
 

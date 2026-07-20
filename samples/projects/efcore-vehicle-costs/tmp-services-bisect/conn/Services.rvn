@@ -2,9 +2,9 @@ import System.*
 
 static class VehicleAppServices {
     static func GetConnectionString() -> string {
-        val environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
+        let environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
         if environment is not null {
-            val trimmed = environment.Trim()
+            let trimmed = environment.Trim()
             if trimmed.Length > 0 {
                 return trimmed
             }

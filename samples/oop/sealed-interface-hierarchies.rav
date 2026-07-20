@@ -3,10 +3,10 @@ import System.Console.*
 import System.Numerics.*
 
 func Main() {
-    val left = Expr.Literal<int>(40)
-    val right = Expr.Literal<int>(2)
-    val sum = Expr.Add<int>(left, right)
-    val product = Expr.Multiply<int>(sum, Expr.Literal<int>(3))
+    let left = Expr.Literal<int>(40)
+    let right = Expr.Literal<int>(2)
+    let sum = Expr.Add<int>(left, right)
+    let product = Expr.Multiply<int>(sum, Expr.Literal<int>(3))
 
     WriteLine(product)
     WriteLine(product.Apply())
@@ -16,9 +16,9 @@ func Main() {
 func Evaluate<T>(expr: Expr<T>) -> T
     where T: INumber<T> {
     match expr {
-        .Literal(val value) => value
-        .Add(val left, val right) => Evaluate(left) + Evaluate(right)
-        .Multiply(val left, val right) => Evaluate(left) * Evaluate(right)
+        .Literal(let value) => value
+        .Add(let left, let right) => Evaluate(left) + Evaluate(right)
+        .Multiply(let left, let right) => Evaluate(left) * Evaluate(right)
     }
 }
 

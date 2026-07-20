@@ -1,8 +1,8 @@
 // Nested types that inherit parameters from enclosing type when instantiated.
 import System.Console.*
 
-val a = Foo<int>.Bar()
-val b = Outer<int>.Inner<string>()
+let a = Foo<int>.Bar()
+let b = Outer<int>.Inner<string>()
 
 // Feature: nested generic types with inherited and explicit type arguments.
 WriteLine(a.GetType().Name)

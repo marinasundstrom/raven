@@ -2,7 +2,7 @@ import System.*
 
 static class VehicleAppServices {
     static func StatusMatches(status: VehicleStatus, kind: string) -> bool {
-        val normalized = kind.Trim().ToLowerInvariant()
+        let normalized = kind.Trim().ToLowerInvariant()
         match normalized {
             "operational" => match status {
                 .Operational(_, _, _) => true

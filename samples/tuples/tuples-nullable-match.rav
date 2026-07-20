@@ -2,10 +2,10 @@ import System.Console.*
 import System.*
 
 // Feature: tuple pattern matching with optional tuple value.
-val status: Option<(isPriority: bool, carrier: string)> = Some((false, "BlueShip"))
+let status: Option<(isPriority: bool, carrier: string)> = Some((false, "BlueShip"))
 
-val result = match status {
-    Some((val isPriority, val carrier)) => "Priority=${isPriority}, Carrier=${carrier}"
+let result = match status {
+    Some((let isPriority, let carrier)) => "Priority=${isPriority}, Carrier=${carrier}"
     None => "No shipping status"
 }
 

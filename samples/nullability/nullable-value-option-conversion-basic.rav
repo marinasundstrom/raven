@@ -1,9 +1,9 @@
 import System.*
 
-val x = Option<int>.Some(42)
+let x = Option<int>.Some(42)
 Console.WriteLine(x)
 
-val r: int? = x
+let r: int? = x
 Console.WriteLine("Value: $r")
 
 test(x) // Conversion

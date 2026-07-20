@@ -1,6 +1,6 @@
 import System.Console.*
 
-val d: Test = (a, b) => a + b
+let d: Test = (a, b) => a + b
 
 WriteLine(d(2, 3))
 

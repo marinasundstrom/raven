@@ -47,7 +47,7 @@ class AppRoutes {
     }
 
     func Route(prefix: string, [Receiver] configure: GroupRoutes -> unit) -> () {
-        val group = GroupRoutes(App.MapGroup(prefix))
+        let group = GroupRoutes(App.MapGroup(prefix))
         configure(group)
     }
 }
@@ -72,7 +72,7 @@ class GroupRoutes {
     }
 
     func Route(prefix: string, [Receiver] configure: GroupRoutes -> unit) -> () {
-        val nested = GroupRoutes(Group.MapGroup(prefix))
+        let nested = GroupRoutes(Group.MapGroup(prefix))
         configure(nested)
     }
 }

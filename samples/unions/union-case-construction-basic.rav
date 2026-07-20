@@ -1,9 +1,9 @@
 import System.*
 
 // Feature: case construction forms (qualified and shorthand).
-val a = Shape.Circle(2)
-val b: Shape = Shape.Circle(2)
-val c: Shape = .Circle(2)
+let a = Shape.Circle(2)
+let b: Shape = Shape.Circle(2)
+let c: Shape = .Circle(2)
 
 UseShape(.Circle(2))
 UseShape(Shape.Circle(2))

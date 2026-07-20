@@ -3,27 +3,27 @@ import System.Console.*
 
 // Feature: `Result` propagation with `?` plus `try` expression parsing.
 func Main() -> () {
-    val inputs = [|"10", "3", "abc", "42"|]
-    val r = match ProcessNumbers(inputs) {
+    let inputs = [|"10", "3", "abc", "42"|]
+    let r = match ProcessNumbers(inputs) {
         Ok => ()
-        Error(val message) => WriteLine(message)
+        Error(let message) => WriteLine(message)
     }
 }
 
 func parseInt(text: string) -> Result<int, string> {
     return try int.Parse(text) match {
-        Ok(val value) => Ok(value)
+        Ok(let value) => Ok(value)
         Error(_) => Error("\"$text\" is not a number")
     }
 }
 
 func ProcessNumbers(inputs: string[]) -> Result<(), string> {
     for text in inputs {
-        val no = parseInt(text)?
+        let no = parseInt(text)?
 
-        val message = match no {
+        let message = match no {
             10 => "10!"
-            val value => "Parsed: $value"
+            let value => "Parsed: $value"
         }
 
         WriteLine(message)

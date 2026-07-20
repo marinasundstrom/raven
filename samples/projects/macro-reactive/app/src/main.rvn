@@ -6,7 +6,7 @@ import System.Reactive.Linq.*
 import System.ComponentModel.DataAnnotations.*
 
 func Main() {
-    val viewModel = CounterViewModel()
+    let viewModel = CounterViewModel()
 
     use subscription = #subscribe(viewModel.Count, func (value) => {
         WriteLine(value)

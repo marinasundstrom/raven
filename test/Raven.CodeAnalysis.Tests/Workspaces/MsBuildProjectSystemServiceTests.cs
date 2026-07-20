@@ -33,7 +33,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
                                             <RavenAllowGlobalStatements>false</RavenAllowGlobalStatements>
                                             <RavenRunAnalyzers>false</RavenRunAnalyzers>
-                                            <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeValAnalyzer</RavenDisabledAnalyzers>
+                                            <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
                                             <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
                                             <MembersPublicByDefault>false</MembersPublicByDefault>
                                             <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -59,7 +59,7 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.False(project.CompilationOptions.AllowGlobalStatements);
             Assert.False(project.CompilationOptions.RunAnalyzers);
             Assert.Contains("UnusedVariableAnalyzer", project.CompilationOptions.DisabledAnalyzers);
-            Assert.Contains("VarCanBeValAnalyzer", project.CompilationOptions.DisabledAnalyzers);
+            Assert.Contains("VarCanBeLetAnalyzer", project.CompilationOptions.DisabledAnalyzers);
             Assert.True(project.CompilationOptions.ReturnedValueHandlingModeConfigured);
             Assert.Equal(ReturnedValueHandlingMode.Full, project.CompilationOptions.ReturnedValueHandlingMode);
             Assert.True(project.CompilationOptions.MembersPublicByDefaultConfigured);

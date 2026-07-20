@@ -2,16 +2,16 @@ import System.*
 import System.Collections.Generic.*
 import System.IO.*
 
-val fileList = List<string>()
+let fileList = List<string>()
 
 if args.Length != 1 {
     Console.WriteLine("Expected 1 argument")
 } else {
-    val fullPath = Path.GetFullPath(args[0])
-    val files = Directory.GetFiles(fullPath)
+    let fullPath = Path.GetFullPath(args[0])
+    let files = Directory.GetFiles(fullPath)
 
     for file in files {
-        val path = Path.GetRelativePath(Environment.CurrentDirectory, file)
+        let path = Path.GetRelativePath(Environment.CurrentDirectory, file)
         Console.WriteLine(path)
         fileList.Add(file)
     }

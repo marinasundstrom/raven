@@ -145,7 +145,7 @@ discarded.
 Statement-form `if` also has a dedicated pattern-binding form:
 
 ```raven
-if val (id, name) = person {
+if let (id, name) = person {
     WriteLine(name)
 }
 ```
@@ -196,20 +196,20 @@ target-typed shorthand (`value == .True`), while `is` remains the clearer form
 when the code is intentionally written as a pattern match:
 
 ```raven
-if val Person { Name: "Ada", Age: age } matched = input {
+if let Person { Name: "Ada", Age: age } matched = input {
     WriteLine(age)
     WriteLine(matched.Name)
 }
 
-if val Person { Name: "Bob" } = input {
+if let Person { Name: "Bob" } = input {
     WriteLine("literal match")
 }
 
-if val Person { Name: == expectedName, Age: age } = input {
+if let Person { Name: == expectedName, Age: age } = input {
     WriteLine(age)
 }
 
-if val Person { Name: "Ada", Age: age when > 20 } = input {
+if let Person { Name: "Ada", Age: age when > 20 } = input {
     WriteLine(age)
 }
 ```
@@ -220,7 +220,7 @@ checks can be written in the same form:
 ```raven
 val input: int? = null
 
-if val x: int = input {
+if let x: int = input {
     WriteLine(x)
 }
 ```
@@ -230,7 +230,7 @@ nominal deconstruction patterns when the surrounding construct supplies the
 binding mode:
 
 ```raven
-if val (key: string, value: int) = entry {
+if let (key: string, value: int) = entry {
     WriteLine(key)
 }
 ```
@@ -241,7 +241,7 @@ This also supports ordinary hierarchy narrowing:
 open class Animal {}
 class Dog : Animal {}
 
-if val dog: Dog = animal {
+if let dog: Dog = animal {
     dog.Bark()
 }
 ```
@@ -249,7 +249,7 @@ if val dog: Dog = animal {
 It can also designate the whole matched value when the pattern succeeds:
 
 ```raven
-if val (2, > 0.5) point = input {
+if let (2, > 0.5) point = input {
     WriteLine(point)
 }
 ```
@@ -259,7 +259,7 @@ without `let`/`val`/`var`, which keeps the construct distinct from assignment-li
 syntax and makes capture intent explicit at the start of the statement.
 
 The outer binding keyword supplies the binding mode for otherwise bare captures
-inside the pattern, so `if val Person(1, name, _) = person { ... }` is legal and
+inside the pattern, so `if let Person(1, name, _) = person { ... }` is legal and
 equivalent to `if person is Person(1, val name, _) { ... }`. The same ambient
 binding mode also applies to an optional trailing whole-pattern designation such
 as `point` in the example above. Shadowing and other pattern-binding diagnostics
@@ -270,11 +270,11 @@ either another pattern over the same matched sub-value or a boolean expression
 that sees the locals introduced by that binding:
 
 ```raven
-for val (id, amount when > 100) in orders {
+for let (id, amount when > 100) in orders {
     WriteLine(amount)
 }
 
-if val (id, amount when amount > 100) = order {
+if let (id, amount when amount > 100) = order {
     WriteLine(amount)
 }
 ```
@@ -285,7 +285,7 @@ deconstruction patterns, member/case patterns, comparison patterns, and other
 match-oriented constructs that are not valid as assignment/deconstruction heads.
 
 ```raven
-if val Person { Name: "Ada", Age: age } = input {
+if let Person { Name: "Ada", Age: age } = input {
     WriteLine(age)
 }
 ```
@@ -298,7 +298,7 @@ bare designations inside the property pattern.
 Statement-form `while` supports the same pattern-binding header:
 
 ```raven
-while val .Ok(value) = Next() {
+while let .Ok(value) = Next() {
     WriteLine(value)
 }
 ```
@@ -306,19 +306,19 @@ while val .Ok(value) = Next() {
 The right-hand expression is evaluated at the start of each iteration. If the
 pattern matches, any bindings introduced by the pattern are available inside
 the loop body for that iteration. If the pattern does not match, the loop exits.
-As with `if val`, the leading binding keyword is required and supplies the
+As with `if let`, the leading binding keyword is required and supplies the
 binding mode for otherwise bare captures and an optional whole-pattern
 designation:
 
 ```raven
-while val Person(1, name, _) person = NextPerson() {
+while let Person(1, name, _) person = NextPerson() {
     WriteLine(person.Name)
     WriteLine(name)
 }
 ```
 
-`while val pattern = expr` uses the same general pattern surface as `is`,
-`match`, `if val pattern = expr`, and `for` pattern targets.
+`while let pattern = expr` uses the same general pattern surface as `is`,
+`match`, `if let pattern = expr`, and `for` pattern targets.
 
 Statement-form `loop` is an unconditional loop. It evaluates its body repeatedly
 until control leaves through `break`, `return`, `throw`, or another abrupt exit:

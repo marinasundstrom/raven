@@ -9,7 +9,7 @@ import Microsoft.AspNetCore.Builder.*
 import Microsoft.AspNetCore.Http.*
 import Microsoft.AspNetCore.Mvc.*
 
-val builder = WebApplication.CreateBuilder(args)
+let builder = WebApplication.CreateBuilder(args)
 use app = builder.Build()
 
 app.MapGet("/", func () => "Hello from Raven Minimal API")
@@ -58,7 +58,7 @@ app.MapGet("/stream", async func ([EnumeratorCancellation] cancellationToken: Ca
 
 app.MapPost("/submit", async func (context: HttpContext) {
     use reader = StreamReader(context.Request.Body, encoding: .UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false)
-    val content = await reader.ReadToEndAsync()
+    let content = await reader.ReadToEndAsync()
     return "submitted: $content"
 })
 
@@ -72,7 +72,7 @@ app.MapPost("/submit-async", async func (content: string) {
 app.MapPost("/person", async func (person: Person) -> Task<Result<string, CustomError>> {
     await Task.Delay(1)
 
-    if val (name, age when >= 18) = person {
+    if let (name, age when >= 18) = person {
         return Ok("Welcome, $name!")
     }
 

@@ -2,7 +2,7 @@ import Utilities.*
 
 func Main() {
     Test()
-    val x = A(42)
+    let x = A(42)
     Test()
     A(x)
     A("42")
@@ -10,8 +10,8 @@ func Main() {
     use test = Test2()
     test.Dispose()
 
-    val v: Foo = 3
-    val r = match v {
+    let v: Foo = 3
+    let r = match v {
         int i => i
         string => 2
         _ => 4
@@ -19,9 +19,9 @@ func Main() {
 
     Console.WriteLine(r)
 
-    val s = Status.Open("foo")
+    let s = Status.Open("foo")
     match s {
-        .Open(val reason) => Console.WriteLine("Reason $reason")
+        .Open(let reason) => Console.WriteLine("Reason $reason")
         .Closed(_) => ()
     }
 

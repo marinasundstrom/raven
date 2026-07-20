@@ -1,15 +1,15 @@
 import System.*
 
 // Feature: event subscription and unsubscription (`+=`, `-=`).
-val f: IFoo = Foo()
+let f: IFoo = Foo()
 
 f.Raised += (s, e) => Console.WriteLine("Hello");
 
-val handler: EventHandler = (s: object?, e: EventArgs) => Console.WriteLine("Hello");
+let handler: EventHandler = (s: object?, e: EventArgs) => Console.WriteLine("Hello");
 
 f.Raised += handler
 
-val x = f.RaiseEvent(2)
+let x = f.RaiseEvent(2)
 
 f.Raised -= handler
 
@@ -26,6 +26,6 @@ class Foo : IFoo {
         Raised?(self, EventArgs.Empty)
         return 42
     }
-    
+
     event Raised: EventHandler?
 }

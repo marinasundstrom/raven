@@ -3,9 +3,9 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-/* * 
+/* *
 * Investigation doc: docs/async-propagate-lowering-plan.md
-* 
+*
 * To compile:
 * dotnet run --project ../src/Raven.Compiler --property WarningLevel=0 -- sample101.rav -o test.dll
 * dotnet test.dll
@@ -19,22 +19,22 @@ import System.Threading.Tasks.*
 
 // test
 
-val res = await test(throwExc: false)
+let res = await test(throwExc: false)
 WriteLine(res)
 
-val res_2 = await test(throwExc: true)
+let res_2 = await test(throwExc: true)
 WriteLine(res_2)
 
 
 // test2
 
-/* 
+/*
 // InvalidProgramException it thrown
 
-val res2 = await test2(throwExc: false)
+let res2 = await test2(throwExc: false)
 WriteLine(res2)
 
-val res2_2 = await test2(throwExc: true)
+let res2_2 = await test2(throwExc: true)
 WriteLine(res2_2)
 
 */
@@ -42,33 +42,33 @@ WriteLine(res2_2)
 
 // test3
 
-val res3 = await test3(throwExc: false)
+let res3 = await test3(throwExc: false)
 WriteLine(res3)
 
-val res3_2 = await test3(throwExc: true)
+let res3_2 = await test3(throwExc: true)
 WriteLine(res3_2)
 
 
 // test4
 
-val res4 = await test4(throwExc: false)
+let res4 = await test4(throwExc: false)
 WriteLine(res4)
 
-val res4_2 = await test4(throwExc: true)
+let res4_2 = await test4(throwExc: true)
 WriteLine(res4_2)
 
 
 // test5
 
-val res5 = await test5(throwExc: false)
+let res5 = await test5(throwExc: false)
 WriteLine(res5)
 
-val res5_2 = await test5(throwExc: true)
+let res5_2 = await test5(throwExc: true)
 WriteLine(res5_2)
 
 
 async func test(throwExc: bool) -> Task<Result<string, Exception>> {
-    val x = try? await action(throwExc)
+    let x = try? await action(throwExc)
     return Ok("test = OK")
 }
 
@@ -83,7 +83,7 @@ async func test3(throwExc: bool) -> Task<Result<string, Exception>> {
 }
 
 async func test4(throwExc: bool) -> Task<Result<string, Exception>> {
-    val x = try? await action2(throwExc)
+    let x = try? await action2(throwExc)
     return Ok(x)
 }
 

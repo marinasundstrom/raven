@@ -1,8 +1,8 @@
 import System.*
 
 // Feature: user-defined generic class.
-val ints = Box<int>(1)
-val words = Box<string>("ok")
+let ints = Box<int>(1)
+let words = Box<string>("ok")
 
 Console.WriteLine(words.Value)
 

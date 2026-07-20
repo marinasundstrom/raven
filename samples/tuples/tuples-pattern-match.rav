@@ -1,11 +1,11 @@
 import System.Console.*
 
 // Feature: tuple pattern matching (advanced form).
-val customerTuple: (id: int, tier: string) = (42, "Gold")
+let customerTuple: (id: int, tier: string) = (42, "Gold")
 
-val result = match customerTuple {
-    (42, val tier) => "Priority customer: ${tier}"
-    (val id, val tier) => "Customer ${id}: ${tier}"
+let result = match customerTuple {
+    (42, let tier) => "Priority customer: ${tier}"
+    (let id, let tier) => "Customer ${id}: ${tier}"
 }
 
 WriteLine(result)

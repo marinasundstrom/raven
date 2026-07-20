@@ -10,7 +10,7 @@ func GetUser() -> Result<User, Err> {
 }
 
 func f() -> Result<int, Err> {
-    val str = GetUser()?.Name? // Result<string, Err> unwrapped
+    let str = GetUser()?.Name? // Result<string, Err> unwrapped
     return Ok(str.Length + 1)
 }
 

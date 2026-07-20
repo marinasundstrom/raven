@@ -324,7 +324,7 @@ The example uses `()` as the empty result type. Raven does not use `void`.
 The language is still experimental, but current docs and samples follow these
 rules:
 
-- Use `val` for immutable bindings and `var` for mutable bindings.
+- Use `let` for immutable lexical bindings and `var` for mutable lexical bindings.
 - Prefer plain top-level functions for standalone operations; do not create a
   class only to hold methods.
 - Use classes and interfaces when identity, lifecycle, encapsulated state, or
@@ -339,7 +339,7 @@ rules:
 - Use `Option<T>` for absence in Raven domain code.
 - Use `Result<T, E>` for expected failure and `?` to propagate it.
 - Prefer explicit pattern bindings: `Some(val value)`, `val (a, b) = pair`,
-  `if val Some(item) = maybe`.
+  `if let Some(item) = maybe`.
 - Use function type arrows, such as `val op: (int, int) -> int`.
 - Use explicit constructors such as `ShipmentRequest(...)` unless the target
   type is already obvious.

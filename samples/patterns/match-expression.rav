@@ -1,11 +1,11 @@
 import System.Console.*
 
 // Feature: expression-form `match` producing a value.
-val orderId = 1001
-val statusPayload: object = "paid"
-val paidCode = "paid"
+let orderId = 1001
+let statusPayload: object = "paid"
+let paidCode = "paid"
 
-val label = match statusPayload {
+let label = match statusPayload {
   paidCode => "Invoice cleared"
   string code => "Unknown string status: ${code}"
   _ => "Non-string status"

@@ -65,7 +65,7 @@ public sealed class ProjectFileMemberAccessibilityOptionTests
         File.WriteAllText(
             projectPath,
             """
-            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" DisabledAnalyzers="UnusedVariableAnalyzer;VarCanBeValAnalyzer" />
+            <Project Name="App" TargetFramework="net10.0" Output="App" OutputKind="DynamicallyLinkedLibrary" DisabledAnalyzers="UnusedVariableAnalyzer;VarCanBeLetAnalyzer" />
             """);
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -73,7 +73,7 @@ public sealed class ProjectFileMemberAccessibilityOptionTests
         var project = workspace.CurrentSolution.GetProject(projectId)!;
 
         Assert.Contains("UnusedVariableAnalyzer", project.CompilationOptions!.DisabledAnalyzers);
-        Assert.Contains("VarCanBeValAnalyzer", project.CompilationOptions.DisabledAnalyzers);
+        Assert.Contains("VarCanBeLetAnalyzer", project.CompilationOptions.DisabledAnalyzers);
     }
 
     [Fact]

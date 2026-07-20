@@ -4,17 +4,17 @@ import System.Collections.Generic.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-val options = JsonSerializerOptions with {
+let options = JsonSerializerOptions with {
     WriteIndented = true,
     PropertyNamingPolicy = .CamelCase
 }
 
-val items = List<JsonValue>()
+let items = List<JsonValue>()
 items.Add(.Text("true"))
 items.Add(.Number(42.0))
 items.Add(.Null)
 
-val value = JsonObject([ 
+let value = JsonObject([
     "name": JsonValue.Number(32.0),
     "items": JsonValue.Array(items.ToArray()),
     /*"items": [
@@ -25,11 +25,11 @@ val value = JsonObject([
     "metadata": JsonValue.Null
 ])
 
-val json = JsonSerializer.Serialize(value, options)
+let json = JsonSerializer.Serialize(value, options)
 WriteLine(json)
 
-val roundTripped = JsonSerializer.Deserialize<JsonObject>(json, options)
-val propertyCount = roundTripped.Properties.Count
+let roundTripped = JsonSerializer.Deserialize<JsonObject>(json, options)
+let propertyCount = roundTripped.Properties.Count
 WriteLine("Round-tripped property count: $propertyCount")
 
 [JsonConverter(typeof(JsonValueConverter))]
@@ -62,11 +62,11 @@ class JsonValueConverter : JsonConverter<JsonValue> {
         options: JsonSerializerOptions
     ) -> () {
         match value {
-            .Text(val text) => writer.WriteStringValue(text),
-            .Number(val number) => writer.WriteNumberValue(number),
-            .Boolean(val boolean) => writer.WriteBooleanValue(boolean),
-            .Object(val obj) => JsonSerializer.Serialize(writer, obj, options),
-            .Array(val values) => JsonSerializer.Serialize(writer, values, options),
+            .Text(let text) => writer.WriteStringValue(text),
+            .Number(let number) => writer.WriteNumberValue(number),
+            .Boolean(let boolean) => writer.WriteBooleanValue(boolean),
+            .Object(let obj) => JsonSerializer.Serialize(writer, obj, options),
+            .Array(let values) => JsonSerializer.Serialize(writer, values, options),
             .Null => writer.WriteNullValue(),
         }
     }
@@ -80,14 +80,14 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         options: JsonSerializerOptions
     ) -> JsonObject {
         use doc = JsonDocument.ParseValue(reader)
-        val root = doc.RootElement
+        let root = doc.RootElement
 
         if root.ValueKind is not JsonValueKind.Object {
             #pragma warning disable-next-line RAV9013
             throw JsonException("JsonObject must be a JSON object.")
         }
 
-        val properties = Dictionary<string, JsonValue>()
+        let properties = Dictionary<string, JsonValue>()
 
         for property in root.EnumerateObject() {
             properties.Add(property.Name, ReadJsonValue(property.Value, options))
@@ -103,7 +103,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
     ) -> () {
         writer.WriteStartObject()
 
-        for val (key, value) in value.Properties {
+        for let (key, value) in value.Properties {
             writer.WritePropertyName(key)
             JsonSerializer.Serialize(writer, value, options)
         }
@@ -133,7 +133,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         }
 
         if element.ValueKind is JsonValueKind.Array {
-            val values = List<JsonValue>()
+            let values = List<JsonValue>()
 
             for item in element.EnumerateArray() {
                 values.Add(ReadJsonValue(item, options))
@@ -143,7 +143,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         }
 
         if element.ValueKind is JsonValueKind.Object {
-            val properties = Dictionary<string, JsonValue>()
+            let properties = Dictionary<string, JsonValue>()
 
             for property in element.EnumerateObject() {
                 properties.Add(property.Name, ReadJsonValue(property.Value, options))

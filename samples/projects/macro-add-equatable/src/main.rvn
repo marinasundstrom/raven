@@ -1,7 +1,7 @@
 import System.Console.*
 
 func Main() {
-    val user = User("Ada", 37)
+    let user = User("Ada", 37)
     WriteLine(user.Name)
 }
 

@@ -5,7 +5,7 @@ import System.Threading.Tasks.*
 import System.Numerics.*
 
 async func Main() -> Task {
-    val value = await EchoNumber(2)
+    let value = await EchoNumber(2)
     WriteLine("Result is: $value")
 }
 

@@ -4,11 +4,11 @@ import System.*
 Console.WriteLine(f())
 
 func f() -> Result<int, Err> {
-    val len: int? = null 
+    let len: int? = null
 
     match len {
         null       => Error(.MissingName)
-        val value  => Ok(value ?? 0)
+        let value  => Ok(value ?? 0)
     }
 }
 

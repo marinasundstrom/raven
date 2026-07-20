@@ -54,16 +54,14 @@ A program can give a name to a value and use it later:
 ```raven
 import System.Console.*
 
-val name = "Mira"
-val age = 12
+let name = "Mira"
+let age = 12
 
 WriteLine("$name is $age years old")
 ```
 
-`val` creates a read-only binding. That means the name cannot be assigned a
-different value later. The `$name` and `$age` parts insert those values into the
-surrounding string. Raven also accepts `let` for a read-only binding, while its
-standard examples use `val` so the contrast with `var` stays visible.
+`let` gives a name to a value that will not be replaced later. The `$name` and
+`$age` parts insert those values into the surrounding string.
 
 When a value really needs to change, use `var`:
 
@@ -72,7 +70,7 @@ var score = 0
 score = score + 10
 ```
 
-Prefer `val` until you have a reason to use `var`.
+Prefer `let` until you have a reason to use `var`.
 
 ## Values have types
 
@@ -80,10 +78,10 @@ A type describes what kind of value something is and which operations make
 sense for it.
 
 ```raven
-val name: string = "Mira"
-val age: int = 12
-val height: decimal = 1.52
-val isLearning: bool = true
+let name: string = "Mira"
+let age: int = 12
+let height: decimal = 1.52
+let isLearning: bool = true
 ```
 
 - `string` represents text.
@@ -101,7 +99,7 @@ Use `if` when a program should choose between two paths:
 ```raven
 import System.Console.*
 
-val temperature = 28
+let temperature = 28
 
 if temperature > 25 {
     WriteLine("It is warm")
@@ -116,7 +114,7 @@ when it is true and the `else` block when it is false.
 An `if` can also produce a value:
 
 ```raven
-val description = if temperature > 25 {
+let description = if temperature > 25 {
     "warm"
 } else {
     "cool"
@@ -130,7 +128,7 @@ A collection holds several values. This array contains three names:
 ```raven
 import System.Console.*
 
-val names = ["Mira", "Noah", "Ari"]
+let names = ["Mira", "Noah", "Ari"]
 
 for name in names {
     WriteLine("Hello, $name!")
@@ -148,10 +146,10 @@ program where a name can be used.
 ```raven
 import System.Console.*
 
-val outside = "I belong to the outer scope"
+let outside = "I belong to the outer scope"
 
 if true {
-    val inside = "I belong to the if block"
+    let inside = "I belong to the if block"
     WriteLine(outside)
     WriteLine(inside)
 }
@@ -169,7 +167,7 @@ used after the loop ends:
 
 ```raven
 for name in names {
-    val greeting = "Hello, $name"
+    let greeting = "Hello, $name"
     WriteLine(greeting)
 }
 
@@ -197,7 +195,7 @@ func Greet(name: string) -> string {
     return "Hello, $name!"
 }
 
-val message = Greet("Mira")
+let message = Greet("Mira")
 WriteLine(message)
 ```
 
@@ -226,7 +224,7 @@ types.
 ```raven
 record class Person(val Name: string, val Age: int)
 
-val person = Person("Mira", 12)
+let person = Person("Mira", 12)
 ```
 
 `Person` groups a name and age into one value. The `val` parameters become
@@ -250,8 +248,8 @@ Use `match` to handle every alternative:
 func Describe(weather: Weather) -> string {
     return weather match {
         .Sunny => "It is sunny"
-        .Rainy(val amount) => "Rain: $amount mm"
-        .Snowy(val depth) => "Snow: $depth cm"
+        .Rainy(let amount) => "Rain: $amount mm"
+        .Snowy(let depth) => "Snow: $depth cm"
     }
 }
 ```
@@ -281,7 +279,7 @@ both possibilities:
 
 ```raven
 match FindEven([1, 3, 4, 7]) {
-    Some(val number) => WriteLine("Found $number")
+    Some(let number) => WriteLine("Found $number")
     None => WriteLine("No even number found")
 }
 ```
@@ -303,8 +301,8 @@ func Divide(a: int, b: int) -> Result<int, string> {
 
 ```raven
 match Divide(10, 0) {
-    Ok(val answer) => WriteLine("Answer: $answer")
-    Error(val message) => WriteLine("Problem: $message")
+    Ok(let answer) => WriteLine("Answer: $answer")
+    Error(let message) => WriteLine("Problem: $message")
 }
 ```
 
@@ -319,8 +317,8 @@ func Transform(value: int, operation: (int) -> int) -> int {
     return operation(value)
 }
 
-val doubled = Transform(5, number => number * 2)
-val squared = Transform(5, number => number * number)
+let doubled = Transform(5, number => number * 2)
+let squared = Transform(5, number => number * number)
 ```
 
 `(int) -> int` means a function that receives an integer and returns an integer.
@@ -342,7 +340,7 @@ class ScoreBoard {
     }
 }
 
-val board = ScoreBoard()
+let board = ScoreBoard()
 board.Add(10)
 ```
 
@@ -374,12 +372,12 @@ func GradeStudent(student: Student) -> Grade {
 
 func Describe(student: Student) -> string {
     return GradeStudent(student) match {
-        .Passed(val score) => "${student.Name} passed with $score"
-        .Failed(val score) => "${student.Name} needs another try ($score)"
+        .Passed(let score) => "${student.Name} passed with $score"
+        .Failed(let score) => "${student.Name} needs another try ($score)"
     }
 }
 
-val students = [
+let students = [
     Student("Mira", 84),
     Student("Noah", 52),
     Student("Ari", 71)

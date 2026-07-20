@@ -1,9 +1,9 @@
 import Microsoft.AspNetCore.Builder.*
 
-val builder = WebApplication.CreateBuilder(args)
-val app = builder.Build()
+let builder = WebApplication.CreateBuilder(args)
+let app = builder.Build()
 
-val store = TodoStore.Seeded()
+let store = TodoStore.Seeded()
 
 app.Routing {
     Get("/", func () => "Raven ASP.NET Core receiver-block DSL sample. Try /todos/1.")
@@ -17,7 +17,7 @@ app.Routing {
         }
 
         Get("/{id:int}") { (id: int) =>
-            val todo = store.Find(id)
+            let todo = store.Find(id)
 
             if todo is null {
                 return "Not found"

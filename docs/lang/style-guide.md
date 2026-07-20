@@ -43,12 +43,15 @@ func Max(x: int, y: int) -> int {
 
 ## Bindings
 
-- Use `val` for immutable bindings in standard Raven style.
-- Use `var` when the binding must be reassigned.
-- `let` is a supported alternative to `val`, not an error. Teams that want to
-  enforce the standard spelling may explicitly enable
-  `PreferValInsteadOfLetAnalyzer`.
-- Remember that `val` and `let` prevent reassignment of the binding; they do not
+- Use `let` for immutable lexical bindings in standard Raven style.
+- Use `var` for lexical bindings that must be reassigned.
+- Use `val` and `var` for properties and signature-like declarations.
+- `val` remains a supported alternative to `let` for immutable lexical bindings.
+  Teams that want to enforce the standard spelling may explicitly enable
+  `PreferLetInsteadOfValAnalyzer`.
+- A lexical binding introduced with `let` is semantically a read-only `val` and
+  is displayed as `val` by semantic tooling such as hover.
+- Remember that `let` and `val` prevent reassignment of the binding; they do not
   guarantee that a referenced object is deeply immutable.
 
 ## Braces

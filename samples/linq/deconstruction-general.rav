@@ -3,30 +3,30 @@ import System.Console.*
 import System.Linq.*
 
 func Main() -> () {
-    val pairs = [(2, "foo"), (3, "bar")]
-    val words = pairs.Select(((number, text)) => text)
+    let pairs = [(2, "foo"), (3, "bar")]
+    let words = pairs.Select(((number, text)) => text)
 
     for word in words {
         WriteLine(word)
     }
 
-    val (firstNumber, firstText) = pairs[0]
+    let (firstNumber, firstText) = pairs[0]
     WriteLine("$firstNumber:$firstText")
 
-    val rows = [[1, 2, 3], [4, 5, 6]]
-    val tails = rows.Select(([head, ..tail]) => tail)
+    let rows = [[1, 2, 3], [4, 5, 6]]
+    let tails = rows.Select(([head, ..tail]) => tail)
 
     for value in tails.SelectMany(x => x) {
         WriteLine(value)
     }
 
-    val [left, right, _] = rows[0]
+    let [left, right, _] = rows[0]
     WriteLine(left + right)
 
-    val ((a, b), c) = ((10, 20), 30)
+    let ((a, b), c) = ((10, 20), 30)
     WriteLine(a + b + c)
 
-    val nested = [[1, 2], [3, 4]]
-    val [[innerA, innerB], _] = nested
+    let nested = [[1, 2], [3, 4]]
+    let [[innerA, innerB], _] = nested
     WriteLine(innerA + innerB)
 }

@@ -7,17 +7,17 @@ import System.IO.*
 
 use reader = StringReader("42 Ada")
 
-val lexer = Lexer(reader)
-val first = lexer.ReadToken()
-val second = lexer.ReadToken()
+let lexer = Lexer(reader)
+let first = lexer.ReadToken()
+let second = lexer.ReadToken()
 
 WriteLine(Describe(first))
 WriteLine(Describe(second))
 
 func Describe(token: Token) -> string {
     match token {
-        .Number(_, val value) => "Number $value"
-        .Identifier(val text) => "Identifier $text"
+        .Number(_, let value) => "Number $value"
+        .Identifier(let text) => "Identifier $text"
         .EOF => "EOF"
         .Unknown => "Unknown"
     }
@@ -82,7 +82,7 @@ class Lexer {
     }
 
     func MakeNumber() -> Token {
-        val numberText = _builder.ToString()
+        let numberText = _builder.ToString()
         return .Number(numberText, int.Parse(numberText))
     }
 }

@@ -1,11 +1,11 @@
 import System.*
 
 // Feature: case-pattern matching with literal and captured payloads.
-val first : Result<int, string> = .Success(1)
-val second : Result<int, string> = .Success(42)
-val third : Result<int, string> = .Error(2, "Bang!")
-val fourth : Result<int, string> = .Error(5, "Boom!")
-val fifth : Result<int, string> = .Error(6, "Zoom!")
+let first : Result<int, string> = .Success(1)
+let second : Result<int, string> = .Success(42)
+let third : Result<int, string> = .Error(2, "Bang!")
+let fourth : Result<int, string> = .Error(5, "Boom!")
+let fifth : Result<int, string> = .Error(6, "Zoom!")
 
 Console.WriteLine(describe(first))
 Console.WriteLine(describe(second))
@@ -14,13 +14,13 @@ Console.WriteLine(describe(fourth))
 Console.WriteLine(describe(fifth))
 
 func describe(result: Result<int, string>) -> string {
-    val errorCode = 5
+    let errorCode = 5
 
     match result {
         .Success(42) => "Yay!"
-        .Success(val value) => "Result: '$value'"
-        .Error(2, val error) => "$error (!!!)"
-        .Error(val errorCode, val error) => "$error (???)"
+        .Success(let value) => "Result: '$value'"
+        .Error(2, let error) => "$error (!!!)"
+        .Error(let errorCode, let error) => "$error (???)"
     }
 }
 

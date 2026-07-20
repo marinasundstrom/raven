@@ -5,20 +5,20 @@ import System.Linq.*
 func Main(args: string[]) -> () {
     WriteLine(args.Length)
 
-    val r = typeof(String)
+    let r = typeof(String)
     WriteLine(r)
 
-    val members = r.GetMembers(.Public | .Static)
+    let members = r.GetMembers(.Public | .Static)
 
-    val name = "Intern"
+    let name = "Intern"
 
     for member in members.Where(x => x.Name.Equals(name)) {
         WriteLine(member.Name)
     }
 
-    val result = members.FirstOrNone()
+    let result = members.FirstOrNone()
 
-    if(result is Some(val member)) {
+    if(result is Some(let member)) {
         WriteLine("First: $member")
     }
 }

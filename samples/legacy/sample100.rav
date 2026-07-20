@@ -3,9 +3,9 @@ import System.Console.*
 Write("Are you ready? (yes or no): ")
 
 /*
-val input = ReadLine()
+let input = ReadLine()
 
-val response = match input {
+let response = match input {
     "yes" | "y" => "Great!"
     "no" | "n" => "I'll wait for you!"
     string? x => "What did you say?"

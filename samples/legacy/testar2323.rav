@@ -1,4 +1,4 @@
-val c: Foo = .B('Ö', 2)
+let c: Foo = .B('Ö', 2)
 
 System.Console.WriteLine(c)
 

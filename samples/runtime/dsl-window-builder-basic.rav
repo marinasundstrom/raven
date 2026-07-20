@@ -2,10 +2,10 @@ import System.*
 import System.Console.*
 import System.Collections.Generic.*
 
-val showDetails = true
-val actions: string[] = ["Ok", "Cancel", "Help"]
+let showDetails = true
+let actions: string[] = ["Ok", "Cancel", "Help"]
 
-val window = Window(title: "Main", width: 800, height: 600) {
+let window = Window(title: "Main", width: 800, height: 600) {
     StackPanel {
         Label(text: "Raven DSL")
 
@@ -21,7 +21,7 @@ val window = Window(title: "Main", width: 800, height: 600) {
     }
 }
 
-val result = window.ShowDialog()
+let result = window.ShowDialog()
 
 WriteLine(result)
 
@@ -146,11 +146,11 @@ class Window {
     }
 }
 
-enum DialogResult { 
-    Ok, 
-    Cancel, 
-    Yes, 
-    No 
+enum DialogResult {
+    Ok,
+    Cancel,
+    Yes,
+    No
 }
 
 class StackPanel : Control, IHasChildren {

@@ -2,11 +2,11 @@ import System.*
 import System.Text.*
 
 // Feature: enum-driven status aggregation with tuples and loops.
-val data = [3, 27, 51]
-val builder = StringBuilder()
+let data = [3, 27, 51]
+let builder = StringBuilder()
 
 for value in data {
-    val status = getStatus(value)
+    let status = getStatus(value)
     builder.AppendLine("Value: ${value.ToString()}, Status: ${status.ToString()}")
 
     if status is .Error {
@@ -16,10 +16,10 @@ for value in data {
 
 Console.WriteLine(builder.ToString())
 
-val name : string = .Empty
+let name : string = .Empty
 Console.WriteLine("Name: " + name)
 
-val tuple = (id: 42, name: "Test")
+let tuple = (id: 42, name: "Test")
 Console.WriteLine("Tuple: " + tuple.id.ToString() + ", " + tuple.name)
 
 //Console.WriteLine(status.GetType())  // Enum boxing test

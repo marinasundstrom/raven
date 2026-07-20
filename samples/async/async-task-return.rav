@@ -3,9 +3,9 @@ import System.Threading.Tasks.*
 
 // Feature: async function returning `Task<T>`.
 async func Test(value: int) -> Task<int> {
-    val intermediate = await Task.FromResult(value + 1)
+    let intermediate = await Task.FromResult(value + 1)
     return intermediate
 }
 
-val x = await Test(42)
+let x = await Test(42)
 WriteLine(x)

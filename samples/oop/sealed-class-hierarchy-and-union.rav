@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 
 // Feature: type-pattern matching over a sealed class hierarchy.
-val animal: Animal = Wolf()
+let animal: Animal = Wolf()
 
 animal.SaySound()
 
@@ -15,7 +15,7 @@ match animal {
     Wolf wolf => WriteLine(wolf)
 }
 
-val pet: Pet = Dog()
+let pet: Pet = Dog()
 
 match pet {
     Dog dog => WriteLine(dog)

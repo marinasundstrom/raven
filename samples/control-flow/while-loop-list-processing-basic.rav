@@ -4,16 +4,16 @@ import System.Collections.Generic.List<>
 alias SB = System.Text.StringBuilder
 
 // Feature: while loop with real list-processing flow.
-val list = List<int>()
+let list = List<int>()
 list.Add(1)
 list.Add(42)
 list.Add(3)
 var i = 0
 
-val stringBuilder = SB()
+let stringBuilder = SB()
 
 while i < list.Count {
-    val x = list[i]
+    let x = list[i]
     stringBuilder.AppendLine(x.ToString())
     list[i] = if x > 3 {
         WriteLine("Hello, World!")
@@ -22,7 +22,7 @@ while i < list.Count {
         x
     }
     i = {
-        val next = i + 1
+        let next = i + 1
         next
     }
 }

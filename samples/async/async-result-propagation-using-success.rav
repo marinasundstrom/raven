@@ -4,18 +4,18 @@ import System.Net.Http.*
 import System.Threading.Tasks.*
 
 // Feature: async Result propagation with a successful `use` resource flow.
-val res = await fetch("http://www.contoso.com/")
+let res = await fetch("http://www.contoso.com/")
 
-val str = match res {
-    Ok(val str) => "Response is: $str"
-    Error(val exception) => "Error is: ${exception.Message}"
+let str = match res {
+    Ok(let str) => "Response is: $str"
+    Error(let exception) => "Error is: ${exception.Message}"
 }
 
 WriteLine(str)
 
 async func fetch(url: string) -> Task<Result<string, Exception>> {
     use client = HttpClient()
-    val response = try? await client.GetAsync(url)
-    val responseBody = await response.Content.ReadAsStringAsync()
+    let response = try? await client.GetAsync(url)
+    let responseBody = await response.Content.ReadAsStringAsync()
     return Ok(responseBody)
 }

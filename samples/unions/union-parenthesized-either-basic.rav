@@ -8,7 +8,7 @@ PrintPaymentSource("invoice")
 func PrintPaymentSource(value: Either<int, string>) {
     WriteLine(value)
 
-    val description = match value {
+    let description = match value {
         int amount => "cash $amount"
         string reference => "card $reference"
     }

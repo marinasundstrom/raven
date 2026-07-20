@@ -11,7 +11,7 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<MissingReturnTypeAnnotationAnalyzer>(project);
         project = AddAnalyzerIfMissing<EventDelegateMustBeNullableAnalyzer>(project);
         project = AddAnalyzerIfMissing<NonNullDeclarationsAnalyzer>(project);
-        project = AddAnalyzerIfMissing<VarCanBeValAnalyzer>(project);
+        project = AddAnalyzerIfMissing<VarCanBeLetAnalyzer>(project);
         project = AddAnalyzerIfMissing<UninitializedPropertyAnalyzer>(project);
         project = AddAnalyzerIfMissing<UninitializedFieldAnalyzer>(project);
         project = AddAnalyzerIfMissing<PreferNewLineBetweenDeclarationsAnalyzer>(project);

@@ -1,12 +1,12 @@
 import System.Console.*
 
-val str = "Test"
+let str = "Test"
 
 Foo(str)
 
 func Foo(str: string?) {
     if str is not null {
-        val len = str.Length
+        let len = str.Length
 
         WriteLine("Length: $len")
     }

@@ -4,9 +4,9 @@ import System.*
 import System.Linq.*
 
 func GetConnectionString() -> string {
-    val environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
+    let environment = Environment.GetEnvironmentVariable("ConnectionStrings__VehicleCosts")
     if environment is not null {
-        val trimmed = environment.Trim()
+        let trimmed = environment.Trim()
         if trimmed.Length > 0 {
             return trimmed
         }
@@ -16,7 +16,7 @@ func GetConnectionString() -> string {
 }
 
 func StatusMatches(status: VehicleStatus, kind: string) -> bool {
-    val normalized = kind.Trim().ToLowerInvariant()
+    let normalized = kind.Trim().ToLowerInvariant()
     match normalized {
         "operational" => match status {
             .Operational(_, _, _) => true
@@ -35,7 +35,7 @@ func StatusMatches(status: VehicleStatus, kind: string) -> bool {
 }
 
 func PredictCosts(vehicle: VehicleEntity) -> VehicleCostPredictionResponse {
-    val samples = vehicle.FuelConsumptions
+    let samples = vehicle.FuelConsumptions
         .Where(entry => entry.DistanceDrivenKm > 0 && entry.LitersFilled > 0 && entry.TotalCost > 0)
         .OrderByDescending(entry => entry.RecordedAtUtc)
         .Take(6)
@@ -45,25 +45,25 @@ func PredictCosts(vehicle: VehicleEntity) -> VehicleCostPredictionResponse {
         return VehicleCostPredictionResponse(vehicle.Id, 0, 0, 0, vehicle.TypicalMonthlyDistanceKm, 0)
     }
 
-    val totalDistance = samples.Sum(entry => entry.DistanceDrivenKm)
-    val totalLiters = samples.Sum(entry => entry.LitersFilled)
-    val totalCost = samples.Sum(entry => entry.TotalCost)
+    let totalDistance = samples.Sum(entry => entry.DistanceDrivenKm)
+    let totalLiters = samples.Sum(entry => entry.LitersFilled)
+    let totalCost = samples.Sum(entry => entry.TotalCost)
 
-    val averageLitersPer100Km =
+    let averageLitersPer100Km =
         if totalDistance == 0 {
             0m
         } else {
             decimal.Round((totalLiters / totalDistance) * 100, 2)
         }
 
-    val averageCostPerLiter =
+    let averageCostPerLiter =
         if totalLiters == 0 {
             0m
         } else {
             decimal.Round(totalCost / totalLiters, 2)
         }
 
-    val predictedMonthlyFuelCost = decimal.Round(
+    let predictedMonthlyFuelCost = decimal.Round(
         (vehicle.TypicalMonthlyDistanceKm / 100) * averageLitersPer100Km * averageCostPerLiter,
         2)
 
@@ -77,7 +77,7 @@ func PredictCosts(vehicle: VehicleEntity) -> VehicleCostPredictionResponse {
 }
 
 func MapVehicle(vehicle: VehicleEntity) -> VehicleResponse {
-    val entries = vehicle.FuelConsumptions
+    let entries = vehicle.FuelConsumptions
         .OrderByDescending(entry => entry.RecordedAtUtc)
         .Select(entry => FuelConsumptionResponse(
             entry.Id,

@@ -937,7 +937,7 @@ class C {
     }
 
     [Fact]
-    public void AddBuiltInAnalyzers_DoesNotEnableOptionalLetStylePolicy()
+    public void AddBuiltInAnalyzers_DoesNotEnableOptionalLexicalBindingStylePolicy()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var solutionWithProject = workspace.CurrentSolution.AddProject("Test");
@@ -948,7 +948,7 @@ class C {
             .AddBuiltInAnalyzers(enableSuggestions: true);
 
         var analyzers = project.AnalyzerReferences.SelectMany(static reference => reference.GetAnalyzers());
-        analyzers.ShouldNotContain(static analyzer => analyzer is PreferValInsteadOfLetAnalyzer);
+        analyzers.ShouldNotContain(static analyzer => analyzer is PreferLetInsteadOfValAnalyzer);
     }
 
     [Fact]
@@ -970,6 +970,6 @@ class C {
         analyzers.ShouldNotContain(static analyzer => analyzer is UnusedVariableAnalyzer);
         analyzers.ShouldNotContain(static analyzer => analyzer is UnusedLocalAnalyzer);
         analyzers.ShouldNotContain(static analyzer => analyzer is UnusedParameterAnalyzer);
-        analyzers.ShouldContain(static analyzer => analyzer is VarCanBeValAnalyzer);
+        analyzers.ShouldContain(static analyzer => analyzer is VarCanBeLetAnalyzer);
     }
 }

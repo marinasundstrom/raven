@@ -2,18 +2,18 @@ import System.Console.*
 import System.Collections.Generic.*
 
 // Feature: overload resolution across extension method overloads.
-val items = List<int>()
+let items = List<int>()
 items.Add(1)
 items.Add(2)
-val totalCount = items.CountItems()
+let totalCount = items.CountItems()
 
 WriteLine(totalCount)
 
-val explicitTypeArgument = items.CountItems<double>(2)
+let explicitTypeArgument = items.CountItems<double>(2)
 
 WriteLine(explicitTypeArgument)
 
-val inferredOverload = items.CountItems(true)
+let inferredOverload = items.CountItems(true)
 
 WriteLine(inferredOverload)
 

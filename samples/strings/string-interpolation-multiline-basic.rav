@@ -2,17 +2,17 @@ import System.Console.*
 
 // Feature: multiline string interpolation forms.
 // Normal multiline string literal
-val test = """
+let test = """
     test
         32
     """
 
 WriteLine(test)
 
-val text = "Hi!"
+let text = "Hi!"
 
 // Multiline string literal with interpolation
-val bb = """
+let bb = """
     test ${41 + 1}
       r ${text}
     """
@@ -20,7 +20,7 @@ val bb = """
 WriteLine(bb)
 
     // Multiline string literal with interpolation
-val bc = """
+let bc = """
     test ${41 + 1}
       r $text
     """

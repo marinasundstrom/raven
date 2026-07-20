@@ -1,10 +1,10 @@
 import System.Console.*
 
 func Main() -> () {
-    val header = PacketHeader()
+    let header = PacketHeader()
 
     unsafe {
-        val ptr: *PacketHeader = &header
+        let ptr: *PacketHeader = &header
 
         InitHeader(ptr, 1234, priority: 5)
 

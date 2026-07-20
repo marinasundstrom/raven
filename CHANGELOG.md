@@ -4,9 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
-- Stopped enabling `PreferValInsteadOfLetAnalyzer` by default. `let` remains a
-  supported immutable-binding spelling, while projects that enforce `val` can
-  explicitly add the analyzer and use its existing code fix.
+- Adopted `let`/`var` as the standard spelling for lexical bindings while
+  retaining `val`/`var` for properties and signature-like declarations. A
+  `let` local remains semantically read-only and is displayed as `val` by hover
+  and symbol presentation. The former optional `PreferValInsteadOfLetAnalyzer`
+  was replaced by the optional `PreferLetInsteadOfValAnalyzer` (`RAV9035`) and
+  its code fix. `RAV9004` and its code fix are now provided by
+  `VarCanBeLetAnalyzer` and recommend `let` when a lexical `var` is never
+  reassigned.
 - Async-iterator method declarations now suspend incomplete awaits in
   `MoveNextAsync` and return a
   pending `ValueTask<bool>` instead of synchronously blocking in

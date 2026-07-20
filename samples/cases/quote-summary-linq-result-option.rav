@@ -4,52 +4,52 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 // Feature: composed LINQ + Result + Option workflow in one domain case.
-val ratePlans = [
+let ratePlans = [
     RatePlan("NorthStar", 500, 120)
     RatePlan("Oceanic", 450, 150)
 ]
 
-val requests = [
+let requests = [
     ShipmentRequest("REQ-1001", "NorthStar", 10, true, ["fragile"], Some("SAVE5")),
     ShipmentRequest("REQ-1002", "Oceanic", 3, false, ["priority"], None),
     ShipmentRequest("REQ-1003", "Unknown", 5, true, [], Some("UNKNOWN"))
 ]
 
-val summaryResult = BuildQuoteSummary(requests, ratePlans)
+let summaryResult = BuildQuoteSummary(requests, ratePlans)
 
-val message = match summaryResult {
-    Ok(val summary) => FormatSummary(summary)
-    Error(val error) => "Quote failed: ${error.Message}"
+let message = match summaryResult {
+    Ok(let summary) => FormatSummary(summary)
+    Error(let error) => "Quote failed: ${error.Message}"
 }
 
 WriteLine(message)
 
-val latePickup = requests.Where(r => !r.OnTime).FirstOrNone()
-val lateMessage = match latePickup {
-    Some(val req) => "Late pickup: ${req.Id}"
+let latePickup = requests.Where(r => !r.OnTime).FirstOrNone()
+let lateMessage = match latePickup {
+    Some(let req) => "Late pickup: ${req.Id}"
     None => "No late pickups today"
 }
 
 WriteLine(lateMessage)
 
 func BuildQuoteSummary(requests: IEnumerable<ShipmentRequest>, plans: IEnumerable<RatePlan>) -> Result<QuoteSummary, QuoteError> {
-    val request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
-    val quote = QuoteShipment(request, plans)?
-    val decision = DecideQuote(quote, request)
+    let request = requests.FirstOrError(r => r.Id == "REQ-1002", () => QuoteError("Request not found: REQ-1002"))?
+    let quote = QuoteShipment(request, plans)?
+    let decision = DecideQuote(quote, request)
     return Ok(QuoteSummary(quote, decision))
 }
 
 func QuoteShipment(request: ShipmentRequest, plans: IEnumerable<RatePlan>) -> Result<Quote, QuoteError> {
-    val plan = FindRatePlan(plans, request.Carrier)?
-    val surcharge = ResolveSurcharge(request.Tags)
-    val promoCode: Option<string> = match request.PromoCode {
-        Some(val code) => Option<string>.Some(code)
+    let plan = FindRatePlan(plans, request.Carrier)?
+    let surcharge = ResolveSurcharge(request.Tags)
+    let promoCode: Option<string> = match request.PromoCode {
+        Some(let code) => Option<string>.Some(code)
         None => None
     }
-    val promoCents = PromoCents(promoCode).UnwrapOr(0)
-    val total = plan.BaseCents + (request.WeightKg * plan.PerKgCents) + surcharge.UnwrapOr(0) - promoCents
+    let promoCents = PromoCents(promoCode).UnwrapOr(0)
+    let total = plan.BaseCents + (request.WeightKg * plan.PerKgCents) + surcharge.UnwrapOr(0) - promoCents
 
-    val note = match surcharge {
+    let note = match surcharge {
         Some(_) => "Includes fragile handling"
         None => "Standard handling"
     }
@@ -69,8 +69,8 @@ func ResolveSurcharge(tags: string[]) -> Option<int> {
 }
 
 func PromoCents(code: Option<string>) -> Option<int> {
-    val raw = code?
-    val normalized = raw.Trim().ToUpperInvariant()
+    let raw = code?
+    let normalized = raw.Trim().ToUpperInvariant()
 
     match normalized {
         "SAVE5" => Some(500)
@@ -103,10 +103,10 @@ func HasTag(tags: string[], tag: string) -> bool {
 }
 
 func FormatSummary(summary: QuoteSummary) -> string {
-    val decisionText = match summary.Decision {
+    let decisionText = match summary.Decision {
         .Approve => "Approved"
-        .ManualReview(val reason) => "Review: $reason"
-        .Reject(val reason) => "Rejected: $reason"
+        .ManualReview(let reason) => "Review: $reason"
+        .Reject(let reason) => "Rejected: $reason"
     }
 
     return "Quote ${summary.Quote.Id} via ${summary.Quote.Carrier}: ${summary.Quote.TotalCents} cents ($decisionText)"
@@ -122,23 +122,23 @@ record class ShipmentRequest(
 )
 
 record class RatePlan(
-    val Carrier: string, 
-    val BaseCents: int, 
+    val Carrier: string,
+    val BaseCents: int,
     val PerKgCents: int
 )
 
 record class Quote(
-    val Id: string, 
-    val Carrier: string, 
-    val TotalCents: int, 
+    val Id: string,
+    val Carrier: string,
+    val TotalCents: int,
     val Note: string
 )
 
 record class QuoteSummary(
-    val Quote: Quote, 
+    val Quote: Quote,
     val Decision: Decision
 )
-    
+
 record class QuoteError(val Message: string)
 
 union Decision {

@@ -8,10 +8,10 @@ alias PrintLine = System.Console.WriteLine
 // Feature: advanced class members (factory, indexer, invoke, override).
 WriteLine("Hello")
 
-val user = Person(42)
+let user = Person(42)
 user.AddRole("admin")
 
-val user2 = Person.WithName("John")
+let user2 = Person.WithName("John")
     .AddRole("admin")
 
 user2.Test()
@@ -38,7 +38,7 @@ class Person {
 
     /// Named constructor
     static func WithName(name: string) -> Person {
-        val person = Person(20)
+        let person = Person(20)
         person.name = name
         person
     }

@@ -5,16 +5,16 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Diagnostics;
 
-public sealed class VarCanBeValCodeFixProvider : CodeFixProvider
+public sealed class VarCanBeLetCodeFixProvider : CodeFixProvider
 {
-    private static readonly ImmutableArray<string> FixableIds = [VarCanBeValAnalyzer.DiagnosticId];
+    private static readonly ImmutableArray<string> FixableIds = [VarCanBeLetAnalyzer.DiagnosticId];
 
     public override IEnumerable<string> FixableDiagnosticIds => FixableIds;
 
     public override void RegisterCodeFixes(CodeFixContext context)
     {
         var diagnostic = context.Diagnostic;
-        if (!string.Equals(diagnostic.Id, VarCanBeValAnalyzer.DiagnosticId, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(diagnostic.Id, VarCanBeLetAnalyzer.DiagnosticId, StringComparison.OrdinalIgnoreCase))
             return;
 
         if (!diagnostic.Location.IsInSource)
@@ -35,10 +35,10 @@ public sealed class VarCanBeValCodeFixProvider : CodeFixProvider
         if (!declaration.BindingKeyword.IsKind(SyntaxKind.VarKeyword))
             return;
 
-        var change = new TextChange(declaration.BindingKeyword.Span, "val");
+        var change = new TextChange(declaration.BindingKeyword.Span, "let");
         context.RegisterCodeFix(
             CodeAction.CreateTextChange(
-                "Replace 'var' with 'val'",
+                "Replace 'var' with 'let'",
                 context.Document.Id,
                 change));
     }

@@ -4,17 +4,17 @@ import System.Linq.*
 
 // Feature: Option (`Some`/`None`) with match-based control flow.
 func Main() -> Result<(), CustomError> {
-    val persons = [
+    let persons = [
         Person("Jane", "Doe", 1978)
         Person("Alice", string.Empty, 1986)
         Person("Bob", "Smith", 1968)
         Person("Marina", "S", 1990)
     ]
 
-    val current = persons.FirstOrNone(p => p.YearOfBirth is 1980..1990)
+    let current = persons.FirstOrNone(p => p.YearOfBirth is 1980..1990)
 
     match current {
-        Some(val p) => WriteLine(p)
+        Some(let p) => WriteLine(p)
         None => return Error(CustomError("No match"))
     }
 
@@ -22,8 +22,8 @@ func Main() -> Result<(), CustomError> {
 }
 
 record Person(
-    val FirstName: string, 
-    val LastName: string, 
+    val FirstName: string,
+    val LastName: string,
     val YearOfBirth: int
 )
 

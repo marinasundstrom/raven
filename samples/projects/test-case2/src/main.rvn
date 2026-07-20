@@ -11,7 +11,7 @@ var people: ImmutableList<Person> = [
 
 people = people.Add(.("Test", 30, ["A", "B"]))
 
-for val (name, age when > 15, [ item1, item2 ]) in people {
+for let (name, age when > 15, [ item1, item2 ]) in people {
     WriteLine("$name ($age) has $item1 and $item2")
 }
 

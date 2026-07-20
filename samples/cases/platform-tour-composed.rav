@@ -8,7 +8,7 @@ import System.Threading.Tasks.*
 func ParseId(text: string) -> Result<int, string> {
     // `try` converts thrown exceptions into Result<T, Exception>.
     return try int.Parse(text) match {
-        Ok(val value) => Ok(value)
+        Ok(let value) => Ok(value)
         Error(FormatException text) => Error("Not a valid integer: '$text'")
         Error(Exception ex) => Error("Parse failed: ${ex.Message}")
     }
@@ -29,31 +29,31 @@ async func DownloadText(url: string) -> Task<Result<string, ApiError>> {
 
     // Interop with .NET exception model, but return as data in Raven.
     return try await http.GetStringAsync(url) match {
-        Ok(val text) => Ok(text)
+        Ok(let text) => Ok(text)
         Error(Exception ex) => Error(ApiError.Network(ex))
     }
 }
 
 /// Lambdas are closures (captures locals).
 async func Main() -> Task {
-    val logger: Logger = ConsoleLogger()
+    let logger: Logger = ConsoleLogger()
 
     // Event subscription (delegate interop) + lambda.
     (logger as ConsoleLogger)?.Logged += (msg: string) => {
         // expression block
-        val stamp = DateTime.UtcNow
+        let stamp = DateTime.UtcNow
         WriteLine("  [logged at $stamp]")
     }
 
     logger.Log("== Raven intro tour ==")
 
     // Arrays + collection expression + spread.
-    val baseUsers = [
+    let baseUsers = [
         User(1, "Ada", "ada@example.com"),
         User(2, "Bo", null), // nullability is on by default (`string?`)
     ]
-    val moreUsers = [User(3, "Cy", "cy@example.com")]
-    val users: User[] = [...baseUsers, ...moreUsers] // target-typed to array
+    let moreUsers = [User(3, "Cy", "cy@example.com")]
+    let users: User[] = [...baseUsers, ...moreUsers] // target-typed to array
 
     logger.Log("Users:")
     for u in users {
@@ -62,8 +62,8 @@ async func Main() -> Task {
 
     // Nullability + interop example:
     // Prefer Option in Raven code, but sometimes you need `T?` for .NET APIs.
-    val maybeName: Option<string> = Some("Raven")
-    val nameForDotNet: string? = maybeName // implicit Option<T> -> T?
+    let maybeName: Option<string> = Some("Raven")
+    let nameForDotNet: string? = maybeName // implicit Option<T> -> T?
 
     // A small local function (hoisted), and local funcs aren’t closures.
     func decorate(s: string) -> string => ">> $s <<"
@@ -71,29 +71,29 @@ async func Main() -> Task {
     logger.Log(decorate("Option -> nullable interop: " + (nameForDotNet ?? "(null)")))
 
     // Result/Option + pattern matching.
-    val input = "2"
-    val id = match ParseId(input) {
-        Ok(val value) => value
-        Error(val err) => {
+    let input = "2"
+    let id = match ParseId(input) {
+        Ok(let value) => value
+        Error(let err) => {
             logger.Log("Bad input: $err")
             -1
         }
     }
 
-    val label = match FindUserName(users, id) {
-        Some(val n) => "Found user name: $n"
+    let label = match FindUserName(users, id) {
+        Some(let n) => "Found user name: $n"
         None => "No user with id $id"
     }
     logger.Log(label)
 
     // Pattern matching over union, including typed catch patterns.
-    val url = "https://example.com"
-    val downloaded = await DownloadText(url)
+    let url = "https://example.com"
+    let downloaded = await DownloadText(url)
 
-    val summary = match downloaded {
-        Ok(val text) => "Downloaded ${text.Length} chars from $url"
-        Error(.NotFound(val missingId)) => "Not found: $missingId"
-        Error(.Invalid(val message)) => "Invalid: $message"
+    let summary = match downloaded {
+        Ok(let text) => "Downloaded ${text.Length} chars from $url"
+        Error(.NotFound(let missingId)) => "Not found: $missingId"
+        Error(.Invalid(let message)) => "Invalid: $message"
         Error(.Network(Exception ex)) => "Network error: ${ex.Message}"
         Error(_) => "None"
     }

@@ -9,8 +9,8 @@ public static class BuiltInCodeFixProviders
         return
         [
             new MissingReturnTypeAnnotationCodeFixProvider(),
-            new PreferValInsteadOfLetCodeFixProvider(),
-            new VarCanBeValCodeFixProvider(),
+            new PreferLetInsteadOfValCodeFixProvider(),
+            new VarCanBeLetCodeFixProvider(),
             new MemberCanBePrivateCodeFixProvider(),
             new MemberCanBeStaticCodeFixProvider(),
             new UnusedPropertyCodeFixProvider(),

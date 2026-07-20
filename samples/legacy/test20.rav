@@ -1,6 +1,6 @@
 // Test file: Fallback parsing
 
-val x = true
-if x { 
+let x = true
+if x {
    System.Console.WriteLine("Hello")
 33 }

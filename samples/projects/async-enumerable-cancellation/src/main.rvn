@@ -18,7 +18,7 @@ class Sample {
     }
 
     static async func Run() -> Task {
-        val cts = CancellationTokenSource()
+        let cts = CancellationTokenSource()
         cts.CancelAfter(700)
 
         await for value in Count(cts.Token) {

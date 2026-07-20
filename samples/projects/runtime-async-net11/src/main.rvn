@@ -11,7 +11,7 @@ async func ComputeValueTask(x: int) -> Task<int> {
 
 async func Main() -> Task {
     await Task.Delay(1).ConfigureAwait(false)
-    val taskValue = await ComputeTask(21)
-    val valueTaskValue = await ComputeValueTask(taskValue)
+    let taskValue = await ComputeTask(21)
+    let valueTaskValue = await ComputeValueTask(taskValue)
     Console.WriteLine("Runtime async sample: ${valueTaskValue}")
 }

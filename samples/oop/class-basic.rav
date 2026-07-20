@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 
 // Feature: basic class with constructor, method, and property.
-val customer = Customer("Acme")
+let customer = Customer("Acme")
 customer.AddOrder(2)
 
 WriteLine("${customer.Name} orders: ${customer.OrderCount}")

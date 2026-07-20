@@ -2,17 +2,17 @@ import System.Console.*
 import System.Collections.Generic.*
 
 // Feature: extension methods and extension properties.
-val items = List<int>()
+let items = List<int>()
 items.Add(1)
 items.Add(2)
-val count = items.CountItems()
-val sum = items.SumNumbers()
+let count = items.CountItems()
+let sum = items.SumNumbers()
 
 WriteLine("Count: $count");
 WriteLine("Sum: $sum");
 
 items.CountPlusOne = 5
-val value = items.CountPlusOne
+let value = items.CountPlusOne
 
 WriteLine("Value: $value");
 

@@ -2,14 +2,14 @@ import System.Console.*
 import System.Linq.*
 
 // Feature: range patterns in filtering and match expressions.
-val persons = [
+let persons = [
     Person("Jane", "Doe", 1978)
     Person("Alice", string.Empty, 1986)
     Person("Bob", "Smith", 1968)
     Person("Marina", "S", 1990)
 ]
 
-val campaignGroup = persons.Where(p => p.YearOfBirth is 1980..1990)
+let campaignGroup = persons.Where(p => p.YearOfBirth is 1980..1990)
 
 for p in campaignGroup {
     WriteLine(p)

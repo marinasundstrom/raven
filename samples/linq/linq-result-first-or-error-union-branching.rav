@@ -4,11 +4,11 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 // Feature: branch-unified error union with LINQ `FirstOrError`.
-val pendingShipments = [101, 202, 303]
+let pendingShipments = [101, 202, 303]
 
-val useStandardFallback = true
+let useStandardFallback = true
 
-val selected =
+let selected =
     if useStandardFallback
         pendingShipments.FirstOrError(() => DomainError.NotFound())
     else

@@ -1,9 +1,9 @@
 import System.*
 
 // Feature: basic discriminated union declaration and matching.
-val first = Token.Identifier("alpha")
-val second : Token = .Number(42)
-val third = Token.Unknown
+let first = Token.Identifier("alpha")
+let second : Token = .Number(42)
+let third = Token.Unknown
 
 Console.WriteLine(first)
 Console.WriteLine(second)
@@ -15,8 +15,8 @@ Console.WriteLine(describe(third))
 
 func describe(token: Token) -> string {
     match token {
-        .Identifier(val text) => "identifier '$text'"
-        .Number(val value) => "number $value"
+        .Identifier(let text) => "identifier '$text'"
+        .Number(let value) => "number $value"
         .Unknown => "unknown token"
     }
 }

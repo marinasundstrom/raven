@@ -2,13 +2,13 @@ import System.Console.*
 
 // Feature: fixed-size and rest sequence segment patterns for arrays and strings.
 
-val values: int[] = [2, 3, 4]
-val [..2 start, last] = values
+let values: int[] = [2, 3, 4]
+let [..2 start, last] = values
 
-val text = "rune"
+let text = "rune"
 
-val label = match text {
-    [val first, ..2 val middle, val lastChar] => first.ToString() + "-" + middle + "-" + lastChar.ToString()
+let label = match text {
+    [let first, ..2 let middle, let lastChar] => first.ToString() + "-" + middle + "-" + lastChar.ToString()
     _ => "no-match"
 }
 

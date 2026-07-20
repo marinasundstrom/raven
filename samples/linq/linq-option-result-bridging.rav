@@ -3,14 +3,14 @@ import System.Linq.*
 import System.Collections.Generic.*
 
 // Feature: bridging LINQ `FirstOrNone` and `FirstOrError`.
-val shipmentWeights = [1, 2, 3]
+let shipmentWeights = [1, 2, 3]
 
-val firstOrNone = shipmentWeights.FirstOrNone(x => x > 2)
+let firstOrNone = shipmentWeights.FirstOrNone(x => x > 2)
 
 Console.WriteLine(firstOrNone)
 
-val result = match firstOrNone {
-    Some(val v) => "Value is: $v"
+let result = match firstOrNone {
+    Some(let v) => "Value is: $v"
     None => "No value"
 }
 
@@ -19,9 +19,9 @@ Console.WriteLine(result)
 Console.WriteLine(test([]))
 
 func test(items: IEnumerable<int>) -> Result<int, DomainError>
-    val first = items.FirstOrError(() => DomainError("Wow"))?
+    let first = items.FirstOrError(() => DomainError("Wow"))?
     // Computation
-    val result = first * 2
+    let result = first * 2
     return Ok(result)
 }
 

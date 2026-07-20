@@ -166,28 +166,32 @@ reader hunt for the target type.
 
 ## Bindings and mutability
 
-- `val` is immutable.
-- `var` is mutable.
+- `let` introduces an immutable lexical binding.
+- `var` introduces a mutable lexical binding.
+- `val` and `var` describe read-only and writable properties and signature-like
+  declarations.
 
 ```raven
-val name = "Raven"
+let name = "Raven"
 var count = 0
 count = count + 1
 
-val a = 1, b = 2
+let a = 1, b = 2
 var left = 10, right = 20
 ```
 
-Raven also accepts `let` as an alternative spelling for an immutable binding.
-The language's standard style and generated examples use `val`, preserving the
-Kotlin-like `val`/`var` contrast while following the F#-influenced principle of
-immutable bindings by default. Choosing `let` does not produce a diagnostic
-unless a project explicitly enables the optional `PreferValInsteadOfLetAnalyzer`
-style policy.
+Raven also accepts `val` as an alternative spelling for an immutable lexical
+binding. The language's standard style and generated examples use `let`, giving
+lexical code the familiar `let`/`var` pairing while reserving the `val`/`var`
+pairing for properties and signatures. Choosing `val` for a local does not
+produce a diagnostic unless a project explicitly enables the optional
+`PreferLetInsteadOfValAnalyzer` style policy.
 
-`val` and `let` make the binding read-only; they do not make the referenced
-object deeply immutable. A `val` binding cannot be reassigned, but a mutable
-object reached through it may still change.
+`let` and `val` make the binding read-only; they do not make the referenced
+object deeply immutable. A read-only binding cannot be reassigned, but a
+mutable object reached through it may still change. Semantic tooling describes
+a local introduced with `let` as `val`, because `val` is the resulting binding's
+mutability rather than its lexical introduction syntax.
 
 ---
 
@@ -196,7 +200,7 @@ object reached through it may still change.
 `if` and `match` are commonly used in expression position, but Raven is not expression-only. Loops, disposal, mutation, and early returns remain ordinary statement forms when that keeps intent clearer.
 
 ```raven
-val label = match value {
+let label = match value {
     0 => "zero"
     _ => "non-zero"
 }
@@ -213,15 +217,15 @@ val message = if isAnonymous {
 Raven also leans heavily on patterns as a control-flow surface, not only as a `match` feature:
 
 ```raven
-if val Person(1, name, _) = person {
+if let Person(1, name, _) = person {
     WriteLine(name)
 }
 
-while val Some(item) = stream.Next() {
+while let Some(item) = stream.Next() {
     WriteLine(item)
 }
 
-for val [first, ...rest] in rows {
+for let [first, ...rest] in rows {
     WriteLine(first)
 }
 
@@ -241,15 +245,15 @@ val label = match input {
 
 The important rule is that pattern bindings stay explicit. In inline and freestanding
 patterns, a capture uses a binding keyword. When Raven offers an outer shorthand
-form such as `val (...) = expr`, `if val pattern = expr`,
-`while val pattern = expr`, `for val pattern in values`, or
+form such as `val (...) = expr`, `if let pattern = expr`,
+`while let pattern = expr`, `for let pattern in values`, or
 `match { val pattern => ... }`, that outer keyword supplies the binding mode for
 otherwise bare captures inside the pattern. Those implicit captures may still
 carry inline type annotations, as in `val (key: string, value: int) = entry`.
 
 There is also an important surface distinction:
 
-- `is`, `match`, `if val pattern = expr`, `while val pattern = expr`, and
+- `is`, `match`, `if let pattern = expr`, `while let pattern = expr`, and
   `for ... in` pattern targets use the general pattern language.
 - deconstruction assignment/declaration (`val (...) = expr`, `(...) = expr`,
   `val [...] = expr`, `[...] = expr`) use the deconstruction subset rather than
@@ -439,8 +443,8 @@ The same general pattern model works across:
 
 - `match`
 - `if value is pattern`
-- `if val pattern = expr`
-- `while val pattern = expr`
+- `if let pattern = expr`
+- `while let pattern = expr`
 - `for ... in` with pattern targets
 - deconstruction assignment and declaration
 
@@ -467,8 +471,8 @@ pattern-matching forms. They are designed for extraction, not for every kind of
 conditional match. That means Raven reuses one pattern model conceptually while
 still distinguishing between:
 
-- general matching surfaces such as `is`, `match`, `if val pattern = expr`,
-  `while val pattern = expr`, and `for val pattern in values`
+- general matching surfaces such as `is`, `match`, `if let pattern = expr`,
+  `while let pattern = expr`, and `for let pattern in values`
 - deconstruction surfaces such as `val (a, b) = expr` and `[head, ..tail] = values`
 
 When deconstruction uses a `Deconstruct` shape, Raven also supports named

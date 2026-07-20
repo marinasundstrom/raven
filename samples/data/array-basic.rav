@@ -5,14 +5,14 @@
 import System.*
 import System.Text.*
 
-val list = [|1, 42, 3|]
+let list = [|1, 42, 3|]
 
 Console.WriteLine(list.Length)
 
 var i = 0
 
 while i < list.Length {
-    val item = list[i]
+    let item = list[i]
     Console.WriteLine(item)
     i = i + 1
 }

@@ -5,7 +5,7 @@ import System.Text.Json.*
 import System.IO.*
 import System.Threading.Tasks.*
 
-val builder = WebAppBuilder()
+let builder = WebAppBuilder()
 builder.MapPost("/", async (arg: string) -> Task<HttpResult<()>> => {
     await Task.Delay(200)
     return .Created
@@ -24,7 +24,7 @@ class WebAppBuilder {
         routes.Add(path)
         WriteLine("Route ${routes.Count}: $path")
 
-        val invoke = d.Method
+        let invoke = d.Method
         WriteLine("${invoke.Name} -> ${invoke.ReturnType}")
         for param in invoke.GetParameters() {
             WriteLine("${param.Name}: ${param.ParameterType}")

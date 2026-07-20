@@ -10,8 +10,8 @@ func Main(args: string[]) -> Result<(), CustomError> {
         ))
     }
 
-    val name = args[0]
-    val greeting = BuildGreeting(name)?
+    let name = args[0]
+    let greeting = BuildGreeting(name)?
 
     Console.WriteLine(greeting)
     Ok

@@ -1,6 +1,6 @@
 import System.*
 
-val f: Action<int>? = null //(x) => Console.WriteLine("Test")
+let f: Action<int>? = null //(x) => Console.WriteLine("Test")
 
 f?.Invoke(2) // Report that 'f' might be null.
 

@@ -6,7 +6,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 class ObservableMacroPlugin : IRavenMacroPlugin {
     val Name: string => "SampleMacros.Observable"
 
-    func GetMacros() -> ImmutableArray<IMacroDefinition> 
+    func GetMacros() -> ImmutableArray<IMacroDefinition>
         => [ObservableMacro()]
 }
 
@@ -16,7 +16,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        val property = context.CurrentDeclaration as PropertyDeclarationSyntax
+        let property = context.CurrentDeclaration as PropertyDeclarationSyntax
         if property is null {
             return MacroExpansionResult.Empty
         }
@@ -32,10 +32,10 @@ class ObservableMacro : IAttachedDeclarationMacro {
             }
         }
 
-        val propertyName = property.Identifier.ValueText
-        val backingFieldName = "_${propertyName}"
-        val backingFieldMember = CreateBackingField(property, backingFieldName)
-        val replacement = CreateReplacementProperty(property, backingFieldName)
+        let propertyName = property.Identifier.ValueText
+        let backingFieldName = "_${propertyName}"
+        let backingFieldMember = CreateBackingField(property, backingFieldName)
+        let replacement = CreateReplacementProperty(property, backingFieldName)
 
         MacroExpansionResult with {
             ReplacementDeclaration = replacement
@@ -44,7 +44,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 
     func IsStorageProperty(property: PropertyDeclarationSyntax) -> bool {
-        val propertyText = property.ToFullString().Trim()
+        let propertyText = property.ToFullString().Trim()
         property.BindingKeyword.ValueText == "var"
             && !propertyText.Contains("{")
             && !propertyText.Contains("=>")

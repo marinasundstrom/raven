@@ -86,7 +86,7 @@ binder that owns that body. Examples:
 
 - `val x = 1` creates a local in the current `BlockBinder`
 - `val (key, value) = pair` creates pattern locals in the current `BlockBinder`
-- `if val (key, value) = pair { ... }` creates pattern locals owned by the
+- `if let (key, value) = pair { ... }` creates pattern locals owned by the
   current `BlockBinder`, scoped to the `IfPatternStatement`
 - `async func (...) { ... }` has parameters owned by the function-expression
   binder, while body locals are owned by that body binder
@@ -121,7 +121,7 @@ Pattern declarations have two related but different owners:
   local
 - the lexical scope owner is the syntax that controls where the local is visible
 
-For `if val pattern = value`, both are the `IfPatternStatement`. For
+For `if let pattern = value`, both are the `IfPatternStatement`. For
 `val pattern = value`, the binding owner is the pattern declaration assignment
 statement, while the lexical scope owner is the containing block.
 

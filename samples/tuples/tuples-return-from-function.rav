@@ -1,7 +1,7 @@
 import System.*
 
 // Feature: returning named tuple values from functions.
-val person = getPerson(name: "Bob", age: 40)
+let person = getPerson(name: "Bob", age: 40)
 
 Console.WriteLine("${person.name}")
 

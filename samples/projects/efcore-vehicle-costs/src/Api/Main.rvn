@@ -10,7 +10,7 @@ import Microsoft.EntityFrameworkCore.*
 import Microsoft.Extensions.DependencyInjection.*
 
 async func Main(args: string[]) -> Task {
-    val builder = WebApplication.CreateBuilder(args)
+    let builder = WebApplication.CreateBuilder(args)
     builder.Services.AddEndpointsApiExplorer()
     builder.Services.AddOpenApi()
     builder.Services.AddDbContext<VehicleDbContext>(func (options: DbContextOptionsBuilder) {
@@ -27,7 +27,7 @@ async func Main(args: string[]) -> Task {
     app.MapGet("/", func () => Results.Redirect("/openapi/v1.json"))
 
     app.MapGet("/vehicles", async func (context: VehicleDbContext, cancellationToken: CancellationToken) {
-        val vehicles = await context.Vehicles
+        let vehicles = await context.Vehicles
             .Include(vehicle => vehicle.FuelConsumptions)
             .OrderBy(vehicle => vehicle.RegistrationNumber)
             .ToListAsync(cancellationToken)
@@ -36,7 +36,7 @@ async func Main(args: string[]) -> Task {
     })
 
     app.MapGet("/vehicles/{id:guid}", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
-        val vehicle = await context.Vehicles
+        let vehicle = await context.Vehicles
             .Include(candidate => candidate.FuelConsumptions)
             .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
 
@@ -48,7 +48,7 @@ async func Main(args: string[]) -> Task {
     })
 
     app.MapGet("/vehicles/by-status/{kind}", async func (kind: string, context: VehicleDbContext, cancellationToken: CancellationToken) {
-        val vehicles = await context.Vehicles
+        let vehicles = await context.Vehicles
             .Include(vehicle => vehicle.FuelConsumptions)
             .ToListAsync(cancellationToken)
 
@@ -60,7 +60,7 @@ async func Main(args: string[]) -> Task {
     })
 
     app.MapGet("/vehicles/{id:guid}/cost-prediction", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
-        val vehicle = await context.Vehicles
+        let vehicle = await context.Vehicles
             .Include(candidate => candidate.FuelConsumptions)
             .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
 
@@ -72,7 +72,7 @@ async func Main(args: string[]) -> Task {
     })
 
     app.MapPost("/vehicles", async func (request: CreateVehicleRequest, context: VehicleDbContext, cancellationToken: CancellationToken) {
-        val vehicle = VehicleEntity()
+        let vehicle = VehicleEntity()
         vehicle.RegistrationNumber = request.RegistrationNumber.Trim().ToUpperInvariant()
         vehicle.Model = request.Model.Trim()
         vehicle.FuelType = request.FuelType
@@ -90,7 +90,7 @@ async func Main(args: string[]) -> Task {
         request: AddFuelConsumptionRequest,
         context: VehicleDbContext,
         cancellationToken: CancellationToken) {
-        val vehicle = await context.Vehicles
+        let vehicle = await context.Vehicles
             .Include(candidate => candidate.FuelConsumptions)
             .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
 
@@ -98,7 +98,7 @@ async func Main(args: string[]) -> Task {
             return Results.NotFound()
         }
 
-        val entry = FuelConsumptionRecord()
+        let entry = FuelConsumptionRecord()
         entry.VehicleId = vehicle.Id
         entry.RecordedAtUtc = request.RecordedAtUtc
         entry.DistanceDrivenKm = request.DistanceDrivenKm

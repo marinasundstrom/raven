@@ -2,15 +2,15 @@ import System.*
 import System.Console.*
 
 // Feature: `Result` propagation with `?`.
-val x = match test() {
-    Ok(val y) => "Foo: $y"
-    Error(val exc) => "Error: ${exc.Message}"
+let x = match test() {
+    Ok(let y) => "Foo: $y"
+    Error(let exc) => "Error: ${exc.Message}"
 }
 
 WriteLine(x)
 
 func test() -> Result<int, Exception> {
-    val r = test2(4)?
+    let r = test2(4)?
     WriteLine(r)
     return Ok(r + 1)
 }

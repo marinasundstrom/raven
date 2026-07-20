@@ -1,8 +1,8 @@
 import System.*
 import System.Console.*
 
-val customer = Customer("Acme", 20)
-val customer2 = Customer("Marina")
+let customer = Customer("Acme", 20)
+let customer2 = Customer("Marina")
 
 PrintCustomer(customer)
 PrintCustomer(customer2)

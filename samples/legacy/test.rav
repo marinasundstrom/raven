@@ -3,7 +3,7 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 async func Main() -> Task {
-    val x = await Test(2)
+    let x = await Test(2)
     WriteLine("Result is: $x")
 }
 

@@ -8,7 +8,7 @@ async func Main() -> Task {
     WriteLine("== Cedar Grove Greenhouse Monitor ==")
     WriteLine("")
 
-    val telemetry: ITelemetrySource = SimulatedTelemetrySource()
+    let telemetry: ITelemetrySource = SimulatedTelemetrySource()
     var pollNumber = 0
 
     await for result in telemetry.Poll(CancellationToken.None) {
@@ -16,11 +16,11 @@ async func Main() -> Task {
         WriteLine("Poll #${pollNumber}")
 
         match result {
-            Ok(val readings) => {
+            Ok(let readings) => {
                 PrintReadings(readings)
                 PrintReport(BuildReport(readings))
             }
-            Error(val error) => PrintError(error)
+            Error(let error) => PrintError(error)
         }
 
         WriteLine()
@@ -30,7 +30,7 @@ async func Main() -> Task {
 func BuildReport(readings: SensorReading[]) -> GreenhouseReport {
     var totalTemperature = .0
     var totalHumidity = .0
-    val notices = List<string>()
+    let notices = List<string>()
 
     for reading in readings {
         totalTemperature = totalTemperature + reading.TemperatureCelsius
@@ -38,15 +38,15 @@ func BuildReport(readings: SensorReading[]) -> GreenhouseReport {
 
         match EvaluateZone(reading) {
             .Healthy => ()
-            .Attention(val reason) => notices.Add("${reading.Zone}: ${reason}")
-            .Critical(val reason) => notices.Add("${reading.Zone}: CRITICAL - ${reason}")
+            .Attention(let reason) => notices.Add("${reading.Zone}: ${reason}")
+            .Critical(let reason) => notices.Add("${reading.Zone}: CRITICAL - ${reason}")
         }
     }
 
-    val count = readings.Length
-    val averageTemperature = totalTemperature / count
-    val averageHumidity = totalHumidity / count
-    val status: GreenhouseStatus = if notices.Count == 0 {
+    let count = readings.Length
+    let averageTemperature = totalTemperature / count
+    let averageHumidity = totalHumidity / count
+    let status: GreenhouseStatus = if notices.Count == 0 {
         .OperatingNormally
     } else {
         .NeedsAttention(notices.ToArray())
@@ -83,16 +83,16 @@ func EvaluateZone(reading: SensorReading) -> ZoneHealth {
 func PrintReadings(readings: SensorReading[]) {
     WriteLine("Latest zone readings")
     for reading in readings {
-        val temperature = reading.TemperatureCelsius.ToString("0.0")
-        val humidity = reading.HumidityPercent.ToString("0.0")
+        let temperature = reading.TemperatureCelsius.ToString("0.0")
+        let humidity = reading.HumidityPercent.ToString("0.0")
         WriteLine("- ${reading.Zone}: ${temperature} C, ${humidity}% humidity, ${reading.CarbonDioxidePpm} ppm CO2")
     }
     WriteLine("")
 }
 
 func PrintReport(report: GreenhouseReport) {
-    val averageTemperature = report.AverageTemperatureCelsius.ToString("0.0")
-    val averageHumidity = report.AverageHumidityPercent.ToString("0.0")
+    let averageTemperature = report.AverageTemperatureCelsius.ToString("0.0")
+    let averageHumidity = report.AverageHumidityPercent.ToString("0.0")
 
     WriteLine("Greenhouse summary")
     WriteLine("- Zones online: ${report.ZonesOnline}")
@@ -101,7 +101,7 @@ func PrintReport(report: GreenhouseReport) {
 
     match report.Status {
         .OperatingNormally => WriteLine("- Status: all zones are within their growing targets")
-        .NeedsAttention(val notices) => {
+        .NeedsAttention(let notices) => {
             WriteLine("- Status: operator attention required")
             for notice in notices {
                 WriteLine("  * ${notice}")
@@ -113,7 +113,7 @@ func PrintReport(report: GreenhouseReport) {
 func PrintError(error: TelemetryError) {
     match error {
         .NoReadings => WriteLine("Monitor unavailable: no sensor readings were received.")
-        .InvalidReading(val zone, val reason) => WriteLine("Monitor unavailable: invalid reading for ${zone}: ${reason}")
+        .InvalidReading(let zone, let reason) => WriteLine("Monitor unavailable: invalid reading for ${zone}: ${reason}")
     }
 }
 

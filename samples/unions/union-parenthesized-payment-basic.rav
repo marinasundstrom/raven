@@ -6,9 +6,9 @@ PrintPaymentSource(Cash(42.0m))
 func PrintPaymentSource(value: Payment) {
     WriteLine(value)
 
-    val description = match value {
-        Cash(val amount) => "cash $amount"
-        Card(val reference) => "card $reference"
+    let description = match value {
+        Cash(let amount) => "cash $amount"
+        Card(let reference) => "card $reference"
     }
 
     WriteLine(description)

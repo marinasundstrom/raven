@@ -4,7 +4,7 @@ import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
 // Feature: sealed record hierarchy with JSON polymorphism metadata.
-val expr: Expr = Add(Lit(40), Sub(Lit(3), Lit(1)))
+let expr: Expr = Add(Lit(40), Sub(Lit(3), Lit(1)))
 
 WriteLine(JsonSerializer.Serialize(expr, JsonSerializerOptions with {
     WriteIndented = true
@@ -14,11 +14,11 @@ Evaluate(expr) |> WriteLine
 
 func Evaluate(expr: Expr) -> int {
     match expr {
-        Lit(val value) => value
-        Add(val left, val right) => Evaluate(left) + Evaluate(right)
-        Sub(val left, val right) => Evaluate(left) - Evaluate(right)
-        Mul(val left, val right) => Evaluate(left) * Evaluate(right)
-        Div(val left, val right) => Evaluate(left) / Evaluate(right)
+        Lit(let value) => value
+        Add(let left, let right) => Evaluate(left) + Evaluate(right)
+        Sub(let left, let right) => Evaluate(left) - Evaluate(right)
+        Mul(let left, let right) => Evaluate(left) * Evaluate(right)
+        Div(let left, let right) => Evaluate(left) / Evaluate(right)
     }
 }
 

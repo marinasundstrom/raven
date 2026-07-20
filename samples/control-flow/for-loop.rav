@@ -1,7 +1,7 @@
 import System.Console.*
 
 // Feature: `for` loop over a collection.
-val orders = [
+let orders = [
     Order(1001, 120)
     Order(1002, 80)
     Order(1003, 45)
@@ -9,7 +9,7 @@ val orders = [
 ]
 var totalPending = 0
 
-for val (id, amount when > 100) in orders {
+for let (id, amount when > 100) in orders {
     totalPending = totalPending + amount
     WriteLine("Queued order $id amount: $amount")
 }
@@ -17,6 +17,6 @@ for val (id, amount when > 100) in orders {
 WriteLine("Total pending amount: $totalPending")
 
 record Order(
-    val Id: int, 
+    val Id: int,
     val Amount: int
 )

@@ -39,11 +39,11 @@ class SimulatedTelemetrySource : ITelemetrySource {
 
 func ValidateSnapshot(received: SensorReading[]) -> Result<SensorReading[], TelemetryError> {
     if received.Length == 0 {
-        val error: TelemetryError = .NoReadings
+        let error: TelemetryError = .NoReadings
         return Error(error)
     }
 
-    val validated = List<SensorReading>()
+    let validated = List<SensorReading>()
     for reading in received {
         validated.Add(ValidateReading(reading)?)
     }
@@ -53,17 +53,17 @@ func ValidateSnapshot(received: SensorReading[]) -> Result<SensorReading[], Tele
 
 func ValidateReading(reading: SensorReading) -> Result<SensorReading, TelemetryError> {
     if reading.Zone.Trim().Length == 0 {
-        val error: TelemetryError = .InvalidReading("unknown", "zone name is required")
+        let error: TelemetryError = .InvalidReading("unknown", "zone name is required")
         return Error(error)
     }
 
     if 0.0 > reading.HumidityPercent || reading.HumidityPercent > 100.0 {
-        val error: TelemetryError = .InvalidReading(reading.Zone, "humidity must be between 0 and 100 percent")
+        let error: TelemetryError = .InvalidReading(reading.Zone, "humidity must be between 0 and 100 percent")
         return Error(error)
     }
 
     if 0 > reading.CarbonDioxidePpm {
-        val error: TelemetryError = .InvalidReading(reading.Zone, "CO2 cannot be negative")
+        let error: TelemetryError = .InvalidReading(reading.Zone, "CO2 cannot be negative")
         return Error(error)
     }
 

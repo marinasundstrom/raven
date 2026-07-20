@@ -3,11 +3,11 @@ import System.Console.*
 import System.Net.Http.*
 import System.Threading.Tasks.*
 
-val res4_2 = await test4(throwExc: false)
+let res4_2 = await test4(throwExc: false)
 WriteLine(res4_2)
 
 async func test4(throwExc: bool) -> Task<Result<int, Exception>> {
-    val x = try? await action2(throwExc)
+    let x = try? await action2(throwExc)
     WriteLine(x)
     return Ok(x + 2)
 }

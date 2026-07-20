@@ -3,19 +3,19 @@ using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis.Diagnostics;
 
 /// <summary>
-/// Reports when the 'let' keyword is used instead of 'val'
+/// Reports when the 'val' keyword is used for an immutable lexical binding instead of 'let'.
 /// </summary>
-public sealed class PreferValInsteadOfLetAnalyzer : DiagnosticAnalyzer
+public sealed class PreferLetInsteadOfValAnalyzer : DiagnosticAnalyzer
 {
-    public const string PreferValInsteadOfLetDiagnosticId = "RAV9009";
+    public const string PreferLetInsteadOfValDiagnosticId = "RAV9035";
 
-    private static readonly DiagnosticDescriptor PreferValInsteadOfLetDescriptor = DiagnosticDescriptor.Create(
-        id: PreferValInsteadOfLetDiagnosticId,
-        title: "Prefer binding keyword 'val' instead of 'let'",
+    private static readonly DiagnosticDescriptor PreferLetInsteadOfValDescriptor = DiagnosticDescriptor.Create(
+        id: PreferLetInsteadOfValDiagnosticId,
+        title: "Prefer binding keyword 'let' instead of 'val'",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Prefer 'val' here.",
-        category: "Match",
+        messageFormat: "Prefer 'let' for an immutable lexical binding.",
+        category: "Style",
         defaultSeverity: DiagnosticSeverity.Info);
 
     public override void Initialize(AnalysisContext context)
@@ -29,11 +29,10 @@ public sealed class PreferValInsteadOfLetAnalyzer : DiagnosticAnalyzer
             return;
 
         var bindingKeyword = variableDeclarationSyntax.BindingKeyword;
-        if (!bindingKeyword.IsKind(SyntaxKind.LetKeyword))
+        if (!bindingKeyword.IsKind(SyntaxKind.ValKeyword))
             return;
 
-        var location = bindingKeyword.GetLocation();
-        var diagnostic = Diagnostic.Create(PreferValInsteadOfLetDescriptor, location);
+        var diagnostic = Diagnostic.Create(PreferLetInsteadOfValDescriptor, bindingKeyword.GetLocation());
         context.ReportDiagnostic(diagnostic);
     }
 }

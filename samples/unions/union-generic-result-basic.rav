@@ -1,8 +1,8 @@
 import System.*
 
 // Feature: generic discriminated union (`Result<TSuccess, TError>`).
-val ok : Result<int, string> = .Ok(99)
-val err = Result<int, string>.Error("boom")
+let ok : Result<int, string> = .Ok(99)
+let err = Result<int, string>.Error("boom")
 
 Console.WriteLine(ok)
 Console.WriteLine(err)
@@ -14,7 +14,7 @@ Console.WriteLine(format(Ok(42)))
 
 func format(result: Result<int, string>) -> string {
     match result {
-        Ok(val value) => "ok $value"
-        Error(val message) => "error '$message'"
+        Ok(let value) => "ok $value"
+        Error(let message) => "error '$message'"
     }
 }

@@ -1,22 +1,22 @@
 import System.Console.*
 
 func Main() -> () {
-    val value = Run()
+    let value = Run()
     WriteLine(value)
 
-    val value2 = Run2()
+    let value2 = Run2()
     WriteLine(value2)
 }
 
 unsafe func Run() -> int {
-    val holder = Holder()
-    val pointer: *Holder = &holder
+    let holder = Holder()
+    let pointer: *Holder = &holder
     return pointer->Value
 }
 
 unsafe func Run2() -> int {
-    val value = 41
-    val pointer: *int = &value
+    let value = 41
+    let pointer: *int = &value
     *pointer = 42
     return value
 }

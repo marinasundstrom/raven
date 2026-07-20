@@ -1,10 +1,10 @@
 import System.*
 import System.Console.*
 
-val x = int.Hello()
+let x = int.Hello()
 WriteLine(x)
 
-val z = int.Value
+let z = int.Value
 WriteLine(z)
 
 extension for int {

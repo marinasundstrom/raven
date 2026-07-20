@@ -2,7 +2,7 @@ import System.*
 
 // Feature: basic try/catch statement.
 try {
-    val i = int.Parse("ff")
+    let i = int.Parse("ff")
 } catch (FormatException exc) {
     Console.WriteLine("Foo")
 }

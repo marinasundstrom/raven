@@ -1,7 +1,7 @@
 import System.Console.*
 import System.Text.Json.*
 
-val person = Person("Alice", 42)
+let person = Person("Alice", 42)
 
 WriteLine(JsonSerializer.Serialize(person, JsonSerializerOptions with {
     WriteIndented = true

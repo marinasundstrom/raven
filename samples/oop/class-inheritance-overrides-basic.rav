@@ -1,11 +1,11 @@
 import System.Console.*
 
 // Feature: virtual/abstract members with overrides.
-val test = Derived(42)
+let test = Derived(42)
 test.Foo()
 test.Bar(2)
 
-val test2 = Derived2("Test")
+let test2 = Derived2("Test")
 test2.Foo()
 test2.Bar(3)
 

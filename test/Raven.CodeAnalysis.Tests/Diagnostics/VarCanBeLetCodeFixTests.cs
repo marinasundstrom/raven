@@ -3,18 +3,18 @@ using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
-public class VarCanBeValCodeFixTests : CodeFixTestBase
+public class VarCanBeLetCodeFixTests : CodeFixTestBase
 {
     [Fact]
     public void AppliesCodeFix_RewritesBindingKeyword()
     {
         var code = "var count = 0";
-        var fixedCode = "val count = 0";
+        var fixedCode = "let count = 0";
 
-        var verifier = CreateCodeFixVerifier<VarCanBeValAnalyzer, VarCanBeValCodeFixProvider>(
+        var verifier = CreateCodeFixVerifier<VarCanBeLetAnalyzer, VarCanBeLetCodeFixProvider>(
             code,
             fixedCode,
-            [new DiagnosticResult(VarCanBeValAnalyzer.DiagnosticId).WithAnySpan()]);
+            [new DiagnosticResult(VarCanBeLetAnalyzer.DiagnosticId).WithAnySpan()]);
 
         verifier.Verify();
     }

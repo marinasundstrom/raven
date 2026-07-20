@@ -5,38 +5,38 @@ import Raven.CodeAnalysis.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-val value = 42
+let value = 42
 
-val code = """
+let code = """
     val x = $value
     """
 
-val syntaxTree = SyntaxTree.ParseText(code)
+let syntaxTree = SyntaxTree.ParseText(code)
 
-val root = syntaxTree.GetRoot()
+let root = syntaxTree.GetRoot()
 
-val result = root.DescendantNodes()
+let result = root.DescendantNodes()
     .OfType<VariableDeclaratorSyntax>()
     .FirstOrNone()
 
-if result is Some(val variableDeclarator) {
-    val newIdentifier = Identifier("foo") with {
+if result is Some(let variableDeclarator) {
+    let newIdentifier = Identifier("foo") with {
         LeadingTrivia = variableDeclarator.Identifier.LeadingTrivia
         TrailingTrivia = variableDeclarator.Identifier.TrailingTrivia
     }
 
-    val newVariableDeclarator = variableDeclarator with {
+    let newVariableDeclarator = variableDeclarator with {
         Identifier = newIdentifier
     }
 
     // Create a new root in which variableDeclarator has been replaced by newVariableDeclarator
-    val newRoot = root
+    let newRoot = root
         .ReplaceNode(variableDeclarator, newVariableDeclarator)
 
     WriteLine(newRoot)
 
     // Wrap the root in a syntax tree
-    val newTree = SyntaxTree.Create(newRoot)
+    let newTree = SyntaxTree.Create(newRoot)
 
     PrintTree(newTree.GetRoot())
 }

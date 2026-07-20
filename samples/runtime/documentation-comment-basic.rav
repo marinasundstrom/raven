@@ -7,7 +7,7 @@ Foo()
 /// The returned value **is not required** to be stable across different program executions.
 ///
 /// - If two objects are considered equal according to <see cref="Equals(object)"/>,
-/// they **must return the 
+/// they **must return the
 ///
 /// - If two objects are not equal according to <see cref="Equals(object)"/>,
 /// they are **not required** to return different hash codes.
@@ -25,5 +25,5 @@ Foo()
 /// <seealso cref="Equals(object)"/>
 /// <seealso cref="System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(object)"/>
 func Foo() {
-    //val x = 
+    //val x =
 }

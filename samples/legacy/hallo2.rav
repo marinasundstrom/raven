@@ -5,6 +5,6 @@ func test(x: int -> int) -> int {
 }
 
 func Main() {
-    val r = test((x) => x + 22)
+    let r = test((x) => x + 22)
     WriteLine(r)
 }

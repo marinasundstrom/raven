@@ -1,6 +1,6 @@
 # Async Samples Matrix
 
-These samples are intentionally split by feature combinations.  
+These samples are intentionally split by feature combinations.
 Keep them when the combination is distinct; merge only true duplicates.
 
 ## Simple first

@@ -1,7 +1,7 @@
 import System.Console.*
 
 // Feature: enum members with explicit underlying values.
-val foo : Value = .B
+let foo : Value = .B
 
 WriteLine(foo)
 

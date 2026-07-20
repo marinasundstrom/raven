@@ -1,10 +1,10 @@
 import System.Console.*
 
 // Feature: collection pattern with fixed-length destructuring.
-val lineItemQuantities: int[] = [1, 2]
+let lineItemQuantities: int[] = [1, 2]
 
-val totalUnits = match lineItemQuantities {
-    [val first, val second] => first + second
+let totalUnits = match lineItemQuantities {
+    [let first, let second] => first + second
     _ => 0
 }
 

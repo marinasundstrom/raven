@@ -6,7 +6,7 @@ foo.Do()
 
 class Foo : IDisposable {
     val x = 1
-    
+
     init() => Console.WriteLine("Init")
 
     func Do() -> () => Console.WriteLine("Do")

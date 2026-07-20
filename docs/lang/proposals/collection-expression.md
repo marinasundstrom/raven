@@ -155,7 +155,7 @@ Dictionary comprehensions:
 ```raven
 let lengths = [for text in values => text: text.Length]
 let filtered = [for item in items if item.Enabled => item.Name: item.Value]
-let doubled = [for val (key, value) in pairs => key: value * 2]
+let doubled = [for let (key, value) in pairs => key: value * 2]
 ```
 
 Current rules:

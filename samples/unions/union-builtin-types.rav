@@ -1,6 +1,6 @@
 import System.Console.*
 
-val value: Payment = 42
+let value: Payment = 42
 
 match value {
     int no => WriteLine("no $no")

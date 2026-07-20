@@ -5,7 +5,7 @@ class TodoStore {
     private var nextId = 1
 
     static func Seeded() -> TodoStore {
-        val store = TodoStore()
+        let store = TodoStore()
         store.Add("Map ASP.NET Core with Raven receiver blocks")
         store.Add("Keep handlers as normal trailing-block delegates")
         return store
@@ -32,7 +32,7 @@ class TodoStore {
     }
 
     func Add(title: string) -> Todo {
-        val todo = Todo(nextId, title, false)
+        let todo = Todo(nextId, title, false)
         nextId = nextId + 1
         todos.Add(todo)
         return todo
@@ -41,7 +41,7 @@ class TodoStore {
 
 extension TodoTextExtensions for Todo {
     func ToLine() -> string {
-        val done = if self.IsComplete { "done" } else { "open" }
+        let done = if self.IsComplete { "done" } else { "open" }
         return "${self.Id.ToString()}: ${self.Title} [$done]"
     }
 }

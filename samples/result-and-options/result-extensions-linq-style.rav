@@ -2,7 +2,7 @@ import System.*
 import System.Console.*
 
 // Feature: LINQ-style Result extensions (`Map`, `Then`, `OrElse`).
-val total = ParseAmount("120")
+let total = ParseAmount("120")
     .Map(value => value + 30)
     .Then(value => ApplyCap(value))
     .OrElse(err => Ok(0))
@@ -11,7 +11,7 @@ WriteLine(total)
 
 func ParseAmount(text: string) -> Result<int, string> {
     return try int.Parse(text) match {
-        Ok(val value) => Ok(value)
+        Ok(let value) => Ok(value)
         Error(Exception ex) => Error(ex.Message)
     }
 }

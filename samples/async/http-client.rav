@@ -10,7 +10,7 @@ use client = HttpClient()
 try {
     use response = await client.GetAsync("http://www.contoso.com/")
     response.EnsureSuccessStatusCode()
-    val responseBody = await response.Content.ReadAsStringAsync()
+    let responseBody = await response.Content.ReadAsStringAsync()
     // Above three lines can be replaced with new helper method below
     // string responseBody = await client.GetStringAsync(uri);
 
@@ -20,4 +20,4 @@ try {
     WriteLine("Message :${e.Message} ")
 } catch (TaskCanceledException e) {
     WriteLine("Message :${e.Message} ")
-} 
+}

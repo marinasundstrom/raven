@@ -4,11 +4,11 @@ import System.Net.Http.*
 import System.Threading.Tasks.*
 
 // Feature: async HTTP call mapped to `Result` via `try/catch`.
-val res = await fetch("http://www.contoso.com/")
+let res = await fetch("http://www.contoso.com/")
 
-val str = match res {
-    Ok(val str) => "Response length: ${str.Length}"
-    Error(val message) => "Error is: $message"
+let str = match res {
+    Ok(let str) => "Response length: ${str.Length}"
+    Error(let message) => "Error is: $message"
 }
 
 WriteLine(str)
@@ -19,11 +19,11 @@ async func fetch(url: string) -> Task<Result<string, string>> {
     try {
         use response = await client.GetAsync(url)
         response.EnsureSuccessStatusCode()
-        val responseBody = await response.Content.ReadAsStringAsync()
+        let responseBody = await response.Content.ReadAsStringAsync()
         return Ok(responseBody)
     } catch (HttpRequestException e) {
         return Error(e.Message)
     } catch (TaskCanceledException) {
         return Error("Request timed out or was canceled.")
-    } 
+    }
 }

@@ -21,8 +21,8 @@ class AddMacro : IFreestandingExpressionMacro {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        val left = context.Arguments[0].Expression
-        val right = context.Arguments[1].Expression
+        let left = context.Arguments[0].Expression
+        let right = context.Arguments[1].Expression
 
         FreestandingMacroExpansionResult with {
             Expression = InfixOperatorExpression(

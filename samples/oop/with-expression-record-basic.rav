@@ -1,16 +1,16 @@
 import System.Console.*
 
 // Feature: with-expression on records.
-val bob = Person("Bob", null, "Smith", 1978)
+let bob = Person("Bob", null, "Smith", 1978)
 WriteLine(bob)
 
-val newBob = bob with {
+let newBob = bob with {
     MiddleName = "Leslie"
 }
 
 WriteLine(newBob)
 
-val renamed = newBob with {
+let renamed = newBob with {
     MiddleName = "Flash",
     LastName = "Jones"
 }

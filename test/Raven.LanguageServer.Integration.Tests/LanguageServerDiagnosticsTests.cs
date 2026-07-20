@@ -797,7 +797,7 @@ func Main() -> () {
         secondAnalyzerResult.WasSkipped.ShouldBeFalse();
         secondAnalyzerResult.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeLetAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
     }
 
@@ -836,7 +836,7 @@ func Main() -> () {
         firstResult.WasSkipped.ShouldBeFalse();
         firstResult.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeLetAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
 
         using var semanticAccess = await store.EnterDocumentSemanticAccessAsync(uri, CancellationToken.None, "test");
@@ -945,7 +945,7 @@ func Test() -> () {
             diagnostic.Message.Contains("Test", StringComparison.Ordinal)).ShouldBeFalse();
         analyzerResult.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeLetAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
     }
 
@@ -1025,7 +1025,7 @@ func Main() -> unit {
         result.WasSkipped.ShouldBeFalse();
         result.Diagnostics.Any(diagnostic => string.Equals(
             diagnostic.Code?.String,
-            Raven.CodeAnalysis.Diagnostics.VarCanBeValAnalyzer.DiagnosticId,
+            Raven.CodeAnalysis.Diagnostics.VarCanBeLetAnalyzer.DiagnosticId,
             StringComparison.Ordinal)).ShouldBeTrue();
     }
 

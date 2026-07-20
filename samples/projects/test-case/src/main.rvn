@@ -28,8 +28,8 @@ func RunExistingPatternExamples() {
     Person1()
     Person2()
 
-    val arr = [3, 9, 10, 3, 2]
-    val [first, second, ...rest] = arr
+    let arr = [3, 9, 10, 3, 2]
+    let [first, second, ...rest] = arr
 
     PrintSection("Sequence declaration")
     WriteLine("Input:  ${DescribeInts(arr)}")
@@ -39,45 +39,45 @@ func RunExistingPatternExamples() {
         WriteLine("rest item -> $no")
     }
 
-    val str = "FooBar42"
-    val [ch, ..2 start, ...end] = str
+    let str = "FooBar42"
+    let [ch, ..2 start, ...end] = str
 
     PrintSection("String sequence segments")
     WriteLine("Input:  \"$str\"")
     WriteLine("Bound: ch = '$ch', start = \"$start\", end = \"$end\"")
 
-    val points = [(2, 3), (2, 0), (5, 1)]
+    let points = [(2, 3), (2, 0), (5, 1)]
     PrintSection("for pattern")
-    for val (x, > 0) in points {
+    for let (x, > 0) in points {
         WriteLine("Matched a point with y > 0; bound x = $x")
     }
 
-    val persons = [Person(1, "John Doe", 20)]
-    for val Person(1, name, _) in persons {
+    let persons = [Person(1, "John Doe", 20)]
+    for let Person(1, name, _) in persons {
         WriteLine("Matched Person(1, name, _); bound name = $name")
     }
 
-    val point = (5, 1)
+    let point = (5, 1)
     PrintSection("if pattern")
-    if val (x, 1) = point {
+    if let (x, 1) = point {
         WriteLine("Matched ${DescribePoint(point)} with (x, 1); bound x = $x")
     }
 
-    if val (5, > 0) p = point {
+    if let (5, > 0) p = point {
         WriteLine("Matched (5, > 0); whole designation p = ${DescribePoint(p)}")
     }
 
-    if val (x0 when == 5, y0 when > 0) = point {
+    if let (x0 when == 5, y0 when > 0) = point {
         WriteLine("Matched ${DescribePoint(point)} with (x when == 5, y when > 0); bound x = $x0 and y = $y0")
     }
 
-    val person = Person(1, "John Doe", 20)
-    if val Person(1, name, _) = person {
+    let person = Person(1, "John Doe", 20)
+    if let Person(1, name, _) = person {
         WriteLine("Matched ${DescribePerson(person)} with Person(1, name, _); bound name = $name")
     }
 
-    val arr2 = [3, 9, 10, 3, 2]
-    if val [first2, second2, ...rest2] = arr2 {
+    let arr2 = [3, 9, 10, 3, 2]
+    if let [first2, second2, ...rest2] = arr2 {
         WriteLine("Matched ${DescribeInts(arr2)} with [first2, second2, ...rest2]")
         WriteLine("Bound: first2 = $first2, second2 = $second2, rest2 = ${DescribeInts(rest2)}")
     }
@@ -86,10 +86,10 @@ func RunExistingPatternExamples() {
 func RunCollectionPatternExamples() {
     PrintSection("Collection spread and declaration")
 
-    val spreadSource = [|1, 2, 3|]
-    val spreadArray = [|1, ...spreadSource, 3|]
+    let spreadSource = [|1, 2, 3|]
+    let spreadArray = [|1, ...spreadSource, 3|]
 
-    val [first, second, ...] = spreadArray
+    let [first, second, ...] = spreadArray
     WriteLine("Input:  ${DescribeInts(spreadSource)}")
     WriteLine("Spread: ${DescribeInts(spreadArray)}")
     WriteLine("Bound: first = $first, second = $second")
@@ -101,29 +101,29 @@ func RunCollectionPatternExamples() {
     }
 
     PrintSection("Collection segment pattern")
-    for val [..2, ..2 segment, ...] in [[|2, 1..4|]] {
+    for let [..2, ..2 segment, ...] in [[|2, 1..4|]] {
         WriteLine("Matched [|2, 1..4|] with [..2, ..2 segment, ...]")
         WriteLine("Bound: segment = ${DescribeInts(segment)}")
     }
 
-    val dict = ["a": 1, "b": 2, "c": 3]
-    val dict2 = ["e": 5, ...dict]
+    let dict = ["a": 1, "b": 2, "c": 3]
+    let dict2 = ["e": 5, ...dict]
 
     PrintSection("Dictionary spread")
     WriteLine("Source:")
-    for val (key, value) in dict {
+    for let (key, value) in dict {
         WriteLine("$key: $value")
     }
     WriteLine("Spread result:")
-    for val (key, value) in dict2 {
+    for let (key, value) in dict2 {
         WriteLine("$key: $value")
     }
 
     PrintSection("Dictionary pattern")
-    val ["e": entry] = dict2
+    let ["e": entry] = dict2
     WriteLine("Bound from [\"e\": entry] -> entry = $entry")
 
-    if val ["c": existing] = dict2 {
+    if let ["c": existing] = dict2 {
         WriteLine("Matched [\"c\": existing]; bound existing = $existing")
     }
 }
@@ -131,63 +131,63 @@ func RunCollectionPatternExamples() {
 func RunCollectionComprehensionExamples() {
     PrintSection("Collection comprehensions")
 
-    val numbers = [|1, 2, 3, 4, 5|]
-    val squares = [for n in numbers => n * n]
-    val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
-    val rangeValues = [for n in 3..<7 => n]
+    let numbers = [|1, 2, 3, 4, 5|]
+    let squares = [for n in numbers => n * n]
+    let evenSquares = [for n in numbers if n % 2 == 0 => n * n]
+    let rangeValues = [for n in 3..<7 => n]
 
     WriteLine("Input numbers: ${DescribeInts(numbers)}")
     WriteLine("Squares:       ${DescribeInts(squares)}")
     WriteLine("Even squares:  ${DescribeInts(evenSquares)}")
     WriteLine("Range values:  ${DescribeInts(rangeValues)}")
 
-    val mutableSquares = ![for n in numbers => n * 10]
+    let mutableSquares = ![for n in numbers => n * 10]
     WriteLine("Mutable form:  ${DescribeInts(mutableSquares)}")
 
     PrintSection("Dictionary comprehensions")
 
-    val lengths = [for text in [|"a", "bb", "ccc"|] => text: text.Length]
+    let lengths = [for text in [|"a", "bb", "ccc"|] => text: text.Length]
     WriteLine("Lengths:")
-    for val (key, value) in lengths {
+    for let (key, value) in lengths {
         WriteLine("$key: $value")
     }
 
     PrintSection("Pattern comprehensions")
 
-    val people = [(1, "Ada"), (2, "Bob"), (2, "Eve")]
-    val selectedNames = [for val (2, name) in people => name]
+    let people = [(1, "Ada"), (2, "Bob"), (2, "Eve")]
+    let selectedNames = [for let (2, name) in people => name]
     WriteLine("Selected names: ${DescribeStrings(selectedNames)}")
 
-    val pairs = [("one", 1), ("two", 2), ("three", 3)]
-    val doubled = [for val (key, value) in pairs if value >= 2 => key: value * 2]
+    let pairs = [("one", 1), ("two", 2), ("three", 3)]
+    let doubled = [for let (key, value) in pairs if value >= 2 => key: value * 2]
     WriteLine("Doubled dictionary:")
-    for val (key, value) in doubled {
+    for let (key, value) in doubled {
         WriteLine("$key: $value")
     }
 }
 
 func Tuple() {
-    val person = (no: 1, name: "John Doe")
-    val (id, name) = person
+    let person = (no: 1, name: "John Doe")
+    let (id, name) = person
 
     WriteLine("Tuple deconstruction -> id = $id, name = $name")
 }
 
 func Person1() {
-    val person = Person(1, "John Doe", 20)
-    val (id, name, _) = person
+    let person = Person(1, "John Doe", 20)
+    let (id, name, _) = person
 
     WriteLine("Nominal deconstruction -> id = $id, name = $name")
 }
 
 func Person2() {
-    val people = [
+    let people = [
         Person2("Alice", 25, [ "Horse", "Saddle" ])
         Person2("John", 18, [ "Keys", "Wallet" ])
         Person2("Jane", 15, [ "Sunglasses", "Purse" ])
     ]
 
-    for val (name, age when > 15, [ item1, item2 ]) in people {
+    for let (name, age when > 15, [ item1, item2 ]) in people {
         WriteLine("Nested deconstruction -> $name ($age) has $item1 and $item2")
     }
 }

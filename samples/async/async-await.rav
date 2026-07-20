@@ -9,9 +9,9 @@ async func PrintDelayed(label: string, value: int) -> Task {
 
 await PrintDelayed("first", 1)
 
-val second = await Task.FromResult(2)
-val third = await Task.FromResult(3)
-val total = 1 + second + third
+let second = await Task.FromResult(2)
+let third = await Task.FromResult(3)
+let total = 1 + second + third
 WriteLine("sum:$total")
 
 WriteLine("done")

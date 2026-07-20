@@ -1,8 +1,8 @@
 import System.*
 import System.ComponentModel.*
 
-val showSecondary = true
-val viewModel = TasksViewModel()
+let showSecondary = true
+let viewModel = TasksViewModel()
 
 RunApp(Window(title: "Tasks") {
     StackPanel(spacing: 8.0) {

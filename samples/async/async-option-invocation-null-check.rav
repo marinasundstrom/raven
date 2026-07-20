@@ -3,7 +3,7 @@ import System.Threading.Tasks.*
 
 // Feature: nullable receiver check before async invocation operator call.
 async func Main() -> Task {
-    val foo = Foo(42)
+    let foo = Foo(42)
 
     await Do(foo)
 }
@@ -14,12 +14,12 @@ async func Do(foo: Foo?) -> Task {
         return
     } */
     if foo is not null {
-        val result = await foo(true) // foo.Test(true)
+        let result = await foo(true) // foo.Test(true)
 
         Console.WriteLine("Result: $result")
 
-        val v = match result {
-            Some(val value) => "Value: $value"
+        let v = match result {
+            Some(let value) => "Value: $value"
             None => "None"
         }
 

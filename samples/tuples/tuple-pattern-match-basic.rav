@@ -1,10 +1,10 @@
 import System.*
 
 // Feature: tuple pattern in `match` expression.
-val status: Option<(isPriority: bool, carrier: string)> = None
+let status: Option<(isPriority: bool, carrier: string)> = None
 
-val result = match status {
-    Some((val isPriority, val carrier)) => "Priority=${isPriority}, Carrier=${carrier}"
+let result = match status {
+    Some((let isPriority, let carrier)) => "Priority=${isPriority}, Carrier=${carrier}"
     None => "No shipping status"
 }
 

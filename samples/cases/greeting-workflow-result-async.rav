@@ -11,8 +11,8 @@ async func Main(args: string[]) -> Task<Result<(), CustomError>> {
         ))
     }
 
-    val name = args[0]
-    val greeting = await BuildGreeting(name)
+    let name = args[0]
+    let greeting = await BuildGreeting(name)
 
     Console.WriteLine(greeting?)
     Ok

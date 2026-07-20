@@ -1,9 +1,9 @@
 import System.Console.*
 
 // Feature: range patterns over numeric and character values.
-val shipmentCount = 4
+let shipmentCount = 4
 
-val sizeBand = match shipmentCount {
+let sizeBand = match shipmentCount {
     ..4 => "No"
     40 .. 43 => "Yes"
     _ => "What?"
@@ -11,9 +11,9 @@ val sizeBand = match shipmentCount {
 
 WriteLine(sizeBand)
 
-val routeCode = 'B'
+let routeCode = 'B'
 
-val routeBand = match routeCode {
+let routeBand = match routeCode {
     'a' .. 'b' => "lowercase"
     'A' .. 'B' => "uppercase"
     _ => "Not in range"

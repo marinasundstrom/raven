@@ -1,7 +1,7 @@
 // Feature: basic string interpolation.
-val name = "דניאל"
-val city = "תל אביב"
-val welcome = 
+let name = "דניאל"
+let city = "תל אביב"
+let welcome =
     "שלום $name! ברוך הבא ל$city"
 
 System.Console.WriteLine(welcome)

@@ -267,7 +267,9 @@ const greeting = "Hi"  // inferred string constant
 val count: long = 0     // explicit type
 ```
 
-> ⚠️ **Open Question:** We should decide whether to prefer `val` over `let`.
+Standard Raven style prefers `let` for immutable lexical bindings. `val`
+remains accepted for source compatibility and is the semantic display spelling
+for a read-only binding.
 
 If the type annotation is omitted, an initializer is required so the compiler can
 determine the variable's type. Const bindings always require an initializer, even when
@@ -1080,7 +1082,7 @@ Collection expressions also support a list-comprehension form:
 
 * `[for item in source => selector]`
 * `[for item in source if condition => selector]`
-* `[for val (a, b) in source => selector]` and other pattern targets follow the same
+* `[for let (a, b) in source => selector]` and other pattern targets follow the same
   matching/binding rules as `for` statements.
 
 Collection expressions also support dictionary-shaped elements:
@@ -1186,7 +1188,7 @@ val combined = [0, ...numbers, 4]
 val squares = [for n in numbers => n * n]
 val evenSquares = [for n in numbers if n % 2 == 0 => n * n]
 val evenSquaresInRange = [for n in 4..250 if n % 2 == 0 => n * n]
-val selectedNames = [for val (2, name) in [(1, "Ada"), (2, "Bob")] => name]
+val selectedNames = [for let (2, name) in [(1, "Ada"), (2, "Bob")] => name]
 
 val names: List<string> = ["a", "b"]
 val inferred = [1, 2.0]      // inferred as ImmutableList<double>
@@ -1200,7 +1202,7 @@ val byName = ["a": 1, "b": 2] // inferred as ImmutableDictionary<string, int>
 val mutableByName = !["a": 1, "b": 2] // inferred as Dictionary<string, int>
 val merged = [..."a": 1, ...mutableByName, "c": 3]
 val lengths = [for key in [|"a", "bb"|] => key: key.Length]
-val doubled = [for val (key, value) in [("a", 1), ("b", 2)] => key: value * 2]
+val doubled = [for let (key, value) in [("a", 1), ("b", 2)] => key: value * 2]
 val readonlyLookup: IReadOnlyDictionary<string, int> = ["a": 1, "b": 2]
 
 val baseList: ImmutableList<int> = [2; 3; 4]
@@ -2228,7 +2230,7 @@ while i < list.Length {
 `while` also supports a pattern-binding condition:
 
 ```raven
-while val .Ok(value) = Next() {
+while let .Ok(value) = Next() {
     Console.WriteLine(value)
 }
 ```
@@ -2240,7 +2242,7 @@ binding keyword is required and supplies the binding mode for otherwise bare
 captures inside the pattern and for an optional whole-pattern designation:
 
 ```raven
-while val Person(1, name, _) person = NextPerson() {
+while let Person(1, name, _) person = NextPerson() {
     Console.WriteLine(person.Name)
     Console.WriteLine(name)
 }
@@ -2287,7 +2289,7 @@ for (val x, 0) in points {
 An optional outer binding keyword may appear before the iteration target:
 
 ```raven
-for val item in items {
+for let item in items {
     Console.WriteLine(item)
 }
 
@@ -2295,19 +2297,19 @@ for item: int in items {
     Console.WriteLine(item)
 }
 
-for val item: int in items {
+for let item: int in items {
     Console.WriteLine(item)
 }
 
-for val _ in items {
+for let _ in items {
     log("processing")
 }
 
-for val Person(1, name, _) in persons {
+for let Person(1, name, _) in persons {
     Console.WriteLine(name)
 }
 
-for val Person(1, name, _) person in persons {
+for let Person(1, name, _) person in persons {
     Console.WriteLine(person.Name)
 }
 ```
@@ -2578,7 +2580,7 @@ type analysis.
 Raven uses two related but distinct surfaces:
 
 * **General pattern matching forms** are used in `is`, `match`,
-  `if val pattern = expr`, `while val pattern = expr`, and `for ... in`
+  `if let pattern = expr`, `while let pattern = expr`, and `for ... in`
   pattern targets. These support the full pattern vocabulary:
   declaration/type patterns, constants and value patterns, comparison and range
   patterns, positional patterns, sequence patterns, dictionary patterns,
@@ -2612,7 +2614,7 @@ if lookup is ["a": val first, "b": 2] {
     // first is assigned only when both keys exist and "b" maps to 2
 }
 
-if val Person { Name: "Ada", Age: age } = obj {
+if let Person { Name: "Ada", Age: age } = obj {
     // age is assigned only when obj is a Person named "Ada"
 }
 ```
@@ -2620,7 +2622,7 @@ if val Person { Name: "Ada", Age: age } = obj {
 Raven also supports statement-form conditional pattern binding:
 
 ```raven
-if val (id, name) = person {
+if let (id, name) = person {
     WriteLine(name)
 }
 ```
@@ -2640,7 +2642,7 @@ available in statement form:
 ```raven
 val input: int? = null
 
-if val x: int = input {
+if let x: int = input {
     WriteLine(x)
 }
 ```
@@ -2651,7 +2653,7 @@ The same syntax also works for hierarchy narrowing, just like `if expr is Type n
 open class Animal {}
 class Dog : Animal {}
 
-if val dog: Dog = animal {
+if let dog: Dog = animal {
     dog.Bark()
 }
 ```
@@ -2659,7 +2661,7 @@ if val dog: Dog = animal {
 It can also designate the whole matched value when the pattern succeeds:
 
 ```raven
-if val (2, > 0.5) point = input {
+if let (2, > 0.5) point = input {
     WriteLine(point)
 }
 ```
@@ -2671,7 +2673,7 @@ it inherits the outer `let` / `val` / `var` binding mode.
 Statement-form `while` supports the same pattern-binding header:
 
 ```raven
-while val .Ok(value) = Next() {
+while let .Ok(value) = Next() {
     WriteLine(value)
 }
 ```
@@ -2905,9 +2907,9 @@ These accept Raven’s full pattern vocabulary:
 * `expr is pattern`
 * `match expr { pattern => ... }`
 * `match expr { ... }` statement form
-* `if val pattern = expr`
-* `while val pattern = expr`
-* `for val pattern in values` and `for pattern in values`
+* `if let pattern = expr`
+* `while let pattern = expr`
+* `for let pattern in values` and `for pattern in values`
 
 These contexts may use comparison/range/property/member/nominal-deconstruction
 patterns, boolean pattern combinators, and optional whole-pattern designations
@@ -2921,8 +2923,8 @@ value pattern against an existing symbol. For example, `person is { Name: name }
 and `person is { Name: == name }` both compare `Name` to the current value of
 `name`, while `person is { Name: val name }` declares a new local.
 
-Dedicated pattern statements such as `if val pattern = expr` and
-`while val pattern = expr` are binding-oriented. Their leading binding keyword
+Dedicated pattern statements such as `if let pattern = expr` and
+`while let pattern = expr` are binding-oriented. Their leading binding keyword
 supplies the binding mode for otherwise bare designations inside the pattern and
 for an optional trailing whole-pattern designation. In these contexts a bare
 member or element designation captures; comparing to an existing value must use
@@ -2933,19 +2935,19 @@ identifier would otherwise capture. Built-in literal patterns such as `"Bob"`,
 need `==`.
 
 ```raven
-if val Person { Name: name } = person {      // captures `Name` into `name`
+if let Person { Name: name } = person {      // captures `Name` into `name`
     WriteLine(name)
 }
 
-if val Person { Name: "Bob" } = person {     // compares with literal "Bob"
+if let Person { Name: "Bob" } = person {     // compares with literal "Bob"
     WriteLine("Bob")
 }
 
-if val Person { Name: == name } = person {   // compares with existing `name`
+if let Person { Name: == name } = person {   // compares with existing `name`
     WriteLine("same name")
 }
 
-if val Person { Name: == name, Age: age when > 20 } = person {
+if let Person { Name: == name, Age: age when > 20 } = person {
     WriteLine(age)
 }
 ```
@@ -3224,11 +3226,11 @@ It is not valid in an `expr is pattern` expression. Use a dedicated pattern
 statement when the whole matched value must be named.
 
 ```raven
-if val (2, > 0.5) point = input {
+if let (2, > 0.5) point = input {
     WriteLine(point)
 }
 
-for val Person(1, name, _) person in persons {
+for let Person(1, name, _) person in persons {
     WriteLine(person.Name)
 }
 
@@ -3242,8 +3244,8 @@ Rules:
 
 * A trailing designation may be written with an explicit binding keyword, such
   as `val point` or `var point`.
-* In constructs that already carry an outer binding keyword (`if val ...`,
-  `while val ...`, `for val ...`, `match { val ... => ... }`), the trailing
+* In constructs that already carry an outer binding keyword (`if let ...`,
+  `while let ...`, `for let ...`, `match { val ... => ... }`), the trailing
   designation may omit its own binding keyword and inherits the outer binding mode.
 * Without a binding-enabled pattern context, a trailing designation is not part
   of the pattern. In particular, `expr is Type { ... } value` is invalid.
@@ -3268,7 +3270,7 @@ Rules:
 
   * The designation may use an explicit binding keyword (`val`, `let`, or
     `var`), or inherit the binding mode from an outer construct such as
-    `if val` / `while val` / `for val` / an outer match-arm binding keyword.
+    `if let` / `while let` / `for let` / an outer match-arm binding keyword.
   * Writing `var p` produces a mutable binding. Omitting a binding keyword
     requires an outer binding mode.
   * The designation is introduced only if the entire property pattern succeeds.
@@ -3287,7 +3289,7 @@ Rules:
   * The designation may use an explicit binding keyword (`val`, `let`, or
     `var`), or inherit the binding mode from an outer construct.
   * Writing `var p` produces a mutable binding.
-  * The form is invalid in an `is` expression; use `if val { ... } name = expr`
+  * The form is invalid in an `is` expression; use `if let { ... } name = expr`
     or another dedicated pattern-binding construct to bind the receiver.
 
 #### Nominal deconstruction patterns
@@ -3304,8 +3306,8 @@ Rules:
     parameters synthesize a `Deconstruct` method in declaration order, so the
     same pattern form works for them.
   * Each positional element is a pattern, so bindings still require `val`/`var`
-    unless an outer construct such as `if val pattern = expr` or
-    `while val pattern = expr` supplies the binding mode.
+    unless an outer construct such as `if let pattern = expr` or
+    `while let pattern = expr` supplies the binding mode.
   * An element may optionally include a name before the colon
     (`Name: pattern`). Named elements bind by `Deconstruct` parameter name
     rather than source position and may appear in any order. Unnamed elements
@@ -4730,7 +4732,7 @@ valid. Use the explicit nested-binding form, for example `Name: val target:
 Type`, on a surface that does not also supply an outer binding keyword, or use an
 unnamed typed element such as `target: Type` when the element is selected
 positionally. The same rule applies recursively in match arms,
-`if val`/`while val` pattern statements, `for val` pattern targets, and
+`if let`/`while let` pattern statements, `for let` pattern targets, and
 comprehension targets.
 
 This is a **deconstruction** surface, not a full general pattern-matching
@@ -4927,7 +4929,7 @@ exposes an `IsDiscard` helper when analyzers need to detect this pattern.
 
 ### Resource declarations (`use`)
 
-A `use` declaration introduces a **scoped disposable resource**.  
+A `use` declaration introduces a **scoped disposable resource**.
 The declaration resembles a local variable binding and **must include an initializer**.
 
 In a synchronous context, the initializer’s type — and any explicit type
@@ -5450,4 +5452,3 @@ Lowest → highest (all left-associative unless noted):
 >   **pattern** such as a positional deconstruction.
 > * `^` index expressions are parsed as an adjacent prefix form (`^expr`); whitespace between `^` and the operand is not allowed.
 > * Prefix unary `+`/`-` are also adjacent forms (`+3`, `-2`); whitespace between the operator and operand is not allowed.
- 

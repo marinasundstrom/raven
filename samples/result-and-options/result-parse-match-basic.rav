@@ -1,19 +1,19 @@
 import System.*
 
 // Feature: parse to Result and handle with match.
-val res = parseNumber("foo")
+let res = parseNumber("foo")
 
 Console.WriteLine("Is error: ${res.HasError}")
 
-val str = match res {
-    Ok(val v) => "Number is: $v"
-    Error(val message) => message
+let str = match res {
+    Ok(let v) => "Number is: $v"
+    Error(let message) => message
 }
 
 Console.WriteLine(str)
 
 try {
-    val res2 = parseNumber("foo").UnwrapOrThrow()
+    let res2 = parseNumber("foo").UnwrapOrThrow()
 } catch (Exception e) {
     Console.WriteLine("\'parseNumber\' threw: ${e.Message}")
 }

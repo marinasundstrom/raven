@@ -11,12 +11,12 @@ func GetUser() -> Result<User, Err> {
 }
 
 async func GetItem() -> Task<Result<string, Err>> {
-    val maybeItem: Option<User> = Some(User("Marina", Some(Item("Candy"))))
+    let maybeItem: Option<User> = Some(User("Marina", Some(Item("Candy"))))
 
     await Task.Delay(20)
 
     match maybeItem {
-        Some(val item) => Ok(item.Name)
+        Some(let item) => Ok(item.Name)
         None  => Error(Err.MissingName)
     }
 }

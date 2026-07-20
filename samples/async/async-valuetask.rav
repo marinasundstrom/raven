@@ -12,5 +12,5 @@ async func Ping() -> ValueTask {
 }
 
 await Ping()
-val value = await Compute()
+let value = await Compute()
 WriteLine("ValueTask result: $value")

@@ -14,7 +14,7 @@ static class VehicleSeedData {
         await db.Database.EnsureCreatedAsync(cancellationToken)
 
         if !await db.Vehicles.AnyAsync(cancellationToken) {
-            val van = VehicleEntity()
+            let van = VehicleEntity()
             van.RegistrationNumber = "RAV-101"
             van.Model = "Ford Transit"
             van.FuelType = "Diesel"
@@ -25,7 +25,7 @@ static class VehicleSeedData {
             AddFuel(van, DateTimeOffset.UtcNow.AddDays(-16), 584.2m, 46.8m, 85.06m)
             AddFuel(van, DateTimeOffset.UtcNow.AddDays(-3), 603.7m, 48.0m, 88.32m)
 
-            val hatchback = VehicleEntity()
+            let hatchback = VehicleEntity()
             hatchback.RegistrationNumber = "RAV-202"
             hatchback.Model = "Toyota Yaris Hybrid"
             hatchback.FuelType = "Hybrid"
@@ -46,7 +46,7 @@ static class VehicleSeedData {
     }
 
     static func AddFuel(vehicle: VehicleEntity, recordedAtUtc: DateTimeOffset, distanceDrivenKm: decimal, litersFilled: decimal, totalCost: decimal) {
-        val entry = FuelConsumptionRecord()
+        let entry = FuelConsumptionRecord()
         entry.RecordedAtUtc = recordedAtUtc
         entry.DistanceDrivenKm = distanceDrivenKm
         entry.LitersFilled = litersFilled

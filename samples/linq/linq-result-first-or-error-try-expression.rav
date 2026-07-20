@@ -4,9 +4,9 @@ import System.Collections.Generic.*
 import System.Linq.*
 
 // Feature: `try` expression with LINQ `FirstOrError`.
-val pendingShipments = [101, 202, 303]
+let pendingShipments = [101, 202, 303]
 
-val selected = try pendingShipments.FirstOrError(() => DomainError.NotFound)
+let selected = try pendingShipments.FirstOrError(() => DomainError.NotFound)
 
 WriteLine(selected)
 

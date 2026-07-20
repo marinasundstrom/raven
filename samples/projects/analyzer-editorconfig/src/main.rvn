@@ -2,21 +2,21 @@ import System.Linq.*
 import System.*
 
 func ReadName(input: string?) -> string {
-    val name = input ?? throw Exception("Name is required")
+    let name = input ?? throw Exception("Name is required")
     return name
 }
 
 func Main() {
     // Classic nullable style instead of Option<T>.
-    val maybeAge: int? = null
+    let maybeAge: int? = null
 
     // Regular LINQ instead of Result/Option extensions.
-    val values = [1, 2, 3]
-    val first = values.FirstOrDefault()
+    let values = [1, 2, 3]
+    let first = values.FirstOrDefault()
 
     _ = maybeAge
     _ = first
 
-    val name = ReadName("Raven")
+    let name = ReadName("Raven")
     Console.WriteLine(name)
 }

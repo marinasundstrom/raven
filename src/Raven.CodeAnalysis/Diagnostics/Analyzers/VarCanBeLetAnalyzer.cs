@@ -7,10 +7,10 @@ using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis.Diagnostics;
 
 /// <summary>
-/// Reports 'var' locals that are never reassigned and suggests using 'val' instead.
+/// Reports 'var' locals that are never reassigned and suggests using 'let' instead.
 /// Also determines whether a local is rebound (written after declaration).
 /// </summary>
-public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
+public sealed class VarCanBeLetAnalyzer : DiagnosticAnalyzer
 {
     public const string DiagnosticId = "RAV9004";
 
@@ -19,7 +19,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         title: "Variable can be immutable",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "'{0}' is never reassigned. Use val {0}.",
+        messageFormat: "'{0}' is never reassigned. Use let {0}.",
         category: "Typing",
         defaultSeverity: DiagnosticSeverity.Warning);
 
@@ -531,7 +531,7 @@ public sealed class VarCanBeValAnalyzer : DiagnosticAnalyzer
         }
 
         private static bool IsVarDeclaration(LocalDeclarationStatementSyntax node)
-            => VarCanBeValAnalyzer.IsVarDeclaration(node);
+            => VarCanBeLetAnalyzer.IsVarDeclaration(node);
 
         private static IEnumerable<string> GetFunctionExpressionParameterNames(FunctionExpressionSyntax node)
             => node switch

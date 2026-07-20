@@ -1639,7 +1639,7 @@ class C {
     func Test(value: int) -> unit { }
 
     func Run() -> unit {
-        val b: int = 41
+        let b: int = 41
         Test(1 + b)
     }
 }

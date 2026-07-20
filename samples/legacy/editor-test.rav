@@ -1,12 +1,12 @@
 import System.Console.*
 
-val foo = Foo()
+let foo = Foo()
 
 foo.Bar()
 
 class Foo {
     Bar() -> () {
-        val x = 2
+        let x = 2
         WriteLine(x)
     }
 }

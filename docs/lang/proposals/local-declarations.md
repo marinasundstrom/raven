@@ -24,9 +24,10 @@ This is part of a bigger feature.
 
 ## Multiple declarators
 
-`val` and `var` local declarations support comma-separated declarators.
+`let` and `var` local declarations support comma-separated declarators. `val`
+remains an accepted alternative spelling for an immutable local.
 
 ```raven
-val a = 1, b = 2
+let a = 1, b = 2
 var x = 10, y = 20
 ```

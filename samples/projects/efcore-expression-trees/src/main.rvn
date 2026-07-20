@@ -19,16 +19,16 @@ func Main() {
 
     Seed(db)
 
-    val minAge = 21
-    val onlyActiveAdults: Expression<System.Func<User, bool>> =
+    let minAge = 21
+    let onlyActiveAdults: Expression<System.Func<User, bool>> =
         user => user.IsActive && user.Age >= minAge
 
-    val query = db.Users
+    let query = db.Users
         |> Where(onlyActiveAdults)
         |> OrderBy(user => user.Name)
         |> Select(user => user.Name)
 
-    val names = query.ToList()
+    let names = query.ToList()
     Console.WriteLine("Matched users count: ${names.Count.ToString()}")
 }
 

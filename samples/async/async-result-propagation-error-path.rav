@@ -3,17 +3,17 @@ import System.Console.*
 import System.Threading.Tasks.*
 
 // Feature: async Result propagation on the error path.
-val res = await test()
+let res = await test()
 
-val str = match res {
-    Ok(val str) => "Response is: $str"
-    Error(val message) => "Error is: $message"
+let str = match res {
+    Ok(let str) => "Response is: $str"
+    Error(let message) => "Error is: $message"
 }
 
 WriteLine(str)
 
 async func test() -> Task<Result<string, Exception>> {
-    val r = try? await failingTask2()
+    let r = try? await failingTask2()
     return Ok("foo")
 }
 

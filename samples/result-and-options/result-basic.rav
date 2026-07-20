@@ -1,13 +1,13 @@
 import System.*
 
 // Feature: simplest `Result<T, E>` form.
-val invoiceTotal: Result<int, string> = Ok(42)
+let invoiceTotal: Result<int, string> = Ok(42)
 
 Console.WriteLine(invoiceTotal)
 
-val label = match invoiceTotal {
-    Ok(val total) => "Total: ${total}"
-    Error(val message) => message
+let label = match invoiceTotal {
+    Ok(let total) => "Total: ${total}"
+    Error(let message) => message
 }
 
 Console.WriteLine(label)

@@ -6,7 +6,7 @@ import System.Threading.Tasks.*
 // Feature: `await` inside `try/catch` with `use`.
 try {
     use stream = MemoryStream()
-    val value = await Task.FromResult(42)
+    let value = await Task.FromResult(42)
     stream.WriteByte(Convert.ToByte(value))
     WriteLine("value:$value")
     throw InvalidOperationException("boom")

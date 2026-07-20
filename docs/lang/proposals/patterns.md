@@ -90,7 +90,7 @@ the sequence pattern.
 ### Conditional pattern binding
 
 ```raven
-if val (id, name) = person {
+if let (id, name) = person {
     WriteLine(name)
 }
 ```
@@ -102,7 +102,7 @@ Implicit captures may carry inline type annotations, including inside
 deconstruction elements:
 
 ```raven
-if val (key: string, value: int) = entry {
+if let (key: string, value: int) = entry {
     WriteLine(key)
 }
 ```
@@ -110,7 +110,7 @@ if val (key: string, value: int) = entry {
 The same rule applies to nominal deconstruction patterns:
 
 ```raven
-if val Person(1, name, _) = person {
+if let Person(1, name, _) = person {
     WriteLine(name)
 }
 ```
@@ -120,15 +120,15 @@ guard may be either another pattern over the same matched value or a boolean
 expression evaluated in the scope of the bound locals:
 
 ```raven
-for val (id, amount when > 100) in orders {
+for let (id, amount when > 100) in orders {
     WriteLine(amount)
 }
 
-for val (id, amount when 100..300) in orders {
+for let (id, amount when 100..300) in orders {
     WriteLine(amount)
 }
 
-if val (id, name when name.Length > 5) = customer {
+if let (id, name when name.Length > 5) = customer {
     WriteLine(name)
 }
 ```

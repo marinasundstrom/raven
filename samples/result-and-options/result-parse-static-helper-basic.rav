@@ -1,7 +1,7 @@
 import System.*
 
 // Feature: static helper returning Result from parse.
-val unwrapped3 = IntHelpers.ParseNumber("23").UnwrapOrThrow()
+let unwrapped3 = IntHelpers.ParseNumber("23").UnwrapOrThrow()
 Console.WriteLine(unwrapped3)
 
 class IntHelpers {

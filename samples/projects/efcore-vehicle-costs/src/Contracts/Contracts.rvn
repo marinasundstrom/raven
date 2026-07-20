@@ -59,7 +59,7 @@ class VehicleStatusDto {
     var RetiredUtc: DateTimeOffset? = null
 
     static func CreateOperational(driverName: string?, sinceUtc: DateTimeOffset?, currentOdometerKm: decimal?) -> VehicleStatusDto {
-        val dto = VehicleStatusDto()
+        let dto = VehicleStatusDto()
         dto.Kind = "operational"
         dto.DriverName = driverName
         dto.SinceUtc = sinceUtc
@@ -68,7 +68,7 @@ class VehicleStatusDto {
     }
 
     static func CreateMaintenance(workshop: string?, startedUtc: DateTimeOffset?, expectedReadyUtc: DateTimeOffset?, reason: string?) -> VehicleStatusDto {
-        val dto = VehicleStatusDto()
+        let dto = VehicleStatusDto()
         dto.Kind = "maintenance"
         dto.Workshop = workshop
         dto.SinceUtc = startedUtc
@@ -78,7 +78,7 @@ class VehicleStatusDto {
     }
 
     static func CreateDecommissioned(retiredUtc: DateTimeOffset?, reason: string?) -> VehicleStatusDto {
-        val dto = VehicleStatusDto()
+        let dto = VehicleStatusDto()
         dto.Kind = "decommissioned"
         dto.RetiredUtc = retiredUtc
         dto.Reason = reason
@@ -87,39 +87,39 @@ class VehicleStatusDto {
 
     static func FromStatus(status: VehicleStatus) -> VehicleStatusDto {
         match status {
-            .Operational(val driverName, val sinceUtc, val currentOdometerKm) => {
+            .Operational(let driverName, let sinceUtc, let currentOdometerKm) => {
                 VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm)
             }
-            .Maintenance(val workshop, val startedUtc, val expectedReadyUtc, val reason) => {
+            .Maintenance(let workshop, let startedUtc, let expectedReadyUtc, let reason) => {
                 VehicleStatusDto.CreateMaintenance(workshop, startedUtc, expectedReadyUtc, reason)
             }
-            .Decommissioned(val retiredUtc, val reason) => {
+            .Decommissioned(let retiredUtc, let reason) => {
                 VehicleStatusDto.CreateDecommissioned(retiredUtc, reason)
             }
         }
     }
 
     func ToStatus() -> VehicleStatus {
-        val normalized = Kind.Trim().ToLowerInvariant()
+        let normalized = Kind.Trim().ToLowerInvariant()
         match normalized {
             "operational" => {
-                val driver = DriverName ?? "Unknown"
-                val since = SinceUtc ?? DateTimeOffset.UtcNow
-                val odometer = CurrentOdometerKm ?? 0m
-                val status: VehicleStatus = .Operational(driverName: driver, sinceUtc: since, currentOdometerKm: odometer)
+                let driver = DriverName ?? "Unknown"
+                let since = SinceUtc ?? DateTimeOffset.UtcNow
+                let odometer = CurrentOdometerKm ?? 0m
+                let status: VehicleStatus = .Operational(driverName: driver, sinceUtc: since, currentOdometerKm: odometer)
                 status
             }
             "maintenance" => {
-                val workshop = Workshop ?? "Unknown workshop"
-                val started = SinceUtc ?? DateTimeOffset.UtcNow
-                val reason = Reason ?? "Unspecified"
-                val status: VehicleStatus = .Maintenance(workshop: workshop, startedUtc: started, expectedReadyUtc: ExpectedReadyUtc, reason: reason)
+                let workshop = Workshop ?? "Unknown workshop"
+                let started = SinceUtc ?? DateTimeOffset.UtcNow
+                let reason = Reason ?? "Unspecified"
+                let status: VehicleStatus = .Maintenance(workshop: workshop, startedUtc: started, expectedReadyUtc: ExpectedReadyUtc, reason: reason)
                 status
             }
             _ => {
-                val retired = RetiredUtc ?? DateTimeOffset.UtcNow
-                val reason = Reason ?? "Unspecified"
-                val status: VehicleStatus = .Decommissioned(retiredUtc: retired, reason: reason)
+                let retired = RetiredUtc ?? DateTimeOffset.UtcNow
+                let reason = Reason ?? "Unspecified"
+                let status: VehicleStatus = .Decommissioned(retiredUtc: retired, reason: reason)
                 status
             }
         }

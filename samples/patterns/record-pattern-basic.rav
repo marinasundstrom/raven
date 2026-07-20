@@ -3,15 +3,15 @@ import System.Console.*
 
 func Main() {
     // Feature: positional record pattern.
-    val fooTrue  = Foo(true,  (10, 20))
-    val fooFalse = Foo(false, (1, 2))
+    let fooTrue  = Foo(true,  (10, 20))
+    let fooFalse = Foo(false, (1, 2))
 
     test(fooTrue)
     test(fooFalse)
 }
 
 func test(x: object?) {
-    if x is Foo(true, (10, val a)) {
+    if x is Foo(true, (10, let a)) {
         WriteLine("Foo with Value == true && $a")
     }
 }

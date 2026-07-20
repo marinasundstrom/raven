@@ -2,7 +2,7 @@ import System.Console.*
 import MathHelpers.*
 
 // Feature: pipe operator with static method call.
-val result = 5 |> Increment(2)
+let result = 5 |> Increment(2)
 
 WriteLine("Result: $result")
 

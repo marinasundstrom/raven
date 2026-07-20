@@ -1,4 +1,4 @@
-# Proposal: `val`/`var` Presentation for Bindings and Signatures
+# Proposal: `let`/`var` Bindings and `val`/`var` Signatures
 
 ## Summary
 
@@ -22,8 +22,9 @@ Key points:
 
   * `val` for immutable storage.
   * `var` for mutable storage.
-* For **consistency**, we may allow `val` as an alternative to `let` for local bindings.
-* There is an open question whether `let` is still needed in the long term, or if it becomes redundant with `val`.
+* `val` remains allowed as an alternative to `let` for local bindings.
+* Standard Raven source uses `let` for immutable lexical bindings and `val` for
+  read-only properties and signature presentation.
 
 This mirrors the conceptual split used in F#: a binding construct (`let`) vs. a “value vs variable” notion (`val`/`var`) in signatures and documentation.
 
@@ -102,8 +103,8 @@ var y = 2  // mutable local (if present)
 
 Proposal:
 
-* Keep `let` as the canonical immutable binding keyword **for now**.
-* **Optionally** allow `val` as an **alternative** spelling for immutable locals:
+* Keep `let` as the canonical immutable lexical-binding keyword.
+* Allow `val` as an alternative spelling for immutable locals:
 
   ```raven
   let x = 1  // immutable
@@ -206,17 +207,13 @@ Even if a local or field was introduced with `let`, the textual representation u
 
 ---
 
-## `let` vs `val` in source: what should we do?
+## `let` vs `val` in source
 
-There is a genuine design question:
-
-> Is `let` still needed if `val` exists?
-
-### Option A: Keep both (`let` and `val`) as synonyms for locals
+### Decision: keep both (`let` and `val`) as synonyms for immutable locals
 
 * `let` remains the primary binding keyword for locals.
 * `val` is allowed for consistency and stylistic preference.
-* Tooling can standardize to one in fixes/formatting (e.g. always suggest `let` or always suggest `val` based on code style).
+* Optional tooling can standardize lexical bindings on `let`.
 
 Pros:
 
@@ -228,7 +225,7 @@ Cons:
 * Two ways to write the same thing.
 * Might feel redundant or confusing if not documented clearly.
 
-### Option B: Gradual migration from `let` → `val`
+### Rejected: gradual migration from `let` → `val`
 
 * In the long run, prefer `val` as the primary immutable binding keyword.
 * Keep `let` for:
@@ -250,7 +247,7 @@ Cons:
 * Language evolution path needs to be clearly documented.
 * Might require versioning / compatibility switches.
 
-### Option C: Treat `let` as the binding form, `val` only as display
+### Rejected: treat `let` as the only source binding form
 
 * Do **not** introduce `val` as a local keyword at all.
 * Keep `let` as the only immutable binding keyword.

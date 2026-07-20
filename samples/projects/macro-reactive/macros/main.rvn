@@ -16,7 +16,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        val property = context.CurrentDeclaration as PropertyDeclarationSyntax
+        let property = context.CurrentDeclaration as PropertyDeclarationSyntax
         if property is null {
             return MacroExpansionResult.Empty
         }
@@ -32,10 +32,10 @@ class ObservableMacro : IAttachedDeclarationMacro {
             }
         }
 
-        val propertyName = property.Identifier.ValueText
-        val backingFieldName = "_${propertyName}"
-        val signalStorageName = "_${propertyName}Changed"
-        val signalMemberName = "${propertyName}Changed"
+        let propertyName = property.Identifier.ValueText
+        let backingFieldName = "_${propertyName}"
+        let signalStorageName = "_${propertyName}Changed"
+        let signalMemberName = "${propertyName}Changed"
 
         MacroExpansionResult with {
             ReplacementDeclaration = CreateReplacementProperty(property, backingFieldName, signalStorageName)
@@ -48,7 +48,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 
     func IsStorageProperty(property: PropertyDeclarationSyntax) -> bool {
-        val propertyText = property.ToFullString().Trim()
+        let propertyText = property.ToFullString().Trim()
         property.BindingKeyword.ValueText == "var"
             && !propertyText.Contains("{")
             && !propertyText.Contains("=>")
@@ -65,7 +65,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 
     func CreateSignalStorage(property: PropertyDeclarationSyntax, signalStorageName: string) -> PropertyDeclarationSyntax {
-        val subjectType = CreateSubjectType(property.Type.Type)
+        let subjectType = CreateSubjectType(property.Type.Type)
 
         PropertyDeclaration(
             List<AttributeListSyntax>(),
@@ -80,7 +80,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 
     func CreateSignalProperty(property: PropertyDeclarationSyntax, signalStorageName: string, signalMemberName: string) -> PropertyDeclarationSyntax {
-        val observableType = CreateObservableType(property.Type.Type)
+        let observableType = CreateObservableType(property.Type.Type)
 
         PropertyDeclaration(
             List<AttributeListSyntax>(),
@@ -198,19 +198,19 @@ class SubscribeMacro : IFreestandingExpressionMacro {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        val propertyAccess = context.Arguments[0].Expression as MemberAccessExpressionSyntax
-        val callback = context.Arguments[1].Expression
+        let propertyAccess = context.Arguments[0].Expression as MemberAccessExpressionSyntax
+        let callback = context.Arguments[1].Expression
 
         if propertyAccess is null {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        val propertyIdentifier = propertyAccess.Name as IdentifierNameSyntax
+        let propertyIdentifier = propertyAccess.Name as IdentifierNameSyntax
         if propertyIdentifier is null {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        val signalName = "${propertyIdentifier.Identifier.ValueText}Changed"
+        let signalName = "${propertyIdentifier.Identifier.ValueText}Changed"
 
         FreestandingMacroExpansionResult with {
             Expression = InvocationExpression(
