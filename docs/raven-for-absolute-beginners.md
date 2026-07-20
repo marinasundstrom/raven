@@ -139,6 +139,52 @@ for name in names {
 
 The `for` loop runs the same instructions once for each name.
 
+## Understanding braces and scopes
+
+The `if` and `for` examples both use braces: `{` begins a block of code and `}`
+ends it. An ordinary block creates a new **scope**. A scope is the part of the
+program where a name can be used.
+
+```raven
+import System.Console.*
+
+val outside = "I belong to the outer scope"
+
+if true {
+    val inside = "I belong to the if block"
+    WriteLine(outside)
+    WriteLine(inside)
+}
+
+WriteLine(outside)
+// WriteLine(inside) // Error: inside is not in scope here.
+```
+
+Code inside a block can use names declared in an enclosing, outer scope. Code
+outside the block cannot use locals declared inside it. At the closing `}`, the
+name `inside` goes out of scope.
+
+The same rule applies to loop bodies. A name declared inside the loop cannot be
+used after the loop ends:
+
+```raven
+for name in names {
+    val greeting = "Hello, $name"
+    WriteLine(greeting)
+}
+
+// name and greeting are not in scope here.
+```
+
+You will encounter the same idea again in function bodies and `match` arms.
+Each block keeps its local names contained, so different parts of the program
+can use simple names without interfering with one another.
+
+Scope describes where a **name** is available. It is not exactly the same as how
+long an object remains alive. Later, you may return an object from a function or
+store it somewhere outside the block. That object can continue to exist even
+though the local name used inside the block is gone.
+
 ## Naming behavior with functions
 
 A function gives a name to an operation. It can receive input and produce a
