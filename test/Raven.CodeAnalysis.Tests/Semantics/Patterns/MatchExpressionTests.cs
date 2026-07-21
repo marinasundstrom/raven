@@ -2451,6 +2451,47 @@ func Describe(result: LoginResult) -> string {
     }
 
     [Fact]
+    public void MatchExpression_WithComplementaryTopLevelUnionNotPattern_IsExhaustive()
+    {
+        const string code = """
+union Result {
+    case Success(value: string)
+    case Error(error: string)
+}
+
+func Describe(result: Result) -> string {
+    return match result {
+        .Success(_) => "Success"
+        not .Success(_) => "Error"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithComplementaryTopLevelEnumCombinators_IsExhaustive()
+    {
+        const string code = """
+enum Color {
+    Red
+    Green
+    Blue
+}
+
+func Describe(color: Color) -> string {
+    return match color {
+        .Red and not .Green => "Red"
+        not .Red => "Other"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithNestedPayloadFullyCovered_ReportsRedundantCatchAll()
     {
         const string code = """

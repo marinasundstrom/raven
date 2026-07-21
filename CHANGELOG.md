@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   tuple elements form a bounded finite product of booleans, enums, nested
   tuples, or discriminated unions, including nullable tuple carriers and
   pattern combinators.
+- Top-level `not` and `and` patterns now participate in discriminated-union
+  and enum exhaustiveness, including complements of payload cases whose
+  payload domains are not themselves finite.
 - Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
   authoritative evaluator across boolean, nullable, enum, union, sealed
   hierarchy, structural, and numeric pattern domains. Diagnostics report every

@@ -280,6 +280,20 @@ internal sealed class MatchExhaustivenessEvaluator
         if (union.DeclaredCaseTypes.IsDefaultOrEmpty && !union.MemberTypes.IsDefaultOrEmpty)
             return GetMissingParenthesizedUnionCases(matchSyntax, scrutinee, scrutineeType, arms, union, options);
 
+        var finitePatterns = arms
+            .Where(arm => BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+            .Where(arm => !options.IgnoreCatchAllPatterns || !IsCatchAllPattern(scrutineeType, arm.Pattern))
+            .Select(arm => arm.Pattern);
+        if (NestedUnionPatternCoverage.TryAreFiniteValuesCovered(
+                scrutineeType,
+                finitePatterns,
+                (type, pattern) => IsTotalPattern(type, pattern),
+                out var finiteValuesCovered) &&
+            finiteValuesCovered)
+        {
+            return ImmutableArray<string>.Empty;
+        }
+
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
         var casePatterns = new Dictionary<IUnionCaseTypeSymbol, List<BoundCasePattern>>(SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
         foreach (var arm in arms)
@@ -946,8 +960,30 @@ internal sealed class MatchExhaustivenessEvaluator
                 RemoveCoveredCases(remaining, orPattern.Left, union);
                 RemoveCoveredCases(remaining, orPattern.Right, union);
                 break;
+            case BoundAndPattern andPattern:
+                {
+                    var leftUncovered = CreateUnionCaseDomain(union);
+                    RemoveCoveredCases(leftUncovered, andPattern.Left, union);
+
+                    var rightUncovered = CreateUnionCaseDomain(union);
+                    RemoveCoveredCases(rightUncovered, andPattern.Right, union);
+
+                    leftUncovered.UnionWith(rightUncovered);
+                    remaining.RemoveWhere(candidate => !leftUncovered.Contains(candidate));
+                    break;
+                }
+            case BoundNotPattern notPattern:
+                {
+                    var coveredByNot = CreateUnionCaseDomain(union);
+                    RemoveCoveredCases(coveredByNot, notPattern.Pattern, union);
+                    remaining.ExceptWith(coveredByNot);
+                    break;
+                }
         }
     }
+
+    private static HashSet<IUnionCaseTypeSymbol> CreateUnionCaseDomain(IUnionSymbol union)
+        => new(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
     private static IEnumerable<IFieldSymbol> GetEnumMembers(INamedTypeSymbol enumType)
     {
@@ -982,8 +1018,30 @@ internal sealed class MatchExhaustivenessEvaluator
                 RemoveCoveredEnumMembers(remaining, enumType, orPattern.Left);
                 RemoveCoveredEnumMembers(remaining, enumType, orPattern.Right);
                 break;
+            case BoundAndPattern andPattern:
+                {
+                    var leftUncovered = CreateEnumDomain(enumType);
+                    RemoveCoveredEnumMembers(leftUncovered, enumType, andPattern.Left);
+
+                    var rightUncovered = CreateEnumDomain(enumType);
+                    RemoveCoveredEnumMembers(rightUncovered, enumType, andPattern.Right);
+
+                    leftUncovered.UnionWith(rightUncovered);
+                    remaining.RemoveWhere(candidate => !leftUncovered.Contains(candidate));
+                    break;
+                }
+            case BoundNotPattern notPattern:
+                {
+                    var coveredByNot = CreateEnumDomain(enumType);
+                    RemoveCoveredEnumMembers(coveredByNot, enumType, notPattern.Pattern);
+                    remaining.ExceptWith(coveredByNot);
+                    break;
+                }
         }
     }
+
+    private static HashSet<IFieldSymbol> CreateEnumDomain(INamedTypeSymbol enumType)
+        => new(GetEnumMembers(enumType), SymbolReferenceComparer<IFieldSymbol>.Instance);
 
     private static bool TryGetEnumField(
         BoundExpression? expression,

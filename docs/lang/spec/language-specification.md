@@ -2765,6 +2765,12 @@ itself total, but separate constrained property/deconstruction arms are not
 combined: evaluating user-defined accessors or deconstruction methods across
 arms is not assumed to be stable or side-effect free.
 
+Boolean pattern combinators also participate directly in closed enum and
+discriminated-union domains. In particular, `not CasePattern` covers the
+complement of a fully covered case pattern, and `and` covers the intersection
+of its operands. Guards never contribute coverage unless they are compile-time
+guaranteed to match.
+
 For nullable discriminated union carriers (`U?`), exhaustiveness is computed
 from the underlying union's declared case set plus the nullable wrapper's
 `null` value. This rule is the same for `union struct` and `union class`; the
