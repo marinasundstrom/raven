@@ -1,38 +1,31 @@
-import Utilities.*
+import System.Console.*
 
 func Main() {
-    Test()
-    let x = A(42)
-    Test()
-    A(x)
-    A("42")
-
-    use test = Test2()
-    test.Dispose()
-
-    let v: Foo = 3
-    let r = match v {
-        int i => i
-        string => 2
-        _ => 4
-    }
-
-    Console.WriteLine(r)
-
-    let s = Status.Open("foo")
-    match s {
-        .Open(let reason) => Console.WriteLine("Reason $reason")
-        .Closed(_) => ()
-    }
-
-    if let Ok(no) = int.parse("42") {
-        Console.WriteLine(no)
+    let result = Login("Alice", "test123!?")
+    match result {
+        .Success => {
+            WriteLine("Success")
+        }
+        .Error(.WrongCredentials) => WriteLine("Wrong credentials")
+        .Error(.ServiceUnavailable) => WriteLine("Service unavailable")
     }
 }
 
-union Foo(int | string)
-
-union Status {
-    case Closed(reason: string)
-    case Open(reason: string)
+func Login(userName: string, password: string) -> LoginResult {
+    if (userName == "Alice" && password == "test123!?") {
+        return .Success
+    }
+    return .Error(.WrongCredentials)
 }
+
+union LoginResult {
+    case Success,
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable,
+}
+
+
