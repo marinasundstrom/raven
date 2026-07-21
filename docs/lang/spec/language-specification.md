@@ -2766,10 +2766,14 @@ combined: evaluating user-defined accessors or deconstruction methods across
 arms is not assumed to be stable or side-effect free.
 
 Boolean pattern combinators also participate directly in closed enum and
-discriminated-union domains. In particular, `not CasePattern` covers the
-complement of a fully covered case pattern, and `and` covers the intersection
-of its operands. Guards never contribute coverage unless they are compile-time
-guaranteed to match.
+discriminated-union domains, closed type unions, sealed hierarchies, and
+nullable domains. In particular, `not CasePattern` covers the complement of a
+fully covered case pattern, `null` and `not null` partition a nullable domain,
+and `and` covers the intersection of its operands. For closed type sets the
+compiler distinguishes patterns that cover none, some, or all values of each
+candidate type; complements of partial structural patterns remain partial.
+Guards never contribute coverage unless they are compile-time guaranteed to
+match.
 
 For nullable discriminated union carriers (`U?`), exhaustiveness is computed
 from the underlying union's declared case set plus the nullable wrapper's

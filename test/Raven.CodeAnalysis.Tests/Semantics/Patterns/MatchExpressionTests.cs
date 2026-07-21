@@ -1406,6 +1406,72 @@ val result = match value {
     }
 
     [Fact]
+    public void MatchExpression_WithComplementaryParenthesizedUnionTypePatterns_IsExhaustive()
+    {
+        const string code = """
+union Value(int | string)
+
+func Describe(value: Value) -> string {
+    return match value {
+        int => "Number"
+        not int => "Text"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithParenthesizedUnionTypeIntersectionAndComplement_IsExhaustive()
+    {
+        const string code = """
+union Value(int | string)
+
+func Describe(value: Value) -> string {
+    return match value {
+        int and not string => "Number"
+        not int => "Text"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithLiteralAndComplementCoveringParenthesizedUnion_IsExhaustive()
+    {
+        const string code = """
+union Value(bool | string)
+
+func Describe(value: Value) -> string {
+    return match value {
+        true => "True"
+        not true => "Everything else"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullAndNonNullComplement_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: string?) -> string {
+    return match value {
+        null => "Missing"
+        not null => "Present"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithParenthesizedStructUnionDefaultLocal_AllPayloadsCoveredIsSourceExhaustive()
     {
         const string code = """

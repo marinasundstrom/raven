@@ -15,6 +15,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Top-level `not` and `and` patterns now participate in discriminated-union
   and enum exhaustiveness, including complements of payload cases whose
   payload domains are not themselves finite.
+- Closed type unions and sealed hierarchies now apply conservative
+  none/some/all coverage algebra to `not` and `and` patterns. Nullable domains
+  likewise recognize `null`/`not null` as complementary coverage.
 - Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
   authoritative evaluator across boolean, nullable, enum, union, sealed
   hierarchy, structural, and numeric pattern domains. Diagnostics report every

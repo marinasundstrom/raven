@@ -330,6 +330,37 @@ class Add : Expr {}
     }
 
     [Fact]
+    public void SealedHierarchy_Match_ComplementaryTypePatternsAreExhaustive()
+    {
+        const string code = """
+sealed class Expr permits Lit, Add {}
+class Lit : Expr {}
+class Add : Expr {}
+
+func Evaluate(expr: Expr) -> int {
+    return match expr {
+        Lit => 1
+        not Lit => 2
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(
+            tree,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var matchExpr = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        Assert.True(model.GetMatchExhaustiveness(matchExpr).IsExhaustive);
+    }
+
+    [Fact]
     public void SealedHierarchy_Match_ExhaustiveWithAbstractIntermediateSubtype()
     {
         var source = """

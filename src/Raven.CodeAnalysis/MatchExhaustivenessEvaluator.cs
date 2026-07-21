@@ -688,6 +688,8 @@ internal sealed class MatchExhaustivenessEvaluator
             case BoundAndPattern andPattern:
                 return IsTotalPattern(inputType, andPattern.Left, assumeNonNull) &&
                        IsTotalPattern(inputType, andPattern.Right, assumeNonNull);
+            case BoundNotPattern notPattern when assumeNonNull && IsNullPattern(notPattern.Pattern):
+                return true;
             default:
                 return false;
         }
@@ -730,6 +732,8 @@ internal sealed class MatchExhaustivenessEvaluator
         BoundPattern pattern,
         Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
+        UpdateBooleanLiteralCoverage(remaining, pattern, literalCoverage);
+
         switch (pattern)
         {
             case BoundDiscardPattern:
@@ -793,6 +797,10 @@ internal sealed class MatchExhaustivenessEvaluator
                 RemoveCoveredUnionMembers(remaining, orPattern.Left, literalCoverage);
                 RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
                 break;
+            case BoundAndPattern:
+            case BoundNotPattern:
+                RemoveMembersWithTotalTypeCoverage(remaining, pattern, literalCoverage);
+                break;
             case BoundPositionalPattern tuplePattern:
                 RemoveMembersCoveredByTotalPattern(remaining, tuplePattern, literalCoverage);
                 break;
@@ -803,6 +811,162 @@ internal sealed class MatchExhaustivenessEvaluator
                 RemoveMembersCoveredByTotalPattern(remaining, propertyPattern, literalCoverage);
                 break;
         }
+    }
+
+    private void UpdateBooleanLiteralCoverage(
+        HashSet<ITypeSymbol> remaining,
+        BoundPattern pattern,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+    {
+        if (literalCoverage is null)
+            return;
+
+        var coverage = GetBooleanCoverage(pattern);
+        if (coverage == BooleanCoverage.None)
+            return;
+
+        foreach (var candidate in remaining.ToArray())
+        {
+            if (!IsBooleanType(candidate) || !literalCoverage.TryGetValue(candidate, out var constants))
+                continue;
+
+            if ((coverage & BooleanCoverage.True) != 0)
+                constants.Add(true);
+            if ((coverage & BooleanCoverage.False) != 0)
+                constants.Add(false);
+
+            if (constants.Contains(true) && constants.Contains(false))
+            {
+                remaining.Remove(candidate);
+                literalCoverage.Remove(candidate);
+            }
+        }
+    }
+
+    private void RemoveMembersWithTotalTypeCoverage(
+        HashSet<ITypeSymbol> remaining,
+        BoundPattern pattern,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+    {
+        foreach (var candidate in remaining.ToArray())
+        {
+            if (GetTypePatternCoverage(UnwrapAlias(candidate), pattern) != TypePatternCoverage.All)
+                continue;
+
+            remaining.Remove(candidate);
+            literalCoverage?.Remove(candidate);
+        }
+    }
+
+    private TypePatternCoverage GetTypePatternCoverage(ITypeSymbol candidateType, BoundPattern pattern)
+    {
+        candidateType = UnwrapAlias(candidateType);
+
+        switch (pattern)
+        {
+            case BoundDiscardPattern:
+                return TypePatternCoverage.All;
+            case BoundDeclarationPattern declaration:
+                {
+                    var declaredType = UnwrapAlias(declaration.DeclaredType);
+                    if (IsTotalPattern(candidateType, declaration))
+                        return TypePatternCoverage.All;
+                    if (candidateType.TypeKind == TypeKind.Null || declaredType.TypeKind == TypeKind.Null)
+                        return TypePatternCoverage.None;
+                    if (IsAssignable(candidateType, declaredType))
+                        return TypePatternCoverage.Some;
+                    if (candidateType.IsValueType || candidateType is INamedTypeSymbol { IsClosed: true })
+                        return TypePatternCoverage.None;
+                    return TypePatternCoverage.Some;
+                }
+            case BoundConstantPattern constant:
+                {
+                    if (IsNullPattern(constant))
+                        return candidateType.TypeKind == TypeKind.Null ? TypePatternCoverage.All : TypePatternCoverage.None;
+                    if (IsBooleanType(candidateType))
+                    {
+                        return GetBooleanCoverage(constant) switch
+                        {
+                            BooleanCoverage.All => TypePatternCoverage.All,
+                            BooleanCoverage.None => TypePatternCoverage.None,
+                            _ => TypePatternCoverage.Some
+                        };
+                    }
+
+                    if (constant.LiteralType is { } literalType &&
+                        !TypeCoverageHelper.LiteralBelongsToType(
+                            (LiteralTypeSymbol)UnwrapAlias(literalType),
+                            candidateType))
+                    {
+                        return TypePatternCoverage.None;
+                    }
+
+                    if (constant.Expression?.Type is ITypeSymbol expressionType)
+                    {
+                        expressionType = UnwrapAlias(expressionType);
+                        if (!IsAssignable(candidateType, expressionType) &&
+                            !IsAssignable(expressionType, candidateType) &&
+                            (candidateType.IsValueType || candidateType is INamedTypeSymbol { IsClosed: true }))
+                        {
+                            return TypePatternCoverage.None;
+                        }
+                    }
+
+                    return TypePatternCoverage.Some;
+                }
+            case BoundUnionMemberPattern unionMemberPattern:
+                {
+                    var memberType = UnwrapAlias(unionMemberPattern.MemberType);
+                    memberType = UnionContentNullability.GetNonNullContentType(memberType, out _);
+                    var nonNullCandidate = UnionContentNullability.GetNonNullContentType(candidateType, out _);
+                    if (!ArePatternTypesEquivalent(nonNullCandidate, memberType))
+                        return TypePatternCoverage.None;
+                    return IsTotalPattern(nonNullCandidate, unionMemberPattern.Pattern, assumeNonNull: true)
+                        ? TypePatternCoverage.All
+                        : TypePatternCoverage.Some;
+                }
+            case BoundPositionalPattern:
+            case BoundDeconstructPattern:
+            case BoundPropertyPattern:
+                return IsTotalPattern(candidateType, pattern)
+                    ? TypePatternCoverage.All
+                    : TypePatternCoverage.Some;
+            case BoundOrPattern orPattern:
+                return OrCoverage(
+                    GetTypePatternCoverage(candidateType, orPattern.Left),
+                    GetTypePatternCoverage(candidateType, orPattern.Right));
+            case BoundAndPattern andPattern:
+                return AndCoverage(
+                    GetTypePatternCoverage(candidateType, andPattern.Left),
+                    GetTypePatternCoverage(candidateType, andPattern.Right));
+            case BoundNotPattern notPattern:
+                return GetTypePatternCoverage(candidateType, notPattern.Pattern) switch
+                {
+                    TypePatternCoverage.None => TypePatternCoverage.All,
+                    TypePatternCoverage.All => TypePatternCoverage.None,
+                    _ => TypePatternCoverage.Some
+                };
+            default:
+                return TypePatternCoverage.Some;
+        }
+    }
+
+    private static TypePatternCoverage OrCoverage(TypePatternCoverage left, TypePatternCoverage right)
+    {
+        if (left == TypePatternCoverage.All || right == TypePatternCoverage.All)
+            return TypePatternCoverage.All;
+        if (left == TypePatternCoverage.None && right == TypePatternCoverage.None)
+            return TypePatternCoverage.None;
+        return TypePatternCoverage.Some;
+    }
+
+    private static TypePatternCoverage AndCoverage(TypePatternCoverage left, TypePatternCoverage right)
+    {
+        if (left == TypePatternCoverage.None || right == TypePatternCoverage.None)
+            return TypePatternCoverage.None;
+        if (left == TypePatternCoverage.All && right == TypePatternCoverage.All)
+            return TypePatternCoverage.All;
+        return TypePatternCoverage.Some;
     }
 
     private static bool IsNullLiteralPatternExpression(BoundExpression expression)
@@ -858,9 +1022,17 @@ internal sealed class MatchExhaustivenessEvaluator
         if (IsNullPattern(pattern))
             return true;
 
-        return pattern is BoundOrPattern orPattern &&
-               (PatternCoversNull(scrutineeType, orPattern.Left) ||
-                PatternCoversNull(scrutineeType, orPattern.Right));
+        return pattern switch
+        {
+            BoundOrPattern orPattern =>
+                PatternCoversNull(scrutineeType, orPattern.Left) ||
+                PatternCoversNull(scrutineeType, orPattern.Right),
+            BoundAndPattern andPattern =>
+                PatternCoversNull(scrutineeType, andPattern.Left) &&
+                PatternCoversNull(scrutineeType, andPattern.Right),
+            BoundNotPattern notPattern => !PatternCoversNull(scrutineeType, notPattern.Pattern),
+            _ => false
+        };
     }
 
     private static bool IsNullPattern(BoundPattern pattern)
@@ -1733,6 +1905,13 @@ internal sealed class MatchExhaustivenessEvaluator
         False = 1,
         True = 2,
         All = False | True,
+    }
+
+    private enum TypePatternCoverage : byte
+    {
+        None,
+        Some,
+        All,
     }
 }
 
