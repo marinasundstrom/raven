@@ -2234,6 +2234,27 @@ func Describe(result: ToggleResult) -> string {
     }
 
     [Fact]
+    public void MatchExpression_WithComplementaryBooleanCombinatorsCoveringCasePayload_IsExhaustive()
+    {
+        const string code = """
+union ToggleResult {
+    case Unavailable
+    case State(enabled: bool)
+}
+
+func Describe(result: ToggleResult) -> string {
+    return match result {
+        .Unavailable => "Unavailable"
+        .State(true) => "Enabled"
+        .State(not true) => "Disabled"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithPatternsCoveringAllMultiPayloadCombinations_IsExhaustive()
     {
         const string code = """
@@ -2292,6 +2313,53 @@ func Describe(result: PairResult) -> string {
         .Empty => "Empty"
         .Pair(true, _) => "Left"
         .Pair(false, _) => "Not left"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithCombinatorsCoveringFinitePayloadProduct_IsExhaustive()
+    {
+        const string code = """
+union PairResult {
+    case Empty
+    case Pair(left: bool, right: bool)
+}
+
+func Describe(result: PairResult) -> string {
+    return match result {
+        .Empty => "Empty"
+        .Pair(true and not false, _) => "Left"
+        .Pair(not true, _) => "Not left"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithComplementaryNestedUnionCombinators_IsExhaustive()
+    {
+        const string code = """
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(result: LoginResult) -> string {
+    return match result {
+        .Success => "Success"
+        .Error(.WrongCredentials) => "Wrong credentials"
+        .Error(not .WrongCredentials) => "Other error"
     }
 }
 """;

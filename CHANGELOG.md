@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Finite union payload products now understand `not`, `and`, and `or`
+  combinators when proving collective case coverage. Removed the superseded
+  binder-owned exhaustiveness implementation so diagnostics and semantic
+  queries cannot drift between separate checking paths.
 - Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
   authoritative evaluator across boolean, nullable, enum, union, sealed
   hierarchy, structural, and numeric pattern domains. Diagnostics report every

@@ -136,6 +136,15 @@ internal static class NestedUnionPatternCoverage
                    PatternCoversFiniteValue(type, orPattern.Right, value, isTotalPattern);
         }
 
+        if (pattern is BoundAndPattern andPattern)
+        {
+            return PatternCoversFiniteValue(type, andPattern.Left, value, isTotalPattern) &&
+                   PatternCoversFiniteValue(type, andPattern.Right, value, isTotalPattern);
+        }
+
+        if (pattern is BoundNotPattern notPattern)
+            return !PatternCoversFiniteValue(type, notPattern.Pattern, value, isTotalPattern);
+
         if (value is BooleanFiniteValue booleanValue)
             return TryGetBooleanConstant(pattern, out var patternValue) && patternValue == booleanValue.Value;
 
@@ -248,6 +257,12 @@ internal static class NestedUnionPatternCoverage
     {
         if (patterns.Any(pattern => isTotalPattern(type, pattern)))
             return true;
+
+        if (TryEnumerateFiniteValues(type, depth: 0, out var values))
+        {
+            return values.All(value =>
+                patterns.Any(pattern => PatternCoversFiniteValue(type, pattern, value, isTotalPattern)));
+        }
 
         if (UnwrapAlias(type).SpecialType == SpecialType.System_Boolean)
         {
