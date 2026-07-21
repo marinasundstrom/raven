@@ -958,6 +958,25 @@ func Count(items: int[]) -> int {
     }
 
     [Fact]
+    public void MatchExpression_AfterRestOnlyCollectionPattern_ReportsUnreachableArm()
+    {
+        const string code = """
+func Count(items: int[]) -> int {
+    return match items {
+        [...] => items.Length
+        _ => 0
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult(CompilerDiagnostics.MatchExpressionArmUnreachable.Id).WithAnySpan()]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithConstantTrueNestedGuardedPattern_IsExhaustive()
     {
         const string code = """

@@ -20,7 +20,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   likewise recognize `null`/`not null` as complementary coverage.
 - Constant-true nested guarded patterns now contribute their underlying
   coverage, while dynamic or false guards remain conservative. A rest-only
-  sequence pattern is recognized as total for a compatible sequence input.
+  sequence pattern is recognized as total for a compatible sequence input,
+  and reachability diagnostics use the same shared catch-all classification.
 - Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
   authoritative evaluator across boolean, nullable, enum, union, sealed
   hierarchy, structural, and numeric pattern domains. Diagnostics report every

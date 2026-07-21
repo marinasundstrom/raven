@@ -5489,52 +5489,6 @@ partial class BlockBinder : Binder
         return -1;
     }
 
-    private bool PatternCoversNull(ITypeSymbol scrutineeType, BoundPattern pattern)
-    {
-        if (IsCatchAllPattern(scrutineeType, pattern))
-            return true;
-
-        if (IsNullConstantPattern(pattern))
-            return true;
-
-        return pattern is BoundOrPattern orPattern &&
-               (PatternCoversNull(scrutineeType, orPattern.Left) ||
-                PatternCoversNull(scrutineeType, orPattern.Right));
-    }
-
-    private static bool IsNullConstantPattern(BoundPattern pattern)
-    {
-        // Preferred/normalized form: literal-backed null constant pattern
-        if (pattern is BoundConstantPattern { Expression: null, ConstantValue: null })
-            return true;
-
-        // Expression-backed null literals are also exhaustive for null.
-        if (pattern is BoundConstantPattern
-            {
-                Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
-            })
-        {
-            return true;
-        }
-
-        if (pattern is BoundConstantPattern
-            {
-                Expression: BoundConversionExpression
-                {
-                    Expression: BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral }
-                }
-            })
-        {
-            return true;
-        }
-
-        // Defensive: treat expression-backed `NullType` as null too.
-        if (pattern is BoundConstantPattern { Expression: BoundTypeExpression { Type: NullTypeSymbol } })
-            return true;
-
-        return false;
-    }
-
     private void ReportRedundantCatchAll(SyntaxList<MatchArmSyntax> armSyntaxes, int catchAllIndex)
     {
         var patternLocation = armSyntaxes[catchAllIndex].Pattern.GetLocation();
@@ -5542,55 +5496,7 @@ partial class BlockBinder : Binder
     }
 
     private bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
-    {
-        // Value-testing patterns are never catch-all.
-        // This keeps reachability/exhaustiveness conservative when patterns depend on runtime values.
-        if (pattern is BoundConstantPattern)
-            return false;
-
-        if (pattern is BoundComparisonPattern)
-            return false;
-
-        switch (pattern)
-        {
-            case BoundDiscardPattern:
-                return true;
-            case BoundDeclarationPattern declaration:
-                {
-                    var declaredType = UnwrapAlias(declaration.DeclaredType);
-
-                    // A declaration pattern is catch-all regardless of whether it binds a name or discards.
-                    // (e.g. `string? x` should still cover all values of `string?`.)
-                    if (SymbolEqualityComparer.Default.Equals(declaredType, scrutineeType))
-                        return true;
-
-                    return declaredType.SpecialType == SpecialType.System_Object;
-                }
-            case BoundOrPattern orPattern:
-                return IsCatchAllPattern(scrutineeType, orPattern.Left) ||
-                       IsCatchAllPattern(scrutineeType, orPattern.Right);
-            case BoundPositionalPattern tuplePattern:
-                {
-                    var elementTypes = GetTupleElementTypes(scrutineeType);
-
-                    if (elementTypes.Length == 0 && tuplePattern.Elements.Length == 0)
-                        return true;
-
-                    if (elementTypes.Length != tuplePattern.Elements.Length)
-                        return false;
-
-                    for (var i = 0; i < tuplePattern.Elements.Length; i++)
-                    {
-                        if (!IsCatchAllPattern(elementTypes[i], tuplePattern.Elements[i]))
-                            return false;
-                    }
-
-                    return true;
-                }
-        }
-
-        return false;
-    }
+        => MatchExhaustivenessEvaluator.IsCatchAllPattern(scrutineeType, pattern);
 
 
 
