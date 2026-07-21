@@ -10,6 +10,28 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class MatchExpressionSyntaxTests
 {
     [Fact]
+    public void MatchExpression_ComparisonPatternStartingOnNextLine_BeginsNewArm()
+    {
+        const string code = """
+func Describe(value: int) -> string {
+    return match value {
+        < 0 => "Negative"
+        >= 0 => "Non-negative"
+        _ => "Unknown"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+
+        Assert.Equal(3, match.Arms.Count);
+        Assert.Equal(SyntaxKind.LessThanPattern, Assert.IsType<ComparisonPatternSyntax>(match.Arms[0].Pattern).Kind);
+        Assert.Equal(SyntaxKind.GreaterThanOrEqualPattern, Assert.IsType<ComparisonPatternSyntax>(match.Arms[1].Pattern).Kind);
+        Assert.IsType<DiscardPatternSyntax>(match.Arms[2].Pattern);
+    }
+
+    [Fact]
     public void MatchExpression_KeywordFirst_ParsesAsMatchExpressionSyntax()
     {
         const string code = """

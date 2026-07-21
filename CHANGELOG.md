@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Match diagnostics and the semantic exhaustiveness API now use the same
+  interval analysis for integral comparison, range, `not`, `and`, and `or`
+  patterns. Complementary numeric arms can prove a match exhaustive, guarded
+  arms remain conservative, and a redundant catch-all is reported after full
+  explicit coverage.
 - Match exhaustiveness now combines nested discriminated-union case patterns,
   so arms such as `.Error(.WrongCredentials)` and
   `.Error(.ServiceUnavailable)` can collectively cover the complete `Error`

@@ -2327,6 +2327,100 @@ func Describe(result: LoginResult) -> string {
         verifier.Verify();
     }
 
+    [Fact]
+    public void MatchExpression_WithComplementaryNumericComparisons_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: int) -> string {
+    return match value {
+        < 0 => "Negative"
+        >= 0 => "Non-negative"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNumericNotPatternAndComplement_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: int) -> string {
+    return match value {
+        not < 0 => "Non-negative"
+        < 0 => "Negative"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithComplementaryNumericRangeAndComparison_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: int) -> string {
+    return match value {
+        ..-1 => "Negative"
+        >= 0 => "Non-negative"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithIncompleteNumericComparison_ReportsMissingRange()
+    {
+        const string code = """
+func Describe(value: int) -> string {
+    return match value {
+        < 0 => "Negative"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "0..");
+    }
+
+    [Fact]
+    public void MatchExpression_WithGuardedNumericComparison_IsNotExhaustive()
+    {
+        const string code = """
+func Describe(value: int, includeZero: bool) -> string {
+    return match value {
+        < 0 => "Negative"
+        >= 0 when includeZero => "Non-negative"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false);
+    }
+
+    [Fact]
+    public void MatchExpression_WithComplementaryNumericComparisons_ReportsRedundantCatchAll()
+    {
+        const string code = """
+func Describe(value: int) -> string {
+    return match value {
+        < 0 => "Negative"
+        >= 0 => "Non-negative"
+        _ => "Unknown"
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan().WithSeverity(DiagnosticSeverity.Warning)]);
+
+        verifier.Verify();
+    }
+
     private static void AssertMatchExhaustiveness(
         string code,
         bool expectedExhaustive,
@@ -2337,12 +2431,14 @@ func Describe(result: LoginResult) -> string {
             "nested_union_case_match_scenario",
             [tree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.ConsoleApplication));
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         compilation.EnsureSetup();
-        var diagnostics = compilation.GetDiagnostics()
+        var allDiagnostics = compilation.GetDiagnostics();
+        var diagnostics = allDiagnostics
             .Where(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
             .ToArray();
+        Assert.Empty(allDiagnostics.Except(diagnostics));
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
 

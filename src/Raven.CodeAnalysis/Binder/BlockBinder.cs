@@ -5409,6 +5409,18 @@ partial class BlockBinder : Binder
             return;
         }
 
+        if (MatchExhaustivenessEvaluator.TryGetNumericTypeDomain(scrutineeType, out var numericDomain))
+        {
+            EnsureNumericMatchExhaustive(
+                matchSyntax,
+                armSyntaxes,
+                arms,
+                scrutineeType,
+                numericDomain,
+                catchAllIndex);
+            return;
+        }
+
         // Closed/sealed hierarchy exhaustiveness.
         // Note: binders may wrap source named types, so check OriginalDefinition.
         if (scrutineeType is INamedTypeSymbol namedScrutinee &&
@@ -6083,6 +6095,45 @@ partial class BlockBinder : Binder
         {
             ReportMatchNotExhaustive(matchSyntax, missing);
         }
+    }
+
+    private void EnsureNumericMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        ITypeSymbol scrutineeType,
+        NumericInterval domain,
+        int catchAllIndex)
+    {
+        var evaluator = new MatchExhaustivenessEvaluator(
+            Compilation,
+            node => TryGetCachedBoundNode(node));
+        var options = new MatchExhaustivenessOptions(ignoreCatchAllPatterns: false);
+        var missingCases = evaluator.GetMissingNumericRangeCases(scrutineeType, arms, domain, options);
+
+        if (missingCases.IsDefaultOrEmpty)
+        {
+            if (catchAllIndex >= 0)
+            {
+                var explicitArms = arms.Take(catchAllIndex).ToImmutableArray();
+                var missingBeforeCatchAll = evaluator.GetMissingNumericRangeCases(
+                    scrutineeType,
+                    explicitArms,
+                    domain,
+                    options);
+
+                if (missingBeforeCatchAll.IsDefaultOrEmpty)
+                    ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+            }
+
+            return;
+        }
+
+        if (catchAllIndex >= 0)
+            return;
+
+        foreach (var missingCase in missingCases)
+            ReportMatchNotExhaustive(matchSyntax, missingCase);
     }
 
     private bool CasePatternCoversAllArguments(BoundCasePattern casePattern)

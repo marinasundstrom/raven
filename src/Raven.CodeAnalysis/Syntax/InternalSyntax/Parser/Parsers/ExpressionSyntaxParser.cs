@@ -18,6 +18,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private readonly bool _allowLambdaExpressions;
     private readonly bool _stopOnLeadingNewlineBinaryOperator;
     private readonly bool _stopAtDotDotToken;
+    private readonly bool _stopAtLeadingMatchArmOperator;
     private bool _stopAfterPrimaryExpression;
     private const int RangeOperatorPrecedence = 4;
 
@@ -27,7 +28,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         bool stopOnOpenBrace = false,
         bool allowLambdaExpressions = true,
         bool stopOnLeadingNewlineBinaryOperator = false,
-        bool stopAtDotDotToken = false)
+        bool stopAtDotDotToken = false,
+        bool stopAtLeadingMatchArmOperator = false)
         : base(parent)
     {
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
@@ -35,6 +37,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         _allowLambdaExpressions = allowLambdaExpressions;
         _stopOnLeadingNewlineBinaryOperator = stopOnLeadingNewlineBinaryOperator;
         _stopAtDotDotToken = stopAtDotDotToken;
+        _stopAtLeadingMatchArmOperator = stopAtLeadingMatchArmOperator;
     }
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
@@ -271,6 +274,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (HasLeadingBlankLine(token))
                 return expr;
 
+            if (_stopAtLeadingMatchArmOperator &&
+                HasLeadingNewLine(token) &&
+                CanStartMatchArmOperatorPattern(token.Kind))
+            {
+                return expr;
+            }
+
             switch (token.Kind)
             {
                 case SyntaxKind.GreaterThanToken:
@@ -375,6 +385,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (HasLeadingBlankLine(operatorCandidate))
                 return expr ?? new ExpressionSyntax.Missing();
 
+            if (_stopAtLeadingMatchArmOperator &&
+                HasLeadingNewLine(operatorCandidate) &&
+                CanStartMatchArmOperatorPattern(operatorCandidate.Kind))
+            {
+                return expr ?? new ExpressionSyntax.Missing();
+            }
+
             if (operatorCandidate.IsKind(SyntaxKind.DotDotToken))
             {
                 // In some contexts (e.g. pattern parsing), the caller wants `..` to terminate
@@ -416,6 +433,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
         }
     }
+
+    private static bool CanStartMatchArmOperatorPattern(SyntaxKind kind)
+        => kind is SyntaxKind.LessThanToken
+            or SyntaxKind.LessThanOrEqualsToken
+            or SyntaxKind.GreaterThanToken
+            or SyntaxKind.GreaterThanOrEqualsToken
+            or SyntaxKind.EqualsEqualsToken
+            or SyntaxKind.NotEqualsToken;
 
     private ExpressionSyntax? ParseRangeBoundaryExpression()
     {
@@ -1938,6 +1963,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         if (lastToken != default)
         {
+            if (IsNewLineLike(lastToken))
+                count++;
+
             foreach (var trivia in lastToken.TrailingTrivia)
             {
                 if (IsNewLineLike(trivia.Kind))
@@ -2761,7 +2789,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 WhenClauseSyntax? whenClause = null;
                 if (ConsumeToken(SyntaxKind.WhenKeyword, out var whenKeyword))
                 {
-                    var guard = new ExpressionSyntaxParser(this).ParseExpression();
+                    var guard = new ExpressionSyntaxParser(this, allowLambdaExpressions: false).ParseExpression();
                     whenClause = WhenClause(whenKeyword, guard);
                 }
 
@@ -2780,7 +2808,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 else
                 {
                     SetTreatNewlinesAsTokens(true);
-                    expression = new ExpressionSyntaxParser(this).ParseExpression();
+                    expression = new ExpressionSyntaxParser(
+                        this,
+                        stopAtLeadingMatchArmOperator: true).ParseExpression();
                 }
 
                 SyntaxToken terminatorToken;

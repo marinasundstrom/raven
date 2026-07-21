@@ -1261,7 +1261,7 @@ internal sealed class MatchExhaustivenessEvaluator
     // Numeric interval coverage (for range/comparison patterns)
     // =========================================================
 
-    private static bool TryGetNumericTypeDomain(ITypeSymbol type, out NumericInterval domain)
+    internal static bool TryGetNumericTypeDomain(ITypeSymbol type, out NumericInterval domain)
     {
         domain = default;
 
@@ -1302,7 +1302,7 @@ internal sealed class MatchExhaustivenessEvaluator
         }
     }
 
-    private ImmutableArray<string> GetMissingNumericRangeCases(
+    internal ImmutableArray<string> GetMissingNumericRangeCases(
         ITypeSymbol scrutineeType,
         ImmutableArray<BoundMatchArm> arms,
         NumericInterval domain,
@@ -1386,17 +1386,19 @@ internal sealed class MatchExhaustivenessEvaluator
 
             case BoundRangePattern range:
                 {
-                    var low = range.LowerBound is not null
-                        ? TryExtractNumericValue(range.LowerBound, out var lo) ? lo : domain.Low
-                        : domain.Low;
+                    var low = domain.Low;
+                    if (range.LowerBound is not null &&
+                        !TryExtractNumericValue(range.LowerBound, out low))
+                    {
+                        return false;
+                    }
+
                     var high = domain.High;
 
                     if (range.UpperBound is not null)
                     {
                         if (!TryExtractNumericValue(range.UpperBound, out var hi))
-                        {
-                            high = domain.High;
-                        }
+                            return false;
                         else if (range.IsUpperExclusive)
                         {
                             if (hi == long.MinValue)
