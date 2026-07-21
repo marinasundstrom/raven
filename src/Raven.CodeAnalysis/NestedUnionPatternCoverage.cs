@@ -6,6 +6,24 @@ namespace Raven.CodeAnalysis;
 
 internal static class NestedUnionPatternCoverage
 {
+    public static bool TryAreFiniteValuesCovered(
+        ITypeSymbol type,
+        IEnumerable<BoundPattern> patterns,
+        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern,
+        out bool areCovered)
+    {
+        if (!TryEnumerateFiniteValues(type, depth: 0, out var values))
+        {
+            areCovered = false;
+            return false;
+        }
+
+        var patternArray = patterns.ToImmutableArray();
+        areCovered = values.All(value =>
+            patternArray.Any(pattern => PatternCoversFiniteValue(type, pattern, value, isTotalPattern)));
+        return true;
+    }
+
     public static void AccumulateAndRemoveCoveredCase(
         HashSet<IUnionCaseTypeSymbol> remaining,
         BoundPattern pattern,
@@ -145,8 +163,36 @@ internal static class NestedUnionPatternCoverage
         if (pattern is BoundNotPattern notPattern)
             return !PatternCoversFiniteValue(type, notPattern.Pattern, value, isTotalPattern);
 
+        if (value is TupleFiniteValue tupleValue && pattern is BoundPositionalPattern positionalPattern)
+        {
+            if (positionalPattern.Elements.Length != tupleValue.Elements.Length)
+                return false;
+
+            var elementTypes = GetTupleElementTypes(type);
+            if (elementTypes.Length != tupleValue.Elements.Length)
+                return false;
+
+            for (var i = 0; i < elementTypes.Length; i++)
+            {
+                if (!PatternCoversFiniteValue(
+                        elementTypes[i],
+                        positionalPattern.Elements[i],
+                        tupleValue.Elements[i],
+                        isTotalPattern))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         if (value is BooleanFiniteValue booleanValue)
             return TryGetBooleanConstant(pattern, out var patternValue) && patternValue == booleanValue.Value;
+
+        if (value is EnumFiniteValue enumValue && pattern is BoundConstantPattern enumPattern)
+            return TryGetEnumField(enumPattern.Expression, out var patternField) &&
+                   SymbolEqualityComparer.Default.Equals(patternField, enumValue.Field);
 
         if (value is not UnionCaseFiniteValue unionValue || pattern is not BoundCasePattern casePattern)
             return false;
@@ -189,6 +235,59 @@ internal static class NestedUnionPatternCoverage
         {
             values = [new BooleanFiniteValue(false), new BooleanFiniteValue(true)];
             return true;
+        }
+
+        if (type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        {
+            values = enumType
+                .GetMembers()
+                .OfType<IFieldSymbol>()
+                .Where(field =>
+                    field.IsConst &&
+                    SymbolEqualityComparer.Default.Equals(UnwrapAlias(field.Type), enumType))
+                .Select(field => (FiniteValue)new EnumFiniteValue(field))
+                .ToImmutableArray();
+            return !values.IsDefaultOrEmpty;
+        }
+
+        var tupleElementTypes = GetTupleElementTypes(type);
+        if (!tupleElementTypes.IsDefaultOrEmpty)
+        {
+            var domains = new ImmutableArray<FiniteValue>[tupleElementTypes.Length];
+            var combinationCount = 1;
+            for (var i = 0; i < tupleElementTypes.Length; i++)
+            {
+                if (!TryEnumerateFiniteValues(tupleElementTypes[i], depth + 1, out domains[i]) ||
+                    domains[i].Length == 0 ||
+                    combinationCount > 256 / domains[i].Length)
+                {
+                    values = default;
+                    return false;
+                }
+
+                combinationCount *= domains[i].Length;
+            }
+
+            var tupleBuilder = ImmutableArray.CreateBuilder<FiniteValue>(combinationCount);
+            var elements = new FiniteValue[tupleElementTypes.Length];
+            AddTupleCombinations(elementIndex: 0);
+            values = tupleBuilder.ToImmutable();
+            return true;
+
+            void AddTupleCombinations(int elementIndex)
+            {
+                if (elementIndex == tupleElementTypes.Length)
+                {
+                    tupleBuilder.Add(new TupleFiniteValue([.. elements]));
+                    return;
+                }
+
+                foreach (var element in domains[elementIndex])
+                {
+                    elements[elementIndex] = element;
+                    AddTupleCombinations(elementIndex + 1);
+                }
+            }
         }
 
         var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
@@ -337,6 +436,24 @@ internal static class NestedUnionPatternCoverage
         }
     }
 
+    private static bool TryGetEnumField(BoundExpression? expression, out IFieldSymbol field)
+    {
+        switch (expression)
+        {
+            case BoundFieldAccess fieldAccess when fieldAccess.Field.IsConst:
+                field = fieldAccess.Field;
+                return true;
+            case BoundMemberAccessExpression { Member: IFieldSymbol memberField } when memberField.IsConst:
+                field = memberField;
+                return true;
+            case BoundConversionExpression conversion:
+                return TryGetEnumField(conversion.Expression, out field);
+            default:
+                field = null!;
+                return false;
+        }
+    }
+
     private static bool ArgumentsAreTotal(
         ImmutableArray<IParameterSymbol> parameters,
         ImmutableArray<BoundPattern> arguments,
@@ -407,9 +524,26 @@ internal static class NestedUnionPatternCoverage
         return type;
     }
 
+    private static ImmutableArray<ITypeSymbol> GetTupleElementTypes(ITypeSymbol type)
+    {
+        type = UnwrapAlias(type);
+
+        if (type is INamedTypeSymbol { IsTupleType: true } namedTuple)
+            return namedTuple.TupleElements.Select(element => element.Type).ToImmutableArray();
+
+        if (type is ITupleTypeSymbol tuple)
+            return tuple.TupleElements.Select(element => element.Type).ToImmutableArray();
+
+        return [];
+    }
+
     private abstract record FiniteValue;
 
     private sealed record BooleanFiniteValue(bool Value) : FiniteValue;
+
+    private sealed record EnumFiniteValue(IFieldSymbol Field) : FiniteValue;
+
+    private sealed record TupleFiniteValue(ImmutableArray<FiniteValue> Elements) : FiniteValue;
 
     private sealed record UnionCaseFiniteValue(
         IUnionCaseTypeSymbol CaseSymbol,

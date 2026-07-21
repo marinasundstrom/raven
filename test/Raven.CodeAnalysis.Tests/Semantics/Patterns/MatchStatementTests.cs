@@ -180,6 +180,39 @@ match state {
     }
 
     [Fact]
+    public void MatchStatement_WithFiniteTupleRows_IsExhaustiveInDiagnosticsAndSemanticModel()
+    {
+        const string code = """
+val pair: (bool, bool) = (true, false)
+
+match pair {
+    (true, _) => 1
+    (false, true) => 2
+    (false, false) => 3
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_statement_finite_tuple_exhaustiveness",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var model = compilation.GetSemanticModel(tree);
+        var statement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
+        var info = model.GetMatchExhaustiveness(statement);
+
+        Assert.True(info.IsExhaustive);
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
     public void MatchStatement_WithOpenGenericDeclarationPattern_InfersTypeArgumentsFromScrutinee()
     {
         const string code = """

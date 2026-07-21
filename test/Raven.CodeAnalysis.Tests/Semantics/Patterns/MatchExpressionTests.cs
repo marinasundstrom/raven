@@ -2342,6 +2342,89 @@ func Describe(result: PairResult) -> string {
     }
 
     [Fact]
+    public void MatchExpression_WithRowsCoveringFiniteTupleProduct_IsExhaustive()
+    {
+        const string code = """
+func Describe(pair: (bool, bool)) -> string {
+    return match pair {
+        (true, _) => "Left"
+        (false, true) => "Right"
+        (false, false) => "Neither"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithCombinatorsCoveringFiniteTupleProduct_IsExhaustive()
+    {
+        const string code = """
+func Describe(pair: (bool, bool)) -> string {
+    return match pair {
+        (true and not false, _) => "Left"
+        (not true, _) => "Not left"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithMissingFiniteTupleCombination_IsNotExhaustive()
+    {
+        const string code = """
+func Describe(pair: (bool, bool)) -> string {
+    return match pair {
+        (true, _) => "Left"
+        (false, true) => "Right"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "_");
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableFiniteTupleAndNullCoverage_IsExhaustive()
+    {
+        const string code = """
+func Describe(pair: (bool, bool)?) -> string {
+    return match pair {
+        null => "Missing"
+        (true, _) => "Left"
+        (false, _) => "Not left"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithBooleanAndEnumTupleProduct_IsExhaustive()
+    {
+        const string code = """
+enum State {
+    Off
+    On
+}
+
+func Describe(pair: (bool, State)) -> string {
+    return match pair {
+        (true, .Off) => "Enabled off"
+        (true, .On) => "Enabled on"
+        (false, _) => "Disabled"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithComplementaryNestedUnionCombinators_IsExhaustive()
     {
         const string code = """

@@ -96,6 +96,10 @@ internal sealed class MatchExhaustivenessEvaluator
             {
                 missingCases = GetMissingSealedHierarchyCases(scrutineeType, arms, sealedRoot, options);
             }
+            else if (TryGetMissingFiniteStructuralCases(scrutineeType, arms, options, out var finiteMissingCases))
+            {
+                missingCases = finiteMissingCases;
+            }
             else if (TryGetNumericTypeDomain(scrutineeType, out var domain))
             {
                 missingCases = GetMissingNumericRangeCases(scrutineeType, arms, domain, options);
@@ -204,6 +208,7 @@ internal sealed class MatchExhaustivenessEvaluator
     {
         var nullRemaining = true;
         var valueRemaining = true;
+        var valuePatterns = ImmutableArray.CreateBuilder<BoundPattern>();
 
         foreach (var arm in arms)
         {
@@ -215,9 +220,20 @@ internal sealed class MatchExhaustivenessEvaluator
 
             nullRemaining &= !PatternCoversNull(nullableType, arm.Pattern);
             valueRemaining &= !IsTotalPattern(underlyingType, arm.Pattern, assumeNonNull: true);
+            valuePatterns.Add(arm.Pattern);
 
             if (!nullRemaining && !valueRemaining)
                 return ImmutableArray<string>.Empty;
+        }
+
+        if (valueRemaining &&
+            NestedUnionPatternCoverage.TryAreFiniteValuesCovered(
+                underlyingType,
+                valuePatterns,
+                (type, pattern) => IsTotalPattern(type, pattern, assumeNonNull: true),
+                out var finiteValuesCovered))
+        {
+            valueRemaining = !finiteValuesCovered;
         }
 
         var builder = ImmutableArray.CreateBuilder<string>();
@@ -226,6 +242,31 @@ internal sealed class MatchExhaustivenessEvaluator
         if (valueRemaining)
             builder.Add(underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
         return builder.ToImmutable();
+    }
+
+    private bool TryGetMissingFiniteStructuralCases(
+        ITypeSymbol scrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        MatchExhaustivenessOptions options,
+        out ImmutableArray<string> missingCases)
+    {
+        var patterns = arms
+            .Where(arm => BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+            .Where(arm => !options.IgnoreCatchAllPatterns || !IsCatchAllPattern(scrutineeType, arm.Pattern))
+            .Select(arm => arm.Pattern);
+
+        if (!NestedUnionPatternCoverage.TryAreFiniteValuesCovered(
+                scrutineeType,
+                patterns,
+                (type, pattern) => IsTotalPattern(type, pattern),
+                out var areCovered))
+        {
+            missingCases = default;
+            return false;
+        }
+
+        missingCases = areCovered ? ImmutableArray<string>.Empty : ImmutableArray.Create("_");
+        return true;
     }
 
     private ImmutableArray<string> GetMissingDiscriminatedUnionCases(

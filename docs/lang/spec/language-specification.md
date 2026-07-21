@@ -2738,6 +2738,8 @@ Exhaustiveness analysis applies in particular to:
 * **Discriminated unions** declared with the `union` keyword.
 * **Enums**.
 * **`bool`** (`true` and `false`).
+* **Finite tuple products** whose element value spaces can all be enumerated,
+  including nested tuples composed from `bool`, enums, and discriminated unions.
 * **Sealed hierarchies** — a `sealed` class with a `permits` clause (or
   otherwise participating in a closed inheritance set). Closed branches
   contribute concrete leaves; open intermediate branches must be covered by
@@ -2752,6 +2754,16 @@ entire `Error` case when the payload union declares only `A` and `B`. The same
 rule applies to other finite payload domains such as `bool` and to the Cartesian
 product of multiple finite payloads. Coverage must include every combination;
 independently mentioning every value in each payload position is insufficient.
+
+Positional tuple patterns use the same Cartesian-product analysis. Pattern
+combinators (`not`, `and`, and `or`) are evaluated over each finite value, so
+complementary tuple rows can establish exhaustiveness. The analysis is bounded;
+domains that cannot be enumerated within the compiler's finite-product limit
+remain conservative and require a total pattern. Property and nominal
+deconstruction patterns can establish exhaustiveness when a single pattern is
+itself total, but separate constrained property/deconstruction arms are not
+combined: evaluating user-defined accessors or deconstruction methods across
+arms is not assumed to be stable or side-effect free.
 
 For nullable discriminated union carriers (`U?`), exhaustiveness is computed
 from the underlying union's declared case set plus the nullable wrapper's
