@@ -47,9 +47,12 @@ internal static class NestedUnionPatternCoverage
         if (patterns.Any(pattern => ArgumentsAreTotal(parameters, pattern.Arguments, isTotalPattern)))
             return true;
 
+        if (FiniteArgumentCombinationsAreCovered(parameters, patterns, isTotalPattern))
+            return true;
+
         // Combining constrained patterns is currently supported for the common
-        // single-payload case. Multiple payloads require a Cartesian pattern matrix
-        // so that correlated combinations are not incorrectly treated as exhaustive.
+        // single-payload case when its domain cannot be enumerated as a small finite
+        // product. Multiple non-finite payloads remain conservative.
         if (parameters.Length != 1)
             return false;
 
@@ -61,6 +64,183 @@ internal static class NestedUnionPatternCoverage
         return PatternsCoverType(parameters[0].Type, arguments, isTotalPattern);
     }
 
+    private static bool FiniteArgumentCombinationsAreCovered(
+        ImmutableArray<IParameterSymbol> parameters,
+        IReadOnlyList<BoundCasePattern> patterns,
+        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+    {
+        var domains = new ImmutableArray<FiniteValue>[parameters.Length];
+        var combinationCount = 1;
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (!TryEnumerateFiniteValues(parameters[i].Type, depth: 0, out domains[i]))
+                return false;
+
+            if (domains[i].Length == 0 || combinationCount > 256 / domains[i].Length)
+                return false;
+
+            combinationCount *= domains[i].Length;
+        }
+
+        var values = new FiniteValue[parameters.Length];
+        return AllCombinationsAreCovered(parameterIndex: 0);
+
+        bool AllCombinationsAreCovered(int parameterIndex)
+        {
+            if (parameterIndex == parameters.Length)
+            {
+                return patterns.Any(pattern =>
+                    pattern.Arguments.Length == parameters.Length &&
+                    ArgumentsCoverValues(parameters, pattern.Arguments, values, isTotalPattern));
+            }
+
+            foreach (var value in domains[parameterIndex])
+            {
+                values[parameterIndex] = value;
+                if (!AllCombinationsAreCovered(parameterIndex + 1))
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    private static bool ArgumentsCoverValues(
+        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<BoundPattern> arguments,
+        IReadOnlyList<FiniteValue> values,
+        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+    {
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (!PatternCoversFiniteValue(parameters[i].Type, arguments[i], values[i], isTotalPattern))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool PatternCoversFiniteValue(
+        ITypeSymbol type,
+        BoundPattern pattern,
+        FiniteValue value,
+        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+    {
+        if (isTotalPattern(type, pattern))
+            return true;
+
+        if (pattern is BoundOrPattern orPattern)
+        {
+            return PatternCoversFiniteValue(type, orPattern.Left, value, isTotalPattern) ||
+                   PatternCoversFiniteValue(type, orPattern.Right, value, isTotalPattern);
+        }
+
+        if (value is BooleanFiniteValue booleanValue)
+            return TryGetBooleanConstant(pattern, out var patternValue) && patternValue == booleanValue.Value;
+
+        if (value is not UnionCaseFiniteValue unionValue || pattern is not BoundCasePattern casePattern)
+            return false;
+
+        if (!SameCase(casePattern.CaseSymbol, unionValue.CaseSymbol) ||
+            casePattern.Arguments.Length != unionValue.Arguments.Length)
+        {
+            return false;
+        }
+
+        var parameters = unionValue.CaseSymbol.ConstructorParameters;
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (!PatternCoversFiniteValue(
+                    parameters[i].Type,
+                    casePattern.Arguments[i],
+                    unionValue.Arguments[i],
+                    isTotalPattern))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryEnumerateFiniteValues(
+        ITypeSymbol type,
+        int depth,
+        out ImmutableArray<FiniteValue> values)
+    {
+        if (depth > 16)
+        {
+            values = default;
+            return false;
+        }
+
+        type = UnwrapAlias(type);
+        if (type.SpecialType == SpecialType.System_Boolean)
+        {
+            values = [new BooleanFiniteValue(false), new BooleanFiniteValue(true)];
+            return true;
+        }
+
+        var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
+        if (union is null || union.DeclaredCaseTypes.IsDefaultOrEmpty)
+        {
+            values = default;
+            return false;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<FiniteValue>();
+        foreach (var caseSymbol in union.DeclaredCaseTypes)
+        {
+            var parameters = caseSymbol.ConstructorParameters;
+            if (parameters.Length == 0)
+            {
+                builder.Add(new UnionCaseFiniteValue(caseSymbol, []));
+                continue;
+            }
+
+            var domains = new ImmutableArray<FiniteValue>[parameters.Length];
+            var caseCombinationCount = 1;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (!TryEnumerateFiniteValues(parameters[i].Type, depth + 1, out domains[i]))
+                {
+                    values = default;
+                    return false;
+                }
+
+                if (domains[i].Length == 0 || caseCombinationCount > (256 - builder.Count) / domains[i].Length)
+                {
+                    values = default;
+                    return false;
+                }
+
+                caseCombinationCount *= domains[i].Length;
+            }
+
+            var arguments = new FiniteValue[parameters.Length];
+            AddCombinations(parameterIndex: 0);
+
+            void AddCombinations(int parameterIndex)
+            {
+                if (parameterIndex == parameters.Length)
+                {
+                    builder.Add(new UnionCaseFiniteValue(caseSymbol, [.. arguments]));
+                    return;
+                }
+
+                foreach (var argument in domains[parameterIndex])
+                {
+                    arguments[parameterIndex] = argument;
+                    AddCombinations(parameterIndex + 1);
+                }
+            }
+        }
+
+        values = builder.ToImmutable();
+        return true;
+    }
+
     private static bool PatternsCoverType(
         ITypeSymbol type,
         ImmutableArray<BoundPattern> patterns,
@@ -68,6 +248,23 @@ internal static class NestedUnionPatternCoverage
     {
         if (patterns.Any(pattern => isTotalPattern(type, pattern)))
             return true;
+
+        if (UnwrapAlias(type).SpecialType == SpecialType.System_Boolean)
+        {
+            var coversTrue = false;
+            var coversFalse = false;
+
+            foreach (var pattern in patterns)
+            {
+                if (!TryGetBooleanConstant(pattern, out var value))
+                    continue;
+
+                coversTrue |= value;
+                coversFalse |= !value;
+            }
+
+            return coversTrue && coversFalse;
+        }
 
         var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
         if (union is null || union.DeclaredCaseTypes.IsDefaultOrEmpty)
@@ -90,6 +287,39 @@ internal static class NestedUnionPatternCoverage
         }
 
         return true;
+    }
+
+    private static bool TryGetBooleanConstant(BoundPattern pattern, out bool value)
+    {
+        if (pattern is BoundConstantPattern constant)
+        {
+            if (TryGetBooleanConstant(constant.Expression, out value))
+                return true;
+
+            if (constant.ConstantValue is bool constantValue)
+            {
+                value = constantValue;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
+    }
+
+    private static bool TryGetBooleanConstant(BoundExpression? expression, out bool value)
+    {
+        switch (expression)
+        {
+            case BoundLiteralExpression { Value: bool literalValue }:
+                value = literalValue;
+                return true;
+            case BoundConversionExpression conversion:
+                return TryGetBooleanConstant(conversion.Expression, out value);
+            default:
+                value = default;
+                return false;
+        }
     }
 
     private static bool ArgumentsAreTotal(
@@ -161,4 +391,12 @@ internal static class NestedUnionPatternCoverage
 
         return type;
     }
+
+    private abstract record FiniteValue;
+
+    private sealed record BooleanFiniteValue(bool Value) : FiniteValue;
+
+    private sealed record UnionCaseFiniteValue(
+        IUnionCaseTypeSymbol CaseSymbol,
+        ImmutableArray<FiniteValue> Arguments) : FiniteValue;
 }

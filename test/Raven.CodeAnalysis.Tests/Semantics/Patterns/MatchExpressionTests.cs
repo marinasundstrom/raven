@@ -2100,6 +2100,260 @@ func Describe(result: LoginResult) -> string {
     }
 
     [Fact]
+    public void MatchExpression_WithNestedUnionOrPatternCoveringPayload_IsExhaustive()
+    {
+        const string code = """
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(result: LoginResult) -> string {
+    return match result {
+        .Success => "Success"
+        .Error(.WrongCredentials or .ServiceUnavailable) => "Error"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithGuardedNestedUnionCase_RemainsNotExhaustive()
+    {
+        const string code = """
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(result: LoginResult, retry: bool) -> string {
+    return match result {
+        .Success => "Success"
+        .Error(.WrongCredentials) => "Wrong credentials"
+        .Error(.ServiceUnavailable) when retry => "Retry"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "Error");
+    }
+
+    [Fact]
+    public void MatchExpression_WithDeeplyNestedUnionCasePatterns_IsExhaustive()
+    {
+        const string code = """
+union Envelope {
+    case Pending
+    case Completed(result: LoginResult)
+}
+
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(envelope: Envelope) -> string {
+    return match envelope {
+        .Pending => "Pending"
+        .Completed(.Success) => "Success"
+        .Completed(.Error(.WrongCredentials)) => "Wrong credentials"
+        .Completed(.Error(.ServiceUnavailable)) => "Service unavailable"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullableNestedUnionCasePatternsAndNull_IsExhaustive()
+    {
+        const string code = """
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(result: LoginResult?) -> string {
+    return match result {
+        null => "Missing"
+        .Success => "Success"
+        .Error(.WrongCredentials) => "Wrong credentials"
+        .Error(.ServiceUnavailable) => "Service unavailable"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithBooleanPatternsCoveringCasePayload_IsExhaustive()
+    {
+        const string code = """
+union ToggleResult {
+    case Unavailable
+    case State(enabled: bool)
+}
+
+func Describe(result: ToggleResult) -> string {
+    return match result {
+        .Unavailable => "Unavailable"
+        .State(true) => "Enabled"
+        .State(false) => "Disabled"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithPatternsCoveringAllMultiPayloadCombinations_IsExhaustive()
+    {
+        const string code = """
+union PairResult {
+    case Empty
+    case Pair(left: bool, right: bool)
+}
+
+func Describe(result: PairResult) -> string {
+    return match result {
+        .Empty => "Empty"
+        .Pair(true, true) => "Both"
+        .Pair(true, false) => "Left"
+        .Pair(false, true) => "Right"
+        .Pair(false, false) => "Neither"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithMultiPayloadCombinationMissing_IsNotExhaustive()
+    {
+        const string code = """
+union PairResult {
+    case Empty
+    case Pair(left: bool, right: bool)
+}
+
+func Describe(result: PairResult) -> string {
+    return match result {
+        .Empty => "Empty"
+        .Pair(true, true) => "Both"
+        .Pair(true, false) => "Left"
+        .Pair(false, true) => "Right"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "Pair");
+    }
+
+    [Fact]
+    public void MatchExpression_WithMultiPayloadWildcardRows_IsExhaustive()
+    {
+        const string code = """
+union PairResult {
+    case Empty
+    case Pair(left: bool, right: bool)
+}
+
+func Describe(result: PairResult) -> string {
+    return match result {
+        .Empty => "Empty"
+        .Pair(true, _) => "Left"
+        .Pair(false, _) => "Not left"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNestedPayloadFullyCovered_ReportsRedundantCatchAll()
+    {
+        const string code = """
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(result: LoginResult) -> string {
+    return match result {
+        .Success => "Success"
+        .Error(.WrongCredentials) => "Wrong credentials"
+        .Error(.ServiceUnavailable) => "Service unavailable"
+        _ => "Unknown"
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2103").WithAnySpan().WithSeverity(DiagnosticSeverity.Warning)]);
+
+        verifier.Verify();
+    }
+
+    private static void AssertMatchExhaustiveness(
+        string code,
+        bool expectedExhaustive,
+        string? expectedMissingCase = null)
+    {
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "nested_union_case_match_scenario",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
+            .ToArray();
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
+
+        Assert.Equal(expectedExhaustive, diagnostics.Length == 0);
+        Assert.Equal(expectedExhaustive, info.IsExhaustive);
+
+        if (expectedMissingCase is not null)
+            Assert.Contains(expectedMissingCase, info.MissingCases);
+    }
+
+    [Fact]
     public void MatchExpression_WithPureDeconstructionInsideUnionCase_RedundantCatchAllReportsDiagnostic()
     {
         const string code = """
