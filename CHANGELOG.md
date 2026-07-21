@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Match exhaustiveness now combines nested discriminated-union case patterns,
+  so arms such as `.Error(.WrongCredentials)` and
+  `.Error(.ServiceUnavailable)` can collectively cover the complete `Error`
+  payload without requiring a discard arm.
 - Adopted `let`/`var` as the standard spelling for lexical bindings while
   retaining `val`/`var` for properties and signature-like declarations. A
   `let` local remains semantically read-only and is displayed as `val` by hover

@@ -200,6 +200,7 @@ internal sealed class MatchExhaustivenessEvaluator
             return GetMissingParenthesizedUnionCases(matchSyntax, scrutinee, scrutineeType, arms, union, options);
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
+        var casePatterns = new Dictionary<IUnionCaseTypeSymbol, List<BoundCasePattern>>(SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
         foreach (var arm in arms)
         {
             if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
@@ -209,6 +210,12 @@ internal sealed class MatchExhaustivenessEvaluator
                 continue;
 
             RemoveCoveredCases(remaining, arm.Pattern, union);
+            NestedUnionPatternCoverage.AccumulateAndRemoveCoveredCase(
+                remaining,
+                arm.Pattern,
+                union,
+                casePatterns,
+                (type, pattern) => IsTotalPattern(type, pattern));
 
             if (remaining.Count == 0)
                 break;

@@ -2745,8 +2745,10 @@ Exhaustiveness analysis applies in particular to:
 
 For discriminated unions, exhaustiveness is computed from the union's declared
 case set (equivalent to sealed-hierarchy reasoning over a closed subtype set).
-Each declared case must be matched by an unguarded arm, or covered by an
-unguarded catch-all arm.
+Each declared case and its payload value space must be covered by unguarded
+arms, or by an unguarded catch-all arm. Multiple arms may collectively cover a
+case payload. For example, separate `.Error(.A)` and `.Error(.B)` arms cover the
+entire `Error` case when the payload union declares only `A` and `B`.
 
 For nullable discriminated union carriers (`U?`), exhaustiveness is computed
 from the underlying union's declared case set plus the nullable wrapper's

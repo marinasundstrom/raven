@@ -5599,6 +5599,7 @@ partial class BlockBinder : Binder
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
         var nullRemaining = true;
+        var casePatterns = new Dictionary<IUnionCaseTypeSymbol, List<BoundCasePattern>>(SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
         bool? guaranteedNullRemaining = null;
@@ -5607,6 +5608,9 @@ partial class BlockBinder : Binder
             guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
             guaranteedNullRemaining = nullRemaining;
         }
+        Dictionary<IUnionCaseTypeSymbol, List<BoundCasePattern>>? guaranteedCasePatterns = catchAllIndex >= 0
+            ? new(SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance)
+            : null;
 
         var reportedRedundantCatchAll = false;
 
@@ -5618,12 +5622,24 @@ partial class BlockBinder : Binder
             if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
             {
                 RemoveCoveredCases(guaranteedRemaining, arm.Pattern, union);
+                NestedUnionPatternCoverage.AccumulateAndRemoveCoveredCase(
+                    guaranteedRemaining,
+                    arm.Pattern,
+                    union,
+                    guaranteedCasePatterns!,
+                    (type, pattern) => IsTotalPattern(type, pattern));
                 guaranteedNullRemaining &= !PatternCoversNull(nullableScrutineeType, arm.Pattern);
             }
 
             if (guardGuaranteesMatch)
             {
                 RemoveCoveredCases(remaining, arm.Pattern, union);
+                NestedUnionPatternCoverage.AccumulateAndRemoveCoveredCase(
+                    remaining,
+                    arm.Pattern,
+                    union,
+                    casePatterns,
+                    (type, pattern) => IsTotalPattern(type, pattern));
                 nullRemaining &= !PatternCoversNull(nullableScrutineeType, arm.Pattern);
             }
 
@@ -5871,6 +5887,7 @@ partial class BlockBinder : Binder
 
         var remaining = new HashSet<IUnionCaseTypeSymbol>(union.DeclaredCaseTypes, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
         var inactiveStructStateRemaining = RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, scrutineeType, union);
+        var casePatterns = new Dictionary<IUnionCaseTypeSymbol, List<BoundCasePattern>>(SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
 
         HashSet<IUnionCaseTypeSymbol>? guaranteedRemaining = null;
         bool? guaranteedInactiveStructStateRemaining = null;
@@ -5879,6 +5896,9 @@ partial class BlockBinder : Binder
             guaranteedRemaining = new HashSet<IUnionCaseTypeSymbol>(remaining, SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance);
             guaranteedInactiveStructStateRemaining = inactiveStructStateRemaining;
         }
+        Dictionary<IUnionCaseTypeSymbol, List<BoundCasePattern>>? guaranteedCasePatterns = catchAllIndex >= 0
+            ? new(SymbolReferenceComparer<IUnionCaseTypeSymbol>.Instance)
+            : null;
 
         var reportedRedundantCatchAll = false;
 
@@ -5890,12 +5910,24 @@ partial class BlockBinder : Binder
             if (guaranteedRemaining is not null && guardGuaranteesMatch && i < catchAllIndex)
             {
                 RemoveCoveredCases(guaranteedRemaining, arm.Pattern, union);
+                NestedUnionPatternCoverage.AccumulateAndRemoveCoveredCase(
+                    guaranteedRemaining,
+                    arm.Pattern,
+                    union,
+                    guaranteedCasePatterns!,
+                    (type, pattern) => IsTotalPattern(type, pattern));
                 guaranteedInactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
             }
 
             if (guardGuaranteesMatch)
             {
                 RemoveCoveredCases(remaining, arm.Pattern, union);
+                NestedUnionPatternCoverage.AccumulateAndRemoveCoveredCase(
+                    remaining,
+                    arm.Pattern,
+                    union,
+                    casePatterns,
+                    (type, pattern) => IsTotalPattern(type, pattern));
                 inactiveStructStateRemaining &= !PatternCoversInactiveStructUnionState(scrutineeType, arm.Pattern, union);
             }
 

@@ -2017,6 +2017,89 @@ func Describe(result: Response<int>) -> string {
     }
 
     [Fact]
+    public void MatchExpression_WithNestedUnionCasePatternsCoveringPayload_IsExhaustive()
+    {
+        const string code = """
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(result: LoginResult) -> string {
+    return match result {
+        .Success => "Success"
+        .Error(.WrongCredentials) => "Wrong credentials"
+        .Error(.ServiceUnavailable) => "Service unavailable"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "nested_union_case_match_exhaustiveness",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
+
+        Assert.True(info.IsExhaustive, $"Expected exhaustive match but missing: [{string.Join(", ", info.MissingCases)}]");
+        Assert.Empty(info.MissingCases);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNestedUnionCasePatternMissingPayloadCase_IsNotExhaustive()
+    {
+        const string code = """
+union LoginResult {
+    case Success
+    case Error(error: LoginError)
+}
+
+union LoginError {
+    case WrongCredentials
+    case ServiceUnavailable
+}
+
+func Describe(result: LoginResult) -> string {
+    return match result {
+        .Success => "Success"
+        .Error(.WrongCredentials) => "Wrong credentials"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "nested_union_case_match_missing_payload_case",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        compilation.EnsureSetup();
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
+
+        Assert.False(info.IsExhaustive);
+        Assert.Contains("Error", info.MissingCases);
+    }
+
+    [Fact]
     public void MatchExpression_WithPureDeconstructionInsideUnionCase_RedundantCatchAllReportsDiagnostic()
     {
         const string code = """
