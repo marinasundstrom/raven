@@ -22,6 +22,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   coverage, while dynamic or false guards remain conservative. A rest-only
   sequence pattern is recognized as total for a compatible sequence input,
   and reachability diagnostics use the same shared catch-all classification.
+- Compile-time-true match-arm guards now contribute consistently in every
+  domain, including `bool` and catch-all reporting. The singleton `unit` and
+  null-only domains are analyzed explicitly.
 - Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
   authoritative evaluator across boolean, nullable, enum, union, sealed
   hierarchy, structural, and numeric pattern domains. Diagnostics report every

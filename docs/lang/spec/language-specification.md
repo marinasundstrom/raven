@@ -2783,6 +2783,11 @@ covers every length and is a total pattern for a compatible non-null sequence.
 Patterns containing required elements or fixed segments remain length
 constrained.
 
+The `unit` domain contains only `()`, and the null-only domain contains only
+`null`; matching those respective values is exhaustive. A compile-time-true
+match-arm guard preserves the arm pattern's coverage in every domain, while a
+false or dynamic arm guard contributes no coverage.
+
 For nullable discriminated union carriers (`U?`), exhaustiveness is computed
 from the underlying union's declared case set plus the nullable wrapper's
 `null` value. This rule is the same for `union struct` and `union class`; the

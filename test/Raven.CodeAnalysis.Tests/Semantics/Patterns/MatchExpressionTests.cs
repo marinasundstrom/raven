@@ -373,6 +373,60 @@ val result = match value {
     }
 
     [Fact]
+    public void MatchExpression_WithConstantTrueGuardedCatchAll_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: bool) -> string {
+    return match value {
+        _ when true => "Boolean"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithConstantFalseGuardedCatchAll_IsNotExhaustive()
+    {
+        const string code = """
+func Describe(value: bool) -> string {
+    return match value {
+        _ when false => "Boolean"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "true");
+    }
+
+    [Fact]
+    public void MatchExpression_WithUnitPattern_IsExhaustive()
+    {
+        const string code = """
+func Describe(value: unit) -> string {
+    return match value {
+        () => "Unit"
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithNullLiteralPatternOnNullExpression_IsExhaustive()
+    {
+        const string code = """
+val description = match null {
+    null => "Null"
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithBooleanLiteralArmsOnUnion_IsExhaustive()
     {
         const string code = """

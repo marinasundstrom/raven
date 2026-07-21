@@ -5479,7 +5479,7 @@ partial class BlockBinder : Binder
         {
             var arm = arms[i];
 
-            if (arm.Guard is not null)
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
                 continue;
 
             if (IsCatchAllPattern(scrutineeType, arm.Pattern))

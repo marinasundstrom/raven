@@ -50,7 +50,9 @@ internal sealed class MatchExhaustivenessEvaluator
         if (scrutineeType.TypeKind == TypeKind.Error)
             return new MatchExhaustivenessInfo(isExhaustive: true, ImmutableArray<string>.Empty, hasCatchAll: false);
 
-        var hasCatchAll = arms.Any(arm => arm.Guard is null && IsCatchAllPattern(scrutineeType, arm.Pattern));
+        var hasCatchAll = arms.Any(arm =>
+            BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard) &&
+            IsCatchAllPattern(scrutineeType, arm.Pattern));
 
         ImmutableArray<string> missingCases;
 
@@ -74,6 +76,24 @@ internal sealed class MatchExhaustivenessEvaluator
         else if (IsBooleanType(scrutineeType))
         {
             missingCases = GetMissingBooleanCases(scrutineeType, arms, options);
+        }
+        else if (scrutineeType.SpecialType == SpecialType.System_Unit)
+        {
+            missingCases = GetMissingSingletonCase(
+                scrutineeType,
+                arms,
+                options,
+                "()",
+                pattern => IsTotalPattern(scrutineeType, pattern));
+        }
+        else if (scrutineeType.TypeKind == TypeKind.Null)
+        {
+            missingCases = GetMissingSingletonCase(
+                scrutineeType,
+                arms,
+                options,
+                "null",
+                pattern => PatternCoversNull(scrutineeType, pattern));
         }
         else
         {
@@ -112,6 +132,26 @@ internal sealed class MatchExhaustivenessEvaluator
         }
 
         return new MatchExhaustivenessInfo(missingCases.IsDefaultOrEmpty, missingCases, hasCatchAll);
+    }
+
+    private static ImmutableArray<string> GetMissingSingletonCase(
+        ITypeSymbol scrutineeType,
+        ImmutableArray<BoundMatchArm> arms,
+        MatchExhaustivenessOptions options,
+        string display,
+        Func<BoundPattern, bool> coversValue)
+    {
+        foreach (var arm in arms)
+        {
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(scrutineeType, arm.Pattern))
+                continue;
+            if (coversValue(arm.Pattern))
+                return ImmutableArray<string>.Empty;
+        }
+
+        return ImmutableArray.Create(display);
     }
 
     internal static bool IsDiscardPattern(BoundPattern pattern)
@@ -181,7 +221,7 @@ internal sealed class MatchExhaustivenessEvaluator
 
         foreach (var arm in arms)
         {
-            if (arm.Guard is not null)
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
                 continue;
 
             if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(scrutineeType, arm.Pattern))
