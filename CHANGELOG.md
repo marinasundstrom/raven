@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
+  authoritative evaluator across boolean, nullable, enum, union, sealed
+  hierarchy, structural, and numeric pattern domains. Diagnostics report every
+  missing semantic case returned by the API, while flow-sensitive struct-union
+  default-state handling remains limited to catch-all reachability warnings.
 - Match diagnostics and the semantic exhaustiveness API now use the same
   interval analysis for integral comparison, range, `not`, `and`, and `or`
   patterns. Complementary numeric arms can prove a match exhaustive, guarded

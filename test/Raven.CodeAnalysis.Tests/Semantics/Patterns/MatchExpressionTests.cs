@@ -100,6 +100,7 @@ val result = match value {
         var verifier = CreateVerifier(code);
 
         verifier.Verify();
+        AssertMatchDiagnosticsAgreeWithSemanticModel(code);
     }
 
     [Fact]
@@ -1819,9 +1820,11 @@ val result = match state {
             code,
             [
                 new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Off"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Unknown"),
             ]);
 
         verifier.Verify();
+        AssertMatchDiagnosticsAgreeWithSemanticModel(code);
     }
 
     [Fact]
@@ -2449,6 +2452,31 @@ func Describe(value: int) -> string {
             Assert.Contains(expectedMissingCase, info.MissingCases);
     }
 
+    private static void AssertMatchDiagnosticsAgreeWithSemanticModel(string code)
+    {
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "match_exhaustiveness_diagnostic_semantic_alignment",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
+            .ToArray();
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
+
+        Assert.Equal(info.MissingCases.Length, diagnostics.Length);
+        foreach (var missingCase in info.MissingCases)
+        {
+            Assert.Contains(
+                diagnostics,
+                diagnostic => diagnostic.GetMessage().Contains($"'{missingCase}'", StringComparison.Ordinal));
+        }
+    }
+
     [Fact]
     public void MatchExpression_WithPureDeconstructionInsideUnionCase_RedundantCatchAllReportsDiagnostic()
     {
@@ -2502,9 +2530,13 @@ val result = match input {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Text")]);
+            [
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Empty"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Text"),
+            ]);
 
         verifier.Verify();
+        AssertMatchDiagnosticsAgreeWithSemanticModel(code);
     }
 
     [Fact]
@@ -2533,10 +2565,11 @@ val result = match input {
             new CompilationOptions(OutputKind.ConsoleApplication));
 
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100"));
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100").ToArray();
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
 
-        Assert.Equal(match.MatchKeyword.GetLocation(), diagnostic.Location);
+        Assert.Equal(2, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal(match.MatchKeyword.GetLocation(), diagnostic.Location));
     }
 
     [Fact]

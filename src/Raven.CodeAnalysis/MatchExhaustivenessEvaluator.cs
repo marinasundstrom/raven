@@ -36,7 +36,7 @@ internal sealed class MatchExhaustivenessEvaluator
         return Evaluate(matchSyntax, matchStatement.Expression, matchStatement.Arms, options);
     }
 
-    private MatchExhaustivenessInfo Evaluate(
+    internal MatchExhaustivenessInfo Evaluate(
         SyntaxNode matchSyntax,
         BoundExpression scrutinee,
         ImmutableArray<BoundMatchArm> arms,
@@ -62,6 +62,14 @@ internal sealed class MatchExhaustivenessEvaluator
         if (nullableUnderlyingUnion is not null)
         {
             missingCases = GetMissingNullableUnionCases(matchSyntax, scrutinee, scrutineeType, nullableUnderlyingType, arms, nullableUnderlyingUnion, options);
+        }
+        else if (!SymbolEqualityComparer.Default.Equals(nullableUnderlyingType, scrutineeType))
+        {
+            missingCases = GetMissingNullableCases(
+                scrutineeType,
+                nullableUnderlyingType,
+                arms,
+                options);
         }
         else if (IsBooleanType(scrutineeType))
         {
@@ -117,7 +125,7 @@ internal sealed class MatchExhaustivenessEvaluator
         {
             case BoundDiscardPattern:
                 return true;
-            case BoundDeclarationPattern { Designator: BoundDiscardDesignator } declaration:
+            case BoundDeclarationPattern declaration:
                 {
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
@@ -188,6 +196,38 @@ internal sealed class MatchExhaustivenessEvaluator
         return builder.ToImmutable();
     }
 
+    private ImmutableArray<string> GetMissingNullableCases(
+        ITypeSymbol nullableType,
+        ITypeSymbol underlyingType,
+        ImmutableArray<BoundMatchArm> arms,
+        MatchExhaustivenessOptions options)
+    {
+        var nullRemaining = true;
+        var valueRemaining = true;
+
+        foreach (var arm in arms)
+        {
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            if (options.IgnoreCatchAllPatterns && IsCatchAllPattern(nullableType, arm.Pattern))
+                continue;
+
+            nullRemaining &= !PatternCoversNull(nullableType, arm.Pattern);
+            valueRemaining &= !IsTotalPattern(underlyingType, arm.Pattern, assumeNonNull: true);
+
+            if (!nullRemaining && !valueRemaining)
+                return ImmutableArray<string>.Empty;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<string>();
+        if (nullRemaining)
+            builder.Add("null");
+        if (valueRemaining)
+            builder.Add(underlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        return builder.ToImmutable();
+    }
+
     private ImmutableArray<string> GetMissingDiscriminatedUnionCases(
         SyntaxNode matchSyntax,
         BoundExpression scrutinee,
@@ -216,7 +256,6 @@ internal sealed class MatchExhaustivenessEvaluator
                 union,
                 casePatterns,
                 (type, pattern) => IsTotalPattern(type, pattern));
-
             if (remaining.Count == 0)
                 break;
         }
@@ -326,7 +365,6 @@ internal sealed class MatchExhaustivenessEvaluator
                 continue;
 
             RemoveCoveredUnionMembers(remaining, arm.Pattern, literalCoverage);
-
             if (remaining.Count == 0)
                 break;
         }
@@ -701,20 +739,14 @@ internal sealed class MatchExhaustivenessEvaluator
                 RemoveCoveredUnionMembers(remaining, orPattern.Right, literalCoverage);
                 break;
             case BoundPositionalPattern tuplePattern:
-                RemoveMembersAssignableToPattern(remaining, tuplePattern.Type, literalCoverage);
+                RemoveMembersCoveredByTotalPattern(remaining, tuplePattern, literalCoverage);
                 break;
             case BoundDeconstructPattern deconstructPattern:
-                {
-                    var coverType = deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType;
-                    RemoveMembersAssignableToPattern(remaining, coverType, literalCoverage);
-                    break;
-                }
+                RemoveMembersCoveredByTotalPattern(remaining, deconstructPattern, literalCoverage);
+                break;
             case BoundPropertyPattern propertyPattern:
-                {
-                    if (propertyPattern.NarrowedType is not null)
-                        RemoveMembersAssignableToPattern(remaining, propertyPattern.NarrowedType, literalCoverage);
-                    break;
-                }
+                RemoveMembersCoveredByTotalPattern(remaining, propertyPattern, literalCoverage);
+                break;
         }
     }
 
@@ -901,12 +933,8 @@ internal sealed class MatchExhaustivenessEvaluator
         switch (pattern)
         {
             case BoundConstantPattern constant:
-                if (constant.Expression is BoundFieldAccess fieldAccess &&
-                    fieldAccess.Field.IsConst &&
-                    ArePatternTypesEquivalent(UnwrapAlias(fieldAccess.Field.Type), enumType))
-                {
-                    remaining.Remove(fieldAccess.Field);
-                }
+                if (TryGetEnumField(constant.Expression, enumType, out var field))
+                    remaining.Remove(field);
 
                 break;
             case BoundOrPattern orPattern:
@@ -914,6 +942,39 @@ internal sealed class MatchExhaustivenessEvaluator
                 RemoveCoveredEnumMembers(remaining, enumType, orPattern.Right);
                 break;
         }
+    }
+
+    private static bool TryGetEnumField(
+        BoundExpression? expression,
+        INamedTypeSymbol enumType,
+        out IFieldSymbol field)
+    {
+        field = null!;
+
+        return expression switch
+        {
+            BoundFieldAccess fieldAccess => TryBindEnumField(fieldAccess.Field, enumType, out field),
+            BoundMemberAccessExpression { Member: IFieldSymbol memberField } =>
+                TryBindEnumField(memberField, enumType, out field),
+            _ => false
+        };
+    }
+
+    private static bool TryBindEnumField(
+        IFieldSymbol candidate,
+        INamedTypeSymbol enumType,
+        out IFieldSymbol field)
+    {
+        field = null!;
+
+        if (!candidate.IsConst ||
+            !ArePatternTypesEquivalent(UnwrapAlias(candidate.Type), enumType))
+        {
+            return false;
+        }
+
+        field = candidate;
+        return true;
     }
 
     private bool CasePatternCoversAllArguments(BoundCasePattern casePattern)
@@ -1032,6 +1093,22 @@ internal sealed class MatchExhaustivenessEvaluator
                 remaining.Remove(candidate);
                 literalCoverage?.Remove(candidate);
             }
+        }
+    }
+
+    private void RemoveMembersCoveredByTotalPattern(
+        HashSet<ITypeSymbol> remaining,
+        BoundPattern pattern,
+        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+    {
+        foreach (var candidate in remaining.ToArray())
+        {
+            var candidateType = UnwrapAlias(candidate);
+            if (!IsTotalPattern(candidateType, pattern))
+                continue;
+
+            remaining.Remove(candidate);
+            literalCoverage?.Remove(candidate);
         }
     }
 

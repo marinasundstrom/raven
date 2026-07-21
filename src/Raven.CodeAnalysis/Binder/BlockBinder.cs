@@ -5353,7 +5353,7 @@ partial class BlockBinder : Binder
         return ArePatternTypesEquivalent(left, right);
     }
 
-    private void EnsureMatchExhaustive(
+    private void EnsureMatchExhaustiveLegacy(
         SyntaxNode matchSyntax,
         SyntaxList<MatchArmSyntax> armSyntaxes,
         BoundExpression scrutinee,
@@ -5592,6 +5592,123 @@ partial class BlockBinder : Binder
                 return true;
 
             return false;
+        }
+    }
+
+    private void EnsureMatchExhaustive(
+        SyntaxNode matchSyntax,
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        BoundExpression scrutinee,
+        ImmutableArray<BoundMatchArm> arms)
+    {
+        if (scrutinee.Type is not ITypeSymbol scrutineeType ||
+            UnwrapAlias(scrutineeType).TypeKind == TypeKind.Error)
+        {
+            return;
+        }
+
+        scrutineeType = UnwrapAlias(scrutineeType);
+        ReportPartialMatchCoverageDiagnostics(armSyntaxes, arms, scrutineeType);
+
+        var evaluator = new MatchExhaustivenessEvaluator(
+            Compilation,
+            node => TryGetCachedBoundNode(node));
+        var options = new MatchExhaustivenessOptions(ignoreCatchAllPatterns: false);
+        var result = evaluator.Evaluate(matchSyntax, scrutinee, arms, options);
+
+        if (!result.IsExhaustive)
+        {
+            foreach (var missingCase in result.MissingCases)
+                ReportMatchNotExhaustive(matchSyntax, missingCase);
+
+            return;
+        }
+
+        if (!result.HasCatchAll)
+            return;
+
+        var withoutCatchAll = evaluator.Evaluate(
+            matchSyntax,
+            scrutinee,
+            arms,
+            new MatchExhaustivenessOptions(ignoreCatchAllPatterns: true));
+
+        if (!withoutCatchAll.IsExhaustive)
+            return;
+
+        var union = scrutineeType.TryGetUnion() ?? scrutineeType.TryGetUnionCase()?.Union;
+        if (union is not null &&
+            RequiresInactiveStructUnionStateCoverage(matchSyntax, scrutinee, scrutineeType, union))
+        {
+            return;
+        }
+
+        var catchAllIndex = GetCatchAllArmIndex(scrutineeType, arms);
+        if (catchAllIndex >= 0)
+            ReportRedundantCatchAll(armSyntaxes, catchAllIndex);
+    }
+
+    private void ReportPartialMatchCoverageDiagnostics(
+        SyntaxList<MatchArmSyntax> armSyntaxes,
+        ImmutableArray<BoundMatchArm> arms,
+        ITypeSymbol scrutineeType)
+    {
+        var catchAllIndex = GetCatchAllArmIndex(scrutineeType, arms);
+        if (catchAllIndex >= 0)
+            return;
+
+        var reported = new HashSet<string>(StringComparer.Ordinal);
+
+        if (scrutineeType is ITypeUnionSymbol union)
+        {
+            var remaining = new HashSet<ITypeSymbol>(
+                GetUnionMembers(union),
+                TypeSymbolReferenceComparer.Instance);
+
+            for (var i = 0; i < arms.Length; i++)
+            {
+                var arm = arms[i];
+                if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                    continue;
+
+                if (arm.Pattern is BoundCasePattern casePattern &&
+                    AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
+                    !CasePatternCoversAllArguments(casePattern) &&
+                    reported.Add(casePattern.CaseSymbol.Name))
+                {
+                    ReportMatchArmPatternNotFullyCovered(
+                        armSyntaxes[i].Pattern.GetLocation(),
+                        casePattern.CaseSymbol.Name);
+                }
+
+                RemoveCoveredUnionMembers(remaining, arm.Pattern);
+            }
+
+            return;
+        }
+
+        if (!TypeCoverageHelper.TryGetSealedHierarchy(scrutineeType, out var sealedRoot))
+            return;
+
+        var projectedHierarchy = scrutineeType as INamedTypeSymbol ?? sealedRoot;
+        var coverageTypes = TypeCoverageHelper.GetSealedHierarchyCoverageTypes(sealedRoot, projectedHierarchy);
+        var sealedRemaining = new HashSet<ITypeSymbol>(
+            coverageTypes.Cast<ITypeSymbol>(),
+            TypeSymbolReferenceComparer.Instance);
+
+        for (var i = 0; i < arms.Length; i++)
+        {
+            var arm = arms[i];
+            if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                continue;
+
+            if (TryGetPartiallyCoveredTypeName(sealedRemaining, arm.Pattern, out var typeName) &&
+                reported.Add(typeName))
+            {
+                ReportMatchArmPatternNotFullyCovered(armSyntaxes[i].Pattern.GetLocation(), typeName);
+            }
+
+            RemoveCoveredUnionMembers(sealedRemaining, arm.Pattern);
         }
     }
 
