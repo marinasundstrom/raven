@@ -2775,6 +2775,14 @@ candidate type; complements of partial structural patterns remain partial.
 Guards never contribute coverage unless they are compile-time guaranteed to
 match.
 
+A nested guarded pattern contributes coverage only when its expression guard
+is compile-time `true`; a nested pattern guard is intersected with the guarded
+pattern. Dynamic and compile-time-false guards contribute no coverage. For
+sequence patterns, a single unconstrained rest segment (for example `[...]`)
+covers every length and is a total pattern for a compatible non-null sequence.
+Patterns containing required elements or fixed segments remain length
+constrained.
+
 For nullable discriminated union carriers (`U?`), exhaustiveness is computed
 from the underlying union's declared case set plus the nullable wrapper's
 `null` value. This rule is the same for `union struct` and `union class`; the

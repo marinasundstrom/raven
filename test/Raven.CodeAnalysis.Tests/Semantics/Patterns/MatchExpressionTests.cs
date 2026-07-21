@@ -944,6 +944,48 @@ val result = match items {
     }
 
     [Fact]
+    public void MatchExpression_WithRestOnlyCollectionPattern_IsExhaustive()
+    {
+        const string code = """
+func Count(items: int[]) -> int {
+    return match items {
+        [...] => items.Length
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithConstantTrueNestedGuardedPattern_IsExhaustive()
+    {
+        const string code = """
+func Describe(pair: (bool, bool)) -> string {
+    return match pair {
+        (val left when true, _) => left.ToString()
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: true);
+    }
+
+    [Fact]
+    public void MatchExpression_WithConstantFalseNestedGuardedPattern_IsNotExhaustive()
+    {
+        const string code = """
+func Describe(pair: (bool, bool)) -> string {
+    return match pair {
+        (val left when false, _) => left.ToString()
+    }
+}
+""";
+
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "_");
+    }
+
+    [Fact]
     public void MatchExpression_WithMiddleTripleDotCollectionPattern_BindsDiscardRest()
     {
         const string code = """

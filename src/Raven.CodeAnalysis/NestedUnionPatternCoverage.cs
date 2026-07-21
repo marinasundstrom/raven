@@ -148,6 +148,14 @@ internal static class NestedUnionPatternCoverage
         if (isTotalPattern(type, pattern))
             return true;
 
+        if (pattern is BoundGuardedPattern guardedPattern)
+        {
+            return BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression) &&
+                   PatternCoversFiniteValue(type, guardedPattern.Pattern, value, isTotalPattern) &&
+                   (guardedPattern.GuardPattern is null ||
+                    PatternCoversFiniteValue(type, guardedPattern.GuardPattern, value, isTotalPattern));
+        }
+
         if (pattern is BoundOrPattern orPattern)
         {
             return PatternCoversFiniteValue(type, orPattern.Left, value, isTotalPattern) ||

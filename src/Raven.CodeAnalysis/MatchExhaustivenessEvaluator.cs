@@ -127,6 +127,11 @@ internal sealed class MatchExhaustivenessEvaluator
 
         switch (pattern)
         {
+            case BoundGuardedPattern guardedPattern:
+                return BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression) &&
+                       IsCatchAllPattern(scrutineeType, guardedPattern.Pattern) &&
+                       (guardedPattern.GuardPattern is null ||
+                        IsCatchAllPattern(scrutineeType, guardedPattern.GuardPattern));
             case BoundDiscardPattern:
                 return true;
             case BoundDeclarationPattern declaration:
@@ -143,6 +148,9 @@ internal sealed class MatchExhaustivenessEvaluator
                        IsCatchAllPattern(scrutineeType, orPattern.Right);
             case BoundPositionalPattern tuplePattern:
                 {
+                    if (IsTotalRestOnlySequencePattern(scrutineeType, tuplePattern))
+                        return true;
+
                     var elementTypes = GetTupleElementTypes(scrutineeType);
 
                     if (elementTypes.Length == 0 && tuplePattern.Elements.Length == 0)
@@ -578,6 +586,14 @@ internal sealed class MatchExhaustivenessEvaluator
     {
         switch (pattern)
         {
+            case BoundGuardedPattern guardedPattern:
+                if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression))
+                    return BooleanCoverage.None;
+
+                var guardedCoverage = GetBooleanCoverage(guardedPattern.Pattern);
+                return guardedPattern.GuardPattern is null
+                    ? guardedCoverage
+                    : guardedCoverage & GetBooleanCoverage(guardedPattern.GuardPattern);
             case BoundDiscardPattern:
                 return BooleanCoverage.All;
             case BoundDeclarationPattern declaration when IsBooleanType(declaration.DeclaredType):
@@ -601,6 +617,11 @@ internal sealed class MatchExhaustivenessEvaluator
 
         switch (pattern)
         {
+            case BoundGuardedPattern guardedPattern:
+                return BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression) &&
+                       IsTotalPattern(inputType, guardedPattern.Pattern, assumeNonNull) &&
+                       (guardedPattern.GuardPattern is null ||
+                        IsTotalPattern(inputType, guardedPattern.GuardPattern, assumeNonNull));
             case BoundDiscardPattern:
                 return true;
             case BoundConstantPattern constant:
@@ -620,6 +641,9 @@ internal sealed class MatchExhaustivenessEvaluator
                 }
             case BoundPositionalPattern tuplePattern:
                 {
+                    if (IsTotalRestOnlySequencePattern(inputType, tuplePattern))
+                        return true;
+
                     var elementTypes = GetTupleElementTypes(inputType);
 
                     if (elementTypes.Length == 0)
@@ -736,6 +760,9 @@ internal sealed class MatchExhaustivenessEvaluator
 
         switch (pattern)
         {
+            case BoundGuardedPattern:
+                RemoveMembersWithTotalTypeCoverage(remaining, pattern, literalCoverage);
+                break;
             case BoundDiscardPattern:
                 remaining.Clear();
                 literalCoverage?.Clear();
@@ -864,6 +891,16 @@ internal sealed class MatchExhaustivenessEvaluator
 
         switch (pattern)
         {
+            case BoundGuardedPattern guardedPattern:
+                {
+                    if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression))
+                        return TypePatternCoverage.Some;
+
+                    var coverage = GetTypePatternCoverage(candidateType, guardedPattern.Pattern);
+                    return guardedPattern.GuardPattern is null
+                        ? coverage
+                        : AndCoverage(coverage, GetTypePatternCoverage(candidateType, guardedPattern.GuardPattern));
+                }
             case BoundDiscardPattern:
                 return TypePatternCoverage.All;
             case BoundDeclarationPattern declaration:
@@ -1024,6 +1061,11 @@ internal sealed class MatchExhaustivenessEvaluator
 
         return pattern switch
         {
+            BoundGuardedPattern guardedPattern =>
+                BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression) &&
+                PatternCoversNull(scrutineeType, guardedPattern.Pattern) &&
+                (guardedPattern.GuardPattern is null ||
+                 PatternCoversNull(scrutineeType, guardedPattern.GuardPattern)),
             BoundOrPattern orPattern =>
                 PatternCoversNull(scrutineeType, orPattern.Left) ||
                 PatternCoversNull(scrutineeType, orPattern.Right),
@@ -1074,6 +1116,15 @@ internal sealed class MatchExhaustivenessEvaluator
     {
         switch (pattern)
         {
+            case BoundGuardedPattern guardedPattern:
+                if (BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression) &&
+                    (guardedPattern.GuardPattern is null ||
+                     IsTotalPattern((ITypeSymbol)union, guardedPattern.GuardPattern)))
+                {
+                    RemoveCoveredCases(remaining, guardedPattern.Pattern, union);
+                }
+
+                break;
             case BoundDiscardPattern:
                 remaining.Clear();
                 break;
@@ -1181,6 +1232,15 @@ internal sealed class MatchExhaustivenessEvaluator
 
         switch (pattern)
         {
+            case BoundGuardedPattern guardedPattern:
+                if (BoundNodeFacts.MatchArmGuardGuaranteesMatch(guardedPattern.GuardExpression) &&
+                    (guardedPattern.GuardPattern is null ||
+                     IsTotalPattern(enumType, guardedPattern.GuardPattern)))
+                {
+                    RemoveCoveredEnumMembers(remaining, enumType, guardedPattern.Pattern);
+                }
+
+                break;
             case BoundConstantPattern constant:
                 if (TryGetEnumField(constant.Expression, enumType, out var field))
                     remaining.Remove(field);
@@ -1526,6 +1586,22 @@ internal sealed class MatchExhaustivenessEvaluator
         return ImmutableArray<ITypeSymbol>.Empty;
     }
 
+    private static bool IsTotalRestOnlySequencePattern(
+        ITypeSymbol inputType,
+        BoundPositionalPattern pattern)
+    {
+        if (GetTupleElementTypes(inputType).Length > 0 ||
+            pattern.RestIndex != 0 ||
+            pattern.Elements.Length != 1 ||
+            pattern.ElementKinds.Length != 1 ||
+            pattern.ElementKinds[0] != BoundPositionalPattern.SequenceElementKind.RestSegment)
+        {
+            return false;
+        }
+
+        return IsCatchAllPattern(pattern.Elements[0].Type, pattern.Elements[0]);
+    }
+
     private static bool AreSameUnionPatternTarget(ITypeSymbol left, ITypeSymbol right)
     {
         if (ReferenceEquals(left, right))
@@ -1727,6 +1803,38 @@ internal sealed class MatchExhaustivenessEvaluator
 
         switch (pattern)
         {
+            case BoundGuardedPattern guarded:
+                {
+                    if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(guarded.GuardExpression) ||
+                        !TryGetPatternIntervals(guarded.Pattern, domain, out var patternIntervals))
+                    {
+                        return false;
+                    }
+
+                    if (guarded.GuardPattern is null)
+                    {
+                        intervals = patternIntervals;
+                        return true;
+                    }
+
+                    if (!TryGetPatternIntervals(guarded.GuardPattern, domain, out var guardIntervals))
+                        return false;
+
+                    var guardedIntersection = new List<NumericInterval>();
+                    foreach (var patternInterval in patternIntervals)
+                    {
+                        foreach (var guardInterval in guardIntervals)
+                        {
+                            var low = Math.Max(patternInterval.Low, guardInterval.Low);
+                            var high = Math.Min(patternInterval.High, guardInterval.High);
+                            if (low <= high)
+                                guardedIntersection.Add(new NumericInterval(low, high));
+                        }
+                    }
+
+                    intervals = guardedIntersection;
+                    return true;
+                }
             case BoundDiscardPattern:
             case BoundDeclarationPattern { Designator: BoundDiscardDesignator }:
                 intervals = new[] { domain };

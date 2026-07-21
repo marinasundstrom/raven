@@ -18,6 +18,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Closed type unions and sealed hierarchies now apply conservative
   none/some/all coverage algebra to `not` and `and` patterns. Nullable domains
   likewise recognize `null`/`not null` as complementary coverage.
+- Constant-true nested guarded patterns now contribute their underlying
+  coverage, while dynamic or false guards remain conservative. A rest-only
+  sequence pattern is recognized as total for a compatible sequence input.
 - Match diagnostics and `SemanticModel.GetMatchExhaustiveness` now use one
   authoritative evaluator across boolean, nullable, enum, union, sealed
   hierarchy, structural, and numeric pattern domains. Diagnostics report every
