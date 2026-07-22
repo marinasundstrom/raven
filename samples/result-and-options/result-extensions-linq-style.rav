@@ -10,9 +10,9 @@ let total = ParseAmount("120")
 WriteLine(total)
 
 func ParseAmount(text: string) -> Result<int, string> {
-    return try int.Parse(text) match {
+    return int.Parse(text) match {
         Ok(let value) => Ok(value)
-        Error(Exception ex) => Error(ex.Message)
+        Error(let error) => Error(error.Message)
     }
 }
 

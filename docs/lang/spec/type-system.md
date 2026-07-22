@@ -438,7 +438,7 @@ applies the normal conversion/specificity comparison. This applies to both
 source-declared methods and methods imported from referenced .NET assemblies.
 
 ```raven
-val parsed = int.Parse("42") // string literal selects the overload taking string
+val parsed = int.Parse("42") // projected to Result<int, ParseIntError>
 ```
 
 Overload ranking follows the normal conversion ladder for the argument and

@@ -53,7 +53,7 @@ operation that may succeed or fail in an expected way.
 
 ```raven
 func ParsePort(text: string) -> Result<int, string> {
-    return try int.Parse(text) match {
+    return int.Parse(text) match {
         Ok(let port) when port > 0 => Ok(port)
         Ok(_) => Error("Port must be positive")
         Error(_) => Error("Port must be a number")
@@ -61,9 +61,11 @@ func ParsePort(text: string) -> Result<int, string> {
 }
 ```
 
-`try int.Parse(text)` captures the call as a `Result`, and `match` handles every
-outcome. The propagation operator `?` can return an error from the current
-function when no local handling is needed.
+Raven projects the known framework method `int.Parse(string)` to
+`Result<int, ParseIntError>`, so `match` handles its expected failures directly.
+The `try` expression remains available for genuinely throwing APIs, and the
+propagation operator `?` can return an error from the current function when no
+local handling is needed.
 
 ## Objects remain available
 

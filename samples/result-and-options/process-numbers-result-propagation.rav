@@ -1,7 +1,7 @@
 import System.*
 import System.Console.*
 
-// Feature: `Result` propagation with `?` plus `try` expression parsing.
+// Feature: `Result` propagation with `?` plus projected parsing.
 func Main() -> () {
     let inputs = [|"10", "3", "abc", "42"|]
     let r = match ProcessNumbers(inputs) {
@@ -11,7 +11,7 @@ func Main() -> () {
 }
 
 func parseInt(text: string) -> Result<int, string> {
-    return try int.Parse(text) match {
+    return int.Parse(text) match {
         Ok(let value) => Ok(value)
         Error(_) => Error("\"$text\" is not a number")
     }

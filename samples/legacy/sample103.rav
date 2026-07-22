@@ -17,7 +17,7 @@ WriteLine(res4)
 
 async func test(text: string, throwExc: bool) -> Task<Result<int, Exception>> {
     let str = try? await action(text, throwExc)
-    let x = try? int.Parse(str)
+    let x = try? Convert.ToInt32(str)
     WriteLine(x)
     return Ok(x + 2)
 }

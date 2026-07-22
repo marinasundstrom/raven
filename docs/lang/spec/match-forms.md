@@ -9,8 +9,8 @@ expression form is keyword-first so it reads the same way as statement-form
 * **Postfix expression form**: `scrutinee match { ... }`
 
 The postfix expression form remains valid for composition cases where the
-scrutinee is already a prefix expression, such as `try int.Parse(text) match {
-... }`.
+scrutinee is already a prefix expression, such as
+`try Convert.ToInt32(text) match { ... }`.
 
 In statement context, `match scrutinee { ... }` is parsed as a
 `MatchStatementSyntax` before expression statements are considered. The
@@ -63,7 +63,7 @@ match value {
 ```
 
 ```raven
-val label = try int.Parse(text) match {
+val label = try Convert.ToInt32(text) match {
     Ok(val value) => "Parsed ${value}"
     Error(_) => "Invalid"
 }

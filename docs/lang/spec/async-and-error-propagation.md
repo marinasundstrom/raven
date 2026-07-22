@@ -49,7 +49,7 @@ function or lambda returns a compatible `Result<_, _>` or `Option<_>`.
 import System.*
 
 func describeNumber(text: string) -> string {
-    return try int.Parse(text) match {
+    return try Convert.ToInt32(text) match {
         Ok(val value) => "Parsed: $value"
         Error(FormatException ex) => "Invalid format: ${ex.Message}"
         Error(_) => "Unexpected failure"
@@ -57,7 +57,7 @@ func describeNumber(text: string) -> string {
 }
 
 func parseRequiredInt(text: string) -> Result<int, Exception> {
-    val value = try? int.Parse(text)
+    val value = try? Convert.ToInt32(text)
     return .Ok(value)
 }
 
@@ -70,6 +70,11 @@ func saveText(path: string, text: string) -> string {
     }
 }
 ```
+
+`Convert.ToInt32` is used here because it remains a throwing .NET API. Raven's
+standard framework projection for `int.Parse(string)` already returns
+`Result<int, ParseIntError>`; `try` is still the general mechanism for capturing
+exceptions from APIs without such a projection.
 
 ### Rules
 

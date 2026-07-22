@@ -25,7 +25,7 @@ func parseInt(text: string) -> Result<int, ParseError> {
     }
 
     try {
-        return .Ok(int.Parse(text))
+        return .Ok(Convert.ToInt32(text))
     } catch System.FormatException ex {
         return .Error(ParseError.Invalid(ex.Message))
     }
@@ -122,7 +122,7 @@ context.
 
 ```raven
 func describeNumber(text: string) -> string {
-    return try int.Parse(text) match {
+    return try Convert.ToInt32(text) match {
         Ok(val value) => "Parsed: $value"
         Error(FormatException ex) => "Invalid format: ${ex.Message}"
         Error(_) => "Unexpected failure"
@@ -130,10 +130,16 @@ func describeNumber(text: string) -> string {
 }
 
 func parseRequiredInt(text: string) -> Result<int, Exception> {
-    val value = try? int.Parse(text)
+    val value = try? Convert.ToInt32(text)
     return .Ok(value)
 }
 ```
+
+These examples deliberately use the throwing .NET API `Convert.ToInt32` to
+demonstrate exception capture. With standard framework projections enabled,
+`int.Parse(string)` already returns `Result<int, ParseIntError>` and does not
+need `try`. Setting `RavenFrameworkProjections` to `None` restores the ordinary
+throwing CLR `int.Parse` member.
 
 ### Rules
 

@@ -310,7 +310,7 @@ func parse(text: string) -> int {
         throw System.ArgumentException("Value is required")
     }
 
-    return int.Parse(text)
+    return Convert.ToInt32(text)
 }
 ```
 

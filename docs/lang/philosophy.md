@@ -179,7 +179,7 @@ func NormalizeCarrier(name: string) -> string {
 }
 
 func TryParseQuantity(text: string) -> Result<int, string> {
-    return try int.Parse(text) match {
+    return int.Parse(text) match {
         Ok(let value) => Ok(value)
         Error(_) => Error("\"$text\" is not a quantity")
     }

@@ -7,7 +7,9 @@ let value = TryParseScore("foo")
 WriteLine(value)
 
 func TryParseScore(input: string) -> string {
-    return try int.Parse(input) match {
+    // Convert.ToInt32 remains a throwing .NET API, so this sample exercises
+    // `try`; Raven's projected int.Parse already returns Result.
+    return try Convert.ToInt32(input) match {
         Ok(let score) => "Score is ${score}"
         Error(FormatException ex) => "Format invalid: ${ex.Message}"
         Error(_) => "Unknown parsing error"

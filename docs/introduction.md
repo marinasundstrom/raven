@@ -115,7 +115,7 @@ func ProcessNumbers(inputs: string[]) -> Result<(), string> {
 }
 
 func ParseInt(text: string) -> Result<int, string> {
-    return try int.Parse(text) match {
+    return int.Parse(text) match {
         Ok(let v) => Ok(v)
         Error(_) => Error("\"$text\" is not a number")
     }
@@ -127,7 +127,8 @@ That example shows the current Raven style in miniature:
 - `match` is a normal expression
 - `Result` values are handled directly instead of being wrapped in exception-heavy flow
 - pattern arms use explicit binding keywords where they introduce new values
-- .NET APIs such as `int.Parse` are used directly
+- selected .NET APIs are projected into Raven's `Option` and `Result`
+  vocabulary; here `int.Parse(string)` returns `Result<int, ParseIntError>`
 
 ---
 

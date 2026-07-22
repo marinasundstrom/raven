@@ -83,7 +83,7 @@ class Lexer {
 
     func MakeNumber() -> Token {
         let numberText = _builder.ToString()
-        return .Number(numberText, int.Parse(numberText))
+        return .Number(numberText, int.Parse(numberText).UnwrapOrThrow())
     }
 }
 
