@@ -148,11 +148,11 @@ It also includes reviewed same-signature exception projections:
 ```text
 static int Int32.Parse(string input)
     =>
-static Result<int, ArgumentNullException | FormatException | OverflowException> Int32.Parse(string input)
+static Result<int, FormatException | OverflowException> Int32.Parse(string input)
 
 static Guid Guid.Parse(string input)
     =>
-static Result<Guid, ArgumentNullException | FormatException> Guid.Parse(string input)
+static Result<Guid, FormatException> Guid.Parse(string input)
 ```
 
 Their descriptors explicitly map expected exceptions into standard unions.
@@ -425,7 +425,7 @@ does not distinguish overloads.
 
 The initial implementation chooses replacement of the ordinary view while
 projections are enabled. `int.Parse(string)` therefore resolves to the curated
-`Result<int, ArgumentNullException | FormatException | OverflowException>`
+`Result<int, FormatException | OverflowException>`
 projection in `Standard` mode, and the raw CLR member is restored when the
 compilation uses `None`. Return type does not
 participate in overload resolution; the compiler selects the API view before
@@ -547,17 +547,25 @@ expected exception list is empty. For `TryParse -> Option`, `false` maps to
 `None` and the mapping catches no exceptions. Exceptions that the source method
 can still throw remain exceptions.
 
+The projected signature's nullability determines whether null-argument failures
+belong in the result channel. When an argument is non-null in Raven,
+`ArgumentNullException` is not an expected `Result.Error`: well-typed Raven
+cannot trigger it. A caller that forces a null value with `!` has opted out of
+that guarantee, and a resulting `ArgumentNullException` propagates as a fault.
+The catalog still records that propagation so the full framework behavior is
+reviewable.
+
 A `Parse -> Result` descriptor must list each expected exception and its Raven
 error case explicitly. The initial `Int32.Parse(string)` descriptor is:
 
 ```text
 source: System.Int32.Parse(System.String)
-projected: System.Result<System.Int32, System.Union<System.ArgumentNullException, System.FormatException, System.OverflowException>>
+projected: System.Result<System.Int32, System.Union<System.FormatException, System.OverflowException>>
 lowering:
   kind: catch-to-result
   exceptions:
     - type: System.ArgumentNullException
-      case: Null
+      behavior: propagates-as-fault
     - type: System.FormatException
       case: InvalidFormat
     - type: System.OverflowException
@@ -800,7 +808,7 @@ runtime behavior rather than emitted instruction sequences.
 Implement `bool-out-to-option` for the six initial framework types, behind the
 project option, with full semantic-model and language-service support. Include
 the reviewed exception-preserving `Int32.Parse(string)` and
-`Guid.Parse(string) -> Result<Guid, ArgumentNullException | FormatException>`
+`Guid.Parse(string) -> Result<Guid, FormatException>`
 replacements.
 
 ### Stage 2: catalog expansion

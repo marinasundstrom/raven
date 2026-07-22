@@ -17,14 +17,9 @@ internal static class FrameworkProjectionCatalog
         string memberName,
         out FrameworkProjectionDescriptor descriptor)
     {
-        var namespaceName = receiverType.ContainingNamespace?.ToMetadataName();
-        var receiverMetadataName = string.IsNullOrEmpty(namespaceName)
-            ? receiverType.MetadataName
-            : $"{namespaceName}.{receiverType.MetadataName}";
-
         foreach (var candidate in s_standard.Value)
         {
-            if (string.Equals(candidate.ReceiverType, receiverMetadataName, StringComparison.Ordinal) &&
+            if (MatchesReceiver(candidate, receiverType) &&
                 string.Equals(candidate.MemberName, memberName, StringComparison.Ordinal))
             {
                 descriptor = candidate;
@@ -59,38 +54,68 @@ internal static class FrameworkProjectionCatalog
                 continue;
             if (!MatchesReceiver(descriptor, receiverType))
                 continue;
-            if (!HasExactSourceSignature(namedReceiverType, descriptor.SourceSignature))
+            var receiverDefinition = namedReceiverType.OriginalDefinition as INamedTypeSymbol ?? namedReceiverType;
+            if (!HasExactSourceSignature(receiverDefinition, descriptor.SourceSignature))
             {
                 failures.Add(new(descriptor.Id, "source framework signature does not match the catalog descriptor"));
                 continue;
             }
-            if (compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is not { } container)
+            if (compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is not { } containerDefinition)
             {
                 failures.Add(new(descriptor.Id, $"bridge container '{descriptor.ProjectedContainer}' was not found"));
                 continue;
             }
 
-            var adapters = container.GetMembers(descriptor.MemberName)
+            var adapterDefinitions = containerDefinition.GetMembers(descriptor.MemberName)
                 .OfType<IMethodSymbol>()
                 .Where(method => HasProjectionId(method, descriptor.Id))
                 .ToImmutableArray();
-            if (adapters.IsDefaultOrEmpty)
+            if (adapterDefinitions.IsDefaultOrEmpty)
             {
                 failures.Add(new(descriptor.Id, "no bridge carries the matching projection ID"));
                 continue;
             }
-            if (adapters.Length > 1)
+            if (adapterDefinitions.Length > 1)
             {
                 failures.Add(new(descriptor.Id, "multiple bridges carry the same projection ID"));
                 continue;
             }
 
-            var adapter = adapters[0];
-            if (!string.Equals(adapter.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
-                !HasExactProjectedSignature(adapter, descriptor.ProjectedSignature))
+            var adapterDefinition = adapterDefinitions[0];
+            if (!string.Equals(adapterDefinition.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
+                !HasExactProjectedSignature(adapterDefinition, descriptor.ProjectedSignature))
             {
                 failures.Add(new(descriptor.Id, "bridge signature does not match the catalog descriptor"));
                 continue;
+            }
+
+            var container = ConstructBridgeContainer(containerDefinition, namedReceiverType);
+            if (container is null)
+            {
+                failures.Add(new(descriptor.Id, "bridge generic arity does not match the catalog receiver"));
+                continue;
+            }
+
+            var adapter = container.GetMembers(descriptor.MemberName)
+                .OfType<IMethodSymbol>()
+                .SingleOrDefault(method => SymbolEqualityComparer.Default.Equals(
+                    method.OriginalDefinition ?? method,
+                    adapterDefinition));
+            if (adapter is null)
+            {
+                failures.Add(new(descriptor.Id, "constructed bridge does not contain the validated adapter"));
+                continue;
+            }
+
+            if (adapter.IsGenericMethod)
+            {
+                if (adapter.Arity != namedReceiverType.TypeArguments.Length)
+                {
+                    failures.Add(new(descriptor.Id, "bridge method generic arity does not match the catalog receiver"));
+                    continue;
+                }
+
+                adapter = adapter.Construct(namedReceiverType.TypeArguments.ToArray());
             }
             if (!SymbolEqualityComparer.Default.Equals(adapter.GetExtensionReceiverType(), receiverType))
             {
@@ -172,11 +197,27 @@ internal static class FrameworkProjectionCatalog
 
     private static bool MatchesReceiver(FrameworkProjectionDescriptor descriptor, ITypeSymbol receiverType)
     {
+        if (receiverType is INamedTypeSymbol namedType && namedType.OriginalDefinition is INamedTypeSymbol originalDefinition)
+            receiverType = originalDefinition;
+
         var namespaceName = receiverType.ContainingNamespace?.ToMetadataName();
         var receiverMetadataName = string.IsNullOrEmpty(namespaceName)
             ? receiverType.MetadataName
             : $"{namespaceName}.{receiverType.MetadataName}";
         return string.Equals(descriptor.ReceiverType, receiverMetadataName, StringComparison.Ordinal);
+    }
+
+    private static INamedTypeSymbol? ConstructBridgeContainer(
+        INamedTypeSymbol containerDefinition,
+        INamedTypeSymbol receiverType)
+    {
+        if (containerDefinition.Arity == 0)
+            return containerDefinition;
+
+        if (containerDefinition.Arity != receiverType.TypeArguments.Length)
+            return null;
+
+        return (INamedTypeSymbol)containerDefinition.Construct(receiverType.TypeArguments.ToArray());
     }
 
     private static ImmutableArray<FrameworkProjectionDescriptor> LoadStandard()
@@ -239,7 +280,7 @@ internal sealed record FrameworkProjectionDescriptor(
     string Lowering,
     ImmutableArray<FrameworkProjectionException> Exceptions);
 
-internal sealed record FrameworkProjectionException(string Type, string Case);
+internal sealed record FrameworkProjectionException(string Type, string? Case, string? Behavior);
 
 internal sealed class FrameworkProjectionCatalogFile
 {

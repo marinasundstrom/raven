@@ -1,0 +1,18 @@
+namespace System.Collections.Generic
+
+import System.*
+import System.Collections.Generic.*
+import System.Option.*
+import System.Runtime.CompilerServices.*
+
+extension DictionaryExtensions<TKey, TValue> for Dictionary<TKey, TValue> {
+
+    [FrameworkProjection("system.collections.generic.dictionary.trygetvalue.option.v1")]
+    func TryGetValue(key: TKey) -> Option<TValue> {
+        if self.TryGetValue(key, out var value) {
+            return Some(value)
+        }
+
+        return None
+    }
+}

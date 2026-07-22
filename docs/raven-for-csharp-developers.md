@@ -178,6 +178,31 @@ support for opaque aliases. A `Year` cannot be confused with every other `int`.
 
 ## Absence becomes `Option`
 
+Raven also projects a curated set of familiar .NET APIs into this model. The
+underlying framework types remain the same, but their Raven-facing signatures
+express absence and expected failure directly:
+
+```raven
+import System.*
+import System.Collections.Generic.*
+
+val count = int.TryParse(text)          // Option<int>
+val item = values.TryGetValue(key)      // Option<TValue>
+val id = Guid.Parse(text)               // Result<Guid, FormatException>
+```
+
+These are compiler-validated projections backed by Raven.Core bridges, not a
+rule that rewrites every method named `Try*`. Each supported framework method
+has an exact, versioned mapping. Projections are enabled by default; set
+`RavenFrameworkProjections` to `None` in the project file when code needs the
+ordinary CLR methods and their `out` parameters.
+
+The channels retain distinct meanings. `None` means a lookup did not produce a
+value. If the collection's declared value type is nullable, `Some(null)` is
+still different from `None`. `Result.Error` contains failures expected under a
+well-typed call. An exception reachable only by forcing `null` through a
+non-null parameter remains a fault and propagates normally.
+
 Nullable references commonly make absence implicit in C#:
 
 ```csharp

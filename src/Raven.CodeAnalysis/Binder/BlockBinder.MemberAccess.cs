@@ -26,6 +26,22 @@ partial class BlockBinder
             .ToImmutableArray();
     }
 
+    private ImmutableArray<IMethodSymbol> LookupInstanceMethodCandidates(string name, ITypeSymbol receiverType, Location location)
+    {
+        if (Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
+            FrameworkProjectionCatalog.TryGetStandard(receiverType, name, out _))
+        {
+            var resolution = FrameworkProjectionCatalog.ResolveStandardMethods(Compilation, receiverType, name);
+            foreach (var failure in resolution.Failures)
+                _diagnostics.ReportFrameworkProjectionUnavailable(failure.ProjectionId, failure.Reason, location);
+            return resolution.Methods;
+        }
+
+        return new SymbolQuery(name, receiverType, IsStatic: false)
+            .LookupMethods(this)
+            .ToImmutableArray();
+    }
+
     private ITypeSymbol EnsureSourceMemberSignatureDeclaredForExactLookup(ITypeSymbol receiverType, string memberName)
     {
         if (string.IsNullOrEmpty(memberName) ||
@@ -4306,9 +4322,7 @@ partial class BlockBinder
             {
                 var methodCandidates = ImmutableArray<IMethodSymbol>.Empty;
 
-                var instanceMethods = new SymbolQuery(name, receiverType, IsStatic: false)
-                    .LookupMethods(this)
-                    .ToImmutableArray();
+                var instanceMethods = LookupInstanceMethodCandidates(name, receiverType, nameLocation);
 
                 if (!instanceMethods.IsDefaultOrEmpty)
                     methodCandidates = instanceMethods;

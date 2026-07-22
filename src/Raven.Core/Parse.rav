@@ -26,12 +26,10 @@ extension Int32Extensions for Int32 {
         return None
     }
 
-    [FrameworkProjection("system.int32.parse.string.result.v1")]
-    static func Parse(input: string) -> Result<int, Union<ArgumentNullException, FormatException, OverflowException>> {
+    [FrameworkProjection("system.int32.parse.string.result.v2")]
+    static func Parse(input: string) -> Result<int, Union<FormatException, OverflowException>> {
         try {
             return Ok(int.Parse(input))
-        } catch ArgumentNullException ex {
-            return Error(ex)
         } catch FormatException ex {
             return Error(ex)
         } catch OverflowException ex {
@@ -101,12 +99,10 @@ extension GuidExtensions for Guid {
         return None
     }
 
-    [FrameworkProjection("system.guid.parse.string.result.v1")]
-    static func Parse(input: string) -> Result<Guid, Union<ArgumentNullException, FormatException>> {
+    [FrameworkProjection("system.guid.parse.string.result.v2")]
+    static func Parse(input: string) -> Result<Guid, FormatException> {
         try {
             return Ok(Guid.Parse(input))
-        } catch ArgumentNullException ex {
-            return Error(ex)
         } catch FormatException ex {
             return Error(ex)
         }

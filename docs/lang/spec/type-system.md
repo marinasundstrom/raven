@@ -439,7 +439,7 @@ source-declared methods and methods imported from referenced .NET assemblies.
 
 ```raven
 val parsed = int.Parse("42")
-// Result<int, ArgumentNullException | FormatException | OverflowException>
+// Result<int, FormatException | OverflowException>
 ```
 
 Overload ranking follows the normal conversion ladder for the argument and

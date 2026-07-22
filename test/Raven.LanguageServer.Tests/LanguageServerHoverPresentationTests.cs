@@ -876,8 +876,8 @@ extension WidgetExtensions for Widget {
     }
 
     [Theory]
-    [InlineData("int.Parse(\"42\")", "struct int", "func Parse(input: string) -> Result<int, ArgumentNullException | FormatException | OverflowException>")]
-    [InlineData("Guid.Parse(\"d2719b1e-88c5-4a06-aeba-69d19e70b9f7\")", "struct Guid", "func Parse(input: string) -> Result<Guid, ArgumentNullException | FormatException>")]
+    [InlineData("int.Parse(\"42\")", "struct int", "func Parse(input: string) -> Result<int, FormatException | OverflowException>")]
+    [InlineData("Guid.Parse(\"d2719b1e-88c5-4a06-aeba-69d19e70b9f7\")", "struct Guid", "func Parse(input: string) -> Result<Guid, FormatException>")]
     public void FrameworkProjectionHover_UsesReceiverOwnedRavenSignature(
         string expression,
         string expectedContaining,
@@ -916,6 +916,45 @@ extension WidgetExtensions for Widget {
         containing.ShouldBe(expectedContaining);
         signature.ShouldNotStartWith("(extension) ");
         signature.ShouldContain(expectedSignature);
+    }
+
+    [Fact]
+    public void FrameworkDictionaryProjectionHover_UsesConstructedReceiverOwnedSignature()
+    {
+        const string code = """
+import System.*
+import System.Collections.Generic.*
+
+val values = Dictionary<string, int>()
+val found = values.TryGetValue("answer")
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var references = LanguageServerTestReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCoreReferencePath())])
+            .ToArray();
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var access = root.DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var buildDisplaySignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildDisplaySignatureForHover.Invoke(
+            null,
+            [symbol, access.Name, semanticModel, root, access.Name.Span.Start])!;
+
+        signature.ShouldNotStartWith("(extension) ");
+        signature.ShouldContain("func TryGetValue(key: string) -> Option<int>");
     }
 
     [Fact]

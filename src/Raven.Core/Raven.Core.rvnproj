@@ -14,6 +14,7 @@
     <RavenCompile Include="Parse.rav" />
     <RavenCompile Include="Receiver.rav" />
     <RavenCompile Include="Result.rav" />
+    <RavenCompile Include="TryGet.rav" />
     <RavenCompile Include="LinqExtensions.rav" />
     <RavenCompile Include="TopLevel.rav" />
     <RavenCompile Include="UnionJsonConverter.rav" />

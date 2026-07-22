@@ -124,6 +124,39 @@ a class when the domain gives you a reason for one.
 | Mutable locals unless marked `readonly` or avoided by convention | `let` by default; `var` when mutation is intentional |
 | `void` | `()` (`unit`) |
 
+### Parse strings and look up values
+
+When a value might not be present, Raven uses `Option`. For example, use
+`TryParse` when invalid text is an ordinary possibility:
+
+```raven
+import System.*
+import System.Collections.Generic.*
+
+val port = int.TryParse(portText) // Option<int>
+
+port match {
+    Some(val value) => Console.WriteLine("Port: $value")
+    None => Console.WriteLine("Not a valid port")
+}
+```
+
+Use `Parse` when you want details about why conversion failed:
+
+```raven
+val id = Guid.Parse(idText) // Result<Guid, FormatException>
+```
+
+Lookups follow the same absence convention:
+
+```raven
+val plan = plansByCode.TryGetValue(code) // Option<RatePlan>
+```
+
+Keep the meanings separate: a missing dictionary key is `None`; a present
+nullable value is `Some(null)`; an expected parse failure is `Error`; and an
+exception caused by forcing null through a non-null argument is a fault.
+
 You do not need to invent a class just to write a function. Raven supports
 top-level functions directly, so a small operation can stay at file or namespace
 scope until it has a real reason to live on a type:

@@ -347,6 +347,30 @@ easier to follow.
 Sometimes not finding a value is normal. `Option<T>` represents either a value
 with `Some(...)` or no value with `None`.
 
+A console program receives text, even when the person types a number. Use
+`int.TryParse` to turn that text into an integer when possible:
+
+```raven
+import System.*
+import System.Console.*
+
+Write("Enter your age: ")
+let input = ReadLine()
+
+match int.TryParse(input) {
+    Some(let age) => WriteLine("Next year you will be ${age + 1}")
+    None => WriteLine("That was not a whole number")
+}
+```
+
+`ReadLine()` may produce no text, and the text may not contain a valid integer.
+`int.TryParse(input)` handles both possibilities by producing `Some(age)` when
+parsing succeeds or `None` when it does not. The `match` makes the program say
+what to do in either case.
+
+You can use the same idea in your own functions. This one searches an array for
+an even number:
+
 ```raven
 func FindEven(numbers: int[]) -> Option<int> {
     for number in numbers {

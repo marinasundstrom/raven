@@ -20,16 +20,16 @@
       "exceptions": []
     },
     {
-      "id": "system.int32.parse.string.result.v1",
+      "id": "system.int32.parse.string.result.v2",
       "receiverType": "System.Int32",
       "source": "System.Int32 System.Int32.Parse(System.String)",
       "projectedContainer": "System.Int32Extensions",
-      "projectedSignature": "System.Result<System.Int32, System.Union<System.ArgumentNullException, System.FormatException, System.OverflowException>> Parse(System.String)",
+      "projectedSignature": "System.Result<System.Int32, System.Union<System.FormatException, System.OverflowException>> Parse(System.String)",
       "lowering": "catch-to-result",
       "exceptions": [
         {
           "type": "System.ArgumentNullException",
-          "case": "Null"
+          "behavior": "propagates-as-fault"
         },
         {
           "type": "System.FormatException",
@@ -105,16 +105,16 @@
       "exceptions": []
     },
     {
-      "id": "system.guid.parse.string.result.v1",
+      "id": "system.guid.parse.string.result.v2",
       "receiverType": "System.Guid",
       "source": "System.Guid System.Guid.Parse(System.String)",
       "projectedContainer": "System.GuidExtensions",
-      "projectedSignature": "System.Result<System.Guid, System.Union<System.ArgumentNullException, System.FormatException>> Parse(System.String)",
+      "projectedSignature": "System.Result<System.Guid, System.FormatException> Parse(System.String)",
       "lowering": "catch-to-result",
       "exceptions": [
         {
           "type": "System.ArgumentNullException",
-          "case": "Null"
+          "behavior": "propagates-as-fault"
         },
         {
           "type": "System.FormatException",
@@ -139,6 +139,20 @@
       "projectedSignature": "System.Option<System.DateTime> TryParse(System.String, System.IFormatProvider, System.Globalization.DateTimeStyles)",
       "lowering": "false-returns-none",
       "exceptions": []
+    },
+    {
+      "id": "system.collections.generic.dictionary.trygetvalue.option.v1",
+      "receiverType": "System.Collections.Generic.Dictionary`2",
+      "source": "System.Boolean System.Collections.Generic.Dictionary`2.TryGetValue(TKey, out TValue)",
+      "projectedContainer": "System.Collections.Generic.DictionaryExtensions",
+      "projectedSignature": "System.Option<TValue> TryGetValue(System.Collections.Generic.Dictionary<TKey, TValue>, TKey)",
+      "lowering": "false-returns-none",
+      "exceptions": [
+        {
+          "type": "System.ArgumentNullException",
+          "behavior": "propagates"
+        }
+      ]
     }
   ]
 }

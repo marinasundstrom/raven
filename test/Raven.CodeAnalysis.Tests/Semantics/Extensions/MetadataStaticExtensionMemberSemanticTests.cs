@@ -159,6 +159,81 @@ val parsed = DateTime.TryParse("2026-07-22", CultureInfo.InvariantCulture, DateT
     }
 
     [Fact]
+    public void FrameworkDictionaryTryGetValueProjection_SubstitutesConstructedTypes()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+
+val values = Dictionary<string, int>()
+val found = values.TryGetValue("answer")
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Equal("Dictionary", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("Option<int>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Collection(
+            boundInvocation.Method.Parameters,
+            parameter => Assert.Equal("string", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+        var projected = Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+        Assert.Equal(
+            "system.collections.generic.dictionary.trygetvalue.option.v1",
+            GetFrameworkProjectionId(projected.AdapterMethod));
+    }
+
+    [Fact]
+    public void FrameworkDictionaryTryGetValueProjection_CanBeDisabled()
+    {
+        const string source = """
+import System.Collections.Generic.*
+
+val values = Dictionary<string, int>()
+val found = values.TryGetValue("answer", out var value)
+""";
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
+        var (compilation, tree) = CreateCompilation(source, options, TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Equal("bool", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.IsNotType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+    }
+
+    [Fact]
+    public void FrameworkDictionaryTryGetValueProjection_PreservesNullableValueType()
+    {
+        const string source = """
+import System.*
+import System.Collections.Generic.*
+
+val values = Dictionary<string, string?>()
+val found = values.TryGetValue("answer")
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Equal("Option<string?>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void FrameworkParseProjection_ReplacesSameSignatureClrMethod()
     {
         const string source = """
@@ -176,10 +251,10 @@ val parsed = int.Parse("42")
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
         Assert.Equal("Int32", boundInvocation.Method.ContainingType?.Name);
-        Assert.Equal("Result<int, ArgumentNullException | FormatException | OverflowException>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Result<int, FormatException | OverflowException>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.False(boundInvocation.Method.IsExtensionMethod);
         var projected = Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
-        Assert.Equal("system.int32.parse.string.result.v1", GetFrameworkProjectionId(projected.AdapterMethod));
+        Assert.Equal("system.int32.parse.string.result.v2", GetFrameworkProjectionId(projected.AdapterMethod));
     }
 
     [Fact]
@@ -200,9 +275,9 @@ val parsed = Guid.Parse("d2719b1e-88c5-4a06-aeba-69d19e70b9f7")
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
         Assert.Equal("Guid", boundInvocation.Method.ContainingType?.Name);
-        Assert.Equal("Result<Guid, ArgumentNullException | FormatException>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Result<Guid, FormatException>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         var projected = Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
-        Assert.Equal("system.guid.parse.string.result.v1", GetFrameworkProjectionId(projected.AdapterMethod));
+        Assert.Equal("system.guid.parse.string.result.v2", GetFrameworkProjectionId(projected.AdapterMethod));
     }
 
     [Fact]

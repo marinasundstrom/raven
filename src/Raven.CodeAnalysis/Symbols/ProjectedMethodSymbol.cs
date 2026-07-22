@@ -25,11 +25,13 @@ internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
     public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly;
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule;
     public override bool IsImplicitlyDeclared => true;
-    public override bool IsStatic => true;
+    public override bool IsStatic => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Static;
     public override ISymbol UnderlyingSymbol => AdapterMethod;
     public MethodKind MethodKind => AdapterMethod.MethodKind;
     public ITypeSymbol ReturnType => AdapterMethod.ReturnType;
-    public ImmutableArray<IParameterSymbol> Parameters => AdapterMethod.Parameters;
+    public ImmutableArray<IParameterSymbol> Parameters => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Instance
+        ? AdapterMethod.Parameters.RemoveAt(0)
+        : AdapterMethod.Parameters;
     public IMethodSymbol? OriginalDefinition => this;
     public bool IsAbstract => false;
     public bool IsAsync => false;

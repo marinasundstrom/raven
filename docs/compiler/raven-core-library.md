@@ -41,17 +41,29 @@ result-returning Raven signatures:
 
 ```raven
 val number = int.Parse(text)
-// Result<int, ArgumentNullException | FormatException | OverflowException>
+// Result<int, FormatException | OverflowException>
 val id = Guid.Parse(text)
-// Result<Guid, ArgumentNullException | FormatException>
+// Result<Guid, FormatException>
 ```
+
+Dictionary lookup is projected with the same explicit approach:
+
+```raven
+val value = dictionary.TryGetValue(key) // Option<TValue>
+```
+
+`None` means that the key is absent. A nullable declared value remains nullable
+inside `Some`, so `Dictionary<string, string?>` produces `Option<string?>` and
+does not conflate a present `null` value with an absent key.
 
 The catalog is an exact, versioned mapping rather than a naming convention.
 Each entry records its exact source signature, projected signature, stable
 projection ID, bridge implementation, and expected exception mapping. The
 `TryParse` entries catch no exceptions: a `false` result becomes `None`, while
 source exceptions remain exceptions. The `int.Parse` and `Guid.Parse` bridges
-preserve their documented exception types directly in standard unions.
+put expected format/range failures in `Result.Error`. Exceptions that require
+violating a non-null projected signature, such as passing a forced `null` and
+triggering `ArgumentNullException`, propagate as faults instead.
 
 This exception-preserving surface is intended for predictable .NET interop. At
 an application or domain boundary, map those framework exceptions into your

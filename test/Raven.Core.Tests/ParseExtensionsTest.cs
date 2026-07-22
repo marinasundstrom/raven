@@ -27,11 +27,11 @@ func TryParseDateTimeProjectedWithStyles(text: string) -> Option<DateTime> {
     return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None)
 }
 
-func ParseProjected(text: string) -> Result<int, ArgumentNullException | FormatException | OverflowException> {
+func ParseProjected(text: string) -> Result<int, FormatException | OverflowException> {
     return int.Parse(text)
 }
 
-func ParseGuidProjected(text: string) -> Result<Guid, ArgumentNullException | FormatException> {
+func ParseGuidProjected(text: string) -> Result<Guid, FormatException> {
     return Guid.Parse(text)
 }
 """;
@@ -95,7 +95,7 @@ func ParseGuidProjected(text: string) -> Result<Guid, ArgumentNullException | Fo
         const string code = """
 import System.*
 
-func ParseMain(text: string) -> Result<int, ArgumentNullException | FormatException | OverflowException> {
+func ParseMain(text: string) -> Result<int, FormatException | OverflowException> {
     val value = int.Parse(text)?
     return .Ok(value)
 }
@@ -127,7 +127,6 @@ func ParseMain(text: string) -> Result<int, ArgumentNullException | FormatExcept
     }
 
     [Theory]
-    [InlineData(null, "ArgumentNullException")]
     [InlineData("", "FormatException")]
     [InlineData("foo", "FormatException")]
     [InlineData("999999999999999999999", "OverflowException")]
@@ -152,9 +151,19 @@ func ParseMain(text: string) -> Result<int, ArgumentNullException | FormatExcept
         Assert.Equal(expectedExceptionType, exception.GetType().Name);
     }
 
+    [Fact]
+    public void IntParse_ForcedNullFaults()
+    {
+        var assembly = LoadRavenCoreAssembly();
+        var extensions = assembly.GetType("System.Int32Extensions", throwOnError: true)!;
+        var parse = extensions.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(string)], modifiers: null)!;
+
+        var exception = Assert.Throws<TargetInvocationException>(() => parse.Invoke(null, [null]));
+        Assert.IsType<ArgumentNullException>(exception.InnerException);
+    }
+
     [Theory]
     [InlineData("d2719b1e-88c5-4a06-aeba-69d19e70b9f7", true, null)]
-    [InlineData(null, false, "ArgumentNullException")]
     [InlineData("", false, "FormatException")]
     [InlineData("not-a-guid", false, "FormatException")]
     public void GuidParse_ReturnsMappedResult(string? input, bool expectedOk, string? expectedExceptionType)
@@ -175,10 +184,20 @@ func ParseMain(text: string) -> Result<int, ArgumentNullException | FormatExcept
 
         if (expectedExceptionType is not null)
         {
-            var errorUnion = args[0]!.GetType().GetProperty("Data")!.GetValue(args[0])!;
-            var exception = errorUnion.GetType().GetProperty("Value")!.GetValue(errorUnion)!;
+            var exception = args[0]!.GetType().GetProperty("Data")!.GetValue(args[0])!;
             Assert.Equal(expectedExceptionType, exception.GetType().Name);
         }
+    }
+
+    [Fact]
+    public void GuidParse_ForcedNullFaults()
+    {
+        var assembly = LoadRavenCoreAssembly();
+        var extensions = assembly.GetType("System.GuidExtensions", throwOnError: true)!;
+        var parse = extensions.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(string)], modifiers: null)!;
+
+        var exception = Assert.Throws<TargetInvocationException>(() => parse.Invoke(null, [null]));
+        Assert.IsType<ArgumentNullException>(exception.InnerException);
     }
 
     private static MethodInfo GetTryGetValueMethod(Type resultType, Type caseType)

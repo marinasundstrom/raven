@@ -10,11 +10,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Highlighted constructor-form `init(...)` declarations and primary-constructor
   access modifiers in the VS Code TextMate grammar.
 - Removed `trait` as an alias for extension declarations; use `extension`.
-- Projected `Guid.Parse(string)` as
-  `Result<Guid, ArgumentNullException | FormatException>`, preserving the
-  mapped .NET errors; changed `int.Parse(string)` to likewise expose its actual
-  null, format, and overflow exceptions instead of Raven-owned parse error
-  types; and removed the legacy lowercase `int.parse` Raven.Core helpers.
+- Added the first generic instance framework projection:
+  `Dictionary<TKey, TValue>.TryGetValue(key) -> Option<TValue>`. Missing keys
+  become `None`, while constructed value-type nullability is preserved.
+- Projected `Guid.Parse(string)` as `Result<Guid, FormatException>` and
+  `int.Parse(string)` as `Result<int, FormatException | OverflowException>`.
+  Null-argument exceptions that require forcing null through the non-null Raven
+  signatures now propagate as faults rather than ordinary result errors; the
+  legacy lowercase `int.parse` Raven.Core helpers remain removed.
 - Added default-on framework API projections for the simplest `TryParse`
   overloads on `int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`.
   Raven presents these as `Option<T>`-returning methods; projects can set
