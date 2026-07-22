@@ -1,7 +1,7 @@
 # Raven Programming Language
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Website](https://img.shields.io/badge/website-Raven-brightgreen.svg)](https://marinasundstrom.github.io/raven-compiler/)
+[![Website](https://img.shields.io/badge/website-Raven-brightgreen.svg)](https://marinasundstrom.github.io/raven/)
 
 Raven is a pragmatic, typed application language for .NET that makes functional
 composition, algebraic modeling, and object-oriented design complementary parts
@@ -24,7 +24,7 @@ paths.
 
 ## Start Here
 
-Visit the official [Raven language website](https://marinasundstrom.github.io/raven-compiler/),
+Visit the official [Raven language website](https://marinasundstrom.github.io/raven/),
 or browse the Markdown sources under [`docs/`](docs/).
 
 - [Getting Started](docs/getting-started.md) - build the compiler, run a sample,

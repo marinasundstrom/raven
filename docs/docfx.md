@@ -42,7 +42,7 @@ The `.github/workflows/docs.yml` workflow builds the Raven language website for 
 requests and pushes to `main`. A successful push to `main` uploads `_site/` as a
 GitHub Pages artifact and deploys it to:
 
-<https://marinasundstrom.github.io/raven-compiler/>
+<https://marinasundstrom.github.io/raven/>
 
 The repository's Pages source must be set to **GitHub Actions** in the GitHub
 Pages settings. The workflow keeps build and deployment as separate jobs, so a
