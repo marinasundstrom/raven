@@ -18,6 +18,8 @@ rvn run [project-file.rvnproj] [dotnet-run-options] [-- application-args]
 rvn clean [project-file.rvnproj] [dotnet-clean-options]
 rvn dev <syntax|dump|macros|binders|bound-tree|symbols|quote> [options] <source-files|project-file.rvnproj>
 rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--type <console|classlib>] [--force]
+rvn --version
+rvnc --version
 ```
 
 For repository development, load local shell helpers after building:

@@ -1,10 +1,17 @@
 using System.Diagnostics;
+using System.Reflection;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using Raven.Compiler.Core;
+
+if (args.Length == 1 && args[0] is "--version" or "version")
+{
+    Console.WriteLine(GetVersion());
+    return 0;
+}
 
 if (args.Length == 0 || IsHelp(args[0]))
 {
@@ -75,6 +82,11 @@ static string? TryFindSdkRoot()
 static bool IsSdkRoot(string path)
     => File.Exists(Path.Combine(path, "VERSION")) &&
        File.Exists(Path.Combine(path, "sdk", "build", "Raven.Language.targets"));
+
+static string GetVersion()
+    => Assembly.GetEntryAssembly()?
+           .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+           .InformationalVersion ?? "unknown";
 
 static int RunSdkProjectCommand(string commandName, string[] args)
 {
@@ -787,6 +799,7 @@ static void PrintHelp()
     Console.WriteLine("  clean             Clean a Raven project through dotnet clean.");
     Console.WriteLine("  dev               Run internal compiler debug views.");
     Console.WriteLine("  sdk path          Print the root of the active Raven SDK.");
+    Console.WriteLine("  --version         Print the Raven version.");
     Console.WriteLine();
     Console.WriteLine("rvn build/run/clean are frontend conveniences over the .NET SDK project workflow.");
     Console.WriteLine("Use rvnc for direct compiler-driver invocations.");

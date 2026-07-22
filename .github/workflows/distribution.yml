@@ -6,7 +6,7 @@ on:
       version:
         description: Version to package without a leading v
         required: true
-        default: 0.1.0-dev
+        default: 0.1.0
   push:
     tags:
       - "v*"
@@ -65,7 +65,16 @@ jobs:
           node-version: 20.x
           cache: npm
           cache-dependency-path: src/Raven.VSCode/package-lock.json
-      - run: scripts/package-vscode.sh
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - run: scripts/package-vscode.sh "${{ steps.version.outputs.value }}"
       - uses: actions/upload-artifact@v6
         with:
           name: raven-vscode

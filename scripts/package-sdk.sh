@@ -25,11 +25,17 @@ dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Debug -f "$
   -p:UseRavenCoreReference=false /property:WarningLevel=0
 
 dotnet publish "$ROOT_DIR/src/Raven/Raven.csproj" -c Release -f "$TFM" -r "$RID" \
-  --self-contained false -o "$PUBLISH_DIR/rvn" /property:WarningLevel=0
+  --self-contained false -o "$PUBLISH_DIR/rvn" /property:WarningLevel=0 \
+  /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
+  /property:IncludeSourceRevisionInInformationalVersion=false
 dotnet publish "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -f "$TFM" -r "$RID" \
-  --self-contained false -o "$PUBLISH_DIR/rvnc" /property:WarningLevel=0
+  --self-contained false -o "$PUBLISH_DIR/rvnc" /property:WarningLevel=0 \
+  /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
+  /property:IncludeSourceRevisionInInformationalVersion=false
 dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
-  --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0
+  --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0 \
+  /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
+  /property:IncludeSourceRevisionInInformationalVersion=false
 
 cp -R "$PUBLISH_DIR/rvn/." "$STAGE_DIR/tools/rvn/"
 cp -R "$PUBLISH_DIR/rvnc/." "$STAGE_DIR/tools/rvnc/"

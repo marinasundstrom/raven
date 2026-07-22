@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
@@ -19,6 +20,15 @@ using Spectre.Console;
 
 using static Raven.AppHostBuilder;
 using static Raven.ConsoleEx;
+
+if (args.Length == 1 && args[0] is "--version" or "version")
+{
+    Console.WriteLine(
+        Assembly.GetEntryAssembly()?
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion ?? "unknown");
+    return;
+}
 
 var stopwatch = Stopwatch.StartNew();
 var invocationName = Path.GetFileNameWithoutExtension(Environment.GetCommandLineArgs().FirstOrDefault() ?? "rvn");
@@ -2229,6 +2239,7 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("Usage: rvnc [compiler-options] <source-files|project-file.rvnproj>");
         Console.WriteLine();
         Console.WriteLine("Compiler options:");
+        Console.WriteLine("  --version          Print the Raven version");
         Console.WriteLine("  --framework <tfm>  Target framework (e.g. net10.0)");
         Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
         Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
@@ -2268,6 +2279,7 @@ static void PrintHelp(bool compilerDriverOnly)
     Console.WriteLine("       rvn init [console|classlib] [--name <project-name>] [--framework <tfm>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Options:");
+    Console.WriteLine("  --version          Print the Raven version");
     Console.WriteLine("  --framework <tfm>  Target framework (e.g. net8.0)");
     Console.WriteLine("  --refs <path>      Additional metadata reference (repeatable)");
     Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");

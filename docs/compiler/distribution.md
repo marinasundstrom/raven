@@ -95,7 +95,7 @@ The extension contains a framework-dependent copy of the Raven language
 server so editor features work without a platform-specific VSIX. Build it with:
 
 ```bash
-scripts/package-vscode.sh
+scripts/package-vscode.sh 0.1.0
 ```
 
 The extension resolves the compiler SDK from `raven.sdkPath` first and then by
