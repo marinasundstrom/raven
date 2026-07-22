@@ -52,8 +52,8 @@ public interface IVariableDeclaratorOperation : IOperation
     /// </summary>
     /// <remarks>
     /// If this variable is in an <see cref="IVariableDeclarationOperation" />, the initializer may be located
-    /// in the parent operation. Call <see cref="OperationExtensions.GetVariableInitializer(IVariableDeclaratorOperation)" />
-    /// to check in all locations. It is only possible to have initializers in both locations in VB invalid code scenarios.
+    /// in the parent operation. Use the operation helpers to check all locations.
+    /// It is only possible to have initializers in both locations in VB invalid code scenarios.
     /// </remarks>
     IVariableInitializerOperation? Initializer { get; }
     /// <summary>

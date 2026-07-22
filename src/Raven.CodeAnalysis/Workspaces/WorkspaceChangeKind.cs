@@ -2,7 +2,7 @@
 namespace Raven.CodeAnalysis;
 
 /// <summary>
-/// Mirrors Roslyn's <see cref="Microsoft.CodeAnalysis.WorkspaceChangeKind"/>.
+/// Mirrors Roslyn's <c>Microsoft.CodeAnalysis.WorkspaceChangeKind</c>.
 /// </summary>
 public enum WorkspaceChangeKind
 {

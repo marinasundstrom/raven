@@ -1,16 +1,19 @@
-# Compiler
+# Raven tools
 
-The compiler consists of several components including the command-line driver,
-[Raven.Compiler](raven-compiler.md), which can compile `.rvn` files and emit
-debug information for inspection. The toolchain also builds and ships the
-[Raven Core Library](raven-core-library.md), a small standard library compiled
-from Raven source code and referenced by default during compilation.
+This section explains the tools needed to create, compile, run, and edit Raven
+programs. The `rvn` command manages projects and developer workflows, while the
+`rvnc` compiler driver compiles `.rav` source files for .NET. The toolchain also
+ships the [Raven Core Library](raven-core-library.md), which is referenced by
+default.
 
-For deeper dives into the implementation see:
+Start with:
 
-- [Architecture](architecture/index.md) for the high-level pipeline and major subsystems.
-- [Project system](project-system.md) for `.rvnproj` structure, implicit source inclusion, and NuGet integration.
-- [Raven VS Code extension](raven-vscode-extension.md) for editor setup, language server wiring, and F5 compile-and-debug.
-- [Diagnostics](diagnostics.md) for how errors and warnings are produced.
-- [Analyzers](analyzers/README.md) for analyzer authoring, API surface, and configuration.
-- [Compiler API](api/README.md) for using syntax, symbols, and the new [operations surface](api/operations.md).
+- [Compiler and command-line tools](raven-compiler.md)
+- [Project system](project-system.md)
+- [VS Code extension](raven-vscode-extension.md)
+- [Diagnostics](diagnostics.md)
+- [JSON serialization](json-serialization.md)
+
+Compiler architecture, analyzer APIs, implementation designs, and contributor
+workflows are maintained in the repository but are not published as part of
+the user manual.

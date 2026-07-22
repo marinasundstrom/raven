@@ -1,0 +1,97 @@
+- name: Overview
+  href: README.md
+- name: Language specification
+  href: spec/language-specification.md
+- name: Lexical structure
+  href: spec/lexical-structure.md
+- name: Values and statements
+  href: spec/values-and-statements.md
+- name: Expressions and inference
+  href: spec/expressions-and-inference.md
+- name: Async and error propagation
+  href: spec/async-and-error-propagation.md
+- name: Fundamental expressions
+  href: spec/fundamental-expressions.md
+- name: Collection expressions
+  href: spec/collection-expressions.md
+- name: Function invocation
+  href: spec/invocations.md
+- name: Extensions and traits
+  href: spec/extensions.md
+- name: Operators and object creation
+  href: spec/operators-and-object-creation.md
+- name: Control-flow expressions
+  href: spec/control-flow-expressions.md
+- name: Pattern matching
+  href: spec/pattern-matching.md
+  items:
+    - name: Dictionary patterns and exhaustiveness
+      href: spec/dictionary-patterns-and-exhaustiveness.md
+    - name: Match forms
+      href: spec/match-forms.md
+    - name: Pattern forms and contexts
+      href: spec/pattern-contexts.md
+    - name: Fundamental patterns
+      href: spec/fundamental-patterns.md
+    - name: Sequence and property patterns
+      href: spec/sequence-and-property-patterns.md
+    - name: Deconstruction and union patterns
+      href: spec/deconstruction-and-union-patterns.md
+- name: Namespaces, imports, and aliases
+  href: spec/namespaces-and-imports.md
+- name: Enum declarations
+  href: spec/enum-declarations.md
+- name: Top-level code and entry points
+  href: spec/top-level-code-and-entry-points.md
+- name: Delegate declarations
+  href: spec/delegate-declarations.md
+- name: Functions
+  href: spec/functions.md
+- name: Unsafe code and interoperability
+  href: spec/unsafe-code-and-interop.md
+- name: Local declarations
+  href: spec/local-declarations.md
+- name: Types and unions
+  href: spec/types-and-unions.md
+- name: Object-oriented types
+  href: spec/object-oriented-types.md
+- name: Types and conversions
+  href: spec/type-system.md
+- name: Classes and members
+  href: spec/classes-and-members.md
+  items:
+    - name: Type declarations and initialization
+      href: spec/type-declarations-and-initialization.md
+    - name: Properties and events
+      href: spec/properties-and-events.md
+    - name: Inheritance and partial types
+      href: spec/inheritance-and-partial-types.md
+    - name: Parameters, overloading, and operators
+      href: spec/parameters-overloading-and-operators.md
+    - name: Interfaces
+      href: spec/interfaces.md
+- name: Control flow
+  href: spec/control-flow.md
+  items:
+    - name: Assignment and expression statements
+      href: spec/assignment-and-expression-statements.md
+    - name: Match statements
+      href: spec/match-statements.md
+    - name: Return and yield
+      href: spec/returns-and-yield.md
+    - name: Jumps and labels
+      href: spec/jumps-and-labels.md
+- name: Error handling
+  href: spec/error-handling.md
+- name: Macros
+  href: spec/macros.md
+- name: .NET implementation
+  href: spec/dotnet-implementation.md
+- name: Grammar (EBNF)
+  href: spec/grammar.ebnf
+- name: Language philosophy
+  href: philosophy.md
+- name: Domain modeling
+  href: domain-modeling.md
+- name: Style guide
+  href: style-guide.md

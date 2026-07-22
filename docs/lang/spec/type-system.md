@@ -321,7 +321,7 @@ consistent across compilation units.
 ## Target typing and inference
 
 Many constructs rely on the surrounding context to determine their type. See the
-[language specification](language-specification.md#type-inference) for the
+[language specification](expressions-and-inference.md#type-inference) for the
 complete inference rules. From a type-system perspective, the important effects
 are:
 
@@ -395,9 +395,7 @@ include identity, `null` to any nullable type, lifting
 value types to their nullable counterpart, widening numeric conversions,
 reference conversions to base types or interfaces, boxing of value types, and
 conversions to a matching branch of a union. Narrowing or otherwise unsafe
-conversions require an explicit cast. See
-[type compatibility](../proposals/type-compatibility.md) for a detailed list of
-conversion forms.
+conversions require an explicit cast.
 
 Reference conversions include the variance rules encoded on generic interfaces
 and delegates. If a referenced interface marks a type parameter as covariant,

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../src/Raven.CodeAnalysis",
+          "files": [
+            "Raven.CodeAnalysis.csproj"
+          ]
+        }
+      ],
+      "dest": "api"
+    }
+  ]
+}

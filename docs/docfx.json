@@ -1,33 +1,47 @@
 {
   "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
-  "metadata": [
-    {
-      "src": [
-        {
-          "src": "../src",
-          "files": [
-            "**/*.csproj"
-          ]
-        }
-      ],
-      "dest": "api"
-    }
-  ],
   "build": {
     "content": [
       {
         "files": [
-          "**/*.{md,yml}"
+          "index.md",
+          "toc.yml",
+          "getting-started.md",
+          "introduction.md",
+          "raven-for-absolute-beginners.md",
+          "raven-for-csharp-developers.md",
+          "lang/README.md",
+          "lang/toc.yml",
+          "lang/philosophy.md",
+          "lang/domain-modeling.md",
+          "lang/style-guide.md",
+          "lang/spec/*.md",
+          "compiler/index.md",
+          "compiler/toc.yml",
+          "compiler/raven-compiler.md",
+          "compiler/project-system.md",
+          "compiler/raven-core-library.md",
+          "compiler/json-serialization.md",
+          "compiler/diagnostics.md",
+          "compiler/raven-vscode-extension.md",
+          "compiler/api/README.md",
+          "compiler/api/performance.md",
+          "compiler/api/operations.md",
+          "compiler/api/semantic-analysis.md",
+          "compiler/api/symbol-resolution.md",
+          "compiler/api/syntax-tree.md",
+          "api/*.yml"
         ],
         "exclude": [
-          "_site/**"
+          "lang/spec/design-notes.md"
         ]
       }
     ],
     "resource": [
       {
         "files": [
-          "images/**"
+          "images/**",
+          "lang/spec/grammar.ebnf"
         ]
       }
     ],
@@ -39,6 +53,7 @@
     "globalMetadata": {
       "_appName": "Raven",
       "_appTitle": "Raven",
+      "_appFooter": "Raven is an experimental programming language for .NET.",
       "_enableSearch": true,
       "pdf": false
     }

@@ -1,8 +1,38 @@
-- name: Language
-  href: lang/spec/language-specification.html
-- name: Type System
-  href: lang/spec/type-system.md
-- name: Compiler
+- name: Home
+  href: index.md
+- name: Get started
+  href: getting-started.md
+- name: Learn Raven
+  items:
+    - name: Language introduction
+      href: introduction.md
+    - name: Raven for absolute beginners
+      href: raven-for-absolute-beginners.md
+    - name: Raven for C# developers
+      href: raven-for-csharp-developers.md
+    - name: Language philosophy
+      href: lang/philosophy.md
+    - name: Domain modeling
+      href: lang/domain-modeling.md
+    - name: Style guide
+      href: lang/style-guide.md
+- name: Language reference
+  href: lang/
+- name: Tools
   href: compiler/
-- name: API
-  href: api/
+- name: Compiler API
+  items:
+    - name: Overview
+      href: compiler/api/README.md
+    - name: Syntax trees
+      href: compiler/api/syntax-tree.md
+    - name: Semantic analysis
+      href: compiler/api/semantic-analysis.md
+    - name: Operations
+      href: compiler/api/operations.md
+    - name: Symbol resolution
+      href: compiler/api/symbol-resolution.md
+    - name: Performance guidance
+      href: compiler/api/performance.md
+    - name: .NET API reference
+      href: api/

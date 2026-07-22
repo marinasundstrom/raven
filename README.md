@@ -150,7 +150,9 @@ not part of the normal test focus.
 
 - A .NET SDK with `net10.0` targeting support.
 - A shell that can run the repository scripts.
-- Optional: [DocFX](https://dotnet.github.io/docfx/) for generated API docs.
+
+The documentation build restores its pinned DocFX tool automatically; see
+[`docs/docfx.md`](docs/docfx.md).
 
 Some samples target `net11.0`; those samples include or require a project-local
 `global.json` that selects an SDK with `net11.0` support.

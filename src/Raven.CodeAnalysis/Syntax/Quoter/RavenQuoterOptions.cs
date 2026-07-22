@@ -55,13 +55,13 @@ public sealed class RavenQuoterOptions
     ///     IdentifierName(
     ///         Identifier("Foo")
     ///     )
-    /// <summary>
+    /// </summary>
     /// <remarks>This is automatically disabled for named arguments</remarks>
     public bool InlineSingleArg { get; init; } = false;
 
     /// <summary>
     /// If true, simple tokens are instantiated via their factory properties.
-    /// If false, simple tokens are instantiated via Token(SyntaxKind.<Kind>)
+    /// If false, simple tokens are instantiated via <c>Token(SyntaxKind.Kind)</c>.
     /// </summary>
     public bool UseFactoryPropsForSimpleTokens { get; init; } = true;
 

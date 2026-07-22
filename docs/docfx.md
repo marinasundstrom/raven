@@ -1,32 +1,37 @@
-# Generate DocFX
+# Build the Raven documentation
 
+The published documentation site is assembled with DocFX. The repository pins
+the DocFX version in `.config/dotnet-tools.json`; a separate global installation
+is not required.
 
-## Prerequisite
+## Build the site
 
-### Build Generator
+From the repository root, run:
 
-If DocFX cannot resolve `BoundNodeGenerator`, build it manually:
-
-Run this from directory `tools/BoundNodeGenerator`:
-
-```
-dotnet build -c Release
-```
-
-### Collect metadata
-
-Run this to gather metadata from projects:
-
-```
-docfx metadata
+```bash
+scripts/build-docs.sh
 ```
 
-## Build and serve site
+The generated site is written to `_site/`. To build and serve it locally, run:
 
-Run this in the `docs` directory:
-
-```
-docfx docfx.json --serve
+```bash
+scripts/build-docs.sh --serve
 ```
 
-Then launch [http://localhost:8080](http://localhost:8080)
+Then open <http://localhost:8080>.
+
+## Publication boundary
+
+`docs/docfx.json` explicitly lists public learning material, language reference,
+the tooling pages needed to use Raven, and a separate compiler API section.
+Compiler architecture and implementation details, contributor instructions,
+testing notes, investigations, language proposals, historical material, and
+standalone design work remain available in source control but are intentionally
+excluded from the user-facing site.
+
+## Validation
+
+The build restores the pinned tool and generates the site with DocFX warnings
+treated as errors. Broken links and unresolved cross-references therefore fail
+the build. Pages missing from navigation should also be treated as publication
+defects during review.
