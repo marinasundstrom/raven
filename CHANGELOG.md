@@ -49,9 +49,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   combinators when proving collective case coverage. Removed the superseded
   binder-owned exhaustiveness implementation so diagnostics and semantic
   queries cannot drift between separate checking paths.
-- Missing-case diagnostics now identify uncovered alternatives inside a
-  partially matched type-union payload, such as `Error(OverflowException)`,
-  instead of collapsing the remaining payload coverage to `Error`.
+- Missing-case diagnostics now identify uncovered alternatives inside wholly
+  or partially unmatched finite union payloads, such as
+  `Error(OverflowException)` and `Error(.ServiceUnavailable)`, instead of
+  collapsing the payload coverage to `Error`.
 - Exhaustiveness analysis now proves complete positional tuple matches when
   tuple elements form a bounded finite product of booleans, enums, nested
   tuples, or discriminated unions, including nullable tuple carriers and

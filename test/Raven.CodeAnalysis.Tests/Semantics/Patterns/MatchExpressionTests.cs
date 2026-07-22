@@ -1951,6 +1951,68 @@ union class Result<T, E> {
     }
 
     [Fact]
+    public void MatchExpression_WithPartiallyCoveredTypeUnionPayload_ReportsMissingPayloadAlternative()
+    {
+        const string code = """
+import System.*
+
+func Handle(result: ParseResult) -> int {
+    return match result {
+        .Ok(val number) => number
+        .Error(ArgumentNullException error) => 0
+        .Error(FormatException error) => 0
+    }
+}
+
+union class ParseResult {
+    case Ok(value: int)
+    case Error(error: ParseError)
+}
+
+union ParseError(ArgumentNullException | FormatException | OverflowException)
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Error(OverflowException)")]);
+
+        verifier.Verify();
+        AssertMatchDiagnosticsAgreeWithSemanticModel(code);
+    }
+
+    [Fact]
+    public void MatchExpression_WithEntirelyMissingTypeUnionPayloadCase_ReportsEveryPayloadAlternative()
+    {
+        const string code = """
+import System.*
+
+func Handle(result: ParseResult) -> int {
+    return match result {
+    }
+}
+
+union class ParseResult {
+    case Ok(value: int)
+    case Error(error: ParseError)
+}
+
+union ParseError(ArgumentNullException | FormatException | OverflowException)
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            [
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Error(ArgumentNullException)"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Error(FormatException)"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Error(OverflowException)"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("Ok"),
+            ]);
+
+        verifier.Verify();
+        AssertMatchDiagnosticsAgreeWithSemanticModel(code);
+    }
+
+    [Fact]
     public void MatchExpression_WithUnionScrutinee_MissingArmReportsDiagnosticAtMatchKeyword()
     {
         const string code = """
@@ -2274,13 +2336,14 @@ func Describe(result: LoginResult) -> string {
         compilation.EnsureSetup();
         Assert.Contains(
             compilation.GetDiagnostics(),
-            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive);
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive &&
+                          diagnostic.GetMessage().Contains("Error(.ServiceUnavailable)", StringComparison.Ordinal));
 
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
 
         Assert.False(info.IsExhaustive);
-        Assert.Contains("Error", info.MissingCases);
+        Assert.Contains("Error(.ServiceUnavailable)", info.MissingCases);
     }
 
     [Fact]
@@ -2331,7 +2394,7 @@ func Describe(result: LoginResult, retry: bool) -> string {
 }
 """;
 
-        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "Error");
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: "Error(.ServiceUnavailable)");
     }
 
     [Fact]

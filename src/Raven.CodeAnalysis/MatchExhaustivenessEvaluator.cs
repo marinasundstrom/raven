@@ -365,11 +365,142 @@ internal sealed class MatchExhaustivenessEvaluator
 
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        builder.AddRange(remaining
-            .Select(MatchCaseDisplay.ForDiscriminatedUnionCase)
-            .OrderBy(name => name, StringComparer.Ordinal));
+        foreach (var caseSymbol in remaining)
+        {
+            var boundCasePatterns = arms
+                .Where(arm => BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                .Select(arm => arm.Pattern)
+                .OfType<BoundCasePattern>()
+                .Where(pattern => string.Equals(pattern.CaseSymbol.Name, caseSymbol.Name, StringComparison.Ordinal))
+                .ToArray();
+            var payloadPatterns = arms
+                .Where(arm => BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
+                .SelectMany(arm => EnumerateCasePayloadPatterns(arm.Pattern, union, caseSymbol.Name))
+                .ToArray();
+            if (caseSymbol.ConstructorParameters.Length == 1 &&
+                (boundCasePatterns.Length == 0 || boundCasePatterns.All(pattern => pattern.Arguments.Length == 1)) &&
+                TryGetMissingCasePayloads(
+                    scrutineeType,
+                    boundCasePatterns.FirstOrDefault()?.CaseSymbol.ConstructorParameters.FirstOrDefault()?.Type ??
+                        caseSymbol.ConstructorParameters[0].Type,
+                    payloadPatterns,
+                    out var missingPayloads))
+            {
+                builder.AddRange(missingPayloads.Select(payload =>
+                    MatchCaseDisplay.ForDiscriminatedUnionCasePayload(caseSymbol, payload)));
+            }
+            else
+            {
+                builder.Add(MatchCaseDisplay.ForDiscriminatedUnionCase(caseSymbol));
+            }
+        }
 
-        return builder.ToImmutable();
+        return builder
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    private IEnumerable<BoundPattern> EnumerateCasePayloadPatterns(
+        BoundPattern pattern,
+        IUnionSymbol union,
+        string caseName)
+    {
+        switch (pattern)
+        {
+            case BoundCasePattern casePattern
+                when string.Equals(casePattern.CaseSymbol.Name, caseName, StringComparison.Ordinal):
+                foreach (var argument in casePattern.Arguments)
+                    yield return argument;
+                break;
+            case BoundUnionMemberPattern unionMemberPattern:
+                var matchedCase = TryResolveCoveredUnionCase(union, unionMemberPattern.MemberType, unionMemberPattern.TryGetMethod);
+                if (matchedCase is not null &&
+                    string.Equals(matchedCase.Name, caseName, StringComparison.Ordinal) &&
+                    unionMemberPattern.Pattern is BoundDeconstructPattern memberDeconstructPattern)
+                {
+                    foreach (var argument in memberDeconstructPattern.Arguments)
+                        yield return argument;
+                }
+                break;
+            case BoundDeconstructPattern deconstructPattern:
+                var deconstructedType = UnwrapAlias(deconstructPattern.NarrowedType ?? deconstructPattern.ReceiverType);
+                if (string.Equals(deconstructedType.Name, caseName, StringComparison.Ordinal))
+                {
+                    foreach (var argument in deconstructPattern.Arguments)
+                        yield return argument;
+                }
+                break;
+            case BoundOrPattern orPattern:
+                foreach (var nested in EnumerateCasePayloadPatterns(orPattern.Left, union, caseName))
+                    yield return nested;
+                foreach (var nested in EnumerateCasePayloadPatterns(orPattern.Right, union, caseName))
+                    yield return nested;
+                break;
+        }
+    }
+
+    private bool TryGetMissingCasePayloads(
+        ITypeSymbol scrutineeType,
+        ITypeSymbol? declaredPayloadType,
+        IReadOnlyList<BoundPattern> patterns,
+        out ImmutableArray<ITypeSymbol> missingPayloads)
+    {
+        var payloadType = declaredPayloadType ?? patterns
+            .OfType<BoundUnionMemberPattern>()
+            .Select(pattern => pattern.UnionType)
+            .FirstOrDefault() ?? patterns.FirstOrDefault()?.Type;
+        if (payloadType is ITypeParameterSymbol typeParameter &&
+            scrutineeType is INamedTypeSymbol namedScrutinee &&
+            typeParameter.Ordinal < namedScrutinee.TypeArguments.Length)
+        {
+            payloadType = namedScrutinee.TypeArguments[typeParameter.Ordinal];
+        }
+
+        if (payloadType is null)
+        {
+            missingPayloads = default;
+            return false;
+        }
+
+        payloadType = UnwrapAlias(payloadType);
+        var allPayloads = payloadType switch
+        {
+            ITypeUnionSymbol payloadUnion => GetUnionMembers(payloadUnion).ToImmutableArray(),
+            _ when payloadType.TryGetUnion() is { } payloadUnion =>
+                UnionContentNullability.GetPatternDomainTypes(payloadUnion, _compilation.NullTypeSymbol),
+            _ => ImmutableArray<ITypeSymbol>.Empty,
+        };
+        if (allPayloads.IsDefaultOrEmpty)
+        {
+            missingPayloads = default;
+            return false;
+        }
+        var remainingPayloads = allPayloads
+            .Where(payload => !patterns.Any(pattern =>
+                PatternCoversPayloadType(payload, pattern)))
+            .ToImmutableArray();
+
+        if (remainingPayloads.Length == 0)
+        {
+            missingPayloads = default;
+            return false;
+        }
+
+        missingPayloads = remainingPayloads;
+        return true;
+    }
+
+    private bool PatternCoversPayloadType(ITypeSymbol payloadType, BoundPattern pattern)
+    {
+        if (pattern is BoundCasePattern casePattern &&
+            payloadType.TryGetUnionCase() is { } payloadCase &&
+            payloadCase.Ordinal == casePattern.CaseSymbol.Ordinal &&
+            AreSameUnionPatternTarget(UnwrapAlias(payloadCase.Union), UnwrapAlias(casePattern.CaseSymbol.Union)))
+        {
+            return CasePatternCoversAllArguments(casePattern);
+        }
+
+        return GetTypePatternCoverage(payloadType, pattern) == TypePatternCoverage.All;
     }
 
     private ImmutableArray<string> GetMissingNullableUnionCases(

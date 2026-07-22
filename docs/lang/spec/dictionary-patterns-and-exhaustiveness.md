@@ -70,6 +70,12 @@ entire `Error` case when the payload union declares only `A` and `B`. The same
 rule applies to other finite payload domains such as `bool` and to the Cartesian
 product of multiple finite payloads. Coverage must include every combination;
 independently mentioning every value in each payload position is insufficient.
+When a finite union payload is wholly or partly uncovered, the missing-case
+diagnostic identifies each uncovered case-and-payload alternative, such as
+`Error(OverflowException)` for a parenthesized union or
+`Error(.ServiceUnavailable)` for a nested discriminated union. If the payload
+domain cannot be usefully enumerated, the diagnostic conservatively reports the
+enclosing case instead.
 
 Positional tuple patterns use the same Cartesian-product analysis. Pattern
 combinators (`not`, `and`, and `or`) are evaluated over each finite value, so
