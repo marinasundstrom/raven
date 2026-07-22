@@ -1,27 +1,182 @@
 - name: Overview
   href: README.md
-- name: Language specification
+- name: Language reference
   href: spec/language-specification.md
-- name: Lexical structure
-  href: spec/lexical-structure.md
-- name: Values and statements
-  href: spec/values-and-statements.md
-- name: Expressions and inference
+- name: Language fundamentals
+  items:
+    - name: Lexical structure
+      href: spec/lexical-structure.md
+    - name: Values and statements
+      href: spec/values-and-statements.md
+    - name: Namespaces, imports, and aliases
+      href: spec/namespaces-and-imports.md
+      items:
+        - name: Imports
+          href: spec/namespaces-and-imports.md#import-directive
+        - name: Aliases
+          href: spec/namespaces-and-imports.md#alias-directive
+        - name: Scoped namespaces
+          href: spec/namespaces-and-imports.md#scoped-namespaces
+    - name: Top-level code and entry points
+      href: spec/top-level-code-and-entry-points.md
+      items:
+        - name: Entry-point forms
+          href: spec/top-level-code-and-entry-points.md#supported-entry-point-forms
+        - name: File-scope code
+          href: spec/top-level-code-and-entry-points.md#file-scope-code-rules
+        - name: Entry-point resolution
+          href: spec/top-level-code-and-entry-points.md#entry-point-resolution
+    - name: Grammar (EBNF)
+      href: spec/grammar.ebnf
+- name: Types
+  href: spec/type-system.md
+  items:
+    - name: Primitive types
+      href: spec/type-system.md#primitive-types
+    - name: Literal expressions
+      href: spec/type-system.md#literal-expressions
+    - name: Composite and generic types
+      href: spec/type-system.md#composite-and-derived-types
+    - name: Type identity and aliases
+      href: spec/type-system.md#type-identity-and-aliases
+    - name: Type inference
+      href: spec/type-system.md#target-typing-and-inference
+    - name: Conversions
+      href: spec/type-system.md#conversions
+    - name: Overload resolution
+      href: spec/type-system.md#overload-resolution
+    - name: Type syntax and unions
+      href: spec/types-and-unions.md
+      items:
+        - name: Tuple types
+          href: spec/types-and-unions.md#tuple-types
+        - name: Function types
+          href: spec/types-and-unions.md#function-types
+        - name: Nullability
+          href: spec/types-and-unions.md#nullability-and-null
+        - name: Union types
+          href: spec/types-and-unions.md#unions
+        - name: Closed-shape types
+          href: spec/types-and-unions.md#closed-shape-types
+    - name: Enum declarations
+      href: spec/enum-declarations.md
+    - name: Delegate declarations
+      href: spec/delegate-declarations.md
+- name: Expressions
   href: spec/expressions-and-inference.md
-- name: Async and error propagation
-  href: spec/async-and-error-propagation.md
-- name: Fundamental expressions
-  href: spec/fundamental-expressions.md
-- name: Collection expressions
-  href: spec/collection-expressions.md
-- name: Function invocation
-  href: spec/invocations.md
-- name: Extensions and traits
-  href: spec/extensions.md
-- name: Operators and object creation
-  href: spec/operators-and-object-creation.md
-- name: Control-flow expressions
-  href: spec/control-flow-expressions.md
+  items:
+    - name: Fundamental expressions
+      href: spec/fundamental-expressions.md
+    - name: Collection expressions
+      href: spec/collection-expressions.md
+    - name: Tuple expressions
+      href: spec/tuple-expressions.md
+    - name: Calls and trailing blocks
+      href: spec/invocations.md
+    - name: Pipe expressions
+      href: spec/pipe-expressions.md
+    - name: Object creation
+      href: spec/object-creation.md
+    - name: Object initialization and copying
+      href: spec/object-initialization-and-copying.md
+    - name: Index, range, and bitwise operators
+      href: spec/operators-and-object-creation.md
+    - name: Operator precedence
+      href: spec/object-oriented-types.md
+- name: Declarations and members
+  items:
+    - name: Local declarations
+      href: spec/local-declarations.md
+      items:
+        - name: Read-only bindings (`let`)
+          href: spec/local-declarations.md#read-only-lexical-binding-let
+        - name: Variable bindings (`var`)
+          href: spec/local-declarations.md#variable-binding-var
+        - name: Constants (`const`)
+          href: spec/local-declarations.md#constant-binding-const
+        - name: Resource declarations (`use`)
+          href: spec/local-declarations.md#resource-declarations-use
+    - name: Functions
+      href: spec/functions.md
+      items:
+        - name: Function declarations
+          href: spec/functions.md#function-declarations
+        - name: Parameters
+          href: spec/functions.md#parameters
+        - name: Generic functions and methods
+          href: spec/functions.md#generic-functions-and-methods
+        - name: Local functions
+          href: spec/functions.md#local-functions
+        - name: Function expressions and closures
+          href: spec/functions.md#function-expressions
+        - name: Function values and method references
+          href: spec/functions.md#function-values-and-method-references
+        - name: Async functions
+          href: spec/async-functions.md
+    - name: Classes and members
+      href: spec/classes-and-members.md
+      items:
+        - name: Type declarations and initialization
+          href: spec/type-declarations-and-initialization.md
+          items:
+            - name: Static classes
+              href: spec/type-declarations-and-initialization.md#static-classes
+            - name: Fields
+              href: spec/type-declarations-and-initialization.md#field-declarations-low-level-storage
+            - name: Generic types
+              href: spec/type-declarations-and-initialization.md#generic-types
+            - name: Initialization model
+              href: spec/type-declarations-and-initialization.md#initialization-model
+            - name: Initializer declarations (`init`)
+              href: spec/type-declarations-and-initialization.md#init-declarations
+            - name: Records
+              href: spec/type-declarations-and-initialization.md#record-declarations
+        - name: Properties and events
+          href: spec/properties-and-events.md
+          items:
+            - name: Stored properties
+              href: spec/properties-and-events.md#storage-auto-properties
+            - name: Computed properties
+              href: spec/properties-and-events.md#computed-properties
+            - name: Init accessors
+              href: spec/properties-and-events.md#init-accessor-and-initialization-phase
+            - name: Fields and indexers
+              href: spec/properties-and-events.md#field-and-indexers
+            - name: Events
+              href: spec/properties-and-events.md#events
+        - name: Inheritance and partial types
+          href: spec/inheritance-and-partial-types.md
+          items:
+            - name: Sealed hierarchies
+              href: spec/inheritance-and-partial-types.md#sealed-hierarchies-and-permits
+            - name: Partial types and members
+              href: spec/inheritance-and-partial-types.md#partial-types-and-members
+        - name: Parameters, overloading, and operators
+          href: spec/parameters-overloading-and-operators.md
+          items:
+            - name: Method overloading
+              href: spec/parameters-overloading-and-operators.md#method-overloading
+            - name: Default parameter values
+              href: spec/parameters-overloading-and-operators.md#default-parameter-values
+            - name: Operator declarations
+              href: spec/parameters-overloading-and-operators.md#operator-declarations
+            - name: Invocation operator
+              href: spec/parameters-overloading-and-operators.md#invocation-operator
+        - name: Interfaces
+          href: spec/interfaces.md
+    - name: Extension members
+      href: spec/extensions.md
+      items:
+        - name: Extension methods
+          href: spec/extensions.md#extension-methods
+        - name: Extension properties
+          href: spec/extensions.md#extension-properties
+        - name: Static extension members
+          href: spec/extensions.md#static-extension-members
+- name: Metaprogramming
+  items:
+    - name: Macros
+      href: spec/macros.md
 - name: Pattern matching
   href: spec/pattern-matching.md
   items:
@@ -37,42 +192,24 @@
       href: spec/sequence-and-property-patterns.md
     - name: Deconstruction and union patterns
       href: spec/deconstruction-and-union-patterns.md
-- name: Namespaces, imports, and aliases
-  href: spec/namespaces-and-imports.md
-- name: Enum declarations
-  href: spec/enum-declarations.md
-- name: Top-level code and entry points
-  href: spec/top-level-code-and-entry-points.md
-- name: Delegate declarations
-  href: spec/delegate-declarations.md
-- name: Functions
-  href: spec/functions.md
-- name: Unsafe code and interoperability
-  href: spec/unsafe-code-and-interop.md
-- name: Local declarations
-  href: spec/local-declarations.md
-- name: Types and unions
-  href: spec/types-and-unions.md
-- name: Object-oriented types
-  href: spec/object-oriented-types.md
-- name: Types and conversions
-  href: spec/type-system.md
-- name: Classes and members
-  href: spec/classes-and-members.md
-  items:
-    - name: Type declarations and initialization
-      href: spec/type-declarations-and-initialization.md
-    - name: Properties and events
-      href: spec/properties-and-events.md
-    - name: Inheritance and partial types
-      href: spec/inheritance-and-partial-types.md
-    - name: Parameters, overloading, and operators
-      href: spec/parameters-overloading-and-operators.md
-    - name: Interfaces
-      href: spec/interfaces.md
 - name: Control flow
   href: spec/control-flow.md
   items:
+    - name: Control-flow expressions and statements
+      href: spec/control-flow-expressions.md
+      items:
+        - name: If expressions
+          href: spec/control-flow-expressions.md#if-expression
+        - name: While loops
+          href: spec/control-flow-expressions.md#while-statement
+        - name: Infinite loops (`loop`)
+          href: spec/control-flow-expressions.md#loop-statement
+        - name: For loops
+          href: spec/control-flow-expressions.md#for-statement
+        - name: Break and continue
+          href: spec/control-flow-expressions.md#break-and-continue
+        - name: Unreachable statements
+          href: spec/control-flow-expressions.md#unreachable-statements
     - name: Assignment and expression statements
       href: spec/assignment-and-expression-statements.md
     - name: Match statements
@@ -83,15 +220,37 @@
       href: spec/jumps-and-labels.md
 - name: Error handling
   href: spec/error-handling.md
-- name: Macros
-  href: spec/macros.md
-- name: .NET implementation
-  href: spec/dotnet-implementation.md
-- name: Grammar (EBNF)
-  href: spec/grammar.ebnf
-- name: Language philosophy
-  href: philosophy.md
-- name: Domain modeling
-  href: domain-modeling.md
-- name: Style guide
-  href: style-guide.md
+  items:
+    - name: Throwing exceptions
+      href: spec/error-handling.md#throw-statements-and-expressions
+    - name: Try statements
+      href: spec/error-handling.md#try-statements
+    - name: Try expressions
+      href: spec/error-handling.md#try-expressions
+    - name: Error propagation and carrier types
+      href: spec/async-and-error-propagation.md
+- name: .NET interoperability
+  items:
+    - name: Unsafe code and interoperability
+      href: spec/unsafe-code-and-interop.md
+      items:
+        - name: Pointer operations
+          href: spec/unsafe-code-and-interop.md#pointer-operations
+        - name: Pinning managed storage
+          href: spec/unsafe-code-and-interop.md#pinning-managed-storage
+        - name: Extern declarations
+          href: spec/unsafe-code-and-interop.md#extern-declarations
+        - name: Pass by reference
+          href: spec/unsafe-code-and-interop.md#pass-by-reference
+        - name: Ref and out arguments
+          href: spec/unsafe-code-and-interop.md#refout-arguments
+    - name: .NET implementation
+      href: spec/dotnet-implementation.md
+- name: Language guides
+  items:
+    - name: Language philosophy
+      href: philosophy.md
+    - name: Domain modeling
+      href: domain-modeling.md
+    - name: Style guide
+      href: style-guide.md

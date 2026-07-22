@@ -28,10 +28,10 @@ syntax and semantics.
 - Read [Raven for absolute beginners](raven-for-absolute-beginners.md) for a
   slower introduction to programming and the language.
 
-## Language and tooling reference
+## Language and tooling
 
-- The [language specification](lang/spec/language-specification.md) defines the
-  intended observable language behavior.
+- The [language documentation](lang/README.md) organizes syntax, features, and
+  common language rules by topic.
 - The [non-normative EBNF grammar](lang/spec/grammar.ebnf) summarizes Raven's
   structural syntax.
 - The [tooling documentation](compiler/index.md) covers command-line tools,

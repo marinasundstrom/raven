@@ -22,6 +22,7 @@
           "compiler/toc.yml",
           "compiler/raven-compiler.md",
           "compiler/project-system.md",
+          "compiler/distribution.md",
           "compiler/raven-core-library.md",
           "compiler/json-serialization.md",
           "compiler/diagnostics.md",

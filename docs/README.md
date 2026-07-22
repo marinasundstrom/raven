@@ -23,7 +23,7 @@ what a feature does, when to use it, and show representative Raven examples.
 
 ### Language reference
 
-* [Language specification](lang/spec/language-specification.md)
+* [Language reference](lang/spec/language-specification.md)
 * [Type system](lang/spec/type-system.md)
 * [Grammar](lang/spec/grammar.ebnf)
 

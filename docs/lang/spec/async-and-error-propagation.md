@@ -1,28 +1,4 @@
-# Async and error propagation expressions
-
-The `await` keyword introduces a unary expression with the grammar `await`
-*expression*. Await expressions participate in the same precedence as other
-prefix unary operators. Because `await` is reserved, the identifier form must be
-escaped as `@await` when used outside this construct.
-
-`await` may only appear inside an async function or lambda. File-scope
-statements synthesize a synchronous `Program.Main` plus an async
-`Program.MainAsync`, so top-level awaits run inside the async method while the
-bridge awaits `MainAsync(args)` before returning to the host. The awaited
-expression must expose an instance method `GetAwaiter()` whose return type
-provides an accessible `IsCompleted: bool` property and a parameterless
-`GetResult()` method. If the awaiter’s `GetResult` produces no value, the await
-expression’s type is `unit`; otherwise it matches the `GetResult` return type.
-
-Failing any of these requirements produces a compile-time diagnostic identifying
-the missing member. The compiler also reports an error when `await` appears
-outside an async context.
-
-Evaluation first computes the operand value and calls `GetAwaiter()` to obtain
-the awaiter. If `val IsCompleted` is `true`, `GetResult()` is invoked immediately
-and the await expression yields its value. Otherwise execution is suspended and
-later resumed when the awaiter signals completion; resumption continues after
-the `await` with the result of ` GetResult()`.
+# Error propagation and carrier types
 
 ## Try expressions
 
