@@ -6,3 +6,9 @@ import System.*
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
 class TopLevelAttribute : Attribute {
 }
+
+/// Marks a Raven.Core method as an implementation adapter for a compiler-owned
+/// framework API projection. The projection catalog remains authoritative.
+[AttributeUsage(AttributeTargets.Method)]
+class FrameworkProjectionAttribute : Attribute {
+}

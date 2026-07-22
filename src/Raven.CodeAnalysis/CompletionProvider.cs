@@ -1101,6 +1101,8 @@ public static class CompletionProvider
                       FrameworkProjectionCatalog.TryGetStandard(namedType, m.Name, out var descriptor) &&
                       model.Compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is { } projectedContainer &&
                       projectedContainer.GetMembers(m.Name).OfType<IMethodSymbol>().Any()));
+                if (model.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard)
+                    staticMembers = staticMembers.Concat(FrameworkProjectionCatalog.GetStandardMethods(model.Compilation, namedType));
                 return namedType is IUnionSymbol union
                     ? staticMembers.Concat(union.CaseTypes.Where(IsAccessible))
                     : staticMembers;

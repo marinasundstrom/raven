@@ -34,7 +34,8 @@ int.
         var tryParse = Assert.Single(items.Where(static item => item.DisplayText == "TryParse"));
         var method = Assert.IsAssignableFrom<IMethodSymbol>(tryParse.Symbol);
 
-        Assert.Equal("Int32Extensions", method.ContainingType?.Name);
+        Assert.Equal("Int32", method.ContainingType?.Name);
+        Assert.False(method.IsExtensionMethod);
         Assert.Equal("Option<int>", method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 

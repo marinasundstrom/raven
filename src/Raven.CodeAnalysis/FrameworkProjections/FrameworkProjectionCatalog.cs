@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis;
 
 internal static class FrameworkProjectionCatalog
@@ -32,6 +34,58 @@ internal static class FrameworkProjectionCatalog
 
         descriptor = default!;
         return false;
+    }
+
+    public static ImmutableArray<IMethodSymbol> GetStandardMethods(
+        Compilation compilation,
+        ITypeSymbol receiverType,
+        string? memberName = null)
+    {
+        if (receiverType is not INamedTypeSymbol namedReceiverType)
+            return ImmutableArray<IMethodSymbol>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+
+        foreach (var descriptor in s_standard.Value)
+        {
+            if (memberName is not null && !string.Equals(descriptor.MemberName, memberName, StringComparison.Ordinal))
+                continue;
+            if (!MatchesReceiver(descriptor, receiverType))
+                continue;
+            if (compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is not { } container)
+                continue;
+
+            foreach (var adapter in container.GetMembers(descriptor.MemberName).OfType<IMethodSymbol>())
+            {
+                if (!IsProjectionAdapter(adapter) ||
+                    !string.Equals(adapter.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
+                    adapter.Parameters.Length != 1 ||
+                    adapter.ReturnType is not INamedTypeSymbol { Name: "Option", Arity: 1 })
+                    continue;
+                if (!SymbolEqualityComparer.Default.Equals(adapter.GetExtensionReceiverType(), receiverType))
+                    continue;
+
+                builder.Add(new ProjectedMethodSymbol(namedReceiverType, adapter));
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static bool IsProjectionAdapter(IMethodSymbol method) =>
+        method.GetAttributes().Any(static attribute =>
+            string.Equals(
+                $"{attribute.AttributeClass.ContainingNamespace?.ToMetadataName()}.{attribute.AttributeClass.MetadataName}",
+                "System.Runtime.CompilerServices.FrameworkProjectionAttribute",
+                StringComparison.Ordinal));
+
+    private static bool MatchesReceiver(FrameworkProjectionDescriptor descriptor, ITypeSymbol receiverType)
+    {
+        var namespaceName = receiverType.ContainingNamespace?.ToMetadataName();
+        var receiverMetadataName = string.IsNullOrEmpty(namespaceName)
+            ? receiverType.MetadataName
+            : $"{namespaceName}.{receiverType.MetadataName}";
+        return string.Equals(descriptor.ReceiverType, receiverMetadataName, StringComparison.Ordinal);
     }
 
     private static ImmutableArray<FrameworkProjectionDescriptor> LoadStandard()

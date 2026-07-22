@@ -13,19 +13,9 @@ partial class BlockBinder
     private ImmutableArray<IMethodSymbol> LookupStaticMethodCandidates(string name, ITypeSymbol receiverType)
     {
         if (Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
-            FrameworkProjectionCatalog.TryGetStandard(receiverType, name, out var descriptor))
+            FrameworkProjectionCatalog.TryGetStandard(receiverType, name, out _))
         {
-            var projected = LookupExtensionStaticMethods(name, receiverType)
-                .Where(method =>
-                    method.Parameters.Length == 1 &&
-                    string.Equals(method.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) &&
-                    string.Equals(
-                        $"{method.ContainingNamespace?.ToMetadataName()}.{method.ContainingType?.MetadataName}",
-                        descriptor.ProjectedContainer,
-                        StringComparison.Ordinal) &&
-                    method.ReturnType is INamedTypeSymbol { Name: "Option", Arity: 1 } &&
-                    SymbolEqualityComparer.Default.Equals(method.GetExtensionReceiverType(), receiverType))
-                .ToImmutableArray();
+            var projected = FrameworkProjectionCatalog.GetStandardMethods(Compilation, receiverType, name);
 
             if (!projected.IsDefaultOrEmpty)
                 return projected;

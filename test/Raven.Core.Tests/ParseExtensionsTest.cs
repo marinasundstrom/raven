@@ -8,6 +8,20 @@ namespace Raven.Core.Tests;
 
 public sealed class ParseExtensionsTest : RavenCoreDiagnosticTestBase
 {
+    [Fact]
+    public void TryParseProjection_EmitsThroughAttributedBridge()
+    {
+        const string code = """
+import System.*
+
+func TryParseProjected(text: string) -> Option<int> {
+    return int.TryParse(text)
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
     [Theory]
     [InlineData("System.Int32Extensions", typeof(int), "42")]
     [InlineData("System.Int64Extensions", typeof(long), "42")]

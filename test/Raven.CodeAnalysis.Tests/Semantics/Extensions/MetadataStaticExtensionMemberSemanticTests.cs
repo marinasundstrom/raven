@@ -12,12 +12,12 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTestBase
 {
     [Theory]
-    [InlineData("int", "Option<int>", "Int32Extensions")]
-    [InlineData("long", "Option<long>", "Int64Extensions")]
-    [InlineData("double", "Option<double>", "DoubleExtensions")]
-    [InlineData("decimal", "Option<decimal>", "DecimalExtensions")]
-    [InlineData("Guid", "Option<Guid>", "GuidExtensions")]
-    [InlineData("DateTime", "Option<DateTime>", "DateTimeExtensions")]
+    [InlineData("int", "Option<int>", "Int32")]
+    [InlineData("long", "Option<long>", "Int64")]
+    [InlineData("double", "Option<double>", "Double")]
+    [InlineData("decimal", "Option<decimal>", "Decimal")]
+    [InlineData("Guid", "Option<Guid>", "Guid")]
+    [InlineData("DateTime", "Option<DateTime>", "DateTime")]
     public void FrameworkTryParseProjection_IsEnabledByDefault(
         string typeName,
         string expectedReturnType,
@@ -41,6 +41,10 @@ val parsed = {{typeName}}.TryParse("42")
 
         Assert.Equal(expectedContainer, boundInvocation.Method.ContainingType?.Name);
         Assert.Equal(expectedReturnType, boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.False(boundInvocation.Method.IsExtensionMethod);
+        Assert.Null(boundInvocation.Method.GetExtensionReceiverType());
+        var projected = Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+        Assert.EndsWith("Extensions", projected.AdapterMethod.ContainingType?.Name, StringComparison.Ordinal);
     }
 
     [Fact]

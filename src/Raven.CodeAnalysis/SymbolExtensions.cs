@@ -230,6 +230,9 @@ public static partial class SymbolExtensions
 
     public static ITypeSymbol? GetExtensionReceiverType(this IMethodSymbol method)
     {
+        if (method is ProjectedMethodSymbol)
+            return null;
+
         if (method.MethodKind is MethodKind.Conversion or MethodKind.UserDefinedOperator &&
             !method.Parameters.IsDefaultOrEmpty)
         {

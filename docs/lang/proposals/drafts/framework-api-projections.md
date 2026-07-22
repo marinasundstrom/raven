@@ -487,6 +487,13 @@ Descriptors need enough information to:
 The catalog must not embed arbitrary executable compiler hooks. Projection
 lowering should select from a small set of compiler-defined, validated recipes.
 
+Raven.Core adapter methods are marked with
+`FrameworkProjectionAttribute`. The attribute is an implementation eligibility
+marker, not a request to participate in ordinary extension-method precedence.
+An attributed method is ignored unless an enabled catalog entry selects and
+validates it. The compiler then presents a synthesized receiver-owned method
+symbol and retains the adapter only as its emission target.
+
 ### Exception mappings
 
 Every descriptor declares its exception behavior, including descriptors whose
@@ -535,7 +542,8 @@ mappings remain explicit and reviewable.
 The long-term model can separate **discovery** from **semantics**:
 
 1. conventions identify methods that might be projection candidates;
-2. a generator or tool produces explicit projection descriptors;
+2. a generator or tool produces a bridge implementation and an explicit
+   projection descriptor;
 3. the compiler validates each descriptor against referenced metadata; and
 4. validated descriptors participate through the same symbol and lowering path
    as the built-in catalog.
@@ -551,10 +559,11 @@ A future generator could search an assembly for configured shapes such as:
 bool TryX(A..., out T value) => Option<T>
 ```
 
-It should generate candidates for review or require library-authored metadata;
-the compiler should not automatically accept every match. Configuration must
-be able to exclude methods, select the value output, rename the projected
-method, and choose a supported lowering recipe.
+It should generate the executable bridge implementation, mark that bridge as a
+projection adapter, and emit the companion descriptor that declares the stable
+Raven-facing signature. The compiler should not automatically accept every
+shape match. Configuration must be able to exclude methods, select the value
+output, rename the projected method, and choose a supported lowering recipe.
 
 For example, a library might describe:
 

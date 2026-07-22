@@ -33,6 +33,8 @@ internal static class MethodSymbolCodeGenResolver
 
         MethodInfo resolved = methodSymbol switch
         {
+            ProjectedMethodSymbol projectedMethod
+                => GetClrMethodInfo(projectedMethod.AdapterMethod, codeGen),
             SourceMethodSymbol sourceMethod
                 => ResolveSourceMethodInfo(sourceMethod, codeGen),
             SourceLambdaSymbol sourceLambda

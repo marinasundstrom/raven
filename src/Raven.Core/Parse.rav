@@ -4,6 +4,7 @@ import System.*
 import System.Globalization.*
 import System.Option.*
 import System.Result.*
+import System.Runtime.CompilerServices.*
 
 interface IParseError: IError {
 }
@@ -36,6 +37,7 @@ record ParseIntError(
 
 extension Int32Extensions for Int32 {
 
+    [FrameworkProjection]
     static func TryParse(input: string?) -> Option<int> {
         if Int32.TryParse(input, out var value) {
             return Some(value)
@@ -71,6 +73,7 @@ extension Int32Extensions for Int32 {
 }
 
 extension Int64Extensions for Int64 {
+    [FrameworkProjection]
     static func TryParse(input: string?) -> Option<long> {
         if Int64.TryParse(input, out var value) {
             return Some(value)
@@ -81,6 +84,7 @@ extension Int64Extensions for Int64 {
 }
 
 extension DoubleExtensions for Double {
+    [FrameworkProjection]
     static func TryParse(input: string?) -> Option<double> {
         if Double.TryParse(input, out var value) {
             return Some(value)
@@ -91,6 +95,7 @@ extension DoubleExtensions for Double {
 }
 
 extension DecimalExtensions for Decimal {
+    [FrameworkProjection]
     static func TryParse(input: string?) -> Option<decimal> {
         if Decimal.TryParse(input, out var value) {
             return Some(value)
@@ -101,6 +106,7 @@ extension DecimalExtensions for Decimal {
 }
 
 extension GuidExtensions for Guid {
+    [FrameworkProjection]
     static func TryParse(input: string?) -> Option<Guid> {
         if Guid.TryParse(input, out var value) {
             return Some(value)
@@ -111,6 +117,7 @@ extension GuidExtensions for Guid {
 }
 
 extension DateTimeExtensions for DateTime {
+    [FrameworkProjection]
     static func TryParse(input: string?) -> Option<DateTime> {
         if DateTime.TryParse(input, out var value) {
             return Some(value)
