@@ -12,20 +12,20 @@ func Main() {
 }
 
 func Login(userName: string, password: string) -> LoginResult {
-    if (userName == "Alice" && password == "test123!?") {
+    if userName == "Alice" && password == "test123!?" {
         return .Success
     }
     return .Error(.WrongCredentials)
 }
 
 union LoginResult {
-    case Success,
+    case Success
     case Error(error: LoginError)
 }
 
 union LoginError {
     case WrongCredentials
-    case ServiceUnavailable,
+    case ServiceUnavailable
 }
 
 
