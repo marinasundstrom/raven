@@ -1,31 +1,11 @@
 import System.Console.*
 
 func Main() {
-    let result = Login("Alice", "test123!?")
-    match result {
-        .Success => {
-            WriteLine("Success")
-        }
-        .Error(.WrongCredentials) => WriteLine("Wrong credentials")
-        .Error(.ServiceUnavailable) => WriteLine("Service unavailable")
+    let input = ReadLine()!
+    let Ok(no) = int.Parse(input) else {
+        WriteLine("\"$input\" is not a number")
+        return
     }
+
+    WriteLine("Number is: $no")
 }
-
-func Login(userName: string, password: string) -> LoginResult {
-    if userName == "Alice" && password == "test123!?" {
-        return .Success
-    }
-    return .Error(.WrongCredentials)
-}
-
-union LoginResult {
-    case Success
-    case Error(error: LoginError)
-}
-
-union LoginError {
-    case WrongCredentials
-    case ServiceUnavailable
-}
-
-
