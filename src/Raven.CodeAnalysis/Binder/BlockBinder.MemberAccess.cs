@@ -3779,7 +3779,13 @@ partial class BlockBinder
         if (syntax.ElseClause is not null)
             return BindLetElseStatement(syntax);
 
-        var right = BindExpression(syntax.Right);
+        ITypeSymbol? targetType = syntax.Left is VariablePatternSyntax
+        {
+            Designation: TypedVariableDesignationSyntax typedDesignation
+        }
+            ? ResolveTypeSyntaxOrError(typedDesignation.TypeAnnotation.Type)
+            : null;
+        var right = BindExpressionWithTargetType(syntax.Right, targetType);
         var bound = BindPatternAssignment(syntax.Left, right, syntax, syntax.BindingKeyword.Kind);
         if (bound is BoundAssignmentExpression assignment)
         {

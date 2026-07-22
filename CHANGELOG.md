@@ -52,6 +52,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   the surrounding scope. Documentation now promotes `if let` and `let ... else`
   for binding-oriented control flow while retaining `is` for boolean pattern
   expressions.
+- Preserved target typing for ordinary typed `let` declarations after their
+  unification with pattern-declaration syntax, including shorthand union cases
+  in `if` expression branches.
 - Ordered language-server diagnostic presentation per document and rejected
   older editor versions, preventing recovery diagnostics from reappearing
   after a newer compiler pass has cleared them.

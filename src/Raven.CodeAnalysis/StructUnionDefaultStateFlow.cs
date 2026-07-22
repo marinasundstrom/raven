@@ -206,6 +206,12 @@ internal static class StructUnionDefaultStateFlow
             case BoundExpressionStatement { Expression: BoundLocalAssignmentExpression localAssignment }:
                 ApplyLocalAssignment(localAssignment, states);
                 break;
+            case BoundAssignmentStatement { Expression: BoundPatternAssignmentExpression patternAssignment }:
+                ApplyPatternAssignment(patternAssignment, states);
+                break;
+            case BoundExpressionStatement { Expression: BoundPatternAssignmentExpression patternAssignment }:
+                ApplyPatternAssignment(patternAssignment, states);
+                break;
             case BoundBlockStatement block:
                 foreach (var child in block.Statements)
                     ApplyStatement(child, states);
@@ -233,6 +239,22 @@ internal static class StructUnionDefaultStateFlow
             return;
 
         states[assignment.Local] = GetExpressionState(assignment.Right, states);
+    }
+
+    private static void ApplyPatternAssignment(
+        BoundPatternAssignmentExpression assignment,
+        Dictionary<ILocalSymbol, DefaultState> states)
+    {
+        var state = GetExpressionState(assignment.Right, states);
+
+        foreach (var designator in assignment.Pattern.GetDesignators())
+        {
+            if (designator is BoundSingleVariableDesignator { Local: { } local } &&
+                CanRepresentInactiveStructUnionState(local.Type))
+            {
+                states[local] = state;
+            }
+        }
     }
 
     private static void ApplyIfStatement(

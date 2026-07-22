@@ -1153,6 +1153,31 @@ union class Response<T, E> {
     }
 
     [Fact]
+    public void IfExpression_InTypedLocal_TargetTypesUnionCaseBranches()
+    {
+        const string source = """
+func build(needsAttention: bool) {
+    let status: GreenhouseStatus = if needsAttention {
+        .NeedsAttention(["Check ventilation"])
+    } else {
+        .OperatingNormally
+    }
+}
+
+union GreenhouseStatus {
+    case OperatingNormally
+    case NeedsAttention(notices: string[])
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+    }
+
+    [Fact]
     public void MatchStatement_ImplicitReturn_WithUserDefinedUnionCases_BindsWithoutErrors()
     {
         const string source = """
