@@ -73,6 +73,7 @@ public partial class Compilation
     private MacroRegistry? _macroRegistry;
     private CompilationSymbolLookup? _symbolLookup;
     private SourceDeclarationIndex? _sourceDeclarationIndex;
+    private Dictionary<string, PortableReferenceFingerprint>? _portableReferenceFingerprints;
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -705,7 +706,8 @@ public partial class Compilation
         }
 
         var coreAssemblyName = typeof(object).Assembly.GetName().Name;
-        _metadataLoadContext = TryReuseMetadataLoadContext(out var reusedMetadataLoadContext)
+        _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
+        _metadataLoadContext = TryReuseMetadataLoadContext(_portableReferenceFingerprints, out var reusedMetadataLoadContext)
             ? reusedMetadataLoadContext
             : CreateMetadataLoadContext(paths, coreAssemblyName);
 
@@ -734,13 +736,15 @@ public partial class Compilation
         InitializeTopLevelPrograms();
     }
 
-    private bool TryReuseMetadataLoadContext(out MetadataLoadContext metadataLoadContext)
+    private bool TryReuseMetadataLoadContext(
+        IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints,
+        out MetadataLoadContext metadataLoadContext)
     {
         metadataLoadContext = null!;
         var previousCompilation = _previousCompilationForReuse;
         if (previousCompilation is null ||
             !previousCompilation.setup ||
-            !HaveEquivalentPortableReferences(previousCompilation))
+            !HaveEquivalentPortableReferences(previousCompilation, currentFingerprints))
         {
             return false;
         }
@@ -749,26 +753,46 @@ public partial class Compilation
         return true;
     }
 
-    private bool HaveEquivalentPortableReferences(Compilation previousCompilation)
+    private bool HaveEquivalentPortableReferences(
+        Compilation previousCompilation,
+        IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints)
     {
-        var currentPaths = GetPortableReferencePaths(_references);
-        var previousPaths = GetPortableReferencePaths(previousCompilation._references);
-        return currentPaths.SetEquals(previousPaths);
+        var previousFingerprints = previousCompilation._portableReferenceFingerprints;
+        if (previousFingerprints is null || previousFingerprints.Count != currentFingerprints.Count)
+            return false;
 
-        static HashSet<string> GetPortableReferencePaths(IEnumerable<MetadataReference> references)
+        foreach (var (path, fingerprint) in currentFingerprints)
         {
-            var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var reference in references.OfType<PortableExecutableReference>())
+            if (!previousFingerprints.TryGetValue(path, out var previousFingerprint) ||
+                previousFingerprint != fingerprint)
             {
-                if (string.IsNullOrWhiteSpace(reference.FilePath))
-                    continue;
-
-                paths.Add(Path.GetFullPath(reference.FilePath));
+                return false;
             }
-
-            return paths;
         }
+
+        return true;
     }
+
+    private static Dictionary<string, PortableReferenceFingerprint> CapturePortableReferenceFingerprints(
+        IEnumerable<MetadataReference> references)
+    {
+        var fingerprints = new Dictionary<string, PortableReferenceFingerprint>(StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in references.OfType<PortableExecutableReference>())
+        {
+            if (string.IsNullOrWhiteSpace(reference.FilePath))
+                continue;
+
+            var fullPath = Path.GetFullPath(reference.FilePath);
+            var file = new FileInfo(fullPath);
+            fingerprints[fullPath] = file.Exists
+                ? new PortableReferenceFingerprint(file.Length, file.LastWriteTimeUtc.Ticks)
+                : default;
+        }
+
+        return fingerprints;
+    }
+
+    private readonly record struct PortableReferenceFingerprint(long Length, long LastWriteTimeUtcTicks);
 
     private DeclarationTable EnsureDeclarationTableCreated()
     {

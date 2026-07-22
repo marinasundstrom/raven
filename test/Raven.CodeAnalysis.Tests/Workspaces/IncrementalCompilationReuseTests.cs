@@ -18,6 +18,15 @@ public sealed class IncrementalCompilationReuseTests
         return value!;
     }
 
+    private static object GetMetadataLoadContext(Compilation compilation)
+    {
+        var field = typeof(Compilation).GetField("_metadataLoadContext", BindingFlags.Instance | BindingFlags.NonPublic);
+        field.ShouldNotBeNull();
+        var value = field!.GetValue(compilation);
+        value.ShouldNotBeNull();
+        return value!;
+    }
+
     [Fact]
     public void WorkspaceCompilation_ReusesDeclarationKeys_ForUnchangedSyntaxTreesAcrossDocumentEdit()
     {
@@ -162,9 +171,68 @@ public sealed class IncrementalCompilationReuseTests
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(node => node.Identifier.ValueText == "value");
+        updatedCompilation.GetSemanticModel(updatedTree);
 
         ReferenceEquals(initialState, updatedState).ShouldBeFalse();
+        GetMetadataLoadContext(updatedCompilation).ShouldBeSameAs(GetMetadataLoadContext(initialCompilation));
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedStableIdentifier).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void WorkspaceCompilation_ChangedPortableReferenceAtSamePath_DoesNotReuseMetadataLoadContext()
+    {
+        var firstReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            "class Marker { func First() {} }",
+            "ChangedReference");
+        var secondReference = TestMetadataFactory.CreateFileReferenceFromSource(
+            "class Marker { func Second() {} }",
+            "ChangedReference");
+        var referenceDirectory = Path.Combine(Path.GetTempPath(), $"raven-changing-reference-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(referenceDirectory);
+        var referencePath = Path.Combine(referenceDirectory, "ChangedReference.dll");
+        File.Copy(((PortableExecutableReference)firstReference).FilePath, referencePath);
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        project = project.AddMetadataReference(MetadataReference.CreateFromFile(referencePath));
+
+        const string initialSource = """
+            func Value() -> int {
+                return 1
+            }
+            """;
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(initialSource),
+            "/tmp/edited.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialTree = initialCompilation.SyntaxTrees.Single();
+        initialCompilation.GetSemanticModel(initialTree);
+
+        File.Copy(((PortableExecutableReference)secondReference).FilePath, referencePath, overwrite: true);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var updatedSolution = workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(initialSource.Replace("return 1", "return 2", StringComparison.Ordinal)));
+        workspace.TryApplyChanges(updatedSolution);
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single();
+
+        Should.NotThrow(() => updatedCompilation.GetSemanticModel(updatedTree));
+        GetMetadataLoadContext(updatedCompilation).ShouldNotBeSameAs(GetMetadataLoadContext(initialCompilation));
+
+        Directory.Delete(referenceDirectory, recursive: true);
     }
 
     [Fact]
