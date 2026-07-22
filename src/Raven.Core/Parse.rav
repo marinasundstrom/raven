@@ -55,6 +55,11 @@ extension Int32Extensions for Int32 {
         return None
     }
 
+    [FrameworkProjection]
+    static func Parse(input: string) -> Result<int, ParseIntError> {
+        return parse(input)
+    }
+
     static func parse(input: string) -> Result<int, ParseIntError> {
         return parse(input, NumberStyles.Integer)
     }

@@ -26,6 +26,10 @@ func TryParseProjectedWithStyle(text: string) -> Option<int> {
 func TryParseDateTimeProjectedWithStyles(text: string) -> Option<DateTime> {
     return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None)
 }
+
+func ParseProjected(text: string) -> Result<int, ParseIntError> {
+    return int.Parse(text)
+}
 """;
 
         CreateVerifier(code).Verify();

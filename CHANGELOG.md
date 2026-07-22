@@ -9,6 +9,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   Raven presents these as `Option<T>`-returning methods; projects can set
   `RavenFrameworkProjections` to `None` to restore the ordinary CLR surface.
   The exact mappings and failure recipes live in a versioned compiler catalog.
+- Added the first same-signature `Parse -> Result` projection for
+  `Int32.Parse(string)`, with explicit null, format, and overflow mappings.
 - Added Rust-style `let pattern = expression else { ... }` declarations. The
   `else` branch must exit, and successful pattern bindings remain available in
   the surrounding scope. Documentation now promotes `if let` and `let ... else`

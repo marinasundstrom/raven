@@ -18,6 +18,27 @@
       "exceptions": []
     },
     {
+      "receiverType": "System.Int32",
+      "source": "System.Int32 System.Int32.Parse(System.String)",
+      "projectedContainer": "System.Int32Extensions",
+      "projectedSignature": "System.Result<System.Int32, System.ParseIntError> Parse(System.String)",
+      "lowering": "catch-to-result",
+      "exceptions": [
+        {
+          "type": "System.ArgumentNullException",
+          "case": "Null"
+        },
+        {
+          "type": "System.FormatException",
+          "case": "InvalidFormat"
+        },
+        {
+          "type": "System.OverflowException",
+          "case": "Overflow"
+        }
+      ]
+    },
+    {
       "receiverType": "System.Int64",
       "source": "System.Boolean System.Int64.TryParse(System.String, out System.Int64)",
       "projectedContainer": "System.Int64Extensions",

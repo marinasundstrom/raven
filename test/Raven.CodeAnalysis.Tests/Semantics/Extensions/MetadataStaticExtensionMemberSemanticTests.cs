@@ -120,6 +120,50 @@ val parsed = DateTime.TryParse("2026-07-22", CultureInfo.InvariantCulture, DateT
     }
 
     [Fact]
+    public void FrameworkParseProjection_ReplacesSameSignatureClrMethod()
+    {
+        const string source = """
+import System.*
+
+val parsed = int.Parse("42")
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Equal("Int32", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("Result<int, ParseIntError>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.False(boundInvocation.Method.IsExtensionMethod);
+        Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+    }
+
+    [Fact]
+    public void FrameworkParseProjection_CanBeDisabled()
+    {
+        const string source = """
+val parsed = int.Parse("42")
+""";
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
+        var (compilation, tree) = CreateCompilation(source, options, TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Equal("Int32", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("int", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.IsNotType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+    }
+
+    [Fact]
     public void StaticExtensionMethod_FromMetadata_BindsToExtensionContainer()
     {
         const string source = """

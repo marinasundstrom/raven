@@ -9,7 +9,7 @@ Raven-native APIs that return `Option<T>` or `Result<T, E>` while preserving
 access to the underlying CLR methods.
 
 The initial feature projects selected `TryParse` methods on known framework
-types:
+types and proves the exception-based model with `Int32.Parse(string)`:
 
 ```raven
 val port = int.TryParse(text)
@@ -134,13 +134,24 @@ mix projected and CLR signatures from the same known member family.
 
 ### Supported transformation
 
-The MVP supports this exact semantic transformation:
+The MVP supports this primary semantic transformation:
 
 ```text
 static bool TryParse(string? input, out T value)
     =>
 static Option<T> TryParse(string? input)
 ```
+
+It also includes the first same-signature exception projection:
+
+```text
+static int Int32.Parse(string input)
+    =>
+static Result<int, ParseIntError> Int32.Parse(string input)
+```
+
+Its descriptor explicitly maps `ArgumentNullException`, `FormatException`, and
+`OverflowException` to the corresponding `ParseIntError` cases.
 
 The source method must be identified by its containing metadata type, name,
 parameter types, parameter ref-kinds, return type, and applicable target
@@ -503,8 +514,8 @@ expected exception list is empty. For `TryParse -> Option`, `false` maps to
 `None` and the mapping catches no exceptions. Exceptions that the source method
 can still throw remain exceptions.
 
-A future `Parse -> Result` descriptor must list each expected exception and its
-Raven error case explicitly:
+A `Parse -> Result` descriptor must list each expected exception and its Raven
+error case explicitly. The initial `Int32.Parse(string)` descriptor is:
 
 ```text
 source: System.Int32.Parse(System.String)
