@@ -12,7 +12,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
-using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
@@ -399,7 +398,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         void AddIfNotPresent(IMethodSymbol method)
         {
-            if (method is ProjectedMethodSymbol &&
+            if (SemanticModel.IsFrameworkProjectionMethod(method) &&
                 invocationReceiverType is not null &&
                 !SymbolEqualityComparer.Default.Equals(method.ContainingType, invocationReceiverType))
             {
@@ -421,11 +420,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             AddSymbolInfoMethods(semanticModel.GetSymbolInfo(invocation.Expression));
 
         if (invocationReceiverType is not null &&
-            semanticModel.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
             invocation.Expression is MemberAccessExpressionSyntax projectedAccess)
         {
-            foreach (var method in FrameworkProjectionCatalog.GetStandardMethods(
-                         semanticModel.Compilation,
+            foreach (var method in semanticModel.GetFrameworkProjectionMethods(
                          invocationReceiverType,
                          projectedAccess.Name.Identifier.ValueText))
             {
@@ -435,7 +432,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         foreach (var method in builder.ToImmutableArray())
         {
-            if (method is not ProjectedMethodSymbol)
+            if (!SemanticModel.IsFrameworkProjectionMethod(method))
                 AddSiblingOverloads(method, AddIfNotPresent);
         }
 

@@ -26,18 +26,28 @@ compiling standalone projects.
 ## Framework API projections
 
 Raven exposes a curated Raven-facing view of selected framework APIs by
-default. The initial catalog projects the simplest `TryParse(string, out T)`
-overloads for `int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`:
+default. The initial catalog projects `TryParse(string, out T)` overloads for
+`int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`, including the common
+numeric style/provider and `DateTime` provider/style forms:
 
 ```raven
 val number = int.TryParse(text) // Option<int>
+val currency = decimal.TryParse(text, NumberStyles.Currency, culture)
+// Option<decimal>
+```
+
+It also replaces `int.Parse(string)` with a result-returning Raven signature:
+
+```raven
+val number = int.Parse(text) // Result<int, ParseIntError>
 ```
 
 The catalog is an exact, versioned mapping rather than a naming convention.
-Each entry records its source signature, projected signature, lowering recipe,
-and expected exception mapping. The initial `TryParse` entries catch no
-exceptions: a `false` result becomes `None`, while source exceptions remain
-exceptions.
+Each entry records its exact source signature, projected signature, stable
+projection ID, bridge implementation, and expected exception mapping. The
+`TryParse` entries catch no exceptions: a `false` result becomes `None`, while
+source exceptions remain exceptions. The `int.Parse` bridge maps null, format,
+and overflow exceptions to `ParseIntError` cases.
 
 Set `RavenFrameworkProjections` to `None` in a project to restore the ordinary
 .NET member families, including their `out` parameters. See the framework API

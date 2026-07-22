@@ -88,7 +88,8 @@ The initial feature does not:
 * make `Option<T>` or `Result<T, E>` part of the CLR framework contract;
 * add source-generator support to Raven;
 * allow arbitrary referenced assemblies to inject compiler behavior;
-* project exception-throwing `Parse` methods in the MVP; or
+* project exception-throwing `Parse` methods without an explicit reviewed
+  exception mapping and Raven-owned error type; or
 * guarantee that every overload of a projected method has a Raven projection.
 
 ## Terminology
@@ -184,7 +185,7 @@ The catalog contains the simplest string-input overload for each type. It also
 preserves the common type-specific parsing inputs: numeric `NumberStyles` plus
 `IFormatProvider`, and `DateTime`'s `IFormatProvider` plus `DateTimeStyles`.
 Span-based overloads and additional flags are deferred until the basic symbol
-and lowering model is proven.
+and bridge model is proven.
 
 The remaining integral and floating-point primitives are natural additions
 after the initial slice:
@@ -196,13 +197,15 @@ after the initial slice:
 * `float`; and
 * `Half`, when available on the target framework.
 
-### Lowering
+### Bridge implementation and emission
 
-A projected call evaluates each supplied argument exactly once, calls the real
-framework method, and constructs the corresponding option case:
+Each catalog entry identifies an attributed Raven.Core bridge with a stable
+signature. The compiler binds the receiver-owned projected symbol and emits a
+call to that bridge. For `TryParse`, the bridge performs the conceptual
+transformation:
 
 ```raven
-// Conceptual lowering of T.TryParse(input)
+// Conceptual bridge implementation for T.TryParse(input)
 var parsed: T
 if T.TryParse(input, out parsed) {
     Some(parsed)
@@ -211,7 +214,7 @@ if T.TryParse(input, out parsed) {
 }
 ```
 
-The concrete bound and lowered representation may differ, but it must preserve:
+The bridge and emitted call must preserve:
 
 * argument evaluation order;
 * single evaluation of side-effecting expressions;
@@ -220,17 +223,19 @@ The concrete bound and lowered representation may differ, but it must preserve:
 * diagnostics rather than exceptions if `Raven.Core` or the required option
   cases are unavailable.
 
-The compiler emits an ordinary call to the source method plus ordinary
-`Option<T>` construction. No projected member is emitted into the framework
-type and no runtime reflection surface is invented.
+The compiler emits an ordinary call to the mapped bridge. No projected member
+is emitted into the framework type and no runtime reflection surface is
+invented. Keeping bridge signatures stable also provides an implementation
+shape that future Raven source generators can produce for explicitly reviewed
+external mappings.
 
 ### Symbols and semantic APIs
 
 The compiler should represent a projected method as a method symbol with:
 
 * its Raven-facing name, parameters, and return type;
-* a reference to the exact source method;
-* a projection descriptor or lowering kind; and
+* a reference to its exact attributed bridge implementation;
+* a stable projection ID connecting the bridge to the catalog descriptor; and
 * stable original-definition behavior for constructed framework types.
 
 The projected symbol appears to belong to the projected receiver type, not to
@@ -249,8 +254,8 @@ user-visible extension candidates.
 The normal public semantic APIs remain authoritative. `GetSymbolInfo`,
 `GetTypeInfo`, operation creation, completion, hover, and signature help should
 all observe the same projected method selected by the binder. Language-service
-code must not recreate the projection catalog or bypass ordinary semantic
-lookup.
+code asks compiler-owned semantic services for projected overload families; it
+must not recreate descriptors or maintain a separate projection cache.
 
 The displayed signature should make the projected nature discoverable without
 making ordinary code noisy. Tooling may append a short annotation such as
@@ -312,8 +317,8 @@ for failure, which makes `Option<T>` a natural projection.
 | `Version.TryParse` | `Version.TryParse(text) -> Option<Version>` | Produces a reference type; the option still distinguishes failure explicitly. |
 | `IPAddress.TryParse` | `IPAddress.TryParse(text) -> Option<IPAddress>` | Requires the networking assembly/reference. |
 
-Style- and provider-aware overloads may later preserve their non-`out`
-parameters while removing only the projected result parameter:
+The initial catalog also preserves the common style- and provider-aware inputs
+while removing only the projected result parameter:
 
 ```raven
 val value = decimal.TryParse(text, NumberStyles.Currency, culture)
@@ -401,7 +406,7 @@ closed, consistently documented, or suitable as an exhaustively matched public
 union. A Raven projection should not claim that an operation cannot throw merely
 because expected failures are returned as `Result`.
 
-## Why `Parse` is deferred
+## Same-signature `Parse` projections
 
 An exception-throwing source method already has the desired argument list:
 
@@ -413,12 +418,19 @@ A projected method with the same name and arguments but a `Result` return type
 cannot coexist under ordinary .NET-style overload resolution. Return type alone
 does not distinguish overloads.
 
-Several future designs are possible:
+The initial implementation chooses replacement of the ordinary view while
+projections are enabled. `int.Parse(string)` therefore resolves to the curated
+`Result<int, ParseIntError>` projection in `Standard` mode, and the raw CLR
+member is restored when the compilation uses `None`. Return type does not
+participate in overload resolution; the compiler selects the API view before
+building the overload set.
+
+Other designs remain possible for future catalogs:
 
 1. **Use a different name.** For example,
    `int.ParseResult(text) -> Result<int, ParseError>`.
-2. **Replace the ordinary view while projections are enabled.** This requires
-   an explicit and reliable way to call the raw CLR member.
+2. **Provide a per-call raw-member escape hatch.** The MVP intentionally has
+   only the compilation-level `None` mode.
 3. **Add a member-access qualifier.** For example, distinct projected and CLR
    views, with exact syntax decided separately.
 4. **Use contextual return-type resolution.** This is a significant departure
@@ -426,13 +438,16 @@ Several future designs are possible:
 5. **Expose only `TryParse -> Option` as the native parsing API.** `Parse`
    remains unchanged and throwing by design.
 
-The error type also needs a decision. Direct exception unions such as
+Each projected family still needs an explicit error-model decision. Direct exception unions such as
 `FormatException | OverflowException` preserve framework details but couple
 exhaustiveness to framework behavior. A Raven-owned `ParseError` union is more
 stable but creates a standard-library compatibility commitment and requires a
 mapping for each source method.
 
-The MVP therefore leaves every `Parse` method unchanged.
+The catalog currently makes that commitment only for `Int32.Parse(string)`.
+It maps `ArgumentNullException`, `FormatException`, and `OverflowException` to
+the corresponding `ParseIntError` cases. Other `Parse` methods remain ordinary
+CLR members until their exception contracts and error types are reviewed.
 
 ## Cases that must not be projected by shape alone
 
@@ -712,8 +727,10 @@ The MVP affects these compiler layers:
 4. Add projected method symbols to static member lookup without mutating the
    imported framework type.
 5. Include projected candidates in ordinary overload resolution.
-6. Bind a projected invocation with its source method and lowering recipe.
-7. Lower `bool-out-to-option` calls while preserving evaluation semantics.
+6. Bind a projected invocation to a receiver-owned synthesized symbol while
+   retaining its attributed Raven.Core bridge as the emission target.
+7. Emit the stable bridge call; the reviewed bridge implementation performs
+   the source call and constructs the corresponding option or result.
 8. Expose the projected symbol and invocation through semantic and operation
    APIs.
 9. Present the same symbol through completion, hover, signature help, and
@@ -759,8 +776,8 @@ runtime behavior rather than emitted instruction sequences.
    catalog or generated from reviewed family descriptors?
 6. Should a future per-call syntax select the raw CLR member, or is the
    compilation-level `None` view sufficient?
-7. Should throwing `Parse` methods project to `Result`, and if so, should
-   their error channel use CLR exceptions or Raven-owned error unions?
+7. Which additional throwing `Parse` methods justify a `Result` projection,
+   and which Raven-owned error unions and exception mappings should they use?
 8. Should enum projections appear directly on every enum type or use a
    Raven.Core helper until static projected lookup is mature?
 9. How should external mapping artifacts be discovered, versioned, and scoped
@@ -770,25 +787,27 @@ runtime behavior rather than emitted instruction sequences.
 
 ## Recommended staging
 
-### Stage 1: closed `TryParse` MVP
+### Stage 1: closed parsing MVP
 
 Implement `bool-out-to-option` for the six initial framework types, behind the
-project option, with full semantic-model and language-service support.
+project option, with full semantic-model and language-service support. Include
+the reviewed `Int32.Parse(string) -> Result<int, ParseIntError>` replacement.
 
 ### Stage 2: catalog expansion
 
-Add reviewed primitive, date/time, networking, and version parsing entries,
-then provider/style overloads where their projected signatures remain clear.
+Add reviewed primitive, date/time, networking, and version parsing entries.
+The initial numeric and `DateTime` provider/style overloads establish the model
+for preserving type-specific parsing options.
 
 ### Stage 3: generic and instance projections
 
 Evaluate enum parsing and selected dictionary-style lookups. Prove generic
 substitution, interface dispatch, and constructed-type symbol identity.
 
-### Stage 4: result projections
+### Stage 4: expanded result projections
 
-Choose raw-member access and stable error modeling before adding throwing
-`Parse`, decoding, or other `Result<T, E>` projections.
+Evaluate raw-member access and stable error modeling before adding more
+throwing `Parse`, decoding, or other `Result<T, E>` projections.
 
 ### Stage 5: external catalogs
 

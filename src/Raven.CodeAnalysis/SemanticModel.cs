@@ -103,6 +103,19 @@ public partial class SemanticModel
 
     public SyntaxTree SyntaxTree { get; }
 
+    internal ImmutableArray<IMethodSymbol> GetFrameworkProjectionMethods(
+        ITypeSymbol receiverType,
+        string memberName)
+    {
+        if (Compilation.Options.FrameworkProjectionMode != FrameworkProjectionMode.Standard)
+            return [];
+
+        return FrameworkProjectionCatalog.GetStandardMethods(Compilation, receiverType, memberName);
+    }
+
+    internal static bool IsFrameworkProjectionMethod(IMethodSymbol method)
+        => method is ProjectedMethodSymbol;
+
     internal bool IsCollectingDiagnostics => _isCollectingDiagnostics;
 
     private bool IsInSemanticQueryBinding => _semanticQueryBindingDepth.Value > 0;
