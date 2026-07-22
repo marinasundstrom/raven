@@ -55,10 +55,10 @@ not only in isolated syntax examples.
 
 ## Current shape and direction
 
-Raven is experimental, so documentation must separate implemented behavior from
-design direction. Philosophy pages can explain where the language wants to go,
-but user-facing walkthroughs and examples should prefer syntax and APIs that
-work today.
+Raven is under active development, so documentation must separate implemented
+behavior from design direction. Philosophy pages can explain where the language
+wants to go, but user-facing walkthroughs and examples should prefer syntax and
+APIs that work today.
 
 When documenting future-leaning ideas:
 

@@ -35,3 +35,15 @@ The build restores the pinned tool and generates the site with DocFX warnings
 treated as errors. Broken links and unresolved cross-references therefore fail
 the build. Pages missing from navigation should also be treated as publication
 defects during review.
+
+## Publish the official website with GitHub Pages
+
+The `.github/workflows/docs.yml` workflow builds the Raven language website for pull
+requests and pushes to `main`. A successful push to `main` uploads `_site/` as a
+GitHub Pages artifact and deploys it to:
+
+<https://marinasundstrom.github.io/raven-compiler/>
+
+The repository's Pages source must be set to **GitHub Actions** in the GitHub
+Pages settings. The workflow keeps build and deployment as separate jobs, so a
+failed DocFX validation cannot replace the published site.

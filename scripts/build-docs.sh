@@ -21,7 +21,7 @@ fi
 # API metadata is generated separately. Existing source-comment warnings remain
 # visible without weakening strict validation of the authored documentation.
 dotnet docfx metadata "$repository_root/docs/docfx-metadata.json" \
-    --property WarningLevel=0
+    --property "WarningLevel=0;TargetFramework=net10.0"
 
 if [[ "${1:-}" == "--serve" ]]; then
     dotnet docfx build "$repository_root/docs/docfx.json" --warningsAsErrors --serve

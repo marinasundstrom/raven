@@ -3,19 +3,26 @@
 - name: Get started
   href: getting-started.md
 - name: Learn Raven
+  href: learn.md
   items:
+    - name: Choose your path
+      href: learn.md
+    - name: Raven in 60 seconds
+      href: raven-in-60-seconds.md
+    - name: Install and run Raven
+      href: getting-started.md
     - name: Language introduction
       href: introduction.md
     - name: Raven for absolute beginners
       href: raven-for-absolute-beginners.md
     - name: Raven for C# developers
       href: raven-for-csharp-developers.md
-    - name: Language philosophy
-      href: lang/philosophy.md
     - name: Domain modeling
       href: lang/domain-modeling.md
     - name: Style guide
       href: lang/style-guide.md
+    - name: Language philosophy
+      href: lang/philosophy.md
 - name: Language reference
   href: lang/
 - name: Tools

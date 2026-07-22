@@ -6,6 +6,8 @@
         "files": [
           "index.md",
           "toc.yml",
+          "learn.md",
+          "raven-in-60-seconds.md",
           "getting-started.md",
           "introduction.md",
           "raven-for-absolute-beginners.md",
@@ -52,8 +54,8 @@
     ],
     "globalMetadata": {
       "_appName": "Raven",
-      "_appTitle": "Raven",
-      "_appFooter": "Raven is an experimental programming language for .NET.",
+      "_appTitle": "Raven programming language",
+      "_appFooter": "The official website of the Raven programming language.",
       "_enableSearch": true,
       "pdf": false
     }

@@ -12,7 +12,7 @@ then introduce functions and types when they become useful.
 
 ## Before you begin
 
-Raven is experimental and currently runs from a source checkout. Follow the
+Raven currently runs from a source checkout. Follow the
 build steps in [Getting Started](getting-started.md) first.
 
 Save each example as `beginner.rav`. From the Raven repository root, compile and

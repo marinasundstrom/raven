@@ -2,26 +2,33 @@
 _layout: landing
 ---
 
-# Raven documentation
+# Raven programming language
 
-Raven is an experimental programming language and .NET compiler inspired by
-Swift, Rust, and F#. It combines expression-oriented syntax, pattern matching,
-explicit mutability, and direct access to the .NET ecosystem.
+Raven is a pragmatic, typed application language for .NET that makes functional
+composition, algebraic modeling, and object-oriented design complementary parts
+of one toolset, with direct access to the .NET runtime and ecosystem.
+
+This is the official Raven language website. Start with a short language tour,
+follow a guide suited to your experience, or use the reference for precise
+syntax and semantics.
 
 > [!IMPORTANT]
 > Raven is under active development. The documentation describes the current
 > compiler, but language and tooling details can change before a stable release.
 
-## Start using Raven
+## Learn Raven
 
-- [Get started](getting-started.md) to build the compiler and run a program.
+- [Choose a learning path](learn.md) based on your programming experience.
+- See [Raven in 60 seconds](raven-in-60-seconds.md) for the language's core
+  ideas in one small program.
+- [Install and run Raven](getting-started.md) from a source checkout.
 - Follow the [language introduction](introduction.md) for a guided tour.
 - Use [Raven for C# developers](raven-for-csharp-developers.md) to translate
   familiar .NET concepts into Raven.
 - Read [Raven for absolute beginners](raven-for-absolute-beginners.md) for a
   slower introduction to programming and the language.
 
-## Reference
+## Language and tooling reference
 
 - The [language specification](lang/spec/language-specification.md) defines the
   intended observable language behavior.

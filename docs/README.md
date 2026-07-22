@@ -12,6 +12,9 @@ what a feature does, when to use it, and show representative Raven examples.
 
 ### Learn Raven
 
+* [Choose your learning path](learn.md)
+* [Raven in 60 seconds](raven-in-60-seconds.md)
+* [Install and run Raven](getting-started.md)
 * [Introduction](introduction.md)
 * [Raven for absolute beginners](raven-for-absolute-beginners.md)
 * [Raven for C# developers](raven-for-csharp-developers.md)

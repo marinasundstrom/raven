@@ -322,8 +322,7 @@ The example uses `()` as the empty result type. Raven does not use `void`.
 
 ## 7. Read current Raven style
 
-The language is still experimental, but current docs and samples follow these
-rules:
+Current documentation and samples follow these rules:
 
 - Use `let` for immutable lexical bindings and `var` for mutable lexical bindings.
 - Prefer plain top-level functions for standalone operations; do not create a
