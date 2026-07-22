@@ -23,7 +23,7 @@
       href: lang/style-guide.md
     - name: Language philosophy
       href: lang/philosophy.md
-- name: Language reference
+- name: Language
   href: lang/
 - name: Tools
   href: compiler/

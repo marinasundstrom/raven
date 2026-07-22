@@ -445,7 +445,7 @@ dotnet run --project path/to/App.rvnproj
 - [Domain modeling](lang/domain-modeling.md) for choosing among functions,
   records, unions, classes, and interfaces.
 - [Language philosophy](lang/philosophy.md) for design principles.
-- [Language specification](lang/spec/language-specification.md) for precise
+- [Language reference](lang/spec/language-specification.md) for practical
   rules.
 - [Style guide](lang/style-guide.md) for source layout conventions.
 - [Compiler project system](compiler/project-system.md) for `.rvnproj` details.

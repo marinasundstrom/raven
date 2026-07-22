@@ -1,4 +1,4 @@
-# Object-oriented types and operator precedence
+# Operator precedence and expression disambiguation
 
 For guidance on declaring classes, structs, members, and interfaces, see
 [Classes, structs, and interfaces](classes-and-members.md).
