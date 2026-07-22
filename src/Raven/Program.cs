@@ -25,8 +25,56 @@ if (string.Equals(args[0], "build", StringComparison.OrdinalIgnoreCase) ||
 if (string.Equals(args[0], "dev", StringComparison.OrdinalIgnoreCase))
     return RunDevCommand(args);
 
-Console.Error.WriteLine($"Unknown rvn command '{args[0]}'. Use rvn build/run/clean, rvn init, rvn dev, or rvnc for direct compiler-driver invocations.");
+if (string.Equals(args[0], "sdk", StringComparison.OrdinalIgnoreCase))
+    return RunSdkCommand(args);
+
+Console.Error.WriteLine($"Unknown rvn command '{args[0]}'. Use rvn build/run/clean, rvn init, rvn sdk path, rvn dev, or rvnc for direct compiler-driver invocations.");
 return 1;
+
+static int RunSdkCommand(string[] args)
+{
+    if (args.Length == 2 && string.Equals(args[1], "path", StringComparison.OrdinalIgnoreCase))
+    {
+        var sdkRoot = TryFindSdkRoot();
+        if (sdkRoot is null)
+        {
+            Console.Error.WriteLine("Unable to locate the Raven SDK. Set RAVEN_SDK_ROOT or run rvn from an installed Raven SDK.");
+            return 1;
+        }
+
+        Console.WriteLine(sdkRoot);
+        return 0;
+    }
+
+    Console.Error.WriteLine("Usage: rvn sdk path");
+    return 1;
+}
+
+static string? TryFindSdkRoot()
+{
+    var configuredRoot = Environment.GetEnvironmentVariable("RAVEN_SDK_ROOT");
+    if (!string.IsNullOrWhiteSpace(configuredRoot))
+    {
+        var fullPath = Path.GetFullPath(configuredRoot);
+        if (IsSdkRoot(fullPath))
+            return fullPath;
+    }
+
+    var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    while (directory is not null)
+    {
+        if (IsSdkRoot(directory.FullName))
+            return directory.FullName;
+
+        directory = directory.Parent;
+    }
+
+    return null;
+}
+
+static bool IsSdkRoot(string path)
+    => File.Exists(Path.Combine(path, "VERSION")) &&
+       File.Exists(Path.Combine(path, "sdk", "build", "Raven.Language.targets"));
 
 static int RunSdkProjectCommand(string commandName, string[] args)
 {
@@ -738,6 +786,7 @@ static void PrintHelp()
     Console.WriteLine("  run               Run a Raven project through dotnet run.");
     Console.WriteLine("  clean             Clean a Raven project through dotnet clean.");
     Console.WriteLine("  dev               Run internal compiler debug views.");
+    Console.WriteLine("  sdk path          Print the root of the active Raven SDK.");
     Console.WriteLine();
     Console.WriteLine("rvn build/run/clean are frontend conveniences over the .NET SDK project workflow.");
     Console.WriteLine("Use rvnc for direct compiler-driver invocations.");

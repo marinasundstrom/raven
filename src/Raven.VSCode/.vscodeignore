@@ -1,0 +1,6 @@
+.vscode/**
+src/**
+tsconfig.json
+server/*.pdb
+server/*.xml
+**/*.map

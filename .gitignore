@@ -125,6 +125,8 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+/src/Raven.VSCode/server/
+/src/Raven.VSCode/*.vsix
 
 # StyleCop
 StyleCopReport.xml

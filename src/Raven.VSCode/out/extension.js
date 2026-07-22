@@ -625,6 +625,19 @@ function resolveConfiguredSdkPath() {
     const configuration = vscode.workspace.getConfiguration('raven');
     const configuredPath = configuration.get('sdkPath')?.trim();
     if (!configuredPath) {
+        try {
+            const discoveredPath = (0, child_process_1.execFileSync)('rvn', ['sdk', 'path'], {
+                encoding: 'utf8',
+                timeout: 5000,
+                windowsHide: true
+            }).trim();
+            if (discoveredPath && fs.existsSync(discoveredPath)) {
+                return discoveredPath;
+            }
+        }
+        catch {
+            // The SDK is optional for syntax-only extension use with a bundled server.
+        }
         return undefined;
     }
     const absolutePath = path.isAbsolute(configuredPath)
@@ -646,6 +659,7 @@ function resolveServerPath(context, output) {
     if (sdkPath) {
         const sdkCandidates = [
             path.join(sdkPath, 'Raven.LanguageServer.dll'),
+            path.join(sdkPath, 'tools', 'language-server', 'Raven.LanguageServer.dll'),
             path.join(sdkPath, 'server', 'Raven.LanguageServer.dll'),
             path.join(sdkPath, 'net10.0', 'Raven.LanguageServer.dll'),
             path.join(sdkPath, 'net11.0', 'Raven.LanguageServer.dll')
@@ -806,6 +820,7 @@ function resolveCompilerInvocation(targetFramework) {
     if (sdkPath) {
         const sdkRoots = [
             sdkPath,
+            path.join(sdkPath, 'tools', 'rvnc'),
             path.join(sdkPath, 'compiler'),
             path.join(sdkPath, 'server')
         ];
@@ -882,6 +897,7 @@ function resolveFrontendInvocation(targetFramework) {
     if (sdkPath) {
         const sdkRoots = [
             sdkPath,
+            path.join(sdkPath, 'tools', 'rvn'),
             path.join(sdkPath, 'tools'),
             path.join(sdkPath, 'compiler'),
             path.join(sdkPath, 'server')

@@ -27,7 +27,7 @@ The compiled JavaScript emits to `out/` and is referenced by the extension manif
 
 ## Configuration
 The extension exposes settings to control language-server resolution and debug compilation:
-- `raven.sdkPath` (string): Override the Raven SDK root directory. The extension looks here first for bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`. Use this to test different Raven SDK builds with the same VS Code extension.
+- `raven.sdkPath` (string): Override the Raven SDK root directory. When this is unset, the extension runs `rvn sdk path` to discover an installed SDK. The extension looks in that root for bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`.
 - `raven.languageServerPath` (string): Override the resolved `Raven.LanguageServer.dll` path. Use this when working with custom build outputs or packaged bits.
 - `raven.autoBuildLanguageServerOnActivate` (boolean): When enabled, the extension builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` on activation if it can find the project in the current workspace or extension ancestors. This is intended for Raven source-workspace development and is ignored when `raven.languageServerPath` is set.
 - `raven.compilerProjectPath` (string): Override the path used to locate a prebuilt `rvnc.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler driver is available.
@@ -48,4 +48,4 @@ The extension contributes a `Raven` debug type:
 You can start it by pressing F5 in a Raven file, or by running `Raven: Compile and Debug Active File` from the command palette.
 
 ## Packaging
-When shipping the extension, include a `server/` directory next to `package.json` that contains `Raven.LanguageServer.dll` and its dependencies. Optionally include a `compiler/` directory with `rvnc.dll`, `rvn.dll`, and related assets. The client searches an explicit SDK path first, then the packaged directories, then workspace build outputs, and finally any user-provided direct assembly overrides.
+`scripts/package-vscode.sh` publishes a framework-dependent language server into a `server/` directory next to `package.json` and creates the VSIX. The compiler remains in the separately installed Raven SDK. The client searches an explicit SDK path first, an SDK reported by `rvn sdk path`, workspace build outputs, the packaged server, and finally any user-provided direct assembly overrides.

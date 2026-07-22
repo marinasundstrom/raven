@@ -12,3 +12,5 @@
   href: diagnostics.md
 - name: VS Code extension
   href: raven-vscode-extension.md
+- name: Distribution
+  href: distribution.md
