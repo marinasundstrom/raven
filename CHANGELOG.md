@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `RAV1026`, a warning for lists that inconsistently mix comma and newline
+  separators. Union case and enum member lists now diagnose the mixed style
+  while continuing to parse both forms.
 - Finite union payload products now understand `not`, `and`, and `or`
   combinators when proving collective case coverage. Removed the superseded
   binder-owned exhaustiveness implementation so diagnostics and semantic

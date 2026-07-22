@@ -88,11 +88,11 @@ public class EnumDeclarationParserTests
     }
 
     [Fact]
-    public void EnumDeclaration_ExplicitSeparatorsMayMixWithImplicitNewlineSeparators()
+    public void EnumDeclaration_ExplicitSeparatorsMixedWithImplicitNewlineSeparators_ProducesWarning()
     {
         var source = """
             enum Status {
-                Ok;
+                Ok,
                 Error
                 Unknown
             }
@@ -101,9 +101,10 @@ public class EnumDeclarationParserTests
         var tree = SyntaxTree.ParseText(source);
         var declaration = Assert.IsType<EnumDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
 
-        Assert.Equal(SyntaxKind.SemicolonToken, declaration.Members.GetSeparator(0).Kind);
+        Assert.Equal(SyntaxKind.CommaToken, declaration.Members.GetSeparator(0).Kind);
         Assert.Equal(SyntaxKind.None, declaration.Members.GetSeparator(1).Kind);
-        Assert.Empty(tree.GetDiagnostics());
+        var diagnostic = Assert.Single(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.InconsistentListSeparator);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
     [Fact]

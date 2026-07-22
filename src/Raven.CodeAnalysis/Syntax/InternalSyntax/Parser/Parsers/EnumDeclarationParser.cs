@@ -34,6 +34,8 @@ internal class EnumDeclarationParser : SyntaxParser
 
         ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
         var explicitSeparatorKind = SyntaxKind.None;
+        var commaSeparatorStyle = ListSeparatorStyle.None;
+        var reportedInconsistentSeparator = false;
 
         while (true)
         {
@@ -64,6 +66,23 @@ internal class EnumDeclarationParser : SyntaxParser
                     }
                 }
 
+                if (explicitSeparatorKindForToken == SyntaxKind.CommaToken)
+                {
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref commaSeparatorStyle,
+                        ListSeparatorStyle.Comma,
+                        ref reportedInconsistentSeparator,
+                        GetSpanOfLastToken());
+                }
+                else if (explicitSeparatorKindForToken == SyntaxKind.None)
+                {
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref commaSeparatorStyle,
+                        ListSeparatorStyle.NewLine,
+                        ref reportedInconsistentSeparator,
+                        GetInsertionSpanBeforePeekedToken());
+                }
+
                 parameterList.Add(separatorToken);
             }
             else if (!PeekToken().IsKind(SyntaxKind.CloseBraceToken) &&
@@ -83,6 +102,32 @@ internal class EnumDeclarationParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
 
         return EnumDeclaration(attributeLists, modifiers, enumKeyword, identifier, baseList, openBraceToken, List(parameterList), closeBraceToken, terminatorToken);
+    }
+
+    private void ReportInconsistentSeparatorIfNeeded(
+        ref ListSeparatorStyle separatorStyle,
+        ListSeparatorStyle currentStyle,
+        ref bool reported,
+        Text.TextSpan span)
+    {
+        if (separatorStyle == ListSeparatorStyle.None)
+        {
+            separatorStyle = currentStyle;
+            return;
+        }
+
+        if (separatorStyle != currentStyle && !reported)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InconsistentListSeparator, span));
+            reported = true;
+        }
+    }
+
+    private enum ListSeparatorStyle
+    {
+        None,
+        NewLine,
+        Comma
     }
 
     private BaseListSyntax? ParseBaseList()
@@ -145,18 +190,18 @@ internal class EnumDeclarationParser : SyntaxParser
             return true;
         }
 
-        if (HasLineBreakBeforePeekToken())
-        {
-            separatorToken = Token(SyntaxKind.None);
-            explicitSeparatorKind = SyntaxKind.None;
-            return true;
-        }
-
         if (current.IsKind(SyntaxKind.CloseBraceToken) || current.IsKind(SyntaxKind.EndOfFileToken))
         {
             separatorToken = Token(SyntaxKind.None);
             explicitSeparatorKind = SyntaxKind.None;
             return false;
+        }
+
+        if (HasLineBreakBeforePeekToken())
+        {
+            separatorToken = Token(SyntaxKind.None);
+            explicitSeparatorKind = SyntaxKind.None;
+            return true;
         }
 
         separatorToken = Token(SyntaxKind.None);

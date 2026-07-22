@@ -560,6 +560,10 @@
   <Descriptor Id="RAV1004" Identifier="DuplicateModifier" Title="Duplicate modifier"
     Message="Duplicate '{modifier}' modifier" Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1026" Identifier="InconsistentListSeparator"
+    Title="List separators are inconsistent"
+    Message="Use either commas or newlines consistently to separate items in this list."
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1005" Identifier="ImportDirectiveOutOfOrder"
     Title="Import directives must come first"
     Message="'import' directives must appear before 'alias' and declarations." Category="compiler"

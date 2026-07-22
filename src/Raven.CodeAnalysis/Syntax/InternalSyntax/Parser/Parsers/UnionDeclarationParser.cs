@@ -52,6 +52,8 @@ internal class UnionDeclarationParser : SyntaxParser
         {
             openBraceToken = ReadToken();
             var memberParser = new TypeDeclarationParser(this);
+            var separatorStyle = ListSeparatorStyle.None;
+            var reportedInconsistentSeparator = false;
 
             while (true)
             {
@@ -77,9 +79,32 @@ internal class UnionDeclarationParser : SyntaxParser
                 }
 
                 SetTreatNewlinesAsTokens(false);
-                if (PeekToken().IsKind(SyntaxKind.CommaToken))
+                if (member is CaseDeclarationSyntax { TerminatorToken.Kind: SyntaxKind.CommaToken })
                 {
-                    members.Add(ReadToken());
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref separatorStyle,
+                        ListSeparatorStyle.Comma,
+                        ref reportedInconsistentSeparator,
+                        GetSpanOfLastToken());
+                }
+                else if (PeekToken().IsKind(SyntaxKind.CommaToken))
+                {
+                    var commaToken = ReadToken();
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref separatorStyle,
+                        ListSeparatorStyle.Comma,
+                        ref reportedInconsistentSeparator,
+                        GetSpanOfLastToken());
+                    members.Add(commaToken);
+                }
+                else if (!PeekToken().IsKind(SyntaxKind.CloseBraceToken) &&
+                         !PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                {
+                    ReportInconsistentSeparatorIfNeeded(
+                        ref separatorStyle,
+                        ListSeparatorStyle.NewLine,
+                        ref reportedInconsistentSeparator,
+                        GetInsertionSpanBeforePeekedToken());
                 }
             }
 
@@ -106,6 +131,32 @@ internal class UnionDeclarationParser : SyntaxParser
             List(members),
             closeBraceToken,
             terminatorToken);
+    }
+
+    private void ReportInconsistentSeparatorIfNeeded(
+        ref ListSeparatorStyle separatorStyle,
+        ListSeparatorStyle currentStyle,
+        ref bool reported,
+        Text.TextSpan span)
+    {
+        if (separatorStyle == ListSeparatorStyle.None)
+        {
+            separatorStyle = currentStyle;
+            return;
+        }
+
+        if (separatorStyle != currentStyle && !reported)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InconsistentListSeparator, span));
+            reported = true;
+        }
+    }
+
+    private enum ListSeparatorStyle
+    {
+        None,
+        NewLine,
+        Comma
     }
 
     private SyntaxToken ConsumeClassOrStructKeyword()

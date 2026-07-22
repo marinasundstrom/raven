@@ -42,6 +42,36 @@ public class UnionDeclarationParserTests
         Assert.Empty(tree.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData("union LoginResult {\n    case A\n    case B,\n    case C\n}")]
+    [InlineData("union LoginResult {\n    case Success\n    case Error(error: LoginError),\n}")]
+    public void UnionDeclaration_MixedCommaAndNewLineSeparators_ReportsDiagnostic(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+
+        Assert.Equal(source.Contains("case C", StringComparison.Ordinal) ? 3 : 2, declaration.Members.OfType<CaseDeclarationSyntax>().Count());
+        var diagnostic = Assert.Single(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.InconsistentListSeparator);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
+    [Fact]
+    public void UnionDeclaration_ConsistentCommaSeparators_ParsesCaseList()
+    {
+        var source = """
+            union LoginResult {
+                case A,
+                case B,
+                case C
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<UnionDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+
+        Assert.Equal(3, declaration.Members.OfType<CaseDeclarationSyntax>().Count());
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
     [Fact]
     public void UnionDeclaration_WithStructLikeCase_ParsesCaseFields()
     {
