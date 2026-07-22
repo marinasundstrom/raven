@@ -480,6 +480,10 @@
                     "match": "\\b(operator)\\b"
                 },
                 {
+                    "name": "keyword.declaration.constructor.raven storage.type.function.raven",
+                    "match": "\\b(init)\\b(?=\\s*\\()"
+                },
+                {
                     "name": "keyword.other.accessor.raven",
                     "match": "\\b(get|set|init|add|remove)\\b(?=\\s*(?:;|=>|\\{))"
                 },

@@ -4,6 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Highlighted constructor-form `init(...)` declarations in the VS Code TextMate grammar.
 - Removed `trait` as an alias for extension declarations; use `extension`.
 - Added default-on framework API projections for the simplest `TryParse`
   overloads on `int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`.
