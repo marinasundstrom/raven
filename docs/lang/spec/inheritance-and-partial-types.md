@@ -152,8 +152,8 @@ sealed interface Expr<T>
 func Evaluate<T>(expr: Expr<T>) -> T
     where T: INumber<T> {
     match expr {
-        .Literal(val value) => value
-        .Add(val left, val right) => Evaluate(left) + Evaluate(right)
+        .Literal(let value) => value
+        .Add(let left, let right) => Evaluate(left) + Evaluate(right)
     }
 }
 ```
@@ -164,7 +164,7 @@ ordinary generic constraint system rather than a sealed-hierarchy-specific rule.
 When nested cases are used, the containing sealed root acts as a logical qualifier for construction:
 
 ```raven
-val value = Expr.NumericalExpr(40)
+let value = Expr.NumericalExpr(40)
 ```
 
 In pattern position, the same nested cases can be referenced through target-typed case patterns when the scrutinee already
@@ -172,8 +172,8 @@ determines the sealed root:
 
 ```raven
 match expr {
-    .NumericalExpr(val value) => value
-    .AddExpr(val left, val right) => Evaluate(left) + Evaluate(right)
+    .NumericalExpr(let value) => value
+    .AddExpr(let left, let right) => Evaluate(left) + Evaluate(right)
 }
 ```
 
@@ -201,7 +201,7 @@ itself.
 When all required coverage types are handled, the match is considered exhaustive:
 
 ```raven
-val result = match expr {
+let result = match expr {
     Lit lit => lit.value
     Add add => eval(add.left) + eval(add.right)
 }
@@ -216,9 +216,9 @@ abstract record BinaryExpr(Left: Expr, Right: Expr) : Expr
 record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
 record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
 
-val result = match expr {
-    Lit(val value) => value
-    BinaryExpr(val left, val right) => eval(left) + eval(right)
+let result = match expr {
+    Lit(let value) => value
+    BinaryExpr(let left, let right) => eval(left) + eval(right)
 }
 ```
 

@@ -11,7 +11,7 @@
   * Primary-constructor classes and structs with promoted public `val` / `var`
     parameters synthesize a `Deconstruct` method in declaration order, so the
     same pattern form works for them.
-  * Each positional element is a pattern, so bindings still require `val`/`var`
+  * Each positional element is a pattern, so bindings still require `let`/`var`
     unless an outer construct such as `if let pattern = expr` or
     `while let pattern = expr` supplies the binding mode.
   * An element may optionally include a name before the colon
@@ -36,15 +36,15 @@
 
   * The leading `.` resolves against the current scrutinee.
   * Member payloads may supply nested subpatterns matching the member’s
-    parameter list, e.g. `.Identifier(text)` or `Result<int, string>.Error(val message)`.
+    parameter list, e.g. `.Identifier(text)` or `Result<int, string>.Error(let message)`.
   * Parentheses are optional for parameterless members.
   * Payload arity must match the declared parameters.
   * Each nested subpattern is typed to the corresponding member parameter.
   * A payload element introduces a new binding **only** when it uses
-    `val`/`var`. A bare identifier is a value pattern that matches an
+    `let`/`var` (`val` is also accepted). A bare identifier is a value pattern that matches an
     existing in-scope symbol.
 
-    * Example: `.Case(val a, b)` binds `a` and matches the second payload against
+    * Example: `.Case(let a, b)` binds `a` and matches the second payload against
       the runtime value of in-scope `b`.
   * A trailing whole-pattern designation may capture the matched member/case
     value: `.Case(...) caseValue`.
@@ -72,9 +72,9 @@ ordinary pattern for one of their declared member types:
 ```raven
 union Payment(Cash | Card)
 
-val description = match payment {
-    Cash(val amount) => "cash $amount"
-    Card(val reference) => "card $reference"
+let description = match payment {
+    Cash(let amount) => "cash $amount"
+    Card(let reference) => "card $reference"
 }
 ```
 

@@ -109,7 +109,7 @@ Pattern targets use the same pattern syntax as `is` and `match`. Matching
 elements execute the body; non-matching elements are skipped.
 
 ```raven
-for (val x, 0) in points {
+for (let x, 0) in points {
     Console.WriteLine(x)
 }
 ```

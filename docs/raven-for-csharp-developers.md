@@ -186,9 +186,9 @@ express absence and expected failure directly:
 import System.*
 import System.Collections.Generic.*
 
-val count = int.TryParse(text)          // Option<int>
-val item = values.TryGetValue(key)      // Option<TValue>
-val id = Guid.Parse(text)               // Result<Guid, FormatException>
+let count = int.TryParse(text)          // Option<int>
+let item = values.TryGetValue(key)      // Option<TValue>
+let id = Guid.Parse(text)               // Result<Guid, FormatException>
 ```
 
 These are compiler-validated projections backed by Raven.Core bridges, not a

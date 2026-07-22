@@ -123,7 +123,7 @@ context.
 ```raven
 func describeNumber(text: string) -> string {
     return try Convert.ToInt32(text) match {
-        Ok(val value) => "Parsed: $value"
+        Ok(let value) => "Parsed: $value"
         Error(FormatException ex) => "Invalid format: ${ex.Message}"
         Error(_) => "Unexpected failure"
     }

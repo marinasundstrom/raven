@@ -133,10 +133,10 @@ When a value might not be present, Raven uses `Option`. For example, use
 import System.*
 import System.Collections.Generic.*
 
-val port = int.TryParse(portText) // Option<int>
+let port = int.TryParse(portText) // Option<int>
 
 port match {
-    Some(val value) => Console.WriteLine("Port: $value")
+    Some(let value) => Console.WriteLine("Port: $value")
     None => Console.WriteLine("Not a valid port")
 }
 ```
@@ -144,13 +144,13 @@ port match {
 Use `Parse` when you want details about why conversion failed:
 
 ```raven
-val id = Guid.Parse(idText) // Result<Guid, FormatException>
+let id = Guid.Parse(idText) // Result<Guid, FormatException>
 ```
 
 Lookups follow the same absence convention:
 
 ```raven
-val plan = plansByCode.TryGetValue(code) // Option<RatePlan>
+let plan = plansByCode.TryGetValue(code) // Option<RatePlan>
 ```
 
 Keep the meanings separate: a missing dictionary key is `None`; a present

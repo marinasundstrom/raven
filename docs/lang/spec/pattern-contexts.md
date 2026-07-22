@@ -29,7 +29,7 @@ whole-pattern designation. Captures inside an `is` pattern must be written at
 the exact extraction point with `val` / `var` / `let`; a bare identifier is a
 value pattern against an existing symbol. For example, `person is { Name: name }`
 and `person is { Name: == name }` both compare `Name` to the current value of
-`name`, while `person is { Name: val name }` declares a new local.
+`name`, while `person is { Name: let name }` declares a new local.
 
 Dedicated pattern statements such as `if let pattern = expr`,
 `while let pattern = expr`, and `let pattern = expr else { ... }` are
@@ -78,7 +78,7 @@ A capture may include a `when` guard. The capture introduces the local, then the
 guard constrains that captured sub-value. In binding statements, the outer
 binding keyword supplies the capture mode for a bare guarded designation such as
 `age when > 20`; in `is` expressions the capture keyword remains explicit, as in
-`Age: val age when > 20`.
+`Age: let age when > 20`.
 
 **Deconstruction contexts**
 

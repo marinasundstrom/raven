@@ -45,10 +45,10 @@ remains disallowed and reports `RAV1900`/`RAV1907`.
 Arm bodies accept any expression, including block expressions:
 
 ```raven
-val label = match value {
+let label = match value {
     0 => { "zero" }
     _ => {
-        val text = "other"
+        let text = "other"
         text
     }
 }
@@ -63,8 +63,8 @@ match value {
 ```
 
 ```raven
-val label = try Convert.ToInt32(text) match {
-    Ok(val value) => "Parsed ${value}"
+let label = try Convert.ToInt32(text) match {
+    Ok(let value) => "Parsed ${value}"
     Error(_) => "Invalid"
 }
 ```
@@ -73,17 +73,17 @@ An optional outer binding keyword may appear before a match-arm pattern:
 
 ```raven
 match values {
-    val [first, second, ...rest] => first + second + rest.Length
+    let [first, second, ...rest] => first + second + rest.Length
     _ => 0
 }
 
 match value {
-    val Some((x, y)) => x + y
+    let Some((x, y)) => x + y
     _ => 0
 }
 
 match value {
-    val Some((x, y)) pair => pair.Value
+    let Some((x, y)) pair => pair.Value
     _ => 0
 }
 ```

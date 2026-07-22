@@ -26,7 +26,7 @@ import System.*
 
 func describeNumber(text: string) -> string {
     return try Convert.ToInt32(text) match {
-        Ok(val value) => "Parsed: $value"
+        Ok(let value) => "Parsed: $value"
         Error(FormatException ex) => "Invalid format: ${ex.Message}"
         Error(_) => "Unexpected failure"
     }
@@ -147,7 +147,7 @@ func selectedItemName() -> Result<string, LookupError> {
     val maybeItem = getUser()?.Item?
 
     match maybeItem {
-        .Some(val item) => .Ok(item.Name)
+        .Some(let item) => .Ok(item.Name)
         .None => .Error(.MissingItem)
     }
 }
@@ -189,9 +189,9 @@ union LookupError {
 }
 
 func readNameLength(path: string) -> Result<int, LookupError> {
-    val text = try System.IO.File.ReadAllText(path) match {
-        .Ok(val content) => .Ok(content)
-        .Error(val ex) => .Error(.Io(ex.Message))
+    let text = try System.IO.File.ReadAllText(path) match {
+        .Ok(let content) => .Ok(content)
+        .Error(let ex) => .Error(.Io(ex.Message))
     }?
 
     val length = parseUser(text)?.Name?.Length?

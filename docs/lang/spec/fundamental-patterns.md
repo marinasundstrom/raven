@@ -21,22 +21,22 @@
 
   ```raven
   class Box<T> {}
-  val value: Box<int> = Box<int>()
+  let value: Box<int> = Box<int>()
 
   if value is Box box {
       // box : Box<int>
   }
   ```
 
-* `val name` / `var name` / `let name` — **variable pattern**. Always matches and
-  introduces a binding. `val`/`let` produce an immutable local; `var` produces a
+* `let name` / `var name` / `val name` — **variable pattern**. Always matches and
+  introduces a binding. `let`/`val` produce an immutable local; `var` produces a
   mutable one.
 
-  Parenthesized designations such as `val (first, second): (int, string)` bind
+  Parenthesized designations such as `let (first, second): (int, string)` bind
   each element positionally.
 
 * **Explicit binding keyword required.** In pattern position, introducing a new
-  binding always requires an explicit binding keyword (`val`, or `var`).
+  binding always requires an explicit binding keyword (`let`, `var`, or `val`).
   A bare identifier never introduces a binding; it is interpreted as a *value
   pattern* (constant) or, if applicable, as a type name.
 
@@ -45,7 +45,7 @@
   * `Ok(42)` matches the literal value `42`.
   * `Ok(discountedProduct)` matches the runtime value of the in-scope symbol
     `discountedProduct`.
-  * `Ok(val n)` binds the payload to a new immutable local `n`.
+  * `Ok(let n)` binds the payload to a new immutable local `n`.
 
   The same rule applies uniformly in positional patterns and discriminated-union case
   payloads.
@@ -69,7 +69,7 @@
   the pattern matches when the scrutinee equals the runtime value of that identifier.
 
   Value patterns are *not* bindings. To introduce a new binding, an explicit
-  binding keyword (`val`, or `var`) is required.
+  binding keyword (`let`, `var`, or `val`) is required.
 
 * `Type.Member` — **qualified constant/value pattern**. When the qualified name
   resolves to a static constant-like value, such as `Math.PI` or an enum member
@@ -128,9 +128,9 @@ Both bounds are optional:
 Bounds are written as expressions, but the binder may restrict them to constant‑like values depending on context.
 
 ```raven
-val value = 42
+let value = 42
 
-val result = match value {
+let result = match value {
     ..4 => "No"
     40..43 => "Yes"
     _ => "Other"
@@ -154,20 +154,20 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
     (including as an extension method), the positional pattern uses that method
     to obtain positional values.
 
-  * ✅ `(val a, var b)` (explicit mutability)
+  * ✅ `(let a, var b)` (explicit mutability)
   * ✅ `(a: int, b: string)` (inline type annotations)
   * ✅ `(int a, string b)` (type-pattern + capture)
   * ✅ `(a: int, _)`
-  * ✅ `(val a, == existingValue)` (explicit capture + value pattern)
+  * ✅ `(let a, == existingValue)` (explicit capture + value pattern)
   * ✅ `(existingA, == existingValue)` (existing-value comparison)
 
   In freestanding and inline positional patterns, captured variables must use an
-  explicit binding keyword (`val`, `var`, or `let`). A bare identifier is
+  explicit binding keyword (`let`, `var`, or `val`). A bare identifier is
   treated as a value pattern against an existing in-scope value. In assignment
-  and declaration deconstruction (`val (a, b) = expr`, `(a, b) = expr`), bare
+  and declaration deconstruction (`let (a, b) = expr`, `(a, b) = expr`), bare
   identifiers continue to act as deconstruction targets.
   To constrain by type and capture a value in an element, both forms are valid:
-  `val name: Type` (Raven-native typed binding style) and `Type name`
+  `let name: Type` (Raven-native typed binding style) and `Type name`
   (type-pattern style).
   This is equivalent to introducing a binding and adding a `when` guard that
   compares the bound value, but `== expr` keeps the constraint local to the

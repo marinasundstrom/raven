@@ -3,7 +3,7 @@
 Dictionary patterns use bracket syntax with keyed entries:
 
 ```raven
-if lookup is ["a": val first, "b": 2] {
+if lookup is ["a": let first, "b": 2] {
     WriteLine(first)
 }
 ```
@@ -27,7 +27,7 @@ assignment position:
 
 ```raven
 val values: IReadOnlyDictionary<string, int> = ["a": 2, "b": 3]
-val ["a": first, "b": second] = values
+let ["a": first, "b": second] = values
 ```
 
 This is extraction-oriented rather than boolean. After validating that the

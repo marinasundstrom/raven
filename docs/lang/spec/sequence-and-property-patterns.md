@@ -8,7 +8,7 @@
     collection types (`Count` + integer indexer, for example `IList<T>` /
     `IReadOnlyList<T>`).
   * The same bracketed shape is also used for collection deconstruction
-    assignments and declarations (`[val a, val b] = values`), which support
+    assignments and declarations (`[let a, let b] = values`), which support
     arrays, `string`, and indexable collection types.
   * In the syntax tree, bracketed patterns are represented as `SequencePatternSyntax`
     (with `SequencePatternElementSyntax`), distinct from parenthesized positional
@@ -25,10 +25,10 @@
   * Fixed-size segments may appear multiple times because their widths are fully
     determined by the syntax.
   * In freestanding and inline sequence
-    patterns, captures must use `val`/`var`/`let`; bare identifiers are treated
+    patterns, captures must use `let`/`var`/`val`; bare identifiers are treated
     as value patterns against existing values. Type-constrained captures may be
-    written as `val x: T` or `T x`. The same rule applies inside segment forms,
-    for example `..2 val start` and `...val rest`. Bare `...` and bare `..N`
+    written as `let x: T` or `T x`. The same rule applies inside segment forms,
+    for example `..2 let start` and `...let rest`. Bare `...` and bare `..N`
     are the non-capturing exceptions.
   * If a sequence pattern contains no open rest segment, the input length must
     match the total fixed width exactly.
@@ -38,8 +38,8 @@
     type and segment captures bind an array slice.
   * When the input is a fixed-length array `T[N]`, captured fixed/rest array
     segments preserve an inferred fixed length when the segment width is
-    statically known. For example, `[val a, val b, ...val rest]` against
-    `int[4]` binds `rest` as `int[2]`, and `[..2 val head, val tail]` against
+    statically known. For example, `[let a, let b, ...let rest]` against
+    `int[4]` binds `rest` as `int[2]`, and `[..2 let head, let tail]` against
     `int[3]` binds `head` as `int[2]`.
   * For `string`, single-element captures bind `char` and segment captures bind
     `string`, even for `..1`.
@@ -71,7 +71,7 @@ for let Person(1, name, _) person in persons {
 }
 
 match value {
-    val Some((x, y)) pair => pair.Value
+    let Some((x, y)) pair => pair.Value
     _ => 0
 }
 ```
@@ -79,9 +79,9 @@ match value {
 Rules:
 
 * A trailing designation may be written with an explicit binding keyword, such
-  as `val point` or `var point`.
+  as `let point` or `var point` (`val point` is also accepted).
 * In constructs that already carry an outer binding keyword (`if let ...`,
-  `while let ...`, `for let ...`, `match { val ... => ... }`), the trailing
+  `while let ...`, `for let ...`, `match { let ... => ... }`), the trailing
   designation may omit its own binding keyword and inherits the outer binding mode.
 * Without a binding-enabled pattern context, a trailing designation is not part
   of the pattern. In particular, `expr is Type { ... } value` is invalid.
@@ -104,8 +104,8 @@ Rules:
   `Type { … }`, but also introduces a designation for the matched receiver in a
   binding-enabled pattern context.
 
-  * The designation may use an explicit binding keyword (`val`, `let`, or
-    `var`), or inherit the binding mode from an outer construct such as
+  * The designation may use an explicit binding keyword (`let`, `var`, or
+    `val`), or inherit the binding mode from an outer construct such as
     `if let` / `while let` / `for let` / an outer match-arm binding keyword.
   * Writing `var p` produces a mutable binding. Omitting a binding keyword
     requires an outer binding mode.
@@ -122,8 +122,8 @@ Rules:
 
 * `{ … } designation` — **inferred property pattern with designation**.
 
-  * The designation may use an explicit binding keyword (`val`, `let`, or
-    `var`), or inherit the binding mode from an outer construct.
+  * The designation may use an explicit binding keyword (`let`, `var`, or
+    `val`), or inherit the binding mode from an outer construct.
   * Writing `var p` produces a mutable binding.
   * The form is invalid in an `is` expression; use `if let { ... } name = expr`
     or another dedicated pattern-binding construct to bind the receiver.

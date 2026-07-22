@@ -65,8 +65,8 @@ val normalized =
     userOrError
         |> EnsureActive()
         |> (x => match x {
-            Ok(val u) => u.Name
-            Error(val e) => "ERR: " + e.ToString()
+            Ok(let u) => u.Name
+            Error(let e) => "ERR: " + e.ToString()
         })
         |> Normalize()
 ```

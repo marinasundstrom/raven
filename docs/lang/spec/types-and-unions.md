@@ -196,7 +196,7 @@ union LookupResult {
 
     func Describe() -> string {
         match self {
-            Found(val id) => "found $id"
+            Found(let id) => "found $id"
             Missing => "missing"
         }
     }

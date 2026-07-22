@@ -74,7 +74,7 @@ in declaration order. Unknown names are diagnosed.
 A named element's right side is always a nested pattern. Because `Name: target:
 Type` is ambiguous between a named subpattern and a typed target, an outer
 binding keyword may bind `Name: target` but does not make `Name: target: Type`
-valid. Use the explicit nested-binding form, for example `Name: val target:
+valid. Use the explicit nested-binding form, for example `Name: let target:
 Type`, on a surface that does not also supply an outer binding keyword, or use an
 unnamed typed element such as `target: Type` when the element is selected
 positionally. The same rule applies recursively in match arms,
@@ -105,31 +105,31 @@ Not currently supported as deconstruction heads:
 For element type matching and capture, Raven accepts both:
 
 * `name: Type` when an outer binding keyword supplies the capture mode
-* `val name: Type`
+* `let name: Type`
 * `Type name` (type-pattern style)
 
 ```raven
-val (first, second, _) = (1, 2, 3)
+let (first, second, _) = (1, 2, 3)
 var (head, tail: double, _) = numbers()
 (first, second, _) = next()
-(val lhs, var rhs: double, _) = evaluate()
+(let lhs, var rhs: double, _) = evaluate()
 (int id, string name) = getTuple()
-(val id: int, val name: string) = getTuple()
+(let id: int, let name: string) = getTuple()
 (lhs, == expectedRhs) = evaluate()
-val (Items: items, Name: name, Age: age) = person
-val [key: string, value: int] = entries
+let (Items: items, Name: name, Age: age) = person
+let [key: string, value: int] = entries
 ```
 
 The label-plus-typed-target form is invalid:
 
 ```raven
-// invalid; write (Name: val name: string) without an outer binding keyword,
+// invalid; write (Name: let name: string) without an outer binding keyword,
 // or use an unnamed typed element such as name: string
-val (Name: name: string) = person
+let (Name: name: string) = person
 ```
 
 Existing locals can participate in positional assignments alongside new
-bindings. Mixed `val`/`var` designations and inline type annotations are
+bindings. Mixed `let`/`var` designations and inline type annotations are
 supported in both declarations and assignments:
 
 ```raven
@@ -137,8 +137,8 @@ var first = 0
 var second = 0
 
 (first, second, _) = (1, 2, 3)
-val (third, fourth: double, _) = toTuple()
-var (val fifth, var sixth: double, _) = project()
+let (third, fourth: double, _) = toTuple()
+var (let fifth, var sixth: double, _) = project()
 ```
 
 When a deconstruction target has an explicit type annotation, or when it assigns
@@ -159,12 +159,12 @@ can evolve independently.
 
 For declaration-style deconstruction, Raven supports both:
 
-* explicit per-element binding keywords: `[val a, val b, _] = values`
-* shorthand outer binding keyword: `val [a, b, _] = values`
+* explicit per-element binding keywords: `[let a, let b, _] = values`
+* shorthand outer binding keyword: `let [a, b, _] = values`
 
 The shorthand is equivalent to applying the same binding keyword to each
-identifier element (`val`, `var`, or `let`), matching tuple deconstruction forms
-like `val (a, b) = expr`.
+identifier element (`let`, `var`, or `val`), matching tuple deconstruction forms
+like `let (a, b) = expr`.
 
 These two declaration styles are mutually exclusive in a single deconstruction:
 choose either an outer/common binding keyword or per-element binding keywords.
@@ -173,22 +173,22 @@ Mixing both is invalid.
 ```raven
 // valid
 var [first, second, _] = values
-[val first, val second, _] = values
+[let first, let second, _] = values
 
 // invalid
-val [val first, val second, _] = values
-val (val id, val name) = obj
+let [let first, let second, _] = values
+let (let id, let name) = obj
 ```
 
 ```raven
-val values: int[] = [1, 2, 3]
+let values: int[] = [1, 2, 3]
 [first, second, _] = values
 [var head, var tail, _] = values
-val [first2, second2, _] = values
+let [first2, second2, _] = values
 var [head2, tail2, _] = values
 
 import System.Collections.Generic.*
-val list: List<int> = [1, 2, 3]
+let list: List<int> = [1, 2, 3]
 [a, b, _] = list
 let [c, d, _] = list
 ```
@@ -196,24 +196,24 @@ let [c, d, _] = list
 Use `_` to discard unwanted elements. Nested positional patterns work the same way:
 
 ```raven
-var ((x, y), val magnitude, _) = samples()
+var ((x, y), let magnitude, _) = samples()
 ```
 
 Nested sequence/positional patterns can also be combined:
 
 ```raven
-val [(first, second), [head, ..tail]] = value
+let [(first, second), [head, ..tail]] = value
 ```
 
 In freestanding and inline patterns, plain identifiers are value patterns, not
-new bindings. Use `val`/`var`/`let` to capture a value. In assignment and
+new bindings. Use `let`/`var`/`val` to capture a value. In assignment and
 declaration deconstruction, plain identifiers remain binding targets by
 default. To match against an existing runtime value in a positional pattern,
 you can still use an explicit value pattern:
 
 ```raven
 match x {
-    (val a, == existingValue) => ...
+    (let a, == existingValue) => ...
 }
 ```
 
@@ -227,11 +227,11 @@ compare in a guard/condition (`(a, b) when b == existingValue`, or
 Collection patterns support both fixed-size and rest segments:
 
 ```raven
-val [..2 start, last] = values
-val [first, ...rest] = values
-val [first, ...middle, last] = values
-val [first, ...] = values
-val [first, ..2 middle, last] = "rune"
+let [..2 start, last] = values
+let [first, ...rest] = values
+let [first, ...middle, last] = values
+let [first, ...] = values
+let [first, ..2 middle, last] = "rune"
 ```
 
 In inline/freestanding sequence patterns, spell captures explicitly:
@@ -247,7 +247,7 @@ plain element binds `char`, while `..N` and rest segments bind `string`.
 Nested deconstruction uses the same recursive compatibility rules in all valid
 positions:
 
-* declaration deconstruction (`val (...) = expr`, `val [...] = expr`)
+* declaration deconstruction (`let (...) = expr`, `let [...] = expr`)
 * assignment deconstruction (`(...) = expr`, `[...] = expr`)
 * function-expression parameter patterns (`((...), [...]) => ...`)
 * `is`/`match` pattern positions
@@ -315,7 +315,7 @@ File-scope `use` declarations participate as well: they are disposed after the f
 use stream = System.IO.File.OpenRead(path)
 use reader = System.IO.StreamReader(stream)
 
-val text = reader.ReadToEnd()
+let text = reader.ReadToEnd()
 
 // reader.Dispose() and stream.Dispose() run automatically when the scope ends
 ```

@@ -58,7 +58,7 @@ not preferred when a refutable pattern can establish the binding.
 This is sugar for a pattern test against the right-hand side:
 
 ```raven
-if person is (val id, val name) {
+if person is (let id, let name) {
     WriteLine(name)
 }
 ```
@@ -76,11 +76,11 @@ if person is { Name: == name } {   // equivalent explicit comparison
     WriteLine("same name")
 }
 
-if person is { Name: val name } {  // declare a new binding
+if person is { Name: let name } {  // declare a new binding
     WriteLine(name)
 }
 
-if person is { Name: val name when name.Length > 0 } {
+if person is { Name: let name when name.Length > 0 } {
     WriteLine(name)
 }
 ```
@@ -123,7 +123,7 @@ The outer binding keyword also applies to typed implicit captures, so nullable
 checks can be written in the same form:
 
 ```raven
-val input: int? = null
+let input: int? = null
 
 if let x: int = input {
     WriteLine(x)
@@ -165,7 +165,7 @@ syntax and makes capture intent explicit at the start of the statement.
 
 The outer binding keyword supplies the binding mode for otherwise bare captures
 inside the pattern, so `if let Person(1, name, _) = person { ... }` is legal and
-equivalent to `if person is Person(1, val name, _) { ... }`. The same ambient
+equivalent to `if person is Person(1, let name, _) { ... }`. The same ambient
 binding mode also applies to an optional trailing whole-pattern designation such
 as `point` in the example above. Shadowing and other pattern-binding diagnostics
 are the same as for `is` and `match` patterns.
@@ -196,7 +196,7 @@ if let Person { Name: "Ada", Age: age } = input {
 ```
 
 The example above is equivalent in matching behavior to
-`if input is Person { Name: "Ada", Age: val age }`, but the statement-form
+`if input is Person { Name: "Ada", Age: let age }`, but the statement-form
 surface lets the leading binding keyword supply the capture mode for otherwise
 bare designations inside the property pattern.
 

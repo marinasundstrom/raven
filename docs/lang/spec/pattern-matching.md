@@ -15,8 +15,8 @@ Raven uses two related but distinct surfaces:
   boolean pattern combinators, and whole-pattern designations where the
   construct allows them.
 * **Deconstruction forms** are used in declaration/assignment positions such as
-  `val (a, b) = expr`, `(a, b) = expr`, `val [a, b] = expr`, `[a, b] = expr`,
-  `val ["x": value] = expr`, and `["x": value] = expr`. These are not general
+  `let (a, b) = expr`, `(a, b) = expr`, `let [a, b] = expr`, `[a, b] = expr`,
+  `let ["x": value] = expr`, and `["x": value] = expr`. These are not general
   match statements. They are extraction-oriented and use the
   positional/sequence/dictionary deconstruction subset with nested captures,
   discards, typed designations, explicit value comparisons where supported, and
@@ -26,7 +26,7 @@ Patterns can be used in `match` expressions or statements, or as conditions with
 `is` patterns:
 
 ```raven
-val obj: object? = /* ... */
+let obj: object? = /* ... */
 
 match obj {
     Foo foo => /* Hit Foo case */
@@ -37,7 +37,7 @@ if obj is Foo foo {
     // foo is assigned, and not null
 }
 
-if lookup is ["a": val first, "b": 2] {
+if lookup is ["a": let first, "b": 2] {
     // first is assigned only when both keys exist and "b" maps to 2
 }
 
@@ -58,7 +58,7 @@ This form is equivalent to testing the right-hand side with `is` while applying
 the outer binding keyword to implicit captures inside the pattern:
 
 ```raven
-if person is (val id, val name) {
+if person is (let id, let name) {
     WriteLine(name)
 }
 ```
@@ -67,7 +67,7 @@ Typed implicit bindings work the same way, which makes nullable narrowing
 available in statement form:
 
 ```raven
-val input: int? = null
+let input: int? = null
 
 if let x: int = input {
     WriteLine(x)
