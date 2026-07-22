@@ -18,6 +18,13 @@ if [[ -d "$api_output" ]]; then
     rm -rf -- "$api_output"
 fi
 
+# A clean checkout does not contain Raven's ignored generated compiler sources.
+# Build once outside DocFX's design-time context so API metadata sees the same
+# complete public surface as an ordinary compiler build.
+dotnet build "$repository_root/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" \
+    --framework net10.0 \
+    --property WarningLevel=0
+
 # API metadata is generated separately. Existing source-comment warnings remain
 # visible without weakening strict validation of the authored documentation.
 dotnet docfx metadata "$repository_root/docs/docfx-metadata.json" \
