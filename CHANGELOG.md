@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   bridge without relying on extension-method precedence.
 - Added projection-specific diagnostics for missing, duplicate, and
   structurally incompatible framework projection bridges.
+- Validated built-in projection source and bridge methods against their full
+  reflected CLR signatures, including generic arguments and ref-kinds.
 - Added the first same-signature `Parse -> Result` projection for
   `Int32.Parse(string)`, with explicit null, format, and overflow mappings.
 - Added Rust-style `let pattern = expression else { ... }` declarations. The

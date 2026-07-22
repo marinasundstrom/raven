@@ -512,6 +512,11 @@ the ID is absent or duplicated, or the bridge shape disagrees with the catalog,
 the compiler reports a projection-specific diagnostic containing the stable ID
 and does not silently substitute an ordinary extension method.
 
+For the built-in catalog, validation compares canonical reflected CLR
+signatures. It includes the source and bridge return types, constructed generic
+arguments, parameter types, and `out`/`ref`/`in` modifiers. Display-name or
+arity-only matches are insufficient.
+
 ### Exception mappings
 
 Every descriptor declares its exception behavior, including descriptors whose

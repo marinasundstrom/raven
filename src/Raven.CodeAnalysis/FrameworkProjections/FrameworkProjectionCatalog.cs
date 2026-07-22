@@ -59,6 +59,11 @@ internal static class FrameworkProjectionCatalog
                 continue;
             if (!MatchesReceiver(descriptor, receiverType))
                 continue;
+            if (!HasExactSourceSignature(namedReceiverType, descriptor.SourceSignature))
+            {
+                failures.Add(new(descriptor.Id, "source framework signature does not match the catalog descriptor"));
+                continue;
+            }
             if (compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is not { } container)
             {
                 failures.Add(new(descriptor.Id, $"bridge container '{descriptor.ProjectedContainer}' was not found"));
@@ -82,9 +87,7 @@ internal static class FrameworkProjectionCatalog
 
             var adapter = adapters[0];
             if (!string.Equals(adapter.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
-                adapter.Parameters.Length != GetProjectedParameterCount(descriptor.ProjectedSignature) ||
-                adapter.ReturnType is not INamedTypeSymbol projectedReturnType ||
-                !string.Equals(projectedReturnType.Name, GetProjectedReturnTypeName(descriptor.ProjectedSignature), StringComparison.Ordinal))
+                !HasExactProjectedSignature(adapter, descriptor.ProjectedSignature))
             {
                 failures.Add(new(descriptor.Id, "bridge signature does not match the catalog descriptor"));
                 continue;
@@ -101,25 +104,54 @@ internal static class FrameworkProjectionCatalog
         return new(builder.ToImmutable(), failures.ToImmutable());
     }
 
-    private static int GetProjectedParameterCount(string signature)
-    {
-        var openParen = signature.IndexOf('(', StringComparison.Ordinal);
-        var closeParen = signature.LastIndexOf(')');
-        if (openParen < 0 || closeParen <= openParen + 1)
-            return 0;
+    private static bool HasExactSourceSignature(INamedTypeSymbol receiverType, string expectedSignature) =>
+        receiverType.GetMembers()
+            .OfType<PEMethodSymbol>()
+            .Any(method => string.Equals(GetReflectedSignature(method, includeContainingType: true), expectedSignature, StringComparison.Ordinal));
 
-        return signature[(openParen + 1)..closeParen].Count(static character => character == ',') + 1;
+    private static bool HasExactProjectedSignature(IMethodSymbol method, string expectedSignature) =>
+        method is PEMethodSymbol peMethod &&
+        string.Equals(GetReflectedSignature(peMethod, includeContainingType: false), expectedSignature, StringComparison.Ordinal);
+
+    private static string GetReflectedSignature(PEMethodSymbol method, bool includeContainingType)
+    {
+        var methodBase = method.GetMethodBase();
+        var returnType = methodBase is MethodInfo methodInfo
+            ? GetReflectedTypeName(methodInfo.ReturnType)
+            : "System.Void";
+        var owner = includeContainingType
+            ? $"{methodBase.DeclaringType?.FullName}."
+            : string.Empty;
+        var parameters = string.Join(", ", methodBase.GetParameters().Select(GetReflectedParameterName));
+        return $"{returnType} {owner}{methodBase.Name}({parameters})";
     }
 
-    private static string GetProjectedReturnTypeName(string signature)
+    private static string GetReflectedParameterName(ParameterInfo parameter)
     {
-        var firstSpace = signature.IndexOf(' ');
-        var returnType = firstSpace < 0 ? signature : signature[..firstSpace];
-        var genericStart = returnType.IndexOf('<');
-        if (genericStart >= 0)
-            returnType = returnType[..genericStart];
-        var lastDot = returnType.LastIndexOf('.');
-        return lastDot < 0 ? returnType : returnType[(lastDot + 1)..];
+        var prefix = parameter.IsOut
+            ? "out "
+            : parameter.IsIn
+                ? "in "
+                : parameter.ParameterType.IsByRef
+                    ? "ref "
+                    : string.Empty;
+        return $"{prefix}{GetReflectedTypeName(parameter.ParameterType)}";
+    }
+
+    private static string GetReflectedTypeName(Type type)
+    {
+        if (type.IsByRef)
+            type = type.GetElementType()!;
+        if (type.IsArray)
+            return $"{GetReflectedTypeName(type.GetElementType()!)}[{new string(',', type.GetArrayRank() - 1)}]";
+        if (!type.IsGenericType)
+            return type.FullName ?? type.Name;
+
+        var definitionName = type.GetGenericTypeDefinition().FullName ?? type.Name;
+        var tick = definitionName.IndexOf('`');
+        if (tick >= 0)
+            definitionName = definitionName[..tick];
+        return $"{definitionName}<{string.Join(", ", type.GetGenericArguments().Select(GetReflectedTypeName))}>";
     }
 
     internal static bool IsProjectionAdapter(IMethodSymbol method) =>
