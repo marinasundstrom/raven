@@ -324,6 +324,7 @@ TypeParameterConstraint  ::= 'class'            (* reference type constraint *)
    they appear. *)
 
 Statement                ::= LocalDeclaration
+                           | LetElseStatement
                            | ReturnStatement
                            | ThrowStatement
                            | BreakStatement
@@ -344,6 +345,11 @@ Statement                ::= LocalDeclaration
 BlockStatement           ::= Block ;
 
 LocalDeclaration         ::= ('let' | 'val' | 'var' | 'const') LocalVariableDeclarators ;
+LetElseStatement         ::= BindingKeyword Pattern '=' Expression 'else' DivergingStatement ;
+(* Semantic rule: DivergingStatement must not have a reachable endpoint. It
+   exits through return, throw, break, or continue; successful pattern
+   bindings are introduced into the surrounding block scope. *)
+DivergingStatement       ::= EmbeddedStatement ;
 UseDeclarationStatement  ::= 'use' LocalVariableDeclarators ['in' Block] ;
 LocalVariableDeclarators ::= LocalVariableDeclarator {',' LocalVariableDeclarator} ;
 LocalVariableDeclarator  ::= Identifier (':' Type)? '=' Expression ;

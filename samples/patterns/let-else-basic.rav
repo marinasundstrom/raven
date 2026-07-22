@@ -1,0 +1,18 @@
+import System.Console.*
+
+union Lookup {
+    case Found(value: string)
+    case Missing
+}
+
+func printFound(result: Lookup) {
+    let Lookup.Found(value) = result else {
+        WriteLine("No value")
+        return
+    }
+
+    WriteLine("Found: $value")
+}
+
+printFound(.Found("Raven"))
+printFound(.Missing)

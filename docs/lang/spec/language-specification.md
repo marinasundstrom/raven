@@ -2948,6 +2948,7 @@ These accept Raven’s full pattern vocabulary:
 * `match expr { ... }` statement form
 * `if let pattern = expr`
 * `while let pattern = expr`
+* `let pattern = expr else { ... }`
 * `for let pattern in values` and `for pattern in values`
 
 These contexts may use comparison/range/property/member/nominal-deconstruction
@@ -2962,8 +2963,9 @@ value pattern against an existing symbol. For example, `person is { Name: name }
 and `person is { Name: == name }` both compare `Name` to the current value of
 `name`, while `person is { Name: val name }` declares a new local.
 
-Dedicated pattern statements such as `if let pattern = expr` and
-`while let pattern = expr` are binding-oriented. Their leading binding keyword
+Dedicated pattern statements such as `if let pattern = expr`,
+`while let pattern = expr`, and `let pattern = expr else { ... }` are
+binding-oriented. Their leading binding keyword
 supplies the binding mode for otherwise bare designations inside the pattern and
 for an optional trailing whole-pattern designation. In these contexts a bare
 member or element designation captures; comparing to an existing value must use
@@ -2972,6 +2974,19 @@ marker for "compare with this existing variable or expression" where a bare
 identifier would otherwise capture. Built-in literal patterns such as `"Bob"`,
 `42`, `true`, `false`, and `null` keep their literal-matching meaning and do not
 need `==`.
+
+A `let ... else` declaration requires its `else` statement to have no reachable
+endpoint. The branch must leave the current control-flow region with `return`,
+`throw`, `break`, or `continue`. On a successful match, its pattern locals are
+declared in the surrounding block rather than a nested branch:
+
+```raven
+let Ok(value) = result else {
+    return
+}
+
+WriteLine(value)
+```
 
 ```raven
 if let Person { Name: name } = person {      // captures `Name` into `name`

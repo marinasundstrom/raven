@@ -1123,6 +1123,14 @@ internal class StatementSyntaxParser : SyntaxParser
             case SyntaxKind.ValKeyword:
             case SyntaxKind.VarKeyword:
             case SyntaxKind.ConstKeyword:
+                if (token.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword &&
+                    PeekToken(1).Kind == SyntaxKind.IdentifierToken &&
+                    PeekToken(2).Kind == SyntaxKind.ColonToken &&
+                    HasTopLevelElseClauseAhead())
+                {
+                    return ParseCollectionPatternDeclarationAssignmentStatement();
+                }
+
                 if (PeekToken(1).Kind == SyntaxKind.OpenBracketToken &&
                     token.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
                 {
@@ -1130,6 +1138,13 @@ internal class StatementSyntaxParser : SyntaxParser
                 }
 
                 if (PeekToken(1).Kind == SyntaxKind.OpenParenToken &&
+                    token.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
+                {
+                    return ParseCollectionPatternDeclarationAssignmentStatement();
+                }
+
+                if (PeekToken(1).Kind == SyntaxKind.IdentifierToken &&
+                    PeekToken(2).Kind is SyntaxKind.OpenParenToken or SyntaxKind.DotToken &&
                     token.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword)
                 {
                     return ParseCollectionPatternDeclarationAssignmentStatement();
@@ -1184,6 +1199,51 @@ internal class StatementSyntaxParser : SyntaxParser
         return ExpressionStatement(expression, terminatorToken);
     }
 
+    private bool HasTopLevelElseClauseAhead()
+    {
+        var depth = 0;
+        var sawEquals = false;
+
+        for (var offset = 1; offset < 256; offset++)
+        {
+            var token = PeekToken(offset);
+            var kind = token.Kind;
+            if (depth == 0 &&
+                kind != SyntaxKind.ElseKeyword &&
+                (HasLeadingEndOfLineTrivia(token) ||
+                 HasTrailingEndOfLineTrivia(PeekToken(offset - 1))))
+            {
+                return false;
+            }
+
+            switch (kind)
+            {
+                case SyntaxKind.OpenParenToken:
+                case SyntaxKind.OpenBracketToken:
+                case SyntaxKind.OpenBraceToken:
+                    depth++;
+                    break;
+                case SyntaxKind.CloseParenToken:
+                case SyntaxKind.CloseBracketToken:
+                case SyntaxKind.CloseBraceToken:
+                    if (depth == 0)
+                        return false;
+                    depth--;
+                    break;
+                case SyntaxKind.EqualsToken when depth == 0:
+                    sawEquals = true;
+                    break;
+                case SyntaxKind.ElseKeyword when depth == 0:
+                    return sawEquals;
+                case SyntaxKind.SemicolonToken:
+                case SyntaxKind.EndOfFileToken:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
     private PatternDeclarationAssignmentStatementSyntax ParseCollectionPatternDeclarationAssignmentStatement()
     {
         var bindingKeyword = ReadToken();
@@ -1201,6 +1261,14 @@ internal class StatementSyntaxParser : SyntaxParser
 
         SetTreatNewlinesAsTokens(true);
 
+        ElseClauseSyntax? elseClause = null;
+        if (PeekToken().Kind == SyntaxKind.ElseKeyword)
+        {
+            var elseKeyword = ReadToken();
+            var statement = ParseStatement();
+            elseClause = ElseClause(elseKeyword, statement);
+        }
+
         var terminatorToken = ConsumeTerminatorWithSkippedTokens(addSemicolonDiagnostic: true);
 
         return PatternDeclarationAssignmentStatement(
@@ -1208,6 +1276,7 @@ internal class StatementSyntaxParser : SyntaxParser
             left,
             operatorToken,
             right,
+            elseClause,
             terminatorToken);
     }
 

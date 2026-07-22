@@ -340,7 +340,9 @@ rules:
 - Use `Option<T>` for absence in Raven domain code.
 - Use `Result<T, E>` for expected failure and `?` to propagate it.
 - Prefer explicit pattern bindings: `Some(let value)`, `let (a, b) = pair`,
-  `if let Some(item) = maybe`.
+  `if let Some(item) = maybe`, and `let Some(item) = maybe else { return }`.
+- Prefer `let ... else` over a null-coalescing early-exit block when a pattern
+  should establish a binding for the rest of the scope.
 - Use function type arrows, such as `let op: (int, int) -> int`.
 - Use explicit constructors such as `ShipmentRequest(...)` unless the target
   type is already obvious.

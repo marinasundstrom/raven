@@ -7,6 +7,35 @@ namespace Raven.CodeAnalysis.Tests;
 public class PatternVariableTests
 {
     [Fact]
+    public void LetElseTypedNullablePattern_EmitsSuccessfully()
+    {
+        var code = """
+import System.*
+
+class Program {
+    static func Main() -> unit {
+        val input: string? = null
+        let value: string = input else {
+            Console.WriteLine("missing")
+            return
+        }
+
+        Console.WriteLine(value.Length)
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("let_else_nullable", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(System.Environment.NewLine, result.Diagnostics));
+    }
+
+    [Fact]
     public void PatternVariableInIfCondition_EmitsSuccessfully()
     {
         var code = """

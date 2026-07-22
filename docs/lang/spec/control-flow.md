@@ -150,6 +150,30 @@ if let (id, name) = person {
 }
 ```
 
+When a failed match should leave the current control-flow region, prefer a
+`let ... else` pattern declaration. Successful bindings belong to the
+surrounding scope:
+
+```raven
+let Some(name) = maybeName else {
+    return
+}
+
+WriteLine(name)
+```
+
+The `else` statement must not complete normally: it must `return`, `throw`,
+`break`, or `continue` as appropriate for its context. This guarantees that
+every pattern binding is initialized afterward. Use `if let` when the binding
+is needed only in a conditional branch, `let ... else` for a linear happy
+path, and `match` when several alternatives need handling.
+
+An `is` expression remains available when a pattern test is part of a larger
+boolean expression. For binding-oriented control flow, Raven style prefers
+`if let` and `let ... else`. A null-coalescing block such as
+`let name = candidate ?? { return }` remains valid expression syntax, but is
+not preferred when a refutable pattern can establish the binding.
+
 This is sugar for a pattern test against the right-hand side:
 
 ```raven

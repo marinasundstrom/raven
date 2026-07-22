@@ -1779,6 +1779,11 @@ partial class BlockBinder : Binder
         if (TryGetCachedBoundNode(statement) is BoundStatement cached)
         {
             RegisterCachedStatementDeclarations(cached);
+            if (statement is PatternDeclarationAssignmentStatementSyntax { ElseClause: not null } &&
+                cached is BoundIfStatement { Condition: BoundIsPatternExpression patternCondition })
+            {
+                RegisterPatternLocalsForCurrentLookup(patternCondition.Pattern);
+            }
             return cached;
         }
 

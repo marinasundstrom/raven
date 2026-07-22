@@ -283,6 +283,7 @@
     <Slot Name="Left" Type="Pattern" />
     <Slot Name="OperatorToken" Type="Token" DefaultToken="EqualsToken" />
     <Slot Name="Right" Type="Expression" />
+    <Slot Name="ElseClause" Type="ElseClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
   <Node Name="IfStatement" Inherits="Statement">

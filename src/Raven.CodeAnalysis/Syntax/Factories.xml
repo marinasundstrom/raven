@@ -28,6 +28,7 @@
       <Parameter Slot="Left" />
       <Parameter Slot="Right" />
       <Default Slot="OperatorToken" Token="EqualsToken" />
+      <Default Slot="ElseClause" Null="true" />
       <Default Slot="TerminatorToken" Token="None" />
     </Overload>
   </Factory>

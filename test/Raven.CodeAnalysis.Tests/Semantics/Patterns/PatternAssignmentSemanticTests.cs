@@ -1577,4 +1577,82 @@ class C {
         Assert.Equal(SpecialType.System_Int32, usageSymbol.Type.SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(declared, usageSymbol));
     }
+
+    [Fact]
+    public void LetElse_BindsPatternLocalInSurroundingScope()
+    {
+        const string source = """
+union Choice {
+    case Some(value: int)
+    case None
+}
+
+func Read(input: Choice) -> int {
+    let Choice.Some(value) = input else {
+        return 0
+    }
+
+    return value
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var usage = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Last(identifier => identifier.Identifier.ValueText == "value");
+
+        Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(usage).Symbol);
+    }
+
+    [Fact]
+    public void LetElse_WithFallthroughElse_ReportsDiagnostic()
+    {
+        const string source = """
+union Choice {
+    case Some(value: int)
+    case None
+}
+
+func Read(input: Choice) -> int {
+    let Choice.Some(value) = input else {
+        ()
+    }
+
+    return value
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Contains(
+            result.Compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.LetElseClauseMustNotCompleteNormally);
+    }
+
+    [Fact]
+    public void LetElse_TypedPatternUnwrapsNullableValue()
+    {
+        const string source = """
+func Length(input: string?) -> int {
+    let value: string = input else {
+        return 0
+    }
+
+    return value.Length
+}
+""";
+
+        var verifier = CreateVerifier(source);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+    }
 }

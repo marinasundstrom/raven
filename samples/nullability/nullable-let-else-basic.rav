@@ -1,0 +1,13 @@
+import System.Console.*
+
+func printLength(name: string?) {
+    let value: string = name else {
+        WriteLine("No name")
+        return
+    }
+
+    WriteLine("Length: ${value.Length}")
+}
+
+printLength("Raven")
+printLength(null)

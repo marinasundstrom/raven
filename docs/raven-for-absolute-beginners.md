@@ -369,6 +369,26 @@ match FindEven([1, 3, 4, 7]) {
 }
 ```
 
+When the rest of a function needs the contained value, use `let ... else` to
+keep the successful path straight:
+
+```raven
+func PrintEven(number: Option<int>) -> unit {
+    let Some(value) = number else {
+        WriteLine("No even number found")
+        return
+    }
+
+    WriteLine("Found $value")
+}
+```
+
+The pattern describes the value required to continue. If it does not match,
+the `else` block must leave with `return`, `throw`, `break`, or `continue`.
+Afterward, `value` is an ordinary local. Use `if let` when the value is needed
+only inside one conditional branch, and `match` when several cases need their
+own behavior.
+
 ## Operations that may fail
 
 `Result<T, E>` represents either success with `Ok(...)` or an expected problem

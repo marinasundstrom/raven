@@ -7,6 +7,18 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class AssignmentStatementSyntaxTest
 {
     [Fact]
+    public void ParsesLetElsePatternDeclaration()
+    {
+        var statement = SyntaxFactory.ParseStatement("let Some(value) = input else { return }");
+        var declaration = Assert.IsType<PatternDeclarationAssignmentStatementSyntax>(statement);
+
+        Assert.Equal(SyntaxKind.LetKeyword, declaration.BindingKeyword.Kind);
+        Assert.IsType<NominalDeconstructionPatternSyntax>(declaration.Left);
+        Assert.NotNull(declaration.ElseClause);
+        Assert.IsType<BlockStatementSyntax>(declaration.ElseClause.Statement);
+    }
+
+    [Fact]
     public void ParsesAssignmentStatement()
     {
         var tree = SyntaxTree.ParseText("x = 1");

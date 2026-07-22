@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added Rust-style `let pattern = expression else { ... }` declarations. The
+  `else` branch must exit, and successful pattern bindings remain available in
+  the surrounding scope. Documentation now promotes `if let` and `let ... else`
+  for binding-oriented control flow while retaining `is` for boolean pattern
+  expressions.
 - Ordered language-server diagnostic presentation per document and rejected
   older editor versions, preventing recovery diagnostics from reappearing
   after a newer compiler pass has cleared them.

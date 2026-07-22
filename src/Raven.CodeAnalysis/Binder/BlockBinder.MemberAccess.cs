@@ -3744,6 +3744,9 @@ partial class BlockBinder
                 inlineBindingKeyword.GetLocation());
         }
 
+        if (syntax.ElseClause is not null)
+            return BindLetElseStatement(syntax);
+
         var right = BindExpression(syntax.Right);
         var bound = BindPatternAssignment(syntax.Left, right, syntax, syntax.BindingKeyword.Kind);
         if (bound is BoundAssignmentExpression assignment)
@@ -3753,6 +3756,51 @@ partial class BlockBinder
         }
 
         return new BoundExpressionStatement(bound);
+    }
+
+    private BoundStatement BindLetElseStatement(PatternDeclarationAssignmentStatementSyntax syntax)
+    {
+        var condition = BindPatternStatementCondition(syntax.BindingKeyword, syntax.Left, syntax.Right);
+        var elseStatement = syntax.ElseClause!.Statement;
+        var elseBound = BindStatement(elseStatement);
+
+        if (!LetElseClauseExits(elseStatement))
+        {
+            _diagnostics.Report(
+                Diagnostic.Create(
+                    CompilerDiagnostics.LetElseClauseMustNotCompleteNormally,
+                    syntax.ElseClause.GetLocation()));
+        }
+
+        if (condition is BoundIsPatternExpression isPattern)
+            RegisterPatternLocalsForCurrentLookup(isPattern.Pattern);
+
+        return new BoundIfStatement(
+            condition,
+            new BoundBlockStatement(Array.Empty<BoundStatement>()),
+            elseBound);
+    }
+
+    private bool LetElseClauseExits(StatementSyntax statement)
+    {
+        if (IsEarlyExitStatement(statement))
+            return true;
+
+        if (statement is not BlockStatementSyntax block)
+            return false;
+
+        try
+        {
+            var flow = SemanticModel.AnalyzeControlFlowInternal(
+                new ControlFlowRegion(block),
+                block,
+                analyzeJumpPoints: false);
+            return flow is { Succeeded: true, EndPointIsReachable: false };
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private static SyntaxToken FindFirstInlinePatternBindingKeyword(PatternSyntax pattern)

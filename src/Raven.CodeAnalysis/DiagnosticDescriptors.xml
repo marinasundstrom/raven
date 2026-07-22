@@ -883,6 +883,10 @@
     Title="Duplicate dictionary key"
     Message="Dictionary key '{key}' is already specified earlier in this pattern"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1616" Identifier="LetElseClauseMustNotCompleteNormally"
+    Title="Let-else clause must exit"
+    Message="The else clause of a let-else statement must not complete normally"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred"
     Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"

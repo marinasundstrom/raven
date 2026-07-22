@@ -352,7 +352,8 @@ internal partial class ExpressionGenerator
                 inputClr = Generator.InstantiateType(inputClr);
                 var declaredClr = Generator.InstantiateType(clrType);
 
-                if (ClrTypesMatch(inputClr, declaredClr))
+                if (ClrTypesMatch(inputClr, declaredClr) &&
+                    (!inputType.IsNullable || typeSymbol.IsNullable))
                 {
                     var local = EmitDesignation(declarationPattern.Designator, scope);
                     if (local is not null)
