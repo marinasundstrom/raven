@@ -1,0 +1,103 @@
+name: Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to package without a leading v
+        required: true
+        default: 0.1.0-dev
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  sdk:
+    name: SDK ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid:
+          - win-x64
+          - win-arm64
+          - linux-x64
+          - linux-arm64
+          - osx-x64
+          - osx-arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build SDK
+        run: scripts/package-sdk.sh "${{ matrix.rid }}" "${{ steps.version.outputs.value }}"
+      - name: Validate staged SDK
+        run: scripts/test-distribution.sh "artifacts/distribution/raven-sdk-${{ steps.version.outputs.value }}-${{ matrix.rid }}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: raven-sdk-${{ matrix.rid }}
+          path: artifacts/distribution/raven-sdk-${{ steps.version.outputs.value }}-${{ matrix.rid }}.*
+          if-no-files-found: error
+
+  vscode:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: src/Raven.VSCode/package-lock.json
+      - run: scripts/package-vscode.sh
+      - uses: actions/upload-artifact@v6
+        with:
+          name: raven-vscode
+          path: artifacts/distribution/raven-vscode.vsix
+          if-no-files-found: error
+
+  collect:
+    name: Collect release artifacts
+    needs: [sdk, vscode]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v5
+        with:
+          path: release
+          merge-multiple: true
+      - name: Add installers and checksums
+        run: |
+          cp scripts/install-raven.sh scripts/install-raven.ps1 release/
+          cd release
+          sha256sum raven-sdk-* raven-vscode.vsix > SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        with:
+          name: raven-distribution
+          path: release/*
+          if-no-files-found: error
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" release/* --clobber

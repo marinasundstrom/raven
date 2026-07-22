@@ -6,7 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added the initial distribution contract: platform SDK archive builders,
   relocatable compiler/MSBuild assets, `rvn sdk path`, installed-SDK discovery
-  in VS Code, and a universal VSIX builder with a bundled language server.
+  in VS Code, a universal VSIX builder with a bundled language server,
+  checksum-verifying installers, and automated multi-platform release builds.
 - Locked the built-in union C# surface and serialization contract with direct
   C# construction/extraction coverage: payload-first JSON remains the standard
   behavior, while tagged Raven serialization requires explicit opt-in.

@@ -41,6 +41,20 @@ rvn sdk path
 Set `RAVEN_SDK_ROOT` to select an SDK explicitly. The directory must contain
 both `VERSION` and `sdk/build/Raven.Language.targets`.
 
+Release builds can be installed directly with the platform installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/marinasundstrom/raven/main/scripts/install-raven.sh | sh -s -- 0.1.0
+```
+
+```powershell
+./install-raven.ps1 -Version 0.1.0
+```
+
+Both installers verify the archive against the release's `SHA256SUMS` file and
+install versioned SDK files under `~/.raven` by default.
+Set `RAVEN_INSTALL_ROOT` to choose another installation directory.
+
 ## Building an SDK archive
 
 Run the package script with a .NET runtime identifier and version:
@@ -69,6 +83,11 @@ Release automation should build these runtime identifiers:
 - `linux-arm64`
 - `osx-x64`
 - `osx-arm64`
+
+The `Distribution` GitHub Actions workflow builds all six archives and the
+VSIX. Tagging a commit as `v<version>` creates or updates the corresponding
+GitHub release with installers and checksums. A manual workflow run produces
+the same files as a workflow artifact without publishing a release.
 
 ## VS Code extension
 

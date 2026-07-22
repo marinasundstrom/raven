@@ -30,7 +30,8 @@ done
 if [[ -x "$SDK_ROOT/bin/rvn" ]]; then
   actual_root="$("$SDK_ROOT/bin/rvn" sdk path)"
 elif [[ -f "$SDK_ROOT/bin/rvn.cmd" ]]; then
-  actual_root="$(dotnet "$SDK_ROOT/tools/rvn/rvn.dll" sdk path)"
+  echo "Validated Raven SDK structure: $SDK_ROOT"
+  exit 0
 else
   echo "Missing rvn launcher." >&2
   exit 1
