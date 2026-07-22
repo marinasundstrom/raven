@@ -31,7 +31,6 @@ public class ParserTokenInsertionFuzzTests
         ")",
         "[",
         "]",
-        "trait",
         "class",
         "namespace",
         "import",

@@ -8,7 +8,7 @@ public class PreferNewLineBetweenDeclarationsAnalyzerTests : AnalyzerTestBase
     [Fact]
     public void TypeDeclarations_OnSameLineWithSemicolon_ReportsDiagnostic()
     {
-        const string code = "class A {}; trait T for A {}";
+        const string code = "class A {}; extension T for A {}";
 
         var verifier = CreateAnalyzerVerifier<PreferNewLineBetweenDeclarationsAnalyzer>(
             code,

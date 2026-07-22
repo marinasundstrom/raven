@@ -65,9 +65,9 @@ TopLevelConstDeclaration ::= {AttributeList | MacroAttributeList}
                              TopLevelConstModifiers?
                              'const' VariableDeclarators TypeTerminator? ;
 
-ExtensionKeyword         ::= 'extension' | 'trait'
+ExtensionKeyword         ::= 'extension'
 
-(* The extension/trait identifier is optional. When omitted, the compiler synthesizes an internal name (e.g., via mangling) and the declaration cannot be referenced by name. *)
+(* The extension identifier is optional. When omitted, the compiler synthesizes an internal name (e.g., via mangling) and the declaration cannot be referenced by name. *)
 (* Named `fileprivate` extensions also emit a mangled container metadata name so the generated type does not expose a stable cross-file/importable identity. *)
 (* Unnamed extensions are intended for local/assembly-private augmentation; public APIs should use a stable explicit name. *)
 ExtensionDeclaration     ::= ExtensionKeyword Identifier? TypeParameterList?

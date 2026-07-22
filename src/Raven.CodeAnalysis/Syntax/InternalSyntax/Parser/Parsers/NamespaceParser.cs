@@ -161,7 +161,6 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 SyntaxKind.ClassKeyword or
                 SyntaxKind.InterfaceKeyword or
                 SyntaxKind.ExtensionKeyword or
-                SyntaxKind.TraitKeyword or
                 SyntaxKind.OpenBracketToken or
                 SyntaxKind.HashToken or
                 SyntaxKind.PublicKeyword or
@@ -287,7 +286,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
                  nextToken.IsKind(SyntaxKind.DelegateKeyword) ||
-                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) || nextToken.IsKind(SyntaxKind.TraitKeyword) ||
+                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) ||
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.FileprivateKeyword) ||
@@ -377,7 +376,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 return;
             }
 
-            if (typeKeywordKind is SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword)
+            if (typeKeywordKind == SyntaxKind.ExtensionKeyword)
             {
                 var extensionDeclaration = new ExtensionDeclarationParser(this).Parse(attributeLists, modifiers);
 

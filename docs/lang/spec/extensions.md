@@ -1,21 +1,21 @@
-# Extensions and traits
+# Extensions
 
 Extensions provide helper members for an existing receiver type without
-modifying the original declaration. The `extension` and `trait` keywords declare
-the same construct.
+modifying the original declaration. The `extension` keyword declares this
+construct.
 
 An extension declaration is a namespace-level container that targets a
 specific type via a `for` clause. Importing the container brings its members
 into scope for lookup.
 
-An extension or trait declaration may omit its identifier, in which case the
+An extension declaration may omit its identifier, in which case the
 compiler synthesizes a private, mangled container name. Public extensions or
-traits must declare an explicit identifier so the container can be referenced
+extensions must declare an explicit identifier so the container can be referenced
 and imported by name. Applying `fileprivate` keeps the declaration file-local and
 mangles the emitted metadata name even when the source uses an explicit
 identifier.
 
-Extensions and traits may declare type parameters and generic constraints.
+Extensions may declare type parameters and generic constraints.
 These constraints participate in extension resolution: an extension is
 applicable only when its type parameters can be inferred and all declared
 constraints are satisfied for the receiver type. Extensions whose constraints
@@ -42,7 +42,7 @@ val empty = "   ".IsNullOrWhiteSpace()
 
 ```raven
 // Constrained extension: applicable only when the receiver satisfies the constraints.
-trait ValueSequenceExt<T> for System.Collections.Generic.IEnumerable<T>
+extension ValueSequenceExt<T> for System.Collections.Generic.IEnumerable<T>
     where T: struct {
     func Sum() -> T { /* ... */ }
 }

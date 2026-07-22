@@ -502,8 +502,6 @@ import MyApp.StringExt.*
 let slug = "Hello World".ToSlug()
 ```
 
-Raven also supports `trait` as an alternate declaration keyword for the same construct. Both spellings participate in the same extension lookup model.
-
 ---
 
 ## Records and primary constructors

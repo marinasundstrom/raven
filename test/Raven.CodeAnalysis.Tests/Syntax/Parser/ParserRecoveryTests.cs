@@ -377,7 +377,7 @@ public class ParserRecoveryTests
     [Fact]
     public void TypeDeclarations_OnSameLineWithoutTerminator_ReportMissingTerminatorDiagnostic()
     {
-        var source = "class A {} trait T for A {}";
+        var source = "class A {} extension T for A {}";
 
         var tree = SyntaxTree.ParseText(source);
         var root = tree.GetRoot();
@@ -385,7 +385,7 @@ public class ParserRecoveryTests
             tree.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.ExpectedNewLineBetweenDeclarations));
 
         Assert.Equal(2, root.Members.Count);
-        Assert.Equal(source.IndexOf(" trait", StringComparison.Ordinal), diagnostic.Location.SourceSpan.Start);
+        Assert.Equal(source.IndexOf(" extension", StringComparison.Ordinal), diagnostic.Location.SourceSpan.Start);
         Assert.Equal(1, diagnostic.Location.SourceSpan.Length);
     }
 
@@ -423,7 +423,7 @@ public class ParserRecoveryTests
     {
         var source = """
             class A {}
-            trait T for A {}
+            extension T for A {}
             """;
 
         var tree = SyntaxTree.ParseText(source);

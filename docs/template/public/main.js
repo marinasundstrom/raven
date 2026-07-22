@@ -15,7 +15,7 @@ const raven = (hljs) => ({
       'operator', 'or', 'out', 'override', 'param', 'parameter', 'params',
       'partial', 'permits', 'private', 'property', 'protected', 'public',
       'readonly', 'record', 'ref', 'remove', 'required', 'return', 'sealed',
-      'self', 'set', 'sizeof', 'static', 'struct', 'throw', 'trait', 'try',
+      'self', 'set', 'sizeof', 'static', 'struct', 'throw', 'try',
       'type', 'typeof', 'union', 'unsafe', 'unmanaged', 'use', 'val', 'var',
       'virtual', 'when', 'where', 'while', 'with', 'yield'
     ].join(' '),

@@ -130,7 +130,7 @@ import System.*
 
 class Foo(value: int) {}
 
-trait Test for Foo {
+extension Test for Foo {
     func Hello() -> string? {
         return self.ToString()
     }

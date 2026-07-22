@@ -331,7 +331,6 @@ internal class UnionDeclarationParser : SyntaxParser
             SyntaxKind.StructKeyword or
             SyntaxKind.InterfaceKeyword or
             SyntaxKind.ExtensionKeyword or
-            SyntaxKind.TraitKeyword or
             SyntaxKind.EnumKeyword or
             SyntaxKind.UnionKeyword or
             SyntaxKind.DelegateKeyword or

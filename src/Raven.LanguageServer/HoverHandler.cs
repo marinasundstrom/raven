@@ -1847,7 +1847,6 @@ internal sealed class HoverHandler : IHoverHandler
             or SyntaxKind.StaticKeyword
             or SyntaxKind.StructKeyword
             or SyntaxKind.ThrowKeyword
-            or SyntaxKind.TraitKeyword
             or SyntaxKind.TryKeyword
             or SyntaxKind.TypeOfKeyword
             or SyntaxKind.UnsafeKeyword

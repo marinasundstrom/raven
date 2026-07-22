@@ -117,7 +117,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     {
         return token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
             SyntaxKind.ConstKeyword or SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
-            SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
+            SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.FileprivateKeyword or
             SyntaxKind.StaticKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
             SyntaxKind.OpenKeyword or SyntaxKind.RecordKeyword or
@@ -191,7 +191,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
                  nextToken.IsKind(SyntaxKind.DelegateKeyword) ||
-                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) || nextToken.IsKind(SyntaxKind.TraitKeyword) ||
+                 nextToken.IsKind(SyntaxKind.StructKeyword) || nextToken.IsKind(SyntaxKind.ClassKeyword) || nextToken.IsKind(SyntaxKind.InterfaceKeyword) || nextToken.IsKind(SyntaxKind.ExtensionKeyword) ||
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.FileprivateKeyword) ||
@@ -281,7 +281,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 return;
             }
 
-            if (typeKeywordKind is SyntaxKind.ExtensionKeyword or SyntaxKind.TraitKeyword)
+            if (typeKeywordKind == SyntaxKind.ExtensionKeyword)
             {
                 var extensionDeclaration = new ExtensionDeclarationParser(this).Parse(attributeLists, modifiers);
 

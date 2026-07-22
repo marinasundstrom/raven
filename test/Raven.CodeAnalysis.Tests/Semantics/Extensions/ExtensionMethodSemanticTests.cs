@@ -1271,7 +1271,7 @@ class Target(value: int) {
     }
 }
 
-trait TargetExtensions for Target {
+extension TargetExtensions for Target {
     func Label() -> string? {
         return self.ToString()
     }

@@ -440,10 +440,6 @@
                     "match": "\\b(extension)\\b"
                 },
                 {
-                    "name": "keyword.declaration.trait.raven storage.type.trait.raven",
-                    "match": "\\b(trait)\\b"
-                },
-                {
                     "name": "keyword.declaration.function.raven storage.type.function.raven",
                     "match": "\\b(func)\\b"
                 },
@@ -642,7 +638,7 @@
                 },
                 {
                     "name": "meta.type.declaration.raven",
-                    "match": "\\b(class|struct|union|enum|interface|delegate|extension|trait)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+                    "match": "\\b(class|struct|union|enum|interface|delegate|extension)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
                     "captures": {
                         "1": {
                             "patterns": [
@@ -673,10 +669,6 @@
                                 {
                                     "match": "\\bextension\\b",
                                     "name": "keyword.declaration.extension.raven storage.type.extension.raven"
-                                },
-                                {
-                                    "match": "\\btrait\\b",
-                                    "name": "keyword.declaration.trait.raven storage.type.trait.raven"
                                 }
                             ]
                         },

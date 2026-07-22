@@ -8,10 +8,10 @@ public class PreferNewLineBetweenDeclarationsCodeFixTests : CodeFixTestBase
     [Fact]
     public void AppliesCodeFix_InsertsNewLine()
     {
-        var code = "class A {};trait T for A {}";
+        var code = "class A {};extension T for A {}";
         var fixedCode = """
 class A {};
-trait T for A {}
+extension T for A {}
 """;
 
         var verifier = CreateCodeFixVerifier<PreferNewLineBetweenDeclarationsAnalyzer, PreferNewLineBetweenDeclarationsCodeFixProvider>(

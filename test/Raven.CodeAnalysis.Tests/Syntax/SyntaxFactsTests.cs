@@ -42,6 +42,7 @@ public class SyntaxFactsTests
     public void TryParseKeyword_ReturnsFalse_ForNonKeyword()
     {
         SyntaxFacts.TryParseKeyword("+", out _).ShouldBeFalse();
+        SyntaxFacts.TryParseKeyword("trait", out _).ShouldBeFalse();
     }
 
     [Fact]
