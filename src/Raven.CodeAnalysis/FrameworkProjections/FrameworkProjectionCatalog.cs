@@ -94,6 +94,13 @@ internal static class FrameworkProjectionCatalog
         return lastDot < 0 ? returnType : returnType[(lastDot + 1)..];
     }
 
+    internal static bool IsProjectionAdapter(IMethodSymbol method) =>
+        method.GetAttributes().Any(static attribute =>
+            string.Equals(
+                $"{attribute.AttributeClass.ContainingNamespace?.ToMetadataName()}.{attribute.AttributeClass.MetadataName}",
+                "System.Runtime.CompilerServices.FrameworkProjectionAttribute",
+                StringComparison.Ordinal));
+
     private static bool IsProjectionAdapter(IMethodSymbol method, string projectionId) =>
         method.GetAttributes().Any(attribute =>
             string.Equals(

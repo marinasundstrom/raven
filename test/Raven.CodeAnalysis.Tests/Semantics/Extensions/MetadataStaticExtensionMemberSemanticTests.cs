@@ -72,6 +72,24 @@ val parsed = int.TryParse("42", out var value)
     }
 
     [Fact]
+    public void FrameworkProjectionAdapter_DoesNotLeakThroughExtensionLookupWhenDisabled()
+    {
+        const string source = """
+import System.*
+
+val parsed = int.TryParse("42")
+""";
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
+        var (compilation, tree) = CreateCompilation(source, options, TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+        _ = compilation.GetSemanticModel(tree).GetBoundNode(
+            tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single());
+
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
+    }
+
+    [Fact]
     public void FrameworkTryParseProjection_PreservesTypeSpecificOptions()
     {
         const string source = """

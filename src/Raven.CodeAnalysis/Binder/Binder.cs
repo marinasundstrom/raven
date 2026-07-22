@@ -593,6 +593,9 @@ internal abstract partial class Binder
     {
         foreach (var method in EnumerateExtensionStaticMethods(scope, name, includePartialMatches))
         {
+            if (FrameworkProjectionCatalog.IsProjectionAdapter(method))
+                continue;
+
             if (!IsExtensionStaticCandidateForReceiver(method, receiverType, includePartialMatches))
                 continue;
 
