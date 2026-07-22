@@ -16,9 +16,7 @@ partial class BlockBinder
             FrameworkProjectionCatalog.TryGetStandard(receiverType, name, out _))
         {
             var projected = FrameworkProjectionCatalog.GetStandardMethods(Compilation, receiverType, name);
-
-            if (!projected.IsDefaultOrEmpty)
-                return projected;
+            return projected;
         }
 
         return new SymbolQuery(name, receiverType, IsStatic: true)

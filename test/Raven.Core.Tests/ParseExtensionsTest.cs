@@ -13,9 +13,14 @@ public sealed class ParseExtensionsTest : RavenCoreDiagnosticTestBase
     {
         const string code = """
 import System.*
+import System.Globalization.*
 
 func TryParseProjected(text: string) -> Option<int> {
     return int.TryParse(text)
+}
+
+func TryParseProjectedWithStyle(text: string) -> Option<int> {
+    return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture)
 }
 """;
 
@@ -33,7 +38,12 @@ func TryParseProjected(text: string) -> Option<int> {
     {
         var assembly = LoadRavenCoreAssembly();
         var extensions = assembly.GetType(containerName, throwOnError: true)!;
-        var tryParse = extensions.GetMethod("TryParse", BindingFlags.Public | BindingFlags.Static)!;
+        var tryParse = extensions.GetMethod(
+            "TryParse",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: [typeof(string)],
+            modifiers: null)!;
 
         var option = tryParse.Invoke(null, [input])!;
         var optionType = option.GetType();
@@ -51,7 +61,12 @@ func TryParseProjected(text: string) -> Option<int> {
     {
         var assembly = LoadRavenCoreAssembly();
         var extensions = assembly.GetType("System.Int32Extensions", throwOnError: true)!;
-        var tryParse = extensions.GetMethod("TryParse", BindingFlags.Public | BindingFlags.Static)!;
+        var tryParse = extensions.GetMethod(
+            "TryParse",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: [typeof(string)],
+            modifiers: null)!;
 
         var option = tryParse.Invoke(null, ["not-an-int"])!;
         var optionType = option.GetType();

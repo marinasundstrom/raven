@@ -146,8 +146,8 @@ The source method must be identified by its containing metadata type, name,
 parameter types, parameter ref-kinds, return type, and applicable target
 framework. Merely matching the displayed shape is insufficient.
 
-In the standard view, the projected family replaces the source family for Raven
-member lookup:
+In the standard view, each cataloged source signature is replaced by its
+projected signature for Raven member lookup:
 
 ```raven
 val projected = int.TryParse(text) // Option<int>
@@ -169,9 +169,11 @@ The first useful vertical slice should cover:
 | `Guid` | `System.Guid` | `Option<Guid>` |
 | `DateTime` | `System.DateTime` | `Option<DateTime>` |
 
-The catalog contains only the simplest string-input overload for each type.
-Overloads involving spans, format styles, format providers, or additional flags
-are deferred until the basic symbol and lowering model is proven.
+The catalog contains the simplest string-input overload for each type. It also
+preserves the common type-specific parsing inputs: numeric `NumberStyles` plus
+`IFormatProvider`, and `DateTime`'s `IFormatProvider` plus `DateTimeStyles`.
+Span-based overloads and additional flags are deferred until the basic symbol
+and lowering model is proven.
 
 The remaining integral and floating-point primitives are natural additions
 after the initial slice:

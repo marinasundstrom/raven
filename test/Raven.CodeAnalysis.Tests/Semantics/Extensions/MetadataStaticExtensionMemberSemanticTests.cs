@@ -70,6 +70,29 @@ val parsed = int.TryParse("42", out var value)
     }
 
     [Fact]
+    public void FrameworkTryParseProjection_PreservesTypeSpecificOptions()
+    {
+        const string source = """
+import System.*
+import System.Globalization.*
+
+val parsed = int.TryParse("42", NumberStyles.Integer, CultureInfo.InvariantCulture)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Equal(3, boundInvocation.Method.Parameters.Length);
+        Assert.Equal("Option<int>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+    }
+
+    [Fact]
     public void StaticExtensionMethod_FromMetadata_BindsToExtensionContainer()
     {
         const string source = """

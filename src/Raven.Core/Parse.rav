@@ -46,6 +46,15 @@ extension Int32Extensions for Int32 {
         return None
     }
 
+    [FrameworkProjection]
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<int> {
+        if Int32.TryParse(input, style, provider, out var value) {
+            return Some(value)
+        }
+
+        return None
+    }
+
     static func parse(input: string) -> Result<int, ParseIntError> {
         return parse(input, NumberStyles.Integer)
     }
@@ -81,6 +90,12 @@ extension Int64Extensions for Int64 {
 
         return None
     }
+
+    [FrameworkProjection]
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<long> {
+        if Int64.TryParse(input, style, provider, out var value) { return Some(value) }
+        return None
+    }
 }
 
 extension DoubleExtensions for Double {
@@ -92,6 +107,12 @@ extension DoubleExtensions for Double {
 
         return None
     }
+
+    [FrameworkProjection]
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<double> {
+        if Double.TryParse(input, style, provider, out var value) { return Some(value) }
+        return None
+    }
 }
 
 extension DecimalExtensions for Decimal {
@@ -101,6 +122,12 @@ extension DecimalExtensions for Decimal {
             return Some(value)
         }
 
+        return None
+    }
+
+    [FrameworkProjection]
+    static func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<decimal> {
+        if Decimal.TryParse(input, style, provider, out var value) { return Some(value) }
         return None
     }
 }
@@ -123,6 +150,12 @@ extension DateTimeExtensions for DateTime {
             return Some(value)
         }
 
+        return None
+    }
+
+    [FrameworkProjection]
+    static func TryParse(input: string?, provider: IFormatProvider?, styles: DateTimeStyles) -> Option<DateTime> {
+        if DateTime.TryParse(input, provider, styles, out var value) { return Some(value) }
         return None
     }
 }

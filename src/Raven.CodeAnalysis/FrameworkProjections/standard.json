@@ -10,10 +10,26 @@
       "exceptions": []
     },
     {
+      "receiverType": "System.Int32",
+      "source": "System.Boolean System.Int32.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Int32)",
+      "projectedContainer": "System.Int32Extensions",
+      "projectedSignature": "System.Option<System.Int32> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
       "receiverType": "System.Int64",
       "source": "System.Boolean System.Int64.TryParse(System.String, out System.Int64)",
       "projectedContainer": "System.Int64Extensions",
       "projectedSignature": "System.Option<System.Int64> TryParse(System.String)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
+      "receiverType": "System.Int64",
+      "source": "System.Boolean System.Int64.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Int64)",
+      "projectedContainer": "System.Int64Extensions",
+      "projectedSignature": "System.Option<System.Int64> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -26,10 +42,26 @@
       "exceptions": []
     },
     {
+      "receiverType": "System.Double",
+      "source": "System.Boolean System.Double.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Double)",
+      "projectedContainer": "System.DoubleExtensions",
+      "projectedSignature": "System.Option<System.Double> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
       "receiverType": "System.Decimal",
       "source": "System.Boolean System.Decimal.TryParse(System.String, out System.Decimal)",
       "projectedContainer": "System.DecimalExtensions",
       "projectedSignature": "System.Option<System.Decimal> TryParse(System.String)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
+      "receiverType": "System.Decimal",
+      "source": "System.Boolean System.Decimal.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Decimal)",
+      "projectedContainer": "System.DecimalExtensions",
+      "projectedSignature": "System.Option<System.Decimal> TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider)",
       "lowering": "false-returns-none",
       "exceptions": []
     },
@@ -46,6 +78,14 @@
       "source": "System.Boolean System.DateTime.TryParse(System.String, out System.DateTime)",
       "projectedContainer": "System.DateTimeExtensions",
       "projectedSignature": "System.Option<System.DateTime> TryParse(System.String)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
+      "receiverType": "System.DateTime",
+      "source": "System.Boolean System.DateTime.TryParse(System.String, System.IFormatProvider, System.Globalization.DateTimeStyles, out System.DateTime)",
+      "projectedContainer": "System.DateTimeExtensions",
+      "projectedSignature": "System.Option<System.DateTime> TryParse(System.String, System.IFormatProvider, System.Globalization.DateTimeStyles)",
       "lowering": "false-returns-none",
       "exceptions": []
     }

@@ -59,7 +59,7 @@ internal static class FrameworkProjectionCatalog
             {
                 if (!IsProjectionAdapter(adapter) ||
                     !string.Equals(adapter.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
-                    adapter.Parameters.Length != 1 ||
+                    adapter.Parameters.Length != GetProjectedParameterCount(descriptor.ProjectedSignature) ||
                     adapter.ReturnType is not INamedTypeSymbol { Name: "Option", Arity: 1 })
                     continue;
                 if (!SymbolEqualityComparer.Default.Equals(adapter.GetExtensionReceiverType(), receiverType))
@@ -70,6 +70,16 @@ internal static class FrameworkProjectionCatalog
         }
 
         return builder.ToImmutable();
+    }
+
+    private static int GetProjectedParameterCount(string signature)
+    {
+        var openParen = signature.IndexOf('(', StringComparison.Ordinal);
+        var closeParen = signature.LastIndexOf(')');
+        if (openParen < 0 || closeParen <= openParen + 1)
+            return 0;
+
+        return signature[(openParen + 1)..closeParen].Count(static character => character == ',') + 1;
     }
 
     private static bool IsProjectionAdapter(IMethodSymbol method) =>
