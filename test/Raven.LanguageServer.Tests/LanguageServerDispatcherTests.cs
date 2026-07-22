@@ -264,6 +264,115 @@ func Test2() -> IDisposable {
     }
 
     [Fact]
+    public async Task PublishDiagnosticsInOrder_RecoveryCompilerResultCannotBeOvertakenByStaleSyntaxResultAsync()
+    {
+        var (store, mainUri, _) = await CreateTwoFileProjectAsync();
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var validSource = SourceText.From("""
+            func Login(password: string) -> bool {
+                if (password == "test123!?") {
+                    return true
+                }
+                return false
+            }
+            """);
+        var invalidInvocation = CreateDiagnostic(
+            "RAV0030",
+            "Invalid invocation expression.",
+            1,
+            20,
+            1,
+            31,
+            DiagnosticSeverity.Error);
+
+        var publications = new List<string>();
+        var syntaxPublishEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSyntaxPublish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var compilerPublishStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var syntaxPublish = Task.Run(() => dispatcher.PublishDiagnosticsInOrder(
+            mainUri,
+            DocumentStore.DiagnosticLane.Syntax,
+            diagnostics: [invalidInvocation],
+            editorVersion: 2,
+            snapshotKey: null,
+            validSource,
+            (diagnostics, _) =>
+            {
+                syntaxPublishEntered.SetResult();
+                releaseSyntaxPublish.Task.GetAwaiter().GetResult();
+                publications.Add(RavenTextDocumentSyncHandler.SummarizeDiagnosticsForLog(diagnostics));
+            }));
+
+        await syntaxPublishEntered.Task;
+        var compilerPublish = Task.Run(() =>
+        {
+            compilerPublishStarted.SetResult();
+            return dispatcher.PublishDiagnosticsInOrder(
+                mainUri,
+                DocumentStore.DiagnosticLane.DocumentCompiler,
+                diagnostics: [],
+                editorVersion: 2,
+                snapshotKey: null,
+                validSource,
+                (diagnostics, _) => publications.Add(RavenTextDocumentSyncHandler.SummarizeDiagnosticsForLog(diagnostics)));
+        });
+
+        await compilerPublishStarted.Task;
+        compilerPublish.IsCompleted.ShouldBeFalse();
+
+        releaseSyntaxPublish.SetResult();
+        await Task.WhenAll(syntaxPublish, compilerPublish);
+
+        publications.ShouldBe(["RAV0030x1", "none"]);
+    }
+
+    [Fact]
+    public async Task PublishDiagnosticsInOrder_OlderEditorVersionCannotOverwriteNewerDiagnosticsAsync()
+    {
+        var (store, mainUri, _) = await CreateTwoFileProjectAsync();
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var publications = new List<string>();
+        var currentDiagnostic = CreateDiagnostic(
+            "RAV0103",
+            "'Current' is not in scope.",
+            0,
+            0,
+            0,
+            7,
+            DiagnosticSeverity.Error);
+        var staleDiagnostic = CreateDiagnostic(
+            "RAV0030",
+            "Invalid invocation expression.",
+            0,
+            0,
+            0,
+            7,
+            DiagnosticSeverity.Error);
+
+        dispatcher.PublishDiagnosticsInOrder(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [currentDiagnostic],
+            editorVersion: 3,
+            snapshotKey: null,
+            sourceText: null,
+            (diagnostics, _) => publications.Add(RavenTextDocumentSyncHandler.SummarizeDiagnosticsForLog(diagnostics)));
+        var stale = dispatcher.PublishDiagnosticsInOrder(
+            mainUri,
+            DocumentStore.DiagnosticLane.DocumentCompiler,
+            [staleDiagnostic],
+            editorVersion: 2,
+            snapshotKey: null,
+            sourceText: null,
+            (diagnostics, _) => publications.Add(RavenTextDocumentSyncHandler.SummarizeDiagnosticsForLog(diagnostics)));
+
+        stale.ShouldPublish.ShouldBeFalse();
+        publications.ShouldBe(["RAV0103x1"]);
+        dispatcher.GetRecentEvents().Last().EventName.ShouldBe("DiagnosticsPresentationStale");
+    }
+
+    [Fact]
     public async Task CacheInlayHints_RecordsExactHitAndRejectsCrossProjectStaleHintAsync()
     {
         var (store, mainUri, utilitiesUri) = await CreateTwoFileProjectAsync();

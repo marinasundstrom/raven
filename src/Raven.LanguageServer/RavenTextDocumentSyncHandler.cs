@@ -337,12 +337,19 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
         try
         {
-            var presentation = AcceptPendingSyntaxDiagnosticsForPublish(uri, sourceText, version);
+            var syntaxTree = SyntaxTree.ParseText(sourceText, path: uri.GetFileSystemPath());
+            var diagnostics = DocumentStore.MapSyntaxDiagnostics(syntaxTree);
+            var presentation = _dispatcher.PublishDiagnosticsInOrder(
+                uri,
+                DocumentStore.DiagnosticLane.Syntax,
+                diagnostics,
+                version,
+                snapshotKey: null,
+                sourceText,
+                (published, publishedVersion) => PublishDiagnosticsToClient(uri, published, publishedVersion));
             diagnosticsCount = presentation.Diagnostics.Length;
             if (!presentation.ShouldPublish)
                 return;
-
-            PublishDiagnosticsToClient(uri, presentation.Diagnostics, version);
             _logger.LogInformation(
                 "Published pending syntax diagnostics for {Uri} (expectedVersion={ExpectedVersion}, count={Count}, summary={Summary}).",
                 uri,
@@ -684,13 +691,17 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
             CancelPendingDocumentCommit(notification.TextDocument.Uri);
             CancelPendingDiagnostics(notification.TextDocument.Uri);
             _documentVersions.TryRemove(notification.TextDocument.Uri, out _);
-            _dispatcher.ClearPresentationState(notification.TextDocument.Uri, reason: "didClose");
+            _dispatcher.ClearPresentationStateAndPublish(
+                notification.TextDocument.Uri,
+                reason: "didClose",
+                (published, publishedVersion) => PublishDiagnosticsToClient(
+                    notification.TextDocument.Uri,
+                    published,
+                    publishedVersion));
             ClearCompletedDiagnostics(notification.TextDocument.Uri);
 
             if (_documentUpdateGates.TryRemove(notification.TextDocument.Uri, out var gate))
                 gate.Dispose();
-
-            PublishDiagnosticsToClient(notification.TextDocument.Uri, [], version: null);
 
             _documents.DiscardPendingDocumentChange(notification.TextDocument.Uri);
             _documents.RemoveDocument(notification.TextDocument.Uri);
@@ -1397,13 +1408,14 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 return Unit.Value;
             }
 
-            var presentation = _dispatcher.AcceptDiagnosticsForPublish(
+            var presentation = _dispatcher.PublishDiagnosticsInOrder(
                 uri,
                 lane,
                 diagnostics,
                 expectedVersion,
                 snapshotKey,
-                result.SourceText);
+                result.SourceText,
+                (published, publishedVersion) => PublishDiagnosticsToClient(uri, published, publishedVersion));
             var diagnosticsToPublish = presentation.Diagnostics;
 
             if (!presentation.ShouldPublish)
@@ -1424,7 +1436,6 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 return Unit.Value;
             }
 
-            PublishDiagnosticsToClient(uri, diagnosticsToPublish, expectedVersion);
             diagnosticsCount = diagnosticsToPublish.Length;
             MarkDiagnosticsPublishCompleted(uri, expectedVersion, lane);
             var publishedDiagnosticSummary = SummarizeDiagnosticsForLog(diagnosticsToPublish);

@@ -18,6 +18,7 @@ internal sealed class LanguageServerDispatcher
 {
     private const int MaxRecentEvents = 512;
     private const int MaxCachedInlayHintEntries = 256;
+    private const int DiagnosticPresentationGateCount = 64;
 
     private readonly DocumentStore _documents;
     private readonly ILogger<LanguageServerDispatcher> _logger;
@@ -30,6 +31,9 @@ internal sealed class LanguageServerDispatcher
     private readonly ConcurrentDictionary<InlayHintDocumentCacheKey, ImmutableArray<InlayHint>> _inlayHintCache = new();
     private readonly ConcurrentDictionary<string, InlayHintDocumentCacheEntry> _latestInlayHintDocumentCache = new();
     private readonly ConcurrentQueue<LanguageServerDispatcherEvent> _recentEvents = new();
+    private readonly object[] _diagnosticPresentationGates = Enumerable.Range(0, DiagnosticPresentationGateCount)
+        .Select(static _ => new object())
+        .ToArray();
     private long _eventSequence;
     private long _workspaceEpoch;
 
@@ -47,6 +51,24 @@ internal sealed class LanguageServerDispatcher
         => _recentEvents.ToImmutableArray();
 
     public void ClearPresentationState(DocumentUri uri, string reason)
+    {
+        lock (GetDiagnosticPresentationGate(uri))
+            ClearPresentationStateCore(uri, reason);
+    }
+
+    public void ClearPresentationStateAndPublish(
+        DocumentUri uri,
+        string reason,
+        Action<ImmutableArray<Diagnostic>, int?> publishDiagnostics)
+    {
+        lock (GetDiagnosticPresentationGate(uri))
+        {
+            ClearPresentationStateCore(uri, reason);
+            publishDiagnostics([], null);
+        }
+    }
+
+    private void ClearPresentationStateCore(DocumentUri uri, string reason)
     {
         _lastPublishedDiagnosticVersions.TryRemove(uri, out _);
         _lastPublishedDiagnostics.TryRemove(uri, out _);
@@ -249,6 +271,61 @@ internal sealed class LanguageServerDispatcher
         DocumentStore.DiagnosticSnapshotKey? snapshotKey,
         SourceText? sourceText = null)
     {
+        lock (GetDiagnosticPresentationGate(uri))
+            return AcceptDiagnosticsForPublishCore(uri, lane, diagnostics, editorVersion, snapshotKey, sourceText);
+    }
+
+    public DiagnosticPresentationResult PublishDiagnosticsInOrder(
+        DocumentUri uri,
+        DocumentStore.DiagnosticLane lane,
+        IReadOnlyList<Diagnostic> diagnostics,
+        int? editorVersion,
+        DocumentStore.DiagnosticSnapshotKey? snapshotKey,
+        SourceText? sourceText,
+        Action<ImmutableArray<Diagnostic>, int?> publishDiagnostics)
+    {
+        lock (GetDiagnosticPresentationGate(uri))
+        {
+            var presentation = AcceptDiagnosticsForPublishCore(
+                uri,
+                lane,
+                diagnostics,
+                editorVersion,
+                snapshotKey,
+                sourceText);
+            if (presentation.ShouldPublish)
+                publishDiagnostics(presentation.Diagnostics, editorVersion);
+
+            return presentation;
+        }
+    }
+
+    private DiagnosticPresentationResult AcceptDiagnosticsForPublishCore(
+        DocumentUri uri,
+        DocumentStore.DiagnosticLane lane,
+        IReadOnlyList<Diagnostic> diagnostics,
+        int? editorVersion,
+        DocumentStore.DiagnosticSnapshotKey? snapshotKey,
+        SourceText? sourceText)
+    {
+        if (editorVersion is { } incomingVersion &&
+            _lastPublishedDiagnosticVersions.TryGetValue(uri, out var latestPublishedVersion) &&
+            incomingVersion < latestPublishedVersion)
+        {
+            var lastPublished = _lastPublishedDiagnosticObjects.TryGetValue(uri, out var previousDiagnostics)
+                ? previousDiagnostics
+                : [];
+            RecordDiagnosticsPresentationDecision(
+                "DiagnosticsPresentationStale",
+                uri,
+                lane,
+                editorVersion,
+                snapshotKey,
+                lastPublished,
+                $"outcome=IgnoredOlderVersion lastPublishedVersion={latestPublishedVersion}");
+            return new DiagnosticPresentationResult(lastPublished, ShouldPublish: false);
+        }
+
         var carriedAnalyzerDiagnostics = _lastPublishedAnalyzerDiagnostics.TryGetValue(uri, out var previousAnalyzers)
             ? RavenTextDocumentSyncHandler.GetCarryForwardAnalyzerDiagnosticsForPresentation(
                 editorVersion,
@@ -319,6 +396,9 @@ internal sealed class LanguageServerDispatcher
             "outcome=Changed");
         return new DiagnosticPresentationResult(diagnosticsToPublish, ShouldPublish: true);
     }
+
+    private object GetDiagnosticPresentationGate(DocumentUri uri)
+        => _diagnosticPresentationGates[(int)((uint)uri.GetHashCode() % DiagnosticPresentationGateCount)];
 
     private ImmutableArray<Diagnostic> MergeStickySyntaxDiagnosticsForPublish(
         DocumentUri uri,

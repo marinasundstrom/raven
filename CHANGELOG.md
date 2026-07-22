@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Ordered language-server diagnostic presentation per document and rejected
+  older editor versions, preventing recovery diagnostics from reappearing
+  after a newer compiler pass has cleared them.
 - Added `RAV1026`, a warning for lists that inconsistently mix comma and newline
   separators. Union case and enum member lists now diagnose the mixed style
   while continuing to parse both forms.
