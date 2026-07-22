@@ -508,6 +508,10 @@
                     "match": "\\b(params)\\b"
                 },
                 {
+                    "name": "keyword.modifier.access.constructor.raven storage.modifier.access.raven",
+                    "match": "\\b(public|internal|protected|private|fileprivate)\\b(?=\\s*\\()"
+                },
+                {
                     "name": "keyword.modifier.access.raven storage.modifier.access.raven",
                     "match": "\\b(public|internal|protected|private|fileprivate)\\b"
                 },

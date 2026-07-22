@@ -7,7 +7,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Locked the built-in union C# surface and serialization contract with direct
   C# construction/extraction coverage: payload-first JSON remains the standard
   behavior, while tagged Raven serialization requires explicit opt-in.
-- Highlighted constructor-form `init(...)` declarations in the VS Code TextMate grammar.
+- Highlighted constructor-form `init(...)` declarations and primary-constructor
+  access modifiers in the VS Code TextMate grammar.
 - Removed `trait` as an alias for extension declarations; use `extension`.
 - Projected `Guid.Parse(string)` as
   `Result<Guid, ArgumentNullException | FormatException>`, preserving the
