@@ -44,7 +44,10 @@ jobs:
           fi
       - name: Build SDK
         run: scripts/package-sdk.sh "${{ matrix.rid }}" "${{ steps.version.outputs.value }}"
-      - name: Validate staged SDK
+      - name: Validate SDK structure
+        run: scripts/test-distribution.sh --structure-only "artifacts/distribution/raven-sdk-${{ steps.version.outputs.value }}-${{ matrix.rid }}"
+      - name: Smoke test native SDK
+        if: matrix.rid == 'linux-x64'
         run: scripts/test-distribution.sh "artifacts/distribution/raven-sdk-${{ steps.version.outputs.value }}-${{ matrix.rid }}"
       - uses: actions/upload-artifact@v6
         with:

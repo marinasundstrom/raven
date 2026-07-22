@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+STRUCTURE_ONLY=false
+if [[ "${1:-}" == "--structure-only" ]]; then
+  STRUCTURE_ONLY=true
+  shift
+fi
+
 SDK_ROOT="${1:-}"
 if [[ -z "$SDK_ROOT" ]]; then
-  echo "Usage: scripts/test-distribution.sh <sdk-root>" >&2
+  echo "Usage: scripts/test-distribution.sh [--structure-only] <sdk-root>" >&2
   exit 1
 fi
 
@@ -27,11 +33,16 @@ for relative_path in "${required_files[@]}"; do
   fi
 done
 
+if [[ "$STRUCTURE_ONLY" == true ]]; then
+  echo "Validated Raven SDK structure: $SDK_ROOT"
+  exit 0
+fi
+
 if [[ -x "$SDK_ROOT/bin/rvn" ]]; then
   actual_root="$("$SDK_ROOT/bin/rvn" sdk path)"
 elif [[ -f "$SDK_ROOT/bin/rvn.cmd" ]]; then
-  echo "Validated Raven SDK structure: $SDK_ROOT"
-  exit 0
+  echo "Windows SDK execution requires a Windows host. Re-run with --structure-only on this platform." >&2
+  exit 1
 else
   echo "Missing rvn launcher." >&2
   exit 1

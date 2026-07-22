@@ -78,7 +78,13 @@ Validate a staged SDK before publishing it:
 
 ```bash
 scripts/test-distribution.sh artifacts/distribution/raven-sdk-0.1.0-osx-arm64
+scripts/test-distribution.sh --structure-only artifacts/distribution/raven-sdk-0.1.0-win-arm64
 ```
+
+Use `--structure-only` when inspecting an archive that cannot execute on the
+current operating system or architecture. Release automation structurally
+validates every archive and executes an additional smoke test for its native
+Linux x64 artifact.
 
 Release automation should build these runtime identifiers:
 
