@@ -57,7 +57,7 @@ internal static class FrameworkProjectionCatalog
 
             foreach (var adapter in container.GetMembers(descriptor.MemberName).OfType<IMethodSymbol>())
             {
-                if (!IsProjectionAdapter(adapter) ||
+                if (!IsProjectionAdapter(adapter, descriptor.Id) ||
                     !string.Equals(adapter.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
                     adapter.Parameters.Length != GetProjectedParameterCount(descriptor.ProjectedSignature) ||
                     adapter.ReturnType is not INamedTypeSymbol projectedReturnType ||
@@ -94,12 +94,14 @@ internal static class FrameworkProjectionCatalog
         return lastDot < 0 ? returnType : returnType[(lastDot + 1)..];
     }
 
-    private static bool IsProjectionAdapter(IMethodSymbol method) =>
-        method.GetAttributes().Any(static attribute =>
+    private static bool IsProjectionAdapter(IMethodSymbol method, string projectionId) =>
+        method.GetAttributes().Any(attribute =>
             string.Equals(
                 $"{attribute.AttributeClass.ContainingNamespace?.ToMetadataName()}.{attribute.AttributeClass.MetadataName}",
                 "System.Runtime.CompilerServices.FrameworkProjectionAttribute",
-                StringComparison.Ordinal));
+                StringComparison.Ordinal) &&
+            attribute.ConstructorArguments is [{ Value: string adapterId }] &&
+            string.Equals(adapterId, projectionId, StringComparison.Ordinal));
 
     private static bool MatchesReceiver(FrameworkProjectionDescriptor descriptor, ITypeSymbol receiverType)
     {
@@ -123,7 +125,12 @@ internal static class FrameworkProjectionCatalog
             return ImmutableArray<FrameworkProjectionDescriptor>.Empty;
 
         return catalog.Projections
+            .Where(static entry => !string.IsNullOrWhiteSpace(entry.Id))
+            .GroupBy(static entry => entry.Id, StringComparer.Ordinal)
+            .Where(static group => group.Count() == 1)
+            .Select(static group => group.Single())
             .Select(static entry => new FrameworkProjectionDescriptor(
+                entry.Id,
                 entry.ReceiverType,
                 GetMemberName(entry.Source),
                 entry.Source,
@@ -147,6 +154,7 @@ internal static class FrameworkProjectionCatalog
 }
 
 internal sealed record FrameworkProjectionDescriptor(
+    string Id,
     string ReceiverType,
     string MemberName,
     string SourceSignature,
@@ -165,6 +173,7 @@ internal sealed class FrameworkProjectionCatalogFile
 
 internal sealed class FrameworkProjectionCatalogEntry
 {
+    public string Id { get; init; } = string.Empty;
     public string ReceiverType { get; init; } = string.Empty;
     public string Source { get; init; } = string.Empty;
     public string ProjectedContainer { get; init; } = string.Empty;

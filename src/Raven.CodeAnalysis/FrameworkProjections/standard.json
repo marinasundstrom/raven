@@ -2,6 +2,7 @@
   "version": 1,
   "projections": [
     {
+      "id": "system.int32.tryparse.string.option.v1",
       "receiverType": "System.Int32",
       "source": "System.Boolean System.Int32.TryParse(System.String, out System.Int32)",
       "projectedContainer": "System.Int32Extensions",
@@ -10,6 +11,7 @@
       "exceptions": []
     },
     {
+      "id": "system.int32.tryparse.string-style-provider.option.v1",
       "receiverType": "System.Int32",
       "source": "System.Boolean System.Int32.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Int32)",
       "projectedContainer": "System.Int32Extensions",
@@ -18,6 +20,7 @@
       "exceptions": []
     },
     {
+      "id": "system.int32.parse.string.result.v1",
       "receiverType": "System.Int32",
       "source": "System.Int32 System.Int32.Parse(System.String)",
       "projectedContainer": "System.Int32Extensions",
@@ -39,6 +42,7 @@
       ]
     },
     {
+      "id": "system.int64.tryparse.string.option.v1",
       "receiverType": "System.Int64",
       "source": "System.Boolean System.Int64.TryParse(System.String, out System.Int64)",
       "projectedContainer": "System.Int64Extensions",
@@ -47,6 +51,7 @@
       "exceptions": []
     },
     {
+      "id": "system.int64.tryparse.string-style-provider.option.v1",
       "receiverType": "System.Int64",
       "source": "System.Boolean System.Int64.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Int64)",
       "projectedContainer": "System.Int64Extensions",
@@ -55,6 +60,7 @@
       "exceptions": []
     },
     {
+      "id": "system.double.tryparse.string.option.v1",
       "receiverType": "System.Double",
       "source": "System.Boolean System.Double.TryParse(System.String, out System.Double)",
       "projectedContainer": "System.DoubleExtensions",
@@ -63,6 +69,7 @@
       "exceptions": []
     },
     {
+      "id": "system.double.tryparse.string-style-provider.option.v1",
       "receiverType": "System.Double",
       "source": "System.Boolean System.Double.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Double)",
       "projectedContainer": "System.DoubleExtensions",
@@ -71,6 +78,7 @@
       "exceptions": []
     },
     {
+      "id": "system.decimal.tryparse.string.option.v1",
       "receiverType": "System.Decimal",
       "source": "System.Boolean System.Decimal.TryParse(System.String, out System.Decimal)",
       "projectedContainer": "System.DecimalExtensions",
@@ -79,6 +87,7 @@
       "exceptions": []
     },
     {
+      "id": "system.decimal.tryparse.string-style-provider.option.v1",
       "receiverType": "System.Decimal",
       "source": "System.Boolean System.Decimal.TryParse(System.String, System.Globalization.NumberStyles, System.IFormatProvider, out System.Decimal)",
       "projectedContainer": "System.DecimalExtensions",
@@ -87,6 +96,7 @@
       "exceptions": []
     },
     {
+      "id": "system.guid.tryparse.string.option.v1",
       "receiverType": "System.Guid",
       "source": "System.Boolean System.Guid.TryParse(System.String, out System.Guid)",
       "projectedContainer": "System.GuidExtensions",
@@ -95,6 +105,7 @@
       "exceptions": []
     },
     {
+      "id": "system.datetime.tryparse.string.option.v1",
       "receiverType": "System.DateTime",
       "source": "System.Boolean System.DateTime.TryParse(System.String, out System.DateTime)",
       "projectedContainer": "System.DateTimeExtensions",
@@ -103,6 +114,7 @@
       "exceptions": []
     },
     {
+      "id": "system.datetime.tryparse.string-provider-styles.option.v1",
       "receiverType": "System.DateTime",
       "source": "System.Boolean System.DateTime.TryParse(System.String, System.IFormatProvider, System.Globalization.DateTimeStyles, out System.DateTime)",
       "projectedContainer": "System.DateTimeExtensions",

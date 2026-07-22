@@ -11,4 +11,6 @@ class TopLevelAttribute : Attribute {
 /// framework API projection. The projection catalog remains authoritative.
 [AttributeUsage(AttributeTargets.Method)]
 class FrameworkProjectionAttribute : Attribute {
+    init(id: string) {
+    }
 }

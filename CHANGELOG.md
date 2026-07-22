@@ -8,7 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   overloads on `int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`.
   Raven presents these as `Option<T>`-returning methods; projects can set
   `RavenFrameworkProjections` to `None` to restore the ordinary CLR surface.
-  The exact mappings and failure recipes live in a versioned compiler catalog.
+  The exact mappings and failure recipes live in a versioned compiler catalog;
+  stable projection IDs bind each catalog entry to its attributed Raven.Core
+  bridge without relying on extension-method precedence.
 - Added the first same-signature `Parse -> Result` projection for
   `Int32.Parse(string)`, with explicit null, format, and overflow mappings.
 - Added Rust-style `let pattern = expression else { ... }` declarations. The

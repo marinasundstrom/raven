@@ -500,12 +500,14 @@ Descriptors need enough information to:
 The catalog must not embed arbitrary executable compiler hooks. Projection
 lowering should select from a small set of compiler-defined, validated recipes.
 
-Raven.Core adapter methods are marked with
-`FrameworkProjectionAttribute`. The attribute is an implementation eligibility
-marker, not a request to participate in ordinary extension-method precedence.
-An attributed method is ignored unless an enabled catalog entry selects and
-validates it. The compiler then presents a synthesized receiver-owned method
-symbol and retains the adapter only as its emission target.
+Every descriptor has a stable, versioned projection ID. Raven.Core adapter
+methods repeat that ID in `[FrameworkProjection("...")]`. The attribute is an
+implementation eligibility marker, not a request to participate in ordinary
+extension-method precedence. An attributed method is ignored unless an enabled
+catalog entry with the same ID selects and validates it. This prevents two
+same-name, same-arity bridges from being confused as the catalog grows. The
+compiler then presents a synthesized receiver-owned method symbol and retains
+the adapter only as its emission target.
 
 ### Exception mappings
 
