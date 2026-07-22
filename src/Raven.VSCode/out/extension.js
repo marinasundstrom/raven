@@ -52,6 +52,8 @@ let pendingImportCompletionTrigger;
 const inlayHintRequestVersions = new Map();
 let inlayHintRefreshEpoch = 0;
 let inlayHintRefreshPromise;
+const sdkInstallPromptDismissedKey = 'raven.sdkInstallPromptDismissed';
+const sdkInstallationDocumentationUrl = 'https://github.com/marinasundstrom/raven/blob/main/docs/compiler/distribution.md';
 function execFileText(command, args, options = {}) {
     return new Promise((resolve, reject) => {
         (0, child_process_1.execFile)(command, [...args], { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
@@ -644,6 +646,20 @@ function resolveConfiguredSdkPath() {
         ? configuredPath
         : path.resolve(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? extensionInstallPath, configuredPath);
     return fs.existsSync(absolutePath) ? absolutePath : undefined;
+}
+async function offerSdkInstallationIfMissing(context) {
+    if (resolveConfiguredSdkPath() || context.globalState.get(sdkInstallPromptDismissedKey, false)) {
+        return;
+    }
+    const installAction = 'View Installation Instructions';
+    const dismissAction = "Don't Show Again";
+    const selectedAction = await vscode.window.showWarningMessage('The Raven SDK was not found. Editor features use the bundled language server, but build, run, and debug commands require the SDK.', installAction, dismissAction);
+    if (selectedAction === installAction) {
+        await vscode.env.openExternal(vscode.Uri.parse(sdkInstallationDocumentationUrl));
+    }
+    else if (selectedAction === dismissAction) {
+        await context.globalState.update(sdkInstallPromptDismissedKey, true);
+    }
 }
 function resolveServerPath(context, output) {
     const configuration = vscode.workspace.getConfiguration('raven');
@@ -1344,6 +1360,7 @@ function activate(context) {
         }
     });
     void startClient(context, 'activate');
+    void offerSdkInstallationIfMissing(context);
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration('raven.inlayHints.enabled') ||
             event.affectsConfiguration('raven.inlayHints.inferredTypes.enabled') ||

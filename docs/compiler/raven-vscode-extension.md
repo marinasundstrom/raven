@@ -49,3 +49,7 @@ You can start it by pressing F5 in a Raven file, or by running `Raven: Compile a
 
 ## Packaging
 `scripts/package-vscode.sh` publishes a framework-dependent language server into a `server/` directory next to `package.json` and creates the VSIX. The compiler remains in the separately installed Raven SDK. The client searches an explicit SDK path first, an SDK reported by `rvn sdk path`, workspace build outputs, the packaged server, and finally any user-provided direct assembly overrides.
+
+When no SDK is discovered, the bundled server still provides editor features
+and the extension offers a link to the SDK installation instructions. The
+prompt can be permanently dismissed for syntax-only installations.

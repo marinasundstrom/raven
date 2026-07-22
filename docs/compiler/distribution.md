@@ -36,7 +36,12 @@ can then be queried without parsing launcher paths:
 
 ```bash
 rvn sdk path
+rvn doctor
 ```
+
+`rvn doctor` verifies that a compatible .NET SDK is available and that the
+active Raven SDK contains the compiler, language server, core library, and
+MSBuild targets.
 
 Set `RAVEN_SDK_ROOT` to select an SDK explicitly. The directory must contain
 both `VERSION` and `sdk/build/Raven.Language.targets`.

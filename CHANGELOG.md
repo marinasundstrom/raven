@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   checksum-verifying installers, and automated multi-platform release builds.
   Packaged `rvn`, `rvnc`, and VSIX artifacts now share the release version;
   both command-line tools expose it through `--version`.
+- Added `rvn doctor` to diagnose the .NET SDK and required Raven SDK files.
+- The VS Code extension now offers SDK installation instructions when build,
+  run, and debug tooling is unavailable, while retaining bundled editor support.
 - Locked the built-in union C# surface and serialization contract with direct
   C# construction/extraction coverage: payload-first JSON remains the standard
   behavior, while tagged Raven serialization requires explicit opt-in.

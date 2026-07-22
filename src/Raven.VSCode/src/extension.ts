@@ -16,6 +16,8 @@ let pendingImportCompletionTrigger: NodeJS.Timeout | undefined;
 const inlayHintRequestVersions = new Map<string, number>();
 let inlayHintRefreshEpoch = 0;
 let inlayHintRefreshPromise: Promise<void> | undefined;
+const sdkInstallPromptDismissedKey = 'raven.sdkInstallPromptDismissed';
+const sdkInstallationDocumentationUrl = 'https://github.com/marinasundstrom/raven/blob/main/docs/compiler/distribution.md';
 
 type ExecFileTextOptions = Omit<ExecFileOptions, 'encoding'>;
 
@@ -747,6 +749,26 @@ function resolveConfiguredSdkPath(): string | undefined {
     : path.resolve(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? extensionInstallPath, configuredPath);
 
   return fs.existsSync(absolutePath) ? absolutePath : undefined;
+}
+
+async function offerSdkInstallationIfMissing(context: vscode.ExtensionContext): Promise<void> {
+  if (resolveConfiguredSdkPath() || context.globalState.get<boolean>(sdkInstallPromptDismissedKey, false)) {
+    return;
+  }
+
+  const installAction = 'View Installation Instructions';
+  const dismissAction = "Don't Show Again";
+  const selectedAction = await vscode.window.showWarningMessage(
+    'The Raven SDK was not found. Editor features use the bundled language server, but build, run, and debug commands require the SDK.',
+    installAction,
+    dismissAction
+  );
+
+  if (selectedAction === installAction) {
+    await vscode.env.openExternal(vscode.Uri.parse(sdkInstallationDocumentationUrl));
+  } else if (selectedAction === dismissAction) {
+    await context.globalState.update(sdkInstallPromptDismissedKey, true);
+  }
 }
 
 function resolveServerPath(context: vscode.ExtensionContext, output: vscode.OutputChannel): string {
@@ -1593,6 +1615,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   void startClient(context, 'activate');
+  void offerSdkInstallationIfMissing(context);
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(event => {

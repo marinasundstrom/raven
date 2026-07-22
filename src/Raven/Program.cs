@@ -35,6 +35,9 @@ if (string.Equals(args[0], "dev", StringComparison.OrdinalIgnoreCase))
 if (string.Equals(args[0], "sdk", StringComparison.OrdinalIgnoreCase))
     return RunSdkCommand(args);
 
+if (string.Equals(args[0], "doctor", StringComparison.OrdinalIgnoreCase))
+    return RunDoctorCommand(args);
+
 Console.Error.WriteLine($"Unknown rvn command '{args[0]}'. Use rvn build/run/clean, rvn init, rvn sdk path, rvn dev, or rvnc for direct compiler-driver invocations.");
 return 1;
 
@@ -55,6 +58,104 @@ static int RunSdkCommand(string[] args)
 
     Console.Error.WriteLine("Usage: rvn sdk path");
     return 1;
+}
+
+static int RunDoctorCommand(string[] args)
+{
+    if (args.Length != 1)
+    {
+        Console.Error.WriteLine("Usage: rvn doctor");
+        return 1;
+    }
+
+    var hasErrors = false;
+    Console.WriteLine($"Raven {GetVersion()}");
+
+    if (TryGetDotnetSdkVersion(out var dotnetVersion, out var dotnetError))
+    {
+        Console.WriteLine($"[ok] .NET SDK {dotnetVersion}");
+    }
+    else
+    {
+        Console.Error.WriteLine($"[missing] .NET SDK: {dotnetError}");
+        hasErrors = true;
+    }
+
+    var sdkRoot = TryFindSdkRoot();
+    if (sdkRoot is null)
+    {
+        Console.Error.WriteLine("[missing] Raven SDK root. Set RAVEN_SDK_ROOT or install Raven and add its bin directory to PATH.");
+        return 1;
+    }
+
+    Console.WriteLine($"[ok] Raven SDK {sdkRoot}");
+
+    var requiredFiles = new[]
+    {
+        Path.Combine("sdk", "Raven.Core.dll"),
+        Path.Combine("sdk", "build", "Raven.Language.targets"),
+        Path.Combine("tools", "rvn", "rvn.dll"),
+        Path.Combine("tools", "rvnc", "rvnc.dll"),
+        Path.Combine("tools", "language-server", "Raven.LanguageServer.dll")
+    };
+
+    foreach (var relativePath in requiredFiles)
+    {
+        if (File.Exists(Path.Combine(sdkRoot, relativePath)))
+        {
+            Console.WriteLine($"[ok] {relativePath}");
+        }
+        else
+        {
+            Console.Error.WriteLine($"[missing] {relativePath}");
+            hasErrors = true;
+        }
+    }
+
+    return hasErrors ? 1 : 0;
+}
+
+static bool TryGetDotnetSdkVersion(out string version, out string error)
+{
+    var startInfo = new ProcessStartInfo("dotnet", "--version")
+    {
+        UseShellExecute = false,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        CreateNoWindow = true
+    };
+
+    try
+    {
+        using var process = Process.Start(startInfo);
+        if (process is null)
+        {
+            version = string.Empty;
+            error = "failed to start dotnet";
+            return false;
+        }
+
+        var standardOutput = process.StandardOutput.ReadToEnd().Trim();
+        var standardError = process.StandardError.ReadToEnd().Trim();
+        process.WaitForExit();
+
+        if (process.ExitCode == 0 && standardOutput.Length > 0)
+        {
+            version = standardOutput;
+            error = string.Empty;
+            return true;
+        }
+
+        version = string.Empty;
+        error = standardError.Length > 0 ? standardError : $"dotnet --version exited with code {process.ExitCode}";
+        return false;
+    }
+    catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+    {
+        version = string.Empty;
+        error = ex.Message;
+        return false;
+    }
 }
 
 static string? TryFindSdkRoot()
@@ -799,6 +900,7 @@ static void PrintHelp()
     Console.WriteLine("  clean             Clean a Raven project through dotnet clean.");
     Console.WriteLine("  dev               Run internal compiler debug views.");
     Console.WriteLine("  sdk path          Print the root of the active Raven SDK.");
+    Console.WriteLine("  doctor            Check the .NET SDK and Raven installation.");
     Console.WriteLine("  --version         Print the Raven version.");
     Console.WriteLine();
     Console.WriteLine("rvn build/run/clean are frontend conveniences over the .NET SDK project workflow.");
