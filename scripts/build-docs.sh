@@ -19,8 +19,18 @@ if [[ -d "$api_output" ]]; then
 fi
 
 # A clean checkout does not contain Raven's ignored generated compiler sources.
-# Build once outside DocFX's design-time context so API metadata sees the same
-# complete public surface as an ordinary compiler build.
+# Generate them before MSBuild evaluates Raven.CodeAnalysis source globs so API
+# metadata sees the same complete public surface as an ordinary compiler build.
+(
+    cd "$repository_root/src/Raven.CodeAnalysis/Syntax"
+    dotnet run --project ../../../tools/NodeGenerator -- -f
+)
+(
+    cd "$repository_root/src/Raven.CodeAnalysis"
+    dotnet run --project ../../tools/BoundNodeGenerator -- -f
+    dotnet run --project ../../tools/DiagnosticsGenerator -- -f
+)
+
 dotnet build "$repository_root/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" \
     --framework net10.0 \
     --property WarningLevel=0
