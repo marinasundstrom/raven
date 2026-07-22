@@ -90,6 +90,25 @@ val parsed = int.TryParse("42")
     }
 
     [Fact]
+    public void FrameworkProjection_ReportsMissingBridgeWithProjectionId()
+    {
+        const string source = """
+val parsed = int.TryParse("42")
+""";
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.Default);
+        compilation.EnsureSetup();
+        _ = compilation.GetSemanticModel(tree).GetBoundNode(
+            tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single());
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(diagnostic =>
+                diagnostic.Id == "RAV2803" &&
+                diagnostic.GetMessage().Contains("system.int32.tryparse.string.option.v1", StringComparison.Ordinal)));
+        Assert.Contains("system.int32.tryparse.string.option.v1", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("System.Int32Extensions", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FrameworkTryParseProjection_PreservesTypeSpecificOptions()
     {
         const string source = """

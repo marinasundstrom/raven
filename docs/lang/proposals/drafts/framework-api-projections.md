@@ -507,7 +507,10 @@ extension-method precedence. An attributed method is ignored unless an enabled
 catalog entry with the same ID selects and validates it. This prevents two
 same-name, same-arity bridges from being confused as the catalog grows. The
 compiler then presents a synthesized receiver-owned method symbol and retains
-the adapter only as its emission target.
+the adapter only as its emission target. If the bridge container is missing,
+the ID is absent or duplicated, or the bridge shape disagrees with the catalog,
+the compiler reports a projection-specific diagnostic containing the stable ID
+and does not silently substitute an ordinary extension method.
 
 ### Exception mappings
 

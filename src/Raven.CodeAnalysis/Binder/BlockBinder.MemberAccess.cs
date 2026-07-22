@@ -10,13 +10,15 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
-    private ImmutableArray<IMethodSymbol> LookupStaticMethodCandidates(string name, ITypeSymbol receiverType)
+    private ImmutableArray<IMethodSymbol> LookupStaticMethodCandidates(string name, ITypeSymbol receiverType, Location location)
     {
         if (Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
             FrameworkProjectionCatalog.TryGetStandard(receiverType, name, out _))
         {
-            var projected = FrameworkProjectionCatalog.GetStandardMethods(Compilation, receiverType, name);
-            return projected;
+            var resolution = FrameworkProjectionCatalog.ResolveStandardMethods(Compilation, receiverType, name);
+            foreach (var failure in resolution.Failures)
+                _diagnostics.ReportFrameworkProjectionUnavailable(failure.ProjectionId, failure.Reason, location);
+            return resolution.Methods;
         }
 
         return new SymbolQuery(name, receiverType, IsStatic: true)
@@ -4108,7 +4110,7 @@ partial class BlockBinder
 
             if (preferMethods)
             {
-                var methodCandidates = LookupStaticMethodCandidates(name, typeLookupType);
+                var methodCandidates = LookupStaticMethodCandidates(name, typeLookupType, nameLocation);
 
                 if (!methodCandidates.IsDefaultOrEmpty)
                 {
@@ -4188,7 +4190,7 @@ partial class BlockBinder
 
             if (!preferMethods)
             {
-                var methodCandidates = LookupStaticMethodCandidates(name, typeLookupType);
+                var methodCandidates = LookupStaticMethodCandidates(name, typeLookupType, nameLocation);
 
                 if (!methodCandidates.IsDefaultOrEmpty)
                 {

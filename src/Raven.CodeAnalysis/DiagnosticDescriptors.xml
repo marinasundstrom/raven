@@ -34,6 +34,10 @@
   <Descriptor Id="RAV0103" Identifier="TheNameDoesNotExistInTheCurrentContext"
     Title="Name not found" Message="'{name}' is not in scope." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2803" Identifier="FrameworkProjectionUnavailable"
+    Title="Framework projection is unavailable"
+    Message="Framework projection '{projectionId}' is unavailable: {reason}."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0111" Identifier="TypeAlreadyDefinesMember" Title="Member already defined"
     Message="Type '{typeName}' already defines a member called '{memberName}' with the same parameter types"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

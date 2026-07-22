@@ -40,11 +40,18 @@ internal static class FrameworkProjectionCatalog
         Compilation compilation,
         ITypeSymbol receiverType,
         string? memberName = null)
+        => ResolveStandardMethods(compilation, receiverType, memberName).Methods;
+
+    public static FrameworkProjectionResolution ResolveStandardMethods(
+        Compilation compilation,
+        ITypeSymbol receiverType,
+        string? memberName = null)
     {
         if (receiverType is not INamedTypeSymbol namedReceiverType)
-            return ImmutableArray<IMethodSymbol>.Empty;
+            return FrameworkProjectionResolution.Empty;
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var failures = ImmutableArray.CreateBuilder<FrameworkProjectionFailure>();
 
         foreach (var descriptor in s_standard.Value)
         {
@@ -53,24 +60,45 @@ internal static class FrameworkProjectionCatalog
             if (!MatchesReceiver(descriptor, receiverType))
                 continue;
             if (compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is not { } container)
-                continue;
-
-            foreach (var adapter in container.GetMembers(descriptor.MemberName).OfType<IMethodSymbol>())
             {
-                if (!IsProjectionAdapter(adapter, descriptor.Id) ||
-                    !string.Equals(adapter.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
-                    adapter.Parameters.Length != GetProjectedParameterCount(descriptor.ProjectedSignature) ||
-                    adapter.ReturnType is not INamedTypeSymbol projectedReturnType ||
-                    !string.Equals(projectedReturnType.Name, GetProjectedReturnTypeName(descriptor.ProjectedSignature), StringComparison.Ordinal))
-                    continue;
-                if (!SymbolEqualityComparer.Default.Equals(adapter.GetExtensionReceiverType(), receiverType))
-                    continue;
-
-                builder.Add(new ProjectedMethodSymbol(namedReceiverType, adapter));
+                failures.Add(new(descriptor.Id, $"bridge container '{descriptor.ProjectedContainer}' was not found"));
+                continue;
             }
+
+            var adapters = container.GetMembers(descriptor.MemberName)
+                .OfType<IMethodSymbol>()
+                .Where(method => HasProjectionId(method, descriptor.Id))
+                .ToImmutableArray();
+            if (adapters.IsDefaultOrEmpty)
+            {
+                failures.Add(new(descriptor.Id, "no bridge carries the matching projection ID"));
+                continue;
+            }
+            if (adapters.Length > 1)
+            {
+                failures.Add(new(descriptor.Id, "multiple bridges carry the same projection ID"));
+                continue;
+            }
+
+            var adapter = adapters[0];
+            if (!string.Equals(adapter.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) ||
+                adapter.Parameters.Length != GetProjectedParameterCount(descriptor.ProjectedSignature) ||
+                adapter.ReturnType is not INamedTypeSymbol projectedReturnType ||
+                !string.Equals(projectedReturnType.Name, GetProjectedReturnTypeName(descriptor.ProjectedSignature), StringComparison.Ordinal))
+            {
+                failures.Add(new(descriptor.Id, "bridge signature does not match the catalog descriptor"));
+                continue;
+            }
+            if (!SymbolEqualityComparer.Default.Equals(adapter.GetExtensionReceiverType(), receiverType))
+            {
+                failures.Add(new(descriptor.Id, "bridge receiver does not match the catalog receiver"));
+                continue;
+            }
+
+            builder.Add(new ProjectedMethodSymbol(namedReceiverType, adapter));
         }
 
-        return builder.ToImmutable();
+        return new(builder.ToImmutable(), failures.ToImmutable());
     }
 
     private static int GetProjectedParameterCount(string signature)
@@ -101,7 +129,7 @@ internal static class FrameworkProjectionCatalog
                 "System.Runtime.CompilerServices.FrameworkProjectionAttribute",
                 StringComparison.Ordinal));
 
-    private static bool IsProjectionAdapter(IMethodSymbol method, string projectionId) =>
+    private static bool HasProjectionId(IMethodSymbol method, string projectionId) =>
         method.GetAttributes().Any(attribute =>
             string.Equals(
                 $"{attribute.AttributeClass.ContainingNamespace?.ToMetadataName()}.{attribute.AttributeClass.MetadataName}",
@@ -159,6 +187,15 @@ internal static class FrameworkProjectionCatalog
             : source[(lastDot + 1)..openParen];
     }
 }
+
+internal readonly record struct FrameworkProjectionResolution(
+    ImmutableArray<IMethodSymbol> Methods,
+    ImmutableArray<FrameworkProjectionFailure> Failures)
+{
+    public static FrameworkProjectionResolution Empty { get; } = new([], []);
+}
+
+internal readonly record struct FrameworkProjectionFailure(string ProjectionId, string Reason);
 
 internal sealed record FrameworkProjectionDescriptor(
     string Id,

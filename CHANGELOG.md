@@ -11,6 +11,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   The exact mappings and failure recipes live in a versioned compiler catalog;
   stable projection IDs bind each catalog entry to its attributed Raven.Core
   bridge without relying on extension-method precedence.
+- Added projection-specific diagnostics for missing, duplicate, and
+  structurally incompatible framework projection bridges.
 - Added the first same-signature `Parse -> Result` projection for
   `Int32.Parse(string)`, with explicit null, format, and overflow mappings.
 - Added Rust-style `let pattern = expression else { ... }` declarations. The
