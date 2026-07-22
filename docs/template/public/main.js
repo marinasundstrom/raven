@@ -65,7 +65,7 @@ const raven = (hljs) => ({
     },
     {
       scope: 'title.function',
-      begin: /\b[A-Za-z_][A-Za-z0-9_]*(?=\s*\()/,
+      begin: /\b(?!(?:if|while|for|match|catch|typeof|nameof|sizeof|default|let|val|var|is|as|return|throw|new|init)\b)[A-Za-z_][A-Za-z0-9_]*(?=\s*\()/,
       relevance: 0
     },
     {

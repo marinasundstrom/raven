@@ -18,6 +18,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   behavior, while tagged Raven serialization requires explicit opt-in.
 - Highlighted constructor-form `init(...)` declarations and primary-constructor
   access modifiers in the VS Code TextMate grammar.
+- Preserved keyword highlighting for parenthesized patterns such as `if let
+  (...)`, `while let (...)`, `for let (...)`, and `value is (...)` in both the
+  VS Code TextMate grammar and the DocFX site highlighter.
 - Removed `trait` as an alias for extension declarations; use `extension`.
 - Added the first generic instance framework projection:
   `Dictionary<TKey, TValue>.TryGetValue(key) -> Option<TValue>`. Missing keys
