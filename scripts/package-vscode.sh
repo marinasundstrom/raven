@@ -11,6 +11,8 @@ SERVER_DIR="$EXTENSION_DIR/server"
 rm -rf "$SERVER_DIR"
 mkdir -p "$SERVER_DIR" "$OUTPUT_DIR"
 
+"$ROOT_DIR/scripts/generate-compiler-sources.sh"
+
 dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" \
   -c Release -f "$TFM" --self-contained false -o "$SERVER_DIR" /property:WarningLevel=0
 

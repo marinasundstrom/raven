@@ -74,6 +74,9 @@ Artifacts are written to `artifacts/distribution` by default. Override the
 target framework with `RAVEN_PACKAGE_TFM` and the output directory with
 `RAVEN_PACKAGE_OUTPUT`.
 
+The packaging scripts regenerate compiler sources before building, so they are
+safe to run from a clean checkout without relying on ignored build outputs.
+
 Validate a staged SDK before publishing it:
 
 ```bash

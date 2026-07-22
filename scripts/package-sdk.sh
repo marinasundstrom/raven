@@ -19,6 +19,8 @@ rm -rf "$STAGE_DIR" "$PUBLISH_DIR"
 mkdir -p "$STAGE_DIR/bin" "$STAGE_DIR/tools/rvn" "$STAGE_DIR/tools/rvnc" \
   "$STAGE_DIR/tools/language-server" "$STAGE_DIR/sdk/build" "$PUBLISH_DIR"
 
+"$ROOT_DIR/scripts/generate-compiler-sources.sh"
+
 # Raven.Core is compiled by the Raven compiler while publishing rvnc. Bootstrap
 # a host compiler first so packaging also works in a clean checkout.
 dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Debug -f "$TFM" \
