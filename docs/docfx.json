@@ -27,6 +27,7 @@
           "compiler/json-serialization.md",
           "compiler/diagnostics.md",
           "compiler/raven-vscode-extension.md",
+          "compiler/distribution.md",
           "compiler/api/README.md",
           "compiler/api/performance.md",
           "compiler/api/operations.md",
