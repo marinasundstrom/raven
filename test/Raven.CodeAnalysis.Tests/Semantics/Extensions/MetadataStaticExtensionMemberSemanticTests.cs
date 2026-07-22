@@ -93,6 +93,33 @@ val parsed = int.TryParse("42", NumberStyles.Integer, CultureInfo.InvariantCultu
     }
 
     [Fact]
+    public void FrameworkDateTimeTryParseProjection_PreservesProviderAndStyles()
+    {
+        const string source = """
+import System.*
+import System.Globalization.*
+
+val parsed = DateTime.TryParse("2026-07-22", CultureInfo.InvariantCulture, DateTimeStyles.None)
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Collection(
+            boundInvocation.Method.Parameters,
+            parameter => Assert.Equal("string?", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)),
+            parameter => Assert.Equal("IFormatProvider?", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)),
+            parameter => Assert.Equal("DateTimeStyles", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+        Assert.Equal("Option<DateTime>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+    }
+
+    [Fact]
     public void StaticExtensionMethod_FromMetadata_BindsToExtensionContainer()
     {
         const string source = """
