@@ -1094,7 +1094,13 @@ public static class CompletionProvider
         {
             if (typeAccessSymbol is INamedTypeSymbol namedType)
             {
-                var staticMembers = namedType.GetMembers().Where(m => m.IsStatic && IsAccessible(m));
+                var staticMembers = namedType.GetMembers().Where(m =>
+                    m.IsStatic &&
+                    IsAccessible(m) &&
+                    !(model.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
+                      FrameworkProjectionCatalog.TryGetStandard(namedType, m.Name, out var descriptor) &&
+                      model.Compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is { } projectedContainer &&
+                      projectedContainer.GetMembers(m.Name).OfType<IMethodSymbol>().Any()));
                 return namedType is IUnionSymbol union
                     ? staticMembers.Concat(union.CaseTypes.Where(IsAccessible))
                     : staticMembers;

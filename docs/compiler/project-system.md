@@ -21,6 +21,8 @@ Primary MSBuild properties Raven currently consumes:
 - `AllowUnsafeBlocks` or `AllowUnsafe`
 - `AllowGlobalStatements` or `RavenAllowGlobalStatements`
 - `MembersPublicByDefault` or `RavenMembersPublicByDefault`
+- `FrameworkProjections` or `RavenFrameworkProjections` (`Standard` by default,
+  or `None` for the ordinary .NET API surface)
 - `IntermediateOutputPath`
 - `Configuration`
 

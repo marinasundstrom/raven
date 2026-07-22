@@ -21,12 +21,12 @@ match port {
 }
 ```
 
-The ordinary .NET overload remains available:
+Projects that need the ordinary .NET surface disable projections:
 
-```raven
-if int.TryParse(text, out var port) {
-    Console.WriteLine($"Port: {port}")
-}
+```xml
+<PropertyGroup>
+  <RavenFrameworkProjections>None</RavenFrameworkProjections>
+</PropertyGroup>
 ```
 
 Framework projections are selected by exact framework type and member
@@ -61,7 +61,7 @@ The feature should provide:
 * a consistent Raven-facing API for common framework operations;
 * predictable and inspectable lowering to existing CLR calls;
 * no metadata or runtime changes to the projected framework types;
-* continued access to every original .NET overload;
+* an explicit project-level opt-out that restores the original .NET surface;
 * one semantic model shared by compilation and language services; and
 * a controlled path toward projections supplied outside the compiler.
 
@@ -71,7 +71,7 @@ The feature should provide:
 * Use `Option<T>` when failure means only that no value was produced.
 * Leave room for `Result<T, E>` when failure information is stable and useful.
 * Preserve the source and binary behavior of the underlying framework method.
-* Preserve ordinary CLR overloads and interop.
+* Preserve ordinary CLR overloads and interop when projections are disabled.
 * Make projected members visible in lookup, overload resolution, semantic APIs,
   completion, hover, and signature help.
 * Keep the projection catalog declarative enough to support generated catalogs
@@ -124,15 +124,11 @@ The initial modes are:
 | Mode | Meaning |
 | --- | --- |
 | `None` | Expose only the ordinary imported .NET API. |
-| `Standard` | Add Raven's curated framework projections. |
+| `Standard` | Replace known framework member families with Raven's curated projections. This is the default. |
 
-Whether `Standard` becomes the default is an implementation and compatibility
-decision. The first implementation may require it to be selected explicitly so
-that the projected surface can stabilize.
-
-Source-file applications without a project file should have an equivalent
-compiler-driver or file-configuration setting before projections become a
-default language experience.
+Raven source-file applications and projects use `Standard` unless they opt out.
+The option selects an API view for the compilation; it is not an instruction to
+mix projected and CLR signatures from the same known member family.
 
 ## MVP
 
@@ -150,15 +146,15 @@ The source method must be identified by its containing metadata type, name,
 parameter types, parameter ref-kinds, return type, and applicable target
 framework. Merely matching the displayed shape is insufficient.
 
-The projected overload is additive. Because it takes one argument instead of
-two, it can coexist with the source method:
+In the standard view, the projected family replaces the source family for Raven
+member lookup:
 
 ```raven
-val projected = int.TryParse(text)              // Option<int>
-val clrStyle = int.TryParse(text, out var value) // bool
+val projected = int.TryParse(text) // Option<int>
 ```
 
-No new syntax for selecting a raw CLR member is required for this MVP.
+With projections set to `None`, the projected member is absent and the ordinary
+CLR overloads participate instead. The MVP does not add a per-call escape hatch.
 
 ### Initial type set
 
@@ -224,6 +220,19 @@ The compiler should represent a projected method as a method symbol with:
 * a projection descriptor or lowering kind; and
 * stable original-definition behavior for constructed framework types.
 
+The projected symbol appears to belong to the projected receiver type, not to
+an adapter or extension container. For example, symbol display for the standard
+integer projection describes `int.TryParse(string?) -> Option<int>` and its
+containing type is `System.Int32`.
+
+Framework projections are not extension methods and do not participate through
+extension-method precedence. Ordinary lookup retains its normal rule that a
+real receiver member wins over an extension member with the same effective
+signature. The projection layer selects a compiler-defined API view before
+ordinary member and extension lookup; generated Raven.Core methods, if used,
+are implementation adapters recorded by the projected symbol rather than
+user-visible extension candidates.
+
 The normal public semantic APIs remain authoritative. `GetSymbolInfo`,
 `GetTypeInfo`, operation creation, completion, hover, and signature help should
 all observe the same projected method selected by the binder. Language-service
@@ -241,18 +250,21 @@ Projected methods participate in static member lookup only when their catalog
 entry is enabled and its exact source method is present in the compilation's
 references.
 
-They participate as additional candidates; they do not remove source methods.
-Normal argument count and conversion rules therefore select between the
-one-argument projected method and the two-argument CLR method.
+When a catalog entry is active, its projected members are the visible overload
+family. The corresponding source family does not participate in ordinary Raven
+lookup. Disabling projections restores the source members.
 
-The initial catalog must avoid entries that create a signature collision with
-an existing source member. A projection must not rely only on return type to
-distinguish two candidates.
+This replacement model permits later `Parse -> Result` projections with the
+same argument list as the source method. Each mapping must still identify the
+exact source signature and define how users recover the CLR view through the
+project option.
 
-If a future catalog or target framework introduces a colliding real member,
-the compiler should prefer the real member and suppress or diagnose the
-projection according to a defined compatibility policy. It must not silently
-change which real CLR method an existing call invokes.
+In particular, a `Parse` projection must not be implemented by allowing a
+Raven.Core extension method to shadow `System.Int32.Parse` or another real
+receiver member. The compiler exposes a projected `Parse` symbol in `Standard`
+mode and lowers it to its mapped adapter or recipe. In `None` mode, normal
+receiver lookup sees the CLR `Parse` methods and ordinary extension precedence
+is unchanged.
 
 ### Availability and compatibility
 
@@ -435,9 +447,10 @@ complete semantic contract.
 
 ## Declarative projection catalog
 
-The compiler-owned catalog should use a declarative descriptor rather than
-hard-coded special cases spread through member lookup and lowering. A
-conceptual descriptor is:
+The compiler-owned catalog should be a checked-in mapping file rather than
+hard-coded special cases spread through member lookup and lowering. The mapping
+file is the reviewable source of truth for both compiler lookup and generated
+Raven.Core adapters. A conceptual descriptor is:
 
 ```text
 owner: System.Int32
@@ -456,6 +469,7 @@ projected:
 lowering:
   kind: bool-out-to-option
   valueParameter: 1
+  exceptions: []
 availability:
   framework: any-with-exact-source-signature
 ```
@@ -472,6 +486,49 @@ Descriptors need enough information to:
 
 The catalog must not embed arbitrary executable compiler hooks. Projection
 lowering should select from a small set of compiler-defined, validated recipes.
+
+### Exception mappings
+
+Every descriptor declares its exception behavior, including descriptors whose
+expected exception list is empty. For `TryParse -> Option`, `false` maps to
+`None` and the mapping catches no exceptions. Exceptions that the source method
+can still throw remain exceptions.
+
+A future `Parse -> Result` descriptor must list each expected exception and its
+Raven error case explicitly:
+
+```text
+source: System.Int32.Parse(System.String)
+projected: System.Result<System.Int32, System.ParseIntError>
+lowering:
+  kind: catch-to-result
+  exceptions:
+    - type: System.ArgumentNullException
+      case: Null
+    - type: System.FormatException
+      case: InvalidFormat
+    - type: System.OverflowException
+      case: Overflow
+```
+
+The list is not inferred from documentation, method names, or neighboring
+overloads. Reviewers must verify it for the exact target-framework signature.
+An unlisted exception is not swallowed or converted to a generic error. This
+keeps `Result` honest about which failures it models without claiming that a
+framework call cannot throw.
+
+### Mapping artifact as an extension boundary
+
+The built-in mapping file is also the intended future extension boundary. A
+source generator, package tool, or project-local generator may eventually emit
+the same versioned artifact for additional libraries. The compiler validates
+the artifact against referenced metadata before exposing its projections.
+
+Generated mappings should remain deterministic build inputs that both the
+command-line compiler and language server can consume without executing the
+generator during semantic lookup. Convention-based discovery may help produce
+the file, but the resulting exact signatures, failure recipes, and exception
+mappings remain explicit and reviewable.
 
 ## Future extension model
 
@@ -573,6 +630,9 @@ semantics, as with the existing LINQ `FirstOrNone` family. Framework projections
 are for the smaller set where preserving the familiar framework owner and name
 materially improves the Raven experience.
 
+Even when Raven.Core contains generated adapter methods, those adapters are not
+the projected API and must not be inserted through normal extension lookup.
+
 ### Automatically project every matching method
 
 This is compact to implement but assigns semantics based on naming and shape.
@@ -640,8 +700,8 @@ Focused coverage should include:
 * option return types and projected method symbols for every MVP entry;
 * successful and unsuccessful observable parsing behavior;
 * single evaluation and argument evaluation order;
-* coexistence with the original `out` overload;
-* overload resolution when projected and real overloads are both present;
+* replacement of the original family in `Standard` mode;
+* restoration of the original `out` overload in `None` mode;
 * `None` when parsing fails without exposing an uninitialized union carrier;
 * behavior when projections are disabled;
 * behavior when Raven.Core is unavailable;
@@ -655,25 +715,26 @@ runtime behavior rather than emitted instruction sequences.
 
 ## Open questions
 
-1. Should `Standard` be the default when Raven.Core is referenced?
-2. Should the option be binary (`None`/`Standard`) or eventually allow named
+1. Should the option remain binary (`None`/`Standard`) or eventually allow named
    catalog sets?
-3. What annotation should symbol display and documentation use for a projected
+2. What annotation should symbol display and documentation use for a projected
    method?
-4. Should navigation prefer Raven projection documentation or the underlying
+3. Should navigation prefer Raven projection documentation or the underlying
    framework method?
-5. When a future framework adds a real member matching a projection, should the
+4. When a future framework adds a real member matching a projection, should the
    projection be silently suppressed, warned, or versioned by language version?
-6. Should provider/style overloads be added individually to the built-in
+5. Should provider/style overloads be added individually to the built-in
    catalog or generated from reviewed family descriptors?
-7. What explicit syntax, if any, should select the raw CLR member once a future
-   projection has the same parameter signature?
-8. Should throwing `Parse` methods ever project to `Result`, and if so, should
+6. Should a future per-call syntax select the raw CLR member, or is the
+   compilation-level `None` view sufficient?
+7. Should throwing `Parse` methods project to `Result`, and if so, should
    their error channel use CLR exceptions or Raven-owned error unions?
-9. Should enum projections appear directly on every enum type or use a
+8. Should enum projections appear directly on every enum type or use a
    Raven.Core helper until static projected lookup is mature?
-10. What artifact format should external generators eventually produce so
-    command-line builds and language services consume identical descriptors?
+9. How should external mapping artifacts be discovered, versioned, and scoped
+   so command-line builds and language services consume identical descriptors?
+10. Should exception mappings vary by target framework when framework contracts
+    differ?
 
 ## Recommended staging
 

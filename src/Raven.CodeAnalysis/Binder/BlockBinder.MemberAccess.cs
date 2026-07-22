@@ -10,6 +10,32 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
+    private ImmutableArray<IMethodSymbol> LookupStaticMethodCandidates(string name, ITypeSymbol receiverType)
+    {
+        if (Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
+            FrameworkProjectionCatalog.TryGetStandard(receiverType, name, out var descriptor))
+        {
+            var projected = LookupExtensionStaticMethods(name, receiverType)
+                .Where(method =>
+                    method.Parameters.Length == 1 &&
+                    string.Equals(method.ContainingAssembly?.Name, "Raven.Core", StringComparison.Ordinal) &&
+                    string.Equals(
+                        $"{method.ContainingNamespace?.ToMetadataName()}.{method.ContainingType?.MetadataName}",
+                        descriptor.ProjectedContainer,
+                        StringComparison.Ordinal) &&
+                    method.ReturnType is INamedTypeSymbol { Name: "Option", Arity: 1 } &&
+                    SymbolEqualityComparer.Default.Equals(method.GetExtensionReceiverType(), receiverType))
+                .ToImmutableArray();
+
+            if (!projected.IsDefaultOrEmpty)
+                return projected;
+        }
+
+        return new SymbolQuery(name, receiverType, IsStatic: true)
+            .LookupMethods(this)
+            .ToImmutableArray();
+    }
+
     private ITypeSymbol EnsureSourceMemberSignatureDeclaredForExactLookup(ITypeSymbol receiverType, string memberName)
     {
         if (string.IsNullOrEmpty(memberName) ||
@@ -4094,9 +4120,7 @@ partial class BlockBinder
 
             if (preferMethods)
             {
-                var methodCandidates = new SymbolQuery(name, typeLookupType, IsStatic: true)
-                    .LookupMethods(this)
-                    .ToImmutableArray();
+                var methodCandidates = LookupStaticMethodCandidates(name, typeLookupType);
 
                 if (!methodCandidates.IsDefaultOrEmpty)
                 {
@@ -4176,9 +4200,7 @@ partial class BlockBinder
 
             if (!preferMethods)
             {
-                var methodCandidates = new SymbolQuery(name, typeLookupType, IsStatic: true)
-                    .LookupMethods(this)
-                    .ToImmutableArray();
+                var methodCandidates = LookupStaticMethodCandidates(name, typeLookupType);
 
                 if (!methodCandidates.IsDefaultOrEmpty)
                 {

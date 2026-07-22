@@ -23,6 +23,26 @@ produces `Raven.Core.dll` automatically and keeps it in sync with the compiler.
 You can still override the reference with `rvn --raven-core <path>` when
 compiling standalone projects.
 
+## Framework API projections
+
+Raven exposes a curated Raven-facing view of selected framework APIs by
+default. The initial catalog projects the simplest `TryParse(string, out T)`
+overloads for `int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`:
+
+```raven
+val number = int.TryParse(text) // Option<int>
+```
+
+The catalog is an exact, versioned mapping rather than a naming convention.
+Each entry records its source signature, projected signature, lowering recipe,
+and expected exception mapping. The initial `TryParse` entries catch no
+exceptions: a `false` result becomes `None`, while source exceptions remain
+exceptions.
+
+Set `RavenFrameworkProjections` to `None` in a project to restore the ordinary
+.NET member families, including their `out` parameters. See the framework API
+projections proposal for the planned mapping-file extension model.
+
 ## Types included in Raven.Core
 
 ### `Option<T>`

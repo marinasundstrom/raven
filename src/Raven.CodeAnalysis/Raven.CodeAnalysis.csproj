@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="FrameworkProjections/standard.json"
+      LogicalName="Raven.CodeAnalysis.FrameworkProjections.standard.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <BoundNodeGeneratorInput Include="BoundTree\**\*.cs" Exclude="BoundTree\Generated\**\*.*" />
     <BoundNodeGeneratorInput Include="Symbols\**\*.cs" Exclude="Symbols\Generated\**\*.*" />
     <BoundNodeGeneratorInput Include="..\..\tools\BoundNodeGenerator\**\*.cs" />

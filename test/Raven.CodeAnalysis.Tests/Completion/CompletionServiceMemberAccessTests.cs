@@ -14,6 +14,31 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public class CompletionServiceMemberAccessTests
 {
     [Fact]
+    public void GetCompletions_FrameworkProjection_ShowsProjectedTryParseSymbol()
+    {
+        const string code = """
+import System.*
+
+int.
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenCore);
+        var position = code.LastIndexOf("int.", StringComparison.Ordinal) + "int.".Length;
+        var token = syntaxTree.GetRoot().FindToken(position - 1);
+
+        var items = CompletionProvider.GetCompletions(token, compilation.GetSemanticModel(syntaxTree), position);
+        var tryParse = Assert.Single(items.Where(static item => item.DisplayText == "TryParse"));
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(tryParse.Symbol);
+
+        Assert.Equal("Int32Extensions", method.ContainingType?.Name);
+        Assert.Equal("Option<int>", method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
     public void GetCompletions_WithWarmedReceiverSymbol_ReturnsMemberItems()
     {
         var code = """

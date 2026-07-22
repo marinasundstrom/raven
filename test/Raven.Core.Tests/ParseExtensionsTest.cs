@@ -8,6 +8,46 @@ namespace Raven.Core.Tests;
 
 public sealed class ParseExtensionsTest : RavenCoreDiagnosticTestBase
 {
+    [Theory]
+    [InlineData("System.Int32Extensions", typeof(int), "42")]
+    [InlineData("System.Int64Extensions", typeof(long), "42")]
+    [InlineData("System.DoubleExtensions", typeof(double), "42")]
+    [InlineData("System.DecimalExtensions", typeof(decimal), "42")]
+    [InlineData("System.GuidExtensions", typeof(Guid), "d2719b1e-88c5-4a06-aeba-69d19e70b9f7")]
+    [InlineData("System.DateTimeExtensions", typeof(DateTime), "2026-07-22")]
+    public void TryParseProjection_ReturnsSome_ForValidInput(string containerName, Type valueType, string input)
+    {
+        var assembly = LoadRavenCoreAssembly();
+        var extensions = assembly.GetType(containerName, throwOnError: true)!;
+        var tryParse = extensions.GetMethod("TryParse", BindingFlags.Public | BindingFlags.Static)!;
+
+        var option = tryParse.Invoke(null, [input])!;
+        var optionType = option.GetType();
+        var someType = GetCaseTypeFromTryGetValue(optionType, "Some");
+        var tryGetSome = GetTryGetValueMethod(optionType, someType);
+        var args = new object?[] { null };
+
+        Assert.True((bool)(tryGetSome.Invoke(option, args) ?? false));
+        Assert.NotNull(args[0]);
+        Assert.IsType(valueType, args[0]!.GetType().GetProperty("Value")!.GetValue(args[0]));
+    }
+
+    [Fact]
+    public void TryParseProjection_ReturnsNone_ForInvalidInput()
+    {
+        var assembly = LoadRavenCoreAssembly();
+        var extensions = assembly.GetType("System.Int32Extensions", throwOnError: true)!;
+        var tryParse = extensions.GetMethod("TryParse", BindingFlags.Public | BindingFlags.Static)!;
+
+        var option = tryParse.Invoke(null, ["not-an-int"])!;
+        var optionType = option.GetType();
+        var someType = GetCaseTypeFromTryGetValue(optionType, "Some");
+        var tryGetSome = GetTryGetValueMethod(optionType, someType);
+        var args = new object?[] { null };
+
+        Assert.False((bool)(tryGetSome.Invoke(option, args) ?? false));
+    }
+
     [Fact]
     public void IntParse_BindsFromRavenCore_AndSupportsResultPropagation()
     {

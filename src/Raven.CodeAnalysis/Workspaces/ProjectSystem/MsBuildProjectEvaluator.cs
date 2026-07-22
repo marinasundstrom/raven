@@ -129,6 +129,9 @@ internal static class MsBuildProjectEvaluator
         var generatePreludeImports = GetBooleanProperty(project, "GeneratePreludeImports")
             ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
             ?? true;
+        var frameworkProjectionMode = ParseFrameworkProjectionMode(
+            GetOptionalProperty(project, "FrameworkProjections") ??
+            GetOptionalProperty(project, "RavenFrameworkProjections"));
 
         var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
             .WithAllowUnsafe(allowUnsafe)
@@ -136,7 +139,8 @@ internal static class MsBuildProjectEvaluator
             .WithAllowNamespaceMembers(allowNamespaceMembers)
             .WithAllowNamespaceMemberImports(allowNamespaceMemberImports)
             .WithRunAnalyzers(runAnalyzers)
-            .WithDisabledAnalyzers(disabledAnalyzers);
+            .WithDisabledAnalyzers(disabledAnalyzers)
+            .WithFrameworkProjectionMode(frameworkProjectionMode);
 
         if (returnedValueHandling is { } returnedValueHandlingMode)
             compilationOptions = compilationOptions.WithReturnedValueHandlingMode(returnedValueHandlingMode);
@@ -353,6 +357,14 @@ internal static class MsBuildProjectEvaluator
         var value = project.GetPropertyValue(propertyName);
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
+
+    private static FrameworkProjectionMode ParseFrameworkProjectionMode(string? value) =>
+        value?.Trim() switch
+        {
+            "Standard" or "standard" => FrameworkProjectionMode.Standard,
+            "None" or "none" => FrameworkProjectionMode.None,
+            _ => FrameworkProjectionMode.Standard,
+        };
 
     private static OutputKind ParseOutputKind(string outputType)
     {

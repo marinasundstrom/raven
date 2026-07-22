@@ -931,6 +931,8 @@ var executionOptions = new CompilerExecutionOptions(
 var optionsResult = CreateCompilationOptions(executionOptions);
 var options = optionsResult.Options;
 overloadResolutionLog = optionsResult.OverloadResolutionLog;
+if (skipDefaultRavenCoreLookup)
+    options = options.WithFrameworkProjectionMode(FrameworkProjectionMode.None);
 var workspace = RavenWorkspace.Create(
     targetFramework: targetFramework,
     projectSystemService: restoreProjectReferences
@@ -1078,6 +1080,9 @@ if (returnedValueHandlingDiagnostic is { } returnedValueHandlingOption)
 
 if (returnedValueHandlingModeOverride is { } returnedValueHandlingMode)
     options = options.WithReturnedValueHandlingMode(returnedValueHandlingMode);
+
+if (skipDefaultRavenCoreLookup)
+    options = options.WithFrameworkProjectionMode(FrameworkProjectionMode.None);
 
 project = project.WithCompilationOptions(options);
 project = AddDefaultAnalyzers(project, options.EnableSuggestions);

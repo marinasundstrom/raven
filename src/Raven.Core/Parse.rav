@@ -2,6 +2,7 @@ namespace System
 
 import System.*
 import System.Globalization.*
+import System.Option.*
 import System.Result.*
 
 interface IParseError: IError {
@@ -35,6 +36,14 @@ record ParseIntError(
 
 extension Int32Extensions for Int32 {
 
+    static func TryParse(input: string?) -> Option<int> {
+        if Int32.TryParse(input, out var value) {
+            return Some(value)
+        }
+
+        return None
+    }
+
     static func parse(input: string) -> Result<int, ParseIntError> {
         return parse(input, NumberStyles.Integer)
     }
@@ -58,5 +67,55 @@ extension Int32Extensions for Int32 {
         } catch OverflowException {
             return Error(ParseIntError(.Overflow, input, style))
         }
+    }
+}
+
+extension Int64Extensions for Int64 {
+    static func TryParse(input: string?) -> Option<long> {
+        if Int64.TryParse(input, out var value) {
+            return Some(value)
+        }
+
+        return None
+    }
+}
+
+extension DoubleExtensions for Double {
+    static func TryParse(input: string?) -> Option<double> {
+        if Double.TryParse(input, out var value) {
+            return Some(value)
+        }
+
+        return None
+    }
+}
+
+extension DecimalExtensions for Decimal {
+    static func TryParse(input: string?) -> Option<decimal> {
+        if Decimal.TryParse(input, out var value) {
+            return Some(value)
+        }
+
+        return None
+    }
+}
+
+extension GuidExtensions for Guid {
+    static func TryParse(input: string?) -> Option<Guid> {
+        if Guid.TryParse(input, out var value) {
+            return Some(value)
+        }
+
+        return None
+    }
+}
+
+extension DateTimeExtensions for DateTime {
+    static func TryParse(input: string?) -> Option<DateTime> {
+        if DateTime.TryParse(input, out var value) {
+            return Some(value)
+        }
+
+        return None
     }
 }

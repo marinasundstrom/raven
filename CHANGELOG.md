@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added default-on framework API projections for the simplest `TryParse`
+  overloads on `int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`.
+  Raven presents these as `Option<T>`-returning methods; projects can set
+  `RavenFrameworkProjections` to `None` to restore the ordinary CLR surface.
+  The exact mappings and failure recipes live in a versioned compiler catalog.
 - Added Rust-style `let pattern = expression else { ... }` declarations. The
   `else` branch must exit, and successful pattern bindings remain available in
   the surrounding scope. Documentation now promotes `if let` and `let ... else`

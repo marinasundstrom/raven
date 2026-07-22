@@ -11,6 +11,60 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("int", "Option<int>", "Int32Extensions")]
+    [InlineData("long", "Option<long>", "Int64Extensions")]
+    [InlineData("double", "Option<double>", "DoubleExtensions")]
+    [InlineData("decimal", "Option<decimal>", "DecimalExtensions")]
+    [InlineData("Guid", "Option<Guid>", "GuidExtensions")]
+    [InlineData("DateTime", "Option<DateTime>", "DateTimeExtensions")]
+    public void FrameworkTryParseProjection_IsEnabledByDefault(
+        string typeName,
+        string expectedReturnType,
+        string expectedContainer)
+    {
+        var source = $$"""
+import System.*
+
+val parsed = {{typeName}}.TryParse("42")
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.Equal(expectedContainer, boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal(expectedReturnType, boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
+    [Fact]
+    public void FrameworkTryParseProjection_CanBeDisabled()
+    {
+        const string source = """
+val parsed = int.TryParse("42", out var value)
+""";
+        var options = new CompilationOptions(OutputKind.ConsoleApplication)
+            .WithFrameworkProjectionMode(FrameworkProjectionMode.None);
+        var (compilation, tree) = CreateCompilation(source, options, TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.Equal("Int32", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("bool", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+    }
+
     [Fact]
     public void StaticExtensionMethod_FromMetadata_BindsToExtensionContainer()
     {

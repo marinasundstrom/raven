@@ -198,6 +198,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         UpdateProperty(root, "RavenAllowGlobalStatements", (project.CompilationOptions?.AllowGlobalStatements ?? true).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenAllowNamespaceMembers", (project.CompilationOptions?.AllowNamespaceMembers ?? true).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenAllowNamespaceMemberImports", (project.CompilationOptions?.AllowNamespaceMemberImports ?? true).ToString().ToLowerInvariant());
+        UpdateProperty(root, "RavenFrameworkProjections", (project.CompilationOptions?.FrameworkProjectionMode ?? FrameworkProjectionMode.Standard).ToString());
         var compilationOptions = project.CompilationOptions;
         UpdateProperty(root, "RavenRunAnalyzers", (compilationOptions?.RunAnalyzers ?? true).ToString().ToLowerInvariant());
         if (compilationOptions is not null && !compilationOptions.DisabledAnalyzers.IsEmpty)

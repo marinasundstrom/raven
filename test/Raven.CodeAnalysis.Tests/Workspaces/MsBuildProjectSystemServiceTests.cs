@@ -36,6 +36,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
                                             <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
                                             <MembersPublicByDefault>false</MembersPublicByDefault>
+                                            <RavenFrameworkProjections>None</RavenFrameworkProjections>
                                             <GenerateDocumentationFile>true</GenerateDocumentationFile>
                                             <GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>
                                             <DocumentationFile>artifacts/App.xml</DocumentationFile>
@@ -64,6 +65,7 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.Equal(ReturnedValueHandlingMode.Full, project.CompilationOptions.ReturnedValueHandlingMode);
             Assert.True(project.CompilationOptions.MembersPublicByDefaultConfigured);
             Assert.False(project.CompilationOptions.MembersPublicByDefault);
+            Assert.Equal(FrameworkProjectionMode.None, project.CompilationOptions.FrameworkProjectionMode);
             Assert.NotNull(project.DocumentationOptions);
             Assert.True(project.DocumentationOptions!.GenerateXmlDocumentation);
             Assert.True(project.DocumentationOptions.GenerateMarkdownDocumentation);
@@ -352,6 +354,7 @@ val value = WidgetFactory.CreateDefault()
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                     .WithAllowUnsafe(true)
                     .WithAllowGlobalStatements(false)
+                    .WithFrameworkProjectionMode(FrameworkProjectionMode.None)
                     .WithMembersPublicByDefault(true));
             updatedProject = updatedProject.WithDocumentationOptions(
                 new ProjectDocumentationOptions(
@@ -382,6 +385,7 @@ val value = WidgetFactory.CreateDefault()
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "AllowUnsafeBlocks").Value);
             Assert.Equal("false", rootElement.Descendants().First(e => e.Name.LocalName == "RavenAllowGlobalStatements").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "MembersPublicByDefault").Value);
+            Assert.Equal("None", rootElement.Descendants().First(e => e.Name.LocalName == "RavenFrameworkProjections").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "GenerateDocumentationFile").Value);
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "GenerateMarkdownDocumentationFile").Value);
             Assert.Equal("artifacts/App.xml", rootElement.Descendants().First(e => e.Name.LocalName == "DocumentationFile").Value);
