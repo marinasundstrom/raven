@@ -26,6 +26,9 @@
             "include": "#numbers"
         },
         {
+            "include": "#patternControlKeywords"
+        },
+        {
             "include": "#keywords"
         },
         {
@@ -375,6 +378,56 @@
                 {
                     "name": "constant.numeric.raven",
                     "match": "\\b\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?(?:[eE][+-]?\\d+(?:_\\d+)*)?\\b|\\B\\.\\d+(?:_\\d+)*(?:[eE][+-]?\\d+(?:_\\d+)*)?\\b"
+                }
+            ]
+        },
+        "patternControlKeywords": {
+            "patterns": [
+                {
+                    "name": "meta.pattern.condition.raven",
+                    "match": "\\b(if)(\\s+)(let|val|var)\\b(?=\\s*\\()",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.conditional.raven"
+                        },
+                        "3": {
+                            "patterns": [
+                                {
+                                    "match": "\\b(let|val)\\b",
+                                    "name": "keyword.declaration.variable.readonly.raven storage.type.variable.readonly.raven"
+                                },
+                                {
+                                    "match": "\\bvar\\b",
+                                    "name": "keyword.declaration.variable.raven storage.type.variable.raven"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "meta.pattern.loop.raven",
+                    "match": "\\b(while|for)(\\s+)(let|val|var)\\b(?=\\s*\\()",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.loop.raven"
+                        },
+                        "3": {
+                            "patterns": [
+                                {
+                                    "match": "\\b(let|val)\\b",
+                                    "name": "keyword.declaration.variable.readonly.raven storage.type.variable.readonly.raven"
+                                },
+                                {
+                                    "match": "\\bvar\\b",
+                                    "name": "keyword.declaration.variable.raven storage.type.variable.raven"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "keyword.control.raven",
+                    "match": "\\bis\\b(?=\\s*\\()"
                 }
             ]
         },
