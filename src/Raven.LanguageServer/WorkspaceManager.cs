@@ -1933,10 +1933,14 @@ internal sealed class WorkspaceManager
         compilationOptions = NormalizeCompilationOptionsForLanguageServer(
             compilationOptions,
             _compilerPerformanceInstrumentation);
-        var projectId = _workspace.AddProject(name, compilationOptions: compilationOptions);
+        var targetFramework = _workspace.DefaultTargetFramework;
+        var projectId = _workspace.AddProject(
+            name,
+            compilationOptions: compilationOptions,
+            targetFramework: targetFramework);
 
         var solution = _workspace.CurrentSolution;
-        var version = TargetFrameworkResolver.ResolveLatestInstalledVersion();
+        var version = TargetFrameworkResolver.ResolveVersion(targetFramework);
         foreach (var referencePath in TargetFrameworkResolver.GetReferenceAssemblies(version))
         {
             if (!File.Exists(referencePath))

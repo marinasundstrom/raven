@@ -14,6 +14,52 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-sighelp-{Guid.NewGuid():N}");
 
     [Fact]
+    public async Task SignatureHelpHandler_FrameworkProjection_ShowsRavenOverloadsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        const string code = """
+import System.*
+
+val parsed = int.TryParse("")
+""";
+        await store.UpsertDocumentAsync(uri, code);
+        var project = workspace.CurrentSolution.Projects.Single();
+        var compilation = workspace.GetCompilation(project.Id)!;
+        compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+        var sourceText = SourceText.From(code);
+        var offset = code.LastIndexOf("TryParse(\"", StringComparison.Ordinal) + "TryParse(\"".Length;
+
+        var result = await handler.Handle(new SignatureHelpParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new Raven.CodeAnalysis.Text.TextSpan(offset, 0)).Start
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        var labels = result.Signatures.Select(signature => signature.Label).ToArray();
+        labels.ShouldContain("func TryParse(input: string?) -> Option<int>");
+        labels.ShouldContain("func TryParse(input: string?, style: NumberStyles, provider: IFormatProvider?) -> Option<int>");
+        labels.ShouldNotContain(label => label.Contains("out", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task SignatureHelpHandler_IncompleteInvocation_ShowsAllOverloadsAsync()
     {
         Directory.CreateDirectory(_tempRoot);

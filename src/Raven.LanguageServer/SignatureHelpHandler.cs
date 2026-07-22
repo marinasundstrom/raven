@@ -12,6 +12,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 using TextDocumentSelector = OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentSelector;
@@ -392,9 +393,19 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         InvocationExpressionSyntax invocation)
     {
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var invocationReceiverType = invocation.Expression is MemberAccessExpressionSyntax memberAccess
+            ? semanticModel.GetTypeInfo(memberAccess.Expression).Type
+            : null;
 
         void AddIfNotPresent(IMethodSymbol method)
         {
+            if (method is ProjectedMethodSymbol &&
+                invocationReceiverType is not null &&
+                !SymbolEqualityComparer.Default.Equals(method.ContainingType, invocationReceiverType))
+            {
+                return;
+            }
+
             foreach (var existing in builder)
             {
                 if (SymbolEqualityComparer.Default.Equals(existing, method))
@@ -409,8 +420,24 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         if (builder.Count == 0)
             AddSymbolInfoMethods(semanticModel.GetSymbolInfo(invocation.Expression));
 
+        if (invocationReceiverType is not null &&
+            semanticModel.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
+            invocation.Expression is MemberAccessExpressionSyntax projectedAccess)
+        {
+            foreach (var method in FrameworkProjectionCatalog.GetStandardMethods(
+                         semanticModel.Compilation,
+                         invocationReceiverType,
+                         projectedAccess.Name.Identifier.ValueText))
+            {
+                AddIfNotPresent(method);
+            }
+        }
+
         foreach (var method in builder.ToImmutableArray())
-            AddSiblingOverloads(method, AddIfNotPresent);
+        {
+            if (method is not ProjectedMethodSymbol)
+                AddSiblingOverloads(method, AddIfNotPresent);
+        }
 
         if (builder.Count == 0)
         {

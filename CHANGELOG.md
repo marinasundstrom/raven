@@ -15,6 +15,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   structurally incompatible framework projection bridges.
 - Validated built-in projection source and bridge methods against their full
   reflected CLR signatures, including generic arguments and ref-kinds.
+- Presented receiver-specific projection overloads in signature help and
+  receiver-owned Raven signatures in hover, without exposing CLR `out`
+  overloads; loose-file language-server projects now preserve the workspace's
+  configured target framework when resolving framework and Raven.Core metadata.
 - Added the first same-signature `Parse -> Result` projection for
   `Int32.Parse(string)`, with explicit null, format, and overflow mappings.
 - Added Rust-style `let pattern = expression else { ... }` declarations. The

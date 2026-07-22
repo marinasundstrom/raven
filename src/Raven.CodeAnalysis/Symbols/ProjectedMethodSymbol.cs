@@ -6,7 +6,7 @@ internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
 {
     internal ProjectedMethodSymbol(INamedTypeSymbol receiverType, IMethodSymbol adapterMethod)
         : base(
-            adapterMethod,
+            receiverType,
             receiverType,
             receiverType.ContainingNamespace,
             [],
