@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Locked the built-in union C# surface and serialization contract with direct
+  C# construction/extraction coverage: payload-first JSON remains the standard
+  behavior, while tagged Raven serialization requires explicit opt-in.
 - Highlighted constructor-form `init(...)` declarations in the VS Code TextMate grammar.
 - Removed `trait` as an alias for extension declarations; use `extension`.
 - Projected `Guid.Parse(string)` as
@@ -46,6 +49,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   combinators when proving collective case coverage. Removed the superseded
   binder-owned exhaustiveness implementation so diagnostics and semantic
   queries cannot drift between separate checking paths.
+- Missing-case diagnostics now identify uncovered alternatives inside a
+  partially matched type-union payload, such as `Error(OverflowException)`,
+  instead of collapsing the remaining payload coverage to `Error`.
 - Exhaustiveness analysis now proves complete positional tuple matches when
   tuple elements form a bounded finite product of booleans, enums, nested
   tuples, or discriminated unions, including nullable tuple carriers and

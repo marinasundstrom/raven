@@ -24,6 +24,15 @@ maps its carrier to the JSON shape that best matches the carrier's role:
   shape and declared target type make that possible. Complex member types need
   special treatment when their JSON shape cannot identify the member on read.
 
+This payload-first behavior is the standard serialization contract of the
+built-in `Option<T>`, `Result<T, E>`, and `System.Union<...>` types and is
+available to C# through ordinary `System.Text.Json` calls. Tagged Raven union
+serialization is different: it is special behavior and is enabled only by an
+explicit `[RavenTaggedUnionJsonConverter]` attribute or by registering
+`RavenTaggedUnionJsonConverterFactory` in `JsonSerializerOptions.Converters`.
+Raven does not globally replace `System.Text.Json` behavior for unrelated
+types.
+
 The current converters use reflection to inspect carrier fields, constructors,
 case objects, and payload types. A future macro could generate equivalent
 union-specific JSON converters and avoid reflection on hot serialization paths.
@@ -107,6 +116,17 @@ lowercase `case`, `value`, and `data`; they are not produced through
 The type syntax `T1 | T2` lowers to Raven.Core's built-in
 `System.Union<T1, T2>` carrier. Arity-specific carriers exist for two through
 five member types and use `RavenParenthesizedUnionJsonConverterFactory`.
+
+The same carrier is directly usable from C#:
+
+```csharp
+Union<string, int> value = new("hello");
+
+if (value.TryGetValue(out string? text))
+    Console.WriteLine(text);
+
+string json = JsonSerializer.Serialize(value); // "hello"
+```
 
 Nominal parenthesized unions use the same value-union model:
 
@@ -242,6 +262,21 @@ Case-declaration Raven unions, also known as tagged unions, can opt into
 `[RavenTaggedUnionJsonConverter("propertyName")]`.
 The default discriminator property is `$case`; the attribute argument selects a
 different discriminator name.
+
+C# callers can opt a built-in or emitted union into the same tagged contract
+for a particular serializer configuration:
+
+```csharp
+var options = new JsonSerializerOptions();
+options.Converters.Add(new RavenTaggedUnionJsonConverterFactory("kind"));
+
+var value = new Union<string, int>("hello");
+string json = JsonSerializer.Serialize(value, options);
+// {"kind":"String","Value":"hello"}
+```
+
+Without that explicit converter registration, the built-in union keeps its
+standard payload-first JSON shape.
 
 Example:
 

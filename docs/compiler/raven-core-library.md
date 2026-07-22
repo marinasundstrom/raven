@@ -184,6 +184,9 @@ Raven.Core treats its built-in union carriers as .NET-compatible value types by
 default. This keeps the ABI aligned with the C# generated-union direction:
 
 - Plain `union` declarations synthesize struct carriers.
+- C# callers can use the public single-payload constructors, `HasValue`,
+  `Value`, and typed `TryGetValue(out T)` overloads without Raven-specific
+  runtime helpers.
 - `union class` remains available for reference-type carrier semantics and is
   the right choice when a union must satisfy `class` constraints or intentionally
   behave like an object hierarchy at runtime.
@@ -215,6 +218,10 @@ default. This keeps the ABI aligned with the C# generated-union direction:
 - JSON converters defensively serialize inactive default carriers as JSON
   `null`. This is a runtime safety behavior for forced serialization of an
   invalid carrier state, not a language-level `null` union case.
+- Built-in carriers have a documented payload-first `System.Text.Json`
+  contract. Tagged/discriminator serialization is opt-in through
+  `RavenTaggedUnionJsonConverterAttribute` or explicit converter registration;
+  no tagged union policy is installed globally.
 
 This contract deliberately separates Raven semantics from the physical .NET
 carrier representation. A union's declared cases describe the semantic domain;

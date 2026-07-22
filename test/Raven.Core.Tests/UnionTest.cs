@@ -6,6 +6,24 @@ namespace Raven.Core.Tests;
 public sealed class UnionTest : RavenCoreDiagnosticTestBase
 {
     [Fact]
+    public void StandardUnion_IsDirectlyConsumableFromCSharp()
+    {
+        var text = new Union<string, int>("hello");
+
+        Assert.True(text.HasValue);
+        Assert.Equal("hello", text.Value);
+        Assert.True(text.TryGetValue(out string? extractedText));
+        Assert.Equal("hello", extractedText);
+        Assert.False(text.TryGetValue(out int _));
+
+        var number = new Union<string, int>(42);
+
+        Assert.True(number.TryGetValue(out int extractedNumber));
+        Assert.Equal(42, extractedNumber);
+        Assert.False(number.TryGetValue(out string? _));
+    }
+
+    [Fact]
     public void StandardUnion_IsStructCarrier_WithDefaultUninitializedState()
     {
         var asm = LoadRavenCoreAssembly();
@@ -101,6 +119,23 @@ public sealed class UnionTest : RavenCoreDiagnosticTestBase
         var json = JsonSerializer.Serialize(obj, objType, options);
 
         Assert.Equal("""{"value":"str"}""", json);
+    }
+
+    [Fact]
+    public void TaggedSerialization_IsOptInFromCSharp()
+    {
+        var value = new Union<string, int>("hello");
+        var defaultJson = JsonSerializer.Serialize(value);
+        var options = new JsonSerializerOptions();
+        options.Converters.Add(new RavenTaggedUnionJsonConverterFactory("kind"));
+
+        var taggedJson = JsonSerializer.Serialize(value, options);
+        var parsed = JsonSerializer.Deserialize<Union<string, int>>(taggedJson, options);
+
+        Assert.Equal("\"hello\"", defaultJson);
+        Assert.Equal("""{"kind":"String","Value":"hello"}""", taggedJson);
+        Assert.True(parsed.TryGetValue(out string? text));
+        Assert.Equal("hello", text);
     }
 
     private static Type GetConstructedType(Assembly assembly, string metadataName, params Type[] typeArgs)
