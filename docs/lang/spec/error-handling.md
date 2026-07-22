@@ -137,9 +137,10 @@ func parseRequiredInt(text: string) -> Result<int, Exception> {
 
 These examples deliberately use the throwing .NET API `Convert.ToInt32` to
 demonstrate exception capture. With standard framework projections enabled,
-`int.Parse(string)` already returns `Result<int, ParseIntError>` and does not
-need `try`. Setting `RavenFrameworkProjections` to `None` restores the ordinary
-throwing CLR `int.Parse` member.
+`int.Parse(string)` already returns
+`Result<int, ArgumentNullException | FormatException | OverflowException>` and
+does not need `try`. Setting `RavenFrameworkProjections` to `None` restores the
+ordinary throwing CLR `int.Parse` member.
 
 ### Rules
 

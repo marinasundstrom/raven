@@ -875,14 +875,15 @@ extension WidgetExtensions for Widget {
         signature.ShouldContain("func Double()");
     }
 
-    [Fact]
-    public void FrameworkProjectionHover_UsesReceiverOwnedRavenSignature()
+    [Theory]
+    [InlineData("int.Parse(\"42\")", "struct int", "func Parse(input: string) -> Result<int, ArgumentNullException | FormatException | OverflowException>")]
+    [InlineData("Guid.Parse(\"d2719b1e-88c5-4a06-aeba-69d19e70b9f7\")", "struct Guid", "func Parse(input: string) -> Result<Guid, ArgumentNullException | FormatException>")]
+    public void FrameworkProjectionHover_UsesReceiverOwnedRavenSignature(
+        string expression,
+        string expectedContaining,
+        string expectedSignature)
     {
-        const string code = """
-import System.*
-
-val parsed = int.Parse("42")
-""";
+        var code = $"import System.*{Environment.NewLine}{Environment.NewLine}val parsed = {expression}";
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
         var references = LanguageServerTestReferences.Default
@@ -912,9 +913,9 @@ val parsed = int.Parse("42")
         var signature = (string)buildDisplaySignatureForHover.Invoke(null, [symbol, access.Name, semanticModel, root, access.Name.Span.Start])!;
 
         kind.ShouldBe("Method");
-        containing.ShouldBe("struct int");
+        containing.ShouldBe(expectedContaining);
         signature.ShouldNotStartWith("(extension) ");
-        signature.ShouldContain("func Parse(input: string) -> Result<int, ParseIntError>");
+        signature.ShouldContain(expectedSignature);
     }
 
     [Fact]

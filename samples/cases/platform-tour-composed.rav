@@ -6,10 +6,14 @@ import System.Threading.Tasks.*
 // Feature: composed end-to-end platform tour (functions, unions, async, events, interop).
 /// Functions + Result/Option + pattern matching.
 func ParseId(text: string) -> Result<int, string> {
-    // Raven projects this framework method to Result<int, ParseIntError>.
+    // Raven projects this framework method to Result with its .NET exceptions.
     return int.Parse(text) match {
         Ok(let value) => Ok(value)
-        Error(let error) => Error("Not a valid integer: '$text' (${error.Message})")
+        Error(let error) => match error {
+            ArgumentNullException ex => Error("Missing integer: ${ex.Message}")
+            FormatException ex => Error("Not a valid integer: '$text' (${ex.Message})")
+            OverflowException ex => Error("Integer is out of range: ${ex.Message}")
+        }
     }
 }
 

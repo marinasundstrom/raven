@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -206,7 +205,7 @@ extension TestExt<T> for IEnumerable<T> {
         const string code = """
 import System.*
 
-val result: Result<int, ParseIntError> = default
+val result: Result<int, ContextError<IError>> = default
 val wrapped = result.WithContext("reading value")
 """;
 
@@ -216,7 +215,7 @@ val wrapped = result.WithContext("reading value")
             [
                 new DiagnosticResult("RAV0405")
                     .WithAnySpan()
-                    .WithArguments("self", "Result<int, ParseIntError>")
+                    .WithArguments("self", "Result<int, ContextError<IError>>")
             ]);
 
         verifier.Verify();
@@ -240,35 +239,6 @@ val wrapped = result.WithContext("reading value")
         Assert.NotNull(carrierText);
         Assert.Contains("Result<String>.Ok(\"Foo\")", carrierText!, StringComparison.Ordinal);
         Assert.DoesNotContain(".Ok(Foo)", carrierText!, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ToString_UsesConstructedTypeArguments_ForContextWrappedErrorPayload()
-    {
-        var asm = LoadRavenCoreAssembly();
-        var parseIntErrorType = asm.GetType("System.ParseIntError", throwOnError: true)!;
-        var contextErrorType = GetConstructedType(asm, "System.ContextError`1", parseIntErrorType);
-        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), contextErrorType);
-        var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
-
-        var kindType = asm.GetType("System.IntErrorKind", throwOnError: true)!;
-        var parseIntError = Activator.CreateInstance(
-            parseIntErrorType,
-            Enum.Parse(kindType, "InvalidFormat"),
-            "foo",
-            NumberStyles.Integer)!;
-        var contextError = Activator.CreateInstance(contextErrorType, "test", parseIntError)!;
-        var errorCase = Activator.CreateInstance(errorType, contextError)!;
-
-        var caseText = errorCase.ToString();
-        Assert.NotNull(caseText);
-        Assert.Contains("Result<ContextError<ParseIntError>>.Error(", caseText!, StringComparison.Ordinal);
-        Assert.Contains("ContextError<ParseIntError> { Message = \"test\"", caseText!, StringComparison.Ordinal);
-        Assert.Contains("Cause = ParseIntError { Kind = IntErrorKind.InvalidFormat, Input = \"foo\", Style = NumberStyles.Integer }", caseText!, StringComparison.Ordinal);
-        Assert.DoesNotContain("Result<E>", caseText!, StringComparison.Ordinal);
-        Assert.DoesNotContain("ContextError<TError>", caseText!, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Error(<ContextError<ParseIntError>>)", caseText!, StringComparison.Ordinal);
-
     }
 
     [Fact]

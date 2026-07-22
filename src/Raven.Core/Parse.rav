@@ -6,35 +6,6 @@ import System.Option.*
 import System.Result.*
 import System.Runtime.CompilerServices.*
 
-interface IParseError: IError {
-}
-
-enum IntErrorKind {
-    Empty,
-    Null,
-    InvalidFormat,
-    Overflow
-}
-
-record ParseIntError(
-    val Kind: IntErrorKind,
-    val Input: string?,
-    val Style: NumberStyles
-) : IParseError {
-
-    val IError.Cause: IError? => null
-
-    val Message: string =>
-        Kind match {
-            .Null => "Value cannot be null."
-            .Empty => "Value cannot be empty."
-            .InvalidFormat => "Input was not in a valid integer format."
-            .Overflow => "Input was outside the range of Int32."
-        }
-
-    override func ToString() -> string => Message
-}
-
 extension Int32Extensions for Int32 {
 
     [FrameworkProjection("system.int32.tryparse.string.option.v1")]
@@ -56,32 +27,15 @@ extension Int32Extensions for Int32 {
     }
 
     [FrameworkProjection("system.int32.parse.string.result.v1")]
-    static func Parse(input: string) -> Result<int, ParseIntError> {
-        return parse(input)
-    }
-
-    static func parse(input: string) -> Result<int, ParseIntError> {
-        return parse(input, NumberStyles.Integer)
-    }
-
-    static func parse(
-        input: string,
-        style: NumberStyles,
-        provider: IFormatProvider? = null) -> Result<int, ParseIntError> {
-        if input is null {
-            return Error(ParseIntError(.Null, input, style))
-        }
-
-        if input.Length == 0 {
-            return Error(ParseIntError(.Empty, input, style))
-        }
-
+    static func Parse(input: string) -> Result<int, Union<ArgumentNullException, FormatException, OverflowException>> {
         try {
-            return Ok(int.Parse(input, style, provider))
-        } catch FormatException {
-            return Error(ParseIntError(.InvalidFormat, input, style))
-        } catch OverflowException {
-            return Error(ParseIntError(.Overflow, input, style))
+            return Ok(int.Parse(input))
+        } catch ArgumentNullException ex {
+            return Error(ex)
+        } catch FormatException ex {
+            return Error(ex)
+        } catch OverflowException ex {
+            return Error(ex)
         }
     }
 }
@@ -145,6 +99,17 @@ extension GuidExtensions for Guid {
         }
 
         return None
+    }
+
+    [FrameworkProjection("system.guid.parse.string.result.v1")]
+    static func Parse(input: string) -> Result<Guid, Union<ArgumentNullException, FormatException>> {
+        try {
+            return Ok(Guid.Parse(input))
+        } catch ArgumentNullException ex {
+            return Error(ex)
+        } catch FormatException ex {
+            return Error(ex)
+        }
     }
 }
 

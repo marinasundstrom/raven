@@ -27,8 +27,12 @@ func TryParseDateTimeProjectedWithStyles(text: string) -> Option<DateTime> {
     return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None)
 }
 
-func ParseProjected(text: string) -> Result<int, ParseIntError> {
+func ParseProjected(text: string) -> Result<int, ArgumentNullException | FormatException | OverflowException> {
     return int.Parse(text)
+}
+
+func ParseGuidProjected(text: string) -> Result<Guid, ArgumentNullException | FormatException> {
+    return Guid.Parse(text)
 }
 """;
 
@@ -91,8 +95,8 @@ func ParseProjected(text: string) -> Result<int, ParseIntError> {
         const string code = """
 import System.*
 
-func ParseMain(text: string) -> Result<int, IParseError> {
-    val value = int.parse(text)?
+func ParseMain(text: string) -> Result<int, ArgumentNullException | FormatException | OverflowException> {
+    val value = int.Parse(text)?
     return .Ok(value)
 }
 """;
@@ -105,7 +109,7 @@ func ParseMain(text: string) -> Result<int, IParseError> {
     {
         var assembly = LoadRavenCoreAssembly();
         var extensions = assembly.GetType("System.Int32Extensions", throwOnError: true)!;
-        var parse = extensions.GetMethod("parse", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(string)], modifiers: null)!;
+        var parse = extensions.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(string)], modifiers: null)!;
 
         var result = parse.Invoke(null, ["42"])!;
         var resultType = result.GetType();
@@ -122,76 +126,59 @@ func ParseMain(text: string) -> Result<int, IParseError> {
         Assert.Equal(42, value);
     }
 
-    [Fact]
-    public void IntParse_ReturnsInvalidFormatError_ForBadInput()
+    [Theory]
+    [InlineData(null, "ArgumentNullException")]
+    [InlineData("", "FormatException")]
+    [InlineData("foo", "FormatException")]
+    [InlineData("999999999999999999999", "OverflowException")]
+    public void IntParse_ReturnsMappedException(string? input, string expectedExceptionType)
     {
         var assembly = LoadRavenCoreAssembly();
         var extensions = assembly.GetType("System.Int32Extensions", throwOnError: true)!;
-        var parse = extensions.GetMethod("parse", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(string)], modifiers: null)!;
+        var parse = extensions.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(string)], modifiers: null)!;
 
-        var result = parse.Invoke(null, ["foo"])!;
+        var result = parse.Invoke(null, [input])!;
         var resultType = result.GetType();
         var errorType = GetCaseTypeFromTryGetValue(resultType, "Error");
         var tryGetError = GetTryGetValueMethod(resultType, errorType);
         var args = new object?[] { null };
 
-        var ok = (bool)(tryGetError.Invoke(result, args) ?? false);
-
-        Assert.True(ok);
+        Assert.True((bool)(tryGetError.Invoke(result, args) ?? false));
         Assert.NotNull(args[0]);
 
         var errorCase = args[0]!;
-        var error = errorCase.GetType().GetProperty("Data")!.GetValue(errorCase)!;
-        var kind = error.GetType().GetProperty("Kind")!.GetValue(error);
-        Assert.Equal("InvalidFormat", kind!.ToString());
+        var errorUnion = errorCase.GetType().GetProperty("Data")!.GetValue(errorCase)!;
+        var exception = errorUnion.GetType().GetProperty("Value")!.GetValue(errorUnion)!;
+        Assert.Equal(expectedExceptionType, exception.GetType().Name);
     }
 
-    [Fact]
-    public void WithMessage_OnTypedError_PreservesInnerErrorType()
+    [Theory]
+    [InlineData("d2719b1e-88c5-4a06-aeba-69d19e70b9f7", true, null)]
+    [InlineData(null, false, "ArgumentNullException")]
+    [InlineData("", false, "FormatException")]
+    [InlineData("not-a-guid", false, "FormatException")]
+    public void GuidParse_ReturnsMappedResult(string? input, bool expectedOk, string? expectedExceptionType)
     {
-        const string code = """
-import System.*
-import System.Globalization.*
+        var assembly = LoadRavenCoreAssembly();
+        var extensions = assembly.GetType("System.GuidExtensions", throwOnError: true)!;
+        var parse = extensions.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, binder: null, types: [typeof(string)], modifiers: null)!;
 
-func Wrap() -> string {
-    val error = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer)
-    val wrapped = error.WithContext("wrapped")
-    return if wrapped.Cause.Kind == IntErrorKind.InvalidFormat { "ok" } else { "bad" }
-}
-""";
+        var result = parse.Invoke(null, [input])!;
+        var resultType = result.GetType();
+        var caseName = expectedOk ? "Ok" : "Error";
+        var caseType = GetCaseTypeFromTryGetValue(resultType, caseName);
+        var tryGetCase = GetTryGetValueMethod(resultType, caseType);
+        var args = new object?[] { null };
 
-        CreateVerifier(code).Verify();
-    }
+        Assert.True((bool)(tryGetCase.Invoke(result, args) ?? false));
+        Assert.NotNull(args[0]);
 
-    [Fact]
-    public void ContextError_ExplicitInterfaceCause_CoexistsWithTypedCause()
-    {
-        const string code = """
-import System.*
-import System.Globalization.*
-
-func Wrap() -> string {
-    val wrapped = ParseIntError(.InvalidFormat, "foo", NumberStyles.Integer).WithContext("wrapped")
-    val erased: IError = wrapped
-    return "$wrapped.Cause.Kind|$erased.Cause?.Message"
-}
-""";
-
-        CreateVerifier(code).Verify();
-    }
-
-    [Fact]
-    public void WithMessage_OnResult_ProjectsErrorChannelToContextError()
-    {
-        const string code = """
-import System.*
-
-func Wrap(text: string) -> Result<int, ContextError<ParseIntError>> {
-    return int.parse(text).WithContext("wrapped")
-}
-""";
-
-        CreateVerifier(code).Verify();
+        if (expectedExceptionType is not null)
+        {
+            var errorUnion = args[0]!.GetType().GetProperty("Data")!.GetValue(args[0])!;
+            var exception = errorUnion.GetType().GetProperty("Value")!.GetValue(errorUnion)!;
+            Assert.Equal(expectedExceptionType, exception.GetType().Name);
+        }
     }
 
     private static MethodInfo GetTryGetValueMethod(Type resultType, Type caseType)

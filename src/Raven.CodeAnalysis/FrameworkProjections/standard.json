@@ -24,7 +24,7 @@
       "receiverType": "System.Int32",
       "source": "System.Int32 System.Int32.Parse(System.String)",
       "projectedContainer": "System.Int32Extensions",
-      "projectedSignature": "System.Result<System.Int32, System.ParseIntError> Parse(System.String)",
+      "projectedSignature": "System.Result<System.Int32, System.Union<System.ArgumentNullException, System.FormatException, System.OverflowException>> Parse(System.String)",
       "lowering": "catch-to-result",
       "exceptions": [
         {
@@ -103,6 +103,24 @@
       "projectedSignature": "System.Option<System.Guid> TryParse(System.String)",
       "lowering": "false-returns-none",
       "exceptions": []
+    },
+    {
+      "id": "system.guid.parse.string.result.v1",
+      "receiverType": "System.Guid",
+      "source": "System.Guid System.Guid.Parse(System.String)",
+      "projectedContainer": "System.GuidExtensions",
+      "projectedSignature": "System.Result<System.Guid, System.Union<System.ArgumentNullException, System.FormatException>> Parse(System.String)",
+      "lowering": "catch-to-result",
+      "exceptions": [
+        {
+          "type": "System.ArgumentNullException",
+          "case": "Null"
+        },
+        {
+          "type": "System.FormatException",
+          "case": "InvalidFormat"
+        }
+      ]
     },
     {
       "id": "system.datetime.tryparse.string.option.v1",

@@ -36,18 +36,27 @@ val currency = decimal.TryParse(text, NumberStyles.Currency, culture)
 // Option<decimal>
 ```
 
-It also replaces `int.Parse(string)` with a result-returning Raven signature:
+It also replaces `int.Parse(string)` and `Guid.Parse(string)` with
+result-returning Raven signatures:
 
 ```raven
-val number = int.Parse(text) // Result<int, ParseIntError>
+val number = int.Parse(text)
+// Result<int, ArgumentNullException | FormatException | OverflowException>
+val id = Guid.Parse(text)
+// Result<Guid, ArgumentNullException | FormatException>
 ```
 
 The catalog is an exact, versioned mapping rather than a naming convention.
 Each entry records its exact source signature, projected signature, stable
 projection ID, bridge implementation, and expected exception mapping. The
 `TryParse` entries catch no exceptions: a `false` result becomes `None`, while
-source exceptions remain exceptions. The `int.Parse` bridge maps null, format,
-and overflow exceptions to `ParseIntError` cases.
+source exceptions remain exceptions. The `int.Parse` and `Guid.Parse` bridges
+preserve their documented exception types directly in standard unions.
+
+This exception-preserving surface is intended for predictable .NET interop. At
+an application or domain boundary, map those framework exceptions into your
+own error records or error unions so the domain model does not expose
+infrastructure-specific failures throughout the program.
 
 Set `RavenFrameworkProjections` to `None` in a project to restore the ordinary
 .NET member families, including their `out` parameters. See the framework API

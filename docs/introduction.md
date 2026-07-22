@@ -128,7 +128,8 @@ That example shows the current Raven style in miniature:
 - `Result` values are handled directly instead of being wrapped in exception-heavy flow
 - pattern arms use explicit binding keywords where they introduce new values
 - selected .NET APIs are projected into Raven's `Option` and `Result`
-  vocabulary; here `int.Parse(string)` returns `Result<int, ParseIntError>`
+  vocabulary; here `int.Parse(string)` returns a `Result` whose error channel
+  is the union of the framework exceptions that the projection captures
 
 ---
 

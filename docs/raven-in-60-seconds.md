@@ -61,8 +61,9 @@ func ParsePort(text: string) -> Result<int, string> {
 }
 ```
 
-Raven projects the known framework method `int.Parse(string)` to
-`Result<int, ParseIntError>`, so `match` handles its expected failures directly.
+Raven projects the known framework method `int.Parse(string)` to a `Result`
+whose error channel preserves its framework exception types, so `match` handles
+its expected failures directly.
 The `try` expression remains available for genuinely throwing APIs, and the
 propagation operator `?` can return an error from the current function when no
 local handling is needed.

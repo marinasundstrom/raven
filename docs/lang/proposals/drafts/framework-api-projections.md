@@ -143,16 +143,21 @@ static bool TryParse(string? input, out T value)
 static Option<T> TryParse(string? input)
 ```
 
-It also includes the first same-signature exception projection:
+It also includes reviewed same-signature exception projections:
 
 ```text
 static int Int32.Parse(string input)
     =>
-static Result<int, ParseIntError> Int32.Parse(string input)
+static Result<int, ArgumentNullException | FormatException | OverflowException> Int32.Parse(string input)
+
+static Guid Guid.Parse(string input)
+    =>
+static Result<Guid, ArgumentNullException | FormatException> Guid.Parse(string input)
 ```
 
-Its descriptor explicitly maps `ArgumentNullException`, `FormatException`, and
-`OverflowException` to the corresponding `ParseIntError` cases.
+Their descriptors explicitly map expected exceptions into standard unions.
+The caught objects retain their .NET exception identities; the projection
+changes how failures are transported, not what the failures are.
 
 The source method must be identified by its containing metadata type, name,
 parameter types, parameter ref-kinds, return type, and applicable target
@@ -420,8 +425,9 @@ does not distinguish overloads.
 
 The initial implementation chooses replacement of the ordinary view while
 projections are enabled. `int.Parse(string)` therefore resolves to the curated
-`Result<int, ParseIntError>` projection in `Standard` mode, and the raw CLR
-member is restored when the compilation uses `None`. Return type does not
+`Result<int, ArgumentNullException | FormatException | OverflowException>`
+projection in `Standard` mode, and the raw CLR member is restored when the
+compilation uses `None`. Return type does not
 participate in overload resolution; the compiler selects the API view before
 building the overload set.
 
@@ -444,10 +450,12 @@ exhaustiveness to framework behavior. A Raven-owned `ParseError` union is more
 stable but creates a standard-library compatibility commitment and requires a
 mapping for each source method.
 
-The catalog currently makes that commitment only for `Int32.Parse(string)`.
-It maps `ArgumentNullException`, `FormatException`, and `OverflowException` to
-the corresponding `ParseIntError` cases. Other `Parse` methods remain ordinary
-CLR members until their exception contracts and error types are reviewed.
+The catalog currently makes that commitment for `Int32.Parse(string)` and
+`Guid.Parse(string)`. These framework-facing projections preserve exception
+types for .NET familiarity. Application code should normally translate them at
+its boundary into domain-specific error records or unions. Other `Parse`
+methods remain ordinary CLR members until their exception contracts are
+reviewed.
 
 ## Cases that must not be projected by shape alone
 
@@ -544,7 +552,7 @@ error case explicitly. The initial `Int32.Parse(string)` descriptor is:
 
 ```text
 source: System.Int32.Parse(System.String)
-projected: System.Result<System.Int32, System.ParseIntError>
+projected: System.Result<System.Int32, System.Union<System.ArgumentNullException, System.FormatException, System.OverflowException>>
 lowering:
   kind: catch-to-result
   exceptions:
@@ -777,7 +785,7 @@ runtime behavior rather than emitted instruction sequences.
 6. Should a future per-call syntax select the raw CLR member, or is the
    compilation-level `None` view sufficient?
 7. Which additional throwing `Parse` methods justify a `Result` projection,
-   and which Raven-owned error unions and exception mappings should they use?
+   and which documented exception sets should their result channels expose?
 8. Should enum projections appear directly on every enum type or use a
    Raven.Core helper until static projected lookup is mature?
 9. How should external mapping artifacts be discovered, versioned, and scoped
@@ -791,7 +799,9 @@ runtime behavior rather than emitted instruction sequences.
 
 Implement `bool-out-to-option` for the six initial framework types, behind the
 project option, with full semantic-model and language-service support. Include
-the reviewed `Int32.Parse(string) -> Result<int, ParseIntError>` replacement.
+the reviewed exception-preserving `Int32.Parse(string)` and
+`Guid.Parse(string) -> Result<Guid, ArgumentNullException | FormatException>`
+replacements.
 
 ### Stage 2: catalog expansion
 

@@ -176,10 +176,33 @@ val parsed = int.Parse("42")
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
         Assert.Equal("Int32", boundInvocation.Method.ContainingType?.Name);
-        Assert.Equal("Result<int, ParseIntError>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Equal("Result<int, ArgumentNullException | FormatException | OverflowException>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.False(boundInvocation.Method.IsExtensionMethod);
         var projected = Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
         Assert.Equal("system.int32.parse.string.result.v1", GetFrameworkProjectionId(projected.AdapterMethod));
+    }
+
+    [Fact]
+    public void FrameworkGuidParseProjection_ReplacesSameSignatureClrMethod()
+    {
+        const string source = """
+import System.*
+
+val parsed = Guid.Parse("d2719b1e-88c5-4a06-aeba-69d19e70b9f7")
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(invocation));
+        Assert.Equal("Guid", boundInvocation.Method.ContainingType?.Name);
+        Assert.Equal("Result<Guid, ArgumentNullException | FormatException>", boundInvocation.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        var projected = Assert.IsType<Raven.CodeAnalysis.Symbols.ProjectedMethodSymbol>(boundInvocation.Method);
+        Assert.Equal("system.guid.parse.string.result.v1", GetFrameworkProjectionId(projected.AdapterMethod));
     }
 
     [Fact]
@@ -233,31 +256,7 @@ val created = WidgetExtensions.Create(42)
             .ConstructorArguments.Single().Value as string;
 
     [Fact]
-    public void RavenStaticExtensionMethod_FromMetadata_BindsToReceiverType()
-    {
-        const string source = """
-import System.*
-
-val parsed = int.parse("42")
-""";
-
-        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
-        compilation.EnsureSetup();
-
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
-
-        var model = compilation.GetSemanticModel(tree);
-        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
-
-        Assert.Equal("Int32Extensions", boundInvocation.Method.ContainingType?.Name);
-        Assert.Null(boundInvocation.ExtensionReceiver);
-        Assert.Equal("union struct Result<int, ParseIntError>", boundInvocation.Type.ToDisplayString());
-    }
-
-    [Fact]
-    public void RavenStaticExtensionMethod_MetadataSymbol_RecoversReceiverType()
+    public void RavenCore_DoesNotExposeLowercaseParseHelper()
     {
         var compilation = CreateCompilation(references: TestMetadataReferences.DefaultWithRavenCore);
         compilation.EnsureSetup();
@@ -267,14 +266,7 @@ val parsed = int.parse("42")
 
         var extensionType = systemNamespace!.LookupType("Int32Extensions") as INamedTypeSymbol;
         Assert.NotNull(extensionType);
-
-        var parseMethod = extensionType!.GetMembers("parse").OfType<IMethodSymbol>().FirstOrDefault(method => method.Parameters.Length == 1);
-        Assert.NotNull(parseMethod);
-        Assert.Equal(ExtensionMemberKind.Static, parseMethod!.ExtensionMemberKind);
-
-        var receiverType = parseMethod.GetExtensionReceiverType();
-        Assert.NotNull(receiverType);
-        Assert.Equal("int", receiverType!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
+        Assert.Empty(extensionType!.GetMembers("parse"));
     }
 
     [Fact]
@@ -294,51 +286,6 @@ val parsed = int.parse("42")
         Assert.False(unwrapOrMethod!.IsExtensionMethod);
         Assert.Equal(ExtensionMemberKind.None, unwrapOrMethod.ExtensionMemberKind);
         Assert.Equal("Option", unwrapOrMethod.ContainingType?.Name);
-    }
-
-    [Fact]
-    public void RavenInstanceExtensionMethod_FromMetadata_BindsToResultReceiver()
-    {
-        const string source = """
-import System.*
-
-val wrapped = int.parse("42").WithContext("wrapped")
-""";
-
-        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
-        compilation.EnsureSetup();
-
-        var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
-
-        var model = compilation.GetSemanticModel(tree);
-        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
-            .Single(i => i.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "WithContext" });
-        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
-
-        Assert.Equal("ResultErrorContextExtensions", boundInvocation.Method.ContainingType?.Name);
-        Assert.NotNull(boundInvocation.ExtensionReceiver);
-        Assert.Equal("union struct Result<int, ContextError<ParseIntError>>", boundInvocation.Type.ToDisplayString());
-    }
-
-    [Fact]
-    public void MetadataType_AllInterfaces_IncludeTransitiveInterfaces()
-    {
-        var compilation = CreateCompilation(references: TestMetadataReferences.DefaultWithRavenCore);
-        compilation.EnsureSetup();
-
-        var systemNamespace = compilation.GetNamespaceSymbol("System");
-        Assert.NotNull(systemNamespace);
-
-        var parseIntError = systemNamespace!.LookupType("ParseIntError") as INamedTypeSymbol;
-        Assert.NotNull(parseIntError);
-
-        var allInterfaces = parseIntError!.AllInterfaces
-            .Select(i => i.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat))
-            .ToArray();
-
-        Assert.Contains("IParseError", allInterfaces);
-        Assert.Contains("IError", allInterfaces);
     }
 
     [Fact]

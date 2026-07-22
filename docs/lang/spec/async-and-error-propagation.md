@@ -73,8 +73,9 @@ func saveText(path: string, text: string) -> string {
 
 `Convert.ToInt32` is used here because it remains a throwing .NET API. Raven's
 standard framework projection for `int.Parse(string)` already returns
-`Result<int, ParseIntError>`; `try` is still the general mechanism for capturing
-exceptions from APIs without such a projection.
+`Result<int, ArgumentNullException | FormatException | OverflowException>`;
+`try` is still the general mechanism for capturing exceptions from APIs without
+such a projection.
 
 ### Rules
 
