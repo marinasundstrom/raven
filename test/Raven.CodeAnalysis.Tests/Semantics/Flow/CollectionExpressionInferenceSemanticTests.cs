@@ -414,7 +414,7 @@ class Box {
     var Values: ImmutableArray<int> = []
 }
 
-val box = Box with {
+val box = Box {
     Values = [1, 2, 3]
 }
 """;

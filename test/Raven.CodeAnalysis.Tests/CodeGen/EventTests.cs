@@ -268,7 +268,7 @@ class Counter {
 class Program {
     static func Run() -> int {
         Counter.Hits = 0
-        val button = Button with {
+        val button = Button {
             Clicked += () => Counter.Inc()
         }
 
@@ -308,7 +308,7 @@ class Counter {
 
 class Program {
     static func Run() -> int {
-        val counter = Counter with {
+        val counter = Counter {
             Value += 2
             Value *= 3
         }

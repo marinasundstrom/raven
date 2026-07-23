@@ -3754,8 +3754,7 @@ public partial class SemanticModel
         InvocationExpressionSyntax invocation,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
     {
-        if (invocation.TrailingBlock is not null ||
-            invocation.ArgumentList.Arguments.Any(static argument => argument.NameColon is not null))
+        if (invocation.ArgumentList.Arguments.Any(static argument => argument.NameColon is not null))
         {
             return;
         }
@@ -3823,8 +3822,7 @@ public partial class SemanticModel
         InvocationCandidateFallback fallback)
     {
         var candidates = methods.ToImmutableArray();
-        var argumentCount = invocation.ArgumentList.Arguments.Count +
-            (invocation.TrailingBlock is null ? 0 : 1);
+        var argumentCount = invocation.ArgumentList.Arguments.Count;
         IMethodSymbol? selected = null;
 
         foreach (var method in candidates)
@@ -3926,8 +3924,7 @@ public partial class SemanticModel
         IEnumerable<IMethodSymbol> methods,
         InvocationExpressionSyntax invocation)
     {
-        if (invocation.TrailingBlock is not null ||
-            invocation.ArgumentList.Arguments.Any(static argument => argument.NameColon is not null))
+        if (invocation.ArgumentList.Arguments.Any(static argument => argument.NameColon is not null))
         {
             return null;
         }
@@ -7139,8 +7136,6 @@ public partial class SemanticModel
                 FunctionStatementSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 SimpleFunctionExpressionSyntax { Parameter: { } parameter } => [parameter],
                 ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
-                TrailingBlockExpressionSyntax { Parameter: { } parameter } => [parameter],
-                TrailingBlockExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 _ => Enumerable.Empty<ParameterSyntax>()
             };
 
@@ -7236,7 +7231,6 @@ public partial class SemanticModel
         returnType = null;
 
         if (invocationCandidates.IsDefaultOrEmpty ||
-            invocation.TrailingBlock is not null ||
             invocation.ArgumentList.Arguments.Any(static argument => argument.NameColon is not null))
         {
             return false;
@@ -9283,8 +9277,7 @@ public partial class SemanticModel
         foreach (var parameter in root.DescendantNodes()
                      .OfType<ParameterSyntax>()
                      .Where(static parameter =>
-                         parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any() ||
-                         parameter.Ancestors().OfType<TrailingBlockExpressionSyntax>().Any()))
+                         parameter.Ancestors().OfType<FunctionExpressionSyntax>().Any()))
         {
             _ = GetFunctionExpressionParameterSymbol(parameter);
         }
@@ -10967,8 +10960,6 @@ public partial class SemanticModel
             {
                 SimpleFunctionExpressionSyntax { Parameter: { } parameter } => [parameter],
                 ParenthesizedFunctionExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
-                TrailingBlockExpressionSyntax { Parameter: { } parameter } => [parameter],
-                TrailingBlockExpressionSyntax { ParameterList: { } parameterList } => parameterList.Parameters,
                 _ => Enumerable.Empty<ParameterSyntax>()
             };
 
@@ -10977,9 +10968,7 @@ public partial class SemanticModel
                 if (!string.Equals(parameter.Identifier.ValueText, name, StringComparison.Ordinal))
                     continue;
 
-                if (ancestor is TrailingBlockExpressionSyntax trailingBlock)
-                    parameterSymbol = GetTrailingBlockParameterSymbol(trailingBlock, parameter);
-                else if (!TryResolveFunctionExpressionParameterSymbolFast(parameter, out parameterSymbol))
+                if (!TryResolveFunctionExpressionParameterSymbolFast(parameter, out parameterSymbol))
                     return false;
 
                 return parameterSymbol is not null;
@@ -13196,7 +13185,7 @@ public partial class SemanticModel
 
         for (var current = functionSyntax.Parent; current is not null; current = current.Parent)
         {
-            if (current is FunctionExpressionSyntax or TrailingBlockExpressionSyntax)
+            if (current is FunctionExpressionSyntax)
                 continue;
 
             if (current is StatementSyntax statement)
@@ -13286,54 +13275,6 @@ public partial class SemanticModel
             !ReferenceEquals(fallbackContextualRoot, functionExpression) &&
             !ReferenceEquals(fallbackContextualRoot, contextualRoot) &&
             TryRebindContextualFunctionExpression(functionExpression, fallbackContextualRoot, out var fallbackFunction))
-        {
-            boundFunction = fallbackFunction;
-            return true;
-        }
-
-        boundFunction = null!;
-        return false;
-    }
-
-    internal bool TryGetContextualBoundTrailingBlockFunctionExpression(
-        TrailingBlockExpressionSyntax trailingBlock,
-        out BoundFunctionExpression boundFunction)
-    {
-        if (TryGetCachedBoundNode(trailingBlock) is BoundFunctionExpression cachedFunction &&
-            !IsLikelyStaleFunctionBodyNode(cachedFunction))
-        {
-            boundFunction = cachedFunction;
-            return true;
-        }
-
-        var contextualRoot = GetCallableExpressionRebindRoot(trailingBlock);
-        if (!ReferenceEquals(contextualRoot, trailingBlock))
-        {
-            if (TryGetCachedBoundNode(contextualRoot) is { } contextualBoundRoot &&
-                TryFindBoundNodeBySyntax(contextualBoundRoot, trailingBlock, out var cachedContextualNode) &&
-                cachedContextualNode is BoundFunctionExpression cachedContextualFunction)
-            {
-                if (!IsLikelyStaleFunctionBodyNode(cachedContextualFunction))
-                {
-                    CacheBoundNode(trailingBlock, cachedContextualFunction, GetBinderForIncrementalSemanticQuery(trailingBlock));
-                    boundFunction = cachedContextualFunction;
-                    return true;
-                }
-
-                ClearCachedSemanticState(contextualRoot);
-            }
-
-            if (TryRebindContextualFunctionExpression(trailingBlock, contextualRoot, out var reboundFunction))
-            {
-                boundFunction = reboundFunction;
-                return true;
-            }
-        }
-
-        if (TryGetContextualBindingRoot(trailingBlock, out var fallbackContextualRoot) &&
-            !ReferenceEquals(fallbackContextualRoot, trailingBlock) &&
-            !ReferenceEquals(fallbackContextualRoot, contextualRoot) &&
-            TryRebindContextualFunctionExpression(trailingBlock, fallbackContextualRoot, out var fallbackFunction))
         {
             boundFunction = fallbackFunction;
             return true;
@@ -13470,13 +13411,6 @@ public partial class SemanticModel
                     return parameter;
             }
 
-            if (parameterSyntax.Ancestors().OfType<TrailingBlockExpressionSyntax>().FirstOrDefault() is { } trailingBlock)
-            {
-                var parameter = GetTrailingBlockParameterSymbol(trailingBlock, parameterSyntax);
-                if (IsUsableFunctionExpressionParameterSymbol(parameter))
-                    return parameter;
-            }
-
             if (!allowDeclaredSymbolFallback)
             {
                 Compilation.PerformanceInstrumentation.FunctionExpressionParameters.RecordMiss();
@@ -13495,13 +13429,6 @@ public partial class SemanticModel
             if (parameterSyntax.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault() is { } readyFunctionExpression)
             {
                 var readyParameter = GetFunctionExpressionParameterSymbol(readyFunctionExpression, parameterSyntax);
-                if (IsUsableFunctionExpressionParameterSymbol(readyParameter))
-                    return readyParameter;
-            }
-
-            if (parameterSyntax.Ancestors().OfType<TrailingBlockExpressionSyntax>().FirstOrDefault() is { } readyTrailingBlock)
-            {
-                var readyParameter = GetTrailingBlockParameterSymbol(readyTrailingBlock, parameterSyntax);
                 if (IsUsableFunctionExpressionParameterSymbol(readyParameter))
                     return readyParameter;
             }
@@ -13529,11 +13456,6 @@ public partial class SemanticModel
             ClearCachedSemanticState(functionExpression);
         }
 
-        if (parameterSyntax.Ancestors().OfType<TrailingBlockExpressionSyntax>().FirstOrDefault() is { } trailingBlock)
-        {
-            ClearCachedSemanticState(GetCallableExpressionRebindRoot(trailingBlock));
-            ClearCachedSemanticState(trailingBlock);
-        }
     }
 
     private IParameterSymbol? GetFunctionExpressionParameterSymbol(
@@ -13570,56 +13492,11 @@ public partial class SemanticModel
         }
     }
 
-    private IParameterSymbol? GetTrailingBlockParameterSymbol(
-        TrailingBlockExpressionSyntax trailingBlock,
-        ParameterSyntax parameterSyntax)
-    {
-        if (!_functionExpressionParameterLookupInProgress.TryAdd(trailingBlock, 0))
-        {
-            return null;
-        }
-
-        try
-        {
-            if (TryGetCachedBoundNode(trailingBlock) is BoundFunctionExpression cachedLambda &&
-                !IsLikelyStaleFunctionBodyNode(cachedLambda) &&
-                TryGetTrailingBlockParameterBySyntax(trailingBlock, parameterSyntax, cachedLambda.Parameters, out var cachedParameter))
-            {
-                return cachedParameter;
-            }
-
-            if (TryGetContextualBoundTrailingBlockFunctionExpression(trailingBlock, out var contextualLambda) &&
-                TryGetTrailingBlockParameterBySyntax(trailingBlock, parameterSyntax, contextualLambda.Parameters, out var contextualParameter))
-            {
-                return contextualParameter;
-            }
-
-            if (GetBoundNode(trailingBlock) is BoundFunctionExpression boundLambda &&
-                !IsLikelyStaleFunctionBodyNode(boundLambda) &&
-                TryGetTrailingBlockParameterBySyntax(trailingBlock, parameterSyntax, boundLambda.Parameters, out var boundParameter))
-            {
-                return boundParameter;
-            }
-
-            return null;
-        }
-        finally
-        {
-            _functionExpressionParameterLookupInProgress.TryRemove(trailingBlock, out _);
-        }
-    }
-
     private bool TryRebindContextualFunctionExpression(
         FunctionExpressionSyntax functionExpression,
         SyntaxNode contextualRoot,
         out BoundFunctionExpression boundFunction)
         => TryRebindContextualFunctionExpressionCore(functionExpression, contextualRoot, out boundFunction);
-
-    private bool TryRebindContextualFunctionExpression(
-        TrailingBlockExpressionSyntax trailingBlock,
-        SyntaxNode contextualRoot,
-        out BoundFunctionExpression boundFunction)
-        => TryRebindContextualFunctionExpressionCore(trailingBlock, contextualRoot, out boundFunction);
 
     private bool TryRebindContextualFunctionExpressionCore(
         SyntaxNode functionSyntax,
@@ -13773,54 +13650,6 @@ public partial class SemanticModel
                 }
 
                 break;
-        }
-
-        parameterIndex = -1;
-        return false;
-    }
-
-    private static bool TryGetTrailingBlockParameterBySyntax(
-        TrailingBlockExpressionSyntax trailingBlock,
-        ParameterSyntax parameterSyntax,
-        IEnumerable<IParameterSymbol> parameters,
-        out IParameterSymbol parameterSymbol)
-    {
-        if (TryGetTrailingBlockParameterIndex(trailingBlock, parameterSyntax, out var parameterIndex))
-        {
-            parameterSymbol = parameters.ElementAtOrDefault(parameterIndex)!;
-            if (parameterSymbol is not null)
-                return true;
-        }
-
-        parameterSymbol = parameters.FirstOrDefault(parameter =>
-            parameter.DeclaringSyntaxReferences.Any(reference =>
-                reference.SyntaxTree == parameterSyntax.SyntaxTree &&
-                reference.Span == parameterSyntax.Span))!;
-
-        return parameterSymbol is not null;
-    }
-
-    private static bool TryGetTrailingBlockParameterIndex(
-        TrailingBlockExpressionSyntax trailingBlock,
-        ParameterSyntax parameterSyntax,
-        out int parameterIndex)
-    {
-        if (ReferenceEquals(trailingBlock.Parameter, parameterSyntax))
-        {
-            parameterIndex = 0;
-            return true;
-        }
-
-        if (trailingBlock.ParameterList is not null)
-        {
-            for (var i = 0; i < trailingBlock.ParameterList.Parameters.Count; i++)
-            {
-                if (ReferenceEquals(trailingBlock.ParameterList.Parameters[i], parameterSyntax))
-                {
-                    parameterIndex = i;
-                    return true;
-                }
-            }
         }
 
         parameterIndex = -1;

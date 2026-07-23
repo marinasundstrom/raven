@@ -41,58 +41,6 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
-    public void TrailingBlock_BindsAsFinalClosureArgument()
-    {
-        const string source = """
-        func Use(action: () -> int) -> int {
-            return action()
-        }
-
-        val result = Use {
-            return 42
-        }
-        """;
-
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var invocation = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Single(static invocation => invocation.TrailingBlock is not null);
-
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        Assert.Equal("Use", symbol.Name);
-        Assert.Single(symbol.Parameters);
-        Assert.Empty(compilation.GetDiagnostics());
-    }
-
-    [Fact]
-    public void TrailingBlock_BindsToFinalOptionalClosureAfterNamedArguments()
-    {
-        const string source = """
-        func StackPanel(orientation: string = "vertical", spacing: int = 0, content: (() -> string)? = null) -> string {
-            return orientation + spacing.ToString() + (content?() ?? "")
-        }
-
-        val result = StackPanel(spacing: 8) {
-            return "child"
-        }
-        """;
-
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var invocation = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Single(static invocation => invocation.TrailingBlock is not null);
-
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        Assert.Equal("StackPanel", symbol.Name);
-        Assert.Equal(["orientation", "spacing", "content"], symbol.Parameters.Select(static parameter => parameter.Name).ToArray());
-        Assert.Empty(compilation.GetDiagnostics());
-    }
-
-    [Fact]
     public void ParameterDefaultValue_AllowsTargetTypedExternalEnumMember()
     {
         const string source = """
@@ -111,78 +59,6 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
-    public void TrailingBlock_WithExplicitSingleParameterClosure_BindsParameter()
-    {
-        const string source = """
-        func Apply(value: int, transform: int -> int) -> int {
-            return transform(value)
-        }
-
-        val result = Apply(41) { (value: int) =>
-            return value + 1
-        }
-        """;
-
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var trailingBlock = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<TrailingBlockExpressionSyntax>()
-            .Single();
-        var bodyStart = trailingBlock.FatArrowToken.Span.End;
-        var bodyEnd = trailingBlock.CloseBraceToken.SpanStart;
-        var identifier = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Single(identifier => identifier.Span.Start > bodyStart &&
-                identifier.Span.End < bodyEnd &&
-                identifier.Identifier.ValueText == "value");
-
-        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
-        Assert.Equal("value", symbol.Name);
-        Assert.Empty(compilation.GetDiagnostics());
-    }
-
-    [Fact]
-    public void TrailingBlock_WithExplicitMultipleParameterClosure_BindsParameters()
-    {
-        const string source = """
-        func Combine(left: int, right: int, transform: (int, int) -> int) -> int {
-            return transform(left, right)
-        }
-
-        val result = Combine(20, 22) { (left: int, right: int) =>
-            return left + right
-        }
-        """;
-
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var trailingBlock = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<TrailingBlockExpressionSyntax>()
-            .Single();
-        var bodyStart = trailingBlock.FatArrowToken.Span.End;
-        var bodyEnd = trailingBlock.CloseBraceToken.SpanStart;
-        var identifiers = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Where(identifier => identifier.Span.Start > bodyStart &&
-                identifier.Span.End < bodyEnd &&
-                identifier.Identifier.ValueText is "left" or "right")
-            .ToArray();
-
-        Assert.Equal(["left", "right"], identifiers.Select(static identifier => identifier.Identifier.ValueText).ToArray());
-        foreach (var identifier in identifiers)
-        {
-            var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(identifier).Symbol);
-            Assert.Equal(identifier.Identifier.ValueText, symbol.Name);
-        }
-
-        Assert.Empty(compilation.GetDiagnostics());
-    }
-
-    [Fact]
     public void FunctionExpression_ItIsNotImplicitParameterAlias()
     {
         const string source = """
@@ -194,56 +70,6 @@ public class MethodOverloadTests : CompilationTestBase
 
         Assert.Equal(CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext, diagnostic.Descriptor);
         Assert.Equal("'it' is not in scope.", diagnostic.GetMessage());
-    }
-
-    [Fact]
-    public void TrailingBlock_BindsAsConstructorClosureArgument()
-    {
-        const string source = """
-        class Window {
-            init(content: () -> string) {
-                Title = content()
-            }
-
-            var Title: string = ""
-        }
-
-        val window = Window {
-            return "Main"
-        }
-        """;
-
-        var (compilation, tree) = CreateCompilation(source);
-        var model = compilation.GetSemanticModel(tree);
-        var invocation = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Single(static invocation => invocation.TrailingBlock is not null);
-
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
-        Assert.Single(symbol.Parameters);
-        Assert.Empty(compilation.GetDiagnostics());
-    }
-
-    [Fact]
-    public void TrailingBlock_WithoutClosureParameter_IsRejectedByOverloadResolution()
-    {
-        const string source = """
-        val foo = Foo {
-            return 42
-        }
-
-        class Foo {
-            init() {}
-        }
-        """;
-
-        var (compilation, _) = CreateCompilation(source);
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
-
-        Assert.Equal(CompilerDiagnostics.NoOverloadForMethod, diagnostic.Descriptor);
-        Assert.Contains("constructor for type 'Foo' takes 1 arguments", diagnostic.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

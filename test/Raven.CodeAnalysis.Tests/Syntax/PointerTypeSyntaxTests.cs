@@ -183,7 +183,7 @@ func test() {
         var useDeclaration = tree.GetRoot().DescendantNodes().OfType<UseDeclarationStatementSyntax>().Single();
         var expression = Assert.IsType<InvocationExpressionSyntax>(useDeclaration.Declaration.Declarators[0].Initializer!.Value);
         Assert.NotNull(useDeclaration.InBlockClause);
-        Assert.NotNull(expression.TrailingBlock);
+        Assert.NotNull(expression.Initializer);
     }
 
     [Fact]

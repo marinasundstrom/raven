@@ -1,8 +1,8 @@
 
 import System.Console.*
 
-// Feature: init-only property assignment via with initializer.
-let foo = Foo with {
+// Feature: init-only property assignment via an object initializer.
+let foo = Foo {
     A = 42
 }
 

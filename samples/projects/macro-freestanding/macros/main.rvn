@@ -24,7 +24,7 @@ class AddMacro : IFreestandingExpressionMacro {
         let left = context.Arguments[0].Expression
         let right = context.Arguments[1].Expression
 
-        FreestandingMacroExpansionResult with {
+        FreestandingMacroExpansionResult {
             Expression = InfixOperatorExpression(
                 SyntaxKind.AddExpression,
                 left,

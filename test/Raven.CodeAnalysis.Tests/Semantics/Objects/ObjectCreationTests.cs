@@ -372,30 +372,47 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void TrailingBlock_OnTypeWithoutClosureParameter_ReportsNoOverload()
+    public void ObjectInitializer_OnParameterlessConstructor_BindsWithoutDiagnostics()
     {
         string testCode =
             """
-            val foo = Foo { }
+            val foo = Foo {
+                Name = "Foo"
+            }
 
             class Foo {
                 init() {}
+
+                var Name: string = ""
             }
             """;
 
-        var verifier = CreateVerifier(
-            testCode,
-            expectedDiagnostics: [
-                new DiagnosticResult(CompilerDiagnostics.NoOverloadForMethod.Id)
-                    .WithAnySpan()
-                    .WithArguments("constructor for type", "Foo", 1)
-            ]);
+        var verifier = CreateVerifier(testCode);
 
         verifier.Verify();
     }
 
     [Fact]
-    public void WithInitializer_AssigningInitOnlyProperty_BindsWithoutDiagnostics()
+    public void ObjectInitializer_AfterConstructorArguments_BindsWithoutDiagnostics()
+    {
+        const string testCode =
+            """
+            val bar = Bar("Foo") {
+                Age = 42
+            }
+
+            class Bar(var Name: string) {
+                var Age: int = 0
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ObjectInitializer_AssigningInitOnlyProperty_BindsWithoutDiagnostics()
     {
         const string testCode =
             """
@@ -405,7 +422,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 val Name: string { init; }
             }
 
-            val foo = Foo with {
+            val foo = Foo {
                 Name = "updated"
             }
             """;
@@ -416,7 +433,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void WithInitializer_CompoundAssignment_BindsWithoutDiagnostics()
+    public void ObjectInitializer_CompoundAssignment_BindsWithoutDiagnostics()
     {
         const string testCode =
             """
@@ -426,7 +443,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 var Count: int = 1
             }
 
-            val foo = Foo with {
+            val foo = Foo {
                 Count += 41
             }
             """;
@@ -437,7 +454,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void WithInitializer_SatisfiesRequiredMembers()
+    public void ObjectInitializer_SatisfiesRequiredMembers()
     {
         const string testCode =
             """
@@ -448,7 +465,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 required val Age: int { init; }
             }
 
-            val person = Person with {
+            val person = Person {
                 Name = "Anna"
                 Age = 42
             }
@@ -460,7 +477,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void WithInitializer_MissingRequiredMember_ReportsDiagnostic()
+    public void ObjectInitializer_MissingRequiredMember_ReportsDiagnostic()
     {
         const string testCode =
             """
@@ -471,7 +488,7 @@ public class ObjectCreationTests : DiagnosticTestBase
                 required val Age: int { init; }
             }
 
-            val person = Person with {
+            val person = Person {
                 Name = "Anna"
             }
             """;
@@ -488,7 +505,7 @@ public class ObjectCreationTests : DiagnosticTestBase
     }
 
     [Fact]
-    public void WithInitializer_ContentEntries_BindThroughOldInitializerConventions()
+    public void ObjectInitializer_ContentEntries_BindThroughInitializerConventions()
     {
         const string testCode =
             """
@@ -512,8 +529,8 @@ public class ObjectCreationTests : DiagnosticTestBase
                 Fill
             }
 
-            val panel = StackPanel with {
-                Button with {
+            val panel = StackPanel {
+                Button {
                     HorizontalAlignment = .Fill
                 }
             }

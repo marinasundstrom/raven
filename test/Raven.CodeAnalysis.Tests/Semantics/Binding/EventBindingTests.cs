@@ -196,7 +196,7 @@ class Button {
 }
 
 func Build(handler: System.Action) -> Button {
-    return Button with {
+    return Button {
         Clicked += handler
     }
 }
@@ -215,7 +215,7 @@ class Button {
 }
 
 func Build(handler: System.Action) -> Button {
-    return Button with {
+    return Button {
         Clicked = handler
     }
 }

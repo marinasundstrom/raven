@@ -3,7 +3,7 @@ import System.Console.*
 // Feature: required members must be initialized.
 let foo = Foo("Foo")
 
-let foo2 = Foo2 with {
+let foo2 = Foo2 {
     Test = 42,
     x = 2
 }

@@ -102,17 +102,6 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
 
 ## Recently Fixed
 
-### Repeated trailing-block emission in the same scope
-
-- **Fixed:** Trailing-block lambdas are included in synthesized lambda ordinal
-  calculation and are not reused from target-sensitive expression caches.
-- **Previous behavior:** Later trailing-block calls in the same scope could
-  reuse the first trailing block's emitted body. In the ASP.NET DSL sample, this
-  appeared as later endpoints receiving the first endpoint handler or metadata.
-- **Coverage:** `TrailingBlockCodeGenTests` verifies repeated ordinary
-  trailing-block calls and repeated builder-rewritten trailing-block calls emit
-  distinct lambda bodies.
-
 ### Multiple endpoints per route group in the ASP.NET DSL sample
 
 - **Fixed:** The sample has been expanded back to a representative route group:

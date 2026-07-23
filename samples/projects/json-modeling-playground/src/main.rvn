@@ -4,7 +4,7 @@ import System.Collections.Generic.*
 import System.Text.Json.*
 import System.Text.Json.Serialization.*
 
-let options = JsonSerializerOptions with {
+let options = JsonSerializerOptions {
     WriteIndented = true,
     PropertyNamingPolicy = .CamelCase
 }

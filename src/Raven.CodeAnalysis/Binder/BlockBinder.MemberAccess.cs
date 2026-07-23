@@ -162,7 +162,6 @@ partial class BlockBinder
                 syntax.ArgumentList.Arguments,
                 out var hasErrors,
                 methodGroup.Receiver,
-                trailingBlock: syntax.TrailingBlock,
                 explicitTypeArguments: preparation.ExplicitTypeArguments);
 
             if (hasErrors || methodGroup.Receiver is { } receiver && IsErrorExpression(receiver))
@@ -287,8 +286,7 @@ partial class BlockBinder
             var candidatesForArgumentBinding = _binder.FilterInvocationCandidatesForArgumentBinding(
                 methodGroup.Methods,
                 syntax.ArgumentList.Arguments,
-                methodGroup.Receiver,
-                syntax.TrailingBlock);
+                methodGroup.Receiver);
 
             var preparation = new InvocationCandidatePreparation(
                 methodGroup.Methods[0].Name,
@@ -338,7 +336,6 @@ partial class BlockBinder
                 syntax.Span.Start,
                 syntax.Span.Length,
                 syntax.ArgumentList.Arguments.Count,
-                syntax.TrailingBlock is not null,
                 GetTypeKey(methodGroup.Receiver?.Type),
                 string.Join("|", methodGroup.Methods.Select(GetSymbolKey)));
         }
@@ -363,7 +360,6 @@ partial class BlockBinder
             int SpanStart,
             int SpanLength,
             int ArgumentCount,
-            bool HasTrailingBlock,
             string ReceiverTypeKey,
             string CandidateMethodsKey);
 
@@ -420,13 +416,12 @@ partial class BlockBinder
     private ImmutableArray<IMethodSymbol> FilterInvocationCandidatesForArgumentBinding(
         ImmutableArray<IMethodSymbol> methods,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        BoundExpression? receiver = null,
-        TrailingBlockExpressionSyntax? trailingBlock = null)
+        BoundExpression? receiver = null)
     {
         if (methods.IsDefaultOrEmpty)
             return methods;
 
-        var argCount = arguments.Count + (trailingBlock is not null ? 1 : 0);
+        var argCount = arguments.Count;
 
         // Best-effort filtering: drop candidates that cannot accept the given argument count.
         // This is important for target-typed member bindings inside arguments (e.g. `.Public | .Static`)
@@ -494,7 +489,6 @@ partial class BlockBinder
         out bool hasErrors,
         BoundExpression? receiver = null,
         ITypeSymbol? pipeReceiverType = null,
-        TrailingBlockExpressionSyntax? trailingBlock = null,
         ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
     {
         // Bind invocation arguments while supplying a best-effort target type.
@@ -518,19 +512,10 @@ partial class BlockBinder
         // Pre-inference pass: infer type parameters from non-lambda arguments.
         var preInferredSubstitutions = TryPreInferTypeArguments(methods, arguments, receiver, pipeReceiverType, explicitTypeArguments);
 
-        if (trailingBlock is not null)
-        {
-            var extensionReceiverImplicit = receiver is not null && methods.All(static method => method.IsExtensionMethod);
-            var callSiteArgumentCount = arguments.Count + 1;
-            var filteredMethods = FilterMethodsForTrailingBlock(methods, trailingBlock, extensionReceiverImplicit, callSiteArgumentCount);
-            if (!filteredMethods.IsDefaultOrEmpty)
-                methods = filteredMethods;
-        }
-
         // Collect all method type parameters so we can detect unresolved ones.
         var allMethodTypeParams = CollectDistinctMethodTypeParameters(methods);
 
-        var boundArguments = new BoundArgument[arguments.Count + (trailingBlock is not null ? 1 : 0)];
+        var boundArguments = new BoundArgument[arguments.Count];
 
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -671,47 +656,6 @@ partial class BlockBinder
             boundArguments[i] = new BoundArgument(boundExpr, syntaxRefKind != RefKind.None ? syntaxRefKind : argumentRefKind, name, arg, isSpread);
         }
 
-        if (trailingBlock is not null)
-        {
-            var argumentIndex = arguments.Count;
-            var targetParameter = TryGetCommonTrailingBlockParameter(methods, receiver);
-            var targetType = targetParameter?.Type
-                ?? TryGetFirstDelegateTrailingBlockParameterType(methods, receiver, pipeReceiverType);
-
-            if (targetType is not null && preInferredSubstitutions.Count > 0)
-                targetType = SubstituteTypeParameters(targetType, preInferredSubstitutions);
-
-            if (targetType is not null && methods.Length == 1 &&
-                ContainsAnyTypeParameterInDelegateInputParams(targetType, allMethodTypeParams))
-            {
-                targetType = null;
-            }
-
-            var boundExpr = BindTrailingBlockExpression(
-                trailingBlock,
-                targetType,
-                useDelegateReturnTarget: targetType is not null);
-
-            if (targetType is not null && HasExpressionErrors(boundExpr))
-            {
-                RemoveCachedBoundNode(trailingBlock);
-                var naturalBoundExpr = BindTrailingBlockExpression(
-                    trailingBlock,
-                    targetType: null,
-                    useDelegateReturnTarget: false);
-                if (!HasExpressionErrors(naturalBoundExpr))
-                    boundExpr = naturalBoundExpr;
-            }
-
-            if (HasExpressionErrors(boundExpr))
-                hasErrors = true;
-
-            var targetName = targetParameter?.Name ?? TryGetCommonTrailingBlockParameterName(methods);
-            if (string.IsNullOrEmpty(targetName))
-                targetName = null;
-
-            boundArguments[argumentIndex] = new BoundArgument(boundExpr, RefKind.None, targetName, trailingBlock);
-        }
 
         return boundArguments;
         void RecordLambdaTargetsForArgument(int argumentIndex, ExpressionSyntax expression)
@@ -889,78 +833,10 @@ partial class BlockBinder
             return hasCommon ? common : null;
         }
 
-        IParameterSymbol? TryGetCommonTrailingBlockParameter(ImmutableArray<IMethodSymbol> methods, BoundExpression? invocationReceiver)
-        {
-            if (methods.IsDefaultOrEmpty)
-                return null;
-
-            IParameterSymbol? common = null;
-            var hasCommon = false;
-
-            foreach (var method in methods)
-            {
-                if (method is null)
-                    continue;
-
-                var parameterIndex = GetTrailingBlockParameterIndex(method, pipeReceiverType);
-                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
-                    return null;
-
-                var parameter = method.Parameters[parameterIndex];
-                if (!hasCommon)
-                {
-                    common = parameter;
-                    hasCommon = true;
-                    continue;
-                }
-
-                var commonType = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, invocationReceiver, pipeReceiverType);
-                if (!SymbolEqualityComparer.Default.Equals(common!.Type, commonType) ||
-                    !string.Equals(common.Name, parameter.Name, StringComparison.OrdinalIgnoreCase))
-                {
-                    return null;
-                }
-            }
-
-            return hasCommon ? common : null;
-        }
-
-        string? TryGetCommonTrailingBlockParameterName(ImmutableArray<IMethodSymbol> methods)
-        {
-            if (methods.IsDefaultOrEmpty)
-                return null;
-
-            string? common = null;
-            var hasCommon = false;
-
-            foreach (var method in methods)
-            {
-                if (method is null)
-                    continue;
-
-                var parameterIndex = GetTrailingBlockParameterIndex(method, pipeReceiverType);
-                if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
-                    return null;
-
-                var name = method.Parameters[parameterIndex].Name;
-                if (string.IsNullOrEmpty(name))
-                    return null;
-
-                if (!hasCommon)
-                {
-                    common = name;
-                    hasCommon = true;
-                    continue;
-                }
-
-                if (!string.Equals(common, name, StringComparison.OrdinalIgnoreCase))
-                    return null;
-            }
-
-            return hasCommon ? common : null;
-        }
-
-        RefKind TryGetCommonPositionalParameterRefKind(ImmutableArray<IMethodSymbol> methods, int argumentIndex, BoundExpression? invocationReceiver)
+        RefKind TryGetCommonPositionalParameterRefKind(
+            ImmutableArray<IMethodSymbol> methods,
+            int argumentIndex,
+            BoundExpression? invocationReceiver)
         {
             if (methods.IsDefaultOrEmpty)
                 return RefKind.None;
@@ -1618,56 +1494,6 @@ partial class BlockBinder
         return sawSystemDelegateLike ? null : firstConcreteDelegate;
     }
 
-    private ITypeSymbol? TryGetFirstDelegateTrailingBlockParameterType(
-        ImmutableArray<IMethodSymbol> methods,
-        BoundExpression? receiver,
-        ITypeSymbol? pipeReceiverType)
-    {
-        ITypeSymbol? firstConcreteDelegate = null;
-        var sawSystemDelegateLike = false;
-
-        foreach (var method in methods)
-        {
-            if (method is null)
-                continue;
-
-            var parameterIndex = GetTrailingBlockParameterIndex(method, pipeReceiverType);
-            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
-                continue;
-
-            var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, receiver, pipeReceiverType);
-            if (type is NullableTypeSymbol nullableType)
-                type = nullableType.UnderlyingType;
-
-            if (type is INamedTypeSymbol namedType)
-            {
-                if (namedType.TypeKind == TypeKind.Delegate)
-                {
-                    firstConcreteDelegate ??= type;
-                    continue;
-                }
-
-                if (IsSystemDelegateLike(namedType))
-                    sawSystemDelegateLike = true;
-            }
-        }
-
-        return sawSystemDelegateLike ? null : firstConcreteDelegate;
-    }
-
-    private static int GetTrailingBlockParameterIndex(IMethodSymbol method, ITypeSymbol? pipeReceiverType)
-    {
-        if (method.Parameters.IsDefaultOrEmpty)
-            return -1;
-
-        var parameterIndex = method.Parameters.Length - 1;
-        var firstVisibleParameter = method.IsExtensionMethod || pipeReceiverType is not null
-            ? 1
-            : 0;
-
-        return parameterIndex >= firstVisibleParameter ? parameterIndex : -1;
-    }
-
     private ITypeSymbol? TryGetFirstCollectionParameterType(
         ImmutableArray<IMethodSymbol> methods,
         int argumentIndex,
@@ -1755,8 +1581,8 @@ partial class BlockBinder
         EnsureImplicitDefaultConstructorAvailable(typeSymbol);
 
         // Bind constructor arguments while supplying best-effort target types based on ctor parameter types.
-        var ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, invocation.ArgumentList.Arguments, trailingBlock: invocation.TrailingBlock);
-        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, invocation.ArgumentList.Arguments, out var hasErrors, trailingBlock: invocation.TrailingBlock);
+        var ctorsForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(typeSymbol.Constructors, invocation.ArgumentList.Arguments);
+        var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(ctorsForArgumentBinding, invocation.ArgumentList.Arguments, out var hasErrors);
 
         if (hasErrors)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.ArgumentBindingFailed);
@@ -1900,14 +1726,12 @@ partial class BlockBinder
             BoundObjectInitializer? initializer = null;
             HashSet<string>? assignedInitializerMembers = null;
 
-            if (callSyntax is WithExpressionSyntax withInitializer)
+            if (callSyntax is InvocationExpressionSyntax { Initializer: { } objectInitializer })
             {
-                initializer = BindObjectInitializer(typeSymbol, withInitializer);
-                assignedInitializerMembers = GetAssignedMemberNames(withInitializer);
+                initializer = BindObjectInitializer(typeSymbol, objectInitializer);
+                assignedInitializerMembers = GetAssignedMemberNames(objectInitializer);
             }
-
-            if (callSyntax is not InvocationExpressionSyntax { Parent: WithExpressionSyntax })
-                ValidateRequiredMembers(typeSymbol, constructor, callSyntax, assignedInitializerMembers);
+            ValidateRequiredMembers(typeSymbol, constructor, callSyntax, assignedInitializerMembers);
 
             return new BoundObjectCreationExpression(constructor, convertedArgs, receiver, initializer);
         }
@@ -2372,7 +2196,7 @@ partial class BlockBinder
     INamedTypeSymbol typeSymbol,
     IMethodSymbol constructor,
     SyntaxNode creationSyntax,
-    TrailingBlockExpressionSyntax? initializerSyntax)
+    ObjectInitializerExpressionSyntax? initializerSyntax)
         => ValidateRequiredMembers(
             typeSymbol,
             constructor,
@@ -2421,15 +2245,13 @@ partial class BlockBinder
         return builder.ToImmutable();
     }
 
-    private static HashSet<string> GetAssignedMemberNames(TrailingBlockExpressionSyntax trailingBlock)
+    private static HashSet<string> GetAssignedMemberNames(ObjectInitializerExpressionSyntax initializer)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
 
-        // Best-effort: look for assignment entries within the trailing block and capture
-        // simple `Identifier = ...` and `this.Identifier = ...` / `obj.Identifier = ...`.
-        foreach (var node in trailingBlock.DescendantNodes())
+        foreach (var node in initializer.DescendantNodes())
         {
-            if (node is TrailingBlockAssignmentEntrySyntax assign)
+            if (node is ObjectInitializerAssignmentEntrySyntax assign)
             {
                 switch (assign.Name)
                 {
@@ -2439,19 +2261,6 @@ partial class BlockBinder
                 }
             }
         }
-
-        return names;
-    }
-
-    private static HashSet<string> GetAssignedMemberNames(WithExpressionSyntax initializer)
-    {
-        var names = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var assignment in initializer.Entries.OfType<WithAssignmentSyntax>())
-            names.Add(assignment.Name.Identifier.ValueText);
-
-        if (initializer.Entries.OfType<WithExpressionEntrySyntax>().Any())
-            names.Add("Content");
 
         return names;
     }

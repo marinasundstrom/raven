@@ -58,7 +58,6 @@ build_stale_runtime_exclusion_filter() {
     "PropertyTests"
     "RuntimeAsyncCodeGenTests"
     "RuntimeSymbolResolverTests"
-    "TrailingBlockCodeGenTests"
     "TryExpressionCodeGenTests"
     "TypeOfExpressionCodeGenTests"
     "TypeResolutionPrecedenceTests"

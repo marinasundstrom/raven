@@ -43,14 +43,14 @@ arguments or a different type name.
 > A standalone type name is not a constructor call in value position.
 > Use `Foo()` instead of `Foo`.
 
-The object-initializer `with` form may be used for parameterless construction:
+An object initializer may be used for parameterless construction:
 
 ```raven
-val window = Window with {
+val window = Window {
     Title = "Main"
 }
 ```
 
 This form is equivalent to calling `Window()` and then applying the initializer
 entries in order. See [Object initialization and copying](object-initialization-and-copying.md)
-for initializer entries, required members, and `with` expressions.
+for initializer entries, required members, and the separate `with` expression.

@@ -4,12 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
-- Removed result-builder and implicit-receiver DSL semantics from trailing
-  function expressions. Trailing function expressions now use the ordinary
-  lambda binder and lowering path, and unparameterized forms always represent
-  zero-parameter functions.
-- Removed the experimental builder/receiver DSL samples and proposal documents,
-  along with the `ReceiverAttribute` types from Raven.Core.
+- Removed the experimental trailing-block call syntax and its builder/receiver
+  DSL infrastructure from the main language. Function values use ordinary
+  function-expression syntax.
+- Restored brace object initializers as a distinct construct: `Foo { Name =
+  "Foo" }` selects a parameterless constructor, while `Bar("Foo") { Age = 42 }`
+  initializes an object after an explicit constructor call. `value with { ... }`
+  remains the separate non-destructive copying form.
 - Made incremental document diagnostics independent of prior semantic queries
   by declaring same-document member signatures before binding executable code.
 - Added the initial distribution contract: platform SDK archive builders,

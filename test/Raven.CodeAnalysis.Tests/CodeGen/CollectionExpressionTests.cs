@@ -183,7 +183,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
 
 class Foo {
     public static func Serialize() -> string {
-        val options = JsonSerializerOptions with {
+        val options = JsonSerializerOptions {
             PropertyNamingPolicy = .CamelCase
         }
 
@@ -196,7 +196,7 @@ class Foo {
     }
 
     public static func RoundTripCount() -> int {
-        val options = JsonSerializerOptions with {
+        val options = JsonSerializerOptions {
             PropertyNamingPolicy = .CamelCase
         }
 

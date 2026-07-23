@@ -57,8 +57,8 @@ underscores, and `$` is available for interop- or DSL-oriented naming schemes.
 Because `_` never produces a value, using it as an expression—for example
 in `_ + 2`—is rejected as an error.
 
-Function expressions and parameterized trailing blocks may also spell a
-parameter as `_`. The discard parameter still consumes the corresponding
+Function expressions may also spell a parameter as `_`. The discard parameter
+still consumes the corresponding
 delegate parameter slot for arity and type inference, but it does not introduce
 a name that can be referenced in the function body and it is excluded from
 unused-parameter diagnostics.

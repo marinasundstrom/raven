@@ -236,62 +236,6 @@ func Main() {
     }
 
     [Fact]
-    public void TrailingBlock_ClassifiesCallNamesAndBodySymbols()
-    {
-        var source = """
-class Store {
-    func Summary() -> string { return "ok" }
-}
-
-class GET {
-    init(pattern: string, handler: () -> string) {}
-}
-
-func Route(prefix: string, body: () -> string) -> string {
-    return body()
-}
-
-func Main() -> string {
-    val store = Store()
-    return Route("") {
-        GET("/") {
-            store.Summary()
-        }
-    }
-}
-""";
-
-        var tree = SyntaxTree.ParseText(source);
-        var compilation = CreateCompilation(tree);
-        var model = compilation.GetSemanticModel(tree);
-        var result = SemanticClassifier.Classify(tree.GetRoot(), model);
-
-        var root = tree.GetRoot();
-        var trailingBlockTokens = root
-            .DescendantNodes()
-            .OfType<TrailingBlockExpressionSyntax>()
-            .SelectMany(block => block.DescendantTokens())
-            .Where(token => token.Kind == SyntaxKind.IdentifierToken)
-            .Distinct()
-            .ToArray();
-
-        var routeToken = root.DescendantNodes()
-            .OfType<InvocationExpressionSyntax>()
-            .Single(invocation => invocation.TrailingBlock is not null && invocation.Expression.ToString() == "Route")
-            .Expression
-            .DescendantTokens()
-            .Single(token => token.Text == "Route");
-        var getToken = trailingBlockTokens.Single(token => token.Text == "GET");
-        var storeToken = trailingBlockTokens.Single(token => token.Text == "store");
-        var summaryToken = trailingBlockTokens.Single(token => token.Text == "Summary");
-
-        result.Tokens[routeToken].ShouldBe(SemanticClassification.Method);
-        result.Tokens[getToken].ShouldBe(SemanticClassification.Type);
-        result.Tokens[storeToken].ShouldBe(SemanticClassification.Local);
-        result.Tokens[summaryToken].ShouldBe(SemanticClassification.Method);
-    }
-
-    [Fact]
     public void CacheOnlyClassification_ReusesCachedSymbolsWithoutBindingFallbacks()
     {
         var source = """

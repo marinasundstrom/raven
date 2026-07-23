@@ -1124,7 +1124,7 @@ class Foo {
     var Name: string = ""
 }
 
-val foo = Foo with {
+val foo = Foo {
     Name = "updated"
 }
 """;
@@ -1133,7 +1133,7 @@ val foo = Foo with {
         var model = compilation.GetSemanticModel(tree);
         var creationSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<WithExpressionSyntax>()
+            .OfType<InvocationExpressionSyntax>()
             .Single();
 
         var creation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(creationSyntax));
@@ -1156,7 +1156,7 @@ class Foo {
     var Name: string = ""
 }
 
-val foo = Foo with {
+val foo = Foo {
     Name = "updated"
 }
 """;
@@ -1165,7 +1165,7 @@ val foo = Foo with {
         var model = compilation.GetSemanticModel(tree);
         var creationSyntax = tree.GetRoot()
             .DescendantNodes()
-            .OfType<WithExpressionSyntax>()
+            .OfType<InvocationExpressionSyntax>()
             .Single();
 
         var operation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(creationSyntax));

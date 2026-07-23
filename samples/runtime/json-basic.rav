@@ -3,7 +3,7 @@ import System.Text.Json.*
 
 let person = Person("Alice", 42)
 
-WriteLine(JsonSerializer.Serialize(person, JsonSerializerOptions with {
+WriteLine(JsonSerializer.Serialize(person, JsonSerializerOptions {
     WriteIndented = true
 }))
 

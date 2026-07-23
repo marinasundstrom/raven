@@ -373,7 +373,7 @@ IfStatement              ::= 'if' Expression EmbeddedStatement ['else' ElseEmbed
 IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression EmbeddedStatement ['else' ElseEmbeddedStatement] ;
 
 (* NOTE: In statement contexts, '{' that starts a new statement (for example after a newline,
-   or after headers such as if/while/for) begins a block statement/body and is not parsed as a TrailingBlock trailer.
+   or after headers such as if/while/for) begins a block statement/body and is not parsed as an object initializer.
    This disambiguation is performed by the parser (context-sensitive), not by this EBNF. *)
 WhileStatement           ::= 'while' Expression EmbeddedStatement ;
 WhilePatternStatement    ::= 'while' BindingKeyword Pattern '=' Expression EmbeddedStatement ;
@@ -604,7 +604,7 @@ PostfixTrailer           ::= ArgumentList
                            | SuppressNullableWarningTrailer
                            | PropagateTrailer
                            | ConditionalAccessTrailer
-                           | TrailingBlock
+                           | ObjectInitializer
                            | WithExpression ;
 
 ArgumentList             ::= '(' [Argument {',' Argument}] ')' ;
@@ -624,22 +624,18 @@ SuppressNullableWarningTrailer
 PropagateTrailer          ::= '?' ;
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 
-(* ---------- Trailing blocks ---------- *)
+(* ---------- Object initializers and with expressions ---------- *)
 
-TrailingBlock             ::= "{" [ TrailingBlockParameterClause ] Statement* "}" ;
+ObjectInitializer         ::= '{' { ObjectInitializerEntry } '}' ;
 
-TrailingBlockParameterClause
-                          ::= Parameter "=>"
-                           |  ParameterList "=>" ;
+ObjectInitializerEntry    ::= ObjectInitializerAssignmentEntry
+                            | ObjectInitializerExpressionEntry ;
 
-(* A trailing block is invocation syntax. It is syntactic sugar for supplying
-   a final closure argument to `callee(args) { ... }` or `callee { ... }`.
-   The callable may be a method, constructor, or extension method. The selected
-   closure parameter determines whether declared parameters or implicit `$0`,
-   `$1`, ... parameters are available in the block. The block body is parsed as
-   ordinary Raven statements, not initializer entries. *)
+ObjectInitializerAssignmentEntry
+                           ::= Identifier AssignmentOperator Expression WithEntryTerminator? ;
 
-(* ---------- With expressions and object initializers ---------- *)
+ObjectInitializerExpressionEntry
+                           ::= Expression WithEntryTerminator? ;
 
 WithExpression           ::= 'with' '{' { WithEntry } '}' ;
 

@@ -20,7 +20,7 @@ let result = root.DescendantNodes()
     .FirstOrNone()
 
 if result is Some(let variableDeclarator) {
-    let newIdentifier = Identifier("foo") with {
+    let newIdentifier = Identifier("foo") {
         LeadingTrivia = variableDeclarator.Identifier.LeadingTrivia
         TrailingTrivia = variableDeclarator.Identifier.TrailingTrivia
     }
@@ -42,7 +42,7 @@ if result is Some(let variableDeclarator) {
 }
 
 func PrintTree(node: SyntaxNode) -> () {
-    node.PrintSyntaxTree(PrinterOptions with {
+    node.PrintSyntaxTree(PrinterOptions {
         IncludeTokens = true,
         IncludeTrivia = true,
         IncludeSpans = true,

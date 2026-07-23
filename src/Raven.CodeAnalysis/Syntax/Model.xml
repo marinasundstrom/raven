@@ -1181,25 +1181,22 @@
   <Node Name="TypeDeclarationStatement" Inherits="Statement">
     <Slot Name="Declaration" Type="BaseTypeDeclaration" />
   </Node>
-  <Node Name="TrailingBlockExpression" Inherits="Expression">
+  <Node Name="ObjectInitializerExpression" Inherits="Expression">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
-    <Slot Name="Parameter" Type="Parameter" IsNullable="true" />
-    <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
-    <Slot Name="FatArrowToken" Type="Token" IsOptionalToken="true" />
-    <Slot Name="Statements" Type="List" ElementType="Statement" />
+    <Slot Name="Entries" Type="List" ElementType="ObjectInitializerEntry" />
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
   </Node>
 
-  <Node Name="TrailingBlockEntry" Inherits="Node" IsAbstract="true" />
+  <Node Name="ObjectInitializerEntry" Inherits="Node" IsAbstract="true" />
 
-  <Node Name="TrailingBlockAssignmentEntry" Inherits="TrailingBlockEntry">
+  <Node Name="ObjectInitializerAssignmentEntry" Inherits="ObjectInitializerEntry">
     <Slot Name="Name" Type="IdentifierName" />
     <Slot Name="EqualsToken" Type="Token" DefaultToken="EqualsToken" />
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
 
-  <Node Name="TrailingBlockExpressionEntry" Inherits="TrailingBlockEntry">
+  <Node Name="ObjectInitializerExpressionEntry" Inherits="ObjectInitializerEntry">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
@@ -1252,7 +1249,7 @@
   <Node Name="InvocationExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />
     <Slot Name="ArgumentList" Type="ArgumentList" />
-    <Slot Name="TrailingBlock" Type="TrailingBlockExpression" IsNullable="true" />
+    <Slot Name="Initializer" Type="ObjectInitializerExpression" IsNullable="true" />
   </Node>
   <Node Name="ExpressionOrPattern" Inherits="Node" IsAbstract="true" />
   <Node Name="VariableDeclarator" Inherits="Node">

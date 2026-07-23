@@ -1465,7 +1465,7 @@ internal sealed class ObjectCreationOperation : Operation, IObjectCreationOperat
 
             SyntaxNode? syntaxInitializer = Syntax switch
             {
-                InvocationExpressionSyntax invocation => invocation.TrailingBlock,
+                InvocationExpressionSyntax invocation => invocation.Initializer,
                 WithExpressionSyntax withExpression => withExpression,
                 _ => null
             };
@@ -1571,7 +1571,7 @@ internal sealed class ObjectInitializerAssignmentOperation : Operation, IObjectI
             _valueInitialized = true;
             var fallback = Syntax switch
             {
-                TrailingBlockAssignmentEntrySyntax assignmentEntry => assignmentEntry.Expression,
+                ObjectInitializerAssignmentEntrySyntax assignmentEntry => assignmentEntry.Expression,
                 WithAssignmentSyntax withAssignment => withAssignment.Expression,
                 WithExpressionEntrySyntax withExpressionEntry => withExpressionEntry.Expression,
                 _ => Syntax
@@ -1615,7 +1615,7 @@ internal sealed class ObjectInitializerExpressionEntryOperation : Operation, IOb
             _expressionInitialized = true;
             var fallback = Syntax switch
             {
-                TrailingBlockExpressionEntrySyntax expressionEntry => expressionEntry.Expression,
+                ObjectInitializerExpressionEntrySyntax expressionEntry => expressionEntry.Expression,
                 WithExpressionEntrySyntax withExpressionEntry => withExpressionEntry.Expression,
                 _ => Syntax
             };

@@ -523,8 +523,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     }
 
     private static bool IsExpensiveInlayInitializerInvocation(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count > 0 ||
-           invocation.TrailingBlock is not null;
+        => invocation.ArgumentList.Arguments.Count > 0;
 
     private static void AddForTargetTypeHints(
         List<InlayHint> hints,

@@ -1584,7 +1584,7 @@ public partial class Compilation
     }
 
     private static bool IsNestedFunctionBoundary(SyntaxNode node)
-        => node is FunctionStatementSyntax or FunctionExpressionSyntax or TrailingBlockExpressionSyntax;
+        => node is FunctionStatementSyntax or FunctionExpressionSyntax;
 
     private sealed class TopLevelProgramMembers
     {

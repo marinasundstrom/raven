@@ -199,8 +199,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         if (expression is InvocationExpressionSyntax invocation &&
             invocation.Expression is MemberAccessExpressionSyntax invocationMember)
         {
-            var targetTyped = "." + invocationMember.Name + invocation.ArgumentList +
-                              (invocation.TrailingBlock?.ToString() ?? string.Empty);
+            var targetTyped = "." + invocationMember.Name + invocation.ArgumentList;
             access = new UnionCaseAccess(invocationMember, targetTyped);
             return true;
         }

@@ -462,7 +462,7 @@ val value = WidgetFactory.CreateDefault()
                             return MacroExpansionResult.Empty
                         }
 
-                        MacroExpansionResult with {
+                        MacroExpansionResult {
                             ReplacementDeclaration = replacement
                             IntroducedMembers = [container.Members[0]]
                         }
@@ -596,7 +596,7 @@ val value = WidgetFactory.CreateDefault()
                             return MacroExpansionResult.Empty
                         }
 
-                        MacroExpansionResult with {
+                        MacroExpansionResult {
                             ReplacementDeclaration = replacement
                             IntroducedMembers = [container.Members[0]]
                         }
@@ -719,7 +719,7 @@ val value = WidgetFactory.CreateDefault()
                             return MacroExpansionResult.Empty
                         }
 
-                        MacroExpansionResult with {
+                        MacroExpansionResult {
                             ReplacementDeclaration = property.WithAttributeLists(FilterNonMacroAttributeLists(property.AttributeLists))
                         }
                     }

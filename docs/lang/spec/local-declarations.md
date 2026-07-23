@@ -300,11 +300,10 @@ use stream = OpenRead(path) in {
 ```
 
 The `in { ... }` form is equivalent to introducing a nested block whose first
-statement is the `use` declaration. This keeps DSL-style trailing blocks
-unambiguous:
+statement is the `use` declaration:
 
 ```raven
-use obj = Foo with { Value = 2 } in {
+use obj = Foo { Value = 2 } in {
     obj.Run()
 }
 ```

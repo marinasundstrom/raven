@@ -71,7 +71,7 @@
       href: spec/collection-expressions.md
     - name: Tuple expressions
       href: spec/tuple-expressions.md
-    - name: Calls and trailing blocks
+    - name: Calls
       href: spec/invocations.md
     - name: Pipe expressions
       href: spec/pipe-expressions.md

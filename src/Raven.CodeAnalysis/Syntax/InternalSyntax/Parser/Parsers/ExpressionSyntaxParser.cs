@@ -1382,14 +1382,14 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 var argumentList = ParseArgumentListSyntax();
 
-                // A trailing block may immediately follow an invocation: Foo(...) { ... }
+                // An object initializer may immediately follow an invocation: Foo(...) { ... }
                 // But in statement/header contexts (for/if/while conditions), `{` begins the body block,
-                // so we must not consume it as a trailing block.
-                TrailingBlockExpressionSyntax? trailingBlock = null;
+                // so we must not consume it as an initializer.
+                ObjectInitializerExpressionSyntax? initializer = null;
                 if (!_stopOnOpenBrace && PeekToken().IsKind(SyntaxKind.OpenBraceToken))
-                    trailingBlock = ParseTrailingBlockExpression();
+                    initializer = ParseObjectInitializerExpression();
 
-                expr = InvocationExpression(expr, argumentList, trailingBlock);
+                expr = InvocationExpression(expr, argumentList, initializer);
             }
             else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) // Member Access
             {
@@ -1432,28 +1432,23 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 expr = ElementAccessExpression(expr, argumentList);
             }
-            else if (token.IsKind(SyntaxKind.OpenBraceToken)) // Trailing block trailer (DSL-style)
+            else if (token.IsKind(SyntaxKind.OpenBraceToken)) // Object initializer trailer
             {
                 // A newline before '{' starts a new statement-level block scope.
-                // Keep trailing blocks as same-line syntax.
+                // Keep object initializers as same-line syntax.
                 if (HasLeadingNewLine(token))
                     return expr;
 
-                // Treat `<expr> { ... }` as an invocation with a missing argument list plus a trailing block.
-                // This enables: `Window { ... }` where `Window` is parsed as an IdentifierName.
-
-                var trailingBlock = ParseTrailingBlockExpression();
+                var initializer = ParseObjectInitializerExpression();
 
                 if (expr is InvocationExpressionSyntax inv)
                 {
-                    // If it's already an invocation (e.g. Foo() { ... }), just attach the trailing block.
-                    expr = InvocationExpression(inv.Expression, inv.ArgumentList, trailingBlock);
+                    expr = InvocationExpression(inv.Expression, inv.ArgumentList, initializer);
                 }
                 else
                 {
-                    // Synthesize a missing argument list: `expr(/*missing*/){...}`
                     var missingArgs = CreateMissingArgumentList();
-                    expr = InvocationExpression(expr, missingArgs, trailingBlock);
+                    expr = InvocationExpression(expr, missingArgs, initializer);
                 }
             }
             else if (token.IsKind(SyntaxKind.WithKeyword)) // With-expression trailer: `<expr> with { ... }`
@@ -3194,124 +3189,62 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return WithExpressionEntry(expression, terminatorToken);
     }
 
-    private TrailingBlockExpressionSyntax ParseTrailingBlockExpression()
+    private ObjectInitializerExpressionSyntax ParseObjectInitializerExpression()
     {
-        var openBrace = ExpectToken(SyntaxKind.OpenBraceToken);
+        // We assume current token is '{'
+        ConsumeTokenOrMissing(SyntaxKind.OpenBraceToken, out var openBraceToken);
+
+        var previousTreatNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(true);
 
         EnterParens();
-
-        ParameterSyntax? parameter = null;
-        ParameterListSyntax? parameterList = null;
-        var fatArrowToken = Token(SyntaxKind.None);
-
-        TryParseTrailingBlockParameterClause(out parameter, out parameterList, out fatArrowToken);
-
-        var statements = new List<StatementSyntax>();
-        while (!IsNextToken(SyntaxKind.CloseBraceToken, out _) &&
-               !IsNextToken(SyntaxKind.EndOfFileToken, out _))
+        try
         {
-            var statementStart = Position;
-            var stmt = new StatementSyntaxParser(this).ParseStatement();
-            if (stmt is not null)
-                statements.Add(stmt);
+            var entries = new List<ObjectInitializerEntrySyntax>();
 
-            if (Position == statementStart)
+            while (true)
             {
+                SetTreatNewlinesAsTokens(false);
+
                 var token = PeekToken();
-                var tokenText = string.IsNullOrEmpty(token.Text)
-                    ? token.Kind.ToString()
-                    : token.Text;
 
-                AddDiagnostic(
-                    DiagnosticInfo.Create(
-                        CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax,
+                if (IsNextToken(SyntaxKind.CloseBraceToken, out _) || PeekToken().IsKind(SyntaxKind.EndOfFileToken))
+                    break;
+
+                var entryStart = Position;
+                var entry = ParseObjectInitializerEntry();
+
+                if (Position == entryStart)
+                {
+                    // No progress: consume one token and continue (or break) to avoid infinite loop.
+                    var bad = PeekToken();
+                    AddDiagnostic(DiagnosticInfo.Create(
+                        CompilerDiagnostics.InvalidExpressionTerm,
                         GetSpanOfPeekedToken(),
-                        tokenText));
+                        bad.Text));
+                    ReadToken();
+                    continue;
+                }
 
-                ReadToken();
+                entries.Add(entry);
             }
+
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+
+            ConsumeTokenOrMissing(SyntaxKind.CloseBraceToken, out var closeBraceToken);
 
             SetTreatNewlinesAsTokens(false);
+
+            return ObjectInitializerExpression(openBraceToken, List(entries.ToArray()), closeBraceToken);
         }
-
-        ExitParens();
-
-        var closeBrace = ExpectToken(SyntaxKind.CloseBraceToken);
-
-        return TrailingBlockExpression(openBrace, parameter, parameterList, fatArrowToken, List(statements), closeBrace);
+        finally
+        {
+            ExitParens();
+            SetTreatNewlinesAsTokens(previousTreatNewlinesAsTokens);
+        }
     }
 
-    private bool TryParseTrailingBlockParameterClause(
-        out ParameterSyntax? parameter,
-        out ParameterListSyntax? parameterList,
-        out SyntaxToken fatArrowToken)
-    {
-        parameter = null;
-        parameterList = null;
-        fatArrowToken = Token(SyntaxKind.None);
-
-        var checkpoint = CreateCheckpoint("trailing-block-parameter-clause");
-
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-        {
-            var parsedParameterList = new StatementSyntaxParser(this).ParseParameterList(
-                allowDestructuringPatterns: true,
-                allowDiscardParameters: true);
-            if (ConsumeToken(SyntaxKind.FatArrowToken, out fatArrowToken))
-            {
-                parameterList = parsedParameterList;
-                return true;
-            }
-
-            checkpoint.Rewind();
-            fatArrowToken = Token(SyntaxKind.None);
-            return false;
-        }
-
-        var attributeLists = AttributeDeclarationParser.ParseAttributeLists(this);
-
-        var refKindKeyword = Token(SyntaxKind.None);
-        if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
-            || ConsumeToken(SyntaxKind.OutKeyword, out modifier)
-            || ConsumeToken(SyntaxKind.InKeyword, out modifier))
-        {
-            refKindKeyword = modifier;
-        }
-
-        var bindingKeyword = Token(SyntaxKind.None);
-        if (ConsumeToken(SyntaxKind.LetKeyword, out var binding)
-            || ConsumeToken(SyntaxKind.ValKeyword, out binding)
-            || ConsumeToken(SyntaxKind.VarKeyword, out binding)
-            || ConsumeToken(SyntaxKind.ConstKeyword, out binding))
-        {
-            bindingKeyword = binding;
-        }
-
-        if (!IsSimpleLambdaParameterStart(PeekToken()))
-        {
-            checkpoint.Rewind();
-            return false;
-        }
-
-        var identifier = ReadSimpleLambdaParameterToken();
-        var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
-
-        EqualsValueClauseSyntax? defaultValue = null;
-        if (IsNextToken(SyntaxKind.EqualsToken, out _))
-            defaultValue = new EqualsValueClauseSyntaxParser(this).Parse();
-
-        if (!ConsumeToken(SyntaxKind.FatArrowToken, out fatArrowToken))
-        {
-            checkpoint.Rewind();
-            fatArrowToken = Token(SyntaxKind.None);
-            return false;
-        }
-
-        parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
-        return true;
-    }
-
-    private TrailingBlockEntrySyntax ParseTrailingBlockEntry()
+    private ObjectInitializerEntrySyntax ParseObjectInitializerEntry()
     {
         // Entry kind is decided by lookahead: <identifier> assignment-operator ...
         if (CanTokenBeIdentifier(PeekToken()) && IsAssignmentOperator(PeekToken(1).Kind))
@@ -3336,7 +3269,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 TryConsumeTerminator(out terminatorToken);
             }
 
-            return TrailingBlockAssignmentEntry(name, operatorToken, expression, terminatorToken);
+            return ObjectInitializerAssignmentEntry(name, operatorToken, expression, terminatorToken);
         }
         else
         {
@@ -3347,7 +3280,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             if (!ConsumeToken(SyntaxKind.CommaToken, out terminatorToken))
                 TryConsumeTerminator(out terminatorToken);
 
-            return TrailingBlockExpressionEntry(expression, terminatorToken);
+            return ObjectInitializerExpressionEntry(expression, terminatorToken);
         }
     }
 

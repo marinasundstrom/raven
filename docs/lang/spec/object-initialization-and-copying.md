@@ -2,10 +2,13 @@
 
 ## Object initializers
 
-An **object initializer** is written as a `with` block on a type expression. The initializer selects the type's parameterless constructor, constructs the instance, and then applies the initializer entries in source order.
+An **object initializer** is a brace block after a type name or constructor
+call. A type name without parentheses selects its parameterless constructor;
+an explicit constructor call may supply arguments. The compiler constructs the
+instance and then applies initializer entries in source order.
 
 ```raven
-val window = Window with {
+val window = Window {
     Title = "Main"
     Width = 800
     Height = 600
@@ -20,7 +23,7 @@ class Settings {
     val FontSize: int { init; }
 }
 
-val settings = Settings with {
+val settings = Settings {
     Theme = "Dark"
     FontSize = 14
 }
@@ -35,14 +38,24 @@ Initializer bodies consist of a sequence of **member entries** and **content ent
 Event subscription is valid in object initializers:
 
 ```raven
-val button = Button with {
+val button = Button {
     Clicked += () => WriteLine("clicked")
 }
 ```
 
 Property entries are applied to the newly created instance in source order.
 
-Brace trailers after expressions are not object initializers. They are represented in the syntax tree as trailing block expressions and participate in invocation binding as trailing closure arguments. Use `Type with { ... }` for object initialization and `value with { ... }` for non-destructive updates.
+Initializers may follow constructor arguments:
+
+```raven
+val person = Person("Ada") {
+    Age = 36
+}
+```
+
+These braces are object-initializer syntax, not function arguments. Pass a
+function with ordinary function-expression syntax inside the argument list.
+Use `value with { ... }` separately for non-destructive copying.
 
 ## Required members and init semantics
 
@@ -54,8 +67,8 @@ class Person {
     required val Age: int { init; }
 }
 
-val p = Person with { Name = "Ada", Age = 36 }   // ok
-val q = Person with { Name = "Ada" }            // error: Age must be set
+val p = Person { Name = "Ada", Age = 36 }   // ok
+val q = Person { Name = "Ada" }             // error: Age must be set
 ```
 
 ### Declaration rules
@@ -82,7 +95,9 @@ Primary-constructor behavior is intentionally split:
 
 1. `class`/`struct`: parameters marked with `val` or `var` are promoted to properties; parameters without a binding keyword are captured in compiler-generated private storage for member access, but are not promoted to public properties. Promoted parameters may include an access modifier (`public`/`internal`/`protected`/`private`) before `val`/`var` to set synthesized property accessibility (default `public`).
 2. `record class`/`record struct`: positional parameters define the record's public data shape via synthesized properties and value members. When no binding keyword is present, record parameters are promoted as `val` properties by default. Value-shape synthesis (`Equals`, `GetHashCode`, `Deconstruct`, `ToString`, record copy/with flow, and equality operators) includes only **public** promoted properties; non-public promoted properties are excluded and produce a compiler warning.
-3. Constructor calls require invocation syntax (`Foo(...)`, `Foo()`, or `Foo { ... }` when a trailing closure parameter is present); a standalone type name (`Foo`) is not a value expression, while `Foo with { ... }` is the parameterless object-initializer form.
+3. Constructor calls require invocation syntax (`Foo(...)` or `Foo()`), except
+   that `Foo { ... }` is the parameterless object-initializer form. A standalone
+   type name (`Foo`) is not a value expression.
 4. Member declarations cannot reuse the immediate containing type's name.
 
 For semantic-model queries, unqualified identifier access to those captured/promoted members resolves to the originating primary-constructor parameter symbol.
@@ -133,7 +148,7 @@ preserving the original:
 ```raven
 record Point(X: int, Y: int)
 
-val origin = Point with { X = 0, Y = 0 }
+val origin = Point { X = 0, Y = 0 }
 val moved = origin with { X = 10 }
 ```
 

@@ -1515,7 +1515,7 @@ internal sealed class HoverHandler : IHoverHandler
                 token == parameter.Identifier)
             {
                 var parameterSymbol = parameter.Ancestors().Any(static ancestor =>
-                    ancestor is FunctionExpressionSyntax or TrailingBlockExpressionSyntax)
+                    ancestor is FunctionExpressionSyntax)
                         ? semanticModel.GetFunctionExpressionParameterSymbol(parameter)
                         : semanticModel.GetDeclaredSymbol(parameter) as IParameterSymbol;
 

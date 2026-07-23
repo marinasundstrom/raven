@@ -64,7 +64,7 @@ async func GetPersons() -> Task<Result<Person[], CustomError>> {
 // Demonstrates exception handling with 'try'
 async func GetPersonsCore() -> Task<Result<Person[], Exception>> {
     let textResult = try await File.ReadAllTextAsync("sandbox/sample.json")
-    let options = JsonSerializerOptions with {
+    let options = JsonSerializerOptions {
         IncludeFields = true
     }
     let results = try JsonSerializer.Deserialize<Person[]>(textResult?, options)

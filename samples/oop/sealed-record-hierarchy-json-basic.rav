@@ -6,7 +6,7 @@ import System.Text.Json.Serialization.*
 // Feature: sealed record hierarchy with JSON polymorphism metadata.
 let expr: Expr = Add(Lit(40), Sub(Lit(3), Lit(1)))
 
-WriteLine(JsonSerializer.Serialize(expr, JsonSerializerOptions with {
+WriteLine(JsonSerializer.Serialize(expr, JsonSerializerOptions {
     WriteIndented = true
 }))
 

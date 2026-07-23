@@ -84,7 +84,7 @@ and common rules are easy to find.
 * [Fundamental expressions](fundamental-expressions.md)
 * [Collection expressions](collection-expressions.md)
 * [Tuple expressions](tuple-expressions.md)
-* [Calls and trailing blocks](invocations.md)
+* [Calls](invocations.md)
 * [Pipe expressions](pipe-expressions.md)
 * [Object creation](object-creation.md)
 * [Object initialization and copying](object-initialization-and-copying.md)

@@ -22,7 +22,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         }
 
         if !IsStorageProperty(property) {
-            return MacroExpansionResult with {
+            return MacroExpansionResult {
                 MacroDiagnostics = [
                     MacroExpansionDiagnostic.Error(
                         "#[Observable] requires a mutable storage property without accessors or an expression body.",
@@ -37,7 +37,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         let backingFieldMember = CreateBackingField(property, backingFieldName)
         let replacement = CreateReplacementProperty(property, backingFieldName)
 
-        MacroExpansionResult with {
+        MacroExpansionResult {
             ReplacementDeclaration = replacement
             IntroducedMembers = [backingFieldMember]
         }

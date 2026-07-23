@@ -210,7 +210,7 @@ class TopLevelBinder : BlockBinder
     }
 
     private static bool IsNestedFunctionBoundary(SyntaxNode node)
-        => node is FunctionStatementSyntax or FunctionExpressionSyntax or TrailingBlockExpressionSyntax;
+        => node is FunctionStatementSyntax or FunctionExpressionSyntax;
 
     private bool TryGetResultReturnPayload(
         ExpressionSyntax? expression,

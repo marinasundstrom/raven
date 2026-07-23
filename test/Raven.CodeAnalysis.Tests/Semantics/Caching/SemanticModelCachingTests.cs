@@ -1486,7 +1486,7 @@ import System.Text.Json.*
 
 func Main() -> () {
     val foo = Foo("Marina")
-    val options = JsonSerializerOptions with {
+    val options = JsonSerializerOptions {
         WriteIndented = true
     }
     val str = JsonSerializer.Serialize(foo, options)
@@ -1562,7 +1562,7 @@ val foo = Foo(
     Test: true
 )
 
-val options = JsonSerializerOptions with {
+val options = JsonSerializerOptions {
     WriteIndented = true,
     PropertyNamingPolicy = .CamelCase
 }
