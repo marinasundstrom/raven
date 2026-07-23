@@ -75,6 +75,19 @@ class Resource : IDisposable {
     }
 
     [Fact]
+    public void MetadataBaseClassInterfaceImplementation_IsInherited()
+    {
+        const string source = """
+import System.IO.*
+
+class Buffer : MemoryStream {
+}
+""";
+
+        CreateVerifier(source).Verify();
+    }
+
+    [Fact]
     public void ExplicitInterfaceProperty_SatisfiesInterfaceContract()
     {
         const string source = """

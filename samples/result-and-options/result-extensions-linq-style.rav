@@ -13,7 +13,6 @@ func ParseAmount(text: string) -> Result<int, string> {
     return int.Parse(text) match {
         Ok(let value) => Ok(value)
         Error(let error) => match error {
-            ArgumentNullException ex => Error(ex.Message)
             FormatException ex => Error(ex.Message)
             OverflowException ex => Error(ex.Message)
         }

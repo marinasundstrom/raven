@@ -22,7 +22,6 @@ func parseNumber(str: string) -> Result<int, string> {
     return int.Parse(str) match {
         Ok(int v) => Ok(v)
         Error(let error) => match error {
-            ArgumentNullException ex => Error(ex.Message)
             FormatException ex => Error(ex.Message)
             OverflowException ex => Error(ex.Message)
         }

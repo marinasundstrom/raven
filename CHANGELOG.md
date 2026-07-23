@@ -55,6 +55,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Preserved target typing for ordinary typed `let` declarations after their
   unification with pattern-declaration syntax, including shorthand union cases
   in `if` expression branches.
+- Recognized interface implementations inherited from metadata base classes,
+  avoiding spurious missing-member diagnostics on derived Raven classes.
 - Ordered language-server diagnostic presentation per document and rejected
   older editor versions, preventing recovery diagnostics from reappearing
   after a newer compiler pass has cleared them.

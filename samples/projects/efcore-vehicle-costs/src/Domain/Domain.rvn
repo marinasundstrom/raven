@@ -22,7 +22,14 @@ class VehicleEntity {
     var FuelConsumptions: List<FuelConsumptionRecord> = []
 
     func GetStatus() -> VehicleStatus {
-        return Status
+        return Status match {
+            .Operational(let driverName, let sinceUtc, let currentOdometerKm) =>
+                .Operational(driverName, sinceUtc, currentOdometerKm)
+            .Maintenance(let workshop, let startedUtc, let expectedReadyUtc, let reason) =>
+                .Maintenance(workshop, startedUtc, expectedReadyUtc, reason)
+            .Decommissioned(let retiredUtc, let reason) =>
+                .Decommissioned(retiredUtc, reason)
+        }
     }
 
     func SetStatus(status: VehicleStatus) {

@@ -1,6 +1,6 @@
 import System.Console.*
 
-// Feature: trait extension + null-conditional invocation.
+// Feature: extension + null-conditional invocation.
 let f: Foo? = Foo(21)
 let s = f?(2)
 
@@ -20,7 +20,7 @@ class Foo(b: int) {
     }
 }
 
-trait Test for Foo {
+extension Test for Foo {
     func Hello() -> string? {
         return self.ToString()
     }

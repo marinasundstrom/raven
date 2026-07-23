@@ -6683,6 +6683,13 @@ public partial class SemanticModel
 
         foreach (var interfaceType in typeSymbol.AllInterfaces)
         {
+            if (typeSymbol.BaseType is INamedTypeSymbol baseType &&
+                baseType.AllInterfaces.Any(inheritedInterface =>
+                    SymbolEqualityComparer.Default.Equals(inheritedInterface, interfaceType)))
+            {
+                continue;
+            }
+
             foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
             {
                 if (!RequiresInterfaceImplementation(interfaceMethod))

@@ -4,27 +4,27 @@ let arg = if args.Length > 0 { args[0]; } else { "0"; }
 
 var total = 0
 
-if !int.TryParse(arg, out total) {
-    Console.WriteLine("Expected number")
+match int.TryParse(arg) {
+    Some(let number) => total = number
+    None => Console.WriteLine("Expected number")
 }
 
 while true {
     Console.Write("Write number: ")
     let inputStr = Console.ReadLine()
 
-    var number = 0
+    match int.TryParse(inputStr) {
+        Some(let number) => {
+            total = total + number
 
-    if int.TryParse(inputStr, out number) {
-        total = total + number
+            Console.Write("The total is: ")
+            Console
+                .WriteLine(total)
 
-        Console.Write("The total is: ")
-        Console
-            .WriteLine(total)
-
-        if total >= 42 {
-            Console.WriteLine("Yay!")
+            if total >= 42 {
+                Console.WriteLine("Yay!")
+            }
         }
-    } else {
-        Console.WriteLine("Not a number")
+        None => Console.WriteLine("Not a number")
     }
 }

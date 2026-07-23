@@ -10,7 +10,6 @@ func ParseId(text: string) -> Result<int, string> {
     return int.Parse(text) match {
         Ok(let value) => Ok(value)
         Error(let error) => match error {
-            ArgumentNullException ex => Error("Missing integer: ${ex.Message}")
             FormatException ex => Error("Not a valid integer: '$text' (${ex.Message})")
             OverflowException ex => Error("Integer is out of range: ${ex.Message}")
         }
