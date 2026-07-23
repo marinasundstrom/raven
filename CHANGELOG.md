@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Reduced one-file compiler latency by skipping conversion-operator member
+  loading for types that cannot contain extension members.
 - Added a static-hostable Blazor WebAssembly playground starter with a Monaco
   editor, Raven TextMate highlighting, separate Compile and Run commands, and
   in-browser compilation and execution of emitted Raven assemblies. A
