@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Published the browser playground beneath `/playground/` in the same GitHub
+  Pages artifact as the documentation site, with top-level documentation links
+  and a relocatable static base path.
 - Added a playground-owned example catalog loaded from static files, allowing
   curated Raven programs to be registered and updated independently of the
   browser-hosted compiler code. Browser coverage compiles every registered

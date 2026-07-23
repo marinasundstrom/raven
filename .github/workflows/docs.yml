@@ -8,15 +8,29 @@ on:
       - ".github/workflows/docs.yml"
       - ".config/dotnet-tools.json"
       - "docs/**"
+      - "build/**"
       - "scripts/build-docs.sh"
+      - "scripts/build-playground-site.sh"
+      - "scripts/codex-build.sh"
       - "src/Raven.CodeAnalysis/**"
+      - "src/Raven.Compiler/**"
+      - "src/Raven.Core/**"
+      - "src/Raven.Playground/**"
+      - "tools/**Generator/**"
   pull_request:
     paths:
       - ".github/workflows/docs.yml"
       - ".config/dotnet-tools.json"
       - "docs/**"
+      - "build/**"
       - "scripts/build-docs.sh"
+      - "scripts/build-playground-site.sh"
+      - "scripts/codex-build.sh"
       - "src/Raven.CodeAnalysis/**"
+      - "src/Raven.Compiler/**"
+      - "src/Raven.Core/**"
+      - "src/Raven.Playground/**"
+      - "tools/**Generator/**"
   workflow_dispatch:
 
 permissions:
@@ -36,11 +50,23 @@ jobs:
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "11.0.x"
+          dotnet-version: |
+            10.0.x
+            11.0.x
           dotnet-quality: preview
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/Raven.Playground/package-lock.json
 
       - name: Build documentation
         run: scripts/build-docs.sh
+
+      - name: Add playground
+        run: scripts/build-playground-site.sh
 
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'

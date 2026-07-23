@@ -47,3 +47,11 @@ GitHub Pages artifact and deploys it to:
 The repository's Pages source must be set to **GitHub Actions** in the GitHub
 Pages settings. The workflow keeps build and deployment as separate jobs, so a
 failed DocFX validation cannot replace the published site.
+
+The same Pages artifact includes the browser playground at:
+
+<https://marinasundstrom.github.io/raven/playground/>
+
+`scripts/build-playground-site.sh` builds the relocatable Blazor WebAssembly
+application and places it under `_site/playground/` after DocFX has built the
+main site. The playground and documentation therefore deploy atomically.

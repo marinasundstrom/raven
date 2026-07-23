@@ -18,6 +18,8 @@ syntax and semantics.
 
 ## Learn Raven
 
+- [Try Raven in your browser](https://marinasundstrom.github.io/raven/playground/)
+  without installing a compiler.
 - [Choose a learning path](learn.md) based on your programming experience.
 - See [Raven in 60 seconds](raven-in-60-seconds.md) for the language's core
   ideas in one small program.

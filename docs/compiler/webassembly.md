@@ -80,8 +80,14 @@ dotnet publish src/Raven.Playground/Raven.Playground.csproj \
 ```
 
 The deployable site is `artifacts/playground/wwwroot`. It can be served by any
-static file host. The host must serve `.wasm` files as `application/wasm` and
-fall back to `index.html` for client-side routes.
+static file host. The app uses a relative base path so it can run at a host root
+or below a path such as `/raven/playground/`. The host must serve `.wasm` files
+as `application/wasm`.
+
+The official GitHub Pages workflow builds the documentation first, then runs
+`scripts/build-playground-site.sh` to add the playground at
+`_site/playground/`. Both surfaces are uploaded and deployed as one atomic
+Pages artifact.
 
 Run the end-to-end browser smoke test with:
 

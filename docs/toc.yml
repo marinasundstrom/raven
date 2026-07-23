@@ -1,5 +1,7 @@
 - name: Home
   href: index.md
+- name: Playground
+  href: https://marinasundstrom.github.io/raven/playground/
 - name: Get started
   href: getting-started.md
 - name: Learn Raven
