@@ -875,6 +875,9 @@ internal class TypeGenerator
                             methodSymbol.MethodKind == MethodKind.Constructor)
                             break;
 
+                        if (_methodGenerators.ContainsKey(methodSymbol))
+                            break;
+
                         var methodGenerator = new MethodGenerator(this, methodSymbol, CodeGen.ILBuilderFactory);
 
                         if (methodSymbol is SourceLambdaSymbol sourceLambda && sourceLambda.HasCaptures)

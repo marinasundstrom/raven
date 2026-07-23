@@ -242,6 +242,20 @@ val wrapped = result.WithContext("reading value")
     }
 
     [Fact]
+    public void ToString_CarrierMethod_HasSingleEmittedBody()
+    {
+        var asm = LoadRavenCoreAssembly();
+        var resultType = GetConstructedType(asm, "System.Result`2", typeof(int), typeof(string));
+        var methods = resultType
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(static method => method.Name == nameof(object.ToString))
+            .ToArray();
+
+        var method = Assert.Single(methods);
+        Assert.NotNull(method.GetMethodBody());
+    }
+
+    [Fact]
     public void ToString_UsesTypePlaceholder_ForNonVettedPayloadTypes()
     {
         var asm = LoadRavenCoreAssembly();

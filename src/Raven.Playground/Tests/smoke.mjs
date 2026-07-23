@@ -129,24 +129,27 @@ try {
       "    return Ok(value)",
       "}",
       "",
-      "test<int>(42)",
+      "Console.WriteLine(test<int>(42))",
       "",
       "record class CustomError()",
     ].join("\n"),
   );
-  await page.getByRole("button", { name: /Compile/ }).click();
+  await page.getByRole("button", { name: /^Run/ }).click();
   await page.waitForFunction(
-    () => document.querySelector(".status-pill")?.textContent?.trim() !== "Compiling",
+    () => ["Complete", "Runtime error"].includes(
+      document.querySelector(".status-pill")?.textContent?.trim(),
+    ),
     { timeout: 30_000 },
   );
   const resultRecordStatus = (await page.locator(".status-pill").textContent())?.trim();
-  if (resultRecordStatus !== "Compiled") {
+  if (resultRecordStatus !== "Complete") {
     const diagnostics = await page.locator(".diagnostics li").allTextContents();
+    const output = await page.locator(".output-panel").textContent();
     throw new Error(
-      `Expected Result/record source to compile, got ${resultRecordStatus}: ${diagnostics.join("\n")}`,
+      `Expected Result/record source to run, got ${resultRecordStatus}: ${diagnostics.join("\n")}\n${output}`,
     );
   }
-  await page.getByText(/Compiled successfully/).waitFor();
+  await page.getByText("Result<Int32>.Ok(42)", { exact: true }).waitFor();
 
   await editor.click();
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");

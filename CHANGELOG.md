@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Prevented equivalent synthesized methods from producing duplicate CLR method
+  definitions during emission. Raven.Core union carriers such as `Result<T, E>`
+  now emit a single executable `ToString` body instead of a bodyless method
+  that could fail at runtime with `BadImageFormatException`.
 - Aligned the WebAssembly playground's compilation environment with `rvnc` by
   sharing the standard generated prelude, referencing Raven.Core, and compiling
   against the .NET reference assemblies. Record equality synthesis now accepts
