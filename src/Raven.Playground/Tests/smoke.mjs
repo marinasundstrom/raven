@@ -66,7 +66,7 @@ try {
     throw new Error(`Expected TextMate highlighting to produce multiple token classes, got ${tokenClasses}.`);
   }
 
-  await editor.click();
+  await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type("System.Console.Wri");
   const writeLineSuggestion = page.locator(".suggest-widget .monaco-list-row", {
@@ -88,7 +88,7 @@ try {
   }
 
   await page.keyboard.press("Escape");
-  await editor.click();
+  await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type("ret");
   await page.keyboard.press("Control+Space");
@@ -96,8 +96,17 @@ try {
     .first()
     .waitFor({ timeout: 30_000 });
 
+  const examplePicker = page.getByLabel("Example");
+  const examples = await (await fetch(`${url}examples/index.json`)).json();
+  for (const example of examples) {
+    await examplePicker.selectOption(example.id);
+    await page.getByRole("button", { name: /Compile/ }).click();
+    await page.getByText("Compiling", { exact: true }).waitFor();
+    await page.getByText("Compiled", { exact: true }).waitFor({ timeout: 30_000 });
+  }
+
   await page.keyboard.press("Escape");
-  await editor.click();
+  await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type(
     'let greeting = "Hello from Raven in WebAssembly"\nSystem.Console.WriteLine(greeting)',
@@ -118,7 +127,7 @@ try {
   await page.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
   await page.getByText("Hello from Raven in WebAssembly", { exact: true }).waitFor();
 
-  await editor.click();
+  await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type("let =");
   await page.getByRole("button", { name: /Compile/ }).click();
@@ -127,7 +136,7 @@ try {
     throw new Error("Expected invalid Raven source to produce at least one diagnostic.");
   }
 
-  await editor.click();
+  await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.insertText(
     [
@@ -159,7 +168,7 @@ try {
   }
   await page.getByText("Result<Int32>.Ok(42)", { exact: true }).waitFor();
 
-  await editor.click();
+  await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type(
     'let greeting = "Hello from Raven in WebAssembly"\nSystem.Console.WriteLine(greeting)',

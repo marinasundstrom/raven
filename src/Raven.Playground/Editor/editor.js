@@ -213,6 +213,10 @@ export async function createEditor(element, value, commandTarget) {
 
   return {
     getValue: () => editor.getValue(),
+    setValue: source => {
+      editor.setValue(source);
+      editor.focus();
+    },
     focus: () => editor.focus(),
     dispose: () => {
       clearTimeout(completionTimer);

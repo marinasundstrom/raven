@@ -113,6 +113,30 @@ h1 {
 
 .actions { display: flex; gap: 8px; }
 
+.example-picker {
+    display: grid;
+    gap: 4px;
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.example-picker select {
+    min-width: 160px;
+    height: 38px;
+    border: 1px solid #50574c;
+    border-radius: 7px;
+    padding: 0 30px 0 10px;
+    background: #171a17;
+    color: var(--ink);
+    font: 12px ui-sans-serif, system-ui, sans-serif;
+    text-transform: none;
+}
+
+.example-picker select:disabled { opacity: .65; }
+
 .actions button {
     min-height: 38px;
     border-radius: 7px;
@@ -230,4 +254,6 @@ kbd {
     .panel-header { align-items: flex-start; flex-direction: column; }
     .actions { width: 100%; }
     .actions button { flex: 1; }
+    .example-picker { width: 100%; margin-left: 0; }
+    .example-picker select { width: 100%; }
 }

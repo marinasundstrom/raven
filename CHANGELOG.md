@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a playground-owned example catalog loaded from static files, allowing
+  curated Raven programs to be registered and updated independently of the
+  browser-hosted compiler code. Browser coverage compiles every registered
+  example.
 - Made playground completion visible and responsive by debouncing member-prefix
   requests, explicitly opening Monaco suggestions after a short pause, and
   avoiding uncancelable WebAssembly completion work on ordinary keystrokes.

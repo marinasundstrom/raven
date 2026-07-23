@@ -1,0 +1,7 @@
+func succeed<T>(value: T) -> Result<T, CustomError> {
+    return Ok(value)
+}
+
+Console.WriteLine(succeed<int>(42))
+
+record class CustomError()

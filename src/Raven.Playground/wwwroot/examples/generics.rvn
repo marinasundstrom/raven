@@ -1,0 +1,10 @@
+func choose<T>(preferred: T, fallback: T, usePreferred: bool) -> T {
+    if usePreferred {
+        return preferred
+    }
+
+    return fallback
+}
+
+val theme = choose<string>("dark", "light", usePreferred: true)
+Console.WriteLine("Selected theme: $theme")

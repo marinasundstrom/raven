@@ -1,6 +1,7 @@
 @page "/"
 @implements IAsyncDisposable
 @inject IJSRuntime JS
+@inject HttpClient Http
 @inject PlaygroundLanguageService LanguageService
 @inject PlaygroundProgramRunner Runner
 
@@ -23,6 +24,15 @@
                     <span class="panel-kicker">Source</span>
                     <h2 id="editor-heading">main.rav</h2>
                 </div>
+                <label class="example-picker">
+                    <span>Example</span>
+                    <select value="@_selectedExampleId" disabled="@_isBusy" @onchange="SelectExampleAsync">
+                        @foreach (var example in _examples)
+                        {
+                            <option value="@example.Id">@example.Title</option>
+                        }
+                    </select>
+                </label>
                 <div class="actions">
                     <button class="compile-button" type="button" disabled="@_isBusy" @onclick="CompileAsync">
                         Compile <kbd>F6</kbd>
@@ -69,19 +79,17 @@
 </section>
 
 @code {
-    private const string DefaultSource = """
-        let greeting = "Hello from Raven in WebAssembly"
-        System.Console.WriteLine(greeting)
-        """;
-
     private ElementReference _editorElement;
     private IJSObjectReference? _module;
     private IJSObjectReference? _editor;
     private DotNetObjectReference<Home>? _commandTarget;
     private string _output = "Press Compile to check the program, or Run to execute it.";
     private string _status = "Loading editor";
+    private string _selectedExampleId = string.Empty;
+    private string _initialSource = string.Empty;
     private bool _isBusy;
     private IReadOnlyList<string> _diagnostics = [];
+    private IReadOnlyList<PlaygroundExampleEntry> _examples = [];
 
     private string StatusClass => _status switch
     {
@@ -90,6 +98,17 @@
         "Compiling" or "Running" => "status-active",
         _ => string.Empty,
     };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _examples = await Http.GetFromJsonAsync<PlaygroundExampleEntry[]>("examples/index.json") ?? [];
+        var first = _examples.FirstOrDefault();
+        if (first is null)
+            return;
+
+        _selectedExampleId = first.Id;
+        _initialSource = await Http.GetStringAsync($"examples/{first.File}");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -101,7 +120,7 @@
         _editor = await _module.InvokeAsync<IJSObjectReference>(
             "createEditor",
             _editorElement,
-            DefaultSource,
+            _initialSource,
             _commandTarget);
         _status = "Ready";
         StateHasChanged();
@@ -121,6 +140,24 @@
     private Task CompileAsync() => CompileCoreAsync(run: false);
 
     private Task CompileAndRunAsync() => CompileCoreAsync(run: true);
+
+    private async Task SelectExampleAsync(ChangeEventArgs args)
+    {
+        var id = args.Value?.ToString();
+        var example = _examples.FirstOrDefault(example =>
+            string.Equals(example.Id, id, StringComparison.Ordinal));
+        if (example is null || _editor is null)
+            return;
+
+        _selectedExampleId = example.Id;
+        var source = await Http.GetStringAsync($"examples/{example.File}");
+        await _editor.InvokeVoidAsync("setValue", source);
+        _status = "Ready";
+        _output = $"Loaded “{example.Title}”. Press Run to execute it.";
+        _diagnostics = [];
+    }
+
+    private sealed record PlaygroundExampleEntry(string Id, string Title, string File);
 
     private async Task CompileCoreAsync(bool run)
     {

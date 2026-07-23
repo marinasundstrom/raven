@@ -1,0 +1,27 @@
+[
+  {
+    "id": "hello",
+    "title": "Hello, Raven",
+    "file": "hello.rvn"
+  },
+  {
+    "id": "generics",
+    "title": "Generic functions",
+    "file": "generics.rvn"
+  },
+  {
+    "id": "records",
+    "title": "Records",
+    "file": "records.rvn"
+  },
+  {
+    "id": "result",
+    "title": "Result values",
+    "file": "result.rvn"
+  },
+  {
+    "id": "control-flow",
+    "title": "Control flow",
+    "file": "control-flow.rvn"
+  }
+]
