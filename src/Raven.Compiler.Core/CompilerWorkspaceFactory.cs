@@ -77,7 +77,7 @@ public static class CompilerWorkspaceFactory
                 var preludeDirectory = Path.GetDirectoryName(sourceFiles[0]) ?? Environment.CurrentDirectory;
                 var preludeDocument = project.AddDocument(
                     preludeName,
-                    SourceText.From(GetGeneratedPreludeSource()),
+                    RavenPrelude.CreateDefaultSourceText(),
                     Path.Combine(preludeDirectory, preludeName));
                 project = preludeDocument.Project;
             }
@@ -155,20 +155,4 @@ public static class CompilerWorkspaceFactory
         }
     }
 
-    private static string GetGeneratedPreludeSource()
-        => string.Join(
-            Environment.NewLine,
-            "global {",
-            "    import System.*",
-            "    import System.Collections.*",
-            "    import System.Collections.Generic.*",
-            "    import System.IO.*",
-            "    import System.Linq.*",
-            "    import System.Net.Http.*",
-            "    import System.Threading.*",
-            "    import System.Threading.Tasks.*",
-            "    import System.Result.*",
-            "    import System.Option.*",
-            "}",
-            string.Empty);
 }

@@ -33,10 +33,13 @@ An initial browser-hosted probe has demonstrated:
 - emitting a managed console assembly to an in-memory stream.
 
 The reference bundle is a host concern. `src/Raven.Playground` embeds the
-version-pinned .NET browser runtime reference closure at build time rather than
-discovering SDK installation paths in the browser. Reducing that closure is a
-future payload optimization; correctness currently takes precedence over a
-hand-maintained reference shortlist.
+version-pinned .NET targeting-pack reference closure and Raven.Core at build
+time rather than discovering SDK installation paths in the browser. It also
+uses the same generated standard prelude as `rvnc`, so ordinary imports and
+Raven.Core cases have the same compiler-visible surface in both hosts. The
+browser runtime's `System.Private.CoreLib` remains available for execution.
+Reducing the reference closure is a future payload optimization; correctness
+currently takes precedence over a hand-maintained reference shortlist.
 
 ## Executable targeting
 
@@ -87,8 +90,9 @@ scripts/test-playground-browser.sh
 The test publishes a release build, serves only its static `wwwroot` output,
 and uses headless Chromium to verify Monaco startup, TextMate tokenization,
 semantic member completion and insertion, successful compilation, compiler
-diagnostics, emitted-assembly loading, and captured program output. Its first
-run installs the pinned Playwright Chromium build.
+diagnostics, Raven.Core result construction, synthesized record equality,
+emitted-assembly loading, and captured program output. Its first run installs
+the pinned Playwright Chromium build.
 
 Browser and WASI hosts expose different platform APIs. Target profiles should
 describe those capabilities explicitly, and unavailable APIs should be handled

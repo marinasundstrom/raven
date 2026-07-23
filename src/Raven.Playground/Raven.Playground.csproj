@@ -9,6 +9,7 @@
     <PlaygroundRuntimePackVersion>10.0.0</PlaygroundRuntimePackVersion>
     <RuntimeFrameworkVersion>$(PlaygroundRuntimePackVersion)</RuntimeFrameworkVersion>
     <PlaygroundRuntimePackPath>$(NuGetPackageRoot)microsoft.netcore.app.runtime.mono.browser-wasm/$(PlaygroundRuntimePackVersion)</PlaygroundRuntimePackPath>
+    <PlaygroundTargetingPackPath>$(NetCoreTargetingPackRoot)/Microsoft.NETCore.App.Ref/$(PlaygroundRuntimePackVersion)/ref/net10.0</PlaygroundTargetingPackPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
+    <ProjectReference Include="..\Raven.Core\Raven.Core.rvnproj" />
   </ItemGroup>
 
   <Target Name="BuildPlaygroundEditor" BeforeTargets="PrepareForBuild">
@@ -31,12 +33,14 @@
     <PlaygroundFrameworkAssembly Include="$(PlaygroundRuntimePackPath)/runtimes/browser-wasm/native/System.Private.CoreLib.dll">
       <AssemblyName>System.Private.CoreLib</AssemblyName>
     </PlaygroundFrameworkAssembly>
-    <PlaygroundFrameworkAssembly Include="$(PlaygroundRuntimePackPath)/runtimes/browser-wasm/lib/net10.0/*.dll">
+    <PlaygroundFrameworkAssembly Include="$(PlaygroundTargetingPackPath)/*.dll">
       <AssemblyName>%(Filename)</AssemblyName>
     </PlaygroundFrameworkAssembly>
 
     <EmbeddedResource Include="@(PlaygroundFrameworkAssembly)"
                       LogicalName="Raven.Playground.Framework.%(Filename).dll" />
+    <EmbeddedResource Include="..\Raven.Core\bin\$(Configuration)\net10.0\Raven.Core.dll"
+                      LogicalName="Raven.Playground.Framework.Raven.Core.dll" />
   </ItemGroup>
 
 </Project>

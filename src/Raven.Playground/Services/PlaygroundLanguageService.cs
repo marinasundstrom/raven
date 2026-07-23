@@ -18,17 +18,24 @@ public sealed class PlaygroundLanguageService
         var solution = _workspace.CurrentSolution;
         _projectId = ProjectId.CreateNew(solution.Id);
         _documentId = DocumentId.CreateNew(_projectId);
+        var preludeDocumentId = DocumentId.CreateNew(_projectId);
         solution = solution
             .AddProject(
                 _projectId,
                 "Raven.Playground.Session",
                 assemblyName: "RavenPlaygroundSession",
-                compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication))
+                compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication)
+                    .WithEmbedCoreTypes(false))
             .AddDocument(
                 _documentId,
                 "main.rav",
                 SourceText.From(string.Empty),
-                filePath: "main.rav");
+                filePath: "main.rav")
+            .AddDocument(
+                preludeDocumentId,
+                "Raven.Playground.Prelude.g.rvn",
+                RavenPrelude.CreateDefaultSourceText(),
+                filePath: "Raven.Playground.Prelude.g.rvn");
 
         foreach (var reference in frameworkReferences.GetReferences())
             solution = solution.AddMetadataReference(_projectId, reference);
@@ -44,7 +51,7 @@ public sealed class PlaygroundLanguageService
         {
             UpdateSource(source);
             var compilation = _workspace.GetCompilation(_projectId);
-            var syntaxTree = compilation.SyntaxTrees.Single();
+            var syntaxTree = GetUserSyntaxTree(compilation);
             var clampedPosition = Math.Clamp(position, 0, source.Length);
 
             return compilation
@@ -101,6 +108,10 @@ public sealed class PlaygroundLanguageService
         _workspace.TryApplyChanges(solution);
     }
 
+    private static SyntaxTree GetUserSyntaxTree(Compilation compilation)
+        => compilation.SyntaxTrees.Single(static tree =>
+            string.Equals(tree.FilePath, "main.rav", StringComparison.Ordinal));
+
     private static string GetKind(CompletionItem item)
     {
         if (item.Symbol is null && SyntaxFacts.TryParseKeyword(item.DisplayText, out _))
@@ -125,6 +136,7 @@ public sealed class PlaygroundLanguageService
             _ => "text",
         };
     }
+
 }
 
 public sealed record PlaygroundCompletionItem(

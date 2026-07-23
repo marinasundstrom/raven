@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Aligned the WebAssembly playground's compilation environment with `rvnc` by
+  sharing the standard generated prelude, referencing Raven.Core, and compiling
+  against the .NET reference assemblies. Record equality synthesis now accepts
+  equivalent nullable and non-nullable metadata representations of
+  `object.Equals`, preventing platform-specific missing-member diagnostics.
 - Reused the WebAssembly playground's emitted assembly when Compile and Run
   target the same immutable compilation snapshot, avoiding redundant browser
   emission while preserving incremental recompilation after edits.

@@ -95,7 +95,15 @@ try {
     'let greeting = "Hello from Raven in WebAssembly"\nSystem.Console.WriteLine(greeting)',
   );
   await page.getByRole("button", { name: /Compile/ }).click();
-  await page.getByText("Compiled", { exact: true }).waitFor({ timeout: 30_000 });
+  await page.waitForFunction(
+    () => document.querySelector(".status-pill")?.textContent?.trim() !== "Compiling",
+    { timeout: 30_000 },
+  );
+  const resultStatus = (await page.locator(".status-pill").textContent())?.trim();
+  if (resultStatus !== "Compiled") {
+    const diagnostics = await page.locator(".diagnostics li").allTextContents();
+    throw new Error(`Expected greeting source to compile, got ${resultStatus}: ${diagnostics.join("\n")}`);
+  }
   await page.getByText(/Compiled successfully/).waitFor();
 
   await page.getByRole("button", { name: /^Run/ }).click();
@@ -110,6 +118,35 @@ try {
   if (await page.locator(".diagnostics li").count() === 0) {
     throw new Error("Expected invalid Raven source to produce at least one diagnostic.");
   }
+
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.insertText(
+    [
+      "import System.*",
+      "",
+      "func test<T>(value: T) -> Result<T, CustomError> {",
+      "    return Ok(value)",
+      "}",
+      "",
+      "test<int>(42)",
+      "",
+      "record class CustomError()",
+    ].join("\n"),
+  );
+  await page.getByRole("button", { name: /Compile/ }).click();
+  await page.waitForFunction(
+    () => document.querySelector(".status-pill")?.textContent?.trim() !== "Compiling",
+    { timeout: 30_000 },
+  );
+  const resultRecordStatus = (await page.locator(".status-pill").textContent())?.trim();
+  if (resultRecordStatus !== "Compiled") {
+    const diagnostics = await page.locator(".diagnostics li").allTextContents();
+    throw new Error(
+      `Expected Result/record source to compile, got ${resultRecordStatus}: ${diagnostics.join("\n")}`,
+    );
+  }
+  await page.getByText(/Compiled successfully/).waitFor();
 
   await editor.click();
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
