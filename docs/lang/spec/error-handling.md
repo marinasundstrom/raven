@@ -21,13 +21,13 @@ propagate the exception outward.
 ```raven
 func parseInt(text: string) -> Result<int, ParseError> {
     if text.isEmpty {
-        return .Error(ParseError.Empty)
+        return Error(ParseError.Empty)
     }
 
     try {
-        return .Ok(Convert.ToInt32(text))
+        return Ok(Convert.ToInt32(text))
     } catch System.FormatException ex {
-        return .Error(ParseError.Invalid(ex.Message))
+        return Error(ParseError.Invalid(ex.Message))
     }
 }
 
@@ -113,8 +113,8 @@ context.
 
 ### Concept
 
-`try expr` evaluates `expr` exactly once. Success produces `.Ok(value)` or
-`.Ok(())`; failure produces `.Error(exception)`.
+`try expr` evaluates `expr` exactly once. Success produces `Ok(value)` or
+`Ok(())`; failure produces `Error(exception)`.
 
 `try? expr` is shorthand for `(try expr)?`.
 
@@ -131,7 +131,7 @@ func describeNumber(text: string) -> string {
 
 func parseRequiredInt(text: string) -> Result<int, Exception> {
     val value = try? Convert.ToInt32(text)
-    return .Ok(value)
+    return Ok(value)
 }
 ```
 

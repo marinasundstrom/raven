@@ -7,7 +7,7 @@ propagation.
 
 | Form | Result type | Success case | Failure case |
 | --- | --- | --- | --- |
-| `try expr` | `Result<T, Exception>` | `.Ok(value)` or `.Ok(())` | `.Error(exception)` |
+| `try expr` | `Result<T, Exception>` | `Ok(value)` or `Ok(())` | `Error(exception)` |
 | `try? expr` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Option` |
 
 ### Concept
@@ -34,7 +34,7 @@ func describeNumber(text: string) -> string {
 
 func parseRequiredInt(text: string) -> Result<int, Exception> {
     val value = try? Convert.ToInt32(text)
-    return .Ok(value)
+    return Ok(value)
 }
 
 func saveText(path: string, text: string) -> string {
@@ -62,7 +62,7 @@ such a projection.
 * A trailing `match` after `try?` is invalid and produces `RAV1908`.
 * `await` may appear inside `try expr` when the enclosing context is async.
 * In pattern position, `Ok` is shorthand for `Ok(())` when the success payload
-  is `unit`; `.Ok` remains available as the target-typed shorthand.
+  is `unit`; `.Ok` remains available as target-typed shorthand.
 
 ## Result and Option carrier operators
 
@@ -72,10 +72,10 @@ case.
 
 | Form | Receiver | Result | Empty or error case |
 | --- | --- | --- | --- |
-| `expr?` | `Result<T, E>` | `T` | propagates `.Error(error)` |
-| `expr?` | `Option<T>` | `T` | propagates `.None` |
-| `expr?.Member` | `Result<T, E>` | `Result<U, E>` | preserves `.Error(error)` |
-| `expr?.Member` | `Option<T>` | `Option<U>` | preserves `.None` |
+| `expr?` | `Result<T, E>` | `T` | propagates `Error(error)` |
+| `expr?` | `Option<T>` | `T` | propagates `None` |
+| `expr?.Member` | `Result<T, E>` | `Result<U, E>` | preserves `Error(error)` |
+| `expr?.Member` | `Option<T>` | `Option<U>` | preserves `None` |
 
 ### Propagation (`?`)
 
@@ -90,21 +90,21 @@ case to the nearest enclosing carrier-returning function or lambda.
 func loadAndParse(path: string) -> Result<int, Exception> {
     val text = ReadAllText(path)?
     val value = ParseInt(text)?
-    return .Ok(value)
+    return Ok(value)
 }
 
 func firstEven(values: int[]) -> Option<int> {
     val value = FindFirstEven(values)?
-    return .Some(value)
+    return Some(value)
 }
 ```
 
 #### Rules
 
-* For `Result<T, E>`, `.Ok(value)` yields `value` and `.Error(error)`
-  immediately returns `.Error(error)` from the enclosing context.
-* For `Option<T>`, `.Some(value)` yields `value` and `.None` immediately returns
-  `.None` from the enclosing context.
+* For `Result<T, E>`, `Ok(value)` yields `value` and `Error(error)`
+  immediately returns `Error(error)` from the enclosing context.
+* For `Option<T>`, `Some(value)` yields `value` and `None` immediately returns
+  `None` from the enclosing context.
 * `expr?` is valid only when the enclosing function or lambda returns a
   compatible `Result<_, _>` or `Option<_>`.
 * The operand is evaluated exactly once; the compiler may introduce temporaries
@@ -135,20 +135,20 @@ union LookupError {
 }
 
 func getUser() -> Result<User, LookupError> {
-    return .Error(.MissingUser)
+    return Error(.MissingUser)
 }
 
 func userNameLength() -> Result<int, LookupError> {
     val length = getUser()?.Name?.Length?
-    return .Ok(length)
+    return Ok(length)
 }
 
 func selectedItemName() -> Result<string, LookupError> {
     val maybeItem = getUser()?.Item?
 
     match maybeItem {
-        .Some(let item) => .Ok(item.Name)
-        .None => .Error(.MissingItem)
+        Some(let item) => Ok(item.Name)
+        None => Error(.MissingItem)
     }
 }
 ```
@@ -156,9 +156,9 @@ func selectedItemName() -> Result<string, LookupError> {
 #### Rules
 
 * For `Result<T, E>`, `expr?.Member` evaluates `Member` only when `expr` is
-  `.Ok(payload)` and returns `Result<U, E>`.
+  `Ok(payload)` and returns `Result<U, E>`.
 * For `Option<T>`, `expr?.Member` evaluates `Member` only when `expr` is
-  `.Some(payload)` and returns `Option<U>`.
+  `Some(payload)` and returns `Option<U>`.
 * The member-access form is the only lifted carrier conditional-access form.
 * `expr?[index]` and `expr?(args)` are not lifted for `Result` or `Option`.
 * If indexing or invocation is required, unwrap first with `?`, pattern
@@ -190,20 +190,20 @@ union LookupError {
 
 func readNameLength(path: string) -> Result<int, LookupError> {
     let text = try System.IO.File.ReadAllText(path) match {
-        .Ok(let content) => .Ok(content)
-        .Error(let ex) => .Error(.Io(ex.Message))
+        Ok(let content) => Ok(content)
+        Error(let ex) => Error(.Io(ex.Message))
     }?
 
     val length = parseUser(text)?.Name?.Length?
-    return .Ok(length)
+    return Ok(length)
 }
 
 func parseUser(text: string) -> Result<User, LookupError> {
     if text == "" {
-        return .Error(.InvalidUser)
+        return Error(.InvalidUser)
     }
 
-    return .Ok(User(text))
+    return Ok(User(text))
 }
 ```
 

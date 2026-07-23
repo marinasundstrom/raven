@@ -53,9 +53,9 @@ func DoOperation(a: int, b: int) -> int {
 
 func DoOperation2(a: int, b: int) -> Result<int, bool> {
     if a > b {
-        return .Error(false)
+        return Error(false)
     }
-    return .Ok(a + b)
+    return Ok(a + b)
 }
 ```
 
@@ -65,9 +65,9 @@ value compatible with the property's declared type.
 ```raven
 func choose(flag: bool) -> Result<int, ()> {
     return if flag {
-        .Ok(42)
+        Ok(42)
     } else {
-        .Error(())
+        Error(())
     }
 }
 
@@ -81,8 +81,8 @@ func log(msg: string) {
 }
 
 func firstCharOrFail(name: string?) -> Result<int, string> {
-    val required = name ?? return .Error("Missing name")
-    return .Ok(required.Length)
+    val required = name ?? return Error("Missing name")
+    return Ok(required.Length)
 }
 ```
 

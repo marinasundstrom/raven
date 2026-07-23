@@ -203,7 +203,7 @@ bare designations inside the property pattern.
 Statement-form `while` supports the same pattern-binding header:
 
 ```raven
-while let .Ok(value) = Next() {
+while let Ok(value) = Next() {
     WriteLine(value)
 }
 ```

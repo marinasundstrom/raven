@@ -58,7 +58,7 @@ while i < list.Length {
 `while` also supports a pattern-binding condition:
 
 ```raven
-while let .Ok(value) = Next() {
+while let Ok(value) = Next() {
     Console.WriteLine(value)
 }
 ```

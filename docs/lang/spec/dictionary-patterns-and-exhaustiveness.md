@@ -65,7 +65,7 @@ For discriminated unions, exhaustiveness is computed from the union's declared
 case set (equivalent to sealed-hierarchy reasoning over a closed subtype set).
 Each declared case and its payload value space must be covered by unguarded
 arms, or by an unguarded catch-all arm. Multiple arms may collectively cover a
-case payload. For example, separate `.Error(.A)` and `.Error(.B)` arms cover the
+case payload. For example, separate `Error(.A)` and `Error(.B)` arms cover the
 entire `Error` case when the payload union declares only `A` and `B`. The same
 rule applies to other finite payload domains such as `bool` and to the Cartesian
 product of multiple finite payloads. Coverage must include every combination;

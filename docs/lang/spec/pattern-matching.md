@@ -100,7 +100,7 @@ it inherits the outer `let` / `val` / `var` binding mode.
 Statement-form `while` supports the same pattern-binding header:
 
 ```raven
-while let .Ok(value) = Next() {
+while let Ok(value) = Next() {
     WriteLine(value)
 }
 ```

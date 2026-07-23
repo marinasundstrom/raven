@@ -278,6 +278,12 @@ In pattern position:
   already determines the union.
 * Parenthesized unions use ordinary patterns over their declared member types.
 
+The generated prelude imports the standard `Result` and `Option` case types
+into scope. In ordinary Raven files, prefer the unqualified forms `Ok`,
+`Error`, `Some`, and `None`. Use `Union.Case` for explicit qualification or
+`.Case` when target-typed member binding is useful. Projects that disable the
+prelude must import the cases or use one of those qualified forms.
+
 ### Canonical case-construction forms
 
 Raven supports the following equivalent case-construction forms:
