@@ -502,7 +502,7 @@ internal class CodeGenerator
         }
     }
 
-    internal CustomAttributeBuilder? CreateNullableAttribute(ITypeSymbol type)
+    internal void ApplyNullableAttribute(ITypeSymbol type, Action<ConstructorInfo, byte[]> apply)
     {
         var needsNullable = false;
 
@@ -522,10 +522,10 @@ internal class CodeGenerator
         }
 
         if (!needsNullable)
-            return null;
+            return;
 
         EnsureNullableAttributeType();
-        return new CustomAttributeBuilder(_nullableCtor!, new object[] { (byte)2 });
+        apply(_nullableCtor!, [0x01, 0x00, 0x02, 0x00, 0x00]);
     }
 
     internal CustomAttributeBuilder CreateNullableAnnotationAttribute(bool isNullable)
@@ -605,8 +605,11 @@ internal class CodeGenerator
         il.Emit(OpCodes.Call, baseCtor);
         il.Emit(OpCodes.Ret);
 
+        // Keep the builder-backed constructor. Looking the constructor up again
+        // through the emitted runtime type asks Reflection.Emit for parameter
+        // metadata, which is not implemented by browser WebAssembly.
+        _nullableCtor = ctorBuilder;
         NullableAttributeType = attrBuilder.CreateType();
-        _nullableCtor = NullableAttributeType.GetConstructor(new[] { typeof(byte) });
     }
 
     void EnsureTupleElementNamesAttributeType()

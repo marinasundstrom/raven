@@ -700,9 +700,7 @@ internal class TypeGenerator
         if (fieldSymbol.IsConst)
             fieldBuilder.SetConstant(fieldSymbol.GetConstantValue());
 
-        var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
-        if (nullableAttr is not null)
-            fieldBuilder.SetCustomAttribute(nullableAttr);
+        CodeGen.ApplyNullableAttribute(fieldSymbol.Type, fieldBuilder.SetCustomAttribute);
 
         var tupleNamesAttr = CodeGen.CreateTupleElementNamesAttribute(fieldSymbol.Type);
         if (tupleNamesAttr is not null)
@@ -827,9 +825,7 @@ internal class TypeGenerator
                     if (fieldSymbol.IsConst)
                         builder.SetConstant(fieldSymbol.GetConstantValue());
 
-                    var nullableAttr = CodeGen.CreateNullableAttribute(fieldSymbol.Type);
-                    if (nullableAttr is not null)
-                        builder.SetCustomAttribute(nullableAttr);
+                    CodeGen.ApplyNullableAttribute(fieldSymbol.Type, builder.SetCustomAttribute);
 
                     var tupleNamesAttr = CodeGen.CreateTupleElementNamesAttribute(fieldSymbol.Type);
                     if (tupleNamesAttr is not null)
@@ -1013,9 +1009,7 @@ internal class TypeGenerator
                         if (setGen != null)
                             propBuilder.SetSetMethod((MethodBuilder)setGen.MethodBase);
 
-                        var nullableAttr = CodeGen.CreateNullableAttribute(propertySymbol.Type);
-                        if (nullableAttr is not null)
-                            propBuilder.SetCustomAttribute(nullableAttr);
+                        CodeGen.ApplyNullableAttribute(propertySymbol.Type, propBuilder.SetCustomAttribute);
 
                         var fixedLengthArrayAttr = CodeGen.CreateFixedLengthArrayAttribute(propertySymbol.Type);
                         if (fixedLengthArrayAttr is not null)
@@ -1059,9 +1053,7 @@ internal class TypeGenerator
                         if (removeGen != null)
                             eventBuilder.SetRemoveOnMethod((MethodBuilder)removeGen.MethodBase);
 
-                        var nullableAttr = CodeGen.CreateNullableAttribute(eventSymbol.Type);
-                        if (nullableAttr is not null)
-                            eventBuilder.SetCustomAttribute(nullableAttr);
+                        CodeGen.ApplyNullableAttribute(eventSymbol.Type, eventBuilder.SetCustomAttribute);
 
                         CodeGen.ApplyCustomAttributes(eventSymbol.GetAttributes(), attribute => eventBuilder.SetCustomAttribute(attribute));
                         break;

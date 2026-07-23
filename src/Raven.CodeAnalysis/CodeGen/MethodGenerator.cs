@@ -252,9 +252,9 @@ internal class MethodGenerator
                 ? methodBuilderInstance.DefineParameter(0, ParameterAttributes.Retval, null)
                 : ((ConstructorBuilder)MethodBase).DefineParameter(0, ParameterAttributes.Retval, null);
 
-            var nullableReturnAttr = TypeGenerator.CodeGen.CreateNullableAttribute(MethodSymbol.ReturnType);
-            if (nullableReturnAttr is not null)
-                returnParamBuilder.SetCustomAttribute(nullableReturnAttr);
+            TypeGenerator.CodeGen.ApplyNullableAttribute(
+                MethodSymbol.ReturnType,
+                returnParamBuilder.SetCustomAttribute);
 
             var tupleReturnAttr = TypeGenerator.CodeGen.CreateTupleElementNamesAttribute(MethodSymbol.ReturnType);
             if (tupleReturnAttr is not null)
@@ -290,9 +290,9 @@ internal class MethodGenerator
             else
                 parameterBuilder = ((ConstructorBuilder)MethodBase).DefineParameter(i, attrs, parameterSymbol.Name);
 
-            var nullableAttr = TypeGenerator.CodeGen.CreateNullableAttribute(parameterSymbol.Type);
-            if (nullableAttr is not null)
-                parameterBuilder.SetCustomAttribute(nullableAttr);
+            TypeGenerator.CodeGen.ApplyNullableAttribute(
+                parameterSymbol.Type,
+                parameterBuilder.SetCustomAttribute);
 
             var tupleNamesAttr = TypeGenerator.CodeGen.CreateTupleElementNamesAttribute(parameterSymbol.Type);
             if (tupleNamesAttr is not null)

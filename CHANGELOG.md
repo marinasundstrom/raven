@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Emitted nullable metadata through raw custom-attribute blobs instead of
+  runtime constructor inspection, allowing user-defined unions and other
+  nullable shapes to compile under browser WebAssembly.
 - Made repository-local Raven MSBuild targets honor the active build
   configuration when locating the compiler host and Raven.Core, so clean
   Release builds no longer incorrectly require Debug artifacts.
