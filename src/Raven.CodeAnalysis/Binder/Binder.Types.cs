@@ -322,20 +322,19 @@ internal abstract partial class Binder
         IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
-        if (allowBinderLookup)
+        if (allowBinderLookup &&
+            q.Left is IdentifierNameSyntax leftIdentifier &&
+            LookupNamespace(leftIdentifier.Identifier.ValueText) is { } namespaceSymbol)
         {
-            using (_diagnostics.CreateNonReportingScope())
-            {
-                var resolved = ResolveQualifiedType(q);
-                if (resolved is not null && resolved.TypeKind != TypeKind.Error)
-                {
-                    return new ResolveTypeResult
-                    {
-                        ResolvedType = resolved,
-                        ResolvedNamedDefinition = resolved as INamedTypeSymbol
-                    };
-                }
-            }
+            var namespaceMember = BindNamespaceQualifiedType(
+                namespaceSymbol,
+                q.Right,
+                typeParams,
+                importedScopes,
+                allowBinderLookup);
+
+            if (namespaceMember is not null)
+                return namespaceMember;
         }
 
         // Fast-path: nested type lookup when the left side is a TYPE (including constructed generic types).
@@ -455,6 +454,59 @@ internal abstract partial class Binder
             ResolvedType = lookup2.Definition,
             ResolvedNamedDefinition = lookup2.Definition
         };
+    }
+
+    private ResolveTypeResult? BindNamespaceQualifiedType(
+        INamespaceSymbol namespaceSymbol,
+        UnqualifiedNameSyntax right,
+        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
+    {
+        if (right is IdentifierNameSyntax identifier)
+        {
+            var definition = SelectByArity(
+                namespaceSymbol.GetMembers(identifier.Identifier.ValueText).OfType<INamedTypeSymbol>(),
+                arity: 0);
+
+            return definition is null
+                ? null
+                : new ResolveTypeResult
+                {
+                    ResolvedType = definition,
+                    ResolvedNamedDefinition = definition
+                };
+        }
+
+        if (right is not GenericNameSyntax generic)
+            return null;
+
+        var arity = ComputeGenericArity(generic);
+        var genericDefinition = SelectByArity(
+            namespaceSymbol.GetMembers(generic.Identifier.ValueText).OfType<INamedTypeSymbol>(),
+            arity);
+
+        if (genericDefinition is null)
+            return null;
+
+        if (HasOmittedTypeArguments(generic.TypeArgumentList))
+        {
+            return new ResolveTypeResult
+            {
+                ResolvedType = genericDefinition,
+                ResolvedNamedDefinition = genericDefinition
+            };
+        }
+
+        var arguments = BindTypeArguments(
+            generic.TypeArgumentList,
+            typeParams,
+            importedScopes,
+            allowBinderLookup);
+
+        return arguments.Success
+            ? Construct(genericDefinition, arguments.ResolvedTypeArguments)
+            : arguments;
     }
 
     private bool CanUseLogicalSealedHierarchyQualifier(
