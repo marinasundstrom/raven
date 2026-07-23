@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made repository-local Raven MSBuild targets honor the active build
+  configuration when locating the compiler host and Raven.Core, so clean
+  Release builds no longer incorrectly require Debug artifacts.
 - Published the browser playground beneath `/playground/` in the same GitHub
   Pages artifact as the documentation site, with top-level documentation links
   and a relocatable static base path.

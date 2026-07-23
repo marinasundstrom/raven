@@ -2,12 +2,14 @@
   <PropertyGroup>
     <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == '' and '$(TargetFramework)' == 'net11.0'">net11.0</RavenCompilerFramework>
     <RavenCompilerFramework Condition="'$(RavenCompilerFramework)' == ''">net10.0</RavenCompilerFramework>
+    <RavenBuildConfiguration Condition="'$(RavenBuildConfiguration)' == '' and '$(Configuration)' != ''">$(Configuration)</RavenBuildConfiguration>
+    <RavenBuildConfiguration Condition="'$(RavenBuildConfiguration)' == ''">Debug</RavenBuildConfiguration>
     <RavenSdkRoot Condition="'$(RavenSdkRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\VERSION')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</RavenSdkRoot>
     <RavenCompilerHost Condition="'$(RavenCompilerHost)' == '' and '$(RavenSdkRoot)' != '' and Exists('$(RavenSdkRoot)\tools\rvnc\rvnc.dll')">$(RavenSdkRoot)\tools\rvnc\rvnc.dll</RavenCompilerHost>
     <RavenCompilerHost Condition="'$(RavenCompilerHost)' == '' and Exists('$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvnc.dll')">$(MSBuildThisFileDirectory)..\tools\$(RavenCompilerFramework)\rvnc.dll</RavenCompilerHost>
-    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\Debug\$(RavenCompilerFramework)\rvnc.dll'))</RavenCompilerHost>
-    <RavenCoreTargetFrameworkCandidate Condition="'$(TargetFramework)' != ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Core\bin\Debug\$(TargetFramework)\Raven.Core.dll'))</RavenCoreTargetFrameworkCandidate>
-    <RavenCoreCompilerFrameworkCandidate>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Core\bin\Debug\$(RavenCompilerFramework)\Raven.Core.dll'))</RavenCoreCompilerFrameworkCandidate>
+    <RavenCompilerHost Condition="'$(RavenCompilerHost)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Compiler\bin\$(RavenBuildConfiguration)\$(RavenCompilerFramework)\rvnc.dll'))</RavenCompilerHost>
+    <RavenCoreTargetFrameworkCandidate Condition="'$(TargetFramework)' != ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Core\bin\$(RavenBuildConfiguration)\$(TargetFramework)\Raven.Core.dll'))</RavenCoreTargetFrameworkCandidate>
+    <RavenCoreCompilerFrameworkCandidate>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\src\Raven.Core\bin\$(RavenBuildConfiguration)\$(RavenCompilerFramework)\Raven.Core.dll'))</RavenCoreCompilerFrameworkCandidate>
     <RavenCompilerHostDirectory>$([System.IO.Path]::GetDirectoryName('$(RavenCompilerHost)'))</RavenCompilerHostDirectory>
     <RavenCoreCompilerHostCandidate>$([System.IO.Path]::Combine('$(RavenCompilerHostDirectory)', 'Raven.Core.dll'))</RavenCoreCompilerHostCandidate>
     <RavenCoreReferencePath Condition="'$(RavenCoreReferencePath)' == '' and '$(RavenSdkRoot)' != '' and Exists('$(RavenSdkRoot)\sdk\Raven.Core.dll')">$(RavenSdkRoot)\sdk\Raven.Core.dll</RavenCoreReferencePath>
