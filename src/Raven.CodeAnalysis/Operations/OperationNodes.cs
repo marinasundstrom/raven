@@ -2613,6 +2613,20 @@ internal sealed class PropertyPatternOperation : PatternOperation, IPropertyPatt
 
             var builder = ImmutableArray.CreateBuilder<IOperation>();
 
+            if (syntaxSubpatterns.IsEmpty && _bound.Properties.Length > 0)
+            {
+                foreach (var property in _bound.Properties)
+                {
+                    builder.AddIfNotNull(OperationUtilities.CreateOperationFromBound(
+                        SemanticModel,
+                        property.Pattern,
+                        Syntax));
+                }
+
+                _subpatterns = builder.ToImmutable();
+                return _subpatterns.Value;
+            }
+
             if (_bound.Properties.Length == syntaxSubpatterns.Length)
             {
                 for (var i = 0; i < _bound.Properties.Length; i++)

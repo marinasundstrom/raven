@@ -2704,41 +2704,18 @@ internal partial class BlockBinder
 
         foreach (var sub in syntax.PropertyPatternClause.Properties)
         {
-            var name = sub.NameColon.Name.Identifier.ValueText;
+            var path = GetPropertySubpatternPath(sub);
+            var pathText = string.Join(".", path.Select(segment => segment.Name));
 
-            if (!string.IsNullOrEmpty(name) && !seenPropertyNames.Add(name))
+            if (!string.IsNullOrEmpty(pathText) && !seenPropertyNames.Add(pathText))
             {
                 _diagnostics.Report(Diagnostic.Create(
                     CompilerDiagnostics.DuplicatePropertyPatternMember,
-                    sub.NameColon.Name.GetLocation(),
-                    name));
+                    sub.GetLocation(),
+                    pathText));
             }
 
-            var member = LookupPatternMember(receiverType, name, sub.NameColon.Name.GetLocation());
-
-            if (member is null)
-            {
-                boundProps.Add(new BoundPropertySubpattern(
-                    Member: Compilation.ErrorSymbol,
-                    Type: Compilation.ErrorTypeSymbol,
-                    Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound)));
-
-                continue;
-            }
-
-            ITypeSymbol memberType =
-                member is IPropertySymbol p ? p.Type :
-                member is IFieldSymbol f ? f.Type :
-                Compilation.ErrorTypeSymbol;
-
-            memberType = EnsureTypeAccessible(memberType, sub.GetLocation());
-
-            var boundPattern = BindPattern(sub.Pattern, memberType);
-
-            boundProps.Add(new BoundPropertySubpattern(
-                Member: member,
-                Type: memberType,
-                Pattern: boundPattern));
+            boundProps.Add(BindPropertySubpatternPath(receiverType, sub, path, 0));
         }
 
         var designator = BindWholePatternDesignation(syntax.Designation, narrowedType ?? inputType);
@@ -2749,6 +2726,77 @@ internal partial class BlockBinder
             narrowedType: narrowedType,
             designator,
             properties: boundProps.ToImmutable());
+    }
+
+    private BoundPropertySubpattern BindPropertySubpatternPath(
+        ITypeSymbol receiverType,
+        PropertySubpatternSyntax syntax,
+        ImmutableArray<(string Name, Location Location)> path,
+        int index)
+    {
+        if (index >= path.Length)
+        {
+            return new BoundPropertySubpattern(
+                Member: Compilation.ErrorSymbol,
+                Type: Compilation.ErrorTypeSymbol,
+                Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound));
+        }
+
+        var segment = path[index];
+        var member = LookupPatternMember(StripNullableReference(receiverType), segment.Name, segment.Location);
+
+        if (member is null)
+        {
+            return new BoundPropertySubpattern(
+                Member: Compilation.ErrorSymbol,
+                Type: Compilation.ErrorTypeSymbol,
+                Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound));
+        }
+
+        ITypeSymbol memberType =
+            member is IPropertySymbol property ? property.Type :
+            member is IFieldSymbol field ? field.Type :
+            Compilation.ErrorTypeSymbol;
+
+        memberType = EnsureTypeAccessible(memberType, segment.Location);
+
+        BoundPattern boundPattern;
+        if (index == path.Length - 1)
+        {
+            boundPattern = BindPattern(syntax.Pattern, memberType);
+        }
+        else
+        {
+            var nestedReceiverType = StripNullableReference(memberType);
+            var nestedProperty = BindPropertySubpatternPath(nestedReceiverType, syntax, path, index + 1);
+            boundPattern = new BoundPropertyPattern(
+                inputType: memberType,
+                receiverType: nestedReceiverType,
+                narrowedType: null,
+                designator: null,
+                properties: ImmutableArray.Create(nestedProperty));
+        }
+
+        return new BoundPropertySubpattern(
+            Member: member,
+            Type: memberType,
+            Pattern: boundPattern);
+    }
+
+    private static ImmutableArray<(string Name, Location Location)> GetPropertySubpatternPath(
+        PropertySubpatternSyntax syntax)
+    {
+        var builder = ImmutableArray.CreateBuilder<(string Name, Location Location)>(
+            syntax.MemberPath.Count + 1);
+
+        foreach (var member in syntax.MemberPath)
+            builder.Add((member.Identifier.ValueText, member.GetLocation()));
+
+        builder.Add((
+            syntax.NameColon.Name.Identifier.ValueText,
+            syntax.NameColon.Name.GetLocation()));
+
+        return builder.ToImmutable();
     }
 
     private BoundDesignator? BindWholePatternDesignation(VariableDesignationSyntax? designation, ITypeSymbol expectedType)
@@ -2801,7 +2849,9 @@ internal partial class BlockBinder
 
         // Collect required member names from the pattern: { Value: ..., Data: ... }
         var requiredMembers = syntax.PropertyPatternClause.Properties
-            .Select(p => p.NameColon.Name.Identifier.ValueText)
+            .Select(p => p.MemberPath.Count > 0
+                ? p.MemberPath[0].Identifier.ValueText
+                : p.NameColon.Name.Identifier.ValueText)
             .Where(n => !string.IsNullOrEmpty(n))
             .ToImmutableArray();
 

@@ -320,6 +320,28 @@ if val Person { Name: "Ada", Age: age } = person {
     }
 
     [Fact]
+    public void IfStatement_WithDottedPropertyPattern_ParsesMemberPath()
+    {
+        const string testCode = """
+if item is Foo { Item.Size: 2 } {
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var ifStatement = Assert.IsType<IfStatementSyntax>(statement);
+        var condition = Assert.IsType<IsPatternExpressionSyntax>(ifStatement.Condition);
+        var pattern = Assert.IsType<PropertyPatternSyntax>(condition.Pattern);
+        var property = Assert.Single(pattern.PropertyPatternClause.Properties);
+
+        Assert.Empty(tree.GetDiagnostics());
+        Assert.Single(property.MemberPath);
+        property.MemberPath[0].Identifier.ValueText.ShouldBe("Item");
+        property.NameColon.Name.Identifier.ValueText.ShouldBe("Size");
+        property.Pattern.ShouldBeOfType<ConstantPatternSyntax>();
+    }
+
+    [Fact]
     public void IfPatternStatement_WithGuardedBinding_Parses()
     {
         const string testCode = """

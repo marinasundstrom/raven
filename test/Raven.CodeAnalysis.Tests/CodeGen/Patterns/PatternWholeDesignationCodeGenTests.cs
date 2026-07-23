@@ -96,6 +96,32 @@ class Program {
     }
 
     [Fact]
+    public void IsDottedPropertyPattern_RunsLikeNestedPropertyPattern()
+    {
+        var code = """
+import System.Console.*
+
+record class SizeInfo(Size: int)
+record class Foo(Item: SizeInfo?)
+
+class Program {
+    static func Matches(value: Foo) -> bool {
+        return value is Foo { Item.Size: 2 }
+    }
+
+    static func Main() {
+        WriteLine(Matches(Foo(SizeInfo(2))))
+        WriteLine(Matches(Foo(SizeInfo(3))))
+        WriteLine(Matches(Foo(null)))
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["True", "False", "False"], output);
+    }
+
+    [Fact]
     public void WhilePatternStatement_WithTuplePattern_RunsWithCapturedValue()
     {
         var code = """

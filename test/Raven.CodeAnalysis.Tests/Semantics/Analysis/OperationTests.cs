@@ -570,6 +570,32 @@ record class Person(Name: string, Age: int)
     }
 
     [Fact]
+    public void GetOperation_DottedPropertyPattern_ExposesNestedPropertyOperations()
+    {
+        const string source = """
+record class SizeInfo(Size: int)
+record class Foo(Item: SizeInfo)
+
+val value = Foo(SizeInfo(2))
+val result = value is Foo { Item.Size: 2 }
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var patternSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyPatternSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IPropertyPatternOperation>(model.GetOperation(patternSyntax));
+        operation.Members.Single().Name.ShouldBe("Item");
+
+        var nested = Assert.IsAssignableFrom<IPropertyPatternOperation>(operation.Subpatterns.Single());
+        nested.Members.Single().Name.ShouldBe("Size");
+        nested.Subpatterns.Single().Kind.ShouldBe(OperationKind.ConstantPattern);
+    }
+
+    [Fact]
     public void GetOperation_IfPatternStatement_WithPropertyPattern_ConditionExposesPropertyPattern()
     {
         const string source = """

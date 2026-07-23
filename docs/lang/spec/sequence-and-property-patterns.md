@@ -94,6 +94,12 @@ Rules:
 
   * Each `member: pattern` targets an accessible instance field or readable
     instance property.
+  * A dotted member path such as `Item.Size: 2` is shorthand for nested
+    property patterns such as `Item: { Size: 2 }`. Every intermediate member
+    must also be an accessible instance field or readable instance property,
+    and a `null` intermediate value fails the pattern.
+  * Distinct dotted paths may share a prefix (`Item.Size` and `Item.Name`).
+    Repeating the same complete path is diagnosed as a duplicate.
   * Nested patterns are type-checked against the member’s type.
   * Member subpatterns are evaluated left-to-right; bindings from earlier entries
     are in scope for later ones.

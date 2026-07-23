@@ -985,6 +985,7 @@
     <Slot Name="CloseBraceToken" Type="Token" DefaultToken="CloseBraceToken" />
   </Node>
   <Node Name="PropertySubpattern" Inherits="Node">
+    <Slot Name="MemberPath" Type="SeparatedList" ElementType="IdentifierName" />
     <Slot Name="NameColon" Type="NameColon" />
     <Slot Name="Pattern" Type="Pattern" />
   </Node>

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added dotted property paths in property patterns. For example,
+  `Foo { Item.Size: 2 }` is shorthand for
+  `Foo { Item: { Size: 2 } }`.
 - Removed the experimental trailing-block call syntax and its builder/receiver
   DSL infrastructure from the main language. Function values use ordinary
   function-expression syntax.

@@ -261,6 +261,12 @@ internal class PatternSyntaxParser : SyntaxParser
         if (!CanTokenBeIdentifier(token))
             return false;
 
+        while (PeekToken(offset + 1).IsKind(SyntaxKind.DotToken) &&
+               CanTokenBeIdentifier(PeekToken(offset + 2)))
+        {
+            offset += 2;
+        }
+
         return PeekToken(offset + 1).IsKind(SyntaxKind.ColonToken);
     }
 
@@ -288,20 +294,14 @@ internal class PatternSyntaxParser : SyntaxParser
     {
         ConsumeToken(SyntaxKind.DotToken, out _);
 
-        SyntaxToken nameToken;
+        var memberPathElements = new List<GreenNode>();
+        var nameToken = ParsePropertySubpatternIdentifier();
 
-        if (CanTokenBeIdentifier(PeekToken()))
+        while (PeekToken().IsKind(SyntaxKind.DotToken))
         {
-            nameToken = ReadToken();
-            if (nameToken.Kind != SyntaxKind.IdentifierToken)
-            {
-                nameToken = ToIdentifierToken(nameToken);
-                UpdateLastToken(nameToken);
-            }
-        }
-        else
-        {
-            nameToken = ExpectToken(SyntaxKind.IdentifierToken);
+            memberPathElements.Add(IdentifierName(nameToken));
+            memberPathElements.Add(ReadToken());
+            nameToken = ParsePropertySubpatternIdentifier();
         }
 
         ConsumeTokenOrMissing(SyntaxKind.ColonToken, out var colonToken);
@@ -315,7 +315,22 @@ internal class PatternSyntaxParser : SyntaxParser
             _allowWholePatternDesignation,
             allowPatternGuards: true).ParsePattern();
 
-        return PropertySubpattern(nameColon, pattern);
+        return PropertySubpattern(List(memberPathElements.ToArray()), nameColon, pattern);
+    }
+
+    private SyntaxToken ParsePropertySubpatternIdentifier()
+    {
+        if (!CanTokenBeIdentifier(PeekToken()))
+            return ExpectToken(SyntaxKind.IdentifierToken);
+
+        var nameToken = ReadToken();
+        if (nameToken.Kind != SyntaxKind.IdentifierToken)
+        {
+            nameToken = ToIdentifierToken(nameToken);
+            UpdateLastToken(nameToken);
+        }
+
+        return nameToken;
     }
 
     private static PatternSyntax CreateMissingPattern()

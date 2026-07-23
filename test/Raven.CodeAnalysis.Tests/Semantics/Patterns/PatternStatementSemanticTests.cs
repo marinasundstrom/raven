@@ -507,4 +507,78 @@ class C {
 
         diagnostics.ShouldContain(d => d.Id == CompilerDiagnostics.DuplicatePropertyPatternMember.Id);
     }
+
+    [Fact]
+    public void IfStatement_WithDottedPropertyPattern_BindsNestedMembers()
+    {
+        var code = """
+record class SizeInfo(Size: int)
+record class Foo(Item: SizeInfo)
+
+func Test(item: Foo) {
+    if item is Foo { Item.Size: 2 } {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var isPattern = tree.GetRoot().DescendantNodes().OfType<IsPatternExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
+        var outerPattern = Assert.IsType<BoundPropertyPattern>(bound.Pattern);
+        var outerProperty = Assert.Single(outerPattern.Properties);
+        var nestedPattern = Assert.IsType<BoundPropertyPattern>(outerProperty.Pattern);
+        var nestedProperty = Assert.Single(nestedPattern.Properties);
+
+        outerProperty.Member.Name.ShouldBe("Item");
+        nestedProperty.Member.Name.ShouldBe("Size");
+        nestedProperty.Pattern.ShouldBeOfType<BoundConstantPattern>();
+    }
+
+    [Fact]
+    public void IfStatement_WithMissingDottedPropertySegment_ReportsSegmentDiagnostic()
+    {
+        var code = """
+record class SizeInfo(Size: int)
+record class Foo(Item: SizeInfo)
+
+func Test(item: Foo) {
+    if item is Foo { Item.Width.Value: 2 } {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics()
+                .Where(d => d.Id == CompilerDiagnostics.PropertyPatternMemberNotFound.Id));
+
+        diagnostic.GetMessage().ShouldContain("Width");
+    }
+
+    [Fact]
+    public void IfStatement_WithSiblingDottedPropertyPaths_DoesNotReportDuplicate()
+    {
+        var code = """
+record class ItemInfo(Size: int, Name: string)
+record class Foo(Item: ItemInfo)
+
+func Test(item: Foo) {
+    if item is Foo { Item.Size: 2, Item.Name: "box" } {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            d => d.Id == CompilerDiagnostics.DuplicatePropertyPatternMember.Id);
+    }
 }

@@ -531,7 +531,8 @@ NominalDeconstructionPattern
 
 PropertyPattern          ::= Type? '{' PropertySubpatternList? '}' PatternWholeDesignation? ;
 PropertySubpatternList   ::= PropertySubpattern {',' PropertySubpattern} ;
-PropertySubpattern       ::= Identifier ':' Pattern ;
+PropertySubpattern       ::= PropertyMemberPath ':' Pattern ;
+PropertyMemberPath       ::= Identifier {'.' Identifier} ;
 
 PatternWholeDesignation  ::= VariableDesignation ;
 
