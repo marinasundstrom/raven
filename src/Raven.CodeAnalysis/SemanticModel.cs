@@ -1875,6 +1875,15 @@ public partial class SemanticModel
             return casePatternInfo;
         }
 
+        if (node is IdentifierNameSyntax propertyPatternIdentifier &&
+            TryGetPropertySubpatternMemberSymbol(propertyPatternIdentifier, out var propertyPatternMember))
+        {
+            var propertyPatternInfo = new SymbolInfo(propertyPatternMember);
+            StoreSymbolMapping(node, propertyPatternInfo);
+            StoreNodeInterestSymbolDescriptor(node, propertyPatternMember);
+            return propertyPatternInfo;
+        }
+
         if (node is GenericNameSyntax casePatternGenericName &&
             TryGetCasePatternHeadSymbol(casePatternGenericName, out var casePatternGenericSymbol))
         {
@@ -7688,6 +7697,13 @@ public partial class SemanticModel
 
         switch (node)
         {
+            case IdentifierNameSyntax identifier when TryGetPropertySubpatternMemberSymbol(identifier, out var propertyPatternMember):
+                {
+                    info = new SymbolInfo(propertyPatternMember);
+                    StoreNodeInterestSymbolDescriptor(node, propertyPatternMember);
+                    return true;
+                }
+
             case MemberPatternPathSyntax memberPatternPath when TryGetCasePatternPathSymbol(memberPatternPath, out var memberPatternCaseSymbol):
                 {
                     info = new SymbolInfo(memberPatternCaseSymbol);
@@ -7801,6 +7817,59 @@ public partial class SemanticModel
         }
 
         return false;
+    }
+
+    private bool TryGetPropertySubpatternMemberSymbol(IdentifierNameSyntax identifier, out ISymbol symbol)
+    {
+        symbol = null!;
+
+        if (identifier.GetAncestor<PropertySubpatternSyntax>() is not { } subpattern ||
+            identifier.GetAncestor<PropertyPatternSyntax>() is not { } propertyPattern)
+        {
+            return false;
+        }
+
+        var path = subpattern.MemberPath
+            .Concat([subpattern.NameColon.Name])
+            .ToImmutableArray();
+        var segmentIndex = path.IndexOf(identifier);
+        if (segmentIndex < 0)
+            return false;
+
+        BindPatternContextForSemanticQuery(propertyPattern);
+        if (TryGetCachedBoundNode(propertyPattern) is not BoundPropertyPattern boundPattern)
+            return false;
+
+        var propertyIndex = -1;
+        for (var i = 0; i < propertyPattern.PropertyPatternClause.Properties.Count; i++)
+        {
+            if (IsSameSyntaxNode(propertyPattern.PropertyPatternClause.Properties[i], subpattern))
+            {
+                propertyIndex = i;
+                break;
+            }
+        }
+
+        if ((uint)propertyIndex >= (uint)boundPattern.Properties.Length)
+            return false;
+
+        var boundProperty = boundPattern.Properties[propertyIndex];
+        for (var i = 0; i < segmentIndex; i++)
+        {
+            if (boundProperty.Pattern is not BoundPropertyPattern nestedPattern ||
+                nestedPattern.Properties.Length != 1)
+            {
+                return false;
+            }
+
+            boundProperty = nestedPattern.Properties[0];
+        }
+
+        if (boundProperty.Member.Kind is SymbolKind.Error or SymbolKind.ErrorType)
+            return false;
+
+        symbol = boundProperty.Member;
+        return true;
     }
 
     private bool TryResolveMemberAccessFromVisibleReceiver(

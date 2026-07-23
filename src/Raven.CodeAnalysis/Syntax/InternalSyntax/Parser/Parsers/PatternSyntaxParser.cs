@@ -267,7 +267,11 @@ internal class PatternSyntaxParser : SyntaxParser
             offset += 2;
         }
 
-        return PeekToken(offset + 1).IsKind(SyntaxKind.ColonToken);
+        var following = PeekToken(offset + 1);
+        return following.IsKind(SyntaxKind.ColonToken) ||
+               following.IsKind(SyntaxKind.CloseBraceToken) ||
+               following.IsKind(SyntaxKind.CommaToken) ||
+               following.IsKind(SyntaxKind.DotToken);
     }
 
     private static bool IsValidPropertyPatternClause(PropertyPatternClauseSyntax clause)
@@ -283,7 +287,8 @@ internal class PatternSyntaxParser : SyntaxParser
             if (element is not PropertySubpatternSyntax subpattern)
                 continue;
 
-            if (subpattern.NameColon.Name.Identifier.IsMissing || subpattern.NameColon.ColonToken.IsMissing)
+            if (subpattern.NameColon.Name.Identifier.IsMissing &&
+                subpattern.MemberPath.SlotCount == 0)
                 return false;
         }
 

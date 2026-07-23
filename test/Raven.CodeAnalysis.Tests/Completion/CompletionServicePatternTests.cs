@@ -7,6 +7,64 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public class CompletionServicePatternTests
 {
     [Fact]
+    public void GetCompletions_InEmptyPropertyPattern_ReturnsReceiverMembers()
+    {
+        const string code = """
+record class ItemInfo(Size: int)
+record class Foo(Item: ItemInfo, Count: int)
+
+func Test(value: Foo) -> bool {
+    return value is Foo {  }
+}
+""";
+
+        var items = GetCompletions(code, code.IndexOf("{  }", StringComparison.Ordinal) + 2);
+
+        items.ShouldContain(item => item.DisplayText == "Item");
+        items.ShouldContain(item => item.DisplayText == "Count");
+        items.ShouldNotContain(item => item.DisplayText == "Test");
+    }
+
+    [Fact]
+    public void GetCompletions_InDottedPropertyPattern_ReturnsIntermediateMembers()
+    {
+        const string code = """
+record class ItemInfo(Size: int, Name: string)
+record class Foo(Item: ItemInfo, Count: int)
+
+func Test(value: Foo) -> bool {
+    return value is Foo { Item.Si: _ }
+}
+""";
+
+        var position = code.IndexOf("Si:", StringComparison.Ordinal) + 2;
+        var items = GetCompletions(code, position);
+
+        items.ShouldContain(item => item.DisplayText == "Size");
+        items.ShouldNotContain(item => item.DisplayText == "Count");
+        items.Single(item => item.DisplayText == "Size").ReplacementSpan.Length.ShouldBe(2);
+    }
+
+    [Fact]
+    public void GetCompletions_AfterDotInPropertyPattern_RecoversAndReturnsIntermediateMembers()
+    {
+        const string code = """
+record class ItemInfo(Size: int, Name: string)
+record class Foo(Item: ItemInfo)
+
+func Test(value: Foo) -> bool {
+    return value is Foo { Item. }
+}
+""";
+
+        var position = code.IndexOf("Item.", StringComparison.Ordinal) + "Item.".Length;
+        var items = GetCompletions(code, position);
+
+        items.ShouldContain(item => item.DisplayText == "Size");
+        items.ShouldContain(item => item.DisplayText == "Name");
+    }
+
+    [Fact]
     public void GetCompletions_AfterDot_OnForPatternLocal_ReturnsInstanceMembers()
     {
         const string code = """
@@ -249,5 +307,16 @@ class C {
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         items.ShouldContain(item => item.DisplayText == "Length");
+    }
+
+    private static List<CompletionItem> GetCompletions(string code, int position)
+    {
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+        var service = new CompletionService();
+
+        return service.GetCompletions(compilation, syntaxTree, position).ToList();
     }
 }

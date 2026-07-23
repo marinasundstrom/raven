@@ -1950,6 +1950,110 @@ public static class CompletionProvider
             return null;
         }
 
+        bool TryAddPropertyPatternMemberCompletions()
+        {
+            var propertyPattern = token.GetAncestor<PropertyPatternSyntax>();
+            if (propertyPattern is null ||
+                position < propertyPattern.PropertyPatternClause.OpenBraceToken.Span.End ||
+                position > propertyPattern.PropertyPatternClause.CloseBraceToken.Span.Start)
+            {
+                return false;
+            }
+
+            ITypeSymbol? receiverType = propertyPattern.Type is not null
+                ? model.GetTypeInfo(propertyPattern.Type).Type
+                : TryGetPropertyPatternInputType(propertyPattern);
+            if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+                return false;
+
+            var activeSubpattern = propertyPattern.PropertyPatternClause.Properties
+                .FirstOrDefault(property =>
+                    position >= property.Span.Start &&
+                    position <= Math.Max(property.Pattern.Span.Start, property.NameColon.ColonToken.Span.End));
+
+            var prefix = string.Empty;
+            var targetSpan = new TextSpan(position, 0);
+
+            if (activeSubpattern is not null)
+            {
+                var segments = activeSubpattern.MemberPath
+                    .Concat([activeSubpattern.NameColon.Name])
+                    .ToImmutableArray();
+                var activeSegmentIndex = segments.Length - 1;
+
+                for (var i = 0; i < segments.Length; i++)
+                {
+                    var identifier = segments[i].Identifier;
+                    if (identifier.IsMissing || position <= identifier.Span.End)
+                    {
+                        activeSegmentIndex = i;
+                        break;
+                    }
+                }
+
+                for (var i = 0; i < activeSegmentIndex; i++)
+                {
+                    var segmentName = segments[i].Identifier.ValueText;
+                    var member = GetReadablePropertyPatternMembers(receiverType)
+                        .FirstOrDefault(candidate => string.Equals(candidate.Name, segmentName, StringComparison.Ordinal));
+                    receiverType = member switch
+                    {
+                        IPropertySymbol property => property.Type,
+                        IFieldSymbol field => field.Type,
+                        _ => null
+                    };
+
+                    if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
+                        return true;
+                }
+
+                var activeIdentifier = segments[activeSegmentIndex].Identifier;
+                if (!activeIdentifier.IsMissing)
+                {
+                    prefix = activeIdentifier.ValueText;
+                    targetSpan = activeIdentifier.Span;
+                }
+            }
+
+            foreach (var member in GetReadablePropertyPatternMembers(receiverType))
+            {
+                if (!NameMatchesPrefix(member.Name, prefix))
+                    continue;
+
+                AddCompletionItem(member, targetSpan);
+            }
+
+            return true;
+        }
+
+        ITypeSymbol? TryGetPropertyPatternInputType(PropertyPatternSyntax propertyPattern)
+        {
+            ExpressionSyntax? expression = propertyPattern.GetAncestor<IsPatternExpressionSyntax>()?.Expression
+                ?? propertyPattern.GetAncestor<IfPatternStatementSyntax>()?.Expression
+                ?? propertyPattern.GetAncestor<WhilePatternStatementSyntax>()?.Expression
+                ?? propertyPattern.GetAncestor<MatchExpressionSyntax>()?.Expression
+                ?? propertyPattern.GetAncestor<PostfixMatchExpressionSyntax>()?.Expression
+                ?? propertyPattern.GetAncestor<MatchStatementSyntax>()?.Expression;
+
+            return expression is null ? null : model.GetTypeInfo(expression).Type;
+        }
+
+        IEnumerable<ISymbol> GetReadablePropertyPatternMembers(ITypeSymbol type)
+        {
+            type = UnwrapAliases(type).GetPlainType();
+            return GetTypeMembersIncludingBase(type, includeStatic: false)
+                .Where(member => member switch
+                {
+                    IPropertySymbol property => property.GetMethod is not null && property.Parameters.Length == 0,
+                    IFieldSymbol => true,
+                    _ => false
+                })
+                .Where(IsAccessible);
+        }
+
+        if (TryAddPropertyPatternMemberCompletions())
+            return completions;
+
         ImmutableArray<string> explicitLiteralCandidates = [];
         if (!TryGetExplicitLiteralCandidates(token, out explicitLiteralCandidates))
         {

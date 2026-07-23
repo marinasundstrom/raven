@@ -581,4 +581,29 @@ func Test(item: Foo) {
             compilation.GetDiagnostics(),
             d => d.Id == CompilerDiagnostics.DuplicatePropertyPatternMember.Id);
     }
+
+    [Fact]
+    public void DottedPropertyPattern_SegmentIdentifiersExposeMemberSymbols()
+    {
+        var code = """
+record class ItemInfo(Size: int)
+record class Foo(Item: ItemInfo)
+
+func Test(item: Foo) {
+    if item is Foo { Item.Size: 2 } {
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var subpattern = tree.GetRoot().DescendantNodes().OfType<PropertySubpatternSyntax>().Single();
+
+        var itemSymbol = model.GetSymbolInfo(subpattern.MemberPath.Single()).Symbol;
+        var sizeSymbol = model.GetSymbolInfo(subpattern.NameColon.Name).Symbol;
+
+        itemSymbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Item");
+        sizeSymbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Size");
+    }
 }

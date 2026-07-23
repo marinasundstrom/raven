@@ -20,6 +20,45 @@ namespace Raven.LanguageServer.Tests;
 public class LanguageServerHoverPresentationTests
 {
     [Fact]
+    public void SymbolResolver_DottedPropertyPattern_ResolvesEveryMemberSegment()
+    {
+        const string code = """
+record class ItemInfo(Size: int)
+record class Foo(Item: ItemInfo)
+
+func Test(item: Foo) -> bool {
+    return item is Foo { Item.Size: 2 }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var subpattern = root.DescendantNodes().OfType<PropertySubpatternSyntax>().Single();
+
+        foreach (var (identifier, expectedName) in new[]
+                 {
+                     (subpattern.MemberPath.Single(), "Item"),
+                     (subpattern.NameColon.Name, "Size")
+                 })
+        {
+            var resolution = SymbolResolver.ResolveSymbolAtPosition(
+                semanticModel,
+                root,
+                identifier.Identifier.SpanStart + 1);
+
+            resolution.ShouldNotBeNull();
+            resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe(expectedName);
+            resolution.Value.Span.ShouldBe(identifier.Identifier.Span);
+        }
+    }
+
+    [Fact]
     public void CaptureInfoSyntaxFallback_IsLimitedToFunctionSyntax()
     {
         const string code = """
