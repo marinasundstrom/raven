@@ -1,5 +1,3 @@
-using System.Linq;
-
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -14,54 +12,33 @@ internal abstract partial class Binder
             IdentifierNameSyntax id => LookupSymbol(id.Identifier.ValueText)
                 ?? (ISymbol?)LookupNamespace(id.Identifier.ValueText)
                 ?? LookupType(id.Identifier.ValueText),
-            GenericNameSyntax gen => ResolveGenericName(gen),
-            QualifiedNameSyntax qn => ResolveQualifiedName(qn),
+            GenericNameSyntax or QualifiedNameSyntax => ResolveTypeOrNamespace(name),
             _ => null
         };
     }
 
-    private ISymbol? ResolveGenericName(GenericNameSyntax gen)
+    private ISymbol? ResolveTypeOrNamespace(NameSyntax name)
     {
-        var arity = ComputeGenericArity(gen);
-        var typeArgs = ResolveGenericTypeArguments(gen);
+        ResolveTypeResult result;
+        using (_diagnostics.CreateNonReportingScope())
+            result = BindTypeSyntax(name);
 
-        var symbol = FindNamedTypeForGeneric(gen, arity);
+        if (result.Success)
+            return result.ResolvedType;
 
-        if (symbol is null)
-            return null;
-
-        if (!ValidateTypeArgumentConstraints(symbol, typeArgs, i => GetTypeArgumentLocation(gen.TypeArgumentList.Arguments, gen.GetLocation(), i), symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
-            return Compilation.ErrorTypeSymbol;
-
-        return TryConstructGeneric(symbol, typeArgs, arity) ?? symbol;
+        return ResolveNamespace(name);
     }
 
-    private ISymbol? ResolveQualifiedName(QualifiedNameSyntax qn)
+    private INamespaceSymbol? ResolveNamespace(NameSyntax name)
     {
-        var left = ResolveName(qn.Left);
+        if (name is IdentifierNameSyntax identifier)
+            return LookupNamespace(identifier.Identifier.ValueText);
 
-        if (left is INamespaceSymbol ns)
+        if (name is QualifiedNameSyntax qualified &&
+            ResolveNamespace(qualified.Left) is { } namespaceSymbol &&
+            qualified.Right is IdentifierNameSyntax right)
         {
-            if (qn.Right is IdentifierNameSyntax id)
-                return (ISymbol?)ns.LookupNamespace(id.Identifier.ValueText)
-                    ?? SelectByArity(ns.GetMembers(id.Identifier.ValueText)
-                        .OfType<INamedTypeSymbol>(), 0)
-                    ?? ns.LookupType(id.Identifier.ValueText);
-
-            if (qn.Right is GenericNameSyntax gen)
-                return ResolveGenericMember(ns, gen);
-
-            return null;
-        }
-
-        if (left is ITypeSymbol type)
-        {
-            if (qn.Right is IdentifierNameSyntax id)
-                return SelectByArity(type.GetMembers(id.Identifier.ValueText)
-                    .OfType<INamedTypeSymbol>(), 0);
-
-            if (qn.Right is GenericNameSyntax gen)
-                return ResolveGenericMember(type, gen);
+            return namespaceSymbol.LookupNamespace(right.Identifier.ValueText);
         }
 
         return null;

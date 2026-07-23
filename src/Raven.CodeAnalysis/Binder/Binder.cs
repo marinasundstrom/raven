@@ -1971,20 +1971,6 @@ internal abstract partial class Binder
         return Math.Max(argumentCount, separators);
     }
 
-    private ImmutableArray<ITypeSymbol> ResolveGenericTypeArguments(GenericNameSyntax generic)
-    {
-        if (generic.TypeArgumentList.Arguments.Count == 0)
-            return ImmutableArray<ITypeSymbol>.Empty;
-
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(generic.TypeArgumentList.Arguments.Count);
-        foreach (var argument in generic.TypeArgumentList.Arguments)
-            builder.Add(BindTypeSyntaxAndReport(argument.Type));
-
-        // Recovery path: malformed generic type argument lists can produce
-        // sparse/missing entries, so avoid MoveToImmutable's capacity contract.
-        return builder.ToImmutable();
-    }
-
     protected INamedTypeSymbol? FindAccessibleNamedType(string name, int arity)
     {
         return TypeLookupUtilities.SelectBestNamedTypeByArity(LookupNamedTypeCandidates(name), arity);
@@ -2293,24 +2279,6 @@ internal abstract partial class Binder
         }
 
         return type;
-    }
-
-    private ITypeSymbol? ResolveGenericMember(INamespaceOrTypeSymbol container, GenericNameSyntax generic)
-    {
-        var arity = ComputeGenericArity(generic);
-        var definition = SelectByArity(container.GetMembers(generic.Identifier.ValueText)
-            .OfType<INamedTypeSymbol>(), arity);
-
-        if (definition is null)
-            return null;
-
-        var typeArguments = ResolveGenericTypeArguments(generic);
-        if (!ValidateTypeArgumentConstraints(definition, typeArguments, i => GetTypeArgumentLocation(generic.TypeArgumentList.Arguments, generic.GetLocation(), i), definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
-            return Compilation.ErrorTypeSymbol;
-
-        var constructed = TryConstructGeneric(definition, typeArguments, arity);
-
-        return constructed ?? definition;
     }
 
     private static INamedTypeSymbol? SelectByArity(IEnumerable<INamedTypeSymbol> candidates, int arity)
