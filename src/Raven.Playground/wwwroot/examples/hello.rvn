@@ -1,2 +1,4 @@
-let greeting = "Hello from Raven in WebAssembly"
-Console.WriteLine(greeting)
+import System.Console.*
+
+let language = "Raven"
+WriteLine("Hello from $language in WebAssembly")

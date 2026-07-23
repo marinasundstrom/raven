@@ -102,7 +102,17 @@ try {
     await examplePicker.selectOption(example.id);
     await page.getByRole("button", { name: /Compile/ }).click();
     await page.getByText("Compiling", { exact: true }).waitFor();
-    await page.getByText("Compiled", { exact: true }).waitFor({ timeout: 30_000 });
+    await page.waitForFunction(
+      () => document.querySelector(".status-pill")?.textContent?.trim() !== "Compiling",
+      { timeout: 30_000 },
+    );
+    const exampleStatus = (await page.locator(".status-pill").textContent())?.trim();
+    if (exampleStatus !== "Compiled") {
+      const output = await page.locator(".output-panel").textContent();
+      throw new Error(
+        `Expected example '${example.id}' to compile, got ${exampleStatus}: ${output}`,
+      );
+    }
   }
 
   await page.keyboard.press("Escape");

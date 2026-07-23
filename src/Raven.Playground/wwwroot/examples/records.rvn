@@ -1,4 +1,6 @@
-record class Person(Name: string, Age: int)
+record Shipment(Id: int, WeightKg: decimal)
 
-val person = Person(Name: "Ada", Age: 36)
-Console.WriteLine(person.Name)
+let shipment = Shipment(Id: 42, WeightKg: 3.5m)
+let (Id: id, WeightKg: weight) = shipment
+
+Console.WriteLine("Shipment $id weighs $weight kg")

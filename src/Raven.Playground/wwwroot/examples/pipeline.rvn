@@ -1,0 +1,14 @@
+func AddTax(amount: decimal, rate: decimal) -> decimal {
+    return amount + amount * rate
+}
+
+func ApplyDiscount(amount: decimal, discount: decimal) -> decimal {
+    return amount - discount
+}
+
+let total =
+    100m
+        |> AddTax(0.20m)
+        |> ApplyDiscount(15m)
+
+Console.WriteLine("Order total: $total")

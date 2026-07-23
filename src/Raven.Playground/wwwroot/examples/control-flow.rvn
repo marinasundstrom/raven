@@ -1,9 +1,0 @@
-func classify(value: int) -> string {
-    if value > 0 {
-        return "positive"
-    }
-
-    return "zero or negative"
-}
-
-Console.WriteLine(classify(7))

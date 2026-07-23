@@ -1,7 +1,12 @@
-func succeed<T>(value: T) -> Result<T, CustomError> {
-    return Ok(value)
+func Divide(total: int, people: int) -> Result<int, string> {
+    if people == 0 {
+        return Error("The group cannot be empty")
+    }
+
+    return Ok(total / people)
 }
 
-Console.WriteLine(succeed<int>(42))
-
-record class CustomError()
+match Divide(42, 6) {
+    Ok(let share) => Console.WriteLine("Each person gets $share")
+    Error(let message) => Console.WriteLine("Problem: $message")
+}

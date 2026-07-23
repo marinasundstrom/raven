@@ -1,0 +1,16 @@
+union DeliveryStatus {
+    case Pending
+    case Delivered(afterDays: int)
+    case Failed(errorCode: int)
+}
+
+func Describe(status: DeliveryStatus) -> string {
+    return status match {
+        .Pending => "Waiting to ship"
+        .Delivered(let afterDays) => "Delivered after $afterDays days"
+        .Failed(let errorCode) => "Delivery failed with code $errorCode"
+    }
+}
+
+let status: DeliveryStatus = .Delivered(3)
+Console.WriteLine(Describe(status))

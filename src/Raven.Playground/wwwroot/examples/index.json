@@ -5,23 +5,23 @@
     "file": "hello.rvn"
   },
   {
-    "id": "generics",
-    "title": "Generic functions",
-    "file": "generics.rvn"
+    "id": "delivery-status",
+    "title": "Domain modeling with unions",
+    "file": "delivery-status.rvn"
   },
   {
     "id": "records",
-    "title": "Records",
+    "title": "Records and deconstruction",
     "file": "records.rvn"
   },
   {
     "id": "result",
-    "title": "Result values",
+    "title": "Expected failure with Result",
     "file": "result.rvn"
   },
   {
-    "id": "control-flow",
-    "title": "Control flow",
-    "file": "control-flow.rvn"
+    "id": "pipeline",
+    "title": "Data flow with pipelines",
+    "file": "pipeline.rvn"
   }
 ]
