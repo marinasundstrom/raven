@@ -12,7 +12,6 @@
     <RavenCompile Include="Error.rav" />
     <RavenCompile Include="Option.rav" />
     <RavenCompile Include="Parse.rav" />
-    <RavenCompile Include="Receiver.rav" />
     <RavenCompile Include="Result.rav" />
     <RavenCompile Include="TryGet.rav" />
     <RavenCompile Include="LinqExtensions.rav" />

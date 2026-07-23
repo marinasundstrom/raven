@@ -38,29 +38,6 @@ extension TraceExtensions for string {
     }
 }
 
-class BuilderAttribute<T> : Attribute {
-}
-
-class TextBuilder {
-    static func BuildExpression(value: string) -> string {
-        return value
-    }
-
-    static func BuildBlock(items: string[]) -> string {
-        var result = ""
-
-        for item in items {
-            result = result + item
-        }
-
-        return result
-    }
-}
-
-func Markup([Builder<TextBuilder>] body: () -> string) -> string {
-    return body()
-}
-
 Around(name: "method") {
     WriteLine("inside method trailing block")
 }
@@ -83,13 +60,5 @@ let combined = Combine(20, 22) { (left: int, right: int) =>
     left + right
 }
 
-WriteLine("it result: " + next.ToString())
+WriteLine("parameter result: " + next.ToString())
 WriteLine("left/right result: " + combined.ToString())
-
-let markup = Markup {
-    "<window>"
-    "<button text=\"OK\" />"
-    "</window>"
-}
-
-WriteLine(markup)

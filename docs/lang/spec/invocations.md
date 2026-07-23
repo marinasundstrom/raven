@@ -104,7 +104,7 @@ so earlier optional parameters may be omitted:
 func StackPanel(
     orientation: Orientation = .Vertical,
     spacing: double = 0.0,
-    [Builder<UiBuilder>] content: (() -> UiNode)? = null
+    content: (() -> UiNode)? = null
 ) -> UiNode {
     ...
 }
@@ -128,10 +128,10 @@ When the selected function parameter accepts input parameters, the trailing bloc
 must declare a parameter clause immediately after the opening brace followed by
 `=>`. A single parameter may be written directly, and multiple or destructured
 parameters use the normal parenthesized function-expression parameter list.
-The parameterized block lowers to the same closure form as an ordinary lambda
-argument and participates in overload resolution using its declared arity. A
-trailing block without a parameter clause does not introduce implicit `$0`/`$1`
-parameters or an `it` alias.
+The parameterized block is an ordinary lambda argument in trailing position and
+participates in overload resolution using its declared arity. A trailing block
+without a parameter clause has zero parameters; it does not introduce implicit
+`$0`/`$1` parameters or an `it` alias.
 
 Trailing blocks are function expressions. Async trailing-block closures are not
 currently supported; use an explicit async lambda argument until this gap is
@@ -154,88 +154,6 @@ val sum = Combine(20, 22) { (left: int, right: int) =>
     left + right
 }
 ```
-
-#### Receiver trailing blocks
-
-If the selected final function-typed parameter is annotated with `[Receiver]`,
-an unparameterized trailing block is bound as a receiver closure. The target
-delegate must have one input parameter. Inside the block, instance members of
-that receiver parameter are available as unqualified names.
-
-```raven
-class ConfigBuilder {
-    var Name: string = ""
-
-    func Activate() -> () {
-    }
-}
-
-func Config([Receiver] configure: ConfigBuilder -> unit) -> Configuration {
-    val builder = ConfigBuilder()
-    configure(builder)
-    return Configuration(builder.Name)
-}
-
-val config = Config {
-    Name = "Foo"
-    Activate()
-}
-```
-
-The block above is equivalent to passing a one-argument function and qualifying
-receiver member access through that argument:
-
-```raven
-val config = Config(func (receiver: ConfigBuilder) => {
-    receiver.Name = "Foo"
-    receiver.Activate()
-})
-```
-
-The receiver is considered only after ordinary lexical lookup. Locals,
-parameters, imports, and other normal symbols with the same name win over
-receiver members. If no ordinary symbol matches, the nearest enclosing receiver
-closure supplies the implicit receiver for member lookup. Explicitly
-parameterized trailing blocks do not use receiver lookup; write the parameter
-and qualify member access normally.
-
-`[Receiver<T>]` specifies the receiver member lookup type explicitly. For a
-normal receiver closure, the delegate's single input parameter must be
-assignable to `T`; the closure still receives the delegate parameter value, but
-unqualified receiver member lookup is performed on `T`. This lets APIs expose a
-narrow receiver contract while passing a more concrete implementation object to
-the closure.
-
-Trailing blocks are supported for:
-
-* function and method calls,
-* constructor calls,
-* extension method calls, after extension lookup selects an extension candidate.
-
-Examples:
-
-```raven
-func Around(name: string, body: () -> ()) -> () {
-    WriteLine("before " + name)
-    body()
-    WriteLine("after " + name)
-}
-
-Around(name: "method") {
-    WriteLine("body")
-}
-
-val command = Command(name: "constructor") {
-    WriteLine("run")
-}
-
-"value".Trace {
-    WriteLine("extension callback")
-}
-```
-
-The complete runtime sample is available in
-[`samples/runtime/trailing-blocks-basic.rav`](https://github.com/marinasundstrom/raven/blob/main/samples/runtime/trailing-blocks-basic.rav).
 
 #### Trailing block resolution
 
@@ -260,84 +178,5 @@ Resolution follows ordinary overload resolution with one additional argument:
    method.
 7. Parameterized trailing blocks filter function-typed candidates by the
    declared parameter count before final overload selection.
-8. If the selected closure parameter has `[Receiver]` and the trailing block has
-   no explicit parameter clause, the compiler synthesizes one closure parameter
-   from the target delegate input parameter and makes that parameter the block's
-   implicit receiver. If the attribute is `[Receiver<T>]`, member lookup uses
-   `T` after verifying that the target delegate parameter is compatible with
-   `T`.
-
 If no candidate can accept the appended closure, overload resolution fails and
 the call is rejected.
-
-#### Builder-backed DSL blocks
-
-If the selected closure parameter is annotated with `[Builder<T>]`, the trailing block is bound as a builder block. In this context, `T` is the **result builder**: it controls how the compiler lowers component expressions and control-flow constructs into a block result. The attribute is recognized by the builder type argument; the standard `BuilderAttribute<T>` is intended to be provided by Raven.Core, while compiler bootstrapping code may define an equivalent attribute shape. Expression statements and return expressions become builder components, components are adapted through `BuildExpression` when needed, and the final component list is combined through `BuildBlock`. `if` without `else` requires `BuildOptional` only when its body contributes builder components, `if` with `else` requires `BuildEither` only when at least one branch contributes builder components, and `for` requires `BuildArray` only when the loop body contributes builder components. Without `[Builder<T>]`, the block remains an ordinary closure.
-
-`[Builder<T>]` does not imply receiver lookup. Builder-backed blocks and
-receiver trailing blocks are separate contracts: the result builder collects and
-combines component expressions, while the receiver supplies the implicit member
-access target. A parameter may opt into both contracts by combining
-`[Builder<TBuilder>]` with `[Receiver<TReceiver>]` on a zero-argument closure
-parameter. In that form, `TReceiver` is often a **receiver builder**: a current
-component builder that exposes configuration properties and methods in the block
-and produces that component's sub-result from the built child content. Library
-authors may name this receiver type `WindowBuilder`, `RouteBuilder`,
-`FormBuilder`, or any domain-specific name; the compiler role is that it is the
-block receiver.
-
-For combined builder/receiver blocks, the compiler creates a receiver instance
-using an accessible parameterless constructor, makes its members available in
-the block, and passes it to `TBuilder.BuildFinalResult(component, receiver)`.
-Receiver-backed builder blocks therefore require a compatible two-argument
-`BuildFinalResult` method so the receiver builder can produce the final
-sub-result and configuration cannot be silently ignored.
-
-```raven
-func Window(title: string = "Untitled", [Builder<UiBuilder>] content: (() -> UiNode)? = null) -> UiNode {
-    ...
-}
-
-Window(title: "Tasks") {
-    StackPanel(spacing: 8.0) {
-        Text("Inbox")
-    }
-}
-```
-
-When a component needs a receiver builder in addition to normal call arguments,
-the final closure parameter may combine `[Builder<TBuilder>]` and
-`[Receiver<TReceiver>]`:
-
-```raven
-func Window([Builder<UiBuilder>, Receiver<WindowBuilder>] content: () -> UiNode) -> UiNode {
-    return content()
-}
-
-Window {
-    Title = "Tasks"
-
-    if danger {
-        Title = "DANGER!"
-    }
-
-    VStack {
-        Text("Inbox")
-    }
-}
-```
-
-This distinction allows the same trailing-block syntax to model different API conventions. A container constructor can use a builder-annotated closure for child content, while a leaf control or command API can use an ordinary final closure as an action handler:
-
-```raven
-Window {
-    Button(text: "OK") {
-        Submit()
-    }
-}
-```
-
-In this example, the outer block is a builder block only if `Window` selects a `[Builder<T>]` closure parameter. The inner block is an ordinary `() -> ()` argument if `Button` selects a final non-builder closure parameter.
-
-Object initializers, required-member checks, and non-destructive `with`
-expressions are documented in [Object initialization and copying](object-initialization-and-copying.md).

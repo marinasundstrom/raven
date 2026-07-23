@@ -2037,23 +2037,6 @@ static IReadOnlyList<EditScenario> CreateEditScenarios(string repoRoot)
             [new EditReplacement("app.MapGet(\"/ping\",", "app.MapGet(\"/ping/\",")],
             [new("MapGet(\"/ping/\"", "MapGet"), new("func (name: string)", "lambda-name")]),
         new(
-            "mock-ui-argument-name-remove",
-            "Remove an explicit argument name from a top-level DSL invocation.",
-            Project("mock-ui-builder-dsl"),
-            Source("mock-ui-builder-dsl", "src", "Main.rvn"),
-            [new EditReplacement("Window(title: \"Tasks\")", "Window(\"Tasks\")")],
-            [new("Window(", "Window"), new("Label(\"Inbox\")", "Label"), new("viewModel", "viewModel")]),
-        new(
-            "mock-ui-argument-name-add-combined",
-            "Add explicit argument names to multiple DSL invocations in one edit batch.",
-            Project("mock-ui-builder-dsl"),
-            Source("mock-ui-builder-dsl", "src", "Main.rvn"),
-            [
-                new EditReplacement("Label(\"Inbox\")", "Label(text: \"Inbox\")"),
-                new EditReplacement("Button(\"Add\")", "Button(text: \"Add\")")
-            ],
-            [new("Label(text:", "Label"), new("Button(text:", "Button"), new("viewModel", "viewModel")]),
-        new(
             "expression-trees-body-edit",
             "Edit a method body and then query IQueryable extension and lambda hovers.",
             Project("efcore-expression-trees"),

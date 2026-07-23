@@ -299,27 +299,10 @@ internal class CodeGenerator
 
         foreach (var attribute in attributes)
         {
-            if (IsBuilderAttribute(attribute) || IsReceiverAttribute(attribute))
-                continue;
-
             var builder = CreateCustomAttribute(attribute);
             if (builder is not null)
                 apply(builder);
         }
-    }
-
-    private static bool IsBuilderAttribute(AttributeData attribute)
-    {
-        var name = attribute.AttributeClass?.Name;
-        return string.Equals(name, "BuilderAttribute", StringComparison.Ordinal) ||
-               string.Equals(name, "Builder", StringComparison.Ordinal);
-    }
-
-    private static bool IsReceiverAttribute(AttributeData attribute)
-    {
-        var name = attribute.AttributeClass?.Name;
-        return string.Equals(name, "ReceiverAttribute", StringComparison.Ordinal) ||
-               string.Equals(name, "Receiver", StringComparison.Ordinal);
     }
 
     internal CustomAttributeBuilder? CreateCustomAttribute(AttributeData attribute)

@@ -911,9 +911,7 @@ partial class BlockBinder
     private BoundExpression BindTrailingBlockExpression(
         TrailingBlockExpressionSyntax syntax,
         ITypeSymbol? targetType,
-        bool useDelegateReturnTarget,
-        ReceiverAttributeData receiverAttribute = default,
-        bool isBuilderParameter = false)
+        bool useDelegateReturnTarget)
     {
         if (targetType is NullableTypeSymbol nullableTargetType)
             targetType = nullableTargetType.UnderlyingType;
@@ -947,11 +945,6 @@ partial class BlockBinder
         var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
 
         var explicitParameterSyntaxes = GetTrailingBlockParameterSyntaxes(syntax);
-        var canUseImplicitReceiver = receiverAttribute.HasReceiver && explicitParameterSyntaxes.Length == 0;
-        ImplicitReceiverKind implicitReceiverKind = ImplicitReceiverKind.None;
-        ITypeSymbol? implicitReceiverLookupType = null;
-        ISymbol? implicitReceiverSymbol = null;
-        BoundLocalDeclarationStatement? implicitReceiverLocalDeclaration = null;
 
         ImmutableArray<IParameterSymbol> parameterSymbols;
         if (explicitParameterSyntaxes.Length > 0)
@@ -1026,47 +1019,6 @@ partial class BlockBinder
 
             parameterSymbols = builder.ToImmutable();
         }
-        else if (canUseImplicitReceiver &&
-            targetSignature is { Parameters.Length: 1 } receiverTargetSignature)
-        {
-            var targetParam = receiverTargetSignature.Parameters[0];
-            var lookupType = receiverAttribute.ReceiverType ?? targetParam.Type;
-            if (receiverAttribute.ReceiverType is not null &&
-                lookupType.TypeKind != TypeKind.Error &&
-                targetParam.Type.TypeKind != TypeKind.Error &&
-                !IsAssignable(lookupType, targetParam.Type, out _))
-            {
-                ReportCannotConvertFromTypeToType(targetParam.Type, lookupType, syntax.OpenBraceToken.GetLocation());
-            }
-
-            var parameter = new SourceParameterSymbol(
-                "receiver",
-                targetParam.Type,
-                lambdaSymbol,
-                lambdaSymbol.ContainingType,
-                lambdaSymbol.ContainingNamespace,
-                [syntax.OpenBraceToken.GetLocation()],
-                [syntax.GetReference()],
-                targetParam.RefKind,
-                isMutable: targetParam.RefKind is RefKind.Ref or RefKind.Out);
-
-            parameterSymbols = ImmutableArray.Create<IParameterSymbol>(parameter);
-            implicitReceiverKind = ImplicitReceiverKind.Parameter;
-            implicitReceiverLookupType = lookupType;
-            implicitReceiverSymbol = parameter;
-        }
-        else if (canUseImplicitReceiver &&
-            isBuilderParameter &&
-            targetSignature is { Parameters.Length: 0 } &&
-            receiverAttribute.ReceiverType is INamedTypeSymbol receiverType)
-        {
-            var receiverLocal = CreateTempLocal("receiver", receiverType, syntax);
-            implicitReceiverLocalDeclaration = CreateImplicitReceiverLocalDeclaration(receiverLocal, receiverType, syntax);
-            parameterSymbols = ImmutableArray<IParameterSymbol>.Empty;
-            implicitReceiverKind = ImplicitReceiverKind.Local;
-            implicitReceiverLookupType = receiverType;
-            implicitReceiverSymbol = receiverLocal;
-        }
         else
         {
             parameterSymbols = ImmutableArray<IParameterSymbol>.Empty;
@@ -1076,21 +1028,7 @@ partial class BlockBinder
         for (var index = 0; index < parameterSymbols.Length; index++)
         {
             var parameter = parameterSymbols[index];
-            if (implicitReceiverKind == ImplicitReceiverKind.Parameter &&
-                index == 0)
-            {
-                lambdaBinder.DeclareImplicitReceiverParameter(parameter, implicitReceiverLookupType);
-                continue;
-            }
-
             lambdaBinder.DeclareParameter(parameter);
-        }
-
-        if (implicitReceiverKind == ImplicitReceiverKind.Local &&
-            implicitReceiverSymbol is ILocalSymbol implicitReceiverLocal &&
-            implicitReceiverLookupType is not null)
-        {
-            lambdaBinder.DeclareImplicitReceiverLocal(implicitReceiverLocal, implicitReceiverLookupType);
         }
 
         BoundExpression bodyExpr;
@@ -1106,9 +1044,6 @@ partial class BlockBinder
 
         if (targetReturnType is not null)
             bodyExpr = RetargetLambdaBodyUnionCase(bodyExpr, targetReturnType);
-
-        if (implicitReceiverLocalDeclaration is not null)
-            bodyExpr = PrependStatementToLambdaBody(bodyExpr, implicitReceiverLocalDeclaration);
 
         ReportLambdaBodyDiagnostics(lambdaBinder);
 
@@ -1197,40 +1132,13 @@ partial class BlockBinder
                 syntax,
                 parameters,
                 candidateDelegates,
-                ImmutableArray<SuppressedLambdaDiagnostic>.Empty,
-                implicitReceiverKind,
-                implicitReceiverLookupType,
-                implicitReceiverSymbol);
+                ImmutableArray<SuppressedLambdaDiagnostic>.Empty);
             boundLambda.AttachUnbound(unbound);
         }
 
         CacheBoundNode(syntax, boundLambda);
 
         return boundLambda;
-    }
-
-    private BoundLocalDeclarationStatement CreateImplicitReceiverLocalDeclaration(
-        ILocalSymbol receiverLocal,
-        INamedTypeSymbol receiverType,
-        SyntaxNode syntax)
-    {
-        var constructor = receiverType.Constructors
-            .FirstOrDefault(static constructor => !constructor.IsStatic && constructor.Parameters.Length == 0);
-
-        BoundExpression initializer;
-        if (constructor is null)
-        {
-            _diagnostics.ReportNoOverloadForMethod("constructor for type", receiverType.Name, 0, syntax.GetLocation() ?? Location.None);
-            initializer = ErrorExpression(receiverType);
-        }
-        else
-        {
-            initializer = new BoundObjectCreationExpression(constructor, []);
-        }
-
-        return new BoundLocalDeclarationStatement([
-            new BoundVariableDeclarator(receiverLocal, initializer)
-        ]);
     }
 
     private static BoundExpression PrependStatementToLambdaBody(BoundExpression body, BoundStatement statement)
@@ -2117,13 +2025,6 @@ partial class BlockBinder
         if (parameterType is not INamedTypeSymbol delegateType)
             return false;
 
-        if (TryGetBuilderType(parameter, out _) &&
-            delegateType.TypeKind == TypeKind.Delegate &&
-            delegateType.GetDelegateInvokeMethod() is { } builderInvoke)
-        {
-            return builderInvoke.Parameters.Length == lambda.Parameters.Count();
-        }
-
         if (ReplayLambda(lambda, delegateType) is not null)
             return true;
 
@@ -2228,13 +2129,7 @@ partial class BlockBinder
             _ => Array.Empty<ParameterSyntax>()
         };
 
-        var hasImplicitReceiverParameter = unbound.HasImplicitReceiverParameter &&
-            syntax is TrailingBlockExpressionSyntax &&
-            parameterSyntaxes.Length == 0;
-        var effectiveParameterCount = hasImplicitReceiverParameter ? 1 : parameterSyntaxes.Length;
-        var hasImplicitReceiverLocal = unbound.ImplicitReceiverKind == ImplicitReceiverKind.Local &&
-            syntax is TrailingBlockExpressionSyntax &&
-            parameterSyntaxes.Length == 0;
+        var effectiveParameterCount = parameterSyntaxes.Length;
 
         if (invoke.Parameters.Length != effectiveParameterCount)
         {
@@ -2257,19 +2152,9 @@ partial class BlockBinder
 
         for (int index = 0; index < effectiveParameterCount; index++)
         {
-            var parameterSyntax = hasImplicitReceiverParameter ? null : parameterSyntaxes[index];
+            var parameterSyntax = parameterSyntaxes[index];
             var delegateParameter = invoke.Parameters[index];
             var isMutable = delegateParameter.RefKind is RefKind.Ref or RefKind.Out;
-
-            if (hasImplicitReceiverParameter &&
-                unbound.ImplicitReceiverLookupType is { } receiverLookupType &&
-                receiverLookupType.TypeKind != TypeKind.Error &&
-                delegateParameter.Type.TypeKind != TypeKind.Error &&
-                !IsAssignable(receiverLookupType, delegateParameter.Type, out _))
-            {
-                Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
-                return null;
-            }
 
             // Preserve any default values that were already extracted during the initial bind.
             // IMPORTANT: We still do NOT validate/convert these defaults during replay.
@@ -2339,12 +2224,8 @@ partial class BlockBinder
             // lambda against an unrelated delegate candidate (e.g. RequestDelegate(HttpContext)->Task)
             // and we must not report diagnostics like "default cannot convert to HttpContext" for
             // a delegate type that will not be selected.
-            var parameterName = parameterSyntax is null
-                ? "receiver"
-                : GetLambdaParameterSymbolName(parameterSyntax, index);
-            var parameterLocation = parameterSyntax is null
-                ? syntax.GetLocation()
-                : GetLambdaParameterLocation(parameterSyntax);
+            var parameterName = GetLambdaParameterSymbolName(parameterSyntax, index);
+            var parameterLocation = GetLambdaParameterLocation(parameterSyntax);
 
             var parameterSymbol = new SourceParameterSymbol(
                 parameterName,
@@ -2353,7 +2234,7 @@ partial class BlockBinder
                 lambdaSymbol.ContainingType,
                 lambdaSymbol.ContainingNamespace,
                 [parameterLocation],
-                [parameterSyntax?.GetReference() ?? syntax.GetReference()],
+                [parameterSyntax.GetReference()],
                 refKind,
                 hasExplicitDefaultValue: hasExplicitDefaultValue,
                 explicitDefaultValue: explicitDefaultValue,
@@ -2375,25 +2256,6 @@ partial class BlockBinder
         lambdaSymbol.SetParameters(parameterSymbols);
 
         var lambdaBinder = new FunctionExpressionBinder(lambdaSymbol, this);
-        ISymbol? currentImplicitReceiverSymbol = null;
-        ITypeSymbol? currentImplicitReceiverLookupType = null;
-        BoundLocalDeclarationStatement? implicitReceiverLocalDeclaration = null;
-
-        if (hasImplicitReceiverLocal)
-        {
-            if (unbound.ImplicitReceiverLookupType is not INamedTypeSymbol receiverType ||
-                receiverType.TypeKind == TypeKind.Error)
-            {
-                Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingFailure();
-                return null;
-            }
-
-            var receiverLocal = CreateTempLocal("receiver", receiverType, syntax);
-            implicitReceiverLocalDeclaration = CreateImplicitReceiverLocalDeclaration(receiverLocal, receiverType, syntax);
-            lambdaBinder.DeclareImplicitReceiverLocal(receiverLocal, receiverType);
-            currentImplicitReceiverSymbol = receiverLocal;
-            currentImplicitReceiverLookupType = receiverType;
-        }
 
         if (syntax is ParenthesizedFunctionExpressionSyntax
             {
@@ -2422,20 +2284,10 @@ partial class BlockBinder
         for (var index = 0; index < parameterSymbols.Count; index++)
         {
             var parameter = parameterSymbols[index];
-            if (hasImplicitReceiverParameter && index == 0)
-            {
-                lambdaBinder.DeclareImplicitReceiverParameter(parameter, unbound.ImplicitReceiverLookupType);
-                currentImplicitReceiverSymbol = parameter;
-                currentImplicitReceiverLookupType = unbound.ImplicitReceiverLookupType ?? parameter.Type;
-                continue;
-            }
-
             lambdaBinder.DeclareParameter(parameter);
         }
 
-        var destructuringPrologue = hasImplicitReceiverParameter
-            ? new List<BoundStatement>()
-            : BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
+        var destructuringPrologue = BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
 
         ExpressionSyntax? lambdaBodySyntax = null;
         BoundExpression body;
@@ -2458,8 +2310,6 @@ partial class BlockBinder
                 body = new BoundBlockExpression(destructuringPrologue, Compilation.GetSpecialType(SpecialType.System_Unit));
             }
 
-            if (implicitReceiverLocalDeclaration is not null)
-                body = PrependStatementToLambdaBody(body, implicitReceiverLocalDeclaration);
         }
         finally
         {
@@ -2646,11 +2496,7 @@ partial class BlockBinder
             delegateType,
             capturedVariables,
             candidateDelegates);
-        var reboundUnbound = unbound.WithImplicitReceiver(
-            currentImplicitReceiverSymbol ?? unbound.ImplicitReceiverSymbol,
-            currentImplicitReceiverLookupType ?? unbound.ImplicitReceiverLookupType,
-            unbound.ImplicitReceiverKind);
-        rebound.AttachUnbound(reboundUnbound);
+        rebound.AttachUnbound(unbound);
         CacheBoundNode(syntax, rebound);
         Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingSuccess();
         return rebound;

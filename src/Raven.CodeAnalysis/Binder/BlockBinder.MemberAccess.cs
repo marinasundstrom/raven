@@ -677,21 +677,6 @@ partial class BlockBinder
             var targetParameter = TryGetCommonTrailingBlockParameter(methods, receiver);
             var targetType = targetParameter?.Type
                 ?? TryGetFirstDelegateTrailingBlockParameterType(methods, receiver, pipeReceiverType);
-            var targetDelegateType = targetType;
-
-            if (targetParameter is not null && TryGetBuilderType(targetParameter, out _))
-            {
-                targetDelegateType = targetParameter.Type;
-                targetType = null;
-            }
-
-            var receiverAttribute = targetParameter is not null &&
-                GetTrailingBlockParameterSyntaxes(trailingBlock).Length == 0 &&
-                TryGetReceiverAttribute(targetParameter, out var detectedReceiverAttribute)
-                    ? detectedReceiverAttribute
-                    : default;
-            var isBuilderParameter = targetParameter is not null &&
-                TryGetBuilderType(targetParameter, out _);
 
             if (targetType is not null && preInferredSubstitutions.Count > 0)
                 targetType = SubstituteTypeParameters(targetType, preInferredSubstitutions);
@@ -704,10 +689,8 @@ partial class BlockBinder
 
             var boundExpr = BindTrailingBlockExpression(
                 trailingBlock,
-                targetDelegateType,
-                useDelegateReturnTarget: targetType is not null,
-                receiverAttribute,
-                isBuilderParameter);
+                targetType,
+                useDelegateReturnTarget: targetType is not null);
 
             if (targetType is not null && HasExpressionErrors(boundExpr))
             {
@@ -1703,7 +1686,6 @@ partial class BlockBinder
             if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
                 continue;
 
-            var parameter = method.Parameters[parameterIndex];
             var type = GetInvocationParameterTypeForArgumentBinding(method, parameterIndex, receiver, pipeReceiverType);
             var plainType = type.GetPlainType();
 
@@ -1716,9 +1698,6 @@ partial class BlockBinder
             {
                 return type;
             }
-
-            if (TryGetBuilderType(parameter, out _))
-                return type;
         }
 
         return null;

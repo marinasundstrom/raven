@@ -2328,42 +2328,6 @@ func Main() -> unit {
         AssertParameterNameSourceApplicable(sourceText, AssertHasHintAtInsertion(sourceText, idHints, idInsertion, "Id:"), idInsertion, "Id: ");
     }
 
-    [Fact]
-    public async Task Handle_TopLevelInvocationWithFunctionArgument_ReturnsHintsWhenRefreshingParameterHintsAsync()
-    {
-        var repoRoot = FindRepositoryRoot();
-        var projectRoot = Path.Combine(repoRoot, "samples", "projects", "aspnet-trailing-block-dsl");
-        var filePath = Path.Combine(projectRoot, "src", "main.rvn");
-        File.Exists(filePath).ShouldBeTrue();
-
-        var code = await File.ReadAllTextAsync(filePath);
-        var uri = DocumentUri.FromFileSystemPath(filePath);
-
-        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
-        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
-        manager.Initialize(new InitializeParams
-        {
-            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
-            {
-                Name = "aspnet-trailing-block-dsl",
-                Uri = DocumentUri.FromFileSystemPath(projectRoot)
-            })
-        });
-
-        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
-        var handler = new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance);
-        await store.UpsertDocumentAsync(uri, code);
-        var sourceText = SourceText.From(code);
-
-        var result = await handler.Handle(new InlayHintParams
-        {
-            TextDocument = new TextDocumentIdentifier(uri),
-            Range = FullDocumentRange(sourceText)
-        }, CancellationToken.None);
-
-        result.ShouldNotBeNull();
-        result.ToArray().ShouldNotBeEmpty();
-    }
 
     [Fact]
     public async Task Handle_LargeViewportRange_PrioritizesCompleteHintPlacementOverTooltipsAsync()

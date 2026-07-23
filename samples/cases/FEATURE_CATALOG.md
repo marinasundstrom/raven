@@ -154,7 +154,6 @@ Pattern note:
 - `samples/runtime/object-dumper-extension-basic.rav`
 - `samples/runtime/raven-api-syntax-tree-basic.rav`
 - `samples/runtime/documentation-comment-basic.rav`
-- `samples/runtime/dsl-window-builder-basic.rav`
 - `samples/runtime/tokenizer-string-reader-basic.rav`
 - `samples/runtime/nameof-basic.rav`
 - `samples/strings/string-interpolation-basic.rav`
