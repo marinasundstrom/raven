@@ -119,7 +119,7 @@ try {
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type(
-    'let greeting = "Hello from Raven in WebAssembly"\nSystem.Console.WriteLine(greeting)',
+    'import System.*\n\nlet greeting = "Hello from Raven in WebAssembly"\nConsole.WriteLine(greeting)',
   );
   await page.getByRole("button", { name: /Compile/ }).click();
   await page.waitForFunction(

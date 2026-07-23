@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made PE attribute discovery tolerate missing transitive metadata dependencies,
+  preventing wildcard namespace imports from crashing browser compilation when
+  a nonessential attribute assembly cannot be resolved.
 - Emitted nullable metadata through raw custom-attribute blobs instead of
   runtime constructor inspection, allowing user-defined unions and other
   nullable shapes to compile under browser WebAssembly.

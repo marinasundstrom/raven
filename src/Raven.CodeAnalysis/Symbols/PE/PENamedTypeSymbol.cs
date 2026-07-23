@@ -276,7 +276,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         {
             return attribute.AttributeType.FullName;
         }
-        catch (ArgumentException)
+        catch (Exception exception) when (
+            exception is ArgumentException or
+                BadImageFormatException or
+                TypeLoadException or
+                System.IO.FileNotFoundException)
         {
             return null;
         }
