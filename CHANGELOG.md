@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made playground completion visible and responsive by debouncing member-prefix
+  requests, explicitly opening Monaco suggestions after a short pause, and
+  avoiding uncancelable WebAssembly completion work on ordinary keystrokes.
+  Global completion remains available through `Ctrl+Space`.
 - Prevented equivalent synthesized methods from producing duplicate CLR method
   definitions during emission. Raven.Core union carriers such as `Result<T, E>`
   now emit a single executable `ToString` body instead of a bodyless method

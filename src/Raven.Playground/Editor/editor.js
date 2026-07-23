@@ -143,13 +143,14 @@ export async function createEditor(element, value, commandTarget) {
     lineHeight: 22,
     minimap: { enabled: false },
     padding: { top: 16, bottom: 16 },
+    quickSuggestions: false,
     renderLineHighlight: "line",
     scrollBeyondLastLine: false,
+    suggestOnTriggerCharacters: false,
     tabSize: 4,
     theme: "vs-dark",
   });
   const completionProvider = monaco.languages.registerCompletionItemProvider("raven", {
-    triggerCharacters: [".", ":", "#", "[", ">"],
     provideCompletionItems: async (completionModel, position, _context, cancellationToken) => {
       const source = completionModel.getValue();
       const offset = completionModel.getOffsetAt(position);
@@ -184,6 +185,18 @@ export async function createEditor(element, value, commandTarget) {
       };
     },
   });
+  let completionTimer;
+  const completionTrigger = editor.onDidType(() => {
+    clearTimeout(completionTimer);
+
+    const position = editor.getPosition();
+    const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+    if (!/\.[A-Za-z_][A-Za-z0-9_]*$/.test(linePrefix)) return;
+
+    completionTimer = setTimeout(() => {
+      editor.trigger("raven.completion", "editor.action.triggerSuggest", {});
+    }, 150);
+  });
 
   editor.addAction({
     id: "raven.compile",
@@ -202,6 +215,8 @@ export async function createEditor(element, value, commandTarget) {
     getValue: () => editor.getValue(),
     focus: () => editor.focus(),
     dispose: () => {
+      clearTimeout(completionTimer);
+      completionTrigger.dispose();
       completionProvider.dispose();
       editor.dispose();
       model.dispose();

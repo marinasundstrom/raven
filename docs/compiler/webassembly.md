@@ -59,7 +59,9 @@ static Blazor WebAssembly application:
 - Raven's existing TextMate grammar supplies the initial lexical highlighting.
 - Monaco completion is supplied by a browser-hosted Raven `AdhocWorkspace` that
   advances the document through ordinary immutable solution snapshots and calls
-  the public compiler completion API.
+  the public compiler completion API. Member completion is requested after a
+  short pause in a dotted member prefix, avoiding uncancelable compiler work on
+  every ordinary keystroke; `Ctrl+Space` requests global completion explicitly.
 - **Compile** diagnoses and emits the workspace's current managed compilation,
   reusing semantic state already established by editor requests when possible.
 - **Run** passes that assembly to a separate runner and captures its console

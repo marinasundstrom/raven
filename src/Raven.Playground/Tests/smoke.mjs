@@ -69,7 +69,6 @@ try {
   await editor.click();
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type("System.Console.Wri");
-  await page.keyboard.press("Control+Space");
   const writeLineSuggestion = page.locator(".suggest-widget .monaco-list-row", {
     hasText: "WriteLine",
   });
@@ -87,6 +86,15 @@ try {
   if (!completedSource.includes("WriteLine")) {
     throw new Error(`Expected accepting completion to insert WriteLine, got ${completedSource}.`);
   }
+
+  await page.keyboard.press("Escape");
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type("ret");
+  await page.keyboard.press("Control+Space");
+  await page.locator(".suggest-widget .monaco-list-row", { hasText: "return" })
+    .first()
+    .waitFor({ timeout: 30_000 });
 
   await page.keyboard.press("Escape");
   await editor.click();
