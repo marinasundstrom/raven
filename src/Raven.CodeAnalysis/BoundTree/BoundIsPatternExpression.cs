@@ -1504,7 +1504,7 @@ internal partial class BlockBinder
             typedDesignation,
             hasAmbientBindingKeyword: _ambientPatternDeclarationBindingKeyword is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword or SyntaxKind.VarKeyword);
 
-        var declaredType = ResolveType(typedDesignation.TypeAnnotation.Type);
+        var declaredType = BindTypeSyntaxAndReport(typedDesignation.TypeAnnotation.Type);
         declaredType = EnsureTypeAccessible(declaredType, typedDesignation.TypeAnnotation.Type.GetLocation());
         expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         var normalizedExpectedType = TypeSymbolNormalization.NormalizeForInference(expectedType).GetPlainType();
@@ -1702,7 +1702,7 @@ internal partial class BlockBinder
     {
         var qualifierType = syntax.Path.Qualifier is null
             ? null
-            : ResolveType(syntax.Path.Qualifier);
+            : BindTypeSyntaxAndReport(syntax.Path.Qualifier);
 
         if (TryBindDiscriminatedUnionCasePattern(
                 caseName: syntax.Path.Identifier.ValueText,
@@ -2336,7 +2336,7 @@ internal partial class BlockBinder
                 return !string.IsNullOrEmpty(caseName);
 
             case QualifiedNameSyntax qualified:
-                qualifierType = ResolveType(qualified.Left);
+                qualifierType = BindTypeSyntaxAndReport(qualified.Left);
                 switch (qualified.Right)
                 {
                     case IdentifierNameSyntax rightIdentifier:
@@ -2779,7 +2779,7 @@ internal partial class BlockBinder
 
             case TypedVariableDesignationSyntax typed:
                 {
-                    var declaredType = ResolveType(typed.TypeAnnotation.Type);
+                    var declaredType = BindTypeSyntaxAndReport(typed.TypeAnnotation.Type);
                     declaredType = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
 
                     var inner = BindWholePatternDesignation(typed.Designation, declaredType);
@@ -3014,7 +3014,7 @@ internal partial class BlockBinder
                         single.Identifier.GetLocation());
                 }
 
-                var declaredType = ResolveType(typed.TypeAnnotation.Type);
+                var declaredType = BindTypeSyntaxAndReport(typed.TypeAnnotation.Type);
                 type = EnsureTypeAccessible(declaredType, typed.TypeAnnotation.Type.GetLocation());
                 break;
             }
@@ -3022,7 +3022,7 @@ internal partial class BlockBinder
             // Declaration pattern provides the declared type: `T x`
             if (current is DeclarationPatternSyntax decl)
             {
-                var declaredType = ResolveType(decl.Type);
+                var declaredType = BindTypeSyntaxAndReport(decl.Type);
                 type = EnsureTypeAccessible(declaredType, decl.Type.GetLocation());
                 break;
             }

@@ -767,6 +767,16 @@ internal abstract partial class Binder
         return new ResolveTypeResult { ResolvedType = resolvedType };
     }
 
+    protected static int? TryGetFixedArraySize(ArrayRankSpecifierSyntax rankSpecifier)
+    {
+        if (rankSpecifier.CommaTokens.Count != 0 || rankSpecifier.SizeToken.Kind != SyntaxKind.NumericLiteralToken)
+            return null;
+
+        return int.TryParse(rankSpecifier.SizeToken.ValueText, out var fixedSize)
+            ? fixedSize
+            : null;
+    }
+
     private ResolveTypeResult BindByRef(
         ByRefTypeSyntax br,
         IReadOnlyDictionary<string, ITypeSymbol> typeParams,

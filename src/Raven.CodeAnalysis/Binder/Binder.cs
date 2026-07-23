@@ -1641,14 +1641,6 @@ internal abstract partial class Binder
         return result;
     }
 
-    [Obsolete("Legacy type-resolution shim. Prefer BindTypeSyntax/BindType and explicit diagnostic reporting.")]
-    public ITypeSymbol ResolveType(TypeSyntax typeSyntax, RefKind refKindHint)
-        => ResolveTypeInternal(typeSyntax, refKindHint);
-
-    [Obsolete("Legacy type-resolution shim. Prefer BindTypeSyntax/BindType and explicit diagnostic reporting.")]
-    public virtual ITypeSymbol ResolveType(TypeSyntax typeSyntax)
-        => ResolveTypeInternal(typeSyntax, refKindHint: null);
-
     internal ITypeSymbol BindTypeSyntaxAndReport(
         TypeSyntax typeSyntax,
         TypeResolutionOptions? options = null,
@@ -1661,9 +1653,6 @@ internal abstract partial class Binder
         ReportResolveTypeResultDiagnostics(result, typeSyntax);
         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
-
-    private ITypeSymbol ResolveTypeInternal(TypeSyntax typeSyntax, RefKind? refKindHint)
-        => BindTypeSyntaxAndReport(typeSyntax, refKindHint: refKindHint);
 
     private ITypeSymbol ApplyBoundTypeContract(ITypeSymbol type, Location location, RefKind? refKindHint)
     {
