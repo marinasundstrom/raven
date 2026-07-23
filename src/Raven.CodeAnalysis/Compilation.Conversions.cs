@@ -966,13 +966,10 @@ public partial class Compilation
         _extensionConversionOperatorsInitialized = true;
 
         var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
-        var members = SymbolLookup.GetAllGlobalTypes();
+        var members = SymbolLookup.GetExtensionConversionContainers();
 
         foreach (var type in members)
         {
-            if (!type.HasStaticExtensionMembers)
-                continue;
-
             foreach (var member in type.GetMembers("op_Implicit").Concat(type.GetMembers("op_Explicit")))
             {
                 if (member is not IMethodSymbol method)

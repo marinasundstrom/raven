@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -62,6 +63,18 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
             .OfType<PEModuleSymbol>()
             .Select(m => m.GetType(type))
             .FirstOrDefault();
+    }
+
+    internal ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers()
+    {
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        foreach (var type in MetadataState.GetExtensionConversionContainers())
+        {
+            if (GetType(type) is INamedTypeSymbol typeSymbol)
+                builder.Add(typeSymbol);
+        }
+
+        return builder.ToImmutable();
     }
 
     private INamespaceSymbol? TryGetNamespaceSymbol(string? ns)

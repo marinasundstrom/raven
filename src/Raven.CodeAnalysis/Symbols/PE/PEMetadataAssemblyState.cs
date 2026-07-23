@@ -19,6 +19,7 @@ internal sealed class PEMetadataAssemblyState
     private readonly ImmutableDictionary<(string NamespaceName, string Name), ImmutableArray<Type>> _topLevelTypesByNamespaceAndName;
     private readonly ImmutableHashSet<string> _namespaces;
     private readonly ConcurrentDictionary<string, Lazy<ImmutableDictionary<string, ImmutableArray<Type>>>> _extensionMethodContainersByNamespace;
+    private readonly Lazy<ImmutableArray<Type>> _extensionConversionContainers;
     private readonly Assembly _assembly;
 
     private PEMetadataAssemblyState(
@@ -33,6 +34,9 @@ internal sealed class PEMetadataAssemblyState
         _namespaces = namespaces;
         _extensionMethodContainersByNamespace = new ConcurrentDictionary<string, Lazy<ImmutableDictionary<string, ImmutableArray<Type>>>>(
             StringComparer.Ordinal);
+        _extensionConversionContainers = new Lazy<ImmutableArray<Type>>(
+            () => CreateExtensionConversionContainers(_assembly),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public static PEMetadataAssemblyState Create(Assembly assembly)
@@ -96,6 +100,9 @@ internal sealed class PEMetadataAssemblyState
         => GetExtensionMethodContainerIndex(namespaceMetadataName).TryGetValue(methodName, out var types)
             ? types
             : ImmutableArray<Type>.Empty;
+
+    public ImmutableArray<Type> GetExtensionConversionContainers()
+        => _extensionConversionContainers.Value;
 
     public bool NamespaceExists(string metadataName)
         => _namespaces.Contains(metadataName);
@@ -475,6 +482,164 @@ internal sealed class PEMetadataAssemblyState
         return false;
     }
 
+    private static ImmutableArray<Type> CreateExtensionConversionContainers(Assembly assembly)
+    {
+        if (TryCreateExtensionConversionContainersFromMetadata(assembly, out var metadataContainers))
+            return metadataContainers;
+
+        var builder = ImmutableArray.CreateBuilder<Type>();
+        foreach (var type in GetLoadableTypes(assembly))
+        {
+            foreach (var method in GetDeclaredMethodsSafe(type))
+            {
+                if (!method.IsStatic ||
+                    !IsConversionOperatorName(method.Name) ||
+                    !HasExtensionMarkerAttributeSafe(method))
+                {
+                    continue;
+                }
+
+                builder.Add(type);
+                break;
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static bool TryCreateExtensionConversionContainersFromMetadata(
+        Assembly assembly,
+        out ImmutableArray<Type> containers)
+    {
+        containers = ImmutableArray<Type>.Empty;
+
+        string location;
+        try
+        {
+            location = assembly.Location;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(location) || !File.Exists(location))
+            return false;
+
+        try
+        {
+            using var stream = File.OpenRead(location);
+            using var peReader = new PEReader(stream);
+            if (!peReader.HasMetadata)
+                return false;
+
+            var reader = peReader.GetMetadataReader();
+            var builder = ImmutableArray.CreateBuilder<Type>();
+
+            foreach (var typeHandle in reader.TypeDefinitions)
+            {
+                var typeDefinition = reader.GetTypeDefinition(typeHandle);
+                Type? containerType = null;
+
+                foreach (var methodHandle in typeDefinition.GetMethods())
+                {
+                    var method = reader.GetMethodDefinition(methodHandle);
+                    if ((method.Attributes & MethodAttributes.Static) == 0 ||
+                        !IsConversionOperatorName(reader.GetString(method.Name)) ||
+                        !HasExtensionMarkerAttribute(reader, method.GetCustomAttributes()))
+                    {
+                        continue;
+                    }
+
+                    var typeNamespace = reader.GetString(typeDefinition.Namespace);
+                    containerType ??= ResolveMetadataType(
+                        assembly,
+                        typeNamespace,
+                        reader.GetString(typeDefinition.Name));
+                    if (containerType is not null)
+                        builder.Add(containerType);
+
+                    break;
+                }
+            }
+
+            containers = builder.ToImmutable();
+            return true;
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private static bool HasExtensionMarkerAttribute(
+        MetadataReader reader,
+        CustomAttributeHandleCollection attributes)
+    {
+        foreach (var attributeHandle in attributes)
+        {
+            var attribute = reader.GetCustomAttribute(attributeHandle);
+            if (IsExtensionMarkerAttributeConstructor(reader, attribute.Constructor))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsExtensionMarkerAttributeConstructor(MetadataReader reader, EntityHandle constructor)
+    {
+        EntityHandle attributeTypeHandle;
+        switch (constructor.Kind)
+        {
+            case HandleKind.MemberReference:
+                attributeTypeHandle = reader.GetMemberReference((MemberReferenceHandle)constructor).Parent;
+                break;
+            case HandleKind.MethodDefinition:
+                attributeTypeHandle = reader.GetMethodDefinition((MethodDefinitionHandle)constructor).GetDeclaringType();
+                break;
+            default:
+                return false;
+        }
+
+        return IsExtensionMarkerAttributeType(reader, attributeTypeHandle);
+    }
+
+    private static bool IsExtensionMarkerAttributeType(MetadataReader reader, EntityHandle typeHandle)
+    {
+        string namespaceName;
+        string typeName;
+
+        switch (typeHandle.Kind)
+        {
+            case HandleKind.TypeReference:
+                var typeReference = reader.GetTypeReference((TypeReferenceHandle)typeHandle);
+                namespaceName = reader.GetString(typeReference.Namespace);
+                typeName = reader.GetString(typeReference.Name);
+                break;
+            case HandleKind.TypeDefinition:
+                var typeDefinition = reader.GetTypeDefinition((TypeDefinitionHandle)typeHandle);
+                namespaceName = reader.GetString(typeDefinition.Namespace);
+                typeName = reader.GetString(typeDefinition.Name);
+                break;
+            default:
+                return false;
+        }
+
+        return string.Equals(namespaceName, "System.Runtime.CompilerServices", StringComparison.Ordinal) &&
+               typeName is nameof(ExtensionAttribute) or "ExtensionMarkerNameAttribute";
+    }
+
+    private static bool IsConversionOperatorName(string name)
+        => name is "op_Implicit" or "op_Explicit";
+
     private static bool IsExtensionAttributeConstructor(MetadataReader reader, EntityHandle constructor)
     {
         EntityHandle attributeTypeHandle;
@@ -588,6 +753,36 @@ internal sealed class PEMetadataAssemblyState
                         attribute.AttributeType.FullName,
                         typeof(ExtensionAttribute).FullName,
                         StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (BadImageFormatException)
+        {
+        }
+        catch (FileNotFoundException)
+        {
+        }
+        catch (NotSupportedException)
+        {
+        }
+        catch (TypeLoadException)
+        {
+        }
+
+        return false;
+    }
+
+    private static bool HasExtensionMarkerAttributeSafe(MethodInfo method)
+    {
+        try
+        {
+            foreach (var attribute in method.GetCustomAttributesData())
+            {
+                if (attribute.AttributeType.FullName is
+                    "System.Runtime.CompilerServices.ExtensionAttribute" or
+                    "System.Runtime.CompilerServices.ExtensionMarkerNameAttribute")
                 {
                     return true;
                 }

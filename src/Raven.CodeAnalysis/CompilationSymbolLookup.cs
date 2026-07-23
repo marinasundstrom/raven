@@ -123,6 +123,32 @@ internal sealed class CompilationSymbolLookup
         }
     }
 
+    public IEnumerable<INamedTypeSymbol> GetExtensionConversionContainers()
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        if (_compilation.SourceGlobalNamespace is { } sourceGlobalNamespace)
+        {
+            foreach (var type in sourceGlobalNamespace.GetAllTypesRecursive())
+            {
+                if (type.HasStaticExtensionMembers &&
+                    seen.Add(type.GetShallowLookupIdentityKey()))
+                {
+                    yield return type;
+                }
+            }
+        }
+
+        foreach (var assembly in _compilation.ReferencedAssemblySymbols.OfType<PEAssemblySymbol>())
+        {
+            foreach (var type in assembly.GetExtensionConversionContainers())
+            {
+                if (seen.Add(type.GetShallowLookupIdentityKey()))
+                    yield return type;
+            }
+        }
+    }
+
     public INamespaceSymbol? LookupNamespaceSourceFirst(INamespaceSymbol? currentNamespace, string name)
     {
         if (string.IsNullOrWhiteSpace(name))
