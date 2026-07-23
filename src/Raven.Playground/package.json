@@ -2,11 +2,13 @@
   "name": "raven-playground-editor",
   "private": true,
   "scripts": {
-    "build": "esbuild Editor/editor.js Editor/editor.worker.js --bundle --format=esm --outdir=wwwroot/js --minify --loader:.wasm=file"
+    "build": "esbuild Editor/editor.js Editor/editor.worker.js --bundle --format=esm --outdir=wwwroot/js --minify --loader:.wasm=file",
+    "test:browser": "node Tests/smoke.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
     "monaco-editor": "0.56.0",
+    "playwright": "1.61.1",
     "vscode-oniguruma": "2.0.1",
     "vscode-textmate": "9.3.2"
   }

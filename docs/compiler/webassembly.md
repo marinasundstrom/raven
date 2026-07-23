@@ -74,6 +74,18 @@ The deployable site is `artifacts/playground/wwwroot`. It can be served by any
 static file host. The host must serve `.wasm` files as `application/wasm` and
 fall back to `index.html` for client-side routes.
 
+Run the end-to-end browser smoke test with:
+
+```bash
+scripts/test-playground-browser.sh
+```
+
+The test publishes a release build, serves only its static `wwwroot` output,
+and uses headless Chromium to verify Monaco startup, TextMate tokenization,
+successful compilation, compiler diagnostics, emitted-assembly loading, and
+captured program output. Its first run installs the pinned Playwright Chromium
+build.
+
 Browser and WASI hosts expose different platform APIs. Target profiles should
 describe those capabilities explicitly, and unavailable APIs should be handled
 through normal target-framework reference surfaces and compiler diagnostics.
@@ -82,12 +94,10 @@ not implied by the managed WebAssembly target.
 
 ## Next slices
 
-1. Add automated browser coverage for parsing, diagnostics, in-memory emit, and
-   execution.
-2. Define browser and WASI target profiles, including supported runtime APIs,
+1. Define browser and WASI target profiles, including supported runtime APIs,
    threading, filesystem, networking, and dynamic-loading behavior.
-3. Add completion through a compiler-owned editor API.
-4. Add compiler-produced semantic tokens without replacing the TextMate lexical
+2. Add completion through a compiler-owned editor API.
+3. Add compiler-produced semantic tokens without replacing the TextMate lexical
    fallback.
-5. Reduce and cache the framework metadata payload without reintroducing an
+4. Reduce and cache the framework metadata payload without reintroducing an
    incomplete reference closure.

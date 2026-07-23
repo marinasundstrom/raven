@@ -39,6 +39,7 @@ All ad hoc `dotnet test` commands should include `/property:WarningLevel=0`.
 | Language-server request handling, hover/completion/inlay presentation | Focused `test/Raven.LanguageServer.Tests` filter | Same filter; add compiler tests first when the bug is semantic rather than LSP-owned |
 | Project-backed language-server workspace, analyzer lanes, document sync | Focused `test/Raven.LanguageServer.Integration.Tests` filter | Same filter; avoid running this for ordinary compiler-only language changes |
 | Console editor behavior | Focused `test/Raven.Editor.Tests` filter | Same filter |
+| Browser WebAssembly playground, Monaco integration, static publish | `dotnet build src/Raven.Playground/Raven.Playground.csproj --property WarningLevel=0` | `scripts/test-playground-browser.sh` |
 
 ## Full Baseline Triggers
 

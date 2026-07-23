@@ -6,7 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 - Added a static-hostable Blazor WebAssembly playground starter with a Monaco
   editor, Raven TextMate highlighting, separate Compile and Run commands, and
-  in-browser compilation and execution of emitted Raven assemblies.
+  in-browser compilation and execution of emitted Raven assemblies. A
+  repository-owned browser smoke test covers the release-published static site,
+  compiler diagnostics, and emitted-program output.
 - Removed two browser-WebAssembly blockers from compiler metadata loading:
   assembly identities are read from portable executable metadata where runtime
   assembly-loading APIs are unavailable, and unavailable runtime nullability

@@ -1,0 +1,99 @@
+import { createReadStream, existsSync, statSync } from "node:fs";
+import { createServer } from "node:http";
+import { extname, join, normalize, resolve } from "node:path";
+import { chromium } from "playwright";
+
+const siteRoot = resolve(process.argv[2] ?? "");
+
+if (!process.argv[2] || !existsSync(join(siteRoot, "index.html"))) {
+  throw new Error("Pass the published playground wwwroot directory as the first argument.");
+}
+
+const contentTypes = new Map([
+  [".css", "text/css; charset=utf-8"],
+  [".dat", "application/octet-stream"],
+  [".dll", "application/octet-stream"],
+  [".html", "text/html; charset=utf-8"],
+  [".ico", "image/x-icon"],
+  [".js", "text/javascript; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".png", "image/png"],
+  [".wasm", "application/wasm"],
+]);
+
+const server = createServer((request, response) => {
+  const requestPath = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+  const relativePath = normalize(requestPath).replace(/^(\.\.(\/|\\|$))+/, "").replace(/^[/\\]+/, "");
+  let filePath = join(siteRoot, relativePath || "index.html");
+
+  if (!filePath.startsWith(`${siteRoot}/`) || !existsSync(filePath) || statSync(filePath).isDirectory()) {
+    filePath = join(siteRoot, "index.html");
+  }
+
+  response.writeHead(200, {
+    "Cache-Control": "no-store",
+    "Content-Type": contentTypes.get(extname(filePath)) ?? "application/octet-stream",
+  });
+  createReadStream(filePath).pipe(response);
+});
+
+await new Promise((resolveListen, reject) => {
+  server.once("error", reject);
+  server.listen(0, "127.0.0.1", resolveListen);
+});
+
+const address = server.address();
+const url = `http://127.0.0.1:${address.port}/`;
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage();
+const browserErrors = [];
+
+page.on("console", message => {
+  if (message.type() === "error") browserErrors.push(message.text());
+});
+page.on("pageerror", error => browserErrors.push(error.stack ?? error.message));
+
+try {
+  await page.goto(url);
+  await page.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+
+  const editor = page.locator(".monaco-editor");
+  await editor.waitFor();
+  const tokenClasses = await editor.locator(".view-lines span[class]").evaluateAll(elements =>
+    [...new Set(elements.map(element => element.className).filter(className => /^mtk\d+$/.test(className)))],
+  );
+  if (tokenClasses.length < 2) {
+    throw new Error(`Expected TextMate highlighting to produce multiple token classes, got ${tokenClasses}.`);
+  }
+
+  await page.getByRole("button", { name: /Compile/ }).click();
+  await page.getByText("Compiled", { exact: true }).waitFor({ timeout: 30_000 });
+  await page.getByText(/Compiled successfully/).waitFor();
+
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type("let =");
+  await page.getByRole("button", { name: /Compile/ }).click();
+  await page.getByText("Compile error", { exact: true }).waitFor({ timeout: 30_000 });
+  if (await page.locator(".diagnostics li").count() === 0) {
+    throw new Error("Expected invalid Raven source to produce at least one diagnostic.");
+  }
+
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type(
+    'let greeting = "Hello from Raven in WebAssembly"\nSystem.Console.WriteLine(greeting)',
+  );
+  await page.getByRole("button", { name: /^Run/ }).click();
+  await page.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
+  await page.getByText("Hello from Raven in WebAssembly", { exact: true }).waitFor();
+
+  if (browserErrors.length > 0) {
+    throw new Error(`Browser errors:\n${browserErrors.join("\n")}`);
+  }
+
+  console.log("Playground browser smoke test passed.");
+} finally {
+  await browser.close();
+  await new Promise(resolveClose => server.close(resolveClose));
+}
