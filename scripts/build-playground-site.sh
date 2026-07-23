@@ -18,6 +18,8 @@ fi
 
 BUILD_CONFIG=Release "$repository_root/scripts/codex-build.sh"
 
+dotnet restore "$playground_dir/Raven.Playground.csproj"
+
 dotnet publish "$playground_dir/Raven.Playground.csproj" \
     -c Release \
     -o "$publish_dir" \
