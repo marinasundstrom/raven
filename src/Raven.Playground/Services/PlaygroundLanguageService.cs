@@ -10,6 +10,8 @@ public sealed class PlaygroundLanguageService
     private readonly AdhocWorkspace _workspace = new();
     private readonly ProjectId _projectId;
     private readonly DocumentId _documentId;
+    private Compilation? _cachedEmittedCompilation;
+    private PlaygroundCompilationResult? _cachedCompilationResult;
 
     public PlaygroundLanguageService(PlaygroundFrameworkReferences frameworkReferences)
     {
@@ -69,15 +71,21 @@ public sealed class PlaygroundLanguageService
         {
             UpdateSource(source);
             var compilation = _workspace.GetCompilation(_projectId);
+            if (ReferenceEquals(compilation, _cachedEmittedCompilation))
+                return _cachedCompilationResult!;
+
             using var assemblyStream = new MemoryStream();
             var emitResult = compilation.Emit(assemblyStream);
             var diagnostics = emitResult.Diagnostics
                 .Select(static diagnostic => diagnostic.ToString())
                 .ToArray();
 
-            return emitResult.Success
+            var result = emitResult.Success
                 ? new PlaygroundCompilationResult(true, assemblyStream.ToArray(), diagnostics)
                 : new PlaygroundCompilationResult(false, null, diagnostics);
+            _cachedEmittedCompilation = compilation;
+            _cachedCompilationResult = result;
+            return result;
         }
     }
 

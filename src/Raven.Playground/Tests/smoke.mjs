@@ -98,6 +98,10 @@ try {
   await page.getByText("Compiled", { exact: true }).waitFor({ timeout: 30_000 });
   await page.getByText(/Compiled successfully/).waitFor();
 
+  await page.getByRole("button", { name: /^Run/ }).click();
+  await page.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
+  await page.getByText("Hello from Raven in WebAssembly", { exact: true }).waitFor();
+
   await editor.click();
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
   await page.keyboard.type("let =");

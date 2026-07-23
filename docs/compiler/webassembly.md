@@ -60,10 +60,11 @@ static Blazor WebAssembly application:
 - **Compile** diagnoses and emits the workspace's current managed compilation,
   reusing semantic state already established by editor requests when possible.
 - **Run** passes that assembly to a separate runner and captures its console
-  output.
+  output. Repeated Compile/Run commands on the same immutable compilation
+  snapshot reuse the emitted assembly.
 
-Compiler-produced semantic highlighting remains a later editor-service layer;
-it is not part of the TextMate integration.
+Compiler-backed hover and compiler-produced semantic highlighting remain later
+editor-service layers; they are not part of the TextMate integration.
 
 Build and publish the playground with:
 
@@ -99,7 +100,9 @@ not implied by the managed WebAssembly target.
 
 1. Define browser and WASI target profiles, including supported runtime APIs,
    threading, filesystem, networking, and dynamic-loading behavior.
-2. Add compiler-produced semantic tokens without replacing the TextMate lexical
+2. Add compiler-backed Monaco hover using the same workspace snapshot and
+   semantic APIs as the language server.
+3. Add compiler-produced semantic tokens without replacing the TextMate lexical
    fallback.
-3. Reduce and cache the framework metadata payload without reintroducing an
+4. Reduce and cache the framework metadata payload without reintroducing an
    incomplete reference closure.

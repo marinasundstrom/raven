@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Reused the WebAssembly playground's emitted assembly when Compile and Run
+  target the same immutable compilation snapshot, avoiding redundant browser
+  emission while preserving incremental recompilation after edits.
 - Reduced one-file compiler latency by indexing extension-conversion containers
   directly from referenced assembly metadata instead of loading conversion
   members across every referenced type.
