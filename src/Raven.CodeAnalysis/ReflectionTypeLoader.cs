@@ -105,7 +105,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 nullabilityInfo = _nullabilityContext.Create(parameterInfo);
             return true;
         }
-        catch (NotSupportedException)
+        catch (Exception exception) when (IsUnavailableNullabilityReflection(exception))
         {
             nullabilityInfo = null!;
             return false;
@@ -120,7 +120,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 nullabilityInfo = _nullabilityContext.Create(fieldInfo);
             return true;
         }
-        catch (NotSupportedException)
+        catch (Exception exception) when (IsUnavailableNullabilityReflection(exception))
         {
             nullabilityInfo = null!;
             return false;
@@ -135,7 +135,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 nullabilityInfo = _nullabilityContext.Create(propertyInfo);
             return true;
         }
-        catch (NotSupportedException)
+        catch (Exception exception) when (IsUnavailableNullabilityReflection(exception))
         {
             nullabilityInfo = null!;
             return false;
@@ -150,12 +150,15 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 nullabilityInfo = _nullabilityContext.Create(eventInfo);
             return true;
         }
-        catch (NotSupportedException)
+        catch (Exception exception) when (IsUnavailableNullabilityReflection(exception))
         {
             nullabilityInfo = null!;
             return false;
         }
     }
+
+    internal static bool IsUnavailableNullabilityReflection(Exception exception)
+        => exception is NotSupportedException or NotImplementedException;
 
     public FieldInfo? ResolveRuntimeField(FieldInfo fieldInfo)
     {

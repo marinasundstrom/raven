@@ -5,6 +5,8 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.Threading;
 
@@ -969,7 +971,7 @@ public partial class Compilation
             System.Reflection.AssemblyName assemblyIdentity;
             try
             {
-                assemblyIdentity = System.Reflection.AssemblyName.GetAssemblyName(fullPath);
+                assemblyIdentity = ReadAssemblyName(fullPath);
             }
             catch
             {
@@ -1000,6 +1002,40 @@ public partial class Compilation
         return new MetadataLoadContext(resolver, resolvedCoreAssemblyName);
     }
 
+    internal static System.Reflection.AssemblyName ReadAssemblyName(string path)
+    {
+        if (!OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi())
+            return System.Reflection.AssemblyName.GetAssemblyName(path);
+
+        return ReadAssemblyNameFromMetadata(path);
+    }
+
+    internal static System.Reflection.AssemblyName ReadAssemblyNameFromMetadata(string path)
+    {
+        using var stream = File.OpenRead(path);
+        using var peReader = new PEReader(stream);
+        if (!peReader.HasMetadata)
+            throw new BadImageFormatException($"'{path}' does not contain managed metadata.");
+
+        var metadataReader = peReader.GetMetadataReader();
+        if (!metadataReader.IsAssembly)
+            throw new BadImageFormatException($"'{path}' is not a managed assembly.");
+
+        var definition = metadataReader.GetAssemblyDefinition();
+        var assemblyName = new System.Reflection.AssemblyName
+        {
+            Name = metadataReader.GetString(definition.Name),
+            Version = definition.Version,
+            CultureName = definition.Culture.IsNil ? null : metadataReader.GetString(definition.Culture),
+            Flags = (AssemblyNameFlags)definition.Flags,
+        };
+
+        if (!definition.PublicKey.IsNil)
+            assemblyName.SetPublicKey(metadataReader.GetBlobBytes(definition.PublicKey));
+
+        return assemblyName;
+    }
+
     private sealed class StreamBackedPathAssemblyResolver : MetadataAssemblyResolver
     {
         private readonly Dictionary<string, string> _pathsByIdentity;
@@ -1015,7 +1051,7 @@ public partial class Compilation
                 System.Reflection.AssemblyName identity;
                 try
                 {
-                    identity = System.Reflection.AssemblyName.GetAssemblyName(path);
+                    identity = ReadAssemblyName(path);
                 }
                 catch
                 {
@@ -1079,7 +1115,7 @@ public partial class Compilation
         {
             try
             {
-                var identity = System.Reflection.AssemblyName.GetAssemblyName(systemRuntimePath);
+                var identity = ReadAssemblyName(systemRuntimePath);
                 var loaded = LoadRuntimeAssemblyFromPath(identity, systemRuntimePath);
                 if (loaded is not null)
                     return loaded;
@@ -2347,7 +2383,7 @@ public partial class Compilation
         System.Reflection.AssemblyName? identity = null;
         try
         {
-            identity = System.Reflection.AssemblyName.GetAssemblyName(fullPath);
+            identity = ReadAssemblyName(fullPath);
             if (identity.Name is not null)
             {
                 _assemblyPathMap[identity.Name] = fullPath;
@@ -2591,7 +2627,7 @@ public partial class Compilation
                     System.Reflection.AssemblyName? candidateIdentity;
                     try
                     {
-                        candidateIdentity = System.Reflection.AssemblyName.GetAssemblyName(candidate);
+                        candidateIdentity = ReadAssemblyName(candidate);
                     }
                     catch
                     {

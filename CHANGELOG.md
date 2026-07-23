@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Removed two browser-WebAssembly blockers from compiler metadata loading:
+  assembly identities are read from portable executable metadata where runtime
+  assembly-loading APIs are unavailable, and unavailable runtime nullability
+  reflection falls back to explicit nullable metadata.
 - Added dotted property paths in property patterns. For example,
   `Foo { Item.Size: 2 }` is shorthand for
   `Foo { Item: { Size: 2 } }`. Completion and hover resolve each property-path
