@@ -14,6 +14,20 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public class CompletionServiceMemberAccessTests
 {
     [Fact]
+    public void GetCompletions_AfterDot_OnFrameworkType_ReturnsStaticMembers()
+    {
+        const string code = "System.Console.";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var items = compilation.GetCompletions(syntaxTree, code.Length).ToList();
+
+        Assert.Contains(items, static item => item.DisplayText == "WriteLine");
+    }
+
+    [Fact]
     public void GetCompletions_FrameworkProjection_ShowsProjectedTryParseSymbol()
     {
         const string code = """
