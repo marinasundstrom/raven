@@ -4,6 +4,7 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -135,7 +136,10 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () {
 }
 """;
         var options = new CompilationOptions(OutputKind.ConsoleApplication);
-        var (compilation, _) = CreateCompilation(source, options: options);
+        var (compilation, _) = CreateCompilation(
+            source,
+            options: options,
+            references: TestMetadataReferences.DefaultWithRavenCore);
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(

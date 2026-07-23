@@ -115,7 +115,7 @@ class Baz {
     }
 
     [Fact]
-    public void UnitType_UsesKeywordInDiagnostic()
+    public void IfExpression_IncompatibleWithDeclaredType_ReportsAtDeclaredType()
     {
         var code = """
 func test(flag: bool) {
@@ -128,7 +128,7 @@ func test(flag: bool) {
 """;
 
         var verifier = CreateVerifier(code, [
-            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(2, 22, 6, 6).WithArguments("ValueType", "int"),
+            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id).WithSpan(2, 16, 2, 19).WithArguments("ValueType", "int"),
         ]);
         verifier.Verify();
     }

@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Diagnostics;
 
 namespace Raven.CodeAnalysis.Testing;
@@ -10,7 +12,9 @@ public abstract class AnalyzerTestBase
         IEnumerable<string>? disabledDiagnostics = null,
         bool enableSuggestions = false,
         IDictionary<string, ReportDiagnostic>? specificDiagnosticOptions = null,
-        ReturnedValueHandlingMode? returnedValueHandlingMode = null)
+        ReturnedValueHandlingMode? returnedValueHandlingMode = null,
+        IEnumerable<MetadataReference>? additionalReferences = null,
+        FrameworkProjectionMode? frameworkProjectionMode = null)
         where TAnalyzer : DiagnosticAnalyzer, new()
     {
         return new AnalyzerVerifier<TAnalyzer>
@@ -22,7 +26,9 @@ public abstract class AnalyzerTestBase
                 DisabledDiagnostics = disabledDiagnostics?.ToList() ?? [],
                 State = new TestState
                 {
+                    AdditionalReferences = additionalReferences?.ToImmutableArray() ?? [],
                     EnableSuggestions = enableSuggestions,
+                    FrameworkProjectionMode = frameworkProjectionMode,
                     ReturnedValueHandlingMode = returnedValueHandlingMode,
                     SpecificDiagnosticOptions = specificDiagnosticOptions is not null
                         ? new Dictionary<string, ReportDiagnostic>(specificDiagnosticOptions, StringComparer.OrdinalIgnoreCase)

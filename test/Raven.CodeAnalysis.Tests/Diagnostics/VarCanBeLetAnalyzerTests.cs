@@ -166,7 +166,8 @@ class C {
         var verifier = CreateAnalyzerVerifier<VarCanBeLetAnalyzer>(
             code,
             expectedDiagnostics: [],
-            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id],
+            frameworkProjectionMode: FrameworkProjectionMode.None);
 
         verifier.Verify();
     }

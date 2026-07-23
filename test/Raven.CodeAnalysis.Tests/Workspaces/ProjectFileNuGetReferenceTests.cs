@@ -829,8 +829,8 @@ public sealed class ProjectFileNuGetReferenceTests
             string.Equals(document.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
         var updatedText = SourceText.From(
             File.ReadAllText(sourcePath).Replace(
-                "    val names = query.ToList()",
-                "    val names = query.P",
+                "    let names = query.ToList()",
+                "    let names = query.P",
                 StringComparison.Ordinal));
         workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(document.Id, updatedText));
 

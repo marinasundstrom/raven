@@ -24,6 +24,8 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
             compilationOptions = compilationOptions.WithEnableSuggestions(Test.State.EnableSuggestions);
             if (Test.State.ReturnedValueHandlingMode is { } returnedValueHandlingMode)
                 compilationOptions = compilationOptions.WithReturnedValueHandlingMode(returnedValueHandlingMode);
+            if (Test.State.FrameworkProjectionMode is { } frameworkProjectionMode)
+                compilationOptions = compilationOptions.WithFrameworkProjectionMode(frameworkProjectionMode);
 
             foreach (var (diagnosticId, option) in Test.State.SpecificDiagnosticOptions)
                 compilationOptions = compilationOptions.WithSpecificDiagnosticOption(diagnosticId, option);
@@ -32,7 +34,9 @@ public class AnalyzerVerifier<TAnalyzer> where TAnalyzer : DiagnosticAnalyzer, n
         }
 
         project = project.AddAnalyzerReference(new AnalyzerReference(new TAnalyzer()));
-        foreach (var reference in ReferenceAssemblies.Default)
+        foreach (var reference in Test.State.ReferenceAssemblies)
+            project = project.AddMetadataReference(reference);
+        foreach (var reference in Test.State.AdditionalReferences)
             project = project.AddMetadataReference(reference);
         workspace.TryApplyChanges(project.Solution);
 

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made incremental document diagnostics independent of prior semantic queries
+  by declaring same-document member signatures before binding executable code.
 - Added the initial distribution contract: platform SDK archive builders,
   relocatable compiler/MSBuild assets, `rvn sdk path`, installed-SDK discovery
   in VS Code, a universal VSIX builder with a bundled language server,

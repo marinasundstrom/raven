@@ -410,6 +410,7 @@ public partial class SemanticModel
                     }
 
                     EnsureDeclarations();
+                    EnsureMemberSignaturesDeclared();
                 }
 
                 diagnosticInstrumentation.RecordDeclarationTicks(Stopwatch.GetTimestamp() - phaseStart);
@@ -11201,7 +11202,9 @@ public partial class SemanticModel
         Compilation.EnsureSourceDeclarationsDeclared();
         EnsureDeclarations();
 
-        if (designation.Ancestors().OfType<BlockStatementSyntax>().LastOrDefault() is { } executableRoot)
+        var bindingOwner = GetPatternDesignationBindingOwner(designation) ?? designation;
+        if (bindingOwner is not PatternDeclarationAssignmentStatementSyntax &&
+            designation.Ancestors().OfType<BlockStatementSyntax>().LastOrDefault() is { } executableRoot)
         {
             _ = GetBoundNode(executableRoot);
             if (TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator contextualDesignator &&
@@ -11212,7 +11215,6 @@ public partial class SemanticModel
             }
         }
 
-        var bindingOwner = GetPatternDesignationBindingOwner(designation) ?? designation;
         var binder = GetBinderForIncrementalSemanticQuery(bindingOwner);
         while (binder is not BlockBinder && binder.ParentBinder is not null)
             binder = binder.ParentBinder;

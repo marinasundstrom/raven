@@ -50,11 +50,15 @@ build_heavy_exclusion_filter() {
   printf '%s' "$filter"
 }
 
-test_args=(/property:WarningLevel=0 --blame-hang-timeout 60s --blame-hang-dump-type none)
+# Raven.CodeAnalysis runs repository source generators from its build targets.
+# Project-reference graphs can otherwise build those shared generator projects
+# concurrently and race while writing their intermediate assemblies.
+test_args=(-m:1 /property:WarningLevel=0 --blame-hang-timeout 60s --blame-hang-dump-type none)
 
 run_code_analysis_tests_in_batches() {
   local class_batch=()
   local batch_size=8
+  local code_analysis_built=false
 
   run_batch() {
     (( ${#class_batch[@]} == 0 )) && return
@@ -71,8 +75,16 @@ run_code_analysis_tests_in_batches() {
 
     [[ -z "$class_filter" ]] && return
 
-    dotnet test "$CODE_ANALYSIS_TESTS" "${test_args[@]}" \
-      --filter "$class_filter"
+    if [[ "$code_analysis_built" == true ]]; then
+      dotnet test "$CODE_ANALYSIS_TESTS" "${test_args[@]}" \
+        --no-build \
+        --filter "$class_filter"
+    else
+      dotnet test "$CODE_ANALYSIS_TESTS" "${test_args[@]}" \
+        --filter "$class_filter"
+    fi
+
+    code_analysis_built=true
   }
 
   while IFS= read -r class_name; do

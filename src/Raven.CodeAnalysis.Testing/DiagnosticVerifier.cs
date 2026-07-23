@@ -25,6 +25,7 @@ public class TestState
     public Dictionary<string, ReportDiagnostic> SpecificDiagnosticOptions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool EnableSuggestions { get; set; }
     public ReturnedValueHandlingMode? ReturnedValueHandlingMode { get; set; }
+    public FrameworkProjectionMode? FrameworkProjectionMode { get; set; }
 }
 
 public class DiagnosticVerifier

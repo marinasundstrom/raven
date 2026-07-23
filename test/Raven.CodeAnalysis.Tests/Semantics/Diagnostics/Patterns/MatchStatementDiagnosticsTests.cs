@@ -20,7 +20,10 @@ match 1 {
 
         var verifier = CreateVerifier(
             code,
-            [new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("_")]);
+            [
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("..0"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("2.."),
+            ]);
 
         verifier.Verify();
     }
@@ -42,10 +45,13 @@ match 1 {
             new CompilationOptions(OutputKind.ConsoleApplication));
 
         compilation.EnsureSetup();
-        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100"));
+        var diagnostics = compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV2100").ToArray();
         var statement = tree.GetRoot().DescendantNodes().OfType<MatchStatementSyntax>().Single();
 
-        Assert.Equal(statement.MatchKeyword.GetLocation(), diagnostic.Location);
+        Assert.Collection(
+            diagnostics,
+            diagnostic => Assert.Equal(statement.MatchKeyword.GetLocation(), diagnostic.Location),
+            diagnostic => Assert.Equal(statement.MatchKeyword.GetLocation(), diagnostic.Location));
     }
 
     [Fact]
