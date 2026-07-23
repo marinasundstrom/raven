@@ -66,6 +66,34 @@ try {
     throw new Error(`Expected TextMate highlighting to produce multiple token classes, got ${tokenClasses}.`);
   }
 
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type("System.Console.Wri");
+  await page.keyboard.press("Control+Space");
+  const writeLineSuggestion = page.locator(".suggest-widget .monaco-list-row", {
+    hasText: "WriteLine",
+  });
+  try {
+    await writeLineSuggestion.first().waitFor({ timeout: 30_000 });
+  } catch (error) {
+    throw new Error(
+      `WriteLine completion did not appear.\nBrowser errors:\n${browserErrors.join("\n") || "<none>"}`,
+      { cause: error },
+    );
+  }
+  await writeLineSuggestion.first().dblclick();
+  await page.waitForTimeout(100);
+  const completedSource = await editor.locator(".view-lines").textContent();
+  if (!completedSource.includes("WriteLine")) {
+    throw new Error(`Expected accepting completion to insert WriteLine, got ${completedSource}.`);
+  }
+
+  await page.keyboard.press("Escape");
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.type(
+    'let greeting = "Hello from Raven in WebAssembly"\nSystem.Console.WriteLine(greeting)',
+  );
   await page.getByRole("button", { name: /Compile/ }).click();
   await page.getByText("Compiled", { exact: true }).waitFor({ timeout: 30_000 });
   await page.getByText(/Compiled successfully/).waitFor();

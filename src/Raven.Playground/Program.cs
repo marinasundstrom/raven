@@ -10,7 +10,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddSingleton<PlaygroundFrameworkReferences>();
-builder.Services.AddSingleton<PlaygroundCompiler>();
+builder.Services.AddSingleton<PlaygroundLanguageService>();
 builder.Services.AddSingleton<PlaygroundProgramRunner>();
 
 await builder.Build().RunAsync();

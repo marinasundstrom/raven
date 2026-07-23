@@ -1,4 +1,4 @@
-import * as monaco from "monaco-editor/editor/editor.api.js";
+import * as monaco from "monaco-editor/editor/editor.main.js";
 import { INITIAL, Registry } from "vscode-textmate";
 import { loadWASM, OnigScanner, OnigString } from "vscode-oniguruma";
 import onigurumaWasmUrl from "vscode-oniguruma/release/onig.wasm";
@@ -100,6 +100,32 @@ async function registerRavenLanguage() {
 
 let registrationPromise;
 
+const completionKinds = {
+  class: monaco.languages.CompletionItemKind.Class,
+  constructor: monaco.languages.CompletionItemKind.Constructor,
+  enum: monaco.languages.CompletionItemKind.Enum,
+  event: monaco.languages.CompletionItemKind.Event,
+  field: monaco.languages.CompletionItemKind.Field,
+  function: monaco.languages.CompletionItemKind.Function,
+  interface: monaco.languages.CompletionItemKind.Interface,
+  keyword: monaco.languages.CompletionItemKind.Keyword,
+  method: monaco.languages.CompletionItemKind.Method,
+  module: monaco.languages.CompletionItemKind.Module,
+  property: monaco.languages.CompletionItemKind.Property,
+  struct: monaco.languages.CompletionItemKind.Struct,
+  text: monaco.languages.CompletionItemKind.Text,
+  typeParameter: monaco.languages.CompletionItemKind.TypeParameter,
+  variable: monaco.languages.CompletionItemKind.Variable,
+};
+
+function toSnippetText(insertText, cursorOffset) {
+  if (cursorOffset == null || cursorOffset >= insertText.length) return insertText;
+
+  const escapeSnippet = text =>
+    text.replaceAll("\\", "\\\\").replaceAll("$", "\\$").replaceAll("}", "\\}");
+  return `${escapeSnippet(insertText.slice(0, cursorOffset))}$0${escapeSnippet(insertText.slice(cursorOffset))}`;
+}
+
 export async function createEditor(element, value, commandTarget) {
   registrationPromise ??= registerRavenLanguage();
   await registrationPromise;
@@ -122,6 +148,42 @@ export async function createEditor(element, value, commandTarget) {
     tabSize: 4,
     theme: "vs-dark",
   });
+  const completionProvider = monaco.languages.registerCompletionItemProvider("raven", {
+    triggerCharacters: [".", ":", "#", "[", ">"],
+    provideCompletionItems: async (completionModel, position, _context, cancellationToken) => {
+      const source = completionModel.getValue();
+      const offset = completionModel.getOffsetAt(position);
+      const items = await commandTarget.invokeMethodAsync("GetCompletions", source, offset);
+
+      if (cancellationToken.isCancellationRequested) return { suggestions: [] };
+
+      return {
+        suggestions: items.map(item => {
+          const start = completionModel.getPositionAt(item.start);
+          const end = completionModel.getPositionAt(item.start + item.length);
+          const usesSnippet = item.cursorOffset != null && item.cursorOffset < item.insertText.length;
+
+          return {
+            label: item.label,
+            insertText: usesSnippet
+              ? toSnippetText(item.insertText, item.cursorOffset)
+              : item.insertText,
+            insertTextRules: usesSnippet
+              ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+              : undefined,
+            detail: item.detail,
+            kind: completionKinds[item.kind] ?? monaco.languages.CompletionItemKind.Text,
+            range: new monaco.Range(
+              start.lineNumber,
+              start.column,
+              end.lineNumber,
+              end.column,
+            ),
+          };
+        }),
+      };
+    },
+  });
 
   editor.addAction({
     id: "raven.compile",
@@ -140,6 +202,7 @@ export async function createEditor(element, value, commandTarget) {
     getValue: () => editor.getValue(),
     focus: () => editor.focus(),
     dispose: () => {
+      completionProvider.dispose();
       editor.dispose();
       model.dispose();
     },

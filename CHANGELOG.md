@@ -8,7 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   editor, Raven TextMate highlighting, separate Compile and Run commands, and
   in-browser compilation and execution of emitted Raven assemblies. A
   repository-owned browser smoke test covers the release-published static site,
-  compiler diagnostics, and emitted-program output.
+  compiler-backed Monaco completion, diagnostics, and emitted-program output.
+  The browser host advances an ordinary Raven workspace and reuses its current
+  compilation across editor requests and explicit compilation.
 - Removed two browser-WebAssembly blockers from compiler metadata loading:
   assembly identities are read from portable executable metadata where runtime
   assembly-loading APIs are unavailable, and unavailable runtime nullability

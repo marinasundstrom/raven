@@ -2,7 +2,7 @@
   "name": "raven-playground-editor",
   "private": true,
   "scripts": {
-    "build": "esbuild Editor/editor.js Editor/editor.worker.js --bundle --format=esm --outdir=wwwroot/js --minify --loader:.wasm=file",
+    "build": "esbuild Editor/editor.js Editor/editor.worker.js --bundle --format=esm --outdir=wwwroot/js --minify --loader:.wasm=file --loader:.ttf=file",
     "test:browser": "node Tests/smoke.mjs"
   },
   "devDependencies": {

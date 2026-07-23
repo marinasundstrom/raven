@@ -1,7 +1,7 @@
 @page "/"
 @implements IAsyncDisposable
 @inject IJSRuntime JS
-@inject PlaygroundCompiler Compiler
+@inject PlaygroundLanguageService LanguageService
 @inject PlaygroundProgramRunner Runner
 
 <PageTitle>Raven Playground</PageTitle>
@@ -62,6 +62,8 @@
     <footer class="playground-footer">
         <span>TextMate syntax highlighting</span>
         <span>•</span>
+        <span>Compiler-backed completion</span>
+        <span>•</span>
         <span>Runs entirely on your device</span>
     </footer>
 </section>
@@ -109,6 +111,13 @@
     public Task InvokeEditorCommand(string command) =>
         command == "run" ? CompileAndRunAsync() : CompileAsync();
 
+    [JSInvokable]
+    public async Task<IReadOnlyList<PlaygroundCompletionItem>> GetCompletions(string source, int position)
+    {
+        await Task.Yield();
+        return LanguageService.GetCompletions(source, position);
+    }
+
     private Task CompileAsync() => CompileCoreAsync(run: false);
 
     private Task CompileAndRunAsync() => CompileCoreAsync(run: true);
@@ -127,7 +136,7 @@
         {
             var source = await _editor.InvokeAsync<string>("getValue");
             await Task.Yield();
-            var compilation = Compiler.Compile(source);
+            var compilation = LanguageService.Compile(source);
             _diagnostics = compilation.Diagnostics;
 
             if (!compilation.Success || compilation.AssemblyImage is null)
