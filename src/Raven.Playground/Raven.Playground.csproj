@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PlaygroundRuntimePackVersion>10.0.0</PlaygroundRuntimePackVersion>
+    <RuntimeFrameworkVersion>$(PlaygroundRuntimePackVersion)</RuntimeFrameworkVersion>
+    <PlaygroundRuntimePackPath>$(NuGetPackageRoot)microsoft.netcore.app.runtime.mono.browser-wasm/$(PlaygroundRuntimePackVersion)</PlaygroundRuntimePackPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
+  </ItemGroup>
+
+  <Target Name="BuildPlaygroundEditor" BeforeTargets="PrepareForBuild">
+    <Exec Command="npm ci --no-audit --no-fund"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          Condition="!Exists('$(MSBuildProjectDirectory)/node_modules/monaco-editor/package.json')" />
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+  <ItemGroup>
+    <PlaygroundFrameworkAssembly Include="$(PlaygroundRuntimePackPath)/runtimes/browser-wasm/native/System.Private.CoreLib.dll">
+      <AssemblyName>System.Private.CoreLib</AssemblyName>
+    </PlaygroundFrameworkAssembly>
+    <PlaygroundFrameworkAssembly Include="$(PlaygroundRuntimePackPath)/runtimes/browser-wasm/lib/net10.0/*.dll">
+      <AssemblyName>%(Filename)</AssemblyName>
+    </PlaygroundFrameworkAssembly>
+
+    <EmbeddedResource Include="@(PlaygroundFrameworkAssembly)"
+                      LogicalName="Raven.Playground.Framework.%(Filename).dll" />
+  </ItemGroup>
+
+</Project>

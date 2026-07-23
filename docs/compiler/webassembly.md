@@ -32,10 +32,11 @@ An initial browser-hosted probe has demonstrated:
   framework metadata; and
 - emitting a managed console assembly to an in-memory stream.
 
-The reference bundle is a host concern. A future browser host should produce a
-versioned manifest rather than discovering SDK installation paths at runtime.
-The bundle should begin with a deliberately small API surface and grow according
-to playground requirements.
+The reference bundle is a host concern. `src/Raven.Playground` embeds the
+version-pinned .NET browser runtime reference closure at build time rather than
+discovering SDK installation paths in the browser. Reducing that closure is a
+future payload optimization; correctness currently takes precedence over a
+hand-maintained reference shortlist.
 
 ## Executable targeting
 
@@ -48,6 +49,31 @@ An independent browser-hosted probe has demonstrated that a console assembly
 produced ahead of time by `rvnc` can be loaded and executed under .NET
 WebAssembly without loading the Raven compiler.
 
+`src/Raven.Playground` now combines the two independently owned paths in a
+static Blazor WebAssembly application:
+
+- Monaco hosts the source editor.
+- Raven's existing TextMate grammar supplies the initial lexical highlighting.
+- **Compile** parses, binds, diagnoses, and emits a managed assembly in the
+  browser.
+- **Run** passes that assembly to a separate runner and captures its console
+  output.
+
+Completion and compiler-produced semantic highlighting are later editor-service
+layers; they are not part of the TextMate integration.
+
+Build and publish the playground with:
+
+```bash
+dotnet publish src/Raven.Playground/Raven.Playground.csproj \
+  -c Release \
+  -o artifacts/playground
+```
+
+The deployable site is `artifacts/playground/wwwroot`. It can be served by any
+static file host. The host must serve `.wasm` files as `application/wasm` and
+fall back to `index.html` for client-side routes.
+
 Browser and WASI hosts expose different platform APIs. Target profiles should
 describe those capabilities explicitly, and unavailable APIs should be handled
 through normal target-framework reference surfaces and compiler diagnostics.
@@ -56,11 +82,12 @@ not implied by the managed WebAssembly target.
 
 ## Next slices
 
-1. Add a repository-owned compiler-host smoke application with a small,
-   versioned framework-reference manifest.
-2. Add automated browser coverage for parsing, diagnostics, and in-memory emit.
-3. Add a separate executable smoke application and browser/WASI execution
-   coverage for an ahead-of-time-produced Raven assembly.
-4. Define browser and WASI target profiles, including supported runtime APIs,
+1. Add automated browser coverage for parsing, diagnostics, in-memory emit, and
+   execution.
+2. Define browser and WASI target profiles, including supported runtime APIs,
    threading, filesystem, networking, and dynamic-loading behavior.
-5. Build the playground UI only on top of these independently verified layers.
+3. Add completion through a compiler-owned editor API.
+4. Add compiler-produced semantic tokens without replacing the TextMate lexical
+   fallback.
+5. Reduce and cache the framework metadata payload without reintroducing an
+   incomplete reference closure.

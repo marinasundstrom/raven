@@ -1,0 +1,174 @@
+@page "/"
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject PlaygroundCompiler Compiler
+@inject PlaygroundProgramRunner Runner
+
+<PageTitle>Raven Playground</PageTitle>
+
+<section class="playground-shell">
+    <header class="hero">
+        <div>
+            <p class="eyebrow">Raven · browser WebAssembly</p>
+            <h1>Write Raven. Run it here.</h1>
+            <p class="lede">The compiler and program execute locally. Your source stays in this browser.</p>
+        </div>
+        <div class="runtime-badge"><span class="status-dot"></span>.NET WebAssembly</div>
+    </header>
+
+    <div class="workspace">
+        <section class="panel editor-panel" aria-labelledby="editor-heading">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-kicker">Source</span>
+                    <h2 id="editor-heading">main.rav</h2>
+                </div>
+                <div class="actions">
+                    <button class="compile-button" type="button" disabled="@_isBusy" @onclick="CompileAsync">
+                        Compile <kbd>F6</kbd>
+                    </button>
+                    <button class="run-button" type="button" disabled="@_isBusy" @onclick="CompileAndRunAsync">
+                        @(_isBusy ? "Working…" : "Run") <span aria-hidden="true">▶</span>
+                    </button>
+                </div>
+            </div>
+            <div class="source-editor" @ref="_editorElement" aria-label="Raven source editor"></div>
+        </section>
+
+        <section class="panel output-panel" aria-labelledby="output-heading">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-kicker">Result</span>
+                    <h2 id="output-heading">Output</h2>
+                </div>
+                <span class="status-pill @StatusClass">@_status</span>
+            </div>
+            <pre class="program-output">@_output</pre>
+            @if (_diagnostics.Count > 0)
+            {
+                <div class="diagnostics" aria-live="polite">
+                    <h3>Diagnostics</h3>
+                    <ul>
+                        @foreach (var diagnostic in _diagnostics)
+                        {
+                            <li>@diagnostic</li>
+                        }
+                    </ul>
+                </div>
+            }
+        </section>
+    </div>
+
+    <footer class="playground-footer">
+        <span>TextMate syntax highlighting</span>
+        <span>•</span>
+        <span>Runs entirely on your device</span>
+    </footer>
+</section>
+
+@code {
+    private const string DefaultSource = """
+        let greeting = "Hello from Raven in WebAssembly"
+        System.Console.WriteLine(greeting)
+        """;
+
+    private ElementReference _editorElement;
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _editor;
+    private DotNetObjectReference<Home>? _commandTarget;
+    private string _output = "Press Compile to check the program, or Run to execute it.";
+    private string _status = "Loading editor";
+    private bool _isBusy;
+    private IReadOnlyList<string> _diagnostics = [];
+
+    private string StatusClass => _status switch
+    {
+        "Complete" or "Compiled" => "status-success",
+        "Compile error" or "Runtime error" => "status-error",
+        "Compiling" or "Running" => "status-active",
+        _ => string.Empty,
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/editor.js");
+        _commandTarget = DotNetObjectReference.Create(this);
+        _editor = await _module.InvokeAsync<IJSObjectReference>(
+            "createEditor",
+            _editorElement,
+            DefaultSource,
+            _commandTarget);
+        _status = "Ready";
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task InvokeEditorCommand(string command) =>
+        command == "run" ? CompileAndRunAsync() : CompileAsync();
+
+    private Task CompileAsync() => CompileCoreAsync(run: false);
+
+    private Task CompileAndRunAsync() => CompileCoreAsync(run: true);
+
+    private async Task CompileCoreAsync(bool run)
+    {
+        if (_isBusy || _editor is null)
+            return;
+
+        _isBusy = true;
+        _status = "Compiling";
+        _output = string.Empty;
+        _diagnostics = [];
+
+        try
+        {
+            var source = await _editor.InvokeAsync<string>("getValue");
+            await Task.Yield();
+            var compilation = Compiler.Compile(source);
+            _diagnostics = compilation.Diagnostics;
+
+            if (!compilation.Success || compilation.AssemblyImage is null)
+            {
+                _status = "Compile error";
+                _output = "Compilation failed.";
+                return;
+            }
+
+            if (!run)
+            {
+                _status = "Compiled";
+                _output = $"Compiled successfully ({compilation.AssemblyImage.Length:N0} bytes).";
+                return;
+            }
+
+            _status = "Running";
+            await Task.Yield();
+            var execution = await Runner.RunAsync(compilation.AssemblyImage);
+            _status = "Complete";
+            _output = string.IsNullOrEmpty(execution.Output)
+                ? $"Program exited with code {execution.ExitCode}."
+                : execution.Output;
+        }
+        catch (Exception exception)
+        {
+            _status = run ? "Runtime error" : "Compile error";
+            _output = exception.ToString();
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_editor is not null)
+            await _editor.InvokeVoidAsync("dispose");
+        if (_module is not null)
+            await _module.DisposeAsync();
+        _commandTarget?.Dispose();
+    }
+}
