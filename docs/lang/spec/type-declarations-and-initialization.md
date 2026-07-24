@@ -91,10 +91,11 @@ ref struct IntReference {
 ```
 
 Ref fields are instance-only and cannot be declared in ordinary structs or
-classes. `IFieldSymbol.RefKind` reports `Ref` for both source and consumed
-metadata fields. Their CLR field signatures use the standard `BYREF` element
-type. Dereferencing a managed ref field does not require unsafe mode; raw
-pointer dereferences still do.
+classes, and their referent cannot itself be ref-like or a type parameter that
+allows ref structs. `IFieldSymbol.RefKind` reports `Ref` for both source and
+consumed metadata fields. Their CLR field signatures use the standard `BYREF`
+element type. Dereferencing a managed ref field does not require unsafe mode;
+raw pointer dereferences still do.
 
 A ref struct value cannot escape a function when one of its ref fields refers
 to a local variable, or when one of its ref-like fields contains

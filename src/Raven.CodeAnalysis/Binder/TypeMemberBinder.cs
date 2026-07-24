@@ -572,7 +572,7 @@ internal partial class TypeMemberBinder : Binder
 
             fieldType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
-            if (fieldType is RefTypeSymbol)
+            if (fieldType is RefTypeSymbol refType)
             {
                 if (!_containingType.IsRefLikeType)
                 {
@@ -585,6 +585,14 @@ internal partial class TypeMemberBinder : Binder
                 {
                     _diagnostics.ReportRefFieldCannotBeStatic(
                         decl.Identifier.ValueText,
+                        decl.Identifier.GetLocation());
+                }
+
+                if (SemanticFacts.MayBeRefLike(refType.ElementType))
+                {
+                    _diagnostics.ReportRefFieldCannotReferToRefLikeType(
+                        decl.Identifier.ValueText,
+                        refType.ElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         decl.Identifier.GetLocation());
                 }
             }

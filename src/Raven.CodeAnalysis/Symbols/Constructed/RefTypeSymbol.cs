@@ -17,9 +17,9 @@ internal sealed class RefTypeSymbol : SourceSymbol, ITypeSymbol
         ElementType = elementType;
     }
 
-    public override string Name => $"{ElementType.Name}&";
+    public override string Name => $"{ElementType?.Name}&";
 
-    public override string MetadataName => ElementType.MetadataName + "&";
+    public override string MetadataName => (ElementType?.MetadataName ?? string.Empty) + "&";
 
     public override SymbolKind Kind => SymbolKind.Type;
     public TypeKind TypeKind => ElementType.TypeKind;

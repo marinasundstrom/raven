@@ -242,6 +242,10 @@
     Title="Ref field cannot be static"
     Message="Ref field '{memberName}' cannot be static"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0349" Identifier="RefFieldCannotReferToRefLikeType"
+    Title="Ref field cannot refer to a ref-like type"
+    Message="Ref field '{memberName}' cannot refer to ref-like type '{typeName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

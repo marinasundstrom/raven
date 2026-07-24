@@ -194,6 +194,32 @@ public sealed class SourceRefStructRestrictionTests : CompilationTestBase
         AssertHasDiagnostic(source, CompilerDiagnostics.RefLikeVariableCannotBeStoredInIterator);
     }
 
+    [Fact]
+    public void RefField_CannotReferToRefStruct()
+    {
+        const string source = """
+            ref struct Inner {}
+
+            ref struct Outer {
+                field Value: &Inner
+            }
+            """;
+
+        AssertHasDiagnostic(source, CompilerDiagnostics.RefFieldCannotReferToRefLikeType);
+    }
+
+    [Fact]
+    public void RefField_CannotReferToRefLikeCapableTypeParameter()
+    {
+        const string source = """
+            ref struct Outer<T> where T: allows ref struct {
+                field Value: &T
+            }
+            """;
+
+        AssertHasDiagnostic(source, CompilerDiagnostics.RefFieldCannotReferToRefLikeType);
+    }
+
     private void AssertHasDiagnostic(string source, DiagnosticDescriptor descriptor)
     {
         var (compilation, _) = CreateCompilation(source);
