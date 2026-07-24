@@ -1,0 +1,19 @@
+func FindFirstEven(numbers: int[]) -> Option<int> {
+    for number in numbers {
+        if number % 2 == 0 {
+            return Some(number)
+        }
+    }
+
+    return None
+}
+
+func DescribeFirstEven(numbers: int[]) -> string {
+    let Some(number) = FindFirstEven(numbers) else {
+        return "No even number found"
+    }
+
+    return "The first even number is $number"
+}
+
+Console.WriteLine(DescribeFirstEven([1, 3, 8, 13]))

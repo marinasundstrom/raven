@@ -16,12 +16,27 @@
   },
   {
     "id": "result",
-    "title": "Expected failure with Result",
+    "title": "Result propagation",
     "file": "result.rvn"
+  },
+  {
+    "id": "option-search",
+    "title": "Option and let…else",
+    "file": "option-search.rvn"
+  },
+  {
+    "id": "projected-parsing",
+    "title": ".NET parsing as typed flow",
+    "file": "projected-parsing.rvn"
   },
   {
     "id": "pipeline",
     "title": "Data flow with pipelines",
     "file": "pipeline.rvn"
+  },
+  {
+    "id": "higher-order",
+    "title": "Functions as values",
+    "file": "higher-order.rvn"
   }
 ]

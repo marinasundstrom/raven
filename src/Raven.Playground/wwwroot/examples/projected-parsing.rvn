@@ -1,0 +1,9 @@
+func DescribePort(text: string) -> string {
+    return int.Parse(text) match {
+        Ok(let port) when port > 0 => "Listening on port $port"
+        Ok(_) => "A port must be positive"
+        Error(_) => "'$text' is not a valid port"
+    }
+}
+
+Console.WriteLine(DescribePort("8080"))

@@ -1,0 +1,9 @@
+func ApplyPricingRule(price: decimal, rule: (decimal) -> decimal) -> decimal {
+    return rule(price)
+}
+
+let salePrice = ApplyPricingRule(
+    price: 80m,
+    rule: price => price * 0.75m)
+
+Console.WriteLine("Sale price: $salePrice credits")

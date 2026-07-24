@@ -1,12 +1,21 @@
-func Divide(total: int, people: int) -> Result<int, string> {
-    if people == 0 {
-        return Error("The group cannot be empty")
+func ReserveSeats(requested: int, available: int) -> Result<int, string> {
+    if requested <= 0 {
+        return Error("Choose at least one seat")
     }
 
-    return Ok(total / people)
+    if requested > available {
+        return Error("Only $available seats remain")
+    }
+
+    return Ok(requested)
 }
 
-match Divide(42, 6) {
-    Ok(let share) => Console.WriteLine("Each person gets $share")
+func PriceBooking(requested: int, available: int, pricePerSeat: int) -> Result<int, string> {
+    let seats = ReserveSeats(requested, available)?
+    return Ok(seats * pricePerSeat)
+}
+
+match PriceBooking(requested: 3, available: 5, pricePerSeat: 40) {
+    Ok(let total) => Console.WriteLine("Booking total: $total credits")
     Error(let message) => Console.WriteLine("Problem: $message")
 }
