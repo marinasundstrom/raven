@@ -918,7 +918,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var methodInfo in _typeInfo.DeclaredMethods)
             {
-                if (_memberNamesLoaded.Contains(methodInfo.Name))
+                if (_memberNamesLoaded.Contains(GetSimpleMetadataMemberName(methodInfo.Name)))
                     continue;
 
                 if (methodInfo.IsSpecialName &&
@@ -945,7 +945,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var propertyInfo in _typeInfo.DeclaredProperties)
             {
-                if (_memberNamesLoaded.Contains(propertyInfo.Name))
+                if (_memberNamesLoaded.Contains(GetSimpleMetadataMemberName(propertyInfo.Name)))
                     continue;
 
                 var property = new PEPropertySymbol(
@@ -1017,7 +1017,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var eventInfo in _typeInfo.DeclaredEvents)
             {
-                if (_memberNamesLoaded.Contains(eventInfo.Name))
+                if (_memberNamesLoaded.Contains(GetSimpleMetadataMemberName(eventInfo.Name)))
                     continue;
 
                 var @event = new PEEventSymbol(
@@ -1051,7 +1051,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var fieldInfo in _typeInfo.DeclaredFields)
             {
-                if (_memberNamesLoaded.Contains(fieldInfo.Name))
+                if (_memberNamesLoaded.Contains(GetSimpleMetadataMemberName(fieldInfo.Name)))
                     continue;
 
                 if (fieldInfo.IsSpecialName)
@@ -1104,7 +1104,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var methodInfo in _typeInfo.DeclaredMethods)
             {
-                if (!string.Equals(methodInfo.Name, name, StringComparison.Ordinal))
+                if (!string.Equals(GetSimpleMetadataMemberName(methodInfo.Name), name, StringComparison.Ordinal))
                     continue;
 
                 if (methodInfo.IsSpecialName &&
@@ -1129,7 +1129,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var propertyInfo in _typeInfo.DeclaredProperties)
             {
-                if (!string.Equals(propertyInfo.Name, name, StringComparison.Ordinal))
+                if (!string.Equals(GetSimpleMetadataMemberName(propertyInfo.Name), name, StringComparison.Ordinal))
                     continue;
 
                 var property = new PEPropertySymbol(
@@ -1199,7 +1199,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
             foreach (var eventInfo in _typeInfo.DeclaredEvents)
             {
-                if (!string.Equals(eventInfo.Name, name, StringComparison.Ordinal))
+                if (!string.Equals(GetSimpleMetadataMemberName(eventInfo.Name), name, StringComparison.Ordinal))
                     continue;
 
                 var @event = new PEEventSymbol(
@@ -1234,7 +1234,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             foreach (var fieldInfo in _typeInfo.DeclaredFields)
             {
                 if (fieldInfo.IsSpecialName ||
-                    !string.Equals(fieldInfo.Name, name, StringComparison.Ordinal))
+                    !string.Equals(GetSimpleMetadataMemberName(fieldInfo.Name), name, StringComparison.Ordinal))
                     continue;
 
                 new PEFieldSymbol(
@@ -1334,6 +1334,15 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         }
 
         return attributes;
+    }
+
+    private static string GetSimpleMetadataMemberName(string metadataName)
+    {
+        if (metadataName is ".ctor" or ".cctor")
+            return metadataName;
+
+        var separator = metadataName.LastIndexOf('.');
+        return separator >= 0 ? metadataName[(separator + 1)..] : metadataName;
     }
 
     private static bool HasExtensionAttribute(IEnumerable<CustomAttributeData> attributes)

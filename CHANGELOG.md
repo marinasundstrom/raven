@@ -20,6 +20,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   metadata and sequence-shaped request paths.
 - Recovered statically bound sequence types when matching nested tuple elements,
   so sequence patterns compose with dictionary and other structural patterns.
+- Made cold metadata member lookup include explicit-interface properties and
+  enabled middle-rest sequence deconstruction over `ImmutableArray<T>`.
 - Added a playground sample that scopes `HttpClient` with `use`, loads the
   deployed example catalog, deserializes its JSON, and models outcomes as a
   union.

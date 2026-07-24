@@ -229,6 +229,31 @@ public class MemberContainer {
     }
 
     [Fact]
+    public void ConstructedMetadataType_GetMembersByName_LoadsExplicitInterfaceProperty()
+    {
+        var compilation = Compilation.Create("pe_explicit_property_lookup", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences(TestMetadataReferences.Default);
+
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var arrayDefinition = Assert.IsType<PENamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray`1"));
+        var arrayOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(arrayDefinition.Construct(intType));
+
+        Assert.False(IsFullyLoaded(arrayDefinition));
+
+        var countProperties = arrayOfInt.GetMembers("Count").OfType<IPropertySymbol>().ToArray();
+
+        Assert.NotEmpty(countProperties);
+        Assert.All(countProperties, static count =>
+        {
+            Assert.Equal("Count", count.Name);
+            Assert.Equal(SpecialType.System_Int32, count.Type.SpecialType);
+            Assert.NotNull(count.GetMethod);
+        });
+        Assert.False(IsFullyLoaded(arrayDefinition));
+    }
+
+    [Fact]
     public void MetadataType_AndReflectionType_ResolveToSameSymbol()
     {
         var compilation = Compilation.Create("pe_identity_single", new CompilationOptions(OutputKind.ConsoleApplication))

@@ -5543,8 +5543,8 @@ internal partial class ExpressionGenerator : Generator
         elementType = access.ElementType;
 
         IILocal collectionLocal;
-        var sameRuntimeCollectionType = !collectionType.IsValueType &&
-                                        ResolveClrType(collectionType) == ResolveClrType(access.InterfaceType);
+        var sameRuntimeCollectionType =
+            ResolveClrType(collectionType) == ResolveClrType(access.InterfaceType);
         if (sameRuntimeCollectionType)
         {
             collectionLocal = valueLocal;
@@ -5565,8 +5565,10 @@ internal partial class ExpressionGenerator : Generator
         var arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
         var arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
 
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.CountGetter));
+        ILGenerator.Emit(access.InterfaceType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(
+            access.InterfaceType.IsValueType ? OpCodes.Call : OpCodes.Callvirt,
+            GetMethodInfo(access.CountGetter));
         ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
 
         ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
@@ -5586,9 +5588,11 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(access.InterfaceType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, collectionLocal);
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
+        ILGenerator.Emit(
+            access.InterfaceType.IsValueType ? OpCodes.Call : OpCodes.Callvirt,
+            GetMethodInfo(access.IndexerGetter));
         EmitStoreElement(elementType);
 
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
@@ -5620,6 +5624,15 @@ internal partial class ExpressionGenerator : Generator
 
         static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
         {
+            if (type.IsValueType)
+            {
+                foreach (var iface in type.AllInterfaces)
+                    yield return iface;
+
+                yield return type;
+                yield break;
+            }
+
             yield return type;
             foreach (var iface in type.AllInterfaces)
                 yield return iface;
@@ -5632,20 +5645,23 @@ internal partial class ExpressionGenerator : Generator
             collectionAccess = default;
 
             var countGetter = candidate
-                .GetMembers("Count")
+                .GetMembers("Length")
+                .Concat(candidate.GetMembers("Count"))
                 .OfType<IPropertySymbol>()
                 .FirstOrDefault(static p =>
+                    p.Name is "Length" or "Count" &&
                     p.Parameters.Length == 0 &&
                     p.Type.SpecialType == SpecialType.System_Int32 &&
-                    p.GetMethod is not null)
+                    p.GetMethod is { DeclaredAccessibility: Accessibility.Public })
                 ?.GetMethod;
             var indexerGetter = candidate
                 .GetMembers("Item")
                 .OfType<IPropertySymbol>()
                 .FirstOrDefault(static p =>
+                    p.Name == "Item" &&
                     p.Parameters.Length == 1 &&
                     p.Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
-                    p.GetMethod is not null)
+                    p.GetMethod is { DeclaredAccessibility: Accessibility.Public })
                 ?.GetMethod;
 
             if (countGetter is null || indexerGetter is null)

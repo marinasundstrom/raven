@@ -11623,24 +11623,27 @@ partial class BlockBinder : Binder
         {
             indexerElementType = default!;
 
-            var hasCount = type
-                .GetMembers("Count")
+            var hasLength = type
+                .GetMembers("Length")
+                .Concat(type.GetMembers("Count"))
                 .OfType<IPropertySymbol>()
                 .Any(static property =>
+                    property.Name is "Count" or "Length" &&
                     property.Parameters.Length == 0 &&
                     property.Type.SpecialType == SpecialType.System_Int32 &&
-                    property.GetMethod is not null);
+                    property.GetMethod is { DeclaredAccessibility: Accessibility.Public });
 
-            if (!hasCount)
+            if (!hasLength)
                 return false;
 
             var indexer = type
                 .GetMembers("Item")
                 .OfType<IPropertySymbol>()
                 .FirstOrDefault(static property =>
+                    property.Name == "Item" &&
                     property.Parameters.Length == 1 &&
                     property.Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
-                    property.GetMethod is not null);
+                    property.GetMethod is { DeclaredAccessibility: Accessibility.Public });
 
             if (indexer is null)
                 return false;
