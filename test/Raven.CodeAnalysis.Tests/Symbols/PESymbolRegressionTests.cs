@@ -23,6 +23,24 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
     }
 
     [Fact]
+    public void MetadataTypes_ReportRefLikeType()
+    {
+        var compilation = Compilation.Create("pe_ref_like_type")
+            .AddReferences(TestMetadataReferences.Default);
+
+        var spanDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Span`1"));
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var spanOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(spanDefinition.Construct(intType));
+        var valueTupleDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.ValueTuple`1"));
+
+        Assert.True(spanDefinition.IsRefLikeType);
+        Assert.True(spanOfInt.IsRefLikeType);
+        Assert.False(valueTupleDefinition.IsRefLikeType);
+    }
+
+    [Fact]
     public void MetadataTypes_ReportDeclaredAccessibility()
     {
         const string metadataSource = """

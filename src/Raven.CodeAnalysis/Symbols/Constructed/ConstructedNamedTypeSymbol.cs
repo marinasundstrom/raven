@@ -938,6 +938,7 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     public ITypeSymbol? ConstructedFrom { get; }
     public bool IsAbstract => _originalDefinition.IsAbstract;
     public bool IsClosed => _originalDefinition.IsClosed;
+    public bool IsRefLikeType => _originalDefinition.IsRefLikeType;
     public bool IsGenericType => _originalDefinition.IsGenericType;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<INamedTypeSymbol> Interfaces =>

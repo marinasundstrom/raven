@@ -574,6 +574,7 @@ public interface INamedTypeSymbol : ITypeSymbol
     bool IsAbstract { get; }
     bool IsClosed { get; }
     bool IsOpen => !IsClosed;
+    bool IsRefLikeType => false;
     bool IsSealedHierarchy => false;
     ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => ImmutableArray<INamedTypeSymbol>.Empty;
 

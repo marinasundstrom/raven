@@ -152,6 +152,8 @@ internal sealed class AliasNamedTypeSymbol : AliasSymbol, INamedTypeSymbol
 
     public bool IsClosed => _type.IsClosed;
 
+    public bool IsRefLikeType => _type.IsRefLikeType;
+
     public bool IsGenericType => _type.IsGenericType;
 
     public bool IsUnboundGenericType => _type.IsUnboundGenericType;
