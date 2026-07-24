@@ -2162,6 +2162,7 @@ partial class BlockBinder : Binder
             DefaultExpressionSyntax defaultExpression => BindDefaultExpression(defaultExpression),
             TypeOfExpressionSyntax typeOfExpression => BindTypeOfExpression(typeOfExpression),
             SizeOfExpressionSyntax sizeOfExpression => BindSizeOfExpression(sizeOfExpression),
+            StackAllocExpressionSyntax stackAllocExpression => BindStackAllocExpression(stackAllocExpression),
             NameOfExpressionSyntax nameOfExpression => BindNameOfExpression(nameOfExpression),
             TupleExpressionSyntax tupleExpression => BindTupleExpression(tupleExpression),
             IfExpressionSyntax ifExpression => BindIfExpression(ifExpression),
@@ -3272,6 +3273,70 @@ partial class BlockBinder : Binder
         var pointerType = Compilation.CreatePointerTypeSymbol(addressOf.ReferencedType);
         var conversion = Compilation.ClassifyConversion(addressOf.Type, pointerType, includeUserDefined: false);
         return new BoundConversionExpression(addressOf, pointerType, conversion);
+    }
+
+    private BoundExpression BindStackAllocExpression(StackAllocExpressionSyntax syntax)
+    {
+        if (!IsUnsafeEnabled)
+        {
+            _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+        }
+
+        var elementType = BindTypeSyntaxAndReport(syntax.ElementType);
+        if (elementType.TypeKind == TypeKind.Error)
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+
+        if (!IsStackAllocElementType(elementType))
+        {
+            _diagnostics.ReportStackAllocElementTypeMustBeUnmanaged(
+                elementType.ToDisplayString(),
+                syntax.ElementType.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+        }
+
+        var intType = Compilation.GetSpecialType(SpecialType.System_Int32);
+        var count = BindExpressionWithTargetType(syntax.Count, intType);
+        var conversion = Compilation.ClassifyConversion(count.Type, intType, includeUserDefined: false);
+        if (!conversion.Exists || !conversion.IsImplicit)
+        {
+            _diagnostics.ReportStackAllocCountMustBeInteger(
+                count.Type.ToDisplayString(),
+                syntax.Count.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+        }
+
+        if (!conversion.IsIdentity)
+            count = new BoundConversionExpression(count, intType, conversion);
+
+        if (count is BoundLiteralExpression { Value: int value } && value < 0)
+        {
+            _diagnostics.ReportStackAllocCountCannotBeNegative(syntax.Count.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.OtherError);
+        }
+
+        var pointerType = Compilation.CreatePointerTypeSymbol(elementType);
+        return new BoundStackAllocExpression(elementType, count, pointerType);
+    }
+
+    private static bool IsStackAllocElementType(ITypeSymbol type)
+    {
+        if (type.TypeKind is TypeKind.Pointer or TypeKind.Enum)
+            return true;
+
+        if (type.SpecialType is not SpecialType.None)
+            return type.IsValueType;
+
+        if (type is ITypeParameterSymbol)
+            return false;
+
+        if (type is not INamedTypeSymbol { IsValueType: true } namedType)
+            return false;
+
+        return namedType.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Where(static field => !field.IsStatic)
+            .All(field => IsStackAllocElementType(field.Type));
     }
 
     private static bool IsInsideUseDeclarationInitializer(SyntaxNode syntax)

@@ -158,6 +158,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitAddressOfExpression(addressOfExpression);
                 break;
 
+            case BoundStackAllocExpression stackAllocExpression:
+                EmitStackAllocExpression(stackAllocExpression);
+                break;
+
             case BoundDereferenceExpression dereferenceExpression:
                 EmitDereferenceExpression(dereferenceExpression);
                 break;
@@ -2390,6 +2394,15 @@ internal partial class ExpressionGenerator : Generator
             default:
                 throw new NotSupportedException($"Cannot take address of: {addressOf.Symbol}");
         }
+    }
+
+    private void EmitStackAllocExpression(BoundStackAllocExpression stackAlloc)
+    {
+        EmitExpression(stackAlloc.Count);
+        ILGenerator.Emit(OpCodes.Conv_U);
+        ILGenerator.Emit(OpCodes.Sizeof, ResolveClrType(stackAlloc.ElementType));
+        ILGenerator.Emit(OpCodes.Mul_Ovf_Un);
+        ILGenerator.Emit(OpCodes.Localloc);
     }
 
     private void EmitDereferenceExpression(BoundDereferenceExpression dereference)

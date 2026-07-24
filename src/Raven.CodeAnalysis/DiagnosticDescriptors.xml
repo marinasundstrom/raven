@@ -740,6 +740,18 @@
     Message="'fixed' requires an explicit address-of operand written as '&amp;expr'."
     Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1920" Identifier="StackAllocElementTypeMustBeUnmanaged"
+    Title="Stack allocation requires an unmanaged element type"
+    Message="The stack allocation element type '{typeName}' must be unmanaged."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1921" Identifier="StackAllocCountMustBeInteger"
+    Title="Stack allocation count must be an integer"
+    Message="The stack allocation count must be implicitly convertible to 'int'; found '{typeName}'."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1922" Identifier="StackAllocCountCannotBeNegative"
+    Title="Stack allocation count cannot be negative"
+    Message="The stack allocation count cannot be negative."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1917" Identifier="UnsafeModeEnabled"
     Title="Unsafe mode is enabled" Message="Unsafe mode is enabled" Category="compiler"
     Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />

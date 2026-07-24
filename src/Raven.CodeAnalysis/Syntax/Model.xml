@@ -147,6 +147,13 @@
     <Slot Name="OperatorToken" Type="Token" />
     <Slot Name="Expression" Type="Expression" />
   </Node>
+  <Node Name="StackAllocExpression" Inherits="Expression">
+    <Slot Name="StackAllocKeyword" Type="Token" DefaultToken="StackAllocKeyword" />
+    <Slot Name="ElementType" Type="Type" />
+    <Slot Name="OpenBracketToken" Type="Token" DefaultToken="OpenBracketToken" />
+    <Slot Name="Count" Type="Expression" />
+    <Slot Name="CloseBracketToken" Type="Token" DefaultToken="CloseBracketToken" />
+  </Node>
   <!-- Covers postfix operators like increment, decrement, and nullable suppression (!). -->
   <Node Name="PostfixOperatorExpression" Inherits="Expression" HasExplicitKind="true">
     <Slot Name="Expression" Type="Expression" />

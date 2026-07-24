@@ -689,6 +689,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 expr = PrefixOperatorExpression(SyntaxKind.FixedExpression, token, expr);
                 break;
 
+            case SyntaxKind.StackAllocKeyword:
+                expr = ParseStackAllocExpression();
+                break;
+
             case SyntaxKind.StarToken:
                 ReadToken();
                 expr = ParseFactorExpression();
@@ -765,6 +769,16 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             return expr;
 
         return ParseMatchExpressionSuffixes(expr);
+    }
+
+    private StackAllocExpressionSyntax ParseStackAllocExpression()
+    {
+        var stackAllocKeyword = ReadToken();
+        var elementType = new NameSyntaxParser(this).ParseStackAllocElementType();
+        ConsumeTokenOrMissing(SyntaxKind.OpenBracketToken, out var openBracketToken);
+        var count = ParseExpression();
+        ConsumeTokenOrMissing(SyntaxKind.CloseBracketToken, out var closeBracketToken);
+        return StackAllocExpression(stackAllocKeyword, elementType, openBracketToken, count, closeBracketToken);
     }
 
     private UnsafeExpressionSyntax ParseUnsafeExpression()

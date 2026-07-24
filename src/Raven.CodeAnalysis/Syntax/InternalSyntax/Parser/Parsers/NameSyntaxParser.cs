@@ -51,7 +51,15 @@ internal class NameSyntaxParser : SyntaxParser
         return ParseTypeNameElement(allowImplicitFunctionTypeRecovery: false);
     }
 
+    public TypeSyntax ParseStackAllocElementType()
+    {
+        return ParseTypeNameElement(allowImplicitFunctionTypeRecovery: false, parseArraySuffix: false);
+    }
+
     private TypeSyntax ParseTypeNameElement(bool allowImplicitFunctionTypeRecovery)
+        => ParseTypeNameElement(allowImplicitFunctionTypeRecovery, parseArraySuffix: true);
+
+    private TypeSyntax ParseTypeNameElement(bool allowImplicitFunctionTypeRecovery, bool parseArraySuffix)
     {
         if (ConsumeToken(SyntaxKind.AmpersandToken, out var ampToken))
         {
@@ -85,7 +93,8 @@ internal class NameSyntaxParser : SyntaxParser
             name = ParseNameCore();
         }
 
-        name = ParseArrayTypeSuffix(name);
+        if (parseArraySuffix)
+            name = ParseArrayTypeSuffix(name);
 
         if (ConsumeToken(SyntaxKind.QuestionToken, out var questionToken))
         {
