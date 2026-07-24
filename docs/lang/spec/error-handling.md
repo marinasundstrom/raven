@@ -111,6 +111,23 @@ try {
 captures and immediately propagates failures through the enclosing carrier
 context.
 
+These forms are Raven's boundary between exception-based APIs and value-based
+error handling. They let code call an API that throws without forcing the rest
+of the operation to use exception control flow.
+
+### Purpose of `try`
+
+Use `try expr` when the caller needs the exception as data and will decide how
+to handle both outcomes. The resulting `Result` can be matched, transformed,
+stored, or returned like any other value.
+
+### Purpose of `try?`
+
+Use `try? expr` when the current operation also returns a compatible carrier
+and cannot continue after the call fails. It adapts the throwing API and
+propagates the captured exception in one expression, while the success path
+continues with the unwrapped value.
+
 ### Concept
 
 `try expr` evaluates `expr` exactly once. Success produces `Ok(value)` or

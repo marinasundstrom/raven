@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made `Result` propagation extract its error union case structurally instead
+  of depending on `UnwrapError`, preserving failure behavior across runtimes.
 - Added a dispatch-planning playground sample built with immutable collection
   comprehensions, filtering, and collection spreads.
 - Added a contextual playground sample that models fulfillment routes as a

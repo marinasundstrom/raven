@@ -1636,6 +1636,7 @@ internal static class AsyncLowerer
             var enclosingResultType = SubstituteType(node.EnclosingResultType) ?? node.EnclosingResultType;
 
             var okCaseType = SubstituteType(node.OkCaseType) ?? node.OkCaseType;
+            var errorCaseType = SubstituteType(node.ErrorCaseType) ?? node.ErrorCaseType;
 
             var enclosingErrorCtor = SubstituteMethod(node.EnclosingErrorConstructor) ?? node.EnclosingErrorConstructor;
             var unwrapError = SubstituteMethod(node.UnwrapErrorMethod) ?? node.UnwrapErrorMethod;
@@ -1647,6 +1648,7 @@ internal static class AsyncLowerer
                 SymbolEqualityComparer.Default.Equals(errorType, node.ErrorType) &&
                 SymbolEqualityComparer.Default.Equals(enclosingResultType, node.EnclosingResultType) &&
                 SymbolEqualityComparer.Default.Equals(okCaseType, node.OkCaseType) &&
+                SymbolEqualityComparer.Default.Equals(errorCaseType, node.ErrorCaseType) &&
                 SymbolEqualityComparer.Default.Equals(enclosingErrorCtor, node.EnclosingErrorConstructor) &&
                 SymbolEqualityComparer.Default.Equals(unwrapError, node.UnwrapErrorMethod) &&
                 SymbolEqualityComparer.Default.Equals(okValueProperty, node.OkValueProperty))
@@ -1665,6 +1667,7 @@ internal static class AsyncLowerer
                 errorCaseName: node.ErrorCaseName,
                 errorCaseHasPayload: node.ErrorCaseHasPayload,
                 okCaseType: okCaseType,
+                errorCaseType: errorCaseType,
                 okValueProperty: okValueProperty,
                 errorConversion: node.ErrorConversion);
         }

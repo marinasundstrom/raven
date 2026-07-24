@@ -1883,104 +1883,91 @@ internal partial class ExpressionGenerator : Generator
         var targetErrorType = enclosingErrorCtor.Parameters[0].Type;
         var sourceErrorType = expr.ErrorType ?? Compilation.ErrorTypeSymbol;
 
-        // Obtain error payload.
-        if (expr.UnwrapErrorMethod is not null)
-        {
-            // Call the extension/instance method `UnwrapError()`.
-            var m = expr.UnwrapErrorMethod;
-            var mi = GetMethodInfo(m);
+        // Extract the error case structurally instead of depending on a carrier
+        // helper method. Propagation semantics are defined by the union cases.
+        if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
+            throw new InvalidOperationException($"Propagate operand must be a named type: '{expr.Operand.Type}'.");
 
-            if (m.IsExtensionMethod)
+        var tryGetErrorSymbol = operandTypeSymbol
+            .GetMembers("TryGetValue")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(m =>
+                !m.IsStatic &&
+                m.Parameters.Length == 1 &&
+                m.Parameters[0].RefKind == RefKind.Out &&
+                IsErrorCaseType(m.Parameters[0].GetByRefElementType()));
+
+        bool IsErrorCaseType(ITypeSymbol candidate)
+        {
+            if (expr.ErrorCaseType is { } expected)
             {
-                ILGenerator.Emit(OpCodes.Ldloc, tmp);
-                ILGenerator.Emit(OpCodes.Call, mi);
-            }
-            else
-            {
-                if (operandClrType.IsValueType)
+                if (SymbolEqualityComparer.Default.Equals(candidate, expected) ||
+                    SymbolEqualityComparer.Default.Equals(candidate.GetPlainType(), expected.GetPlainType()) ||
+                    candidate.GetPlainType().MetadataIdentityEquals(expected.GetPlainType()))
                 {
-                    ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
-                    ILGenerator.Emit(OpCodes.Call, mi);
-                }
-                else
-                {
-                    ILGenerator.Emit(OpCodes.Ldloc, tmp);
-                    ILGenerator.Emit(OpCodes.Callvirt, mi);
+                    return true;
                 }
             }
+
+            return string.Equals(
+                candidate.TryGetUnionCase()?.Name,
+                expr.ErrorCaseName,
+                StringComparison.Ordinal);
+        }
+
+        if (tryGetErrorSymbol is null)
+            throw new InvalidOperationException($"Missing TryGetValue(out {expr.ErrorCaseName}...) on '{expr.Operand.Type}'.");
+
+        var errorOutSymbolType = tryGetErrorSymbol.Parameters[0].GetByRefElementType();
+        var errorOutType = ResolveClrType(errorOutSymbolType);
+        var tryGetError = CloseMethodOnRuntimeCarrier(operandClrType, GetMethodInfo(tryGetErrorSymbol));
+
+        var errorCaseLocal = ILGenerator.DeclareLocal(errorOutType);
+        if (operandClrType.IsValueType)
+            ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
+        else
+            ILGenerator.Emit(OpCodes.Ldloc, tmp);
+
+        ILGenerator.Emit(OpCodes.Ldloca_S, errorCaseLocal);
+        ILGenerator.Emit(operandClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetError);
+
+        var haveErrorCase = ILGenerator.DefineLabel();
+        var invalidOpCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
+            ?? throw new InvalidOperationException("Missing InvalidOperationException(string) constructor.");
+
+        ILGenerator.Emit(OpCodes.Brtrue, haveErrorCase);
+        ILGenerator.Emit(OpCodes.Ldstr, $"Failed to extract '{expr.ErrorCaseName}' case from '{expr.Operand.Type}'.");
+        ILGenerator.Emit(OpCodes.Newobj, invalidOpCtor);
+        ILGenerator.Emit(OpCodes.Throw);
+        ILGenerator.MarkLabel(haveErrorCase);
+
+        if (SymbolEqualityComparer.Default.Equals(errorOutSymbolType, targetErrorType))
+        {
+            // Payload is directly the out value type.
+            ILGenerator.Emit(OpCodes.Ldloc, errorCaseLocal);
         }
         else
         {
-            // Fallback: extract the error case via TryGetValue(out ErrorCase) and read its payload.
-            if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
-                throw new InvalidOperationException($"Propagate operand must be a named type: '{expr.Operand.Type}'.");
+            var payloadGetter = (errorOutSymbolType as INamedTypeSymbol)?
+                .GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
+                ?? (errorOutSymbolType as INamedTypeSymbol)?
+                    .GetMembers("Error").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
+                ?? (errorOutSymbolType as INamedTypeSymbol)?
+                    .GetMembers("Data").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod;
 
-            var tryGetErrorSymbol = operandTypeSymbol
-                .GetMembers("TryGetValue")
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(m =>
-                    !m.IsStatic &&
-                    m.Parameters.Length == 1 &&
-                    m.Parameters[0].RefKind == RefKind.Out &&
-                    string.Equals(
-                        m.Parameters[0].GetByRefElementType().TryGetUnionCase()?.Name,
-                        expr.ErrorCaseName,
-                        StringComparison.Ordinal));
+            if (payloadGetter is null)
+                throw new InvalidOperationException($"Missing error payload getter on '{errorOutSymbolType}'.");
 
-            if (tryGetErrorSymbol is null)
-                throw new InvalidOperationException($"Missing TryGetValue(out {expr.ErrorCaseName}...) on '{expr.Operand.Type}'.");
-
-            var errorOutSymbolType = tryGetErrorSymbol.Parameters[0].GetByRefElementType();
-            var errorOutType = ResolveClrType(errorOutSymbolType);
-            var tryGetError = CloseMethodOnRuntimeCarrier(operandClrType, GetMethodInfo(tryGetErrorSymbol));
-
-            var errorCaseLocal = ILGenerator.DeclareLocal(errorOutType);
-            if (operandClrType.IsValueType)
-                ILGenerator.Emit(OpCodes.Ldloca_S, tmp);
-            else
-                ILGenerator.Emit(OpCodes.Ldloc, tmp);
-
-            ILGenerator.Emit(OpCodes.Ldloca_S, errorCaseLocal);
-            ILGenerator.Emit(operandClrType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, tryGetError);
-
-            var haveErrorCase = ILGenerator.DefineLabel();
-            var invalidOpCtor = typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })
-                ?? throw new InvalidOperationException("Missing InvalidOperationException(string) constructor.");
-
-            ILGenerator.Emit(OpCodes.Brtrue, haveErrorCase);
-            ILGenerator.Emit(OpCodes.Ldstr, $"Failed to extract '{expr.ErrorCaseName}' case from '{expr.Operand.Type}'.");
-            ILGenerator.Emit(OpCodes.Newobj, invalidOpCtor);
-            ILGenerator.Emit(OpCodes.Throw);
-            ILGenerator.MarkLabel(haveErrorCase);
-
-            if (SymbolEqualityComparer.Default.Equals(errorOutSymbolType, targetErrorType))
+            var payloadGetterInfo = GetMethodInfo(payloadGetter);
+            if (errorOutSymbolType.IsValueType)
             {
-                // Payload is directly the out value type.
-                ILGenerator.Emit(OpCodes.Ldloc, errorCaseLocal);
+                ILGenerator.Emit(OpCodes.Ldloca_S, errorCaseLocal);
+                ILGenerator.Emit(OpCodes.Call, payloadGetterInfo);
             }
             else
             {
-                var payloadGetter = (errorOutSymbolType as INamedTypeSymbol)?
-                    .GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
-                    ?? (errorOutSymbolType as INamedTypeSymbol)?
-                        .GetMembers("Error").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
-                    ?? (errorOutSymbolType as INamedTypeSymbol)?
-                        .GetMembers("Data").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod;
-
-                if (payloadGetter is null)
-                    throw new InvalidOperationException($"Missing error payload getter on '{errorOutSymbolType}'.");
-
-                var payloadGetterInfo = GetMethodInfo(payloadGetter);
-                if (errorOutSymbolType.IsValueType)
-                {
-                    ILGenerator.Emit(OpCodes.Ldloca_S, errorCaseLocal);
-                    ILGenerator.Emit(OpCodes.Call, payloadGetterInfo);
-                }
-                else
-                {
-                    ILGenerator.Emit(OpCodes.Ldloc, errorCaseLocal);
-                    ILGenerator.Emit(OpCodes.Callvirt, payloadGetterInfo);
-                }
+                ILGenerator.Emit(OpCodes.Ldloc, errorCaseLocal);
+                ILGenerator.Emit(OpCodes.Callvirt, payloadGetterInfo);
             }
         }
 

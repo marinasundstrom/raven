@@ -209,14 +209,9 @@ internal static class PropagateLowerer
                 extensionReceiver,
                 requiresReceiverAddress: operandType.IsValueType);
 
-            var errorExpression = CreatePropagateErrorExpression(propagate, operandAccess);
-            if (errorExpression is null)
+            var failureBlock = CreatePropagateFailureBlock(propagate, operandAccess, operandType);
+            if (failureBlock is null)
                 return null;
-
-            var failureBlock = new BoundBlockStatement(new BoundStatement[]
-            {
-                new BoundReturnStatement(errorExpression)
-            });
 
             statements.Add(new BoundIfStatement(
                 tryGetInvocation,
@@ -230,56 +225,76 @@ internal static class PropagateLowerer
             return new PropagateLowering(statements, successExpression);
         }
 
-        private BoundExpression? CreatePropagateErrorExpression(BoundPropagateExpression propagate, BoundExpression operandAccess)
+        private BoundBlockStatement? CreatePropagateFailureBlock(
+            BoundPropagateExpression propagate,
+            BoundExpression operandAccess,
+            ITypeSymbol operandType)
         {
             var ctor = propagate.EnclosingErrorConstructor;
-            var arguments = new List<BoundExpression>();
 
-            if (ctor.Parameters.Length == 1)
+            if (ctor.Parameters.Length == 0)
             {
-                var payload = GetPropagateErrorPayload(propagate, operandAccess);
-                if (payload is null)
-                    return null;
-
-                var targetType = ctor.Parameters[0].Type;
-                payload = ApplyErrorConversion(payload, targetType, propagate.ErrorConversion);
-                arguments.Add(payload);
+                var expression = CreatePropagateErrorExpression(propagate, Array.Empty<BoundExpression>());
+                return new BoundBlockStatement(new BoundStatement[] { new BoundReturnStatement(expression) });
             }
-            else if (ctor.Parameters.Length != 0)
-            {
+
+            if (ctor.Parameters.Length != 1 || propagate.ErrorCaseType is not INamedTypeSymbol errorCaseType)
                 return null;
-            }
 
+            var operandNamedType = operandType.GetPlainType() as INamedTypeSymbol;
+            var tryGetErrorMethod = operandNamedType is null
+                ? null
+                : FindTryGetMethodForCase(operandNamedType, errorCaseType);
+            if (tryGetErrorMethod is null)
+                return null;
+
+            var errorLocalType = tryGetErrorMethod.Parameters[0].GetByRefElementType();
+            var errorLocal = CreateTempLocal("propagateError", errorLocalType, isMutable: true);
+            var errorAccess = new BoundLocalAccess(errorLocal);
+            var receiver = tryGetErrorMethod.IsExtensionMethod ? null : operandAccess;
+            var extensionReceiver = tryGetErrorMethod.IsExtensionMethod ? operandAccess : null;
+            var tryGetErrorInvocation = new BoundInvocationExpression(
+                tryGetErrorMethod,
+                new BoundExpression[] { new BoundAddressOfExpression(errorAccess) },
+                receiver,
+                extensionReceiver,
+                requiresReceiverAddress: operandType.IsValueType);
+
+            var payloadProperty = errorCaseType.GetMembers("Data").OfType<IPropertySymbol>().FirstOrDefault()
+                ?? errorCaseType.GetMembers("Error").OfType<IPropertySymbol>().FirstOrDefault()
+                ?? errorCaseType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+            if (payloadProperty is null)
+                return null;
+
+            BoundExpression payload = new BoundMemberAccessExpression(errorAccess, payloadProperty);
+            payload = ApplyErrorConversion(payload, ctor.Parameters[0].Type, propagate.ErrorConversion);
+            var errorExpression = CreatePropagateErrorExpression(propagate, new[] { payload });
+            var invalidCarrier = new BoundThrowStatement(
+                new BoundDefaultValueExpression(_compilation.GetSpecialType(SpecialType.System_Exception)));
+
+            return new BoundBlockStatement(new BoundStatement[]
+            {
+                new BoundLocalDeclarationStatement(new[]
+                {
+                    new BoundVariableDeclarator(errorLocal, null)
+                }),
+                new BoundIfStatement(
+                    tryGetErrorInvocation,
+                    new BoundBlockStatement(new BoundStatement[] { new BoundReturnStatement(errorExpression) }),
+                    new BoundBlockStatement(new BoundStatement[] { invalidCarrier }))
+            });
+        }
+
+        private BoundExpression CreatePropagateErrorExpression(
+            BoundPropagateExpression propagate,
+            IReadOnlyList<BoundExpression> arguments)
+        {
+            var ctor = propagate.EnclosingErrorConstructor;
             BoundExpression errorCaseExpression = ctor.MethodKind == MethodKind.Constructor
                 ? new BoundObjectCreationExpression(ctor, arguments)
                 : new BoundInvocationExpression(ctor, arguments);
 
             return ApplyConversionIfNeeded(errorCaseExpression, propagate.EnclosingResultType);
-        }
-
-        private BoundExpression? GetPropagateErrorPayload(BoundPropagateExpression propagate, BoundExpression operandAccess)
-        {
-            if (propagate.UnwrapErrorMethod is { } unwrapMethod)
-            {
-                var receiver = unwrapMethod.IsExtensionMethod ? null : operandAccess;
-                var extensionReceiver = unwrapMethod.IsExtensionMethod ? operandAccess : null;
-
-                return new BoundInvocationExpression(
-                    unwrapMethod,
-                    Array.Empty<BoundExpression>(),
-                    receiver,
-                    extensionReceiver,
-                    requiresReceiverAddress: receiver?.Type?.IsValueType == true);
-            }
-
-            var operandNamed = operandAccess.Type as INamedTypeSymbol;
-            if (operandNamed is null)
-                return null;
-
-            var errorProperty = operandNamed.GetMembers("ErrorValue").OfType<IPropertySymbol>().FirstOrDefault()
-                ?? operandNamed.GetMembers("Payload").OfType<IPropertySymbol>().FirstOrDefault();
-
-            return errorProperty is null ? null : new BoundMemberAccessExpression(operandAccess, errorProperty);
         }
 
         private BoundExpression CreatePropagateSuccessExpression(BoundPropagateExpression propagate, BoundLocalAccess okAccess)
@@ -329,6 +344,19 @@ internal static class PropagateLowerer
                 SymbolEqualityComparer.Default.Equals(m.Parameters[0].GetByRefElementType().GetPlainType(), okPayloadType));
 
             return payloadMatch ?? candidates[0];
+        }
+
+        private static IMethodSymbol? FindTryGetMethodForCase(INamedTypeSymbol operandType, ITypeSymbol caseType)
+        {
+            var expected = caseType.GetPlainType();
+            return operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
+                .Where(method => method.Parameters.Length == 1 && method.Parameters[0].RefKind == RefKind.Out)
+                .FirstOrDefault(method =>
+                {
+                    var parameterType = method.Parameters[0].GetByRefElementType().GetPlainType();
+                    return SymbolEqualityComparer.Default.Equals(parameterType, expected) ||
+                        parameterType.MetadataIdentityEquals(expected);
+                });
         }
 
         private BoundExpression ApplyErrorConversion(BoundExpression payload, ITypeSymbol targetType, Conversion conversion)

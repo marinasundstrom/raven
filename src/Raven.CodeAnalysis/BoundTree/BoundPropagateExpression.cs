@@ -22,6 +22,7 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
             errorCaseName,
             errorCaseHasPayload,
             okCaseType: null,
+            errorCaseType: null,
             okValueProperty: null,
             unwrapErrorMethod: null,
             errorConversion: default,
@@ -39,6 +40,7 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
         string errorCaseName,
         bool errorCaseHasPayload,
         ITypeSymbol? okCaseType,
+        ITypeSymbol? errorCaseType,
         IPropertySymbol? okValueProperty,
         IMethodSymbol? unwrapErrorMethod,
         Conversion errorConversion,
@@ -54,6 +56,7 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
         ErrorCaseName = errorCaseName;
         ErrorCaseHasPayload = errorCaseHasPayload;
         OkCaseType = okCaseType;
+        ErrorCaseType = errorCaseType;
         OkValueProperty = okValueProperty;
         UnwrapErrorMethod = unwrapErrorMethod;
         ErrorConversion = errorConversion;
@@ -106,6 +109,12 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     /// Useful for lowering via `TryGetValue(out OkCase)`.
     /// </summary>
     public ITypeSymbol? OkCaseType { get; }
+
+    /// <summary>
+    /// The concrete short-circuit case type (e.g. Result&lt;T,E&gt;.Error) if known.
+    /// Useful for lowering via `TryGetValue(out ErrorCase)`.
+    /// </summary>
+    public ITypeSymbol? ErrorCaseType { get; }
 
     /// <summary>
     /// The property on the Ok case that yields the payload (typically `Value`) if known.

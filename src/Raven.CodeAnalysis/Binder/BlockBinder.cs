@@ -4413,26 +4413,6 @@ partial class BlockBinder : Binder
             }
         }
 
-        IMethodSymbol? unwrapErrorMethod = null;
-        if (operandInfo.Kind == PropagationKind.Result && operandInfo.ErrorCaseHasPayload)
-        {
-            unwrapErrorMethod = operandInfo.UnionType
-                .GetMembers("UnwrapError")
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(method =>
-                    !method.IsStatic &&
-                    method.Parameters.Length == 0);
-
-            unwrapErrorMethod ??= LookupExtensionMethods("UnwrapError", operandInfo.UnionType)
-                .FirstOrDefault(method =>
-                    method.IsExtensionMethod &&
-                    method.Parameters.Length == 1 &&
-                    (operandInfo.ErrorPayloadType is null ||
-                     SymbolEqualityComparer.Default.Equals(
-                         method.ReturnType.GetPlainType(),
-                         operandInfo.ErrorPayloadType.GetPlainType())));
-        }
-
         // Lowering/codegen will branch, extract the error payload when available, convert if needed, and early-return.
         return new BoundPropagateExpression(
             operand,
@@ -4444,8 +4424,9 @@ partial class BlockBinder : Binder
             errorCaseName: operandInfo.ErrorCaseName,
             errorCaseHasPayload: operandInfo.ErrorCaseHasPayload,
             okCaseType: operandInfo.OkCaseType,
+            errorCaseType: operandInfo.ErrorCase,
             okValueProperty: okValueProperty,
-            unwrapErrorMethod: unwrapErrorMethod,
+            unwrapErrorMethod: null,
             errorConversion: errorConversion);
     }
 

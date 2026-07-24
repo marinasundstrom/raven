@@ -5,6 +5,12 @@
 `try` captures exceptions as values. `try?` combines capture with carrier
 propagation.
 
+Together, these forms provide an interop boundary from exception-throwing APIs
+to Raven's value-based error flow. `try` is appropriate when code needs to
+inspect or transform the captured failure locally. `try?` is appropriate when
+the enclosing carrier-returning operation cannot continue and should propagate
+that failure immediately.
+
 | Form | Result type | Success case | Failure case |
 | --- | --- | --- | --- |
 | `try expr` | `Result<T, Exception>` | `Ok(value)` or `Ok(())` | `Error(exception)` |

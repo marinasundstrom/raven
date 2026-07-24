@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
@@ -13,6 +14,49 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class TryExpressionCodeGenTests(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
+
+    [Fact]
+    public void TryPropagation_AdaptsThrowingApiOnSuccessAndFailure()
+    {
+        const string code = """
+import System.*
+
+class Runner {
+    static func Import(text: string) -> Result<int, Exception> {
+        val value = try? Convert.ToInt32(text)
+        return .Ok(value)
+    }
+
+    static func Run(text: string) -> string {
+        return Import(text) match {
+            .Ok(let value) => "value: $value"
+            .Error(let error) => "error: ${error.Message}"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = GetReferencesWithRavenCore();
+        var compilation = Compilation.Create(
+            "try-propagation-throwing-api",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var emitResult = compilation.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        peStream.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var run = loaded.Assembly.GetType("Runner")!.GetMethod(
+            "Run",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.Equal("value: 42", run.Invoke(null, ["42"]));
+        Assert.StartsWith("error: ", Assert.IsType<string>(run.Invoke(null, ["expired"])));
+    }
 
     [Fact]
     public void TryPropagation_WithResultOperand_PassesIlVerifyWhenToolAvailable()
