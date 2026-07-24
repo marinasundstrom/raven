@@ -1,0 +1,40 @@
+import System.Collections.Generic.*
+
+record WebhookRequest(
+    Path: string,
+    Headers: IReadOnlyDictionary<string, string>
+)
+
+func Route(request: WebhookRequest) -> string {
+    let segments = request.Path.Split("/")
+
+    return request.Headers match {
+        ["x-event": "parcel.scanned", "x-region": val region] =>
+            segments match {
+                ["", "parcels", val parcelId, ...] =>
+                    "Queue scan for $parcelId in $region"
+                _ => "Reject unknown parcel path"
+            }
+
+        ["x-event": "parcel.delivered"] =>
+            segments match {
+                ["", "parcels", val parcelId, ...] =>
+                    "Close delivery for $parcelId"
+                _ => "Reject unknown parcel path"
+            }
+
+        _ => "Ignore unsupported webhook"
+    }
+}
+
+let headers: IReadOnlyDictionary<string, string> = [
+    "x-event": "parcel.scanned"
+    "x-region": "north"
+]
+
+let request = WebhookRequest(
+    "/parcels/PKG-104/events",
+    headers
+)
+
+Console.WriteLine(Route(request))

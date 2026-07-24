@@ -50,6 +50,11 @@
     "file": "telemetry-stream.rvn"
   },
   {
+    "id": "webhook-routing",
+    "title": "Webhook routing with structural patterns",
+    "file": "webhook-routing.rvn"
+  },
+  {
     "id": "http-json",
     "title": "Loading JSON over HTTP",
     "file": "http-json.rvn"
