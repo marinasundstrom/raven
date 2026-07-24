@@ -100,17 +100,19 @@ try {
   const examples = await (await fetch(`${url}examples/index.json`)).json();
   for (const example of examples) {
     await examplePicker.selectOption(example.id);
-    await page.getByRole("button", { name: /Compile/ }).click();
+    await page.getByRole("button", { name: /^Run/ }).click();
     await page.getByText("Compiling", { exact: true }).waitFor();
     await page.waitForFunction(
-      () => document.querySelector(".status-pill")?.textContent?.trim() !== "Compiling",
+      () => ["Complete", "Compile error", "Runtime error"].includes(
+        document.querySelector(".status-pill")?.textContent?.trim(),
+      ),
       { timeout: 30_000 },
     );
     const exampleStatus = (await page.locator(".status-pill").textContent())?.trim();
-    if (exampleStatus !== "Compiled") {
+    if (exampleStatus !== "Complete") {
       const output = await page.locator(".output-panel").textContent();
       throw new Error(
-        `Expected example '${example.id}' to compile, got ${exampleStatus}: ${output}`,
+        `Expected example '${example.id}' to run, got ${exampleStatus}: ${output}`,
       );
     }
   }

@@ -9,7 +9,6 @@
     <PlaygroundRuntimePackVersion>10.0.0</PlaygroundRuntimePackVersion>
     <RuntimeFrameworkVersion>$(PlaygroundRuntimePackVersion)</RuntimeFrameworkVersion>
     <PlaygroundRuntimePackPath>$(NuGetPackageRoot)microsoft.netcore.app.runtime.mono.browser-wasm/$(PlaygroundRuntimePackVersion)</PlaygroundRuntimePackPath>
-    <PlaygroundTargetingPackPath>$(NetCoreTargetingPackRoot)/Microsoft.NETCore.App.Ref/$(PlaygroundRuntimePackVersion)/ref/net10.0</PlaygroundTargetingPackPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,17 +29,32 @@
   </Target>
 
   <ItemGroup>
-    <PlaygroundFrameworkAssembly Include="$(PlaygroundRuntimePackPath)/runtimes/browser-wasm/native/System.Private.CoreLib.dll">
-      <AssemblyName>System.Private.CoreLib</AssemblyName>
-    </PlaygroundFrameworkAssembly>
-    <PlaygroundFrameworkAssembly Include="$(PlaygroundTargetingPackPath)/*.dll">
-      <AssemblyName>%(Filename)</AssemblyName>
-    </PlaygroundFrameworkAssembly>
-
-    <EmbeddedResource Include="@(PlaygroundFrameworkAssembly)"
-                      LogicalName="Raven.Playground.Framework.%(Filename).dll" />
     <EmbeddedResource Include="..\Raven.Core\bin\$(Configuration)\net10.0\Raven.Core.dll"
                       LogicalName="Raven.Playground.Framework.Raven.Core.dll" />
   </ItemGroup>
+
+  <Target Name="EmbedPlaygroundFrameworkAssemblies"
+          BeforeTargets="AssignTargetPaths"
+          DependsOnTargets="ResolveFrameworkReferences">
+    <ItemGroup>
+      <PlaygroundTargetingPack Include="@(ResolvedFrameworkReference)"
+                               Condition="'%(Identity)' == 'Microsoft.NETCore.App'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <PlaygroundTargetingPackPath>@(PlaygroundTargetingPack->'%(TargetingPackPath)')</PlaygroundTargetingPackPath>
+    </PropertyGroup>
+    <ItemGroup>
+      <PlaygroundFrameworkAssembly Include="$(PlaygroundRuntimePackPath)/runtimes/browser-wasm/native/System.Private.CoreLib.dll" />
+      <PlaygroundFrameworkAssembly Include="$(PlaygroundTargetingPackPath)/ref/$(TargetFramework)/*.dll" />
+      <PlaygroundSystemRuntime Include="@(PlaygroundFrameworkAssembly)"
+                               Condition="'%(Filename)' == 'System.Runtime'" />
+      <EmbeddedResource Include="@(PlaygroundFrameworkAssembly)"
+                        LogicalName="Raven.Playground.Framework.%(Filename).dll" />
+    </ItemGroup>
+    <Error Condition="'$(PlaygroundTargetingPackPath)' == ''"
+           Text="The Microsoft.NETCore.App targeting pack could not be resolved for the playground." />
+    <Error Condition="'@(PlaygroundSystemRuntime)' == ''"
+           Text="System.Runtime.dll was not found in the resolved playground targeting pack at '$(PlaygroundTargetingPackPath)'." />
+  </Target>
 
 </Project>

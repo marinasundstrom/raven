@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Resolved the playground's embedded .NET reference assemblies from MSBuild's
+  selected targeting pack instead of assuming its patch version matched the
+  browser runtime pack. Static builds now fail early if `System.Runtime` is
+  absent, and browser coverage executes every registered example.
 - Made PE attribute discovery tolerate missing transitive metadata dependencies,
   preventing wildcard namespace imports from crashing browser compilation when
   a nonessential attribute assembly cannot be resolved.
