@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Computed async resume dispatch from the fully lowered protected-region tree
   and entered nested guards at their boundaries, preventing branches into
   `try` regions for `try? await` and Result propagation.
+- Lowered non-`use` async bodies before suspension rewriting so a `try await`
+  expression consumed by a match cannot acquire an unguarded protected region.
 - Emitted sequential storage for unions containing managed references while
   retaining compact explicit storage for unmanaged-only unions, preventing
   invalid overlapping object/value fields across runtimes.

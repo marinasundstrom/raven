@@ -236,13 +236,16 @@ internal static class AsyncLowerer
         var compilation = GetCompilation(symbol);
         if (!compilation.Options.UseRuntimeAsync)
         {
+            var stateMachineHasUsingDeclaration = ContainsUsingDeclaration(body);
             var preStateMachineMatchLowerer = new AsyncMatchLowerer(symbol);
             var preStateMachineMatchLowered = preStateMachineMatchLowerer.Rewrite(body);
 
             // For state-machine async we must still preserve implicit returns (last expression in a block)
             // without lowering `use` declarations into try/finally (which would dispose too early on suspension).
             var withImplicitReturn = RewriteImplicitReturnIfNeeded(symbol, preStateMachineMatchLowered);
-            return withImplicitReturn;
+            return stateMachineHasUsingDeclaration
+                ? withImplicitReturn
+                : Lowerer.LowerBlock(symbol, withImplicitReturn);
         }
 
         var hadUsingDeclaration = ContainsUsingDeclaration(body);
@@ -749,13 +752,17 @@ internal static class AsyncLowerer
 
         var entryLabel = CreateLabel(stateMachine, "state");
 
+        var lowerAfterAwaitRewrite = ContainsUsingDeclaration(originalBody);
         var awaitRewriter = new AwaitLoweringRewriter(stateMachine, context.BuilderMembers);
         var rewrittenBody = awaitRewriter.Rewrite(originalBody);
 
         // Await rewriting can expose propagation and other general constructs whose
         // lowering introduces protected regions. Materialize those regions before
         // dispatch injection so resume guards are computed from the final try shape.
-        rewrittenBody = Lowerer.LowerBlock(stateMachine.MoveNextMethod, rewrittenBody);
+        // Bodies without `use` were fully lowered before await rewriting. Bodies with
+        // `use` must defer general lowering so disposal remains suspension-aware.
+        if (lowerAfterAwaitRewrite)
+            rewrittenBody = Lowerer.LowerBlock(stateMachine.MoveNextMethod, rewrittenBody);
 
         rewrittenBody = StateDispatchInjector.Inject(
             rewrittenBody,
@@ -2325,19 +2332,18 @@ internal static class AsyncLowerer
             if (node is null)
                 return null;
 
-            var containsAwait = ContainsAwait(node.Expression);
-
-            BoundBlockStatement? guardPlaceholder = null;
-            if (containsAwait)
-            {
-                guardPlaceholder = new BoundBlockStatement(Array.Empty<BoundStatement>());
-                _tryBlocks.Push(guardPlaceholder);
-            }
+            var dispatchCount = _dispatches.Count;
+            var guardPlaceholder = new BoundBlockStatement(Array.Empty<BoundStatement>());
+            _tryBlocks.Push(guardPlaceholder);
 
             var expression = VisitExpression(node.Expression) ?? node.Expression;
 
-            if (guardPlaceholder is not null)
-                _tryBlocks.Pop();
+            _tryBlocks.Pop();
+
+            // Match and other expression lowering can hide an await from a
+            // shape-based pre-scan. The authoritative signal is whether visiting
+            // this try operand actually introduced a suspension state.
+            var containsAwait = _dispatches.Count > dispatchCount;
 
             if (containsAwait)
             {
@@ -2420,8 +2426,7 @@ internal static class AsyncLowerer
                 tryStatements.Add(new BoundExpressionStatement(assignment));
                 var tryBlock = new BoundBlockStatement(tryStatements);
 
-                if (guardPlaceholder is not null)
-                    _blockMap[guardPlaceholder] = tryBlock;
+                _blockMap[guardPlaceholder] = tryBlock;
 
                 var exceptionLocal = new SourceLocalSymbol(
                     "$tryExprException",

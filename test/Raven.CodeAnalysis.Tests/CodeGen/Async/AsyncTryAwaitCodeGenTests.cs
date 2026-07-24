@@ -125,6 +125,34 @@ class Program {
     }
 
     [Fact]
+    public void TryAwaitExpression_AsMatchInput_EmitsAndRuns()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async func Fetch() -> Task<int> {
+        await Task.Delay(1)
+        return 42
+    }
+
+    static async func Main() -> Task {
+        val text = try await Program.Fetch() match {
+            .Ok(val value) => value.ToString()
+            .Error(Exception ex) => ex.Message
+        }
+
+        Console.WriteLine(text)
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "42" }, output);
+    }
+
+    [Fact]
     public void AsyncUse_WithResultMatchReturn_EmitsValidSetResultCall()
     {
         const string code = """
