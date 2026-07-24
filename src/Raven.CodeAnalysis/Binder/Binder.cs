@@ -1514,6 +1514,12 @@ internal abstract partial class Binder
 
             var constraintKind = typeParameter.ConstraintKind;
 
+            if (SemanticFacts.MayBeRefLike(typeArgument) &&
+                (constraintKind & TypeParameterConstraintKind.AllowByRefLike) == 0)
+            {
+                return false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
                 !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
@@ -2015,6 +2021,13 @@ internal abstract partial class Binder
             var typeArgument = typeArguments[i];
             var constraintKind = typeParameter.ConstraintKind;
 
+            if (SemanticFacts.MayBeRefLike(typeArgument) &&
+                (constraintKind & TypeParameterConstraintKind.AllowByRefLike) == 0)
+            {
+                ReportConstraintViolation(typeArgument, "non-ref-like", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
+
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 && !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {
                 ReportConstraintViolation(typeArgument, "class", typeParameter, displayName, getArgumentLocation(i));
@@ -2172,6 +2185,13 @@ internal abstract partial class Binder
             var typeParameter = typeParameters[i];
             var typeArgument = typeArguments[i];
             var constraintKind = typeParameter.ConstraintKind;
+
+            if (SemanticFacts.MayBeRefLike(typeArgument) &&
+                (constraintKind & TypeParameterConstraintKind.AllowByRefLike) == 0)
+            {
+                ReportConstraintViolation(typeArgument, "non-ref-like", typeParameter, displayName, getArgumentLocation(i));
+                allSatisfied = false;
+            }
 
             if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 && !SemanticFacts.SatisfiesReferenceTypeConstraint(typeArgument))
             {

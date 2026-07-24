@@ -96,6 +96,9 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
             if ((attributes & GenericParameterAttributes.NotNullableValueTypeConstraint) != 0)
                 kind |= TypeParameterConstraintKind.ValueType;
 
+            if ((attributes & GenericParameterAttributes.AllowByRefLike) != 0)
+                kind |= TypeParameterConstraintKind.AllowByRefLike;
+
             if (_constraintRuntimeTypes.Length > 0)
                 kind |= TypeParameterConstraintKind.TypeConstraint;
 

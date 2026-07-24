@@ -41,6 +41,30 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
     }
 
     [Fact]
+    public void MetadataTypeParameters_ReportWhetherTheyAllowRefLikeArguments()
+    {
+        var compilation = Compilation.Create("pe_ref_like_generic_parameters")
+            .AddReferences(TestMetadataReferences.Default);
+
+        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+        var actionDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Action`1"));
+        var spanDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("System.Span`1"));
+        var spanOfInt = spanDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+
+        Assert.Equal(
+            TypeParameterConstraintKind.None,
+            listDefinition.TypeParameters[0].ConstraintKind & TypeParameterConstraintKind.AllowByRefLike);
+        Assert.Equal(
+            TypeParameterConstraintKind.AllowByRefLike,
+            actionDefinition.TypeParameters[0].ConstraintKind & TypeParameterConstraintKind.AllowByRefLike);
+        Assert.False(spanOfInt.SatisfiesConstraints(listDefinition.TypeParameters[0]));
+        Assert.True(spanOfInt.SatisfiesConstraints(actionDefinition.TypeParameters[0]));
+    }
+
+    [Fact]
     public void MetadataTypes_ReportDeclaredAccessibility()
     {
         const string metadataSource = """

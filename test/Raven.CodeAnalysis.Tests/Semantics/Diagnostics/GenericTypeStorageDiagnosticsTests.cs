@@ -64,4 +64,36 @@ func Main() {
 
         Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
     }
+
+    [Fact]
+    public void GenericType_WithoutAllowByRefLike_RejectsSpanArgument()
+    {
+        const string source = """
+func Main() {
+    Reject<System.Span<int>>()
+}
+
+func Reject<T>() {}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+    }
+
+    [Fact]
+    public void GenericType_WithAllowByRefLike_AcceptsSpanArgument()
+    {
+        const string source = """
+func Main() {
+    val type = typeof(System.Action<System.Span<int>>)
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+    }
 }

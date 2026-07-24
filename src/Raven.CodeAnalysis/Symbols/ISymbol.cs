@@ -543,6 +543,7 @@ public enum TypeParameterConstraintKind
     TypeConstraint = 1 << 2,
     NotNull = 1 << 3,
     Constructor = 1 << 4,
+    AllowByRefLike = 1 << 5,
 }
 
 public enum VarianceKind

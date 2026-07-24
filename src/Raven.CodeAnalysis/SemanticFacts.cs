@@ -79,6 +79,12 @@ public static class SemanticFacts
 
         var constraintKind = typeParameter.ConstraintKind;
 
+        if (MayBeRefLike(typeArgument) &&
+            (constraintKind & TypeParameterConstraintKind.AllowByRefLike) == 0)
+        {
+            return false;
+        }
+
         if ((constraintKind & TypeParameterConstraintKind.ReferenceType) != 0 &&
             !SatisfiesReferenceTypeConstraint(typeArgument))
         {
@@ -117,6 +123,11 @@ public static class SemanticFacts
 
         return true;
     }
+
+    public static bool MayBeRefLike(ITypeSymbol type)
+        => type is INamedTypeSymbol { IsRefLikeType: true } ||
+           type is ITypeParameterSymbol typeParameter &&
+           (typeParameter.ConstraintKind & TypeParameterConstraintKind.AllowByRefLike) != 0;
 
     public static bool SatisfiesReferenceTypeConstraint(ITypeSymbol type)
     {
