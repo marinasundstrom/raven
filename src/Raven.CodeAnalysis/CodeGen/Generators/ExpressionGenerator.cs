@@ -2441,6 +2441,21 @@ internal partial class ExpressionGenerator : Generator
     {
         var target = collectionExpression.Type.GetPlainType();
 
+        if (TryGetSpanCollectionElementType(target, out var spanElementType))
+        {
+            var arrayType = Compilation.CreateArrayTypeSymbol(spanElementType);
+            var arrayCollection = new BoundCollectionExpression(arrayType, collectionExpression.Elements);
+            EmitCollectionExpression(arrayCollection);
+
+            var conversion = Compilation.ClassifyConversion(arrayType, target);
+            if (!conversion.Exists || !conversion.IsImplicit)
+                throw new InvalidOperationException(
+                    $"Missing implicit array-to-span conversion from '{arrayType}' to '{target}'.");
+
+            EmitConversion(arrayType, target, conversion);
+            return;
+        }
+
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
             if (arrayTypeSymbol.Rank != 1)
@@ -2712,6 +2727,24 @@ internal partial class ExpressionGenerator : Generator
 
         ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(createRange));
+        return true;
+    }
+
+    private static bool TryGetSpanCollectionElementType(
+        ITypeSymbol type,
+        out ITypeSymbol elementType)
+    {
+        elementType = null!;
+
+        if (type is not INamedTypeSymbol named ||
+            named.TypeArguments.Length != 1 ||
+            named.ContainingNamespace?.ToDisplayString() != "System" ||
+            named.Name is not ("Span" or "ReadOnlySpan"))
+        {
+            return false;
+        }
+
+        elementType = named.TypeArguments[0];
         return true;
     }
 
@@ -4254,6 +4287,12 @@ internal partial class ExpressionGenerator : Generator
     private void EmitEmptyCollectionExpression(BoundEmptyCollectionExpression emptyCollectionExpression)
     {
         var target = emptyCollectionExpression.Type;
+
+        if (TryGetSpanCollectionElementType(target, out _))
+        {
+            EmitDefaultValue(target);
+            return;
+        }
 
         // If target is IEnumerable<T>, default to emitting an empty T[] since arrays implement IEnumerable<T>
         var ienumerableDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");

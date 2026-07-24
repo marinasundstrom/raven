@@ -13583,6 +13583,53 @@ partial class BlockBinder : Binder
             return new BoundCollectionExpression(arrayType, converted.ToImmutable());
         }
 
+        if (TryGetSpanElementType(targetType, out var spanElementType))
+        {
+            var converted = ImmutableArray.CreateBuilder<BoundExpression>(elements.Count);
+
+            for (var i = 0; i < elements.Count; i++)
+            {
+                var element = elements[i];
+                var elementSyntax = elementNodes[i];
+
+                if (element is BoundSpreadElement spread)
+                {
+                    var sourceType = GetSpreadElementType(spread.Expression.Type!);
+                    if (!IsAssignable(spanElementType, sourceType, out _))
+                    {
+                        ReportCannotConvertFromTypeToType(
+                            sourceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            spanElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+
+                    converted.Add(element);
+                    continue;
+                }
+
+                if (spanElementType.TypeKind != TypeKind.Error &&
+                    ShouldAttemptConversion(element))
+                {
+                    if (!IsAssignable(spanElementType, element.Type!, out var conversion))
+                    {
+                        ReportCannotConvertFromTypeToType(
+                            element.Type!.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            spanElementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            syntax.GetLocation());
+                    }
+                    else
+                    {
+                        converted.Add(ApplyConversion(element, spanElementType, conversion, elementSyntax));
+                        continue;
+                    }
+                }
+
+                converted.Add(element);
+            }
+
+            return new BoundCollectionExpression(targetType!, converted.ToImmutable());
+        }
+
         if (targetType is not null &&
             TryBindCollectionBuilderInvocation(syntax, targetType, elements, elementNodes, out var builderBasedCollection))
         {
@@ -13722,6 +13769,9 @@ partial class BlockBinder : Binder
     {
         if (targetType is IArrayTypeSymbol arrayTarget)
             return arrayTarget.ElementType;
+
+        if (TryGetSpanElementType(targetType, out var spanElementType))
+            return spanElementType;
 
         if (targetType is not INamedTypeSymbol namedType)
             return null;

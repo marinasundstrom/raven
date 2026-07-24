@@ -196,6 +196,54 @@ class SpanOperations {
             Assert.Throws<TargetInvocationException>(() => readOnlyAt.Invoke(null, [3])).InnerException);
     }
 
+    [Fact]
+    public void CollectionExpressions_TargetSpanAndReadOnlySpan()
+    {
+        const string code = """
+class SpanCollections {
+    static func Mutable() -> int {
+        val values: System.Span<int> = [10, 20, 30]
+        values[1]
+    }
+
+    static func ReadOnly() -> int {
+        val values: System.ReadOnlySpan<int> = [10, 20, 30, 40]
+        values[3]
+    }
+
+    static func Spread() -> int {
+        val middle: int[] = [20, 30]
+        val values: System.ReadOnlySpan<int> = [10, ...middle, 40]
+        values.Length
+    }
+
+    static func Empty() -> int {
+        val values: System.Span<int> = []
+        values.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation
+            .Create("span_collections_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("SpanCollections", throwOnError: true)!;
+
+        Assert.Equal(20, Invoke(type, "Mutable"));
+        Assert.Equal(40, Invoke(type, "ReadOnly"));
+        Assert.Equal(4, Invoke(type, "Spread"));
+        Assert.Equal(0, Invoke(type, "Empty"));
+    }
+
     private static int Invoke(Type type, string methodName)
     {
         var method = type.GetMethod(
