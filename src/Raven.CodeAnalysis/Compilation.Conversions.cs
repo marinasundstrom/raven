@@ -606,6 +606,12 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: false, isNumeric: true));
         }
 
+        if (includeUserDefined &&
+            TryClassifyCovariantReadOnlySpanConversion(source, destination, out var covariantReadOnlySpanConversion))
+        {
+            return Finalize(covariantReadOnlySpanConversion);
+        }
+
         var sourceNamed = source as INamedTypeSymbol;
         var destinationNamed = destination as INamedTypeSymbol;
 
@@ -884,6 +890,89 @@ public partial class Compilation
 
             return true;
         }
+    }
+
+    private bool TryClassifyCovariantReadOnlySpanConversion(
+        ITypeSymbol source,
+        ITypeSymbol destination,
+        out Conversion conversion)
+    {
+        conversion = Conversion.None;
+
+        if (!TryGetReadOnlySpanElementType(destination, out var destinationElementType) ||
+            !TryGetSpanConversionSourceElementType(source, out var sourceElementType) ||
+            SymbolEqualityComparer.Default.Equals(sourceElementType, destinationElementType))
+        {
+            return false;
+        }
+
+        var elementConversion = ClassifyConversion(
+            sourceElementType,
+            destinationElementType,
+            includeUserDefined: false);
+
+        if (!elementConversion.IsImplicit || !elementConversion.IsReference)
+            return false;
+
+        var destinationNamed = (INamedTypeSymbol)destination;
+        var castUp = destinationNamed
+            .GetMembers("CastUp")
+            .OfType<IMethodSymbol>()
+            .FirstOrDefault(static method =>
+                method.IsStatic &&
+                method.Arity == 1 &&
+                method.Parameters.Length == 1);
+
+        if (castUp is null)
+            return false;
+
+        var constructedCastUp = castUp.Construct(sourceElementType);
+        conversion = new Conversion(
+            isImplicit: true,
+            isUserDefined: true,
+            methodSymbol: constructedCastUp);
+        return true;
+    }
+
+    private static bool TryGetReadOnlySpanElementType(
+        ITypeSymbol type,
+        out ITypeSymbol elementType)
+    {
+        elementType = null!;
+
+        if (type is not INamedTypeSymbol named ||
+            named.TypeArguments.Length != 1 ||
+            named.Name != "ReadOnlySpan" ||
+            named.ContainingNamespace?.ToDisplayString() != "System")
+        {
+            return false;
+        }
+
+        elementType = named.TypeArguments[0];
+        return true;
+    }
+
+    private static bool TryGetSpanConversionSourceElementType(
+        ITypeSymbol type,
+        out ITypeSymbol elementType)
+    {
+        if (type is IArrayTypeSymbol { Rank: 1 } array)
+        {
+            elementType = array.ElementType;
+            return true;
+        }
+
+        elementType = null!;
+        if (type is not INamedTypeSymbol named ||
+            named.TypeArguments.Length != 1 ||
+            named.ContainingNamespace?.ToDisplayString() != "System" ||
+            named.Name is not ("Span" or "ReadOnlySpan"))
+        {
+            return false;
+        }
+
+        elementType = named.TypeArguments[0];
+        return true;
     }
 
     private readonly record struct ConversionCacheKey(

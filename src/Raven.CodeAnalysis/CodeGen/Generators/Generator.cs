@@ -247,7 +247,10 @@ internal abstract class Generator
             var parameterType = userDefinedMethod.Parameters[0].Type;
             if (!SymbolEqualityComparer.Default.Equals(from, parameterType))
             {
-                var parameterConversion = Compilation.ClassifyConversion(from, parameterType, includeUserDefined: false);
+                var parameterConversion = Compilation.ClassifyConversion(
+                    from,
+                    parameterType,
+                    includeUserDefined: IsReadOnlySpanCastUpMethod(userDefinedMethod));
                 if (parameterConversion.Exists && parameterConversion.IsImplicit)
                     EmitConversion(from, parameterType, parameterConversion);
             }
@@ -446,6 +449,17 @@ internal abstract class Generator
 
         throw new NotSupportedException("Unsupported conversion");
     }
+
+    private static bool IsReadOnlySpanCastUpMethod(IMethodSymbol method)
+        => method.Name == "CastUp" &&
+           method.IsStatic &&
+           method.Arity == 1 &&
+           method.ContainingType is
+           {
+               Name: "ReadOnlySpan",
+               ContainingNamespace: { } containingNamespace
+           } &&
+           containingNamespace.ToDisplayString() == "System";
 
     private void PrepareUnionConstructorArgument(ITypeSymbol from, ITypeSymbol parameterType)
     {
