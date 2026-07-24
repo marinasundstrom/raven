@@ -112,7 +112,9 @@ The semantic model exposes this as
 `TypeParameterConstraintKind.AllowByRefLike`, and emission sets the standard
 CLI `AllowByRefLike` (`0x20`) generic-parameter flag. Without the
 anti-constraint, a ref-like type such as `Span<T>` is rejected as a type
-argument.
+argument. Within the generic declaration, the constrained type parameter is
+treated as potentially ref-like: it cannot be captured, stored in heap fields
+or arrays, or persisted across `await` and `yield`.
 
 ### Field declarations (low-level storage)
 

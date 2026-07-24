@@ -2321,8 +2321,11 @@ partial class BlockBinder
     {
         foreach (var captured in capturedVariables)
         {
-            if (captured.UnwrapType() is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+            if (captured.UnwrapType() is not { } refLikeType ||
+                !SemanticFacts.MayBeRefLike(refLikeType))
+            {
                 continue;
+            }
 
             var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var location = captured.Locations.FirstOrDefault() ?? fallbackLocation;

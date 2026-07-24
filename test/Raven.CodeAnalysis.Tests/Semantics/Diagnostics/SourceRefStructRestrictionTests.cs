@@ -120,6 +120,80 @@ public sealed class SourceRefStructRestrictionTests : CompilationTestBase
         AssertHasDiagnostic(source, CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
     }
 
+    [Fact]
+    public void RefLikeCapableTypeParameter_CannotBeStoredInClassField()
+    {
+        const string source = """
+            class Container<T> where T: allows ref struct {
+                field Value: T
+            }
+            """;
+
+        AssertHasDiagnostic(source, CompilerDiagnostics.RefLikeTypeCannotBeUsedAsField);
+    }
+
+    [Fact]
+    public void RefLikeCapableTypeParameter_CanBeStoredInRefStructField()
+    {
+        const string source = """
+            ref struct Container<T> where T: allows ref struct {
+                field Value: T
+            }
+            """;
+
+        AssertNoErrors(source);
+    }
+
+    [Fact]
+    public void RefLikeCapableTypeParameter_CannotBeArrayElement()
+    {
+        const string source = """
+            func Consume<T>(values: T[]) where T: allows ref struct {}
+            """;
+
+        AssertHasDiagnostic(source, CompilerDiagnostics.RefLikeTypeCannotBeUsedAsArrayElement);
+    }
+
+    [Fact]
+    public void RefLikeCapableTypeParameter_CannotBeCaptured()
+    {
+        const string source = """
+            func Run<T>(value: T) where T: allows ref struct {
+                val capture = () => value
+            }
+            """;
+
+        AssertHasDiagnostic(source, CompilerDiagnostics.RefLikeVariableCannotBeCaptured);
+    }
+
+    [Fact]
+    public void RefLikeCapableTypeParameter_CannotCrossAwait()
+    {
+        const string source = """
+            import System.Threading.Tasks.*
+
+            async func Run<T>(value: T) -> Task where T: allows ref struct {
+                await Task.CompletedTask
+            }
+            """;
+
+        AssertHasDiagnostic(source, CompilerDiagnostics.RefLikeVariableCannotCrossAwait);
+    }
+
+    [Fact]
+    public void RefLikeCapableTypeParameter_CannotBeStoredInIterator()
+    {
+        const string source = """
+            import System.Collections.Generic.*
+
+            func Values<T>(value: T) -> IEnumerable<int> where T: allows ref struct {
+                yield return 1
+            }
+            """;
+
+        AssertHasDiagnostic(source, CompilerDiagnostics.RefLikeVariableCannotBeStoredInIterator);
+    }
+
     private void AssertHasDiagnostic(string source, DiagnosticDescriptor descriptor)
     {
         var (compilation, _) = CreateCompilation(source);

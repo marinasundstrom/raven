@@ -1821,10 +1821,10 @@ internal abstract partial class Binder
             return type;
 
         var containingType = ContainingSymbol as INamedTypeSymbol ?? ContainingSymbol?.ContainingType;
-        if (type is INamedTypeSymbol { IsRefLikeType: true } refLikeType &&
+        if (SemanticFacts.MayBeRefLike(type) &&
             containingType is not { IsRefLikeType: true })
         {
-            var display = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var display = type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var containingDisplay = containingType?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<global>";
             _diagnostics.ReportRefLikeTypeCannotBeUsedAsField(display, containingDisplay, location);
             return Compilation.ErrorTypeSymbol;
@@ -1833,13 +1833,13 @@ internal abstract partial class Binder
         return type;
     }
 
-    private static bool TryFindRefLikeArrayElement(ITypeSymbol type, out INamedTypeSymbol refLikeType)
+    private static bool TryFindRefLikeArrayElement(ITypeSymbol type, out ITypeSymbol refLikeType)
     {
         if (type is IArrayTypeSymbol arrayType)
         {
-            if (arrayType.ElementType is INamedTypeSymbol { IsRefLikeType: true } named)
+            if (SemanticFacts.MayBeRefLike(arrayType.ElementType))
             {
-                refLikeType = named;
+                refLikeType = arrayType.ElementType;
                 return true;
             }
 
@@ -1854,7 +1854,7 @@ internal abstract partial class Binder
     {
         foreach (var local in AsyncLowerer.GetLocalsCapturedAcrossAwait(body))
         {
-            if (local.Type is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+            if (local.Type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
                 continue;
 
             var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -1873,7 +1873,7 @@ internal abstract partial class Binder
 
         foreach (var parameter in parameters)
         {
-            if (parameter.Type is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+            if (parameter.Type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
                 continue;
 
             var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -1893,7 +1893,7 @@ internal abstract partial class Binder
 
         void Report(string name, ITypeSymbol? type, Location? location)
         {
-            if (type is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+            if (type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
                 return;
 
             var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -2009,10 +2009,11 @@ internal abstract partial class Binder
             }
             if (node is BoundFieldAssignmentExpression
                 {
-                    Field.Type: INamedTypeSymbol { IsRefLikeType: true },
+                    Field.Type: { } fieldType,
                     Receiver: { } refLikeReceiver,
                     Right: { } refLikeValue,
                 } &&
+                SemanticFacts.MayBeRefLike(fieldType) &&
                 IsStackAllocBacked(refLikeValue) &&
                 TryGetLocal(refLikeReceiver) is { } stackAllocReceiverLocal)
             {
