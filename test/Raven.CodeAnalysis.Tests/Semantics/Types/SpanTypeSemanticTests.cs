@@ -139,4 +139,23 @@ class Test {
             !diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error),
             string.Join(Environment.NewLine, diagnostics));
     }
+
+    [Fact]
+    public void ReadOnlySpanIndexer_IsNotSettable()
+    {
+        const string source = """
+class Test {
+    static func Run() {
+        val array: int[] = [1, 2, 3]
+        val values: System.ReadOnlySpan<int> = array
+        values[0] = 42
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor.Id == "RAV0131");
+    }
 }

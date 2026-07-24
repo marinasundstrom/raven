@@ -217,6 +217,17 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         // TODO: Return immediately if built in type
 
+        if (type.IsByRef)
+        {
+            var element = ResolveType(type.GetElementType()!, methodContext);
+            if (element is null)
+                return null;
+
+            var byRef = new RefTypeSymbol(element);
+            CacheResolvedType(type, metadataCacheKey, byRef);
+            return byRef;
+        }
+
         if (type.IsPointer)
         {
             var element = ResolveType(type.GetElementType()!, methodContext);
@@ -390,6 +401,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         if (nullInfo.ReadState == NullabilityState.Nullable
             && typeSymbol is not NullableTypeSymbol
+            && typeSymbol is not RefTypeSymbol
             && !typeSymbol.IsValueType
             && typeSymbol is not ITypeParameterSymbol)
         {

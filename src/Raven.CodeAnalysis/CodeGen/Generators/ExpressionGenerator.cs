@@ -4588,6 +4588,12 @@ internal partial class ExpressionGenerator : Generator
         if (indexerProperty is null)
             throw new InvalidOperationException("Indexer symbol is not a property.");
 
+        if (!receiverAlreadyLoaded &&
+            TryEmitReadOnlySpanIndexerReference(boundIndexerAccessExpression, indexerProperty))
+        {
+            return;
+        }
+
         EmitIndexerReceiver(boundIndexerAccessExpression.Receiver, indexerProperty, receiverAlreadyLoaded);
 
         foreach (var argument in boundIndexerAccessExpression.Arguments)
@@ -4604,6 +4610,74 @@ internal partial class ExpressionGenerator : Generator
             : OpCodes.Callvirt;
 
         ILGenerator.Emit(callOpCode, getter);
+    }
+
+    private bool TryEmitReadOnlySpanIndexerReference(
+        BoundIndexerAccessExpression indexerAccess,
+        IPropertySymbol indexerProperty)
+    {
+        if (indexerProperty.ContainingType is not
+            {
+                Name: "ReadOnlySpan",
+                TypeArguments.Length: 1,
+                ContainingNamespace: { } containingNamespace
+            } readOnlySpanType ||
+            containingNamespace.ToDisplayString() != "System" ||
+            indexerAccess.Arguments is not { } arguments ||
+            arguments.Count() != 1)
+        {
+            return false;
+        }
+
+        var index = arguments.Single();
+        if (index.Type?.SpecialType != SpecialType.System_Int32)
+            return false;
+
+        var spanClrType = ResolveClrType(readOnlySpanType);
+        var elementType = readOnlySpanType.TypeArguments[0];
+        var elementClrType = ResolveClrType(elementType);
+        var spanLocal = ILGenerator.DeclareLocal(spanClrType);
+        var indexLocal = ILGenerator.DeclareLocal(typeof(int));
+
+        EmitExpression(indexerAccess.Receiver);
+        ILGenerator.Emit(OpCodes.Stloc, spanLocal);
+        EmitExpression(index);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        var outOfRange = ILGenerator.DefineLabel();
+        var inRange = ILGenerator.DefineLabel();
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Blt, outOfRange);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, spanLocal);
+        var lengthGetter = spanClrType.GetProperty("Length")?.GetMethod
+            ?? throw new InvalidOperationException($"Missing Length getter on '{spanClrType}'.");
+        ILGenerator.Emit(OpCodes.Call, lengthGetter);
+        ILGenerator.Emit(OpCodes.Blt, inRange);
+        ILGenerator.MarkLabel(outOfRange);
+        var exceptionConstructor = typeof(IndexOutOfRangeException).GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException("Missing IndexOutOfRangeException constructor.");
+        ILGenerator.Emit(OpCodes.Newobj, exceptionConstructor);
+        ILGenerator.Emit(OpCodes.Throw);
+
+        ILGenerator.MarkLabel(inRange);
+        ILGenerator.Emit(OpCodes.Ldloc, spanLocal);
+        var getReference = typeof(System.Runtime.InteropServices.MemoryMarshal)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method =>
+                method.Name == "GetReference" &&
+                method.IsGenericMethodDefinition &&
+                method.GetParameters() is [{ ParameterType: { IsGenericType: true } parameterType }] &&
+                parameterType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>))
+            .MakeGenericMethod(elementClrType);
+        ILGenerator.Emit(OpCodes.Call, getReference);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Conv_I);
+        ILGenerator.Emit(OpCodes.Sizeof, elementClrType);
+        ILGenerator.Emit(OpCodes.Mul);
+        ILGenerator.Emit(OpCodes.Add);
+        return true;
     }
 
     private void EmitLoadElement(ITypeSymbol elementType)

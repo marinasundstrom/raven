@@ -2998,8 +2998,47 @@ partial class BlockBinder
             return new BoundErrorExpression(receiverType, null, BoundExpressionReason.NotFound);
         }
 
-        return new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
+        var access = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
+        return TryGetIndexerByRefElementType(indexer, out var elementType)
+            ? new BoundDereferenceExpression(access, elementType)
+            : access;
     }
+
+    private static bool TryGetIndexerByRefElementType(
+        IPropertySymbol indexer,
+        out ITypeSymbol elementType)
+    {
+        var type = indexer.Type;
+        if (type is NullableTypeSymbol nullable)
+            type = nullable.UnderlyingType;
+
+        if (type is not RefTypeSymbol refType)
+        {
+            elementType = null!;
+            return false;
+        }
+
+        var getterReturnType = indexer.GetMethod?.ReturnType;
+        if (getterReturnType is NullableTypeSymbol nullableGetterReturn)
+            getterReturnType = nullableGetterReturn.UnderlyingType;
+
+        elementType = getterReturnType switch
+        {
+            RefTypeSymbol getterRefType => getterRefType.ElementType,
+            not null => getterReturnType,
+            _ => refType.ElementType
+        };
+        return true;
+    }
+
+    private static bool IsReadOnlyByRefIndexer(IPropertySymbol indexer)
+        => indexer.GetMethod?.IsReadOnly == true ||
+           indexer.ContainingType is
+           {
+               Name: "ReadOnlySpan",
+               ContainingNamespace: { } containingNamespace
+           } &&
+           containingNamespace.ToDisplayString() == "System";
 
     private IPropertySymbol? ResolveIndexer(
         ITypeSymbol receiverType,
@@ -3289,31 +3328,50 @@ partial class BlockBinder
 
             var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
-            if (indexer is null || !indexer.IsMutable)
+            if (indexer is null)
+            {
+                indexer = ResolveIndexer(
+                    receiver.Type!,
+                    args,
+                    elementAccess.ArgumentList.Arguments,
+                    requireSetter: false,
+                    out convertedArguments);
+            }
+
+            var byRefElementType = indexer is not null &&
+                TryGetIndexerByRefElementType(indexer, out var resolvedByRefElementType)
+                    ? resolvedByRefElementType
+                    : null;
+            var isWritableByRef = byRefElementType is not null && !IsReadOnlyByRefIndexer(indexer!);
+            if (indexer is null || !indexer.IsMutable && !isWritableByRef)
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
             }
 
-            var indexerRightExpression = BindExpressionWithTargetType(rightSyntax, indexer.Type);
+            var assignmentTargetType = byRefElementType ?? indexer.Type;
+            var indexerRightExpression = BindExpressionWithTargetType(rightSyntax, assignmentTargetType);
 
             if (IsErrorExpression(indexerRightExpression))
                 return AsErrorExpression(indexerRightExpression);
 
             var access = new BoundIndexerAccessExpression(receiver, convertedArguments, indexer);
-            if (indexer.Type.TypeKind != TypeKind.Error &&
+            if (assignmentTargetType.TypeKind != TypeKind.Error &&
                 ShouldAttemptConversion(indexerRightExpression))
             {
-                var right = BindLambdaToDelegateIfNeeded(indexerRightExpression, indexer.Type);
-                if (!IsAssignable(indexer.Type, right.Type, out var conversion))
+                var right = BindLambdaToDelegateIfNeeded(indexerRightExpression, assignmentTargetType);
+                if (!IsAssignable(assignmentTargetType, right.Type, out var conversion))
                 {
-                    ReportCannotAssignFromTypeToType(right.Type, indexer.Type, rightSyntax.GetLocation());
-                    return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.TypeMismatch);
+                    ReportCannotAssignFromTypeToType(right.Type, assignmentTargetType, rightSyntax.GetLocation());
+                    return new BoundErrorExpression(assignmentTargetType, null, BoundExpressionReason.TypeMismatch);
                 }
 
-                right = ApplyConversion(right, indexer.Type, conversion, rightSyntax);
+                right = ApplyConversion(right, assignmentTargetType, conversion, rightSyntax);
                 indexerRightExpression = right;
             }
+
+            if (byRefElementType is not null)
+                return BoundFactory.CreateByRefAssignmentExpression(access, byRefElementType, indexerRightExpression);
 
             return BoundFactory.CreateIndexerAssignmentExpression(access, indexerRightExpression);
         }
@@ -3338,6 +3396,13 @@ partial class BlockBinder
 
         if (left is BoundDereferenceExpression dereference)
         {
+            if (dereference.Reference is BoundIndexerAccessExpression indexerAccess &&
+                IsReadOnlyByRefIndexer(indexerAccess.Indexer))
+            {
+                _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
+                return new BoundErrorExpression(dereference.ElementType, null, BoundExpressionReason.NotFound);
+            }
+
             var right2 = BindExpressionWithTargetType(rightSyntax, dereference.ElementType);
 
             if (IsErrorExpression(right2))

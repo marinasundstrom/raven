@@ -525,6 +525,19 @@ internal class StatementGenerator : Generator
             return;
         }
 
+        if (TryGetSpanElementType(forStatement.Collection.Type, out var spanElementType))
+        {
+            new ExpressionGenerator(scope, forStatement.Collection).Emit();
+            EmitSpanForLoop(
+                forStatement,
+                scope,
+                beginLabel,
+                continueLabel,
+                endLabel,
+                spanElementType);
+            return;
+        }
+
         switch (iteration.Kind)
         {
             case ForIterationKind.Array:
@@ -549,6 +562,100 @@ internal class StatementGenerator : Generator
                     iteration.CurrentGetter!);
                 break;
         }
+    }
+
+    private void EmitSpanForLoop(
+        BoundForStatement forStatement,
+        Scope scope,
+        ILLabel beginLabel,
+        ILLabel continueLabel,
+        ILLabel endLabel,
+        ITypeSymbol sourceElementType)
+    {
+        var spanType = forStatement.Collection.Type!;
+        var spanClrType = ResolveClrType(spanType);
+        var sourceElementClrType = ResolveClrType(sourceElementType);
+        var spanLocal = ILGenerator.DeclareLocal(spanClrType);
+        ILGenerator.Emit(OpCodes.Stloc, spanLocal);
+
+        var indexLocal = ILGenerator.DeclareLocal(typeof(int));
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+
+        var loopLocal = forStatement.Local;
+        var targetElementType = loopLocal?.Type ?? sourceElementType;
+        IILocal? elementLocal = null;
+        if (loopLocal is not null)
+        {
+            elementLocal = ILGenerator.DeclareLocal(ResolveClrType(targetElementType));
+            scope.AddLocal(loopLocal, elementLocal);
+        }
+
+        ILGenerator.MarkLabel(beginLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldloca, spanLocal);
+        var lengthGetter = spanClrType.GetProperty("Length")?.GetMethod
+            ?? throw new InvalidOperationException($"Missing Length getter on '{spanClrType}'.");
+        ILGenerator.Emit(OpCodes.Call, lengthGetter);
+        ILGenerator.Emit(OpCodes.Bge, endLabel);
+
+        ILGenerator.Emit(OpCodes.Ldloc, spanLocal);
+        var spanDefinition = spanClrType.GetGenericTypeDefinition();
+        var getReference = typeof(System.Runtime.InteropServices.MemoryMarshal)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method =>
+                method.Name == "GetReference" &&
+                method.IsGenericMethodDefinition &&
+                method.GetParameters() is [{ ParameterType: { IsGenericType: true } parameterType }] &&
+                parameterType.GetGenericTypeDefinition() == spanDefinition)
+            .MakeGenericMethod(sourceElementClrType);
+        ILGenerator.Emit(OpCodes.Call, getReference);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Conv_I);
+        ILGenerator.Emit(OpCodes.Sizeof, sourceElementClrType);
+        ILGenerator.Emit(OpCodes.Mul);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Ldobj, sourceElementClrType);
+
+        if (!SymbolEqualityComparer.Default.Equals(sourceElementType, targetElementType))
+        {
+            var conversion = Compilation.ClassifyConversion(sourceElementType, targetElementType);
+            if (conversion.Exists)
+                EmitConversion(sourceElementType, targetElementType, conversion);
+        }
+
+        if (elementLocal is not null)
+            ILGenerator.Emit(OpCodes.Stloc, elementLocal);
+        else
+            ILGenerator.Emit(OpCodes.Pop);
+
+        new StatementGenerator(scope, forStatement.Body).Emit();
+
+        ILGenerator.MarkLabel(continueLabel);
+        ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Ldc_I4_1);
+        ILGenerator.Emit(OpCodes.Add);
+        ILGenerator.Emit(OpCodes.Stloc, indexLocal);
+        ILGenerator.Emit(OpCodes.Br, beginLabel);
+        ILGenerator.MarkLabel(endLabel);
+    }
+
+    private static bool TryGetSpanElementType(
+        ITypeSymbol? type,
+        out ITypeSymbol elementType)
+    {
+        elementType = null!;
+
+        if (type is not INamedTypeSymbol named ||
+            named.TypeArguments.Length != 1 ||
+            named.ContainingNamespace?.ToDisplayString() != "System" ||
+            named.Name is not ("Span" or "ReadOnlySpan"))
+        {
+            return false;
+        }
+
+        elementType = named.TypeArguments[0];
+        return true;
     }
 
     private void EmitRangeForLoop(
