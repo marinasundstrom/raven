@@ -17,7 +17,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   by parameters or managed arrays.
 - Added `ref struct` declaration syntax and source-symbol classification,
   including modifier validation and consistency checks across partial
-  declarations.
+  declarations, and emitted the standard `IsByRefLikeAttribute` metadata for
+  both generic and non-generic ref structs.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

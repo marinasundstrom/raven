@@ -291,6 +291,7 @@ internal class CodeGenerator
     ConstructorInfo? _closedHierarchyCtor;
     ConstructorInfo? _compilerGeneratedCtor;
     ConstructorInfo? _topLevelAttributeCtor;
+    ConstructorInfo? _isByRefLikeCtor;
 
     bool _emitExtensionMarkerNameAttribute = true;
 
@@ -1429,6 +1430,20 @@ internal class CodeGenerator
             return null;
 
         return new CustomAttributeBuilder(_compilerGeneratedCtor, Array.Empty<object>());
+    }
+
+    internal CustomAttributeBuilder? CreateIsByRefLikeAttributeBuilder()
+    {
+        if (_isByRefLikeCtor is null)
+        {
+            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.IsByRefLikeAttribute");
+            _isByRefLikeCtor = type?.GetConstructor(Type.EmptyTypes);
+        }
+
+        if (_isByRefLikeCtor is null)
+            return null;
+
+        return new CustomAttributeBuilder(_isByRefLikeCtor, Array.Empty<object>());
     }
 
     internal CustomAttributeBuilder? CreateTopLevelAttributeBuilder()

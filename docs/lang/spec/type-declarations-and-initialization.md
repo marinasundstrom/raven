@@ -70,7 +70,10 @@ The modifier is valid only on `struct` declarations and must appear consistently
 on every declaration of a partial struct. A source-declared ref struct is
 classified as ref-like by the semantic model, so the same storage, capture,
 generic-argument, async, and iterator restrictions that apply to consumed .NET
-ref-like types also apply to it.
+ref-like types also apply to it. The emitted type definition carries
+`System.Runtime.CompilerServices.IsByRefLikeAttribute`, including when the ref
+struct itself is generic, so other .NET compilers and reflection classify it
+the same way.
 
 ### Field declarations (low-level storage)
 

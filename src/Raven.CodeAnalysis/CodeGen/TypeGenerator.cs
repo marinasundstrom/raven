@@ -349,6 +349,12 @@ internal class TypeGenerator
         }
 
         CodeGen.ApplyCustomAttributes(TypeSymbol.GetAttributes(), attribute => TypeBuilder!.SetCustomAttribute(attribute));
+        if (TypeSymbol is INamedTypeSymbol { IsRefLikeType: true })
+        {
+            var isByRefLikeAttribute = CodeGen.CreateIsByRefLikeAttributeBuilder();
+            if (isByRefLikeAttribute is not null)
+                TypeBuilder!.SetCustomAttribute(isByRefLikeAttribute);
+        }
         ApplyTopLevelAttributeIfNamespaceMembersContainer();
         ApplyCompilerGeneratedAttributeIfClosureFrame();
 
