@@ -108,4 +108,44 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void RefLikeLocal_CannotRemainInScopeAcrossAwait()
+    {
+        const string code = """
+        import System.Threading.Tasks.*
+
+        unsafe async func Run() -> Task {
+            val values: System.Span<int> = stackalloc int[1]
+            await Task.CompletedTask
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RefLikeVariableCannotCrossAwait.Id)
+                .WithAnySpan()
+                .WithArguments("values", "Span<int>"),
+        ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void RefLikeLocal_InCompletedNestedScope_IsAllowedBeforeAwait()
+    {
+        const string code = """
+        import System.Threading.Tasks.*
+
+        unsafe async func Run() -> Task {
+            {
+                val values: System.Span<int> = stackalloc int[1]
+                val length = values.Length
+            }
+
+            await Task.CompletedTask
+        }
+        """;
+
+        CreateVerifier(code).Verify();
+    }
 }

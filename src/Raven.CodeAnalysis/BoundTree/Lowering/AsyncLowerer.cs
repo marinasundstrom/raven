@@ -106,6 +106,9 @@ internal static class AsyncLowerer
         return finder.FoundAwait;
     }
 
+    internal static ImmutableArray<ILocalSymbol> GetLocalsCapturedAcrossAwait(BoundNode body)
+        => AwaitCaptureWalker.Analyze(body).Keys.ToImmutableArray();
+
     private static ITypeSymbol? FindSelfType(BoundNode node)
     {
         var finder = new SelfTypeFinder();
@@ -3903,13 +3906,24 @@ internal static class AsyncLowerer
         {
         }
 
-        public static ImmutableDictionary<ILocalSymbol, bool> Analyze(BoundBlockStatement body)
+        public static ImmutableDictionary<ILocalSymbol, bool> Analyze(BoundNode body)
         {
             if (body is null)
                 throw new ArgumentNullException(nameof(body));
 
             var walker = new AwaitCaptureWalker();
-            walker.VisitBlockStatement(body);
+            switch (body)
+            {
+                case BoundBlockStatement block:
+                    walker.VisitBlockStatement(block);
+                    break;
+                case BoundExpression expression:
+                    walker.VisitExpression(expression);
+                    break;
+                default:
+                    walker.Visit(body);
+                    break;
+            }
 
             var builder = ImmutableDictionary.CreateBuilder<ILocalSymbol, bool>(ReferenceEqualityComparer.Instance);
             foreach (var pair in walker._hoisted)

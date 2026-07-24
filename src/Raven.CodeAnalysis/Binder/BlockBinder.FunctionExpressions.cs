@@ -872,6 +872,9 @@ partial class BlockBinder
                 Compilation.ContainsAwaitExpressionOutsideNestedFunctions(lambdaBodySyntaxNode);
             asyncLambda.SetContainsAwait(containsAwait);
 
+            if (containsAwait)
+                ReportRefLikeLocalsAcrossAwait(bodyExpr);
+
             if (!containsAwait && !asyncLambda.IsIterator)
             {
                 var description = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncLambda);

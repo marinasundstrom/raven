@@ -16617,6 +16617,9 @@ partial class BlockBinder : Binder
                     Compilation.ContainsAwaitExpressionOutsideNestedFunctions(function.ExpressionBody);
                 asyncMethod.SetContainsAwait(containsAwait);
 
+                if (containsAwait)
+                    ReportRefLikeLocalsAcrossAwait(boundBlock);
+
                 if (!containsAwait)
                 {
                     var description = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);

@@ -1850,6 +1850,19 @@ internal abstract partial class Binder
         return false;
     }
 
+    protected void ReportRefLikeLocalsAcrossAwait(BoundNode body)
+    {
+        foreach (var local in AsyncLowerer.GetLocalsCapturedAcrossAwait(body))
+        {
+            if (local.Type is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+                continue;
+
+            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var location = local.Locations.FirstOrDefault() ?? Location.None;
+            _diagnostics.ReportRefLikeVariableCannotCrossAwait(local.Name, typeDisplay, location);
+        }
+    }
+
     private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)
     {
         switch (type)

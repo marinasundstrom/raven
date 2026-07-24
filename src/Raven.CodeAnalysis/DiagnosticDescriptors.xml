@@ -184,6 +184,10 @@
     Title="Only one EnumeratorCancellation parameter is allowed"
     Message="Async iterator '{memberName}' has multiple parameters marked with 'EnumeratorCancellation'. Only one CancellationToken parameter can consume the token passed to 'GetAsyncEnumerator'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2709" Identifier="RefLikeVariableCannotCrossAwait"
+    Title="Ref-like variable cannot cross an await boundary"
+    Message="Ref-like variable '{name}' of type '{typeName}' cannot remain in scope across an 'await'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0234" Identifier="TypeOrNamespaceNameDoesNotExistInTheNamespace"
     Title="Type or namespace does not exist in namespace"
     Message="'{typeOrNs}' was not found in '{container}'." Category="compiler" Severity="Error"

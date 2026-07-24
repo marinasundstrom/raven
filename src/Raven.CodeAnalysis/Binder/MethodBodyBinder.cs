@@ -241,6 +241,9 @@ class MethodBodyBinder : BlockBinder
             Compilation.ContainsAwaitExpressionOutsideNestedFunctions(bodySyntax);
         asyncMethod.SetContainsAwait(containsAwait);
 
+        if (containsAwait)
+            ReportRefLikeLocalsAcrossAwait(bound);
+
         if (!containsAwait)
         {
             var memberDescription = AsyncDiagnosticUtilities.GetAsyncMemberDescription(asyncMethod);
