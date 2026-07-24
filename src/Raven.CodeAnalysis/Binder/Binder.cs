@@ -1901,6 +1901,119 @@ internal abstract partial class Binder
         }
     }
 
+    protected void ReportStackAllocReturnEscape(
+        BoundNode body,
+        Location fallbackLocation,
+        bool expressionResultEscapes = false)
+    {
+        var analyzer = new StackAllocReturnEscapeAnalyzer();
+        analyzer.Visit(body);
+
+        if (expressionResultEscapes &&
+            TryGetResultExpression(body) is { } expression &&
+            analyzer.IsStackAllocBacked(expression))
+        {
+            analyzer.AddEscape(expression);
+        }
+
+        foreach (var escapingExpression in analyzer.EscapingExpressions)
+        {
+            var location = escapingExpression switch
+            {
+                BoundLocalAccess localAccess => localAccess.Local.Locations.FirstOrDefault(),
+                BoundVariableExpression variable => variable.Variable.Locations.FirstOrDefault(),
+                _ => null,
+            };
+
+            _diagnostics.ReportStackAllocValueCannotEscape(location ?? fallbackLocation);
+        }
+
+        static BoundExpression? TryGetResultExpression(BoundNode node)
+        {
+            return node switch
+            {
+                BoundBlockStatement block => (block.Statements.LastOrDefault() as BoundExpressionStatement)?.Expression,
+                BoundBlockExpression block => (block.Statements.LastOrDefault() as BoundExpressionStatement)?.Expression,
+                BoundExpression expression => expression,
+                _ => null,
+            };
+        }
+    }
+
+    private sealed class StackAllocReturnEscapeAnalyzer : BoundTreeWalker
+    {
+        private readonly HashSet<ILocalSymbol> _stackAllocBackedLocals =
+            new(SymbolEqualityComparer.Default);
+        private readonly List<BoundExpression> _escapingExpressions = [];
+
+        public IReadOnlyList<BoundExpression> EscapingExpressions => _escapingExpressions;
+
+        public override void VisitVariableDeclarator(BoundVariableDeclarator node)
+        {
+            if (node.Initializer is { } initializer && IsStackAllocBacked(initializer))
+                _stackAllocBackedLocals.Add(node.Local);
+
+            base.VisitVariableDeclarator(node);
+        }
+
+        public override void VisitExpression(BoundExpression node)
+        {
+            if (node is BoundLocalAssignmentExpression assignment &&
+                IsStackAllocBacked(assignment.Right))
+            {
+                _stackAllocBackedLocals.Add(assignment.Local);
+            }
+
+            base.VisitExpression(node);
+        }
+
+        public override void VisitReturnStatement(BoundReturnStatement node)
+        {
+            if (node.Expression is { } expression && IsStackAllocBacked(expression))
+                AddEscape(expression);
+
+            base.VisitReturnStatement(node);
+        }
+
+        public override void VisitReturnExpression(BoundReturnExpression node)
+        {
+            if (node.Expression is { } expression && IsStackAllocBacked(expression))
+                AddEscape(expression);
+
+            base.VisitReturnExpression(node);
+        }
+
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
+        {
+        }
+
+        public override void VisitFunctionStatement(BoundFunctionStatement node)
+        {
+        }
+
+        public bool IsStackAllocBacked(BoundExpression expression)
+        {
+            return expression switch
+            {
+                BoundStackAllocExpression => true,
+                BoundConversionExpression conversion => IsStackAllocBacked(conversion.Expression),
+                BoundParenthesizedExpression parenthesized => IsStackAllocBacked(parenthesized.Expression),
+                BoundLocalAccess localAccess => _stackAllocBackedLocals.Contains(localAccess.Local),
+                BoundVariableExpression variable => _stackAllocBackedLocals.Contains(variable.Variable),
+                BoundIfExpression conditional =>
+                    IsStackAllocBacked(conditional.ThenBranch) ||
+                    conditional.ElseBranch is { } elseBranch && IsStackAllocBacked(elseBranch),
+                _ => false,
+            };
+        }
+
+        public void AddEscape(BoundExpression expression)
+        {
+            if (!_escapingExpressions.Contains(expression))
+                _escapingExpressions.Add(expression);
+        }
+    }
+
     private sealed class RefLikeIteratorLocalCollector : BoundTreeWalker
     {
         private readonly HashSet<ILocalSymbol> _locals = new(SymbolEqualityComparer.Default);

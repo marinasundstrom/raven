@@ -99,7 +99,11 @@ Rules:
 * `Span<T>` and `ReadOnlySpan<T>` targets are available in safe code.
 * An explicit pointer target requires an unsafe context.
 * The resulting storage is valid only while the declaring stack frame remains
-  active and must not be returned or otherwise allowed to escape.
+  active and must not be returned or otherwise allowed to escape. This applies
+  both to the allocation result itself and to pointer, `Span<T>`, or
+  `ReadOnlySpan<T>` locals and aliases backed by that allocation. Other span
+  values, such as parameters and spans backed by managed arrays, may be
+  returned.
 
 ## Pinning managed storage
 

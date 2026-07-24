@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `stackalloc T[count]`, including runtime-sized allocations, unmanaged element
   validation, integer-count diagnostics, direct `localloc` emission, and safe
   natural `Span<T>` or explicit `ReadOnlySpan<T>` targets.
+- Rejected returning `stackalloc` storage through direct expressions, locals,
+  and simple pointer or span aliases while preserving returns of spans backed
+  by parameters or managed arrays.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

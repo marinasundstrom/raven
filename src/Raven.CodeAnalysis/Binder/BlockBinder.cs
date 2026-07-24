@@ -16640,6 +16640,11 @@ partial class BlockBinder : Binder
             if (functionSourceMethod.IsIterator)
                 ReportRefLikeIteratorStorage(functionBody, functionSourceMethod);
 
+            ReportStackAllocReturnEscape(
+                functionBody,
+                function.GetLocation(),
+                expressionResultEscapes: functionSourceMethod.ReturnType.SpecialType != SpecialType.System_Unit);
+
             var capturedVariables = AnalyzeFunctionCapturedVariables(functionBody, symbol);
             ReportRefLikeCaptures(capturedVariables, function.GetLocation());
             functionSourceMethod.SetCapturedVariables(capturedVariables);

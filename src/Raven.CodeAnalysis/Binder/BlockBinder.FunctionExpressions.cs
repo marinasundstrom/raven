@@ -817,6 +817,10 @@ partial class BlockBinder
         ReportRefLikeCaptures(capturedVariables, syntax.GetLocation());
         if (lambdaSymbol is SourceLambdaSymbol { IsIterator: true } iteratorLambda)
             ReportRefLikeIteratorStorage(bodyExpr, iteratorLambda);
+        ReportStackAllocReturnEscape(
+            bodyExpr,
+            lambdaBodySyntaxNode.GetLocation(),
+            expressionResultEscapes: lambdaSymbol.ReturnType.SpecialType != SpecialType.System_Unit);
 
         if (isStaticLambda)
         {

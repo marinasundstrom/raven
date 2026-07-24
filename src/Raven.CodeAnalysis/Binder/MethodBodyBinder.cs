@@ -175,6 +175,11 @@ class MethodBodyBinder : BlockBinder
         if (_methodSymbol is SourceMethodSymbol { IsIterator: true } iteratorMethod)
             ReportRefLikeIteratorStorage(bound, iteratorMethod);
 
+        ReportStackAllocReturnEscape(
+            bound,
+            bodySyntax.GetLocation(),
+            expressionResultEscapes: GetTrailingExpressionTargetType(_methodSymbol).SpecialType != SpecialType.System_Unit);
+
         CacheBoundNode(bodySyntax, bound);
         return bound;
     }

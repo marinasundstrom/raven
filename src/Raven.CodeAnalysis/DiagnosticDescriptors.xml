@@ -768,6 +768,10 @@
     Title="Stack allocation count cannot be negative"
     Message="The stack allocation count cannot be negative."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1923" Identifier="StackAllocValueCannotEscape"
+    Title="Stack-allocated storage cannot escape"
+    Message="A value backed by stack-allocated storage cannot escape the declaring function."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1917" Identifier="UnsafeModeEnabled"
     Title="Unsafe mode is enabled" Message="Unsafe mode is enabled" Category="compiler"
     Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
