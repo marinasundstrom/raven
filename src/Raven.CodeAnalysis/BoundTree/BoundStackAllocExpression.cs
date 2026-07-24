@@ -2,17 +2,17 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundStackAllocExpression : BoundExpression
 {
-    public BoundStackAllocExpression(ITypeSymbol elementType, BoundExpression count, ITypeSymbol pointerType)
-        : base(pointerType)
+    public BoundStackAllocExpression(ITypeSymbol elementType, BoundExpression count, ITypeSymbol allocationType)
+        : base(allocationType)
     {
         ElementType = elementType;
         Count = count;
-        PointerType = pointerType;
+        AllocationType = allocationType;
     }
 
     public ITypeSymbol ElementType { get; }
 
     public BoundExpression Count { get; }
 
-    public ITypeSymbol PointerType { get; }
+    public ITypeSymbol AllocationType { get; }
 }

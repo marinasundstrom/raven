@@ -2398,6 +2398,32 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitStackAllocExpression(BoundStackAllocExpression stackAlloc)
     {
+        if (stackAlloc.Type is IPointerTypeSymbol)
+        {
+            EmitStackAllocationPointer(stackAlloc);
+            return;
+        }
+
+        var countLocal = ILGenerator.DeclareLocal(typeof(int));
+        EmitExpression(stackAlloc.Count);
+        ILGenerator.Emit(OpCodes.Stloc, countLocal);
+        ILGenerator.Emit(OpCodes.Ldloc, countLocal);
+        ILGenerator.Emit(OpCodes.Conv_U);
+        ILGenerator.Emit(OpCodes.Sizeof, ResolveClrType(stackAlloc.ElementType));
+        ILGenerator.Emit(OpCodes.Mul_Ovf_Un);
+        ILGenerator.Emit(OpCodes.Localloc);
+        ILGenerator.Emit(OpCodes.Ldloc, countLocal);
+
+        var spanClrType = ResolveClrType(stackAlloc.Type);
+        var pointerClrType = typeof(void).MakePointerType();
+        var constructor = spanClrType.GetConstructor([pointerClrType, typeof(int)])
+            ?? throw new InvalidOperationException(
+                $"Missing pointer/count constructor on stack allocation target '{stackAlloc.Type.ToDisplayString()}'.");
+        ILGenerator.Emit(OpCodes.Newobj, constructor);
+    }
+
+    private void EmitStackAllocationPointer(BoundStackAllocExpression stackAlloc)
+    {
         EmitExpression(stackAlloc.Count);
         ILGenerator.Emit(OpCodes.Conv_U);
         ILGenerator.Emit(OpCodes.Sizeof, ResolveClrType(stackAlloc.ElementType));

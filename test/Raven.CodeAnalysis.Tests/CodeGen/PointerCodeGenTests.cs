@@ -172,7 +172,7 @@ class FixedPointer {
         const string code = """
 class StackAllocation {
     unsafe static func Run(count: int) -> int {
-        val pointer = stackalloc int[count]
+        val pointer: *int = stackalloc int[count]
         var index = 0
         while index < count {
             *(pointer + index) = (index + 1) * 10
@@ -201,5 +201,42 @@ class StackAllocation {
 
         var value = (int)runMethod.Invoke(null, new object[] { 4 })!;
         Assert.Equal(40, value);
+    }
+
+    [Fact]
+    public void StackAlloc_SpanAndReadOnlySpanTargetsExposeRuntimeLength()
+    {
+        const string code = """
+class StackSpanAllocation {
+    static func SpanLength(count: int) -> int {
+        val values = stackalloc int[count]
+        values.Length
+    }
+
+    static func ReadOnlySpanLength(count: int) -> int {
+        val values: System.ReadOnlySpan<int> = stackalloc int[count]
+        values.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("stackalloc_span_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("StackSpanAllocation", throwOnError: true)!;
+        var spanLength = type.GetMethod("SpanLength", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+        var readOnlySpanLength = type.GetMethod("ReadOnlySpanLength", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        Assert.Equal(5, (int)spanLength.Invoke(null, new object[] { 5 })!);
+        Assert.Equal(7, (int)readOnlySpanLength.Invoke(null, new object[] { 7 })!);
     }
 }

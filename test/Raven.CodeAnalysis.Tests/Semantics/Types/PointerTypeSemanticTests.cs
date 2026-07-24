@@ -261,12 +261,12 @@ class Test {
     }
 
     [Fact]
-    public void StackAlloc_InfersPointerToElementType()
+    public void StackAlloc_ExplicitPointerTargetBindsToElementType()
     {
         const string source = """
 class Test {
     unsafe static func Run(count: int) {
-        val pointer = stackalloc int[count]
+        val pointer: *int = stackalloc int[count]
         *pointer = 42
     }
 }
@@ -284,12 +284,60 @@ class Test {
     }
 
     [Fact]
+    public void StackAlloc_WithoutPointerTargetInfersSpanInSafeCode()
+    {
+        const string source = """
+class Test {
+    static func Run(count: int) {
+        val values = stackalloc int[count]
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "values");
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var spanType = Assert.IsAssignableFrom<INamedTypeSymbol>(local.Type);
+        Assert.Equal("Span", spanType.Name);
+        Assert.Equal("System", spanType.ContainingNamespace?.ToDisplayString());
+        Assert.Equal(SpecialType.System_Int32, spanType.TypeArguments.Single().SpecialType);
+    }
+
+    [Fact]
+    public void StackAlloc_TargetsReadOnlySpanInSafeCode()
+    {
+        const string source = """
+class Test {
+    static func Run(count: int) {
+        val values: System.ReadOnlySpan<int> = stackalloc int[count]
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, tree) = CreateCompilation(source, options: options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var stackAlloc = tree.GetRoot().DescendantNodes().OfType<StackAllocExpressionSyntax>().Single();
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(stackAlloc).Type);
+        Assert.Equal("ReadOnlySpan", type.Name);
+        Assert.Equal(SpecialType.System_Int32, type.TypeArguments.Single().SpecialType);
+    }
+
+    [Fact]
     public void StackAlloc_RequiresUnsafeContext()
     {
         const string source = """
 class Test {
     static func Run() {
-        val pointer = stackalloc int[4]
+        val pointer: *int = stackalloc int[4]
     }
 }
 """;
@@ -297,7 +345,7 @@ class Test {
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
         var (compilation, _) = CreateCompilation(source, options: options);
 
-        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.PointerOperationRequiresUnsafe);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.PointerTypeRequiresUnsafe);
     }
 
     [Fact]

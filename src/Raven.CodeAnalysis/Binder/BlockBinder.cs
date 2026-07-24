@@ -2210,6 +2210,7 @@ partial class BlockBinder : Binder
             or MemberAccessExpressionSyntax
             or IdentifierNameSyntax
             or DefaultExpressionSyntax
+            or StackAllocExpressionSyntax
             or MatchExpressionSyntax
             or PostfixMatchExpressionSyntax
             or IfExpressionSyntax
@@ -3277,12 +3278,6 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindStackAllocExpression(StackAllocExpressionSyntax syntax)
     {
-        if (!IsUnsafeEnabled)
-        {
-            _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.OtherError);
-        }
-
         var elementType = BindTypeSyntaxAndReport(syntax.ElementType);
         if (elementType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.OtherError);
@@ -3315,8 +3310,55 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.OtherError);
         }
 
-        var pointerType = Compilation.CreatePointerTypeSymbol(elementType);
-        return new BoundStackAllocExpression(elementType, count, pointerType);
+        var targetType = GetTargetType(syntax);
+        ITypeSymbol allocationType;
+
+        if (targetType is IPointerTypeSymbol pointerTarget &&
+            SymbolEqualityComparer.Default.Equals(pointerTarget.PointedAtType, elementType))
+        {
+            if (!IsUnsafeEnabled)
+            {
+                _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.OtherError);
+            }
+
+            allocationType = targetType;
+        }
+        else if (TryGetSpanElementType(targetType, out var targetElementType) &&
+                 SymbolEqualityComparer.Default.Equals(targetElementType, elementType))
+        {
+            allocationType = targetType!;
+        }
+        else if (Compilation.GetTypeByMetadataName("System.Span`1") is INamedTypeSymbol spanDefinition)
+        {
+            allocationType = spanDefinition.Construct(elementType);
+        }
+        else
+        {
+            allocationType = Compilation.CreatePointerTypeSymbol(elementType);
+            if (!IsUnsafeEnabled)
+            {
+                _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.OtherError);
+            }
+        }
+
+        return new BoundStackAllocExpression(elementType, count, allocationType);
+    }
+
+    private static bool TryGetSpanElementType(ITypeSymbol? type, out ITypeSymbol elementType)
+    {
+        if (type is INamedTypeSymbol namedType &&
+            namedType.TypeArguments.Length == 1 &&
+            namedType.ContainingNamespace?.ToDisplayString() == "System" &&
+            namedType.Name is "Span" or "ReadOnlySpan")
+        {
+            elementType = namedType.TypeArguments[0];
+            return true;
+        }
+
+        elementType = null!;
+        return false;
     }
 
     private static bool IsStackAllocElementType(ITypeSymbol type)
