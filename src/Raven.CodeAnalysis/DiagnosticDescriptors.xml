@@ -359,6 +359,10 @@
     Title="File-scoped partial type must stay in one file"
     Message="File-scoped partial type '{name}' must be declared in a single file"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0620" Identifier="PartialTypeDeclarationRefModifierMismatch"
+    Title="Partial type ref modifier mismatch"
+    Message="All partial declarations of type '{name}' must either all include or all omit the 'ref' modifier"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0603" Identifier="PartialTypeDeclarationTypeParametersMustMatch"
     Title="Partial type type parameters must match"
     Message="All partial declarations of type '{name}' must declare the same type parameters in the same order"

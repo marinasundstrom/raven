@@ -637,6 +637,20 @@ public partial class SemanticModel
                 declaration.Identifier.ValueText,
                 declaration.Identifier.GetLocation());
         }
+
+        var refModifierStates = existingType.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .Select(typeDeclaration => typeDeclaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.RefKeyword)))
+            .Distinct()
+            .Take(2)
+            .Count();
+        if (refModifierStates > 1)
+        {
+            diagnostics.ReportPartialTypeDeclarationRefModifierMismatch(
+                declaration.Identifier.ValueText,
+                declaration.Identifier.GetLocation());
+        }
     }
 
     private void ReportPartialTypeCompatibility(
@@ -3192,6 +3206,7 @@ public partial class SemanticModel
                     SyntaxKind.ProtectedKeyword,
                     SyntaxKind.FileprivateKeyword,
                     SyntaxKind.PartialKeyword,
+                    SyntaxKind.RefKeyword,
                 }),
             InterfaceDeclarationSyntax interfaceDecl => (
                 interfaceDecl.Identifier.ValueText,
@@ -3261,10 +3276,18 @@ public partial class SemanticModel
         if (typeName is null || typeKind is null || allowed is null)
             return;
 
+        var refModifierSeen = false;
         foreach (var modifier in modifiers)
         {
             var kind = modifier.Kind;
             var text = modifier.Text;
+
+            if (kind == SyntaxKind.RefKeyword)
+            {
+                if (refModifierSeen)
+                    diagnostics.ReportDuplicateModifier(text, modifier.GetLocation());
+                refModifierSeen = true;
+            }
 
             if (kind is SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword && !isNestedType)
             {

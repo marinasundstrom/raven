@@ -107,6 +107,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
     public override bool IsStatic => _isStatic;
     public bool IsGenericType => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0;
     public bool IsUnboundGenericType => false;
+    public bool IsRefLikeType => TypeKind == TypeKind.Struct &&
+        DeclaringSyntaxReferences.Any(reference =>
+            reference.GetSyntax() is StructDeclarationSyntax declaration &&
+            declaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.RefKeyword)));
 
     public bool HasPartialModifier { get; private set; }
 

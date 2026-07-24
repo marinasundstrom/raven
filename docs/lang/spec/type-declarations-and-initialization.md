@@ -56,6 +56,22 @@ overrides in derived types (`final override` in Raven, equivalent to C#'s
 `sealed override`). The compiler reports an error if `final` is applied without
 `override`.
 
+### Ref structs
+
+A struct may use the `ref` modifier to declare a ref-like value type:
+
+```raven
+ref struct Buffer<T> {
+    field Value: T
+}
+```
+
+The modifier is valid only on `struct` declarations and must appear consistently
+on every declaration of a partial struct. A source-declared ref struct is
+classified as ref-like by the semantic model, so the same storage, capture,
+generic-argument, async, and iterator restrictions that apply to consumed .NET
+ref-like types also apply to it.
+
 ### Field declarations (low-level storage)
 
 Fields are explicit CLR storage members. Use them when source code needs direct
