@@ -1,0 +1,26 @@
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+record TemperatureReading(Sensor: string, Celsius: decimal)
+
+async func ObserveColdChain() -> IAsyncEnumerable<TemperatureReading> {
+    let readings: TemperatureReading[] = [
+        .("warehouse", 3.8m),
+        .("truck", 7.4m),
+        .("store", 4.1m)
+    ]
+
+    for reading in readings {
+        await Task.Delay(20)
+        yield reading
+    }
+}
+
+await for reading in ObserveColdChain() {
+    let state = if reading.Celsius > 6m {
+        "ALERT"
+    } else {
+        "normal"
+    }
+    Console.WriteLine("${reading.Sensor}: ${reading.Celsius} °C · $state")
+}

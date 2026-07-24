@@ -45,6 +45,11 @@
     "file": "checkout-async.rvn"
   },
   {
+    "id": "telemetry-stream",
+    "title": "Cold-chain monitoring with async streams",
+    "file": "telemetry-stream.rvn"
+  },
+  {
     "id": "http-json",
     "title": "Loading JSON over HTTP",
     "file": "http-json.rvn"
