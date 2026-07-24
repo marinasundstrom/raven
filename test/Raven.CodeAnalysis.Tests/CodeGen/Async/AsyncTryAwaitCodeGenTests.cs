@@ -86,7 +86,8 @@ class Program {
 }
 """;
 
-        EmitOnly(code);
+        var output = CompileAndRun(code);
+        Assert.Equal(new[] { "ok:7", "err:boom" }, output);
     }
 
     [Fact]
@@ -118,7 +119,9 @@ class Program {
 }
 """;
 
-        EmitOnly(code);
+        var output = CompileAndRun(code);
+        Assert.Equal("Result<Int32>.Ok(42)", output[0]);
+        Assert.Contains("Error", output[1], StringComparison.Ordinal);
     }
 
     [Fact]

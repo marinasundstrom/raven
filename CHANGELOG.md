@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Materialized empty union cases through their enclosing carrier during `?`
   propagation, preventing `None` from being returned with the incompatible
   case-only runtime layout.
+- Computed async resume dispatch from the fully lowered protected-region tree
+  and entered nested guards at their boundaries, preventing branches into
+  `try` regions for `try? await` and Result propagation.
 - Projected `DateTimeOffset`, `DateOnly`, `TimeOnly`, and `TimeSpan`
   `TryParse(string)` methods as `Option<T>` values.
 - Added `lock expression { ... }` statements, lowering to exception-safe

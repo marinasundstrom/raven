@@ -752,6 +752,11 @@ internal static class AsyncLowerer
         var awaitRewriter = new AwaitLoweringRewriter(stateMachine, context.BuilderMembers);
         var rewrittenBody = awaitRewriter.Rewrite(originalBody);
 
+        // Await rewriting can expose propagation and other general constructs whose
+        // lowering introduces protected regions. Materialize those regions before
+        // dispatch injection so resume guards are computed from the final try shape.
+        rewrittenBody = Lowerer.LowerBlock(stateMachine.MoveNextMethod, rewrittenBody);
+
         rewrittenBody = StateDispatchInjector.Inject(
             rewrittenBody,
             stateMachine,
@@ -3544,10 +3549,11 @@ internal static class AsyncLowerer
                 SymbolEqualityComparer.Default);
             var collector = new DispatchCollector(labelMap);
             var blockDispatches = collector.Collect(body);
+            var effectiveDispatches = collector.GetEffectiveDispatches(dispatches);
             var preparedDispatches = PrepareBlockDispatches(
                 stateMachine,
                 blockDispatches,
-                dispatches,
+                effectiveDispatches,
                 out guardEntryLabels);
 
             if (preparedDispatches.Count == 0)
@@ -3664,7 +3670,9 @@ internal static class AsyncLowerer
         {
             private readonly ImmutableDictionary<ISymbol, StateDispatch> _dispatches;
             private readonly Dictionary<BoundNode, List<StateDispatch>> _blockDispatches = new(ReferenceEqualityComparer.Instance);
+            private readonly Dictionary<int, StateDispatch> _effectiveDispatches = new();
             private readonly Stack<BoundNode> _blocks = new();
+            private readonly Stack<BoundBlockStatement> _tryBlocks = new();
 
             public DispatchCollector(ImmutableDictionary<ISymbol, StateDispatch> dispatches)
             {
@@ -3677,6 +3685,19 @@ internal static class AsyncLowerer
                 return _blockDispatches;
             }
 
+            public ImmutableArray<StateDispatch> GetEffectiveDispatches(ImmutableArray<StateDispatch> dispatches)
+            {
+                var builder = ImmutableArray.CreateBuilder<StateDispatch>(dispatches.Length);
+                foreach (var dispatch in dispatches)
+                {
+                    builder.Add(_effectiveDispatches.TryGetValue(dispatch.State, out var effective)
+                        ? effective
+                        : dispatch);
+                }
+
+                return builder.MoveToImmutable();
+            }
+
             public override void VisitBlockStatement(BoundBlockStatement node)
             {
                 if (node is null)
@@ -3686,6 +3707,22 @@ internal static class AsyncLowerer
                 foreach (var statement in node.Statements)
                     VisitStatement(statement);
                 _blocks.Pop();
+            }
+
+            public override void VisitTryStatement(BoundTryStatement node)
+            {
+                if (node is null)
+                    return;
+
+                _tryBlocks.Push(node.TryBlock);
+                VisitBlockStatement(node.TryBlock);
+                _tryBlocks.Pop();
+
+                foreach (var catchClause in node.CatchClauses)
+                    VisitCatchClause(catchClause);
+
+                if (node.FinallyBlock is not null)
+                    VisitBlockStatement(node.FinallyBlock);
             }
 
             public override void VisitBlockExpression(BoundBlockExpression node)
@@ -3709,6 +3746,18 @@ internal static class AsyncLowerer
                 if (_dispatches.TryGetValue(node.Label, out var dispatch) &&
                     _blocks.TryPeek(out var block))
                 {
+                    if (_tryBlocks.Count > 0)
+                    {
+                        var guards = _tryBlocks.ToArray();
+                        Array.Reverse(guards);
+                        dispatch = new StateDispatch(
+                            dispatch.State,
+                            dispatch.Label,
+                            ImmutableArray.Create(guards));
+                    }
+
+                    _effectiveDispatches[dispatch.State] = dispatch;
+
                     if (!_blockDispatches.TryGetValue(block, out var list))
                     {
                         list = new List<StateDispatch>();
@@ -3751,19 +3800,8 @@ internal static class AsyncLowerer
 
                 if (_blockDispatches.TryGetValue(node, out var dispatchInfo) && dispatchInfo.Dispatches.Length > 0)
                 {
-                    var insertionIndex = 0;
-
-                    if (dispatchInfo.EntryLabel is not null)
-                    {
-                        var labeledEntry = new BoundLabeledStatement(
-                            dispatchInfo.EntryLabel,
-                            new BoundBlockStatement(Array.Empty<BoundStatement>()));
-                        statements.Insert(insertionIndex, labeledEntry);
-                        insertionIndex++;
-                    }
-
                     var dispatchStatements = CreateDispatchStatements(dispatchInfo.Dispatches);
-                    statements.InsertRange(insertionIndex, dispatchStatements);
+                    statements.InsertRange(0, dispatchStatements);
                 }
 
                 return new BoundBlockStatement(statements, node.LocalsToDispose);
@@ -3780,22 +3818,26 @@ internal static class AsyncLowerer
 
                 if (_blockDispatches.TryGetValue(node, out var dispatchInfo) && dispatchInfo.Dispatches.Length > 0)
                 {
-                    var insertionIndex = 0;
-
-                    if (dispatchInfo.EntryLabel is not null)
-                    {
-                        var labeledEntry = new BoundLabeledStatement(
-                            dispatchInfo.EntryLabel,
-                            new BoundBlockStatement(Array.Empty<BoundStatement>()));
-                        statements.Insert(insertionIndex, labeledEntry);
-                        insertionIndex++;
-                    }
-
                     var dispatchStatements = CreateDispatchStatements(dispatchInfo.Dispatches);
-                    statements.InsertRange(insertionIndex, dispatchStatements);
+                    statements.InsertRange(0, dispatchStatements);
                 }
 
                 return new BoundBlockExpression(statements, node.UnitType, node.LocalsToDispose);
+            }
+
+            public override BoundNode? VisitTryStatement(BoundTryStatement node)
+            {
+                if (node is null)
+                    return null;
+
+                var entryLabel = _blockDispatches.TryGetValue(node.TryBlock, out var dispatchInfo)
+                    ? dispatchInfo.EntryLabel
+                    : null;
+                var rewritten = (BoundTryStatement)base.VisitTryStatement(node)!;
+
+                return entryLabel is null
+                    ? rewritten
+                    : new BoundLabeledStatement(entryLabel, rewritten);
             }
 
             private IEnumerable<BoundStatement> CreateDispatchStatements(ImmutableArray<BlockDispatch> dispatches)
