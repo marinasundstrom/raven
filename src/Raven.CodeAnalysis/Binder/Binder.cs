@@ -1799,12 +1799,55 @@ internal abstract partial class Binder
         if (type.TypeKind == TypeKind.Error)
             return type;
 
+        if (TryFindRefLikeArrayElement(type, out var elementType))
+        {
+            var elementDisplay = elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportRefLikeTypeCannotBeUsedAsArrayElement(elementDisplay, location);
+            return Compilation.ErrorTypeSymbol;
+        }
+
         if (!TryFindStaticStorageType(type, out var staticType))
             return type;
 
         var display = staticType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
         _diagnostics.ReportStaticTypeCannotBeUsedAsStorageType(display, location);
         return Compilation.ErrorTypeSymbol;
+    }
+
+    internal ITypeSymbol EnsureTypeValidForField(ITypeSymbol type, Location location)
+    {
+        type = EnsureTypeValidForStorageLocation(type, location);
+        if (type.TypeKind == TypeKind.Error)
+            return type;
+
+        var containingType = ContainingSymbol as INamedTypeSymbol ?? ContainingSymbol?.ContainingType;
+        if (type is INamedTypeSymbol { IsRefLikeType: true } refLikeType &&
+            containingType is not { IsRefLikeType: true })
+        {
+            var display = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var containingDisplay = containingType?.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<global>";
+            _diagnostics.ReportRefLikeTypeCannotBeUsedAsField(display, containingDisplay, location);
+            return Compilation.ErrorTypeSymbol;
+        }
+
+        return type;
+    }
+
+    private static bool TryFindRefLikeArrayElement(ITypeSymbol type, out INamedTypeSymbol refLikeType)
+    {
+        if (type is IArrayTypeSymbol arrayType)
+        {
+            if (arrayType.ElementType is INamedTypeSymbol { IsRefLikeType: true } named)
+            {
+                refLikeType = named;
+                return true;
+            }
+
+            return TryFindRefLikeArrayElement(arrayType.ElementType, out refLikeType);
+        }
+
+        refLikeType = null!;
+        return false;
     }
 
     private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)

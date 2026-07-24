@@ -514,7 +514,7 @@ internal partial class TypeMemberBinder : Binder
                 : ResolveTypeSyntaxForSignature(this, decl.TypeAnnotation.Type, RefKind.None);
 
             if (decl.TypeAnnotation is not null && fieldType is not null)
-                fieldType = EnsureTypeValidForStorageLocation(fieldType, decl.TypeAnnotation.Type.GetLocation());
+                fieldType = EnsureTypeValidForField(fieldType, decl.TypeAnnotation.Type.GetLocation());
 
             BoundExpression? initializer = null;
             object? constantValue = null;

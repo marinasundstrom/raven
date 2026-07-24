@@ -359,6 +359,8 @@ internal partial class TypeMemberBinder : Binder
             sourcePropertySymbol is not null &&
             (hasAutoAccessorList || usesFieldKeyword || isPrivateInitializerOnlyStoredProperty || isImplicitAutoProperty))
         {
+            propertyType = EnsureTypeValidForField(propertyType, propertyTypeSyntax.GetLocation());
+
             var isMutableBackingField = (isPrivateInitializerOnlyStoredProperty || isImplicitAutoProperty)
                 ? declaredMutable != false
                 : true;
