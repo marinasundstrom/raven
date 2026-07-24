@@ -56,6 +56,65 @@ class SpanConversions {
         Assert.Equal(4, Invoke(type, "FromReadOnlySpan"));
     }
 
+    [Fact]
+    public void GenericInferenceAndOverloadResolution_UseSpanConversions()
+    {
+        const string code = """
+class SpanCalls {
+    static func Length<T>(values: System.ReadOnlySpan<T>) -> int {
+        values.Length
+    }
+
+    static func Choose(value: object) -> int { 1 }
+    static func Choose(value: System.ReadOnlySpan<char>) -> int { 2 }
+
+    static func ChooseSpan(value: System.Span<int>) -> int { 1 }
+    static func ChooseSpan(value: System.ReadOnlySpan<int>) -> int { 2 }
+
+    static func ChooseSequence(value: System.Collections.Generic.IEnumerable<int>) -> int { 1 }
+    static func ChooseSequence(value: System.ReadOnlySpan<int>) -> int { 2 }
+
+    static func InferredLength() -> int {
+        val values: int[] = [1, 2, 3]
+        Length(values)
+    }
+
+    static func PreferredOverload() -> int {
+        Choose("hello")
+    }
+
+    static func PreferredSpanOverload() -> int {
+        val values: int[] = [1, 2, 3]
+        ChooseSpan(values)
+    }
+
+    static func PreferredSequenceOverload() -> int {
+        val values: int[] = [1, 2, 3]
+        ChooseSequence(values)
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation
+            .Create("span_calls_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("SpanCalls", throwOnError: true)!;
+
+        Assert.Equal(3, Invoke(type, "InferredLength"));
+        Assert.Equal(2, Invoke(type, "PreferredOverload"));
+        Assert.Equal(2, Invoke(type, "PreferredSpanOverload"));
+        Assert.Equal(2, Invoke(type, "PreferredSequenceOverload"));
+    }
+
     private static int Invoke(Type type, string methodName)
     {
         var method = type.GetMethod(

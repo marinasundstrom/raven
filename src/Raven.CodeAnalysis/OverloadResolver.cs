@@ -1212,6 +1212,17 @@ internal sealed class OverloadResolver
 
         if (parameterType is INamedTypeSymbol paramNamed)
         {
+            if (TryGetSpanTypeInfo(paramNamed, out var parameterElementType, out var parameterIsReadOnly) &&
+                TryGetSpanInferenceElementType(argumentType, parameterIsReadOnly, out var argumentElementType))
+            {
+                return TryInferFromTypes(
+                    compilation,
+                    parameterElementType,
+                    argumentElementType,
+                    substitutions,
+                    inferenceMethod);
+            }
+
             if (argumentType is INamedTypeSymbol argNamed)
             {
                 if (TryUnifyNamedType(paramNamed, argNamed))
@@ -1263,6 +1274,34 @@ internal sealed class OverloadResolver
         }
 
         return true;
+
+        bool TryGetSpanInferenceElementType(
+            ITypeSymbol type,
+            bool allowReadOnlySpan,
+            out ITypeSymbol elementType)
+        {
+            if (type is IArrayTypeSymbol { Rank: 1 } array)
+            {
+                elementType = array.ElementType;
+                return true;
+            }
+
+            if (type.SpecialType == SpecialType.System_String && allowReadOnlySpan)
+            {
+                elementType = compilation.GetSpecialType(SpecialType.System_Char);
+                return true;
+            }
+
+            if (type is INamedTypeSymbol named &&
+                TryGetSpanTypeInfo(named, out elementType, out var argumentIsReadOnly) &&
+                (allowReadOnlySpan || !argumentIsReadOnly))
+            {
+                return true;
+            }
+
+            elementType = null!;
+            return false;
+        }
 
         bool TryUnifyNamedType(INamedTypeSymbol parameterNamed, INamedTypeSymbol argumentNamed)
         {
@@ -1764,6 +1803,35 @@ internal sealed class OverloadResolver
                     continue;
             }
 
+            var candidateIsSpanConversion = IsImplicitSpanConversion(compilation, argType, candParamType);
+            var currentIsSpanConversion = IsImplicitSpanConversion(compilation, argType, currentParamType);
+            if (candidateIsSpanConversion != currentIsSpanConversion)
+            {
+                if (candidateIsSpanConversion)
+                {
+                    better = true;
+                    continue;
+                }
+
+                return false;
+            }
+
+            if (TryGetSpanTypeInfo(candParamType, out var candidateSpanElement, out var candidateIsReadOnly) &&
+                TryGetSpanTypeInfo(currentParamType, out var currentSpanElement, out var currentIsReadOnly))
+            {
+                if (candidateIsReadOnly != currentIsReadOnly &&
+                    SymbolEqualityComparer.Default.Equals(candidateSpanElement, currentSpanElement))
+                {
+                    if (candidateIsReadOnly)
+                    {
+                        better = true;
+                        continue;
+                    }
+
+                    return false;
+                }
+            }
+
             // Tie-breaker (C#-like): if one parameter type implicitly converts to the other (but not vice versa),
             // prefer the more specific type. This is essential for numeric overload resolution where inheritance
             // distance is not informative (e.g. byte -> int vs byte -> double/decimal).
@@ -1842,6 +1910,45 @@ internal sealed class OverloadResolver
     {
         var conversion = compilation.ClassifyConversion(source, destination);
         return conversion.Exists && conversion.IsImplicit;
+    }
+
+    private static bool IsImplicitSpanConversion(
+        Compilation compilation,
+        ITypeSymbol source,
+        ITypeSymbol destination)
+    {
+        source = GetUnderlying(source);
+
+        if (!TryGetSpanTypeInfo(destination, out _, out var destinationIsReadOnly))
+            return false;
+
+        var isSupportedSource =
+            source is IArrayTypeSymbol { Rank: 1 } ||
+            TryGetSpanTypeInfo(source, out _, out _) ||
+            destinationIsReadOnly && source.SpecialType == SpecialType.System_String;
+
+        return isSupportedSource && IsImplicitConversion(compilation, source, destination);
+    }
+
+    private static bool TryGetSpanTypeInfo(
+        ITypeSymbol type,
+        out ITypeSymbol elementType,
+        out bool isReadOnly)
+    {
+        elementType = null!;
+        isReadOnly = false;
+
+        if (type is not INamedTypeSymbol named ||
+            named.TypeArguments.Length != 1 ||
+            named.ContainingNamespace?.ToDisplayString() != "System" ||
+            named.Name is not ("Span" or "ReadOnlySpan"))
+        {
+            return false;
+        }
+
+        elementType = named.TypeArguments[0];
+        isReadOnly = named.Name == "ReadOnlySpan";
+        return true;
     }
 
     private static void LogComparison(
@@ -2152,7 +2259,9 @@ internal sealed class OverloadResolver
             return false;
         }
 
-        score += GetConversionScore(conversion);
+        score += IsImplicitSpanConversion(compilation, argumentType, elementType)
+            ? 2
+            : GetConversionScore(conversion);
         LogComparison(comparisonLog, paramsParameter, argumentType, OverloadArgumentComparisonResult.Success, "params element conversion succeeded");
         return true;
     }
@@ -2452,7 +2561,9 @@ internal sealed class OverloadResolver
                 return false;
             }
 
-            var conversionScore = GetConversionScore(conversion);
+            var conversionScore = IsImplicitSpanConversion(compilation, argType, parameter.Type)
+                ? 2
+                : GetConversionScore(conversion);
 
             if (parameter.Type is NullableTypeSymbol nullableParam && !Conversion.IsNullable(argType))
             {
