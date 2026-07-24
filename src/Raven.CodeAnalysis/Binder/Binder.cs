@@ -1863,6 +1863,25 @@ internal abstract partial class Binder
         }
     }
 
+    protected void ReportRefLikeParametersAcrossAwait(ISymbol symbol)
+    {
+        var parameters = symbol switch
+        {
+            IMethodSymbol method => method.Parameters,
+            _ => ImmutableArray<IParameterSymbol>.Empty,
+        };
+
+        foreach (var parameter in parameters)
+        {
+            if (parameter.Type is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+                continue;
+
+            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var location = parameter.Locations.FirstOrDefault() ?? Location.None;
+            _diagnostics.ReportRefLikeVariableCannotCrossAwait(parameter.Name, typeDisplay, location);
+        }
+    }
+
     private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)
     {
         switch (type)

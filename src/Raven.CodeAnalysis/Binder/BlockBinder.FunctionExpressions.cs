@@ -873,7 +873,10 @@ partial class BlockBinder
             asyncLambda.SetContainsAwait(containsAwait);
 
             if (containsAwait)
+            {
                 ReportRefLikeLocalsAcrossAwait(bodyExpr);
+                ReportRefLikeParametersAcrossAwait(asyncLambda);
+            }
 
             if (!containsAwait && !asyncLambda.IsIterator)
             {

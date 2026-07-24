@@ -148,4 +148,24 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
 
         CreateVerifier(code).Verify();
     }
+
+    [Fact]
+    public void RefLikeParameter_CannotBeStoredInAsyncStateMachine()
+    {
+        const string code = """
+        import System.Threading.Tasks.*
+
+        async func Run(values: System.Span<int>) -> Task {
+            await Task.CompletedTask
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RefLikeVariableCannotCrossAwait.Id)
+                .WithAnySpan()
+                .WithArguments("values", "Span<int>"),
+        ]);
+
+        verifier.Verify();
+    }
 }

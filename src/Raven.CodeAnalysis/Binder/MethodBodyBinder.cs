@@ -242,7 +242,10 @@ class MethodBodyBinder : BlockBinder
         asyncMethod.SetContainsAwait(containsAwait);
 
         if (containsAwait)
+        {
             ReportRefLikeLocalsAcrossAwait(bound);
+            ReportRefLikeParametersAcrossAwait(asyncMethod);
+        }
 
         if (!containsAwait)
         {

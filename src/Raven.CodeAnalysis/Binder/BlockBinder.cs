@@ -16618,7 +16618,10 @@ partial class BlockBinder : Binder
                 asyncMethod.SetContainsAwait(containsAwait);
 
                 if (containsAwait)
+                {
                     ReportRefLikeLocalsAcrossAwait(boundBlock);
+                    ReportRefLikeParametersAcrossAwait(asyncMethod);
+                }
 
                 if (!containsAwait)
                 {
