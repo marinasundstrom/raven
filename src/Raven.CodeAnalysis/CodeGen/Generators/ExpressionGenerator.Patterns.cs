@@ -631,8 +631,10 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundPositionalPattern tuplePattern)
         {
+            var isSequencePattern = tuplePattern.IsSequence;
             var positionalInputType = tuplePattern.Type;
             var recoversSequenceTypeFromObject =
+                isSequencePattern &&
                 inputType.SpecialType == SpecialType.System_Object &&
                 positionalInputType.TypeKind != TypeKind.Error &&
                 !TypesMatch(inputType, positionalInputType) &&
@@ -671,19 +673,20 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit(OpCodes.Ldloc, matchedInputLocal);
             }
 
-            if (inputType.SpecialType == SpecialType.System_String)
+            if (isSequencePattern && inputType.SpecialType == SpecialType.System_String)
             {
                 EmitStringCollectionPattern(tuplePattern, scope);
                 return;
             }
 
-            if (inputType is IArrayTypeSymbol arrayType)
+            if (isSequencePattern && inputType is IArrayTypeSymbol arrayType)
             {
                 EmitArrayCollectionPattern(tuplePattern, arrayType, scope);
                 return;
             }
 
-            if (TryGetIndexableCollectionAccess(inputType, out var indexableAccess))
+            if (isSequencePattern &&
+                TryGetIndexableCollectionAccess(inputType, out var indexableAccess))
             {
                 EmitIndexableCollectionPattern(tuplePattern, indexableAccess, scope);
                 return;
@@ -919,7 +922,8 @@ internal partial class ExpressionGenerator
                 reason: pattern.Reason,
                 restIndex: pattern.RestIndex,
                 elementWidths: pattern.ElementWidths,
-                elementKinds: pattern.ElementKinds);
+                elementKinds: pattern.ElementKinds,
+                isSequence: pattern.IsSequence);
         EmitArrayCollectionPattern(arrayMatchPattern, arrayType, scope);
 
         if (pattern.Designator is not null)

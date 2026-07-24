@@ -11510,7 +11510,8 @@ partial class BlockBinder : Binder
             boundElements.ToImmutable(),
             restIndex: restIndex,
             elementWidths: elementWidths,
-            elementKinds: elementKinds);
+            elementKinds: elementKinds,
+            isSequence: true);
     }
 
     private BoundPattern BindDictionaryPatternForAssignment(

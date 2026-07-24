@@ -3035,7 +3035,8 @@ internal static class AsyncLowerer
                                 t.Reason,
                                 t.RestIndex,
                                 t.ElementWidths,
-                                t.ElementKinds)
+                                t.ElementKinds,
+                                t.IsSequence)
                             : t;
                     }
 

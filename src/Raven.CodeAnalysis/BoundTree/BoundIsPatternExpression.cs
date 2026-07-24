@@ -257,7 +257,8 @@ internal sealed class BoundPositionalPattern : BoundPattern
         BoundExpressionReason reason = BoundExpressionReason.None,
         int restIndex = -1,
         ImmutableArray<int> elementWidths = default,
-        ImmutableArray<SequenceElementKind> elementKinds = default)
+        ImmutableArray<SequenceElementKind> elementKinds = default,
+        bool isSequence = false)
         : base(tupleType, reason)
     {
         Elements = elements;
@@ -269,6 +270,7 @@ internal sealed class BoundPositionalPattern : BoundPattern
         ElementKinds = elementKinds.IsDefaultOrEmpty
             ? ImmutableArray.CreateRange(Enumerable.Repeat(SequenceElementKind.Single, elements.Length))
             : elementKinds;
+        IsSequence = isSequence;
     }
 
     public ImmutableArray<BoundPattern> Elements { get; }
@@ -276,6 +278,7 @@ internal sealed class BoundPositionalPattern : BoundPattern
     public int RestIndex { get; }
     public ImmutableArray<int> ElementWidths { get; }
     public ImmutableArray<SequenceElementKind> ElementKinds { get; }
+    public bool IsSequence { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators()
     {
@@ -1079,7 +1082,8 @@ internal partial class BlockBinder
             reason,
             restIndex,
             elementWidths,
-            elementKinds);
+            elementKinds,
+            isSequence: true);
     }
 
     private BoundPattern BindDictionaryPattern(DictionaryPatternSyntax syntax, ITypeSymbol? inputType)

@@ -22,6 +22,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   so sequence patterns compose with dictionary and other structural patterns.
 - Made cold metadata member lookup include explicit-interface properties and
   enabled middle-rest sequence deconstruction over `ImmutableArray<T>`.
+- Kept parenthesized tuple patterns on tuple code generation when their runtime
+  types also expose indexable interface members, preserving composed structural
+  patterns across desktop and WebAssembly runtimes.
 - Added a playground sample that scopes `HttpClient` with `use`, loads the
   deployed example catalog, deserializes its JSON, and models outcomes as a
   union.

@@ -5357,21 +5357,26 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitPositionalPatternAssignment(BoundPositionalPattern tuplePattern, IILocal valueLocal, ITypeSymbol valueType)
     {
-        if (GetPatternValueType(valueType)?.SpecialType == SpecialType.System_String &&
+        var isSequencePattern = tuplePattern.IsSequence;
+
+        if (isSequencePattern &&
+            GetPatternValueType(valueType)?.SpecialType == SpecialType.System_String &&
             GetPatternValueType(tuplePattern.Type)?.SpecialType == SpecialType.System_String)
         {
             EmitStringPositionalPatternAssignment(tuplePattern, valueLocal);
             return;
         }
 
-        if (GetPatternValueType(valueType) is IArrayTypeSymbol arrayType &&
+        if (isSequencePattern &&
+            GetPatternValueType(valueType) is IArrayTypeSymbol arrayType &&
             GetPatternValueType(tuplePattern.Type) is IArrayTypeSymbol)
         {
             EmitArrayPositionalPatternAssignment(tuplePattern, valueLocal, arrayType.ElementType);
             return;
         }
 
-        if (GetPatternValueType(valueType) is { } collectionType &&
+        if (isSequencePattern &&
+            GetPatternValueType(valueType) is { } collectionType &&
             TryGetIndexableCollectionAccess(collectionType, out var access))
         {
             EmitCollectionPositionalPatternAssignment(tuplePattern, valueLocal, collectionType, access.ElementType);
