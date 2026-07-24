@@ -20,6 +20,11 @@
     "file": "records.rvn"
   },
   {
+    "id": "dispatch-board",
+    "title": "Dispatch planning with comprehensions",
+    "file": "dispatch-board.rvn"
+  },
+  {
     "id": "result",
     "title": "Result propagation",
     "file": "result.rvn"

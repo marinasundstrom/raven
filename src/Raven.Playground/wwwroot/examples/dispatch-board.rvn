@@ -1,0 +1,18 @@
+record Order(Id: string, City: string, Total: decimal, IsPriority: bool)
+
+let orders = [
+    Order("R-104", "Haifa", 240m, true)
+    Order("R-105", "Jerusalem", 85m, false)
+    Order("R-106", "Tel Aviv", 310m, true)
+]
+
+let priorityStops = [
+    for order in orders if order.IsPriority
+        => "${order.Id} · ${order.City} · ${order.Total} credits"
+]
+
+let dispatchBoard = ["PRIORITY DISPATCH", ...priorityStops]
+
+for line in dispatchBoard {
+    Console.WriteLine(line)
+}

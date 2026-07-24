@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a dispatch-planning playground sample built with immutable collection
+  comprehensions, filtering, and collection spreads.
 - Added a contextual playground sample that models fulfillment routes as a
   sealed class hierarchy with shared behavior, property patterns, and
   exhaustive matching.
