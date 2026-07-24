@@ -27,6 +27,22 @@ func TryParseDateTimeProjectedWithStyles(text: string) -> Option<DateTime> {
     return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None)
 }
 
+func TryParseDateTimeOffsetProjected(text: string) -> Option<DateTimeOffset> {
+    return DateTimeOffset.TryParse(text)
+}
+
+func TryParseDateOnlyProjected(text: string) -> Option<DateOnly> {
+    return DateOnly.TryParse(text)
+}
+
+func TryParseTimeOnlyProjected(text: string) -> Option<TimeOnly> {
+    return TimeOnly.TryParse(text)
+}
+
+func TryParseTimeSpanProjected(text: string) -> Option<TimeSpan> {
+    return TimeSpan.TryParse(text)
+}
+
 func ParseProjected(text: string) -> Result<int, FormatException | OverflowException> {
     return int.Parse(text)
 }
@@ -46,6 +62,10 @@ func ParseGuidProjected(text: string) -> Result<Guid, FormatException> {
     [InlineData("System.DecimalExtensions", typeof(decimal), "42")]
     [InlineData("System.GuidExtensions", typeof(Guid), "d2719b1e-88c5-4a06-aeba-69d19e70b9f7")]
     [InlineData("System.DateTimeExtensions", typeof(DateTime), "2026-07-22")]
+    [InlineData("System.DateTimeOffsetExtensions", typeof(DateTimeOffset), "2026-07-22T10:30:00+03:00")]
+    [InlineData("System.DateOnlyExtensions", typeof(DateOnly), "2026-07-22")]
+    [InlineData("System.TimeOnlyExtensions", typeof(TimeOnly), "10:30:00")]
+    [InlineData("System.TimeSpanExtensions", typeof(TimeSpan), "01:30:00")]
     public void TryParseProjection_ReturnsSome_ForValidInput(string containerName, Type valueType, string input)
     {
         var assembly = LoadRavenCoreAssembly();
@@ -68,11 +88,16 @@ func ParseGuidProjected(text: string) -> Result<Guid, FormatException> {
         Assert.IsType(valueType, args[0]!.GetType().GetProperty("Value")!.GetValue(args[0]));
     }
 
-    [Fact]
-    public void TryParseProjection_ReturnsNone_ForInvalidInput()
+    [Theory]
+    [InlineData("System.Int32Extensions")]
+    [InlineData("System.DateTimeOffsetExtensions")]
+    [InlineData("System.DateOnlyExtensions")]
+    [InlineData("System.TimeOnlyExtensions")]
+    [InlineData("System.TimeSpanExtensions")]
+    public void TryParseProjection_ReturnsNone_ForInvalidInput(string containerName)
     {
         var assembly = LoadRavenCoreAssembly();
-        var extensions = assembly.GetType("System.Int32Extensions", throwOnError: true)!;
+        var extensions = assembly.GetType(containerName, throwOnError: true)!;
         var tryParse = extensions.GetMethod(
             "TryParse",
             BindingFlags.Public | BindingFlags.Static,

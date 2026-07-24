@@ -125,3 +125,35 @@ extension DateTimeExtensions for DateTime {
         return None
     }
 }
+
+extension DateTimeOffsetExtensions for DateTimeOffset {
+    [FrameworkProjection("system.datetimeoffset.tryparse.string.option.v1")]
+    static func TryParse(input: string?) -> Option<DateTimeOffset> {
+        if DateTimeOffset.TryParse(input, out var value) { return Some(value) }
+        return None
+    }
+}
+
+extension DateOnlyExtensions for DateOnly {
+    [FrameworkProjection("system.dateonly.tryparse.string.option.v1")]
+    static func TryParse(input: string?) -> Option<DateOnly> {
+        if DateOnly.TryParse(input, out var value) { return Some(value) }
+        return None
+    }
+}
+
+extension TimeOnlyExtensions for TimeOnly {
+    [FrameworkProjection("system.timeonly.tryparse.string.option.v1")]
+    static func TryParse(input: string?) -> Option<TimeOnly> {
+        if TimeOnly.TryParse(input, out var value) { return Some(value) }
+        return None
+    }
+}
+
+extension TimeSpanExtensions for TimeSpan {
+    [FrameworkProjection("system.timespan.tryparse.string.option.v1")]
+    static func TryParse(input: string?) -> Option<TimeSpan> {
+        if TimeSpan.TryParse(input, out var value) { return Some(value) }
+        return None
+    }
+}

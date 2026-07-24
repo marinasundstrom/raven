@@ -141,6 +141,42 @@
       "exceptions": []
     },
     {
+      "id": "system.datetimeoffset.tryparse.string.option.v1",
+      "receiverType": "System.DateTimeOffset",
+      "source": "System.Boolean System.DateTimeOffset.TryParse(System.String, out System.DateTimeOffset)",
+      "projectedContainer": "System.DateTimeOffsetExtensions",
+      "projectedSignature": "System.Option<System.DateTimeOffset> TryParse(System.String)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
+      "id": "system.dateonly.tryparse.string.option.v1",
+      "receiverType": "System.DateOnly",
+      "source": "System.Boolean System.DateOnly.TryParse(System.String, out System.DateOnly)",
+      "projectedContainer": "System.DateOnlyExtensions",
+      "projectedSignature": "System.Option<System.DateOnly> TryParse(System.String)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
+      "id": "system.timeonly.tryparse.string.option.v1",
+      "receiverType": "System.TimeOnly",
+      "source": "System.Boolean System.TimeOnly.TryParse(System.String, out System.TimeOnly)",
+      "projectedContainer": "System.TimeOnlyExtensions",
+      "projectedSignature": "System.Option<System.TimeOnly> TryParse(System.String)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
+      "id": "system.timespan.tryparse.string.option.v1",
+      "receiverType": "System.TimeSpan",
+      "source": "System.Boolean System.TimeSpan.TryParse(System.String, out System.TimeSpan)",
+      "projectedContainer": "System.TimeSpanExtensions",
+      "projectedSignature": "System.Option<System.TimeSpan> TryParse(System.String)",
+      "lowering": "false-returns-none",
+      "exceptions": []
+    },
+    {
       "id": "system.collections.generic.dictionary.trygetvalue.option.v1",
       "receiverType": "System.Collections.Generic.Dictionary`2",
       "source": "System.Boolean System.Collections.Generic.Dictionary`2.TryGetValue(TKey, out TValue)",

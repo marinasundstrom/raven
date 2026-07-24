@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Projected `DateTimeOffset`, `DateOnly`, `TimeOnly`, and `TimeSpan`
+  `TryParse(string)` methods as `Option<T>` values.
 - Added `lock expression { ... }` statements, lowering to exception-safe
   `System.Threading.Monitor` acquisition and release.
 - Added playground samples showing guarded deconstruction in `for` iteration

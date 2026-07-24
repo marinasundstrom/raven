@@ -26,9 +26,10 @@ compiling standalone projects.
 ## Framework API projections
 
 Raven exposes a curated Raven-facing view of selected framework APIs by
-default. The initial catalog projects `TryParse(string, out T)` overloads for
-`int`, `long`, `double`, `decimal`, `Guid`, and `DateTime`, including the common
-numeric style/provider and `DateTime` provider/style forms:
+default. The catalog projects `TryParse(string, out T)` overloads for `int`,
+`long`, `double`, `decimal`, `Guid`, `DateTime`, `DateTimeOffset`, `DateOnly`,
+`TimeOnly`, and `TimeSpan`, including the common numeric style/provider and
+`DateTime` provider/style forms:
 
 ```raven
 val number = int.TryParse(text) // Option<int>

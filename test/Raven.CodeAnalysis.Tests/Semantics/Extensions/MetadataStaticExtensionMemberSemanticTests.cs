@@ -18,6 +18,10 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
     [InlineData("decimal", "Option<decimal>", "Decimal", "system.decimal.tryparse.string.option.v1")]
     [InlineData("Guid", "Option<Guid>", "Guid", "system.guid.tryparse.string.option.v1")]
     [InlineData("DateTime", "Option<DateTime>", "DateTime", "system.datetime.tryparse.string.option.v1")]
+    [InlineData("DateTimeOffset", "Option<DateTimeOffset>", "DateTimeOffset", "system.datetimeoffset.tryparse.string.option.v1")]
+    [InlineData("DateOnly", "Option<DateOnly>", "DateOnly", "system.dateonly.tryparse.string.option.v1")]
+    [InlineData("TimeOnly", "Option<TimeOnly>", "TimeOnly", "system.timeonly.tryparse.string.option.v1")]
+    [InlineData("TimeSpan", "Option<TimeSpan>", "TimeSpan", "system.timespan.tryparse.string.option.v1")]
     public void FrameworkTryParseProjection_IsEnabledByDefault(
         string typeName,
         string expectedReturnType,
