@@ -1,0 +1,16 @@
+record RestockLine(Sku: string, Units: int)
+
+let manifest = [
+    RestockLine("BOOK-01", 12)
+    RestockLine("GAME-07", 0)
+    RestockLine("TOY-14", 8)
+]
+
+var acceptedUnits = 0
+
+for let (sku, units when > 0) in manifest {
+    Console.WriteLine("Receive $units units of $sku")
+    acceptedUnits = acceptedUnits + units
+}
+
+Console.WriteLine("$acceptedUnits units accepted")

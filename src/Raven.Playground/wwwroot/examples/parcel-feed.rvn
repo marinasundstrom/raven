@@ -1,0 +1,26 @@
+union ParcelEvent {
+    case Scanned(parcelId: string, hub: string)
+    case Closed
+}
+
+class ParcelFeed {
+    static var Position = 0
+
+    static func Next() -> ParcelEvent {
+        Position = Position + 1
+        return Position match {
+            1 => .Scanned("PKG-104", "Harbor")
+            2 => .Scanned("PKG-105", "Airport")
+            _ => .Closed
+        }
+    }
+}
+
+var scanned = 0
+
+while let .Scanned(parcelId, hub) = ParcelFeed.Next() {
+    Console.WriteLine("$parcelId arrived at $hub")
+    scanned = scanned + 1
+}
+
+Console.WriteLine("$scanned parcels received before the feed closed")

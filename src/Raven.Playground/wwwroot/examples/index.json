@@ -20,6 +20,16 @@
     "file": "records.rvn"
   },
   {
+    "id": "restock-patterns",
+    "title": "Restocking with for patterns",
+    "file": "restock-patterns.rvn"
+  },
+  {
+    "id": "parcel-feed",
+    "title": "Parcel scanning with while let",
+    "file": "parcel-feed.rvn"
+  },
+  {
     "id": "dispatch-board",
     "title": "Dispatch planning with comprehensions",
     "file": "dispatch-board.rvn"
