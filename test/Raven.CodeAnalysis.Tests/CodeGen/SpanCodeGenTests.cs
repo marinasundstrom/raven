@@ -244,6 +244,42 @@ class SpanCollections {
         Assert.Equal(0, Invoke(type, "Empty"));
     }
 
+    [Fact]
+    public void MemoryAndReadOnlyMemory_InteroperateWithSpans()
+    {
+        const string code = """
+class MemoryOperations {
+    static func Run() -> int {
+        val array: int[] = [10, 20, 30]
+        val memory: System.Memory<int> = array
+        val readOnlyFromArray: System.ReadOnlyMemory<int> = array
+        val readOnlyFromMemory: System.ReadOnlyMemory<int> = memory
+
+        var mutableSpan = memory.Span
+        mutableSpan[1] = 40
+
+        mutableSpan[1] + readOnlyFromArray.Span[2] + readOnlyFromMemory.Length
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation
+            .Create("memory_operations_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("MemoryOperations", throwOnError: true)!;
+
+        Assert.Equal(73, Invoke(type, "Run"));
+    }
+
     private static int Invoke(Type type, string methodName)
     {
         var method = type.GetMethod(
