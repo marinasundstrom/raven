@@ -24,7 +24,7 @@ AccessModifier           ::= 'public' | 'internal' | 'protected' | 'private' ;
 AccessorModifier         ::= AccessModifier | 'async' | 'ref' | 'out' | 'in' ;
 
 TypeModifiers            ::= { TypeModifier } ;
-TypeModifier             ::= AccessModifier | 'fileprivate' | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' ;
+TypeModifier             ::= AccessModifier | 'fileprivate' | 'abstract' | 'sealed' | 'open' | 'partial' | 'static' | 'ref' ;
 
 TopLevelFunctionModifiers ::= { TopLevelFunctionModifier } ;
 TopLevelFunctionModifier  ::= AccessModifier | 'fileprivate' | 'async' | 'extern' | 'unsafe' | 'static' ;
