@@ -1915,6 +1915,12 @@ internal abstract partial class Binder
         {
             analyzer.AddEscape(expression);
         }
+        if (expressionResultEscapes &&
+            TryGetResultExpression(body) is { } localReferenceResult &&
+            analyzer.IsLocalReferenceBacked(localReferenceResult))
+        {
+            analyzer.AddLocalReferenceEscape(localReferenceResult);
+        }
 
         foreach (var escapingExpression in analyzer.EscapingExpressions)
         {
@@ -1926,6 +1932,18 @@ internal abstract partial class Binder
             };
 
             _diagnostics.ReportStackAllocValueCannotEscape(location ?? fallbackLocation);
+        }
+
+        foreach (var escapingExpression in analyzer.EscapingLocalReferenceExpressions)
+        {
+            var location = escapingExpression switch
+            {
+                BoundLocalAccess localAccess => localAccess.Local.Locations.FirstOrDefault(),
+                BoundVariableExpression variable => variable.Variable.Locations.FirstOrDefault(),
+                _ => null,
+            };
+
+            _diagnostics.ReportStackBoundRefLikeValueCannotEscape(location ?? fallbackLocation);
         }
 
         static BoundExpression? TryGetResultExpression(BoundNode node)
@@ -1944,14 +1962,24 @@ internal abstract partial class Binder
     {
         private readonly HashSet<ILocalSymbol> _stackAllocBackedLocals =
             new(SymbolEqualityComparer.Default);
+        private readonly HashSet<ILocalSymbol> _localReferenceBackedLocals =
+            new(SymbolEqualityComparer.Default);
         private readonly List<BoundExpression> _escapingExpressions = [];
+        private readonly List<BoundExpression> _escapingLocalReferenceExpressions = [];
 
         public IReadOnlyList<BoundExpression> EscapingExpressions => _escapingExpressions;
+        public IReadOnlyList<BoundExpression> EscapingLocalReferenceExpressions =>
+            _escapingLocalReferenceExpressions;
 
         public override void VisitVariableDeclarator(BoundVariableDeclarator node)
         {
             if (node.Initializer is { } initializer && IsStackAllocBacked(initializer))
                 _stackAllocBackedLocals.Add(node.Local);
+            if (node.Initializer is { } localReferenceInitializer &&
+                IsLocalReferenceBacked(localReferenceInitializer))
+            {
+                _localReferenceBackedLocals.Add(node.Local);
+            }
 
             base.VisitVariableDeclarator(node);
         }
@@ -1963,6 +1991,33 @@ internal abstract partial class Binder
             {
                 _stackAllocBackedLocals.Add(assignment.Local);
             }
+            if (node is BoundLocalAssignmentExpression localAssignment &&
+                IsLocalReferenceBacked(localAssignment.Right))
+            {
+                _localReferenceBackedLocals.Add(localAssignment.Local);
+            }
+            if (node is BoundFieldAssignmentExpression
+                {
+                    Field.RefKind: not RefKind.None,
+                    Receiver: { } receiver,
+                    Right: { } right,
+                } &&
+                IsMethodLocalReference(right) &&
+                TryGetLocal(receiver) is { } receiverLocal)
+            {
+                _localReferenceBackedLocals.Add(receiverLocal);
+            }
+            if (node is BoundFieldAssignmentExpression
+                {
+                    Field.Type: INamedTypeSymbol { IsRefLikeType: true },
+                    Receiver: { } refLikeReceiver,
+                    Right: { } refLikeValue,
+                } &&
+                IsStackAllocBacked(refLikeValue) &&
+                TryGetLocal(refLikeReceiver) is { } stackAllocReceiverLocal)
+            {
+                _stackAllocBackedLocals.Add(stackAllocReceiverLocal);
+            }
 
             base.VisitExpression(node);
         }
@@ -1971,6 +2026,11 @@ internal abstract partial class Binder
         {
             if (node.Expression is { } expression && IsStackAllocBacked(expression))
                 AddEscape(expression);
+            if (node.Expression is { } localReferenceExpression &&
+                IsLocalReferenceBacked(localReferenceExpression))
+            {
+                AddLocalReferenceEscape(localReferenceExpression);
+            }
 
             base.VisitReturnStatement(node);
         }
@@ -1979,6 +2039,11 @@ internal abstract partial class Binder
         {
             if (node.Expression is { } expression && IsStackAllocBacked(expression))
                 AddEscape(expression);
+            if (node.Expression is { } localReferenceExpression &&
+                IsLocalReferenceBacked(localReferenceExpression))
+            {
+                AddLocalReferenceEscape(localReferenceExpression);
+            }
 
             base.VisitReturnExpression(node);
         }
@@ -2011,6 +2076,53 @@ internal abstract partial class Binder
         {
             if (!_escapingExpressions.Contains(expression))
                 _escapingExpressions.Add(expression);
+        }
+
+        public bool IsLocalReferenceBacked(BoundExpression expression)
+        {
+            return expression switch
+            {
+                BoundConversionExpression conversion => IsLocalReferenceBacked(conversion.Expression),
+                BoundParenthesizedExpression parenthesized => IsLocalReferenceBacked(parenthesized.Expression),
+                BoundLocalAccess localAccess => _localReferenceBackedLocals.Contains(localAccess.Local),
+                BoundVariableExpression variable => _localReferenceBackedLocals.Contains(variable.Variable),
+                BoundIfExpression conditional =>
+                    IsLocalReferenceBacked(conditional.ThenBranch) ||
+                    conditional.ElseBranch is { } elseBranch && IsLocalReferenceBacked(elseBranch),
+                _ => false,
+            };
+        }
+
+        private static bool IsMethodLocalReference(BoundExpression expression)
+        {
+            return expression switch
+            {
+                BoundAddressOfExpression
+                {
+                    Storage: BoundLocalAccess or BoundVariableExpression,
+                } => true,
+                BoundConversionExpression conversion => IsMethodLocalReference(conversion.Expression),
+                BoundParenthesizedExpression parenthesized => IsMethodLocalReference(parenthesized.Expression),
+                _ => false,
+            };
+        }
+
+        private static ILocalSymbol? TryGetLocal(BoundExpression expression)
+        {
+            return expression switch
+            {
+                BoundLocalAccess localAccess => localAccess.Local,
+                BoundVariableExpression variable => variable.Variable,
+                BoundConversionExpression conversion => TryGetLocal(conversion.Expression),
+                BoundParenthesizedExpression parenthesized => TryGetLocal(parenthesized.Expression),
+                _ => null,
+            };
+        }
+
+        public void AddLocalReferenceEscape(BoundExpression expression)
+        {
+            if (!_escapingLocalReferenceExpressions.Contains(expression))
+                _escapingLocalReferenceExpressions.Add(expression);
         }
     }
 

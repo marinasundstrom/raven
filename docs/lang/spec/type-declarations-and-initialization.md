@@ -95,6 +95,12 @@ classes. `IFieldSymbol.RefKind` reports `Ref` for both source and consumed
 metadata fields. Their CLR field signatures use the standard `BYREF` element
 type.
 
+A ref struct value cannot escape a function when one of its ref fields refers
+to a local variable, or when one of its ref-like fields contains
+`stackalloc`-backed storage. This restriction follows simple local aliases.
+References and spans supplied by parameters may be stored and returned because
+their storage is owned by the caller rather than the current stack frame.
+
 ### Field declarations (low-level storage)
 
 Fields are explicit CLR storage members. Use them when source code needs direct
