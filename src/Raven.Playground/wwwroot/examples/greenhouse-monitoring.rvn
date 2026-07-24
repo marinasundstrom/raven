@@ -1,13 +1,36 @@
-record struct ClimateRange(Minimum: decimal, Maximum: decimal)
-record struct ClimateReading(Temperature: decimal)
+union PercentageError {
+    case OutOfRange(value: int)
+}
+
+record struct Percentage private (Value: int) {
+    static func Create(value: int) -> Result<Percentage, PercentageError> =>
+        value match {
+            0..100 => Ok(Percentage(value))
+            _ => Error(.OutOfRange(value))
+        }
+}
+
+record struct ClimateRange(
+    Minimum: decimal,
+    Maximum: decimal,
+    MaximumHumidity: Percentage)
+
+record struct ClimateReading(
+    Temperature: decimal,
+    Humidity: Percentage)
 
 enum ClimateStatus {
     TooCold
     Healthy
     TooHot
+    TooHumid
 }
 
 func Evaluate(desired: ClimateRange, reading: ClimateReading) -> ClimateStatus {
+    if reading.Humidity.Value > desired.MaximumHumidity.Value {
+        return .TooHumid
+    }
+
     if desired.Minimum > reading.Temperature {
         return .TooCold
     }
@@ -20,30 +43,49 @@ func Evaluate(desired: ClimateRange, reading: ClimateReading) -> ClimateStatus {
 }
 
 func ObserveClimate(
-    read: () -> ClimateReading,
+    read: () -> Result<ClimateReading, PercentageError>,
     evaluate: (ClimateReading) -> ClimateStatus,
-    publish: (ClimateStatus) -> ()) -> ClimateStatus {
-    let reading = read()
+    publish: (ClimateStatus) -> ()) -> Result<ClimateStatus, PercentageError> {
+    let reading = read()?
     let status = evaluate(reading)
     publish(status)
-    return status
+    return Ok(status)
 }
 
 class GreenhouseDevice(
     val DeviceId: string,
-    val Temperature: decimal) {
+    val Temperature: decimal,
+    val HumidityPercent: int) {
 
-    func ReadClimate() -> ClimateReading {
-        return ClimateReading(Temperature)
+    func ReadClimate() -> Result<ClimateReading, PercentageError> {
+        let humidity = Percentage.Create(HumidityPercent)?
+        return Ok(ClimateReading(Temperature, humidity))
     }
 }
 
-let desired = ClimateRange(Minimum: 18m, Maximum: 26m)
-let device = GreenhouseDevice("greenhouse-west", 28.5m)
+func CheckDevice(device: GreenhouseDevice) -> Result<ClimateStatus, PercentageError> {
+    let maximumHumidity = Percentage.Create(75)?
+    let desired = ClimateRange(18m, 26m, maximumHumidity)
 
-let status = ObserveClimate(
-    read: () => device.ReadClimate(),
-    evaluate: reading => Evaluate(desired, reading),
-    publish: status => Console.WriteLine("${device.DeviceId}: $status"))
+    return ObserveClimate(
+        read: () => device.ReadClimate(),
+        evaluate: reading => Evaluate(desired, reading),
+        publish: status => Console.WriteLine("${device.DeviceId}: $status"))
+}
 
-Console.WriteLine("Recorded status: $status")
+func Report(device: GreenhouseDevice) {
+    match CheckDevice(device) {
+        Ok(let status) => Console.WriteLine("Recorded status: $status")
+        Error(let error) =>
+            Console.WriteLine("${device.DeviceId}: ${Describe(error)}")
+    }
+}
+
+func Describe(error: PercentageError) -> string {
+    return error match {
+        .OutOfRange(let value) => "rejected humidity $value%"
+    }
+}
+
+Report(GreenhouseDevice("greenhouse-west", 24.5m, 82))
+Report(GreenhouseDevice("greenhouse-east", 22m, 108))
