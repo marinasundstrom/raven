@@ -304,6 +304,13 @@ public interface IAddressOfOperation : IOperation
 {
 }
 
+public interface IStackAllocOperation : IOperation
+{
+    ITypeSymbol ElementType { get; }
+
+    IOperation Count { get; }
+}
+
 public interface IElementAccessOperation : IOperation
 {
     IOperation? Instance { get; }

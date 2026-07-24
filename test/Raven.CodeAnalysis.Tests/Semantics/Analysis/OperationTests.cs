@@ -1061,6 +1061,32 @@ class Test {
     }
 
     [Fact]
+    public void GetOperation_StackAllocExpression_ReturnsStackAllocOperation()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run(count: int) {
+        val pointer = stackalloc int[count + 1]
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var stackAllocSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<StackAllocExpressionSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<IStackAllocOperation>(model.GetOperation(stackAllocSyntax));
+        operation.Kind.ShouldBe(OperationKind.StackAlloc);
+        operation.Type.ShouldBeAssignableTo<IPointerTypeSymbol>();
+        operation.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
+        operation.Count.Kind.ShouldBe(OperationKind.Binary);
+        operation.ChildOperations.ShouldHaveSingleItem();
+    }
+
+    [Fact]
     public void GetOperation_PointerMemberAccess_ReturnsMemberReferenceOperation()
     {
         const string source = """

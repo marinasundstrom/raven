@@ -301,6 +301,11 @@ public enum OperationKind
     AddressOf,
 
     /// <summary>
+    /// A pointer-producing stack allocation expression.
+    /// </summary>
+    StackAlloc,
+
+    /// <summary>
     /// An array element access expression.
     /// </summary>
     ArrayElement,

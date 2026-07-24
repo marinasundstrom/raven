@@ -1305,6 +1305,30 @@ internal sealed class AddressOfOperation : Operation, IAddressOfOperation
     protected override ImmutableArray<IOperation> GetChildrenCore() => OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
 }
 
+internal sealed class StackAllocOperation : Operation, IStackAllocOperation
+{
+    private readonly StackAllocExpressionSyntax _syntax;
+    private IOperation? _count;
+
+    internal StackAllocOperation(
+        SemanticModel semanticModel,
+        BoundStackAllocExpression bound,
+        StackAllocExpressionSyntax syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.StackAlloc, syntax, bound.Type, isImplicit)
+    {
+        _syntax = syntax;
+        ElementType = bound.ElementType;
+    }
+
+    public ITypeSymbol ElementType { get; }
+
+    public IOperation Count => _count ??= SemanticModel.GetOperation(_syntax.Count)
+        ?? throw new InvalidOperationException("Stack allocation count operation is unavailable.");
+
+    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray.Create(Count);
+}
+
 internal sealed class ElementAccessOperation : Operation, IElementAccessOperation
 {
     private readonly BoundExpression _bound;
