@@ -1,0 +1,19 @@
+union class ShipmentReference(string | int)
+
+record ShipmentLookup(Reference: ShipmentReference, Region: string)
+
+let lookups: ShipmentLookup[] = [
+    .("PKG-104", "current"),
+    .(2048, "archive")
+]
+
+func Describe(reference: ShipmentReference) -> string {
+    return reference match {
+        string trackingCode => "tracking code $trackingCode"
+        int legacyId => "legacy order #$legacyId"
+    }
+}
+
+for lookup in lookups {
+    Console.WriteLine("${lookup.Region}: ${Describe(lookup.Reference)}")
+}

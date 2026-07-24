@@ -20,6 +20,11 @@
     "file": "records.rvn"
   },
   {
+    "id": "shipment-lookup",
+    "title": "Shipment migration with type unions",
+    "file": "shipment-lookup.rvn"
+  },
+  {
     "id": "restock-patterns",
     "title": "Restocking with for patterns",
     "file": "restock-patterns.rvn"
