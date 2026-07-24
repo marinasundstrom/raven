@@ -28,6 +28,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
             return _type ??= _reflectionTypeLoader.ResolveType(_fieldInfo);
         }
     }
+    public RefKind RefKind => _fieldInfo.FieldType.IsByRef ? RefKind.Ref : RefKind.None;
 
     bool? _isRequired = null;
 

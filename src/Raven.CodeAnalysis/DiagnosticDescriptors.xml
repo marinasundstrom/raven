@@ -234,6 +234,14 @@
     Title="Readonly struct member must be readonly"
     Message="Instance storage member '{memberName}' in a readonly struct must be readonly"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0347" Identifier="RefFieldRequiresRefStruct"
+    Title="Ref field requires a ref struct"
+    Message="Ref field '{memberName}' can only be declared in a ref struct"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0348" Identifier="RefFieldCannotBeStatic"
+    Title="Ref field cannot be static"
+    Message="Ref field '{memberName}' cannot be static"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

@@ -363,6 +363,7 @@ public enum RefKind
 public interface IFieldSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
+    RefKind RefKind => RefKind.None;
 
     bool IsConst { get; }
 

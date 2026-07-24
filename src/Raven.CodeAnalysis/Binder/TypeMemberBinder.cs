@@ -572,6 +572,23 @@ internal partial class TypeMemberBinder : Binder
 
             fieldType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
+            if (fieldType is RefTypeSymbol)
+            {
+                if (!_containingType.IsRefLikeType)
+                {
+                    _diagnostics.ReportRefFieldRequiresRefStruct(
+                        decl.Identifier.ValueText,
+                        decl.Identifier.GetLocation());
+                }
+
+                if (isStatic)
+                {
+                    _diagnostics.ReportRefFieldCannotBeStatic(
+                        decl.Identifier.ValueText,
+                        decl.Identifier.GetLocation());
+                }
+            }
+
             var isConst = isConstDeclaration && constantValueComputed;
             var initializerForSymbol = isConst ? null : initializer;
             var constantValueForSymbol = isConst ? constantValue : null;

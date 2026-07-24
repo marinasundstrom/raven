@@ -69,6 +69,26 @@ public sealed class RefStructMetadataEmissionTests
         Assert.Contains(IsReadOnlyAttributeName, attributeNames);
     }
 
+    [Fact]
+    public void RefField_EmitsByRefFieldSignature()
+    {
+        using var peReader = EmitToMetadataReader("""
+            ref struct Buffer {
+                field Value: &int
+            }
+            """);
+        var metadata = peReader.GetMetadataReader();
+        var type = metadata.TypeDefinitions
+            .Select(metadata.GetTypeDefinition)
+            .Single(type => metadata.GetString(type.Name) == "Buffer");
+        var fieldHandle = Assert.Single(type.GetFields());
+        var field = metadata.GetFieldDefinition(fieldHandle);
+        var signature = metadata.GetBlobBytes(field.Signature);
+
+        Assert.Equal("Value", metadata.GetString(field.Name));
+        Assert.Equal([0x06, 0x10, 0x08], signature);
+    }
+
     private static PEReader EmitToMetadataReader(string source)
     {
         var tree = SyntaxTree.ParseText(source);

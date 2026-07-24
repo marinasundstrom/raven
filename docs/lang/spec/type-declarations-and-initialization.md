@@ -81,6 +81,20 @@ fields must use `readonly`, and property storage must use `val` rather than
 `IsReadOnlyAttribute`; `INamedTypeSymbol.IsReadOnly` exposes the same fact for
 source and metadata types. Partial declarations must agree on both modifiers.
 
+Ref structs may declare managed-reference fields using the by-reference type
+syntax `&T`:
+
+```raven
+ref struct IntReference {
+    field Value: &int
+}
+```
+
+Ref fields are instance-only and cannot be declared in ordinary structs or
+classes. `IFieldSymbol.RefKind` reports `Ref` for both source and consumed
+metadata fields. Their CLR field signatures use the standard `BYREF` element
+type.
+
 ### Field declarations (low-level storage)
 
 Fields are explicit CLR storage members. Use them when source code needs direct

@@ -27,6 +27,7 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
     }
 
     public ITypeSymbol Type { get; }
+    public RefKind RefKind => Type is RefTypeSymbol ? RefKind.Ref : RefKind.None;
 
     public bool IsConst { get; }
 
