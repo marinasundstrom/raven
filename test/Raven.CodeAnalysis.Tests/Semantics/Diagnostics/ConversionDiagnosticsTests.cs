@@ -106,4 +106,23 @@ public class ConversionDiagnosticsTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void RefLikeType_CannotBeBoxedToObject()
+    {
+        const string code = """
+        unsafe func Main() -> unit {
+            val values: System.Span<int> = stackalloc int[1]
+            val boxed: object = values
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.CannotAssignFromTypeToType.Id)
+                .WithAnySpan()
+                .WithArguments("Span<int>", "object"),
+        ]);
+
+        verifier.Verify();
+    }
 }

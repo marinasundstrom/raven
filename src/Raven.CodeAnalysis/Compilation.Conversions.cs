@@ -513,6 +513,9 @@ public partial class Compilation
         if (source.SpecialType == SpecialType.System_Void)
             return Conversion.None;
 
+        if (SemanticFacts.MayBeRefLike(source) && destination.IsReferenceType)
+            return Conversion.None;
+
         var objType = GetSpecialType(SpecialType.System_Object);
 
         if (destination.MetadataIdentityEquals(objType))
