@@ -1,8 +1,8 @@
 # Pattern matching
 
-Patterns let you inspect values using concise, algebraic syntax. They appear in `is`
-predicates and in `match` expressions and participate in Raven’s flow-sensitive
-type analysis.
+Patterns check the shape or contents of a value and can take out the parts a
+branch needs. They appear in `is` predicates and `match` expressions, where
+successful checks can also narrow types.
 
 Raven uses two related but distinct surfaces:
 

@@ -1,5 +1,9 @@
 # Deconstruction, member, and union patterns
 
+These patterns let a match check a record, a deconstructable .NET type, or a
+union case and take out the values it needs. This avoids separate type checks,
+casts, and property accesses.
+
 * `RecordType(pattern1, pattern2, …)` — **nominal deconstruction pattern**.
   Matches when the scrutinee can be treated as `RecordType` and each positional
   subpattern matches the corresponding value produced by `RecordType`’s

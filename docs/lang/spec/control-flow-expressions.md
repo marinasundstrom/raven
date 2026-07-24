@@ -1,5 +1,9 @@
 # Control-flow expressions and statements
 
+Raven lets control flow such as `if` produce a value. The same familiar forms
+can also be used as statements when the code is performing work rather than
+calculating a value.
+
 A block is an expression; its value is the value of its last expression
 (or `()` if none). Each block introduces a new scope for local declarations.
 

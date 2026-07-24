@@ -1,7 +1,7 @@
 # Control flow
 
 Raven is expression-oriented, but it also supports statement-form control flow
-for sequencing, early exits, and interop-friendly imperative code.
+for running code in order, repeating work, and leaving a block early.
 
 ## Expression and statement context
 
@@ -11,7 +11,7 @@ context.
 ### Concept
 
 * An expression context expects a value.
-* A statement context expects an effect.
+* A statement context expects an action rather than a value.
 * Expressions are valid in statement context; their values are discarded unless
   captured.
 * Some constructs are statement-only because they do not yield a value.

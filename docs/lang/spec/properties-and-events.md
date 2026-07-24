@@ -116,6 +116,9 @@ property-centric.
 
 ## Events
 
+Events let a type notify any registered handlers when something happens,
+without knowing which objects are listening.
+
 Events expose a delegate-like member that supports handler subscription via
 `+=` and `-=`. An event declaration specifies the `event` keyword, a name, and
 the event handler type:

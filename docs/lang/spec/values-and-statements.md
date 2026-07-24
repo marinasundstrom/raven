@@ -1,5 +1,8 @@
 # Values and statements
 
+Most Raven code produces values, including many control-flow forms. Statements
+are used when code performs an action without needing to keep a result.
+
 Raven has no `void` type. The absence of a meaningful value is represented by the
 `unit` type, which has exactly one value written `()`. The type itself may be
 spelled `unit` or `()`. Functions without an explicit return type implicitly

@@ -4,6 +4,10 @@
 
 Raven supports attached declaration macros and freestanding expression macros. A macro is a compiler-driven expansion that produces ordinary Raven syntax before normal semantic analysis continues.
 
+Use a macro when code needs to generate or transform Raven declarations or
+expressions—something an ordinary function cannot do. A macro expands to normal
+Raven syntax before the compiler analyzes the program.
+
 Macros are distinct from .NET attributes:
 
 * `[Serializable]` is an attribute.

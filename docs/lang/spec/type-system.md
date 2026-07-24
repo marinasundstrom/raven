@@ -1,7 +1,8 @@
 # Raven type system
 
 Raven is statically typed, and every Raven type has a concrete CLR runtime
-representation.
+representation. Types catch incompatible operations during compilation and make
+Raven code work directly with .NET libraries.
 
 ## Core rules
 

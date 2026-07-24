@@ -1,5 +1,9 @@
 # Collection expressions
 
+Collection expressions provide a short way to create arrays, lists,
+dictionaries, and other collections. They can also include values from another
+collection or produce values with a comprehension.
+
 Collection expressions use bracket syntax `[element0, element1, ...]` (with an optional
 trailing comma) to build list-like collection types. Adjacent elements may also be
 separated by a newline, in which case the syntax tree records `SyntaxKind.None` in the

@@ -1,5 +1,9 @@
 # Assignment and expression statements
 
+Use an assignment statement to update a value. Use an expression statement
+when you want to perform an operation, such as calling a function, without
+using its result.
+
 Assignments in statement position produce assignment statements rather than
 expression statements.
 

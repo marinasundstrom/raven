@@ -1,5 +1,9 @@
 # Inheritance and partial types
 
+Inheritance lets one class build on another. Classes are sealed by default, so
+an author must use `open` or `abstract` when other classes are meant to extend
+them.
+
 Classes are sealed by default. Marking a class `open` permits inheritance.
 `abstract` classes are implicitly open and cannot be instantiated directly
 (`RAV0611`).

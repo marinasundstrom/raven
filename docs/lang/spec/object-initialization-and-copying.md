@@ -1,6 +1,13 @@
 # Object initialization and copying
 
+Object initializers set named members while an object is being created. A
+`with` expression creates a changed copy of an existing value without changing
+the original.
+
 ## Object initializers
+
+Use an object initializer when several named members or content items need to
+be set as part of creating the object.
 
 An **object initializer** is a brace block after a type name or constructor
 call. A type name without parentheses selects its parameterless constructor;

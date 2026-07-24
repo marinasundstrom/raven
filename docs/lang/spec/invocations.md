@@ -1,5 +1,9 @@
 # Calls
 
+Calls run functions and methods with a set of arguments. Raven uses the same
+call syntax for function values, constructors, and types that define an
+invocation operator.
+
 ```raven
 Foo(1, 2)
 Console.WriteLine("Test")

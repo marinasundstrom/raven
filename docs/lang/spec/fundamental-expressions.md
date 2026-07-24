@@ -1,5 +1,8 @@
 # Fundamental expressions
 
+These expressions cover common tasks such as converting a value, referring to
+a type or name, providing a fallback, and building a string.
+
 Explicit casts request a conversion to a specific type and use C# syntax.
 
 ```raven

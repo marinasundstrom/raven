@@ -1,7 +1,8 @@
 # Enum declarations
 
 An `enum` declaration defines a set of **named constants** backed by an integral
-underlying type. Enums model symbolic values and preserve CLR enum semantics.
+underlying type. Use an enum for a small set of choices that do not carry
+additional data.
 
 ```raven
 enum Color {

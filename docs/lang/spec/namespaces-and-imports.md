@@ -1,5 +1,9 @@
 # Namespaces, imports, and aliases
 
+Namespaces organize types and functions and prevent names from colliding.
+Imports make those names shorter to use, while aliases provide a different
+local name when that improves clarity or resolves a conflict.
+
 Each file may define a namespace:
 
 ```raven

@@ -1,5 +1,9 @@
 # Unsafe code and interoperability
 
+Unsafe and interop features are for working with native APIs, pointers, and
+storage that cannot be expressed with ordinary managed values. Keeping them in
+an explicit unsafe context makes that boundary visible.
+
 The `*Type` form declares a native pointer to `Type`. Pointer types are
 distinct from by-reference types but interoperate with address-of
 expressions: taking the address of a local or field produces an address
@@ -26,6 +30,8 @@ val pointer: *int = &value
 ```
 
 ## Pointer operations
+
+Pointer operations read, write, or move through native memory directly.
 
 Pointer operations are also gated by unsafe mode. In unsafe mode:
 
@@ -62,6 +68,9 @@ unsafe func assignThroughPointer() -> int {
 
 ## Pinning managed storage
 
+Pinning keeps managed storage at a stable address while native code or a pointer
+uses it.
+
 Raven uses a `use`-scoped pinning form instead of a dedicated `fixed (...) { ... }`
 statement. The initializer syntax is:
 
@@ -91,6 +100,9 @@ unsafe func writeSecond(values: int[]) -> int {
 
 ## Extern declarations
 
+Use an `extern` declaration for a function whose implementation is supplied
+outside Raven, such as a native library entry point.
+
 Methods and function statements can be marked `extern` to declare that their
 implementation is provided externally (for example via P/Invoke). Extern
 declarations do not include a body.
@@ -111,6 +123,9 @@ class Native {
 ```
 
 ## Pass by reference
+
+Passing or returning a value by reference lets code work with the caller's
+existing storage instead of a copy.
 
 By-reference types can annotate locals and return values. A local
 declared with `&Type` acts as an alias to the underlying storage, so

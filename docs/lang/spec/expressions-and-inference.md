@@ -1,7 +1,10 @@
 # Expressions and type inference
 
-### Target typing
+Raven can often work out a type from the value being used or from the place
+where the value is expected. This keeps declarations and expressions short
+when the type is already clear from the surrounding code.
 
+### Target typing
 
 Many expressions rely on the type expected by their context, called the **target type**.
 For example, the enum shorthand `.B` in `var grade: Grades = .B` uses the declared type `Grades` to resolve the member.

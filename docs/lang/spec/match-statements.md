@@ -1,5 +1,8 @@
 # Match statements
 
+Use a match statement when each branch performs an action and the match itself
+does not need to produce a value.
+
 Statement-form `match` (`match expr { ... }`) is a control-flow statement. Its
 arms are evaluated for effects, and arm values are discarded by default. When a
 statement-form `match` is the final statement in a value-returning member, it

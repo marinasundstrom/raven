@@ -1,5 +1,9 @@
 # Error propagation and carrier types
 
+`Result` and `Option` let a function report failure or a missing value without
+throwing an exception. Raven provides short forms for returning those cases
+early so the main path stays easy to read.
+
 ## Try expressions
 
 `try` captures exceptions as values. `try?` combines capture with carrier

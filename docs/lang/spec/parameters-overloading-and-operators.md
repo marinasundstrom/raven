@@ -1,5 +1,9 @@
 # Parameters, overloading, and operators
 
+Parameters describe the values a function accepts. Defaults and overloads let
+an API support common variations without requiring a different name for every
+call, while operators let suitable domain types use familiar expression syntax.
+
 Method, constructor, and accessor parameters are immutable by default. They
 behave like `let` bindings: the compiler rejects assignments that attempt to
 rebind the parameter name. Add the `var` modifier when a parameter must be
@@ -40,6 +44,9 @@ Console.WriteLine(total) // prints 42
 
 ## Method overloading
 
+Use overloading when the same operation makes sense for different sets or types
+of arguments.
+
 Functions and methods may share a name as long as their parameter counts or
 types differ. Overload resolution selects the best match based on argument
 types, `out`/by-ref modifiers, and nullability. Ambiguous calls produce a
@@ -57,6 +64,9 @@ Print("hi")
 
 ## Default parameter values
 
+Use a default value when most callers should be able to omit an optional
+argument.
+
 Methods, constructors, and other function-like members may specify default
 values for trailing parameters using `= expression`. Optional parameters follow
 the same rules as top-level functions: once a parameter provides a default, all
@@ -68,6 +78,9 @@ expression fails these checks, the compiler reports an error and treats the
 parameter as required.
 
 ## Operator declarations
+
+Types can define operators when an operation has a clear meaning in ordinary
+expression syntax, such as adding two vectors.
 
 Classes and structs can declare overloadable operators using function-style
 syntax where the operator token is the function name:
@@ -98,6 +111,9 @@ nullability narrowing. Raven's analyzer recommends these forms over
 excluded from that recommendation.
 
 ## Invocation operator
+
+An invocation operator makes an object callable. This is useful for objects
+whose main job is to apply a configured operation.
 
 Declaring a method named `self` makes instances of the type invocable with the
 call operator `()`.

@@ -1,5 +1,8 @@
 # Dictionary patterns and exhaustiveness
 
+Dictionary patterns check for required keys and match their values at the same
+time. They are useful when a branch only cares about a few known entries.
+
 Dictionary patterns use bracket syntax with keyed entries:
 
 ```raven

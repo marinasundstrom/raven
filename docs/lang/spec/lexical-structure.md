@@ -1,5 +1,8 @@
 # Lexical structure
 
+Lexical rules define how source text is divided into names, keywords, literals,
+comments, and punctuation.
+
 The file extension for source code files is: `.rav`.
 
 ## Grammar

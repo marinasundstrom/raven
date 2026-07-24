@@ -1,5 +1,9 @@
 # Local declarations
 
+Local declarations give names to values used within a function or block. The
+declaration says whether a value can change, is known at compile time, or needs
+to be cleaned up when the scope ends.
+
 Raven uses type inference wherever a declaration or target-typed context supplies
 enough information. Local bindings usually do not need explicit type
 annotations; write one when inference is ambiguous, when an empty or otherwise

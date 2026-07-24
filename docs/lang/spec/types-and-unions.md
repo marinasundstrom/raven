@@ -1,5 +1,9 @@
 # Types and unions
 
+Types describe the values a program can work with and the operations available
+on them. Unions are useful when a value can be one of a known set of
+alternatives.
+
 ### Type annotations
 
 Use type annotations where inference is insufficient or where a particular
@@ -15,6 +19,8 @@ func add(a: int, b: int) -> int { a + b }
 ```
 
 ### Tuple types
+
+Tuple types describe a small group of values without requiring a named type.
 
 Tuple types use parentheses with comma-separated element types and map to
 `System.ValueTuple`:
@@ -37,12 +43,18 @@ participate in other type constructs such as unions or nullability.
 
 ### Standard union types
 
+Standard union types combine existing types when a value may have one of
+several forms.
+
 The type syntax `T1 | T2` is shorthand for `System.Union<T1, T2>`. The same
 spelling supports three, four, and five alternatives. These standard unions are
 provided by `Raven.Core` as a temporary bridge until .NET adopts a standard
 union type.
 
 ### Function types
+
+Function types describe a callable value so it can be stored, passed as an
+argument, or returned from another function.
 
 Function types describe callable delegates directly in a type annotation. The
 syntax mirrors a lambda signature: a comma-separated
@@ -89,6 +101,9 @@ type displays, while custom delegate types remain visibly named delegates.
 
 ### Nullability and `null`
 
+Nullability makes the possibility of `null` visible in a type so callers know
+when a value may be absent.
+
 Nullability is **explicit** in Raven. Reference types are non-nullable by
 default, and `null` can only flow through nullable annotations (`T?`). The same
 rules apply uniformly to reference and value types; the distinction only
@@ -132,6 +147,9 @@ func Increment(value: int?) -> int {
   suppression expression.
 
 ### Unions
+
+Use a union to model a fixed set of cases, especially when each case can carry
+different data.
 
 Unions define nominal carrier types with a fixed set of cases. A union value is
 always stored as the declared carrier type, and case values convert to that
@@ -395,6 +413,9 @@ Pattern matching exhaustively checks every case; see
 `Case`, `Union.Case`, and `.Case`) inside `match` expressions.
 
 ### Closed-shape types
+
+Closed-shape types let the compiler know every possible alternative, which
+makes exhaustive matching possible.
 
 Raven has three primary ways to model a finite, closed set of alternatives:
 

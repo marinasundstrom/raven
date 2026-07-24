@@ -1,5 +1,8 @@
 # Object creation
 
+Create an object by calling its type, with any values its constructor requires.
+Raven uses the same syntax for construction as it does for other calls.
+
 Objects are created by **calling the type name** directly, just like any
 other method.
 

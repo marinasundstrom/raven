@@ -1,5 +1,9 @@
 # Type declarations and initialization
 
+Classes and structs group related data and behavior into a type. Their
+initialization rules ensure that a new value has the members it needs before it
+is used.
+
 Raven supports classes and structs with properties, methods, constructors,
 indexers, fields, and const members. The model is property-first: `val`/`var`
 declarations in type bodies define properties by default. Explicit `field` and

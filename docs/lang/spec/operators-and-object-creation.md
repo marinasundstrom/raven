@@ -1,5 +1,9 @@
 # Index, range, and bitwise operators
 
+Index and range operators make it concise to select positions and slices,
+including positions counted from the end. Bitwise operators work with the
+individual bits of integer values and flags.
+
 Prefixing an expression with `^` produces a `System.Index` value that counts
 from the end of a sequence. The operand must be implicitly convertible to
 `int`, and the result keeps its `Index` type even when not target-typed, so

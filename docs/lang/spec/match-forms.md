@@ -1,5 +1,9 @@
 # Match forms
 
+Use `match` when code should handle several possible shapes or values in one
+place. It is especially useful for unions, because the compiler can check
+whether every case is handled.
+
 Raven supports `match` in expression and statement positions. The normal
 expression form is keyword-first so it reads the same way as statement-form
 `match`, which matches the shape most programmers expect:

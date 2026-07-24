@@ -1,5 +1,9 @@
 # Top-level code and entry points
 
+Top-level code keeps small programs and shared functions concise by avoiding a
+container class that exists only for structure. Entry points define where an
+executable program starts.
+
 A compilation unit or namespace may declare top-level `func` and `const`
 declarations at namespace scope. These declarations are namespace members in
 source, not members of a user-authored type:
@@ -74,6 +78,8 @@ top-level function body is a static function body, so it can only reference
 parameters, imported symbols, and accessible namespace/type members.
 
 ## Entry points
+
+An entry point is the code the host runs when a console application starts.
 
 ### Supported entry-point forms
 

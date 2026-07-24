@@ -1,5 +1,8 @@
 # Pattern forms and contexts
 
+Patterns can check a value, take values out of it, or introduce new names. The
+context determines which of those actions a pattern is allowed to perform.
+
 Patterns compose from the following primitives.
 
 ## Pattern contexts

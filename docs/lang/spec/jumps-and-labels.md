@@ -1,5 +1,9 @@
 # Jumps and labels
 
+Jumps leave or continue a loop before it would normally finish. Labels can name
+an outer loop, and `goto` is available for the uncommon cases where a direct
+jump makes the control flow clearer.
+
 `break` exits the innermost enclosing loop statement immediately. Execution
 resumes at the statement following that loop. `break label` exits the enclosing
 loop statement marked with `label`.

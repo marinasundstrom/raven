@@ -1,6 +1,7 @@
 # Classes, structs, and interfaces
 
-This chapter defines Raven's object-oriented type declarations and member forms.
+Classes and structs group data with the code that works on it. Interfaces define
+behavior that different types can provide.
 
 ## Detailed chapters
 

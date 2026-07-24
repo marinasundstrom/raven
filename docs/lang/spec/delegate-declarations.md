@@ -1,6 +1,9 @@
 # Delegate declarations
 
-Delegate declarations introduce named callable types. The declaration lists a parameter signature and optional return type, and the compiler synthesizes the corresponding delegate members.
+Delegates give a name to a particular kind of function. Use them when an API
+accepts or stores callbacks with a shared signature. The declaration lists the
+parameters and optional return type, and the compiler creates the corresponding
+delegate members.
 
 ```raven
 delegate Transformer(value: int) -> string

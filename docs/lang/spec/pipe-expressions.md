@@ -1,5 +1,8 @@
 # Pipe expressions
 
+Pipelines make a series of transformations read from left to right. They are
+useful when the result of one call becomes the input to the next.
+
 Raven supports a pipeline form that feeds the left-hand value into a call on
 the right. The operator has the lowest precedence among binary operators and
 associates left-to-right, so a chain such as `source |> First() |> Second()`

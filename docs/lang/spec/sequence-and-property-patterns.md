@@ -1,5 +1,9 @@
 # Sequence and property patterns
 
+Sequence patterns match selected elements of a collection. Property patterns
+match selected members of an object. Both let code describe the parts it cares
+about without unpacking the value step by step.
+
 * `[pattern1, pattern2, …]` — **sequence pattern**. Matches when the scrutinee
   is a sequence-deconstructable, indexable collection and each sequence element
   pattern matches the corresponding element or segment.
@@ -46,7 +50,13 @@
 
 ## Property patterns
 
+Use a property pattern when a match depends on named members rather than the
+entire object.
+
 ## Whole-pattern designations
+
+Sometimes a branch needs both extracted parts and the complete matched value. A
+whole-pattern designation gives that complete value a name.
 
 Primary structural patterns may carry an optional trailing designation for the
 entire matched value in binding-enabled pattern contexts:

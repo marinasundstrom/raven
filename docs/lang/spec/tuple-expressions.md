@@ -1,5 +1,8 @@
 # Tuple expressions
 
+Tuples group a small, fixed set of values without declaring a new type. They
+are useful for local results and short-lived data shapes.
+
 Tuples can be **named** or **positional**. Both projections are available.
 
 ```raven

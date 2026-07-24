@@ -1,5 +1,9 @@
 # Async functions
 
+Async functions can wait for work to finish without blocking the current
+thread. Use them for operations such as network requests, file access, and
+timers.
+
 The `async` modifier may appear on top-level functions, methods, and local
 functions. An async declaration opts the body into asynchronous control flow so
 `await` expressions can suspend and resume execution. When no return type is

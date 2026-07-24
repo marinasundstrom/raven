@@ -1,5 +1,8 @@
 # Return and yield
 
+Use `return` to finish a function and provide its result. Use `yield` when a
+function should produce a sequence one item at a time.
+
 The `return` keyword exits a function, lambda, or property accessor. Because
 Raven supports both statement and expression forms:
 

@@ -1,5 +1,8 @@
 # Fundamental patterns
 
+Fundamental patterns check a value's type or contents. A successful pattern can
+also give the matched value a name for use in that branch.
+
 * `Type` — **type pattern**. Succeeds when the scrutinee can be treated as `Type`.
   If the pattern introduces no designation, it behaves like a type test.
 
