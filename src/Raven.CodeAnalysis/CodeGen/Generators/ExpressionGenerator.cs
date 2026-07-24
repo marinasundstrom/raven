@@ -612,6 +612,10 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldarga_S, (short)position);
                 return EmitInfo.ForAddress(parameterAccess.Parameter);
 
+            case BoundSelfExpression when !MethodSymbol.IsStatic && MethodSymbol.ContainingType?.IsValueType == true:
+                ILGenerator.Emit(OpCodes.Ldarg_0);
+                return EmitInfo.ForAddress();
+
             case BoundFieldAccess fieldAccess:
                 // Static fields are always directly addressable.
                 if (fieldAccess.Field.IsStatic)
@@ -736,6 +740,9 @@ internal partial class ExpressionGenerator : Generator
             return;
 
         ILGenerator.Emit(OpCodes.Ldarg_0);
+
+        if (!MethodSymbol.IsStatic && MethodSymbol.ContainingType?.IsValueType == true)
+            ILGenerator.Emit(OpCodes.Ldobj, InstantiateType(ResolveClrType(selfExpression.Type)));
     }
 
     private void EmitBaseExpression(BoundBaseExpression baseExpression, EmitContext context)

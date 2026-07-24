@@ -433,6 +433,45 @@ union struct Option {
     }
 
     [Fact]
+    public void GenericStructUnion_InstancePropertyCanPatternMatchSelf()
+    {
+        const string code = """
+union Option<T> {
+    case Some(value: T)
+    case None
+
+    val HasSome: bool => self is .Some(_)
+}
+
+class Harness {
+    public static func Check() -> bool {
+        val option: Option<int> = .Some(42)
+        return option.HasSome
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+            "struct-union-self",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var harnessType = runtimeAssembly.GetType("Harness", throwOnError: true)!;
+        var check = harnessType.GetMethod("Check", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal(true, check.Invoke(null, null));
+    }
+
+    [Fact]
     public void Union_EmitsConventionalValueProperty()
     {
         var code = """
