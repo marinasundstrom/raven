@@ -25,6 +25,11 @@
     "file": "dispatch-board.rvn"
   },
   {
+    "id": "checkout-async",
+    "title": "Checkout preparation with async/await",
+    "file": "checkout-async.rvn"
+  },
+  {
     "id": "result",
     "title": "Result propagation",
     "file": "result.rvn"

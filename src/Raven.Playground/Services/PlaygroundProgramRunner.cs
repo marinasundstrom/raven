@@ -6,7 +6,9 @@ public sealed class PlaygroundProgramRunner
 {
     private static readonly SemaphoreSlim s_consoleGate = new(1, 1);
 
-    public async Task<PlaygroundExecutionResult> RunAsync(byte[] assemblyImage)
+    public async Task<PlaygroundExecutionResult> RunAsync(
+        byte[] assemblyImage,
+        string? asyncEntryPointImplementationName = null)
     {
         await s_consoleGate.WaitAsync();
         try
@@ -14,6 +16,7 @@ public sealed class PlaygroundProgramRunner
             var assembly = Assembly.Load(assemblyImage);
             var entryPoint = assembly.EntryPoint
                 ?? throw new InvalidOperationException("The emitted Raven assembly does not have an entry point.");
+            var runnableEntryPoint = ResolveRunnableEntryPoint(entryPoint, asyncEntryPointImplementationName);
 
             var originalOut = Console.Out;
             var originalError = Console.Error;
@@ -23,14 +26,14 @@ public sealed class PlaygroundProgramRunner
 
             try
             {
-                var arguments = entryPoint.GetParameters().Length switch
+                var arguments = runnableEntryPoint.GetParameters().Length switch
                 {
                     0 => null,
                     1 => new object?[] { Array.Empty<string>() },
                     _ => throw new InvalidOperationException("The emitted Raven entry point has an unsupported signature."),
                 };
 
-                var invocationResult = entryPoint.Invoke(null, arguments);
+                var invocationResult = runnableEntryPoint.Invoke(null, arguments);
                 var exitCode = invocationResult switch
                 {
                     Task<int> exitCodeTask => await exitCodeTask,
@@ -55,6 +58,32 @@ public sealed class PlaygroundProgramRunner
         {
             s_consoleGate.Release();
         }
+    }
+
+    private static MethodInfo ResolveRunnableEntryPoint(
+        MethodInfo entryPoint,
+        string? asyncEntryPointImplementationName)
+    {
+        if (asyncEntryPointImplementationName is null || entryPoint.DeclaringType is null)
+            return entryPoint;
+
+        var parameterTypes = entryPoint.GetParameters()
+            .Select(static parameter => parameter.ParameterType)
+            .ToArray();
+
+        // Browser WebAssembly cannot synchronously block on the Task returned by
+        // Raven's synthesized console bridge. The compilation identifies the
+        // implementation so user-defined MainAsync helpers are never selected.
+        var method = entryPoint.DeclaringType.GetMethod(
+            asyncEntryPointImplementationName,
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            parameterTypes,
+            modifiers: null);
+
+        return method is not null && typeof(Task).IsAssignableFrom(method.ReturnType)
+            ? method
+            : entryPoint;
     }
 
     private static async Task<int> AwaitTask(Task task)

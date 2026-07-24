@@ -300,7 +300,9 @@
 
             _status = "Running";
             await Task.Yield();
-            var execution = await Runner.RunAsync(compilation.AssemblyImage);
+            var execution = await Runner.RunAsync(
+                compilation.AssemblyImage,
+                compilation.AsyncEntryPointImplementationName);
             _status = "Complete";
             _output = string.IsNullOrEmpty(execution.Output)
                 ? $"Program exited with code {execution.ExitCode}."

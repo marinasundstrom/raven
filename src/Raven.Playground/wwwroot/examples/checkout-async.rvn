@@ -1,0 +1,21 @@
+import System.Threading.Tasks.*
+
+record StockQuote(Warehouse: string, Sku: string, Available: int)
+
+async func CheckStock(warehouse: string, sku: string, delay: int) -> Task<StockQuote> {
+    await Task.Delay(delay)
+    let available = warehouse match {
+        "Harbor" => 4
+        "Airport" => 3
+        _ => 0
+    }
+    return StockQuote(warehouse, sku, available)
+}
+
+let quotes = await Task.WhenAll([
+    CheckStock("Harbor", "BOOK-01", 30)
+    CheckStock("Airport", "BOOK-01", 20)
+])
+
+let available = quotes[0].Available + quotes[1].Available
+Console.WriteLine("${quotes[0].Sku}: $available available across two warehouses")

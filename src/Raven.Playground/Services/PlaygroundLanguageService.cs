@@ -88,8 +88,12 @@ public sealed class PlaygroundLanguageService
                 .ToArray();
 
             var result = emitResult.Success
-                ? new PlaygroundCompilationResult(true, assemblyStream.ToArray(), diagnostics)
-                : new PlaygroundCompilationResult(false, null, diagnostics);
+                ? new PlaygroundCompilationResult(
+                    true,
+                    assemblyStream.ToArray(),
+                    diagnostics,
+                    GetAsyncEntryPointImplementationName(compilation))
+                : new PlaygroundCompilationResult(false, null, diagnostics, null);
             _cachedEmittedCompilation = compilation;
             _cachedCompilationResult = result;
             return result;
@@ -111,6 +115,19 @@ public sealed class PlaygroundLanguageService
     private static SyntaxTree GetUserSyntaxTree(Compilation compilation)
         => compilation.SyntaxTrees.Single(static tree =>
             string.Equals(tree.FilePath, "main.rav", StringComparison.Ordinal));
+
+    private static string? GetAsyncEntryPointImplementationName(Compilation compilation)
+    {
+        var entryPoint = compilation.GetEntryPoint();
+        if (entryPoint is not { IsImplicitlyDeclared: true, Name: "Main" })
+            return null;
+
+        return entryPoint.ContainingType
+            .GetMembers("MainAsync")
+            .OfType<IMethodSymbol>()
+            .SingleOrDefault(static method => method.IsImplicitlyDeclared)
+            ?.MetadataName;
+    }
 
     private static string GetKind(CompletionItem item)
     {
@@ -151,4 +168,5 @@ public sealed record PlaygroundCompletionItem(
 public sealed record PlaygroundCompilationResult(
     bool Success,
     byte[]? AssemblyImage,
-    IReadOnlyList<string> Diagnostics);
+    IReadOnlyList<string> Diagnostics,
+    string? AsyncEntryPointImplementationName);
