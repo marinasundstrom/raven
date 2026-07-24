@@ -869,7 +869,7 @@ class C {
         var tryStatement = Assert.IsType<BoundTryStatement>(Assert.Single(moveNextBody.Statements));
         var tryStatements = tryStatement.TryBlock.Statements.ToArray();
         var entryBlock = Assert.IsType<BoundBlockStatement>(Assert.IsType<BoundLabeledStatement>(tryStatements[^1]).Statement);
-        var nestedTry = entryBlock.Statements.OfType<BoundTryStatement>().Single();
+        var nestedTry = entryBlock.Statements.SelectMany(FlattenStatements).OfType<BoundTryStatement>().Single();
         var catchClause = Assert.Single(nestedTry.CatchClauses);
         Assert.Empty(CollectAwaitExpressions(catchClause.Block));
     }
