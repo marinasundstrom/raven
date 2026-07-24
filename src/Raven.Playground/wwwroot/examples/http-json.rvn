@@ -1,0 +1,42 @@
+import System.Net.Http.*
+import System.Text.Json.*
+import System.Threading.Tasks.*
+
+record PlaygroundExample(Id: string, Title: string, File: string)
+
+union CatalogResult {
+    case Loaded(examples: PlaygroundExample[])
+    case Empty
+    case Failed(message: string)
+}
+
+async func LoadCatalog() -> Task<CatalogResult> {
+    use client = HttpClient()
+
+    try {
+        let json = await client.GetStringAsync(
+            "https://marinasundstrom.github.io/raven/playground/examples/index.json"
+        )
+        let options = JsonSerializerOptions {
+            PropertyNameCaseInsensitive = true
+        }
+        let examples = JsonSerializer.Deserialize<PlaygroundExample[]>(json, options)
+
+        if examples is null || examples.Length == 0 {
+            return .Empty
+        }
+
+        return .Loaded(examples)
+    } catch (Exception error) {
+        return .Failed(error.Message)
+    }
+}
+
+match await LoadCatalog() {
+    .Loaded(let examples) =>
+        Console.WriteLine("Loaded ${examples.Length} examples; first is “${examples[0].Title}”")
+    .Empty =>
+        Console.WriteLine("The catalog is empty")
+    .Failed(let message) =>
+        Console.WriteLine("Could not load the catalog: $message")
+}

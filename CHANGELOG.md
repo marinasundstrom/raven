@@ -8,6 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `System.Threading.Monitor` acquisition and release.
 - Added playground samples showing guarded deconstruction in `for` iteration
   and pattern-bound `while let` consumption of a domain event stream.
+- Added a playground sample that scopes `HttpClient` with `use`, loads the
+  deployed example catalog, deserializes its JSON, and models outcomes as a
+  union.
 - Preserved collection element types while resolving competing overloads so
   generic enumerable overloads such as `Task.WhenAll([task1, task2])` infer
   their type arguments instead of prematurely widening the elements.
