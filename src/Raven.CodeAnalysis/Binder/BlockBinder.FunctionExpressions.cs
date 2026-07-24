@@ -814,6 +814,7 @@ partial class BlockBinder
         lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntaxNode);
 
         var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, bodyExpr, lambdaSymbol);
+        ReportRefLikeCaptures(capturedVariables, syntax.GetLocation());
 
         if (isStaticLambda)
         {
@@ -2023,6 +2024,7 @@ partial class BlockBinder
         lambdaBinder.SetLambdaBody(body);
         lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntax ?? syntax);
         var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, body, lambdaSymbol);
+        ReportRefLikeCaptures(capturedVariables, syntax.GetLocation());
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
         lambdaSymbol.SetClosureFrameType(capturedVariables.Length != 0
@@ -2301,6 +2303,19 @@ partial class BlockBinder
             capturedSet.Add(nestedCapture);
 
         return capturedSet.ToImmutableArray();
+    }
+
+    private void ReportRefLikeCaptures(ImmutableArray<ISymbol> capturedVariables, Location fallbackLocation)
+    {
+        foreach (var captured in capturedVariables)
+        {
+            if (captured.UnwrapType() is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+                continue;
+
+            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var location = captured.Locations.FirstOrDefault() ?? fallbackLocation;
+            _diagnostics.ReportRefLikeVariableCannotBeCaptured(captured.Name, typeDisplay, location);
+        }
     }
 
     private bool HasExistingArgumentErrors(SeparatedSyntaxList<ArgumentSyntax> arguments)

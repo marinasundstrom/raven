@@ -931,6 +931,10 @@
     Title="Static function expression cannot capture variables"
     Message="Static function expression cannot capture '{name}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2205" Identifier="RefLikeVariableCannotBeCaptured"
+    Title="Ref-like variable cannot be captured"
+    Message="Ref-like variable '{name}' of type '{typeName}' cannot be captured by a function"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2111" Identifier="UnionMemberNameReserved"
     Title="Union member name is reserved"
     Message="Union '{unionName}' reserves member name '{memberName}' for synthesized members"

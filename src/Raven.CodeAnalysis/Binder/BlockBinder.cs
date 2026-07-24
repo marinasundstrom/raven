@@ -16632,6 +16632,7 @@ partial class BlockBinder : Binder
             functionBody is not null)
         {
             var capturedVariables = AnalyzeFunctionCapturedVariables(functionBody, symbol);
+            ReportRefLikeCaptures(capturedVariables, function.GetLocation());
             functionSourceMethod.SetCapturedVariables(capturedVariables);
             if (capturedVariables.Length != 0 && functionSourceMethod.ClosureFrameType is null)
                 functionSourceMethod.SetClosureFrameType(ClosureFrameSymbolFactory.Create(functionSourceMethod));

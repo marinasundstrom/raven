@@ -67,4 +67,45 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void RefLikeLocal_CannotBeCapturedByLambda()
+    {
+        const string code = """
+        unsafe func Main() -> unit {
+            val values: System.Span<int> = stackalloc int[1]
+            val getLength = () -> int => values.Length
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RefLikeVariableCannotBeCaptured.Id)
+                .WithAnySpan()
+                .WithArguments("values", "Span<int>"),
+        ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void RefLikeLocal_CannotBeCapturedByLocalFunction()
+    {
+        const string code = """
+        unsafe func Main() -> unit {
+            val values: System.Span<int> = stackalloc int[1]
+
+            func GetLength() -> int {
+                values.Length
+            }
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RefLikeVariableCannotBeCaptured.Id)
+                .WithAnySpan()
+                .WithArguments("values", "Span<int>"),
+        ]);
+
+        verifier.Verify();
+    }
 }
