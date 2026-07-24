@@ -114,7 +114,55 @@ public sealed class RefStructMetadataEmissionTests
             (int)(genericParameter.Attributes & GenericParameterAttributes.AllowByRefLike));
     }
 
+    [Fact]
+    public void GenericReadonlyRefStruct_RoundTripsThroughMetadataAndReflection()
+    {
+        const string source = """
+            readonly ref struct Buffer<T> where T: allows ref struct {
+                readonly field Value: &int
+            }
+            """;
+
+        var image = EmitToImage(source);
+        var reference = MetadataReference.CreateFromImage(image.ToArray());
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. TestMetadataReferences.Default, reference]);
+        var definition = consumer.GetTypeByMetadataName("Buffer`1");
+
+        Assert.NotNull(definition);
+        Assert.True(definition!.IsRefLikeType);
+        Assert.True(definition.IsReadOnly);
+        Assert.Equal(
+            TypeParameterConstraintKind.AllowByRefLike,
+            definition.TypeParameters[0].ConstraintKind & TypeParameterConstraintKind.AllowByRefLike);
+        Assert.Equal(RefKind.Ref, Assert.Single(definition.GetMembers("Value").OfType<IFieldSymbol>()).RefKind);
+
+        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            definition.Construct(consumer.GetSpecialType(SpecialType.System_Int32)));
+        Assert.True(constructed.IsRefLikeType);
+        Assert.True(constructed.IsReadOnly);
+        Assert.Equal(RefKind.Ref, Assert.Single(constructed.GetMembers("Value").OfType<IFieldSymbol>()).RefKind);
+
+        var assembly = Assembly.Load(image.ToArray());
+        var reflectedDefinition = assembly.GetType("Buffer`1", throwOnError: true)!;
+        Assert.True(reflectedDefinition.IsByRefLike);
+        Assert.True(reflectedDefinition.MakeGenericType(typeof(int)).IsByRefLike);
+        Assert.NotEqual(
+            0,
+            (int)(reflectedDefinition.GetGenericArguments()[0].GenericParameterAttributes &
+                  GenericParameterAttributes.AllowByRefLike));
+        Assert.True(reflectedDefinition.GetField("Value")!.FieldType.IsByRef);
+    }
+
     private static PEReader EmitToMetadataReader(string source)
+    {
+        return new PEReader(EmitToImage(source));
+    }
+
+    private static ImmutableArray<byte> EmitToImage(string source)
     {
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create(
@@ -127,7 +175,7 @@ public sealed class RefStructMetadataEmissionTests
         var result = compilation.Emit(peStream);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
 
-        return new PEReader(ImmutableArray.Create(peStream.ToArray()));
+        return ImmutableArray.Create(peStream.ToArray());
     }
 
     private static string GetAttributeTypeName(MetadataReader metadata, CustomAttributeHandle handle)

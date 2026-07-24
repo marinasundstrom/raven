@@ -2032,6 +2032,7 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
     public bool IsConst => _original.IsConst;
     public bool IsRequired => _original.IsRequired;
     public bool IsReadOnly => _original.IsReadOnly;
+    public RefKind RefKind => _original.RefKind;
     public SymbolKind Kind => _original.Kind;
     public string MetadataName => _original.MetadataName;
     public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
