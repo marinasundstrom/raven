@@ -433,6 +433,34 @@ union struct Option {
     }
 
     [Fact]
+    public void ParenthesizedStructUnion_WithManagedReference_UsesSequentialLayout()
+    {
+        const string code = """
+union Payment(int | string)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+            "managed-union-layout",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var runtimeAssembly = loaded.Assembly;
+        var unionType = runtimeAssembly.GetType("Payment", throwOnError: true)!;
+
+        Assert.Equal(LayoutKind.Sequential, unionType.StructLayoutAttribute!.Value);
+        Assert.NotNull(Activator.CreateInstance(unionType, [42]));
+        Assert.NotNull(Activator.CreateInstance(unionType, ["card"]));
+    }
+
+    [Fact]
     public void GenericStructUnion_InstancePropertyCanPatternMatchSelf()
     {
         const string code = """

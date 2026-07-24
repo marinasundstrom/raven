@@ -128,9 +128,10 @@ internal class TypeGenerator
                 var unionNamed = (INamedTypeSymbol)unionSymbol;
                 if (unionNamed.TypeKind == TypeKind.Struct)
                 {
-                    typeAttributes |= unionNamed.IsGenericType
-                        ? TypeAttributes.SequentialLayout
-                        : TypeAttributes.ExplicitLayout;
+                    typeAttributes &= ~TypeAttributes.LayoutMask;
+                    typeAttributes |= ShouldUseExplicitUnionLayout(unionSymbol)
+                        ? TypeAttributes.ExplicitLayout
+                        : TypeAttributes.SequentialLayout;
                 }
             }
         }
@@ -445,6 +446,15 @@ internal class TypeGenerator
     private bool UnionHasManagedReferences(SourceUnionSymbol unionSymbol)
     {
         var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var field in unionSymbol.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.IsStatic)
+                continue;
+
+            if (ContainsManagedReference(field.Type, visited))
+                return true;
+        }
 
         foreach (var caseSymbol in unionSymbol.DeclaredCaseTypes)
         {
