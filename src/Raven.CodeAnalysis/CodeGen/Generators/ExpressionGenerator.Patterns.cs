@@ -631,6 +631,38 @@ internal partial class ExpressionGenerator
 
         if (pattern is BoundPositionalPattern tuplePattern)
         {
+            var positionalInputType = tuplePattern.Type;
+            var recoversSequenceTypeFromObject =
+                inputType.SpecialType == SpecialType.System_Object &&
+                positionalInputType.TypeKind != TypeKind.Error &&
+                !TypesMatch(inputType, positionalInputType) &&
+                (positionalInputType.SpecialType == SpecialType.System_String ||
+                    positionalInputType is IArrayTypeSymbol ||
+                    TryGetIndexableCollectionAccess(positionalInputType, out _));
+
+            if (recoversSequenceTypeFromObject)
+            {
+                var positionalClrType = ResolveClrType(positionalInputType);
+                var labelHasInput = ILGenerator.DefineLabel();
+                var labelRecovered = ILGenerator.DefineLabel();
+
+                ILGenerator.Emit(OpCodes.Isinst, positionalClrType);
+                ILGenerator.Emit(OpCodes.Dup);
+                ILGenerator.Emit(OpCodes.Brtrue, labelHasInput);
+                ILGenerator.Emit(OpCodes.Pop);
+                ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                ILGenerator.Emit(OpCodes.Br, labelRecovered);
+
+                ILGenerator.MarkLabel(labelHasInput);
+                ILGenerator.Emit(
+                    positionalClrType.IsValueType ? OpCodes.Unbox_Any : OpCodes.Castclass,
+                    positionalClrType);
+                EmitPattern(tuplePattern, positionalInputType, scope, scrutineeLocal2);
+
+                ILGenerator.MarkLabel(labelRecovered);
+                return;
+            }
+
             IILocal? matchedInputLocal = null;
             if (tuplePattern.Designator is not null && inputType.TypeKind != TypeKind.Error)
             {

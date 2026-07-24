@@ -1118,6 +1118,44 @@ class Foo {
     }
 
     [Fact]
+    public void TuplePattern_WithNestedDictionaryAndSequencePatterns_Matches()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+class Foo {
+    static func Route() -> string {
+        val headers: IReadOnlyDictionary<string, string> = ["event": "scan"]
+        val segments: string[] = ["parcels", "P-1"]
+
+        return (headers, segments) match {
+            (["event": "scan"], ["parcels", val id]) => id
+            _ => "no match"
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        CollectionExpressionTestHelpers.AssertSuccess(result);
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Foo", true);
+        var method = type!.GetMethod("Route");
+        var instance = Activator.CreateInstance(type!);
+
+        Assert.Equal("P-1", (string)method!.Invoke(instance, null)!);
+    }
+
+    [Fact]
     public void SpreadInference_PreservesImmutableCollectionBuilderType()
     {
         var code = """
