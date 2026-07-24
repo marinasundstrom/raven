@@ -77,6 +77,15 @@
     </Overload>
   </Factory>
 
+  <Factory Node="LockStatement">
+    <Overload>
+      <Parameter Slot="Expression" />
+      <Parameter Slot="Statement" />
+      <Default Slot="LockKeyword" Token="LockKeyword" />
+      <Default Slot="TerminatorToken" Token="None" />
+    </Overload>
+  </Factory>
+
   <Factory Node="LocalDeclarationStatement">
     <Overload>
       <Parameter Slot="Declaration" />

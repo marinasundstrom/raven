@@ -397,6 +397,10 @@ class MethodBodyBinder : BlockBinder
                 case BoundForStatement forStatement:
                     _ = AnalyzeStatement(forStatement.Body, assigned);
                     return new AnalysisState(assigned, true);
+                case BoundLockStatement lockStatement:
+                    return AnalyzeStatement(
+                        lockStatement.Body,
+                        MarkAssignedExpression(lockStatement.Expression, assigned));
                 case BoundTryStatement tryStatement:
                     return AnalyzeTry(tryStatement, assigned);
                 default:

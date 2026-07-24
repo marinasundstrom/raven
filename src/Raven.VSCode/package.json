@@ -155,6 +155,7 @@
             "keyword.other.alias.raven",
             "keyword.control.conditional.raven",
             "keyword.control.loop.raven",
+            "keyword.control.lock.raven",
             "keyword.control.exception.raven",
             "keyword.control.flow.raven",
             "keyword.control.async.raven",

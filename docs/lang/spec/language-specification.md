@@ -122,6 +122,7 @@ and common rules are easy to find.
 
 * [Control flow overview](control-flow.md)
 * [Control-flow expressions and statements](control-flow-expressions.md)
+* [Lock statements](lock-statements.md)
 * [Assignment and expression statements](assignment-and-expression-statements.md)
 * [Match statements](match-statements.md)
 * [Return and yield](returns-and-yield.md)

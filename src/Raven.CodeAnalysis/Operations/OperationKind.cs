@@ -106,6 +106,11 @@ public enum OperationKind
     Try,
 
     /// <summary>
+    /// A statement that executes while holding a monitor lock.
+    /// </summary>
+    Lock,
+
+    /// <summary>
     /// A catch clause.
     /// </summary>
     CatchClause,

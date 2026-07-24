@@ -356,6 +356,21 @@ partial class BlockBinder
         return new BoundLoopStatement(body);
     }
 
+    private BoundStatement BindLockStatement(LockStatementSyntax lockStmt)
+    {
+        var expression = BindExpression(lockStmt.Expression);
+        var body = BindStatement(lockStmt.Statement);
+
+        if (expression.Type is { TypeKind: not TypeKind.Error } type && !type.IsReferenceType)
+        {
+            _diagnostics.ReportLockExpressionMustBeReferenceType(
+                type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                lockStmt.Expression.GetLocation());
+        }
+
+        return new BoundLockStatement(expression, body);
+    }
+
     private BoundStatement BindTryStatement(TryStatementSyntax tryStmt)
     {
         var tryBlock = BindBlockStatement(tryStmt.Block);

@@ -338,6 +338,7 @@ Statement                ::= LocalDeclaration
                            | WhilePatternStatement
                            | ForStatement
                            | TryStatement
+                           | LockStatement
                            | UnsafeStatement
                            | AssignmentStatement
                            | ExpressionStatement ;
@@ -378,6 +379,7 @@ IfPatternStatement       ::= 'if' BindingKeyword Pattern '=' Expression Embedded
 WhileStatement           ::= 'while' Expression EmbeddedStatement ;
 WhilePatternStatement    ::= 'while' BindingKeyword Pattern '=' Expression EmbeddedStatement ;
 LoopStatement            ::= 'loop' EmbeddedStatement ;
+LockStatement            ::= 'lock' Expression EmbeddedStatement ;
 ForStatement             ::= 'await'? 'for' ForBindingKeyword? ForIterationTarget? 'in' Expression ForStepClause? EmbeddedStatement ;
 ForBindingKeyword        ::= 'val' | 'let' | 'var' ;
 ForIterationTarget       ::= TypedForIdentifierTarget | Identifier | Pattern ;

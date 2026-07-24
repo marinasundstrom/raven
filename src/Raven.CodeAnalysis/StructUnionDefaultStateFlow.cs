@@ -225,6 +225,9 @@ internal static class StructUnionDefaultStateFlow
             case BoundForStatement forStatement:
                 ApplyMayExecuteStatement(forStatement.Body, states);
                 break;
+            case BoundLockStatement lockStatement:
+                ApplyStatement(lockStatement.Body, states);
+                break;
             case BoundTryStatement tryStatement:
                 ApplyTryStatement(tryStatement, states);
                 break;

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added `lock expression { ... }` statements, lowering to exception-safe
+  `System.Threading.Monitor` acquisition and release.
 - Added an order-boundary playground sample showing `Result` conditional
   access and implicit error conversion during propagation.
 - Added a price-import playground sample that captures exceptions from a

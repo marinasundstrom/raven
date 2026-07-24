@@ -620,6 +620,10 @@
     Title="try statement requires catch or finally"
     Message="A try statement must include at least one catch clause or a finally clause"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1027" Identifier="LockExpressionMustBeReferenceType"
+    Title="Lock expression must be a reference type"
+    Message="A lock expression must have a reference type; '{typeName}' is not a reference type"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV1016" Identifier="CatchTypeMustDeriveFromSystemException"
     Title="Catch type must derive from System.Exception"
     Message="Type '{typeName}' is not derived from System.Exception" Category="compiler"

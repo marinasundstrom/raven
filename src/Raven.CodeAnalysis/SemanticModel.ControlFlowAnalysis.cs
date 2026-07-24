@@ -209,6 +209,9 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 _ = AnalyzeStatement(forStatement.Body, isReachable);
                 _endPointIsReachable = isReachable;
                 return _endPointIsReachable;
+            case LockStatementSyntax lockStatement:
+                Visit(lockStatement.Expression);
+                return AnalyzeStatement(lockStatement.Statement, isReachable);
             case TryStatementSyntax tryStatement:
                 return AnalyzeTryStatement(tryStatement, isReachable);
             case UseDeclarationStatementSyntax { InBlockClause.Block: { } inBlock } useDeclaration:

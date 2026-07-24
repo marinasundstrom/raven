@@ -1901,6 +1901,35 @@ internal sealed class TryOperation : Operation, ITryOperation
     }
 }
 
+internal sealed class LockOperation : Operation, ILockOperation
+{
+    private IOperation? _lockedValue;
+    private IOperation? _body;
+
+    internal LockOperation(
+        SemanticModel semanticModel,
+        BoundLockStatement bound,
+        SyntaxNode syntax,
+        bool isImplicit)
+        : base(semanticModel, OperationKind.Lock, syntax, null, isImplicit)
+    {
+    }
+
+    public IOperation? LockedValue => _lockedValue ??=
+        SemanticModel.GetOperation(((LockStatementSyntax)Syntax).Expression);
+
+    public IOperation? Body => _body ??=
+        SemanticModel.GetOperation(((LockStatementSyntax)Syntax).Statement);
+
+    protected override ImmutableArray<IOperation> GetChildrenCore()
+    {
+        var builder = ImmutableArray.CreateBuilder<IOperation>();
+        builder.AddIfNotNull(LockedValue);
+        builder.AddIfNotNull(Body);
+        return builder.ToImmutable();
+    }
+}
+
 internal sealed class CatchClauseOperation : Operation, ICatchClauseOperation
 {
     private readonly BoundCatchClause _bound;

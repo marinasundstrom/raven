@@ -70,6 +70,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     statement = ParseLoopStatementSyntax();
                     break;
 
+                case SyntaxKind.LockKeyword:
+                    statement = ParseLockStatementSyntax();
+                    break;
+
                 case SyntaxKind.UseKeyword:
                     statement = ParseUseDeclarationStatementSyntax();
                     break;
@@ -477,6 +481,18 @@ internal class StatementSyntaxParser : SyntaxParser
         TryConsumeTerminator(out var terminatorToken);
 
         return WhileStatement(whileKeyword, condition!, statement!, terminatorToken);
+    }
+
+    private LockStatementSyntax ParseLockStatementSyntax()
+    {
+        var lockKeyword = ReadToken();
+        var expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+        var statement = ParseEmbeddedStatement(requireNewLineForNonBlockBody: true);
+
+        SetTreatNewlinesAsTokens(true);
+        TryConsumeTerminator(out var terminatorToken);
+
+        return LockStatement(lockKeyword, expression!, statement!, terminatorToken);
     }
 
     private WhilePatternStatementSyntax ParseWhilePatternStatementSyntax(SyntaxToken whileKeyword)

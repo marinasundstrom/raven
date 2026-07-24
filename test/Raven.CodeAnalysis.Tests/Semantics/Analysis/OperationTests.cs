@@ -236,6 +236,34 @@ class C {
     }
 
     [Fact]
+    public void GetOperation_LockStatement_ReturnsLockedValueAndBody()
+    {
+        const string source = """
+class C {
+    func Test(gate: object) {
+        lock gate {
+            return
+        }
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source, references: GetReferencesWithRavenCore());
+        var model = compilation.GetSemanticModel(tree);
+        var lockSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<LockStatementSyntax>()
+            .Single();
+
+        var operation = Assert.IsAssignableFrom<ILockOperation>(model.GetOperation(lockSyntax));
+
+        operation.Kind.ShouldBe(OperationKind.Lock);
+        operation.LockedValue.ShouldBeAssignableTo<IParameterReferenceOperation>();
+        operation.Body.ShouldNotBeNull();
+        operation.Body!.Kind.ShouldBe(OperationKind.Block);
+    }
+
+    [Fact]
     public void GetOperation_ForStatement_ReturnsLoopWithStatementBody()
     {
         const string source = """

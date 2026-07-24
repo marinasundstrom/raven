@@ -399,6 +399,13 @@ public interface ITryOperation : IOperation
     IOperation? Finally { get; }
 }
 
+public interface ILockOperation : IOperation
+{
+    IOperation? LockedValue { get; }
+
+    IOperation? Body { get; }
+}
+
 public interface ICatchClauseOperation : IOperation
 {
     ITypeSymbol ExceptionType { get; }

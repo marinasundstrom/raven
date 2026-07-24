@@ -590,6 +590,10 @@
                     "match": "\\b(for|loop|while|do)\\b"
                 },
                 {
+                    "name": "keyword.control.lock.raven",
+                    "match": "\\b(lock)\\b"
+                },
+                {
                     "name": "keyword.control.exception.raven",
                     "match": "\\b(try|catch|finally)\\b"
                 },
