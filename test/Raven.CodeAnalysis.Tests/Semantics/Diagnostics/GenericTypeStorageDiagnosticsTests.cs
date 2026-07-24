@@ -96,4 +96,30 @@ func Main() {
 
         Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
     }
+
+    [Fact]
+    public void SourceGenericMethod_WithAllowByRefLike_AcceptsSpanArgument()
+    {
+        const string source = """
+func Main() {
+    Accept<System.Span<int>>()
+}
+
+func Accept<T>() where T: allows ref struct {}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.DoesNotContain(diagnostics, d => d.Descriptor == CompilerDiagnostics.TypeArgumentDoesNotSatisfyConstraint);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(function => function.Identifier.ValueText == "Accept");
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        Assert.Equal(
+            TypeParameterConstraintKind.AllowByRefLike,
+            method.TypeParameters[0].ConstraintKind & TypeParameterConstraintKind.AllowByRefLike);
+    }
 }

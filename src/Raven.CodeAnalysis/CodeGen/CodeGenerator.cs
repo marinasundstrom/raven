@@ -223,6 +223,9 @@ internal class CodeGenerator
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.Constructor) != 0)
             attributes |= GenericParameterAttributes.DefaultConstructorConstraint;
 
+        if ((parameter.ConstraintKind & TypeParameterConstraintKind.AllowByRefLike) != 0)
+            attributes |= GenericParameterAttributes.AllowByRefLike;
+
         builder.SetGenericParameterAttributes(attributes);
 
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)

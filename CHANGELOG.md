@@ -28,6 +28,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Rejected returning ref structs that contain references to method locals or
   `stackalloc`-backed ref-like fields, including through simple local aliases,
   while allowing caller-owned references and spans supplied by parameters.
+- Added the `allows ref struct` generic anti-constraint, including source
+  semantic classification and the standard CLI `AllowByRefLike` metadata flag.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

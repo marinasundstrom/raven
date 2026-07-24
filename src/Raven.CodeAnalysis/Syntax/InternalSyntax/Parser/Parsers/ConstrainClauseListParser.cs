@@ -130,6 +130,16 @@ internal class ConstrainClauseListParser : SyntaxParser
             return StructConstraint(structKeyword);
         }
 
+        if (token.IsKind(SyntaxKind.AllowsKeyword) &&
+            PeekToken(1).IsKind(SyntaxKind.RefKeyword) &&
+            PeekToken(2).IsKind(SyntaxKind.StructKeyword))
+        {
+            var allowsKeyword = ReadToken();
+            var refKeyword = ReadToken();
+            var structKeyword = ReadToken();
+            return AllowsRefStructConstraint(allowsKeyword, refKeyword, structKeyword);
+        }
+
         if (token.IsKind(SyntaxKind.NewKeyword))
         {
             var newKeyword = ReadToken();

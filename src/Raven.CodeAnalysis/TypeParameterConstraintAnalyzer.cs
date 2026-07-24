@@ -58,6 +58,10 @@ internal static class TypeParameterConstraintAnalyzer
                 case ConstructorConstraintSyntax:
                     kind |= TypeParameterConstraintKind.Constructor;
                     break;
+
+                case AllowsRefStructConstraintSyntax:
+                    kind |= TypeParameterConstraintKind.AllowByRefLike;
+                    break;
             }
         }
 

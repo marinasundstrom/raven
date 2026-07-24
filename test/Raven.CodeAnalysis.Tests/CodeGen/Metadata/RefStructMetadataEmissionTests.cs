@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
@@ -87,6 +88,30 @@ public sealed class RefStructMetadataEmissionTests
 
         Assert.Equal("Value", metadata.GetString(field.Name));
         Assert.Equal([0x06, 0x10, 0x08], signature);
+    }
+
+    [Theory]
+    [InlineData("class Buffer<T> where T: allows ref struct {}", "Buffer")]
+    [InlineData("func Accept<T>() where T: allows ref struct {}", "Program")]
+    public void AllowsRefStruct_EmitsAllowByRefLikeGenericParameterFlag(
+        string source,
+        string declaringTypeName)
+    {
+        using var peReader = EmitToMetadataReader(source);
+        var metadata = peReader.GetMetadataReader();
+        var type = metadata.TypeDefinitions
+            .Select(metadata.GetTypeDefinition)
+            .Single(type => metadata.GetString(type.Name).StartsWith(declaringTypeName, StringComparison.Ordinal));
+        var genericParameter = declaringTypeName == "Buffer"
+            ? metadata.GetGenericParameter(Assert.Single(type.GetGenericParameters()))
+            : metadata.GetGenericParameter(Assert.Single(
+                metadata.MethodDefinitions
+                    .Select(metadata.GetMethodDefinition)
+                    .SelectMany(method => method.GetGenericParameters())));
+
+        Assert.NotEqual(
+            0,
+            (int)(genericParameter.Attributes & GenericParameterAttributes.AllowByRefLike));
     }
 
     private static PEReader EmitToMetadataReader(string source)

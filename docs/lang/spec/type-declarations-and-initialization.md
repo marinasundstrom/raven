@@ -101,6 +101,19 @@ to a local variable, or when one of its ref-like fields contains
 References and spans supplied by parameters may be stored and returned because
 their storage is owned by the caller rather than the current stack frame.
 
+Generic declarations opt into ref-like type arguments with the
+`allows ref struct` anti-constraint:
+
+```raven
+func Accept<T>() where T: allows ref struct {}
+```
+
+The semantic model exposes this as
+`TypeParameterConstraintKind.AllowByRefLike`, and emission sets the standard
+CLI `AllowByRefLike` (`0x20`) generic-parameter flag. Without the
+anti-constraint, a ref-like type such as `Span<T>` is rejected as a type
+argument.
+
 ### Field declarations (low-level storage)
 
 Fields are explicit CLR storage members. Use them when source code needs direct

@@ -59,6 +59,11 @@
     <Slot Name="OpenParenToken" Type="Token" DefaultToken="OpenParenToken" />
     <Slot Name="CloseParenToken" Type="Token" DefaultToken="CloseParenToken" />
   </Node>
+  <Node Name="AllowsRefStructConstraint" Inherits="TypeParameterConstraint">
+    <Slot Name="AllowsKeyword" Type="Token" DefaultToken="AllowsKeyword" />
+    <Slot Name="RefKeyword" Type="Token" DefaultToken="RefKeyword" />
+    <Slot Name="StructKeyword" Type="Token" DefaultToken="StructKeyword" />
+  </Node>
   <!-- One "where T : ..." clause -->
   <Node Name="TypeParameterConstraintClause" Inherits="Node">
     <Slot Name="WhereKeyword" Type="Token" DefaultToken="WhereKeyword" />

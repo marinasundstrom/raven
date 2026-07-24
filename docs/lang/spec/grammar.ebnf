@@ -311,6 +311,7 @@ TypeParameterConstraint  ::= 'class'            (* reference type constraint *)
                            | 'notnull'          (* non-null constraint *)
                            | 'unmanaged'        (* unmanaged constraint *)
                            | 'new' '(' ')'      (* public parameterless ctor *)
+                           | 'allows' 'ref' 'struct'
                            | Type ;             (* base class / interface constraint *)
 
 (* ---------- Statements ---------- *)
