@@ -8,20 +8,16 @@ record WebhookRequest(
 func Route(request: WebhookRequest) -> string {
     let segments = request.Path.Split("/")
 
-    return request.Headers match {
-        ["x-event": "parcel.scanned", "x-region": val region] =>
-            segments match {
-                ["", "parcels", val parcelId, ...] =>
-                    "Queue scan for $parcelId in $region"
-                _ => "Reject unknown parcel path"
-            }
+    return (request.Headers, segments) match {
+        (
+            ["x-event": "parcel.scanned", "x-region": val region],
+            ["", "parcels", val parcelId, ...]
+        ) => "Queue scan for $parcelId in $region"
 
-        ["x-event": "parcel.delivered"] =>
-            segments match {
-                ["", "parcels", val parcelId, ...] =>
-                    "Close delivery for $parcelId"
-                _ => "Reject unknown parcel path"
-            }
+        (
+            ["x-event": "parcel.delivered"],
+            ["", "parcels", val parcelId, ...]
+        ) => "Close delivery for $parcelId"
 
         _ => "Ignore unsupported webhook"
     }
