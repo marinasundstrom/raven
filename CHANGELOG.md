@@ -4,9 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added first-class `Span<T>` and `ReadOnlySpan<T>` support across stack
+  allocation, covariant conversions, generic inference, overload resolution,
+  indexing, mutation, slicing, iteration, and span-targeted collection
+  expressions, with `Memory<T>` and `ReadOnlyMemory<T>` interoperability.
 - Added unsafe pointer-producing stack allocation with
   `stackalloc T[count]`, including runtime-sized allocations, unmanaged element
-  validation, integer-count diagnostics, and direct `localloc` emission.
+  validation, integer-count diagnostics, direct `localloc` emission, and safe
+  natural `Span<T>` or explicit `ReadOnlySpan<T>` targets.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

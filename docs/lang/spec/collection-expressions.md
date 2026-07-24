@@ -124,10 +124,15 @@ The current targetless default matrix is therefore:
       b
   ]` -> `List<T>`
 * `[|a, b|]` -> `T[N]` / `T[]`
+* `val span: System.Span<T> = [a, b]` -> array-backed `Span<T>`
+* `val span: System.ReadOnlySpan<T> = [a, b]` -> array-backed `ReadOnlySpan<T>`
 
 An empty collection expression `[]` must be used in a context that supplies a target type;
 otherwise its type cannot be inferred. When a target type is available, the compiler
-produces an empty instance of that type (an empty array or an initialized collection).
+produces an empty instance of that type (an empty array, an initialized collection, or a
+default empty span). Span-targeted collection expressions support ordinary elements and
+spread elements; their array-backed storage keeps the resulting span valid for its normal
+scope.
 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3620-L3651】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L1170-L1192】
 
 ```raven
