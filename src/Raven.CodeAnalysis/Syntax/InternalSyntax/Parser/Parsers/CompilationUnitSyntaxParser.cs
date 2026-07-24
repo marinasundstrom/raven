@@ -119,7 +119,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             SyntaxKind.ConstKeyword or SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.FileprivateKeyword or
-            SyntaxKind.StaticKeyword or SyntaxKind.RefKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
+            SyntaxKind.StaticKeyword or SyntaxKind.RefKeyword or SyntaxKind.ReadonlyKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.FinalKeyword or SyntaxKind.SealedKeyword or
             SyntaxKind.OpenKeyword or SyntaxKind.RecordKeyword or
             SyntaxKind.PartialKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.ExternKeyword;
     }
@@ -195,7 +195,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.FileprivateKeyword) ||
-                 nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.RefKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
+                 nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.RefKeyword) || nextToken.IsKind(SyntaxKind.ReadonlyKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
                  nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) ||
@@ -530,6 +530,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                      SyntaxKind.FileprivateKeyword or
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.RefKeyword or
+                     SyntaxKind.ReadonlyKeyword or
                      SyntaxKind.AbstractKeyword or
                      SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or

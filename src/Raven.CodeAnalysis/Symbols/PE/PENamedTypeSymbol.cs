@@ -713,6 +713,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public bool IsAbstract => _typeInfo.IsAbstract;
     public bool IsClosed => _typeInfo.IsSealed;
     public bool IsRefLikeType => _typeInfo.IsByRefLike;
+    public bool IsReadOnly => _typeInfo.CustomAttributes.Any(attribute =>
+        attribute.AttributeType.FullName == "System.Runtime.CompilerServices.IsReadOnlyAttribute");
     public override bool IsStatic => TypeKind == TypeKind.Class && IsAbstract && IsClosed;
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;

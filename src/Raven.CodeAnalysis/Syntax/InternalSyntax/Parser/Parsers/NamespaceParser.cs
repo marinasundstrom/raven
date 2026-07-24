@@ -170,6 +170,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 SyntaxKind.FileprivateKeyword or
                 SyntaxKind.StaticKeyword or
                 SyntaxKind.RefKeyword or
+                SyntaxKind.ReadonlyKeyword or
                 SyntaxKind.AbstractKeyword or
                 SyntaxKind.FinalKeyword or
                 SyntaxKind.SealedKeyword or
@@ -291,7 +292,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                  nextToken.IsKind(SyntaxKind.PublicKeyword) || nextToken.IsKind(SyntaxKind.PrivateKeyword) ||
                  nextToken.IsKind(SyntaxKind.InternalKeyword) || nextToken.IsKind(SyntaxKind.ProtectedKeyword) ||
                  nextToken.IsKind(SyntaxKind.FileprivateKeyword) ||
-                 nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.RefKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
+                 nextToken.IsKind(SyntaxKind.StaticKeyword) || nextToken.IsKind(SyntaxKind.RefKeyword) || nextToken.IsKind(SyntaxKind.ReadonlyKeyword) || nextToken.IsKind(SyntaxKind.AbstractKeyword) ||
                  nextToken.IsKind(SyntaxKind.FinalKeyword) || nextToken.IsKind(SyntaxKind.SealedKeyword) ||
                  nextToken.IsKind(SyntaxKind.OpenKeyword) || nextToken.IsKind(SyntaxKind.RecordKeyword) ||
                  nextToken.IsKind(SyntaxKind.PartialKeyword) || nextToken.IsKind(SyntaxKind.OverrideKeyword) ||
@@ -462,6 +463,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                      SyntaxKind.FileprivateKeyword or
                      SyntaxKind.StaticKeyword or
                      SyntaxKind.RefKeyword or
+                     SyntaxKind.ReadonlyKeyword or
                      SyntaxKind.AbstractKeyword or
                      SyntaxKind.FinalKeyword or
                      SyntaxKind.SealedKeyword or

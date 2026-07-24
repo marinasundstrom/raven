@@ -11,6 +11,8 @@ public sealed class RefStructMetadataEmissionTests
 {
     private const string IsByRefLikeAttributeName =
         "System.Runtime.CompilerServices.IsByRefLikeAttribute";
+    private const string IsReadOnlyAttributeName =
+        "System.Runtime.CompilerServices.IsReadOnlyAttribute";
 
     [Theory]
     [InlineData("ref struct Buffer {}", 0)]
@@ -46,6 +48,25 @@ public sealed class RefStructMetadataEmissionTests
         Assert.DoesNotContain(
             type.GetCustomAttributes(),
             handle => GetAttributeTypeName(metadata, handle) == IsByRefLikeAttributeName);
+    }
+
+    [Theory]
+    [InlineData("readonly ref struct Buffer {}", 0)]
+    [InlineData("readonly ref struct Buffer<T> {}", 1)]
+    public void ReadonlyRefStruct_EmitsBothMarkerAttributes(string source, int genericParameterCount)
+    {
+        using var peReader = EmitToMetadataReader(source);
+        var metadata = peReader.GetMetadataReader();
+        var type = metadata.TypeDefinitions
+            .Select(metadata.GetTypeDefinition)
+            .Single(type => metadata.GetString(type.Name).StartsWith("Buffer", StringComparison.Ordinal));
+        var attributeNames = type.GetCustomAttributes()
+            .Select(handle => GetAttributeTypeName(metadata, handle))
+            .ToArray();
+
+        Assert.Equal(genericParameterCount, type.GetGenericParameters().Count);
+        Assert.Contains(IsByRefLikeAttributeName, attributeNames);
+        Assert.Contains(IsReadOnlyAttributeName, attributeNames);
     }
 
     private static PEReader EmitToMetadataReader(string source)

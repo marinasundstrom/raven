@@ -111,6 +111,10 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         DeclaringSyntaxReferences.Any(reference =>
             reference.GetSyntax() is StructDeclarationSyntax declaration &&
             declaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.RefKeyword)));
+    public bool IsReadOnly => TypeKind == TypeKind.Struct &&
+        DeclaringSyntaxReferences.Any(reference =>
+            reference.GetSyntax() is StructDeclarationSyntax declaration &&
+            declaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.ReadonlyKeyword)));
 
     public bool HasPartialModifier { get; private set; }
 

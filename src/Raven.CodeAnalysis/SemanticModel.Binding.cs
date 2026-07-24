@@ -651,6 +651,20 @@ public partial class SemanticModel
                 declaration.Identifier.ValueText,
                 declaration.Identifier.GetLocation());
         }
+
+        var readonlyModifierStates = existingType.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .Select(typeDeclaration => typeDeclaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.ReadonlyKeyword)))
+            .Distinct()
+            .Take(2)
+            .Count();
+        if (readonlyModifierStates > 1)
+        {
+            diagnostics.ReportPartialTypeDeclarationReadonlyModifierMismatch(
+                declaration.Identifier.ValueText,
+                declaration.Identifier.GetLocation());
+        }
     }
 
     private void ReportPartialTypeCompatibility(
@@ -3207,6 +3221,7 @@ public partial class SemanticModel
                     SyntaxKind.FileprivateKeyword,
                     SyntaxKind.PartialKeyword,
                     SyntaxKind.RefKeyword,
+                    SyntaxKind.ReadonlyKeyword,
                 }),
             InterfaceDeclarationSyntax interfaceDecl => (
                 interfaceDecl.Identifier.ValueText,
@@ -3277,6 +3292,7 @@ public partial class SemanticModel
             return;
 
         var refModifierSeen = false;
+        var readonlyModifierSeen = false;
         foreach (var modifier in modifiers)
         {
             var kind = modifier.Kind;
@@ -3287,6 +3303,12 @@ public partial class SemanticModel
                 if (refModifierSeen)
                     diagnostics.ReportDuplicateModifier(text, modifier.GetLocation());
                 refModifierSeen = true;
+            }
+            else if (kind == SyntaxKind.ReadonlyKeyword)
+            {
+                if (readonlyModifierSeen)
+                    diagnostics.ReportDuplicateModifier(text, modifier.GetLocation());
+                readonlyModifierSeen = true;
             }
 
             if (kind is SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword && !isNestedType)

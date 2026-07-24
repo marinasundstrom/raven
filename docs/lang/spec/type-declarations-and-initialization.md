@@ -75,6 +75,12 @@ ref-like types also apply to it. The emitted type definition carries
 struct itself is generic, so other .NET compilers and reflection classify it
 the same way.
 
+`readonly ref struct` additionally prevents mutable instance storage. Instance
+fields must use `readonly`, and property storage must use `val` rather than
+`var`. The emitted type carries both `IsByRefLikeAttribute` and
+`IsReadOnlyAttribute`; `INamedTypeSymbol.IsReadOnly` exposes the same fact for
+source and metadata types. Partial declarations must agree on both modifiers.
+
 ### Field declarations (low-level storage)
 
 Fields are explicit CLR storage members. Use them when source code needs direct

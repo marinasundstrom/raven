@@ -46,4 +46,17 @@ public sealed class RefStructDeclarationParserTests
         Assert.Contains(declaration.Modifiers, modifier => modifier.IsKind(SyntaxKind.RefKeyword));
         Assert.Empty(tree.GetDiagnostics());
     }
+
+    [Fact]
+    public void ReadonlyRefStructDeclaration_ParsesBothModifiers()
+    {
+        var tree = SyntaxTree.ParseText("readonly ref struct Buffer {}");
+
+        var declaration = Assert.IsType<StructDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+        Assert.Collection(
+            declaration.Modifiers,
+            modifier => Assert.True(modifier.IsKind(SyntaxKind.ReadonlyKeyword)),
+            modifier => Assert.True(modifier.IsKind(SyntaxKind.RefKeyword)));
+        Assert.Empty(tree.GetDiagnostics());
+    }
 }

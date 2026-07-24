@@ -230,6 +230,10 @@
     Title="Redundant abstract modifier on sealed class"
     Message="Modifier 'abstract' is redundant on sealed class '{typeName}'" Category="compiler"
     Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0341" Identifier="ReadonlyStructMemberMustBeReadonly"
+    Title="Readonly struct member must be readonly"
+    Message="Instance storage member '{memberName}' in a readonly struct must be readonly"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"
@@ -362,6 +366,10 @@
   <Descriptor Id="RAV0620" Identifier="PartialTypeDeclarationRefModifierMismatch"
     Title="Partial type ref modifier mismatch"
     Message="All partial declarations of type '{name}' must either all include or all omit the 'ref' modifier"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0621" Identifier="PartialTypeDeclarationReadonlyModifierMismatch"
+    Title="Partial type readonly modifier mismatch"
+    Message="All partial declarations of type '{name}' must either all include or all omit the 'readonly' modifier"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0603" Identifier="PartialTypeDeclarationTypeParametersMustMatch"
     Title="Partial type type parameters must match"

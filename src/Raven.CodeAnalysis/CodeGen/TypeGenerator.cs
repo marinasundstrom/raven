@@ -355,6 +355,12 @@ internal class TypeGenerator
             if (isByRefLikeAttribute is not null)
                 TypeBuilder!.SetCustomAttribute(isByRefLikeAttribute);
         }
+        if (TypeSymbol is SourceNamedTypeSymbol { IsReadOnly: true })
+        {
+            var isReadOnlyAttribute = CodeGen.CreateIsReadOnlyAttributeBuilder();
+            if (isReadOnlyAttribute is not null)
+                TypeBuilder!.SetCustomAttribute(isReadOnlyAttribute);
+        }
         ApplyTopLevelAttributeIfNamespaceMembersContainer();
         ApplyCompilerGeneratedAttributeIfClosureFrame();
 

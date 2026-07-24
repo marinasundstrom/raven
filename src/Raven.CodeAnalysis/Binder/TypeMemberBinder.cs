@@ -499,6 +499,14 @@ internal partial class TypeMemberBinder : Binder
         var isConstDeclaration = declarationKeyword.IsKind(SyntaxKind.ConstKeyword);
         var isReadonlyField = modifiers.Any(m => m.Kind == SyntaxKind.ReadonlyKeyword);
         var isStatic = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) || isConstDeclaration;
+        if (_containingType is SourceNamedTypeSymbol { IsReadOnly: true } &&
+            !isStatic &&
+            !isReadonlyField)
+        {
+            _diagnostics.ReportReadonlyStructMemberMustBeReadonly(
+                firstDeclaratorName,
+                declaration.GetLocation());
+        }
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
         var isRequired = modifiers.Any(m => m.IsKind(SyntaxKind.RequiredKeyword));
         var fieldAccessibility = AccessibilityUtilities.DetermineAccessibility(

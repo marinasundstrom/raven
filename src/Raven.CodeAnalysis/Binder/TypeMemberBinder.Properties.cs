@@ -61,6 +61,14 @@ internal partial class TypeMemberBinder : Binder
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;
+        if (_containingType is SourceNamedTypeSymbol { IsReadOnly: true } &&
+            !isStatic &&
+            propertyDecl.BindingKeyword.IsKind(SyntaxKind.VarKeyword))
+        {
+            _diagnostics.ReportReadonlyStructMemberMustBeReadonly(
+                propertyDecl.Identifier.ValueText,
+                propertyDecl.Identifier.GetLocation());
+        }
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
