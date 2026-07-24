@@ -568,6 +568,41 @@ class C {
     }
 
     [Fact]
+    public void AsyncIterator_WithAwaitAndReferenceTypedState_Runs()
+    {
+        var code = """
+import System.Console.*
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+record Reading(Sensor: string, Value: int)
+
+class C {
+    static async func Values() -> IAsyncEnumerable<Reading> {
+        let readings: Reading[] = [
+            .("warehouse", 4),
+            .("truck", 8)
+        ]
+
+        for reading in readings {
+            await Task.Delay(1)
+            yield reading
+        }
+    }
+
+    static async func Main() -> Task {
+        await for reading in Values() {
+            WriteLine("${reading.Sensor}: ${reading.Value}")
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code);
+        Assert.Equal(["warehouse: 4", "truck: 8"], output);
+    }
+
+    [Fact]
     public void For_OverGenericIEnumerable_UsesTypedCurrentGetter()
     {
         // Regression test: IEnumerator<T>.Current was resolved to the non-generic

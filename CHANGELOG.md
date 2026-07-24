@@ -8,6 +8,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `System.Threading.Monitor` acquisition and release.
 - Added playground samples showing guarded deconstruction in `for` iteration
   and pattern-bound `while let` consumption of a domain event stream.
+- Prevented async lowering from redirecting synthesized state-machine receivers
+  through their own hoisted receiver field, producing portable async-iterator IL.
 - Added a playground sample that scopes `HttpClient` with `use`, loads the
   deployed example catalog, deserializes its JSON, and models outcomes as a
   union.

@@ -2883,6 +2883,12 @@ internal static class AsyncLowerer
             if (node is null)
                 return null;
 
+            // Receivers introduced by async lowering already refer to the synthesized
+            // state machine. Only the original method receiver should be redirected
+            // through the hoisted `_this` field.
+            if (SymbolEqualityComparer.Default.Equals(node.Type, _stateMachine))
+                return node;
+
             // Async instance methods execute inside MoveNext on the synthesized state-machine struct.
             // Rebind original method `self`/`this` references through the hoisted `_this` field.
             if (_stateMachine.ThisField is IFieldSymbol thisField)
