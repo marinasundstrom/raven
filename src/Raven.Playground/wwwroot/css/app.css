@@ -83,6 +83,7 @@ h1 {
 .workspace {
     display: grid;
     grid-template-columns: minmax(0, 1.65fr) minmax(320px, .8fr);
+    height: clamp(640px, calc(100dvh - 240px), 760px);
     min-height: 640px;
     border: 1px solid var(--line);
     border-radius: 12px;
@@ -90,8 +91,17 @@ h1 {
     background: var(--surface);
 }
 
-.panel { min-width: 0; }
-.editor-panel { border-right: 1px solid var(--line); }
+.panel {
+    min-width: 0;
+    min-height: 0;
+}
+
+.editor-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--line);
+}
 
 .panel-header {
     min-height: 76px;
@@ -180,7 +190,10 @@ kbd {
     opacity: .65;
 }
 
-.source-editor { height: calc(100% - 76px); min-height: 562px; }
+.source-editor {
+    flex: 1;
+    min-height: 0;
+}
 
 .output-panel {
     display: flex;
@@ -190,7 +203,7 @@ kbd {
 
 .program-output {
     flex: 1;
-    min-height: 260px;
+    min-height: 0;
     margin: 0;
     padding: 22px;
     overflow: auto;
@@ -257,9 +270,18 @@ kbd {
 
 @media (max-width: 880px) {
     .hero { align-items: flex-start; flex-direction: column; }
-    .workspace { grid-template-columns: 1fr; }
+    .workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 0;
+    }
     .editor-panel { border-right: 0; border-bottom: 1px solid var(--line); }
-    .source-editor { height: 520px; min-height: 520px; }
+    .source-editor {
+        flex: none;
+        height: 520px;
+        min-height: 520px;
+    }
+    .output-panel { min-height: 360px; }
 }
 
 @media (max-width: 560px) {

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Prevented Monaco's automatic layout from repeatedly increasing the playground
+  workspace height by giving the desktop workspace a bounded viewport-relative
+  height and sizing the editor through flex layout.
 - Made the playground load Hello World deterministically on startup and added
   shareable source URLs through a base64url `source` query parameter and Share
   command.

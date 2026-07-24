@@ -59,6 +59,23 @@ try {
 
   const editor = page.locator(".monaco-editor");
   await editor.waitFor();
+  const initialWorkspaceHeight = await page.locator(".workspace").evaluate(
+    element => element.getBoundingClientRect().height,
+  );
+  await page.waitForTimeout(1_500);
+  const settledWorkspaceHeight = await page.locator(".workspace").evaluate(
+    element => element.getBoundingClientRect().height,
+  );
+  if (Math.abs(settledWorkspaceHeight - initialWorkspaceHeight) > 1) {
+    throw new Error(
+      `Expected the workspace height to remain stable, but it grew from ` +
+      `${initialWorkspaceHeight}px to ${settledWorkspaceHeight}px.`,
+    );
+  }
+  if (settledWorkspaceHeight > 800) {
+    throw new Error(`Expected a bounded desktop workspace, got ${settledWorkspaceHeight}px.`);
+  }
+
   const initialSource = (await editor.locator(".view-lines").textContent()).replaceAll("\u00a0", " ");
   if (!initialSource.includes("Hello from $language in WebAssembly")) {
     throw new Error(`Expected Hello World to load on startup, got ${initialSource}.`);
@@ -229,6 +246,16 @@ try {
   await page.getByRole("button", { name: /^Run/ }).click();
   await page.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
   await page.getByText("Hello from Raven in WebAssembly", { exact: true }).waitFor();
+
+  const finalWorkspaceHeight = await page.locator(".workspace").evaluate(
+    element => element.getBoundingClientRect().height,
+  );
+  if (Math.abs(finalWorkspaceHeight - settledWorkspaceHeight) > 1) {
+    throw new Error(
+      `Expected editor activity not to resize the workspace, but it changed from ` +
+      `${settledWorkspaceHeight}px to ${finalWorkspaceHeight}px.`,
+    );
+  }
 
   if (browserErrors.length > 0) {
     throw new Error(`Browser errors:\n${browserErrors.join("\n")}`);
