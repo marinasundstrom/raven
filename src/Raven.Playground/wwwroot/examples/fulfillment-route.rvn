@@ -1,0 +1,28 @@
+let route: FulfillmentRoute = Courier("Mira", "17:00–19:00")
+
+Console.WriteLine(route.Label())
+Console.WriteLine(Describe(route))
+
+func Describe(route: FulfillmentRoute) -> string {
+    return route match {
+        StorePickup { Store: let store } => "Collect at $store"
+        Courier { Driver: let driver, Window: let window } => "$driver arrives $window"
+        ParcelLocker { Location: let location, Code: let code } => "Use code $code at $location"
+    }
+}
+
+sealed class FulfillmentRoute {
+    abstract func Label() -> string
+}
+
+class StorePickup(val Store: string) : FulfillmentRoute {
+    override func Label() -> string => "Store pickup"
+}
+
+class Courier(val Driver: string, val Window: string) : FulfillmentRoute {
+    override func Label() -> string => "Courier delivery"
+}
+
+class ParcelLocker(val Location: string, val Code: string) : FulfillmentRoute {
+    override func Label() -> string => "Parcel locker"
+}

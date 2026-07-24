@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a contextual playground sample that models fulfillment routes as a
+  sealed class hierarchy with shared behavior, property patterns, and
+  exhaustive matching.
 - Emitted closed-hierarchy metadata without runtime constructor inspection, so
   sealed class hierarchies compile in WebAssembly.
 - Prevented Monaco's automatic layout from repeatedly increasing the playground
