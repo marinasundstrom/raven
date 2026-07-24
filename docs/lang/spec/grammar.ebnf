@@ -587,8 +587,11 @@ UnaryExpression          ::= LambdaExpression
                            | PostfixExpression
                            | ('+' | '-' | '!') UnaryExpression
                            | 'fixed' UnaryExpression
+                           | StackAllocExpression
                            | 'await' UnaryExpression
                            | CastExpression ;
+
+StackAllocExpression     ::= 'stackalloc' Type '[' Expression ']' ;
 
 LambdaExpression         ::= 'async'? LambdaParameterClause ReturnTypeClause? '=>' Expression ;
 LambdaParameterClause    ::= '(' LambdaParameterList? ')' | Parameter ;

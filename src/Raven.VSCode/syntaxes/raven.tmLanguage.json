@@ -611,7 +611,7 @@
                 },
                 {
                     "name": "keyword.other.expression.raven",
-                    "match": "\\b(new|typeof|nameof|sizeof|default)\\b"
+                    "match": "\\b(new|typeof|nameof|sizeof|stackalloc|default)\\b"
                 },
                 {
                     "name": "keyword.operator.word.raven",

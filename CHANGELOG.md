@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added unsafe pointer-producing stack allocation with
+  `stackalloc T[count]`, including runtime-sized allocations, unmanaged element
+  validation, integer-count diagnostics, and direct `localloc` emission.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

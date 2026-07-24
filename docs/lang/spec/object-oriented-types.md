@@ -20,7 +20,7 @@ Lowest → highest (all left-associative unless noted):
 11. Additive: `+  -`
 12. Multiplicative: `*  /  %`
 13. Cast: `(T)expr`
-14. Unary (prefix): `+  -  !  fixed  typeof`
+14. Unary (prefix): `+  -  !  fixed  stackalloc  typeof`
 15. Postfix trailers: call `()`, member `.`, index `[]`, nullable suppression `!`, propagation `?`
 
 > 🧭 **Disambiguation:**

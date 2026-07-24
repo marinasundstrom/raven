@@ -224,6 +224,9 @@ Behavior note: Raven also uses `RAV1602` for named deconstruction elements such 
 | `RAV1912` | Error | Pointer operation requires unsafe | Pointer operations require unsafe mode ('--unsafe'). | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
 | `RAV1918` | Error | Fixed expression requires use initializer | `fixed` is only valid as the initializer of a `use` declaration. | — |
 | `RAV1919` | Error | Fixed expression requires address-of operand | `fixed` requires an explicit address-of operand written as `&expr`. | — |
+| `RAV1920` | Error | Stack allocation requires an unmanaged element type | The stack allocation element type must not contain managed references. | — |
+| `RAV1921` | Error | Stack allocation count must be an integer | The stack allocation count must be implicitly convertible to `int`. | — |
+| `RAV1922` | Error | Stack allocation count cannot be negative | A negative constant stack allocation count is invalid. | — |
 | `RAV1913` | Error | Dereference requires pointer or by-reference operand | Cannot dereference '{operandType}'. '*' requires a pointer or by-reference value. | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
 | `RAV1914` | Error | Pointer member access requires pointer receiver | You can only use '->' on a pointer; '{receiverType}' is not a pointer. | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |
 | `RAV1915` | Error | Extern members must be static | Member '{memberName}' cannot be marked 'extern' unless it is static | `samples/unmanaged/pointers.rav`, `samples/unmanaged/test.rav` |

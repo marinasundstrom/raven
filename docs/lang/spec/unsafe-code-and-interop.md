@@ -66,6 +66,34 @@ unsafe func assignThroughPointer() -> int {
 }
 ```
 
+## Stack allocation
+
+`stackalloc T[count]` reserves contiguous storage for `count` values of `T` in
+the current stack frame and produces a native pointer `*T`.
+
+```raven
+unsafe func sumFour() -> int {
+    val values = stackalloc int[4]
+    *values = 10
+    *(values + 1) = 20
+    *(values + 2) = 30
+    *(values + 3) = 40
+    *values + *(values + 1) + *(values + 2) + *(values + 3)
+}
+```
+
+Rules:
+
+* Stack allocation requires an unsafe context.
+* The element type must be unmanaged: it cannot contain managed references.
+* The count must be implicitly convertible to `int` and may be computed at
+  runtime.
+* A negative constant count is rejected during compilation.
+* The resulting pointer is valid only while the declaring stack frame remains
+  active and must not be returned or otherwise allowed to escape.
+* This initial pointer form does not target `Span<T>`. Safe span-producing
+  stack allocation is specified separately with Raven's broader span support.
+
 ## Pinning managed storage
 
 Pinning keeps managed storage at a stable address while native code or a pointer
