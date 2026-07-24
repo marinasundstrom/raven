@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Made the playground load Hello World deterministically on startup and added
+  shareable source URLs through a base64url `source` query parameter and Share
+  command.
 - Resolved the playground's embedded .NET reference assemblies from MSBuild's
   selected targeting pack instead of assuming its patch version matched the
   browser runtime pack. Static builds now fail early if `System.Runtime` is

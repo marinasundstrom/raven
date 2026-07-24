@@ -159,6 +159,19 @@ h1 {
     color: #11140c;
 }
 
+.share-button {
+    border: 1px solid #50574c;
+    background: #242922;
+    color: var(--ink);
+}
+
+.share-status {
+    align-self: center;
+    min-width: 58px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
 kbd {
     margin-left: 6px;
     color: inherit;

@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 @inject HttpClient Http
+@inject NavigationManager Navigation
 @inject PlaygroundLanguageService LanguageService
 @inject PlaygroundProgramRunner Runner
 
@@ -27,6 +28,10 @@
                 <label class="example-picker">
                     <span>Example</span>
                     <select value="@_selectedExampleId" disabled="@_isBusy" @onchange="SelectExampleAsync">
+                        @if (string.IsNullOrEmpty(_selectedExampleId))
+                        {
+                            <option value="">Shared program</option>
+                        }
                         @foreach (var example in _examples)
                         {
                             <option value="@example.Id">@example.Title</option>
@@ -40,6 +45,10 @@
                     <button class="run-button" type="button" disabled="@_isBusy" @onclick="CompileAndRunAsync">
                         @(_isBusy ? "Working…" : "Run") <span aria-hidden="true">▶</span>
                     </button>
+                    <button class="share-button" type="button" disabled="@_isBusy" @onclick="ShareAsync">
+                        Share
+                    </button>
+                    <span class="share-status" aria-live="polite">@_shareStatus</span>
                 </div>
             </div>
             <div class="source-editor" @ref="_editorElement" aria-label="Raven source editor"></div>
@@ -87,6 +96,8 @@
     private string _status = "Loading editor";
     private string _selectedExampleId = string.Empty;
     private string _initialSource = string.Empty;
+    private string _shareStatus = string.Empty;
+    private bool _initialSourceLoaded;
     private bool _isBusy;
     private IReadOnlyList<string> _diagnostics = [];
     private IReadOnlyList<PlaygroundExampleEntry> _examples = [];
@@ -101,13 +112,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _examples = await Http.GetFromJsonAsync<PlaygroundExampleEntry[]>("examples/index.json") ?? [];
-        var first = _examples.FirstOrDefault();
-        if (first is null)
-            return;
-
-        _selectedExampleId = first.Id;
-        _initialSource = await Http.GetStringAsync($"examples/{first.File}");
+        await LoadInitialSourceAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -115,13 +120,15 @@
         if (!firstRender)
             return;
 
+        await LoadInitialSourceAsync();
         _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/editor.js");
         _commandTarget = DotNetObjectReference.Create(this);
         _editor = await _module.InvokeAsync<IJSObjectReference>(
             "createEditor",
             _editorElement,
-            _initialSource,
+            string.Empty,
             _commandTarget);
+        await _editor.InvokeVoidAsync("setValue", _initialSource);
         _status = "Ready";
         StateHasChanged();
     }
@@ -152,9 +159,110 @@
         _selectedExampleId = example.Id;
         var source = await Http.GetStringAsync($"examples/{example.File}");
         await _editor.InvokeVoidAsync("setValue", source);
+        if (_module is not null)
+            await _module.InvokeVoidAsync("clearSharedSource");
         _status = "Ready";
         _output = $"Loaded “{example.Title}”. Press Run to execute it.";
+        _shareStatus = string.Empty;
         _diagnostics = [];
+    }
+
+    private async Task ShareAsync()
+    {
+        if (_editor is null || _module is null)
+            return;
+
+        var source = await _editor.InvokeAsync<string>("getValue");
+        var encodedSource = EncodeSource(source);
+        var copied = await _module.InvokeAsync<bool>("setSharedSource", encodedSource);
+        _selectedExampleId = string.Empty;
+        _shareStatus = copied ? "Link copied" : "Link ready";
+    }
+
+    private async Task LoadInitialSourceAsync()
+    {
+        if (_initialSourceLoaded)
+            return;
+
+        _examples = await Http.GetFromJsonAsync<PlaygroundExampleEntry[]>("examples/index.json") ?? [];
+        if (TryGetQueryParameter(new Uri(Navigation.Uri), "source", out var encodedSource) &&
+            TryDecodeSource(encodedSource, out var sharedSource))
+        {
+            _initialSource = sharedSource;
+            _selectedExampleId = string.Empty;
+            _initialSourceLoaded = true;
+            return;
+        }
+
+        var initialExample = _examples.FirstOrDefault(static example => example.Id == "hello")
+            ?? _examples.FirstOrDefault();
+        if (initialExample is null)
+            return;
+
+        _selectedExampleId = initialExample.Id;
+        _initialSource = await Http.GetStringAsync($"examples/{initialExample.File}");
+        _initialSourceLoaded = true;
+    }
+
+    private static string EncodeSource(string source)
+        => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(source))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
+    private static bool TryDecodeSource(string encodedSource, out string source)
+    {
+        source = string.Empty;
+        if (encodedSource.Length > 128_000)
+            return false;
+
+        var base64 = encodedSource.Replace('-', '+').Replace('_', '/');
+        switch (base64.Length % 4)
+        {
+            case 2:
+                base64 += "==";
+                break;
+            case 3:
+                base64 += "=";
+                break;
+            case 1:
+                return false;
+        }
+
+        try
+        {
+            source = new System.Text.UTF8Encoding(false, true)
+                .GetString(Convert.FromBase64String(base64));
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is FormatException or
+                System.Text.DecoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryGetQueryParameter(Uri uri, string name, out string value)
+    {
+        try
+        {
+            foreach (var item in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = item.Split('=', 2);
+                if (!string.Equals(Uri.UnescapeDataString(parts[0]), name, StringComparison.Ordinal))
+                    continue;
+
+                value = parts.Length == 2 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+                return true;
+            }
+        }
+        catch (UriFormatException)
+        {
+        }
+
+        value = string.Empty;
+        return false;
     }
 
     private sealed record PlaygroundExampleEntry(string Id, string Title, string File);

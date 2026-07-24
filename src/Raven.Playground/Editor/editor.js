@@ -100,6 +100,25 @@ async function registerRavenLanguage() {
 
 let registrationPromise;
 
+export async function setSharedSource(encodedSource) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("source", encodedSource);
+  window.history.replaceState(null, "", url);
+
+  try {
+    await navigator.clipboard.writeText(url.href);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearSharedSource() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("source");
+  window.history.replaceState(null, "", url);
+}
+
 const completionKinds = {
   class: monaco.languages.CompletionItemKind.Class,
   constructor: monaco.languages.CompletionItemKind.Constructor,

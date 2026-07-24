@@ -59,6 +59,43 @@ try {
 
   const editor = page.locator(".monaco-editor");
   await editor.waitFor();
+  const initialSource = (await editor.locator(".view-lines").textContent()).replaceAll("\u00a0", " ");
+  if (!initialSource.includes("Hello from $language in WebAssembly")) {
+    throw new Error(`Expected Hello World to load on startup, got ${initialSource}.`);
+  }
+
+  await editor.click({ force: true });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.insertText('let shared = "Raven link"\nSystem.Console.WriteLine(shared)');
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page.waitForURL(url => url.searchParams.has("source"));
+  const sharedUrl = page.url();
+  const sharedPage = await browser.newPage();
+  await sharedPage.goto(sharedUrl);
+  await sharedPage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+  const sharedEditor = sharedPage.locator(".monaco-editor");
+  await sharedEditor.waitFor();
+  const sharedSource = (await sharedEditor.locator(".view-lines").textContent())
+    .replaceAll("\u00a0", " ");
+  if (!sharedSource.includes("Raven link")) {
+    throw new Error(`Expected shared source to load from the URL, got ${sharedSource}.`);
+  }
+  const sharedSelection = await sharedPage.getByLabel("Example").evaluate(select => select.value);
+  if (sharedSelection !== "") {
+    throw new Error(`Expected the shared program selector state, got '${sharedSelection}'.`);
+  }
+  await sharedPage.close();
+
+  const invalidSharedPage = await browser.newPage();
+  await invalidSharedPage.goto(`${url}?source=invalid!`);
+  await invalidSharedPage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+  const fallbackSource = (await invalidSharedPage.locator(".monaco-editor .view-lines").textContent())
+    .replaceAll("\u00a0", " ");
+  if (!fallbackSource.includes("Hello from $language in WebAssembly")) {
+    throw new Error(`Expected an invalid share URL to load Hello World, got ${fallbackSource}.`);
+  }
+  await invalidSharedPage.close();
+
   const tokenClasses = await editor.locator(".view-lines span[class]").evaluateAll(elements =>
     [...new Set(elements.map(element => element.className).filter(className => /^mtk\d+$/.test(className)))],
   );
@@ -100,6 +137,10 @@ try {
   const examples = await (await fetch(`${url}examples/index.json`)).json();
   for (const example of examples) {
     await examplePicker.selectOption(example.id);
+    await page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("source"),
+      { timeout: 30_000 },
+    );
     await page.getByRole("button", { name: /^Run/ }).click();
     await page.getByText("Compiling", { exact: true }).waitFor();
     await page.waitForFunction(

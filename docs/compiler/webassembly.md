@@ -32,14 +32,15 @@ An initial browser-hosted probe has demonstrated:
   framework metadata; and
 - emitting a managed console assembly to an in-memory stream.
 
-The reference bundle is a host concern. `src/Raven.Playground` embeds the
-version-pinned .NET targeting-pack reference closure and Raven.Core at build
-time rather than discovering SDK installation paths in the browser. It also
-uses the same generated standard prelude as `rvnc`, so ordinary imports and
-Raven.Core cases have the same compiler-visible surface in both hosts. The
-browser runtime's `System.Private.CoreLib` remains available for execution.
-Reducing the reference closure is a future payload optimization; correctness
-currently takes precedence over a hand-maintained reference shortlist.
+The reference bundle is a host concern. `src/Raven.Playground` embeds Raven.Core
+and the .NET targeting-pack reference closure selected by MSBuild at build time
+rather than guessing an installed targeting-pack patch directory in the
+browser. It also uses the same generated standard prelude as `rvnc`, so ordinary
+imports and Raven.Core cases have the same compiler-visible surface in both
+hosts. The browser runtime's `System.Private.CoreLib` remains available for
+execution. Reducing the reference closure is a future payload optimization;
+correctness currently takes precedence over a hand-maintained reference
+shortlist.
 
 ## Executable targeting
 
@@ -89,6 +90,19 @@ The official GitHub Pages workflow builds the documentation first, then runs
 `_site/playground/`. Both surfaces are uploaded and deployed as one atomic
 Pages artifact.
 
+The playground's **Share** command encodes the current UTF-8 source as an
+unpadded base64url value in the `source` query parameter, updates the current
+URL, and copies it when the browser permits clipboard access. A valid shared
+source takes precedence over the default Hello World example when the app
+starts. Invalid or oversized values are ignored and the normal default example
+is loaded.
+
+Playground examples live as individual `.rvn` files under
+`src/Raven.Playground/wwwroot/examples/` and are registered in
+`examples/index.json`. Each example should demonstrate one notable Raven feature
+in a small real-world context. Fundamental syntax may appear as part of that
+story, but examples should not read like isolated compiler test cases.
+
 Run the end-to-end browser smoke test with:
 
 ```bash
@@ -96,11 +110,12 @@ scripts/test-playground-browser.sh
 ```
 
 The test publishes a release build, serves only its static `wwwroot` output,
-and uses headless Chromium to verify Monaco startup, TextMate tokenization,
-semantic member completion and insertion, successful compilation, compiler
-diagnostics, Raven.Core result construction, synthesized record equality,
-emitted-assembly loading, and captured program output. Its first run installs
-the pinned Playwright Chromium build.
+and uses headless Chromium to verify the initial Hello World source, share-link
+round trips, Monaco startup, TextMate tokenization, semantic member completion
+and insertion, compiler diagnostics, Raven.Core result construction,
+synthesized record equality, emitted-assembly loading, and execution of every
+registered example. Its first run installs the pinned Playwright Chromium
+build.
 
 Browser and WASI hosts expose different platform APIs. Target profiles should
 describe those capabilities explicitly, and unavailable APIs should be handled
