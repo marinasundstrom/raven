@@ -1,0 +1,70 @@
+record Reservation(Sku: string, Units: int)
+record Shipment(Sku: string, Units: int, Address: string)
+
+union StockError {
+    case UnknownSku(sku: string)
+    case InsufficientStock(sku: string, requested: int, available: int)
+}
+
+union OrderError {
+    case Inventory(error: StockError)
+    case InvalidAddress
+}
+
+extension StockErrorConversions for OrderError {
+    static func implicit(error: StockError) -> OrderError {
+        return .Inventory(error)
+    }
+}
+
+func ReserveStock(sku: string, requested: int) -> Result<Reservation, StockError> {
+    let available = sku match {
+        "BOOK-01" => 4
+        "GAME-07" => 2
+        _ => 0
+    }
+
+    if available == 0 {
+        return .Error(.UnknownSku(sku))
+    }
+
+    if requested > available {
+        return .Error(.InsufficientStock(sku, requested, available))
+    }
+
+    return .Ok(Reservation(sku, requested))
+}
+
+func CreateShipment(sku: string, requested: int, address: string) -> Result<Shipment, OrderError> {
+    if address == "" {
+        return .Error(.InvalidAddress)
+    }
+
+    let units = ReserveStock(sku, requested)?.Units?
+    return .Ok(Shipment(sku, units, address))
+}
+
+func Describe(result: Result<Shipment, OrderError>) -> string {
+    return result match {
+        .Ok(let shipment) => "Ship ${shipment.Units} × ${shipment.Sku} to ${shipment.Address}"
+        .Error(let error) => DescribeOrderError(error)
+    }
+}
+
+func DescribeOrderError(error: OrderError) -> string {
+    return error match {
+        .Inventory(let stockError) => DescribeStockError(stockError)
+        .InvalidAddress => "A delivery address is required"
+    }
+}
+
+func DescribeStockError(error: StockError) -> string {
+    return error match {
+        .UnknownSku(let sku) => "Unknown inventory item: $sku"
+        .InsufficientStock(let sku, let requested, let available) =>
+            "Cannot reserve $requested × $sku; only $available available"
+    }
+}
+
+Console.WriteLine(Describe(CreateShipment("BOOK-01", 2, "Dock 4")))
+Console.WriteLine(Describe(CreateShipment("BOOK-01", 6, "Dock 4")))

@@ -30,6 +30,11 @@
     "file": "result.rvn"
   },
   {
+    "id": "order-boundary",
+    "title": "Error conversion at a domain boundary",
+    "file": "order-boundary.rvn"
+  },
+  {
     "id": "option-search",
     "title": "Option and let…else",
     "file": "option-search.rvn"
