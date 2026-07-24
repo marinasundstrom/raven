@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added a price-import playground sample that captures exceptions from a
+  throwing .NET API as typed results with `try?`.
 - Made `Result` propagation extract its error union case structurally instead
   of depending on `UnwrapError`, preserving failure behavior across runtimes.
 - Added a dispatch-planning playground sample built with immutable collection

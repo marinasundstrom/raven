@@ -40,6 +40,11 @@
     "file": "projected-parsing.rvn"
   },
   {
+    "id": "price-import",
+    "title": "Price imports with try expressions",
+    "file": "price-import.rvn"
+  },
+  {
     "id": "pipeline",
     "title": "Data flow with pipelines",
     "file": "pipeline.rvn"

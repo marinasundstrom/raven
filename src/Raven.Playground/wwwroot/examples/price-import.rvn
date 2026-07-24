@@ -1,0 +1,18 @@
+record PriceRow(Sku: string, Price: decimal, Discount: string)
+
+let rows = [
+    PriceRow("BOOK-01", 40m, "20")
+    PriceRow("GAME-07", 60m, "expired")
+]
+
+func ImportPrice(row: PriceRow) -> Result<decimal, Exception> {
+    let discount = try? Convert.ToInt32(row.Discount)
+    return Ok(row.Price * (100m - discount) / 100m)
+}
+
+for row in rows {
+    match ImportPrice(row) {
+        Ok(let price) => Console.WriteLine("${row.Sku}: $price credits")
+        Error(let error) => Console.WriteLine("${row.Sku}: ${error.Message}")
+    }
+}
