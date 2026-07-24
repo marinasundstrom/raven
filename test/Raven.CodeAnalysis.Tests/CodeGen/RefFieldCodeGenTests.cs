@@ -15,7 +15,7 @@ public sealed class RefFieldCodeGenTests
             }
 
             class RefFieldRuntime {
-                unsafe static func Run() -> int {
+                static func Run() -> int {
                     var value = 41
                     var reference = IntReference()
                     reference.Value = &value

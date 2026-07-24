@@ -3485,13 +3485,13 @@ partial class BlockBinder : Binder
         if (operand is BoundErrorExpression)
             return operand;
 
-        if (!IsUnsafeEnabled)
+        var operandType = operand.Type ?? Compilation.ErrorTypeSymbol;
+        if (operandType is not RefTypeSymbol && !IsUnsafeEnabled)
         {
             _diagnostics.ReportPointerOperationRequiresUnsafe(syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
-        var operandType = operand.Type ?? Compilation.ErrorTypeSymbol;
         var elementType = operandType switch
         {
             IPointerTypeSymbol pointer => pointer.PointedAtType,

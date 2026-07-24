@@ -33,6 +33,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Applied ref-like storage, capture, async, and iterator safety rules to type
   parameters declared with `allows ref struct`, not only to concrete ref-like
   named types.
+- Allowed managed-reference dereferences in safe code while retaining unsafe
+  diagnostics for raw pointer dereferences.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.
