@@ -20,6 +20,11 @@
     "file": "records.rvn"
   },
   {
+    "id": "greenhouse-monitoring",
+    "title": "Domain modeling with a functional core",
+    "file": "greenhouse-monitoring.rvn"
+  },
+  {
     "id": "shipment-lookup",
     "title": "Shipment migration with type unions",
     "file": "shipment-lookup.rvn"

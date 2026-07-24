@@ -1,0 +1,49 @@
+record struct ClimateRange(Minimum: decimal, Maximum: decimal)
+record struct ClimateReading(Temperature: decimal)
+
+enum ClimateStatus {
+    TooCold
+    Healthy
+    TooHot
+}
+
+func Evaluate(desired: ClimateRange, reading: ClimateReading) -> ClimateStatus {
+    if desired.Minimum > reading.Temperature {
+        return .TooCold
+    }
+
+    if reading.Temperature > desired.Maximum {
+        return .TooHot
+    }
+
+    return .Healthy
+}
+
+func ObserveClimate(
+    read: () -> ClimateReading,
+    evaluate: (ClimateReading) -> ClimateStatus,
+    publish: (ClimateStatus) -> ()) -> ClimateStatus {
+    let reading = read()
+    let status = evaluate(reading)
+    publish(status)
+    return status
+}
+
+class GreenhouseDevice(
+    val DeviceId: string,
+    val Temperature: decimal) {
+
+    func ReadClimate() -> ClimateReading {
+        return ClimateReading(Temperature)
+    }
+}
+
+let desired = ClimateRange(Minimum: 18m, Maximum: 26m)
+let device = GreenhouseDevice("greenhouse-west", 28.5m)
+
+let status = ObserveClimate(
+    read: () => device.ReadClimate(),
+    evaluate: reading => Evaluate(desired, reading),
+    publish: status => Console.WriteLine("${device.DeviceId}: $status"))
+
+Console.WriteLine("Recorded status: $status")
