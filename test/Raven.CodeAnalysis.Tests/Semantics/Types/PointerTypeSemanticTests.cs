@@ -261,6 +261,94 @@ class Test {
     }
 
     [Fact]
+    public void StackAlloc_InfersPointerToElementType()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run(count: int) {
+        val pointer = stackalloc int[count]
+        *pointer = 42
+    }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "pointer");
+        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var pointerType = Assert.IsAssignableFrom<IPointerTypeSymbol>(local.Type);
+        Assert.Equal(SpecialType.System_Int32, pointerType.PointedAtType.SpecialType);
+    }
+
+    [Fact]
+    public void StackAlloc_RequiresUnsafeContext()
+    {
+        const string source = """
+class Test {
+    static func Run() {
+        val pointer = stackalloc int[4]
+    }
+}
+""";
+
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithAllowUnsafe(false);
+        var (compilation, _) = CreateCompilation(source, options: options);
+
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.PointerOperationRequiresUnsafe);
+    }
+
+    [Fact]
+    public void StackAlloc_RejectsManagedElementType()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() {
+        val pointer = stackalloc string[4]
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.StackAllocElementTypeMustBeUnmanaged);
+    }
+
+    [Fact]
+    public void StackAlloc_RejectsNonIntegerCount()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() {
+        val pointer = stackalloc int["four"]
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.StackAllocCountMustBeInteger);
+    }
+
+    [Fact]
+    public void StackAlloc_RejectsNegativeConstantCount()
+    {
+        const string source = """
+class Test {
+    unsafe static func Run() {
+        val pointer = stackalloc int[-1]
+    }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.StackAllocCountCannotBeNegative);
+    }
+
+    [Fact]
     public void PointerArrowMemberAccess_ResolvesMemberOnPointedType()
     {
         const string source = """

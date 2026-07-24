@@ -169,6 +169,26 @@ func test() {
     }
 
     [Fact]
+    public void StackAlloc_ParsesElementTypeAndCountExpression()
+    {
+        var code = """
+unsafe func test(count: int) {
+    val pointer = stackalloc int[count + 1]
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var stackAlloc = tree.GetRoot().DescendantNodes().OfType<StackAllocExpressionSyntax>().Single();
+
+        Assert.Equal(SyntaxKind.StackAllocKeyword, stackAlloc.StackAllocKeyword.Kind);
+        Assert.Equal(SyntaxKind.IntKeyword, Assert.IsType<PredefinedTypeSyntax>(stackAlloc.ElementType).Keyword.Kind);
+        Assert.Equal(SyntaxKind.AddExpression, stackAlloc.Count.Kind);
+        Assert.Equal(SyntaxKind.OpenBracketToken, stackAlloc.OpenBracketToken.Kind);
+        Assert.Equal(SyntaxKind.CloseBracketToken, stackAlloc.CloseBracketToken.Kind);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void UseDeclaration_WithInBlock_ParsesAsBlockContainingUseDeclaration()
     {
         var code = """
