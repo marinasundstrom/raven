@@ -7,6 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.
+- Materialized empty union cases through their enclosing carrier during `?`
+  propagation, preventing `None` from being returned with the incompatible
+  case-only runtime layout.
 - Projected `DateTimeOffset`, `DateOnly`, `TimeOnly`, and `TimeSpan`
   `TryParse(string)` methods as `Option<T>` values.
 - Added `lock expression { ... }` statements, lowering to exception-safe

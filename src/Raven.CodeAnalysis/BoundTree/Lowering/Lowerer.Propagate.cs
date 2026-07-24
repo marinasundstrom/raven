@@ -230,7 +230,7 @@ internal sealed partial class Lowerer
             ? new BoundObjectCreationExpression(ctor, arguments)
             : new BoundInvocationExpression(ctor, arguments);
 
-        return ApplyConversionIfNeeded(errorCaseExpression, propagate.EnclosingResultType, compilation);
+        return MaterializePropagateCaseCarrier(errorCaseExpression, propagate.EnclosingResultType, compilation);
     }
 
     private BoundBlockStatement? CreatePropagateFailureBlock(
@@ -304,7 +304,31 @@ internal sealed partial class Lowerer
             ? new BoundObjectCreationExpression(ctor, arguments)
             : new BoundInvocationExpression(ctor, arguments);
 
-        return ApplyConversionIfNeeded(errorCaseExpression, propagate.EnclosingResultType, compilation);
+        return MaterializePropagateCaseCarrier(errorCaseExpression, propagate.EnclosingResultType, compilation);
+    }
+
+    private static BoundExpression MaterializePropagateCaseCarrier(
+        BoundExpression caseExpression,
+        INamedTypeSymbol enclosingResultType,
+        Compilation compilation)
+    {
+        var caseType = caseExpression.Type;
+        if (caseType is null || SymbolEqualityComparer.Default.Equals(caseType, enclosingResultType))
+            return caseExpression;
+
+        if (!enclosingResultType.TryGetUnionCarrierConstructor(caseType, out var carrierConstructor))
+            return ApplyConversionIfNeeded(caseExpression, enclosingResultType, compilation);
+
+        var parameterType = carrierConstructor.Parameters[0].Type;
+        var argument = caseExpression;
+        if (!SymbolEqualityComparer.Default.Equals(caseType, parameterType))
+        {
+            var conversion = compilation.ClassifyConversion(caseType, parameterType, includeUserDefined: false);
+            if (conversion is { Exists: true, IsIdentity: false })
+                argument = new BoundConversionExpression(caseExpression, parameterType, conversion);
+        }
+
+        return new BoundObjectCreationExpression(carrierConstructor, new[] { argument });
     }
 
     private static BoundExpression ApplyErrorConversion(
