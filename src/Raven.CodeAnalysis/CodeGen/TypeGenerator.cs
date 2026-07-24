@@ -363,11 +363,9 @@ internal class TypeGenerator
 
         if (TypeSymbol is SourceNamedTypeSymbol sourceNamedType && sourceNamedType.IsSealedHierarchy)
         {
-            var permittedClrTypes = sourceNamedType.PermittedDirectSubtypes
-                .Select(t => TypeSymbolExtensionsForCodeGen.GetClrType(t, CodeGen))
-                .ToArray();
-            var closedHierarchyAttribute = CodeGen.CreateClosedHierarchyAttribute(permittedClrTypes);
-            TypeBuilder!.SetCustomAttribute(closedHierarchyAttribute);
+            CodeGen.ApplyClosedHierarchyAttribute(
+                sourceNamedType.PermittedDirectSubtypes,
+                TypeBuilder!.SetCustomAttribute);
         }
 
         EnsureExtensionGroupingType();

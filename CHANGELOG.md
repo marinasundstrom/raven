@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Emitted closed-hierarchy metadata without runtime constructor inspection, so
+  sealed class hierarchies compile in WebAssembly.
 - Prevented Monaco's automatic layout from repeatedly increasing the playground
   workspace height by giving the desktop workspace a bounded viewport-relative
   height and sizing the editor through flex layout.

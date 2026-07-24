@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Loader;
 
 using Raven.CodeAnalysis;
@@ -75,6 +77,13 @@ class Add : Expr {}
             var closedAttr = attributes.FirstOrDefault(a =>
                 a.AttributeType.FullName == "System.Runtime.CompilerServices.ClosedHierarchyAttribute");
             Assert.NotNull(closedAttr);
+
+            var permittedTypeArguments = Assert.IsAssignableFrom<IReadOnlyCollection<CustomAttributeTypedArgument>>(
+                closedAttr!.ConstructorArguments.Single().Value);
+            var permittedTypes = permittedTypeArguments
+                .Select(argument => Assert.IsAssignableFrom<Type>(argument.Value))
+                .ToArray();
+            Assert.Equal(["Lit", "Add"], permittedTypes.Select(type => type.Name));
         }
         finally
         {

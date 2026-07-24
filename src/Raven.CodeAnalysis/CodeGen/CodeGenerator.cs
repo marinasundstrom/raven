@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using System.Text;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
@@ -568,10 +570,61 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_ravenUnionCaseCtor!, new object?[] { caseTypeMetadataName, name, ordinal });
     }
 
-    internal CustomAttributeBuilder CreateClosedHierarchyAttribute(Type[] permittedTypes)
+    internal void ApplyClosedHierarchyAttribute(
+        ImmutableArray<INamedTypeSymbol> permittedTypes,
+        Action<ConstructorInfo, byte[]> apply)
     {
         EnsureClosedHierarchyAttributeType();
-        return new CustomAttributeBuilder(_closedHierarchyCtor!, new object[] { permittedTypes });
+        apply(_closedHierarchyCtor!, CreateClosedHierarchyAttributeBlob(permittedTypes));
+    }
+
+    private byte[] CreateClosedHierarchyAttributeBlob(ImmutableArray<INamedTypeSymbol> permittedTypes)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+
+        writer.Write((ushort)1);
+        writer.Write(permittedTypes.Length);
+
+        foreach (var permittedType in permittedTypes)
+        {
+            var typeName = $"{permittedType.ToFullyQualifiedMetadataName()}, {_compilation.AssemblyName}";
+            WriteSerString(stream, typeName);
+        }
+
+        writer.Write((ushort)0);
+        return stream.ToArray();
+    }
+
+    private static void WriteSerString(Stream stream, string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        WriteCompressedUInt(stream, (uint)bytes.Length);
+        stream.Write(bytes, 0, bytes.Length);
+    }
+
+    private static void WriteCompressedUInt(Stream stream, uint value)
+    {
+        if (value <= 0x7F)
+        {
+            stream.WriteByte((byte)value);
+        }
+        else if (value <= 0x3FFF)
+        {
+            stream.WriteByte((byte)((value >> 8) | 0x80));
+            stream.WriteByte((byte)(value & 0xFF));
+        }
+        else if (value <= 0x1FFFFFFF)
+        {
+            stream.WriteByte((byte)((value >> 24) | 0xC0));
+            stream.WriteByte((byte)((value >> 16) & 0xFF));
+            stream.WriteByte((byte)((value >> 8) & 0xFF));
+            stream.WriteByte((byte)(value & 0xFF));
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(value));
+        }
     }
 
     static IEnumerable<ITypeSymbol> Flatten(IEnumerable<ITypeSymbol> types)
