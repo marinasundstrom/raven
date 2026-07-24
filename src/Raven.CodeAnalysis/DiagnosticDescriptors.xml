@@ -188,6 +188,10 @@
     Title="Ref-like variable cannot cross an await boundary"
     Message="Ref-like variable '{name}' of type '{typeName}' cannot remain in scope across an 'await'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2710" Identifier="RefLikeVariableCannotBeStoredInIterator"
+    Title="Ref-like variable cannot be stored in an iterator"
+    Message="Ref-like variable '{name}' of type '{typeName}' cannot be stored in an iterator state machine"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0234" Identifier="TypeOrNamespaceNameDoesNotExistInTheNamespace"
     Title="Type or namespace does not exist in namespace"
     Message="'{typeOrNs}' was not found in '{container}'." Category="compiler" Severity="Error"

@@ -172,6 +172,9 @@ class MethodBodyBinder : BlockBinder
         if (_methodSymbol is SourceMethodSymbol { IsAsync: true } asyncMethod)
             AnalyzeAsyncBody(bodySyntax, asyncMethod, bound);
 
+        if (_methodSymbol is SourceMethodSymbol { IsIterator: true } iteratorMethod)
+            ReportRefLikeIteratorStorage(bound, iteratorMethod);
+
         CacheBoundNode(bodySyntax, bound);
         return bound;
     }

@@ -815,6 +815,8 @@ partial class BlockBinder
 
         var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, bodyExpr, lambdaSymbol);
         ReportRefLikeCaptures(capturedVariables, syntax.GetLocation());
+        if (lambdaSymbol is SourceLambdaSymbol { IsIterator: true } iteratorLambda)
+            ReportRefLikeIteratorStorage(bodyExpr, iteratorLambda);
 
         if (isStaticLambda)
         {

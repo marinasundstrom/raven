@@ -16637,6 +16637,9 @@ partial class BlockBinder : Binder
         if (symbol is SourceMethodSymbol functionSourceMethod &&
             functionBody is not null)
         {
+            if (functionSourceMethod.IsIterator)
+                ReportRefLikeIteratorStorage(functionBody, functionSourceMethod);
+
             var capturedVariables = AnalyzeFunctionCapturedVariables(functionBody, symbol);
             ReportRefLikeCaptures(capturedVariables, function.GetLocation());
             functionSourceMethod.SetCapturedVariables(capturedVariables);

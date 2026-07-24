@@ -1882,6 +1882,59 @@ internal abstract partial class Binder
         }
     }
 
+    protected void ReportRefLikeIteratorStorage(BoundNode body, IMethodSymbol method)
+    {
+        var locals = RefLikeIteratorLocalCollector.Collect(body);
+        foreach (var local in locals)
+            Report(local.Name, local.Type, local.Locations.FirstOrDefault());
+
+        foreach (var parameter in method.Parameters)
+            Report(parameter.Name, parameter.Type, parameter.Locations.FirstOrDefault());
+
+        void Report(string name, ITypeSymbol? type, Location? location)
+        {
+            if (type is not INamedTypeSymbol { IsRefLikeType: true } refLikeType)
+                return;
+
+            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportRefLikeVariableCannotBeStoredInIterator(name, typeDisplay, location ?? Location.None);
+        }
+    }
+
+    private sealed class RefLikeIteratorLocalCollector : BoundTreeWalker
+    {
+        private readonly HashSet<ILocalSymbol> _locals = new(SymbolEqualityComparer.Default);
+
+        public static ImmutableArray<ILocalSymbol> Collect(BoundNode body)
+        {
+            var collector = new RefLikeIteratorLocalCollector();
+            collector.Visit(body);
+            return collector._locals.ToImmutableArray();
+        }
+
+        public override void VisitVariableDeclarator(BoundVariableDeclarator node)
+        {
+            _locals.Add(node.Local);
+            base.VisitVariableDeclarator(node);
+        }
+
+        public override void VisitForStatement(BoundForStatement node)
+        {
+            if (node.Local is not null)
+                _locals.Add(node.Local);
+
+            base.VisitForStatement(node);
+        }
+
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
+        {
+        }
+
+        public override void VisitFunctionStatement(BoundFunctionStatement node)
+        {
+        }
+    }
+
     private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)
     {
         switch (type)

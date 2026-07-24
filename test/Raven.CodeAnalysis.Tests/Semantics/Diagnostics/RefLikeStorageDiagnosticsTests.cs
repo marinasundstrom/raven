@@ -168,4 +168,45 @@ public sealed class RefLikeStorageDiagnosticsTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void RefLikeLocal_CannotBeStoredInIteratorStateMachine()
+    {
+        const string code = """
+        import System.Collections.Generic.*
+
+        unsafe func Values() -> IEnumerable<int> {
+            val values: System.Span<int> = stackalloc int[1]
+            yield return values[0]
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RefLikeVariableCannotBeStoredInIterator.Id)
+                .WithAnySpan()
+                .WithArguments("values", "Span<int>"),
+        ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void RefLikeParameter_CannotBeStoredInIteratorStateMachine()
+    {
+        const string code = """
+        import System.Collections.Generic.*
+
+        func Values(values: System.ReadOnlySpan<int>) -> IEnumerable<int> {
+            yield return values[0]
+        }
+        """;
+
+        var verifier = CreateVerifier(code, [
+            new DiagnosticResult(CompilerDiagnostics.RefLikeVariableCannotBeStoredInIterator.Id)
+                .WithAnySpan()
+                .WithArguments("values", "ReadOnlySpan<int>"),
+        ]);
+
+        verifier.Verify();
+    }
 }
