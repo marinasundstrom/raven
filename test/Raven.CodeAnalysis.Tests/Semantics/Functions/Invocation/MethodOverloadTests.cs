@@ -41,6 +41,33 @@ public class MethodOverloadTests : CompilationTestBase
     }
 
     [Fact]
+    public void CollectionLiteralArgument_InfersGenericEnumerableOverloadFromElements()
+    {
+        const string source = """
+        import System.Threading.Tasks.*
+
+        val combined = Task.WhenAll([
+            Task.FromResult(1)
+            Task.FromResult(2)
+        ])
+        """;
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Name.Identifier.ValueText == "WhenAll");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+
+        Assert.True(boundInvocation.Method.IsGenericMethod);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(boundInvocation.Method.TypeArguments).SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void ParameterDefaultValue_AllowsTargetTypedExternalEnumMember()
     {
         const string source = """

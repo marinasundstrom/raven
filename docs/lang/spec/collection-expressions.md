@@ -52,6 +52,12 @@ mode for otherwise bare pattern captures.
 
 Collection expressions are target-typed:
 
+When a collection expression is passed to an overloaded generic method, its
+element types participate in type argument inference before an overload supplies
+the final collection target. For example, `Task.WhenAll([Task.FromResult(1)])`
+infers the generic result type as `int` instead of first widening the element to
+the non-generic `Task` type.
+
 * **Array targets** — When the expected type is a one-dimensional array `T[]`, the expression allocates a
   new array of that element type. Each item is implicitly converted to `T` before storage,
   and spreads must enumerate values assignable to `T`. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.cs†L3672-L3738】【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L950-L1016】

@@ -594,7 +594,11 @@ partial class BlockBinder
             if (targetType is null &&
                 arg.Expression is CollectionExpressionSyntax or ArrayExpressionSyntax)
             {
-                targetType = TryGetFirstCollectionParameterType(methods, i, receiver, pipeReceiverType);
+                // Keep the natural element types when a generic enumerable overload can
+                // infer from them. Choosing the first array target here can widen elements
+                // before overload resolution (for example, Task<T> to Task in Task.WhenAll).
+                if (!HasGenericEnumerableCollectionCandidate(methods, i, receiver, pipeReceiverType))
+                    targetType = TryGetFirstCollectionParameterType(methods, i, receiver, pipeReceiverType);
             }
 
             if (targetType is null &&
@@ -1527,6 +1531,41 @@ partial class BlockBinder
         }
 
         return null;
+    }
+
+    private bool HasGenericEnumerableCollectionCandidate(
+        ImmutableArray<IMethodSymbol> methods,
+        int argumentIndex,
+        BoundExpression? receiver,
+        ITypeSymbol? pipeReceiverType)
+    {
+        foreach (var method in methods)
+        {
+            if (method is null || method.TypeParameters.IsDefaultOrEmpty)
+                continue;
+
+            var parameterIndex = (method.IsExtensionMethod || pipeReceiverType is not null)
+                ? argumentIndex + 1
+                : argumentIndex;
+
+            if (parameterIndex < 0 || parameterIndex >= method.Parameters.Length)
+                continue;
+
+            var parameterType = GetInvocationParameterTypeForArgumentBinding(
+                method,
+                parameterIndex,
+                receiver,
+                pipeReceiverType);
+
+            if (parameterType.GetPlainType() is INamedTypeSymbol namedType &&
+                TryGetIEnumerableElementType(namedType, out var elementType) &&
+                ContainsAnyTypeParameter(elementType, method.TypeParameters))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool CanUseOpenDelegateReturnTypeHint(ExpressionSyntax expression)
