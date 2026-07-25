@@ -1,0 +1,7 @@
+namespace Samples.SourceGenerator
+
+class HomeController {}
+
+class App {
+    func route() -> Generated.HomeControllerRoute? => null
+}

@@ -1,0 +1,23 @@
+import System.*
+import Raven.CodeAnalysis.Syntax.*
+
+let source = """
+class Greeter {
+    func Greet(name: string) -> string => "Hello \$name"
+}
+"""
+
+let tree = SyntaxTree.ParseText(source, path: "example.rvn")
+let root = tree.GetRoot()
+
+Console.WriteLine("Root: ${root.Kind}")
+
+for node in root.DescendantNodes() {
+    if let declaration: ClassDeclarationSyntax = node {
+        Console.WriteLine("Class: ${declaration.Identifier.ValueText}")
+    }
+}
+
+for diagnostic in tree.GetDiagnostics() {
+    Console.WriteLine(diagnostic)
+}

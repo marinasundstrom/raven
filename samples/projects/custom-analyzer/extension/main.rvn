@@ -1,0 +1,43 @@
+import System.*
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Diagnostics.*
+import Raven.CodeAnalysis.Syntax.*
+
+namespace CustomAnalyzerSample
+
+class TypeNameAnalyzer : DiagnosticAnalyzer {
+    static val Rule: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "SAMPLE001",
+        "Type names start with an uppercase letter",
+        "Keeps type names consistent across this project.",
+        "",
+        "Type name '{0}' should start with an uppercase letter.",
+        "Naming",
+        DiagnosticSeverity.Warning)
+
+    override val SupportedDiagnostics: ImmutableArray<DiagnosticDescriptor> => [Rule]
+
+    override func Initialize(context: AnalysisContext) {
+        context.EnableConcurrentExecution()
+        context.RegisterSyntaxNodeAction(
+            AnalyzeTypeName,
+            SyntaxKind.ClassDeclaration)
+    }
+
+    static func AnalyzeTypeName(context: SyntaxNodeAnalysisContext) {
+        let declaration: ClassDeclarationSyntax = context.Node else {
+            return
+        }
+
+        let name = declaration.Identifier.ValueText
+        if name.Length == 0 || Char.IsUpper(name[0]) {
+            return
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(
+            Rule,
+            declaration.Identifier.GetLocation(),
+            [name]))
+    }
+}

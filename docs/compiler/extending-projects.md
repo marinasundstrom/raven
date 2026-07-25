@@ -11,14 +11,9 @@ There are two complementary extension types:
 | Analyzer | Find mistakes, enforce conventions, or highlight project-specific concerns. | Reports diagnostics against existing code. |
 | Source generator | Derive declarations, adapters, registries, or other repetitive code. | Adds generated Raven source to the compilation. |
 
-An extension is ordinary .NET code built against `Raven.CodeAnalysis`. A host
-attaches it to a Raven workspace project. The compiler and editor can then use
-the extension as part of the normal project experience.
-
-> [!NOTE]
-> Programmatic workspace registration is available today. Declarative
-> `.rvnproj` and package-based discovery for third-party extensions is still
-> evolving.
+An extension is ordinary .NET code built against `Raven.CodeAnalysis`. A Raven
+project can load the compiled extension assembly from its `.rvnproj` file. A
+compiler host can also attach extensions directly to a workspace project.
 
 ## Choose the right extension
 
@@ -113,6 +108,15 @@ project = project.AddAnalyzerReference(
     new AnalyzerReference(new AvoidLegacyApiAnalyzer()));
 ```
 
+In an `.rvnproj`, reference the compiled analyzer assembly with an `Analyzer`
+item:
+
+```xml
+<ItemGroup>
+  <Analyzer Include="extensions/MyProjectRules.dll" />
+</ItemGroup>
+```
+
 Analyzer diagnostics flow through Raven's normal diagnostic pipeline. Their
 severity can be configured, and they can appear in command-line and editor
 diagnostic output.
@@ -155,6 +159,14 @@ Attach it through a generator reference:
 ```csharp
 project = project.AddGeneratorReference(
     new GeneratorReference(new RouteTableGenerator()));
+```
+
+In an `.rvnproj`, use the separate `SourceGenerator` item:
+
+```xml
+<ItemGroup>
+  <SourceGenerator Include="extensions/MyProjectGenerators.dll" />
+</ItemGroup>
 ```
 
 `RouteTable.rvn` becomes part of the project compilation, but Raven does not
@@ -204,6 +216,21 @@ deterministic, cancellation-aware transformations:
 
 This keeps command-line builds, editor diagnostics, and generated project
 state consistent with one another.
+
+## Runnable samples
+
+The repository includes complete projects whose extensions are written in
+Raven itself:
+
+- [Custom analyzer sample](https://github.com/marinasundstrom/raven/tree/main/samples/projects/custom-analyzer)
+  reports a project-specific naming diagnostic during a normal Raven build.
+- [Source generator sample](https://github.com/marinasundstrom/raven/tree/main/samples/projects/source-generator)
+  generates a route type that maintained Raven source consumes.
+- [Syntax Tree API sample](https://github.com/marinasundstrom/raven/tree/main/samples/projects/syntax-tree-api)
+  parses Raven source and walks its syntax nodes from a Raven application.
+
+Each sample builds its extension assembly through a `ProjectReference`, then
+loads that output through the corresponding Raven project item.
 
 ## Analyzers, generators, and macros
 

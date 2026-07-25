@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RavenRunAnalyzers>false</RavenRunAnalyzers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <RavenCompile Include="src/**/*.rvn" />
+
+    <ProjectReference
+      Include="extension/RouteGenerator.rvnproj"
+      ReferenceOutputAssembly="false" />
+
+    <SourceGenerator
+      Include="extension/bin/$(Configuration)/$(TargetFramework)/RouteGenerator.dll" />
+  </ItemGroup>
+</Project>

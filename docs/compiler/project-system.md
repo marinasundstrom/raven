@@ -142,6 +142,44 @@ When a `.rvnproj` includes `<FrameworkReference>`:
 2. Raven resolves the corresponding framework reference packs from installed .NET SDK `packs/`.
 3. Pack reference assemblies are added as metadata references for compilation.
 
+## Project extensions
+
+A Raven project can load compiled extension assemblies:
+
+```xml
+<ItemGroup>
+  <Analyzer Include="extensions/MyProjectRules.dll" />
+  <SourceGenerator Include="extensions/MyProjectGenerators.dll" />
+</ItemGroup>
+```
+
+- `Analyzer` assemblies contribute custom diagnostics after generators and
+  normal compiler binding.
+- `SourceGenerator` assemblies contribute additional Raven syntax trees before
+  binding and analyzer execution.
+
+Both paths are resolved relative to the project file. An extension assembly may
+contain multiple public, non-abstract extension types with parameterless
+constructors.
+
+When the extension is built alongside the Raven project, use a
+`ProjectReference` to establish build ordering without adding the extension as
+an application metadata reference:
+
+```xml
+<ItemGroup>
+  <ProjectReference
+    Include="extension/MyExtensions.csproj"
+    ReferenceOutputAssembly="false" />
+
+  <Analyzer
+    Include="extension/bin/$(Configuration)/$(TargetFramework)/MyExtensions.dll" />
+</ItemGroup>
+```
+
+See [Extend a Raven project](extending-projects.md) for authoring guidance and
+runnable analyzer and generator samples.
+
 ## Build vs publish outputs
 
 Raven project builds use the standard .NET output layout:

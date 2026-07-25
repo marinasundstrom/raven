@@ -1,0 +1,32 @@
+import System.*
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+
+namespace SourceGeneratorSample
+
+class RouteGenerator : ISourceGenerator {
+    func Initialize(context: GeneratorInitializationContext) {}
+
+    func Execute(context: GeneratorExecutionContext) {
+        let generatedNames = HashSet<string>()
+
+        for tree in context.Compilation.SyntaxTrees {
+            for node in tree.GetRoot().DescendantNodes() {
+                if let declaration: ClassDeclarationSyntax = node {
+                    let controllerName = declaration.Identifier.ValueText
+                    if !controllerName.EndsWith("Controller", StringComparison.Ordinal)
+                        || !generatedNames.Add(controllerName) {
+                        continue
+                    }
+
+                    context.CancellationToken.ThrowIfCancellationRequested()
+                    let routeTypeName = controllerName + "Route"
+                    context.AddSource(
+                        routeTypeName,
+                        "namespace Generated\n\nclass $routeTypeName {}")
+                }
+            }
+        }
+    }
+}

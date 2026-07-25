@@ -66,6 +66,9 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/aspnet-minimal-api/README.md`
 - `samples/projects/runtime-async-net11/README.md`
 - `samples/projects/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
+- `samples/projects/custom-analyzer/README.md` (custom diagnostics loaded through an `<Analyzer>` project item)
+- `samples/projects/source-generator/README.md` (generated Raven source loaded through a `<SourceGenerator>` project item)
+- `samples/projects/syntax-tree-api/README.md` (parse and inspect Raven syntax trees from Raven code)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 
 ### Project build workflow

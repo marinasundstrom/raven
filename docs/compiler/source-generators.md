@@ -29,6 +29,14 @@ var project = project.AddGeneratorReference(
     new GeneratorReference(new ModelGenerator()));
 ```
 
+Raven projects can load a compiled generator assembly declaratively:
+
+```xml
+<ItemGroup>
+  <SourceGenerator Include="extensions/MyGenerators.dll" />
+</ItemGroup>
+```
+
 The workspace runs generators before returning the project compilation.
 Generated syntax trees therefore participate in binding, diagnostics, emit,
 project references, and subsequent analyzer execution.
