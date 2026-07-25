@@ -42,6 +42,13 @@ Increment(ref total)
 Console.WriteLine(total) // prints 42
 ```
 
+The `scoped` modifier restricts a parameter so that references obtained from it
+cannot escape the call. It precedes the by-reference modifier:
+`scoped value: Span<int>` classifies a scoped ref-like value, while
+`scoped ref value: int` classifies a scoped reference. Raven follows the C#
+`scoped` lifetime model and exposes the distinction as `ScopedValue` and
+`ScopedRef` through the compiler symbol API.
+
 ## Method overloading
 
 Use overloading when the same operation makes sense for different sets or types

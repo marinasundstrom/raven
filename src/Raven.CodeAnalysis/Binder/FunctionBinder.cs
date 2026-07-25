@@ -197,7 +197,8 @@ class FunctionBinder : Binder
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
-                isVarParams));
+                isVarParams,
+                ParameterSyntaxUtilities.GetScopedKind(p)));
         }
 
         _methodSymbol.SetParameters(parameters);

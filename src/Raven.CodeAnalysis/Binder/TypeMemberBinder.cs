@@ -1111,7 +1111,8 @@ internal partial class TypeMemberBinder : Binder
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
-                isVarParams
+                isVarParams,
+                ParameterSyntaxUtilities.GetScopedKind(syntax)
             );
             parameters.Add(pSymbol);
         }
@@ -1464,7 +1465,8 @@ internal partial class TypeMemberBinder : Binder
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
-                isVarParams
+                isVarParams,
+                ParameterSyntaxUtilities.GetScopedKind(syntax)
             );
             parameters.Add(pSymbol);
         }
@@ -1606,7 +1608,8 @@ internal partial class TypeMemberBinder : Binder
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
-                isVarParams
+                isVarParams,
+                ParameterSyntaxUtilities.GetScopedKind(syntax)
             );
             parameters.Add(pSymbol);
         }
@@ -2085,7 +2088,8 @@ internal partial class TypeMemberBinder : Binder
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
-                isVarParams
+                isVarParams,
+                ParameterSyntaxUtilities.GetScopedKind(syntax)
             );
             parameters.Add(pSymbol);
         }
@@ -2407,7 +2411,8 @@ internal partial class TypeMemberBinder : Binder
                 new[] { p.GetLocation() },
                 new[] { p.GetReference() },
                 refKind,
-                isMutable: refKind is RefKind.Ref or RefKind.Out));
+                isMutable: refKind is RefKind.Ref or RefKind.Out,
+                scopedKind: ParameterSyntaxUtilities.GetScopedKind(p)));
         }
 
         invoke.SetParameters(invokeParams.ToImmutable());
@@ -3680,7 +3685,8 @@ internal partial class TypeMemberBinder : Binder
                         param.HasDefaultValue,
                         param.DefaultValue,
                         param.IsMutable,
-                        param.IsVarParams));
+                        param.IsVarParams,
+                        ParameterSyntaxUtilities.GetScopedKind(param.Syntax)));
                 }
                 if (!isGet)
                 {

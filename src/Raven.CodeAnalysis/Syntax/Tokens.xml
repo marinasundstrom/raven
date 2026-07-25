@@ -88,6 +88,7 @@
   <TokenKind Name="ByKeyword" Text="by" IsReservedWord="false" />
   <TokenKind Name="WhereKeyword" Text="where" IsReservedWord="false" />
   <TokenKind Name="AllowsKeyword" Text="allows" IsReservedWord="false" />
+  <TokenKind Name="ScopedKeyword" Text="scoped" IsReservedWord="false" />
   <TokenKind Name="PublicKeyword" Text="public" IsReservedWord="false" />
   <TokenKind Name="PrivateKeyword" Text="private" IsReservedWord="false" />
   <TokenKind Name="InternalKeyword" Text="internal" IsReservedWord="false" />

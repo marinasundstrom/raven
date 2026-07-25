@@ -314,7 +314,8 @@ partial class BlockBinder
                 refKind,
                 hasExplicitDefaultValue,
                 explicitDefaultValue,
-                isMutable: isMutable
+                isMutable: isMutable,
+                scopedKind: ParameterSyntaxUtilities.GetScopedKind(parameterSyntax)
             );
 
             parameterSymbols.Add(symbol);
@@ -1813,7 +1814,8 @@ partial class BlockBinder
                 refKind,
                 hasExplicitDefaultValue: hasExplicitDefaultValue,
                 explicitDefaultValue: explicitDefaultValue,
-                isMutable: isMutable);
+                isMutable: isMutable,
+                scopedKind: ParameterSyntaxUtilities.GetScopedKind(parameterSyntax));
 
             // Keep the replay order rule: once we saw an optional parameter, later parameters must be optional.
             if (seenOptionalParameter && !hasExplicitDefaultValue)

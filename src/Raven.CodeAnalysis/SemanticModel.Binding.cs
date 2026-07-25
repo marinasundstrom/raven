@@ -3459,7 +3459,8 @@ public partial class SemanticModel
                 delegateSymbol.ContainingNamespace,
                 new[] { p.GetLocation() },
                 new[] { p.GetReference() },
-                refKind));
+                refKind,
+                scopedKind: ParameterSyntaxUtilities.GetScopedKind(p)));
         }
 
         invoke.SetParameters(invokeParams.ToImmutable());

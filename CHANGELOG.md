@@ -43,6 +43,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Recognized `ScopedRefAttribute` on consumed .NET parameters and exposed the
   result through the Roslyn-like `IParameterSymbol.ScopedKind` API, including
   constructed generic symbols.
+- Added `scoped` parameter syntax and source-symbol classification for both
+  scoped ref-like values and by-reference parameters.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

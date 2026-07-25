@@ -875,6 +875,7 @@
   <Node Name="Parameter" Inherits="Node">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" />
     <Slot Name="AccessibilityKeyword" Type="Token" IsOptionalToken="true" />
+    <Slot Name="ScopedKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="RefKindKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="ParamsKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="BindingKeyword" Type="Token" IsOptionalToken="true" />

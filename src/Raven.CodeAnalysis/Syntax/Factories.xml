@@ -135,6 +135,7 @@
       <Parameter Slot="AttributeLists" />
       <Parameter Slot="Identifier" />
       <Default Slot="AccessibilityKeyword" Token="None" />
+      <Default Slot="ScopedKeyword" Token="None" />
       <Default Slot="RefKindKeyword" Token="None" />
       <Default Slot="ParamsKeyword" Token="None" />
       <Default Slot="BindingKeyword" Token="None" />
@@ -149,6 +150,7 @@
       <Parameter Slot="Identifier" />
       <Parameter Slot="TypeAnnotation" />
       <Default Slot="AccessibilityKeyword" Token="None" />
+      <Default Slot="ScopedKeyword" Token="None" />
       <Default Slot="RefKindKeyword" Token="None" />
       <Default Slot="ParamsKeyword" Token="None" />
       <Default Slot="Pattern" Null="true" />

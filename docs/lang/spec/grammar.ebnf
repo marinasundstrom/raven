@@ -101,8 +101,9 @@ ExtensionPropertyModifiers ::= AccessModifier ;
 ReturnTypeClause         ::= '->' Type ;
 
 ParameterList            ::= Parameter {',' Parameter} ;
-Parameter                ::= {AttributeList} AccessModifier? RefKindModifier? ParamsModifier? ParameterBindingKeyword?
+Parameter                ::= {AttributeList} AccessModifier? ScopedModifier? RefKindModifier? ParamsModifier? ParameterBindingKeyword?
                              Identifier ':' Type VarParamsSuffix? ['=' Expression] ;
+ScopedModifier           ::= 'scoped' ;
 ParamsModifier           ::= 'params' ;
 VarParamsSuffix          ::= '...' ; (* Convenience collector marker. `params` and `...` are mutually exclusive on the same parameter. *)
 RefKindModifier          ::= 'ref' | 'out' | 'in' ;

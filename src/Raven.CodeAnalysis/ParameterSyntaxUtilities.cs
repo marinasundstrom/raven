@@ -25,4 +25,14 @@ internal static class ParameterSyntaxUtilities
                 _ => RefKind.None,
             };
     }
+
+    public static ScopedKind GetScopedKind(ParameterSyntax parameter)
+    {
+        if (!parameter.ScopedKeyword.IsKind(SyntaxKind.ScopedKeyword))
+            return ScopedKind.None;
+
+        return GetRefKind(parameter).IsByRef
+            ? ScopedKind.ScopedRef
+            : ScopedKind.ScopedValue;
+    }
 }

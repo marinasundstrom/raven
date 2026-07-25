@@ -1139,6 +1139,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var updatedFirstParameter = firstParameter.Update(
                 mergedAttributes,
                 firstParameter.AccessibilityKeyword,
+                firstParameter.ScopedKeyword,
                 firstParameter.RefKindKeyword,
                 firstParameter.ParamsKeyword,
                 firstParameter.BindingKeyword,
@@ -1277,6 +1278,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         if (asyncKeyword is null && funcKeyword is null && ConsumeToken(SyntaxKind.AsyncKeyword, out var parsedAsync))
             asyncKeyword = parsedAsync;
 
+        var scopedKeyword = Token(SyntaxKind.None);
+        if (PeekToken().Kind == SyntaxKind.ScopedKeyword)
+            scopedKeyword = ReadToken();
+
         var refKindKeyword = Token(SyntaxKind.None);
         if (ConsumeToken(SyntaxKind.RefKeyword, out var modifier)
             || ConsumeToken(SyntaxKind.OutKeyword, out modifier)
@@ -1332,7 +1337,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressionBody = null;
         }
 
-        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
+        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), scopedKeyword, refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
 
         lambda = SimpleFunctionExpression(
             staticKeyword ?? Token(SyntaxKind.None),

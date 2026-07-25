@@ -813,7 +813,8 @@ internal static class MemberSignatureDeclarationPass
             hasExplicitDefaultValue,
             hasExplicitDefaultValue ? defaultEvaluation.Value : null,
             isMutable: refKind is RefKind.Ref or RefKind.Out,
-            isVarParams: TypeMemberBinder.IsVarParamsSyntax(parameter));
+            isVarParams: TypeMemberBinder.IsVarParamsSyntax(parameter),
+            scopedKind: ParameterSyntaxUtilities.GetScopedKind(parameter));
     }
 
     internal static ITypeSymbol ResolveSkeletonType(

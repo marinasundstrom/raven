@@ -897,6 +897,10 @@ internal class StatementSyntaxParser : SyntaxParser
                     ? SyntaxList.Empty
                     : AttributeDeclarationParser.ParseAttributeLists(this);
 
+                var scopedKeyword = Token(SyntaxKind.None);
+                if (PeekToken().Kind == SyntaxKind.ScopedKeyword)
+                    scopedKeyword = ReadToken();
+
                 var refKindKeyword = Token(SyntaxKind.None);
                 if (PeekToken().Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
                     refKindKeyword = ReadToken();
@@ -978,7 +982,7 @@ internal class StatementSyntaxParser : SyntaxParser
                     continue;
                 }
 
-                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), refKindKeyword, varParamsKeyword, bindingKeyword, name, pattern, typeAnnotation, dotDotDotToken, defaultValue));
+                parameterList.Add(Parameter(attributeLists, Token(SyntaxKind.None), scopedKeyword, refKindKeyword, varParamsKeyword, bindingKeyword, name, pattern, typeAnnotation, dotDotDotToken, defaultValue));
                 parsedParameters++;
             }
         }
