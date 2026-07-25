@@ -296,6 +296,7 @@ internal class CodeGenerator
     ConstructorInfo? _topLevelAttributeCtor;
     ConstructorInfo? _isByRefLikeCtor;
     ConstructorInfo? _isReadOnlyCtor;
+    ConstructorInfo? _scopedRefCtor;
 
     bool _emitExtensionMarkerNameAttribute = true;
 
@@ -1462,6 +1463,20 @@ internal class CodeGenerator
             return null;
 
         return new CustomAttributeBuilder(_isReadOnlyCtor, Array.Empty<object>());
+    }
+
+    internal CustomAttributeBuilder? CreateScopedRefAttributeBuilder()
+    {
+        if (_scopedRefCtor is null)
+        {
+            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ScopedRefAttribute");
+            _scopedRefCtor = type?.GetConstructor(Type.EmptyTypes);
+        }
+
+        if (_scopedRefCtor is null)
+            return null;
+
+        return new CustomAttributeBuilder(_scopedRefCtor, Array.Empty<object>());
     }
 
     internal CustomAttributeBuilder? CreateTopLevelAttributeBuilder()

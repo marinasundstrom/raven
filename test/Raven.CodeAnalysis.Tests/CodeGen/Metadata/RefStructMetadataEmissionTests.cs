@@ -14,6 +14,8 @@ public sealed class RefStructMetadataEmissionTests
         "System.Runtime.CompilerServices.IsByRefLikeAttribute";
     private const string IsReadOnlyAttributeName =
         "System.Runtime.CompilerServices.IsReadOnlyAttribute";
+    private const string ScopedRefAttributeName =
+        "System.Runtime.CompilerServices.ScopedRefAttribute";
 
     [Theory]
     [InlineData("ref struct Buffer {}", 0)]
@@ -112,6 +114,44 @@ public sealed class RefStructMetadataEmissionTests
         Assert.NotEqual(
             0,
             (int)(genericParameter.Attributes & GenericParameterAttributes.AllowByRefLike));
+    }
+
+    [Theory]
+    [InlineData("scoped value: System.Span<int>", true)]
+    [InlineData("scoped ref value: int", true)]
+    [InlineData("scoped out value: int", false)]
+    public void ScopedParameter_EmitsAttributeWhenItDiffersFromDefault(string parameter, bool expected)
+    {
+        var body = parameter.Contains(" out ", StringComparison.Ordinal) ? "{ value = 0 }" : "{}";
+        using var peReader = EmitToMetadataReader($"class Library {{ static func Consume({parameter}) {body} }}");
+        var metadata = peReader.GetMetadataReader();
+        var method = metadata.MethodDefinitions
+            .Select(metadata.GetMethodDefinition)
+            .Single(method => metadata.GetString(method.Name) == "Consume");
+        var emittedParameter = method.GetParameters()
+            .Select(metadata.GetParameter)
+            .Single(parameterDefinition => parameterDefinition.SequenceNumber == 1);
+        var hasAttribute = emittedParameter.GetCustomAttributes()
+            .Any(handle => GetAttributeTypeName(metadata, handle) == ScopedRefAttributeName);
+
+        Assert.Equal(expected, hasAttribute);
+    }
+
+    [Fact]
+    public void ScopedParameter_RoundTripsThroughMetadata()
+    {
+        var image = EmitToImage(
+            "class Library { static func Consume(scoped value: System.Span<int>) {} }");
+        var reference = MetadataReference.CreateFromImage(image.ToArray());
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. TestMetadataReferences.Default, reference]);
+        var method = Assert.Single(
+            consumer.GetTypeByMetadataName("Library")!.GetMembers("Consume").OfType<IMethodSymbol>());
+
+        Assert.Equal(ScopedKind.ScopedValue, Assert.Single(method.Parameters).ScopedKind);
     }
 
     [Fact]
