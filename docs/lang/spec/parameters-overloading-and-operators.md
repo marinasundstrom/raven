@@ -73,6 +73,8 @@ Scoped parameters and locals cannot be captured by lambdas or local functions,
 including scoped references whose element type is not itself ref-like.
 Scoped variables also cannot remain live across `await` or `yield`, because an
 async or iterator state machine would extend their storage lifetime.
+An override or explicit interface implementation may add a scoped restriction,
+but it cannot remove one required by the overridden or implemented contract.
 
 ## Method overloading
 

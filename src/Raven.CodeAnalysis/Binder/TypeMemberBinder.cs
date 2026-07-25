@@ -1119,6 +1119,10 @@ internal partial class TypeMemberBinder : Binder
 
         methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
+        if (overriddenMethod is not null)
+            ReportWeakenedScopedParameterContracts(overriddenMethod, methodSymbol, methodDecl.ParameterList);
+        if (explicitInterfaceMember is not null)
+            ReportWeakenedScopedParameterContracts(explicitInterfaceMember, methodSymbol, methodDecl.ParameterList);
         methodSymbol.MarkSignatureBindingComplete();
         RemoveStaleMethodSignatureSkeletons(metadataName, methodSymbol);
 
@@ -1148,6 +1152,32 @@ internal partial class TypeMemberBinder : Binder
         if (hasInvalidAsyncReturnType)
             methodSymbol.MarkAsyncReturnTypeError();
         return methodBinder;
+    }
+
+    private void ReportWeakenedScopedParameterContracts(
+        IMethodSymbol contractMethod,
+        IMethodSymbol implementationMethod,
+        ParameterListSyntax? parameterList)
+    {
+        var count = Math.Min(contractMethod.Parameters.Length, implementationMethod.Parameters.Length);
+        for (var i = 0; i < count; i++)
+        {
+            var contractParameter = contractMethod.Parameters[i];
+            var implementationParameter = implementationMethod.Parameters[i];
+            if (contractParameter.ScopedKind == ScopedKind.None ||
+                implementationParameter.ScopedKind != ScopedKind.None)
+            {
+                continue;
+            }
+
+            var location = parameterList is not null && i < parameterList.Parameters.Count
+                ? parameterList.Parameters[i].Identifier.GetLocation()
+                : implementationParameter.Locations.FirstOrDefault() ?? Location.None;
+            _diagnostics.ReportScopedParameterContractCannotBeWeakened(
+                implementationParameter.Name,
+                contractMethod.ToDisplayString(),
+                location);
+        }
     }
 
     private void RemoveStaleMethodSignatureSkeletons(

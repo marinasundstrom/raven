@@ -278,6 +278,10 @@
     Title="Scoped variable cannot cross a suspension point"
     Message="Scoped variable '{name}' cannot remain in scope across an await or yield suspension point"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0358" Identifier="ScopedParameterContractCannotBeWeakened"
+    Title="Scoped parameter contract cannot be weakened"
+    Message="Parameter '{parameterName}' must be scoped to preserve the contract of '{memberName}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

@@ -139,4 +139,64 @@ public sealed class ScopedParameterTests : CompilationTestBase
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor.Id == "RAV0356");
     }
+
+    [Fact]
+    public void Override_CannotRemoveScopedContract()
+    {
+        const string source = """
+            open class Base {
+                virtual func Use(scoped value: System.Span<int>) {}
+            }
+
+            class Derived : Base {
+                override func Use(value: System.Span<int>) {}
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0358");
+    }
+
+    [Fact]
+    public void ExplicitInterfaceImplementation_CannotRemoveScopedContract()
+    {
+        const string source = """
+            interface IConsumer {
+                func Use(scoped value: System.Span<int>)
+            }
+
+            class Consumer : IConsumer {
+                func IConsumer.Use(value: System.Span<int>) {}
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0358");
+    }
+
+    [Fact]
+    public void Override_CanStrengthenScopedContract()
+    {
+        const string source = """
+            open class Base {
+                virtual func Use(value: System.Span<int>) {}
+            }
+
+            class Derived : Base {
+                override func Use(scoped value: System.Span<int>) {}
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0358");
+    }
 }

@@ -68,6 +68,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   functions, including scoped references to ordinary value types.
 - Rejected scoped parameters and locals that would remain live across `await`
   or `yield` suspension points.
+- Prevented overrides and explicit interface implementations from weakening a
+  scoped parameter contract while allowing implementations to strengthen it.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.
