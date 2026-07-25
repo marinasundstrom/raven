@@ -5,6 +5,9 @@ compilation. They are separate from macros: generators run as a workspace
 compilation step, while invocable compile-time macros may be added as a
 language feature later.
 
+For the user-facing overview of analyzers and source generators, see
+[Extend a Raven project](extending-projects.md).
+
 Implement `ISourceGenerator` and register the instance, type, or containing
 assembly through a `GeneratorReference`. Generator references are project-level
 compilation inputs, separate from diagnostic analyzer references:

@@ -10,10 +10,11 @@ Start with:
 
 - [Compiler and command-line tools](raven-compiler.md)
 - [Project system](project-system.md)
+- [Extend a project](extending-projects.md)
 - [VS Code extension](raven-vscode-extension.md)
 - [Diagnostics](diagnostics.md)
 - [JSON serialization](json-serialization.md)
 
-Compiler architecture, analyzer APIs, implementation designs, and contributor
-workflows are maintained in the repository but are not published as part of
-the user manual.
+Project extensions are covered from a user and library-author perspective.
+Compiler architecture, detailed API designs, and contributor workflows remain
+separate from the user manual.

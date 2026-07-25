@@ -4,6 +4,8 @@
   href: raven-compiler.md
 - name: Project system
   href: project-system.md
+- name: Extend a project
+  href: extending-projects.md
 - name: Raven Core Library
   href: raven-core-library.md
 - name: JSON serialization
