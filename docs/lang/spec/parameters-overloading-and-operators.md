@@ -69,6 +69,8 @@ returning a containing ref struct does not bypass the local's scope.
 Ref-like invocation results inherit the scope of receiver and argument values
 that flow through unscoped parameters. Arguments supplied to scoped parameters
 do not contribute to the result's escape scope.
+Scoped parameters and locals cannot be captured by lambdas or local functions,
+including scoped references whose element type is not itself ref-like.
 
 ## Method overloading
 

@@ -157,4 +157,21 @@ public sealed class ScopedLocalTests : CompilationTestBase
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor.Id == "RAV0355");
     }
+
+    [Fact]
+    public void ScopedLocal_CannotBeCaptured()
+    {
+        const string source = """
+            func Outer(value: System.Span<int>) {
+                scoped val local = value
+                val capture = () => local
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0356");
+    }
 }

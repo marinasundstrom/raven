@@ -270,6 +270,10 @@
     Title="Scoped local cannot escape"
     Message="A value obtained from scoped local '{localName}' cannot escape the declaring function"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0356" Identifier="ScopedVariableCannotBeCaptured"
+    Title="Scoped variable cannot be captured"
+    Message="Scoped variable '{name}' cannot be captured by a function"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

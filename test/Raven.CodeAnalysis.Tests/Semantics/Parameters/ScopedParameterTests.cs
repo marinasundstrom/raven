@@ -123,4 +123,20 @@ public sealed class ScopedParameterTests : CompilationTestBase
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor.Id == "RAV0354");
     }
+
+    [Fact]
+    public void ScopedReferenceParameter_CannotBeCaptured()
+    {
+        const string source = """
+            func Outer(scoped ref value: int) {
+                val capture = () => value
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0356");
+    }
 }

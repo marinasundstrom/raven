@@ -64,6 +64,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Propagated scoped-local escape provenance through ref-like field containment.
 - Propagated scoped provenance into ref-like call results through receivers and
   unscoped parameters, while excluding arguments to scoped parameters.
+- Rejected capturing scoped parameters and locals in lambdas or local
+  functions, including scoped references to ordinary value types.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.
