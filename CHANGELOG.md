@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Updated the ASP.NET Core samples for .NET 11 Preview 6 union request,
+  response, streaming, JSON persistence, and OpenAPI `anyOf` support.
+
 - Restrict .NET 11 runtime-async method metadata to Task-like methods so async
   iterators remain valid CLR types.
 

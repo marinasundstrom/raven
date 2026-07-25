@@ -93,6 +93,6 @@ func MapVehicle(vehicle: VehicleEntity) -> VehicleResponse {
         vehicle.Model,
         vehicle.FuelType,
         vehicle.TypicalMonthlyDistanceKm,
-        VehicleStatusDto.FromStatus(vehicle.GetStatus()),
+        vehicle.GetStatus(),
         entries)
 }

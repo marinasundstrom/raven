@@ -1,17 +1,25 @@
-# ASP.NET Core Minimal API (.rvnproj)
+# ASP.NET Core Minimal API
 
-This sample shows a Raven project targeting an ASP.NET Core Minimal API endpoint.
+This Raven project implements a small pet-shelter API with ASP.NET Core on
+.NET 11 Preview 6. It focuses on application-shaped examples instead of
+isolated endpoint-binding tests.
 
-Project file:
+The `Pet`, `PetLookup`, and `VaccinationStatus` types are Raven unions.
+ASP.NET Core accepts `PetLookup` directly as a request body, writes the other
+unions directly as responses, and describes their cases with `anyOf` in the
+generated OpenAPI document. JSON contains only the active case value; it does
+not need a discriminator.
 
-- `AspNetMinimalApi.rvnproj`
-- Framework reference: `Microsoft.AspNetCore.App`
+The sample also includes named async and streaming handlers:
 
-Source file:
+- `GET /pets/{id}` returns one of the `Pet` cases.
+- `POST /pets/find` accepts a `PetLookup` containing either an integer ID or a
+  `PetName` object.
+- `GET /pets/{id}/vaccinations` returns a `VaccinationStatus` asynchronously.
+- `GET /pets` streams `Pet` values and observes request cancellation.
+- `GET /openapi/v1.json` serves the generated OpenAPI document.
 
-- `src/main.rvn`
-
-## Build
+## Run
 
 From this folder:
 
@@ -19,32 +27,16 @@ From this folder:
 dotnet run --project AspNetMinimalApi.rvnproj --property WarningLevel=0
 ```
 
-This emits output to `bin/` by default for project builds.
-
-## Run
+Then use `sample.http`, or try:
 
 ```bash
-dotnet bin/AspNetMinimalApi.dll
+curl http://localhost:5000/pets/1
+curl http://localhost:5000/pets
+curl -X POST http://localhost:5000/pets/find \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Luna"}'
+curl http://localhost:5000/openapi/v1.json
 ```
 
-Then browse to `http://localhost:5000/`.
-
-Available endpoints:
-
-- `GET /` -> `Hello from Raven Minimal API`
-- `GET /ping` -> `pong`
-- `GET /async` -> `Hello from async MapGet`
-- `GET /stream` -> streamed JSON array of `Person` values; the handler uses `async func ([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<Person>` so ASP.NET Core request cancellation flows into the iterator body
-- `POST /submit` -> `submitted`
-- `POST /submit-async` -> `submitted async`
-
-Quick smoke test:
-
-```bash
-curl http://localhost:5000/
-curl http://localhost:5000/ping
-curl http://localhost:5000/async
-curl http://localhost:5000/stream
-curl -X POST http://localhost:5000/submit
-curl -X POST http://localhost:5000/submit-async
-```
+The project references `Microsoft.AspNetCore.App` and the .NET 11 Preview 6
+`Microsoft.AspNetCore.OpenApi` package.

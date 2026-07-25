@@ -1,6 +1,8 @@
 # Vehicle Costs API (.rvnproj)
 
-This sample is a Raven ASP.NET Core Web API that tracks vehicles, stores a Raven `union VehicleStatus`, and predicts monthly fuel costs from recent fuel-consumption entries.
+This sample is a Raven ASP.NET Core Web API on .NET 11 Preview 6. It tracks
+vehicles, stores a Raven `union VehicleStatus`, and predicts monthly fuel costs
+from recent fuel-consumption entries.
 
 ## Project file
 
@@ -20,13 +22,18 @@ This sample is a Raven ASP.NET Core Web API that tracks vehicles, stores a Raven
   - `Maintenance`
   - `Decommissioned`
 
-The important bit is the mapping approach:
+The important part is that the union crosses the domain, persistence, and
+response layers directly:
 
-- the domain uses a real Raven `union`
+- response contracts expose `VehicleStatus`, without a DTO mirror
 - EF Core persists `VehicleEntity.Status` directly through the PostgreSQL `jsonb` `Status` column
-- `HasConversion` uses the Raven union JSON converter when reading and writing the column
+- ASP.NET Core describes the response union with an OpenAPI `anyOf` schema
 
-That keeps the public model union-based while still using JSON storage in the database.
+EF's `HasConversion` uses a tagged converter privately when reading and writing
+the `jsonb` column because all three cases are JSON objects. HTTP responses use
+.NET 11's native union serialization, so clients receive the active case value
+without that persistence discriminator. The Minimal API sample also shows a
+union used directly as a request body.
 
 ## Run PostgreSQL
 
@@ -60,12 +67,19 @@ dotnet run --project VehicleCostsApi.rvnproj --property WarningLevel=0
   "registrationNumber": "RAV-303",
   "model": "Skoda Octavia",
   "fuelType": "Diesel",
-  "typicalMonthlyDistanceKm": 1800,
+  "typicalMonthlyDistanceKm": 1800
+}
+```
+
+The API initializes a new vehicle as operational. A response contains the
+active union case directly:
+
+```json
+{
   "status": {
-    "kind": "operational",
-    "driverName": "Robin",
-    "sinceUtc": "2026-04-01T08:00:00Z",
-    "currentOdometerKm": 88410
+    "driverName": "Unassigned",
+    "sinceUtc": "2026-07-26T00:00:00+00:00",
+    "currentOdometerKm": 0
   }
 }
 ```

@@ -26,13 +26,16 @@ async func Main(args: string[]) -> Task {
 
     app.MapGet("/", func () => Results.Redirect("/openapi/v1.json"))
 
-    app.MapGet("/vehicles", async func (context: VehicleDbContext, cancellationToken: CancellationToken) {
+    app.MapGet("/vehicles", async func (
+        context: VehicleDbContext,
+        cancellationToken: CancellationToken
+    ) -> Task<VehicleResponse[]> {
         let vehicles = await context.Vehicles
             .Include(vehicle => vehicle.FuelConsumptions)
             .OrderBy(vehicle => vehicle.RegistrationNumber)
             .ToListAsync(cancellationToken)
 
-        return Results.Ok(vehicles.Select(MapVehicle).ToArray())
+        return vehicles.Select(MapVehicle).ToArray()
     })
 
     app.MapGet("/vehicles/{id:guid}", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
@@ -73,7 +76,7 @@ async func Main(args: string[]) -> Task {
         vehicle.Model = request.Model.Trim()
         vehicle.FuelType = request.FuelType
         vehicle.TypicalMonthlyDistanceKm = request.TypicalMonthlyDistanceKm
-        vehicle.SetStatus(request.ToStatus())
+        vehicle.SetStatus(.Operational("Unassigned", DateTimeOffset.UtcNow, 0))
 
         context.Vehicles.Add(vehicle)
         _ = await context.SaveChangesAsync(cancellationToken)

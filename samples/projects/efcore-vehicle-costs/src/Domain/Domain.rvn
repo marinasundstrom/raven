@@ -5,7 +5,6 @@ import System.Text.Json.*
 import System.Text.Json.Serialization.*
 import System.Collections.Generic.*
 
-[RavenTaggedUnionJsonConverter("\$case")]
 union VehicleStatus {
     case Operational(driverName: string, sinceUtc: DateTimeOffset, currentOdometerKm: decimal)
     case Maintenance(workshop: string, startedUtc: DateTimeOffset, expectedReadyUtc: DateTimeOffset?, reason: string)
@@ -47,10 +46,12 @@ static class VehicleStatusJson {
     }
 
     static func CreateOptions() -> JsonSerializerOptions {
-        return JsonSerializerOptions {
+        let options = JsonSerializerOptions {
             WriteIndented = true,
             PropertyNamingPolicy = .CamelCase
         }
+        options.Converters.Add(RavenTaggedUnionJsonConverterFactory("\$case"))
+        return options
     }
 }
 

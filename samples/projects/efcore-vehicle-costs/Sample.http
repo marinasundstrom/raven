@@ -17,11 +17,5 @@ Content-Type: application/json
   "registrationNumber": "RAV-303",
   "model": "Skoda Octavia",
   "fuelType": "Diesel",
-  "typicalMonthlyDistanceKm": 1800,
-  "status": {
-    "$type": "operational",
-    "driverName": "Robin",
-    "sinceUtc": "2026-04-01T08:00:00Z",
-    "currentOdometerKm": 88410
-  }
+  "typicalMonthlyDistanceKm": 1800
 }

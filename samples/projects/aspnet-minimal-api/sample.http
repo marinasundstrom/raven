@@ -1,84 +1,39 @@
 @base = http://localhost:5000
 
-### Root
+### API information
 GET {{base}}/
 
-###
+### Dog case
+GET {{base}}/pets/1
 
-### /del
-GET {{base}}/del
+### Cat case
+GET {{base}}/pets/2
 
-###
+### Bird case
+GET {{base}}/pets/3
 
-### /ping via delegate (string result)
-GET {{base}}/ping?name=Marina
+### Stream all pet cases
+GET {{base}}/pets
 
-###
+### Find by integer union case
+POST {{base}}/pets/find
+Content-Type: application/json
 
-### /ping0 (typed record result)
-GET {{base}}/ping0?name=Marina
+2
 
-###
-
-### /ping1 OK case
-GET {{base}}/ping1?name=Bob
-
-###
-
-### /ping1 error case
-GET {{base}}/ping1?name=Alice
-
-###
-
-### /ping2 default parameter
-GET {{base}}/ping2
-
-###
-
-### /ping2 explicit parameter
-GET {{base}}/ping2?no=5
-
-###
-
-### async endpoint
-GET {{base}}/async
-
-###
-
-### stream endpoint
-GET {{base}}/stream
-
-###
-
-### submit plain string
-POST {{base}}/submit
-Content-Type: text/plain
-
-hello raven
-
-###
-
-### submit2 record body
-POST {{base}}/submit2
+### Find by PetName union case
+POST {{base}}/pets/find
 Content-Type: application/json
 
 {
-  "value": "abc"
+  "name": "Luna"
 }
 
-###
+### Current vaccination case
+GET {{base}}/pets/1/vaccinations
 
-### submit async
-POST {{base}}/submit-async
-Content-Type: text/plain
+### Due vaccination case
+GET {{base}}/pets/2/vaccinations
 
-async payload
-
-### Submit person
-POST {{base}}/person
-Content-Type: application/json
-
-{
-  "Name": "Bob",
-  "Age": 19
-}
+### OpenAPI document
+GET {{base}}/openapi/v1.json

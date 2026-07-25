@@ -8,7 +8,7 @@ record class VehicleResponse(
     val Model: string,
     val FuelType: string,
     val TypicalMonthlyDistanceKm: decimal,
-    val Status: VehicleStatusDto,
+    val Status: VehicleStatus,
     val FuelConsumptions: FuelConsumptionResponse[]
 )
 
@@ -34,11 +34,6 @@ class CreateVehicleRequest {
     var Model: string = ""
     var FuelType: string = ""
     var TypicalMonthlyDistanceKm: decimal = 0
-    var Status: VehicleStatusDto = VehicleStatusDto()
-
-    func ToStatus() -> VehicleStatus {
-        return Status.ToStatus()
-    }
 }
 
 class AddFuelConsumptionRequest {
@@ -46,82 +41,4 @@ class AddFuelConsumptionRequest {
     var DistanceDrivenKm: decimal = 0
     var LitersFilled: decimal = 0
     var TotalCost: decimal = 0
-}
-
-class VehicleStatusDto {
-    var Kind: string = ""
-    var DriverName: string? = null
-    var SinceUtc: DateTimeOffset? = null
-    var CurrentOdometerKm: decimal? = null
-    var Workshop: string? = null
-    var ExpectedReadyUtc: DateTimeOffset? = null
-    var Reason: string? = null
-    var RetiredUtc: DateTimeOffset? = null
-
-    static func CreateOperational(driverName: string?, sinceUtc: DateTimeOffset?, currentOdometerKm: decimal?) -> VehicleStatusDto {
-        let dto = VehicleStatusDto()
-        dto.Kind = "operational"
-        dto.DriverName = driverName
-        dto.SinceUtc = sinceUtc
-        dto.CurrentOdometerKm = currentOdometerKm
-        return dto
-    }
-
-    static func CreateMaintenance(workshop: string?, startedUtc: DateTimeOffset?, expectedReadyUtc: DateTimeOffset?, reason: string?) -> VehicleStatusDto {
-        let dto = VehicleStatusDto()
-        dto.Kind = "maintenance"
-        dto.Workshop = workshop
-        dto.SinceUtc = startedUtc
-        dto.ExpectedReadyUtc = expectedReadyUtc
-        dto.Reason = reason
-        return dto
-    }
-
-    static func CreateDecommissioned(retiredUtc: DateTimeOffset?, reason: string?) -> VehicleStatusDto {
-        let dto = VehicleStatusDto()
-        dto.Kind = "decommissioned"
-        dto.RetiredUtc = retiredUtc
-        dto.Reason = reason
-        return dto
-    }
-
-    static func FromStatus(status: VehicleStatus) -> VehicleStatusDto {
-        match status {
-            .Operational(let driverName, let sinceUtc, let currentOdometerKm) => {
-                VehicleStatusDto.CreateOperational(driverName, sinceUtc, currentOdometerKm)
-            }
-            .Maintenance(let workshop, let startedUtc, let expectedReadyUtc, let reason) => {
-                VehicleStatusDto.CreateMaintenance(workshop, startedUtc, expectedReadyUtc, reason)
-            }
-            .Decommissioned(let retiredUtc, let reason) => {
-                VehicleStatusDto.CreateDecommissioned(retiredUtc, reason)
-            }
-        }
-    }
-
-    func ToStatus() -> VehicleStatus {
-        let normalized = Kind.Trim().ToLowerInvariant()
-        match normalized {
-            "operational" => {
-                let driver = DriverName ?? "Unknown"
-                let since = SinceUtc ?? DateTimeOffset.UtcNow
-                let odometer = CurrentOdometerKm ?? 0m
-                let status: VehicleStatus = .Operational(driverName: driver, sinceUtc: since, currentOdometerKm: odometer)
-                status
-            }
-            "maintenance" => {
-                let workshop = Workshop ?? "Unknown workshop"
-                let started = SinceUtc ?? DateTimeOffset.UtcNow
-                let reason = Reason ?? "Unspecified"
-                let status: VehicleStatus = .Maintenance(workshop: workshop, startedUtc: started, expectedReadyUtc: ExpectedReadyUtc, reason: reason)
-                status
-            }
-            _ => {
-                let retired = RetiredUtc ?? DateTimeOffset.UtcNow
-                let reason = Reason ?? "Unspecified"
-                let status: VehicleStatus = .Decommissioned(retiredUtc: retired, reason: reason)
-                status
-            }
-        }
-    }
 }

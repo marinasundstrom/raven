@@ -1,95 +1,86 @@
-import System.*
 import System.Collections.Generic.*
-import System.IO.*
 import System.Runtime.CompilerServices.*
-import System.Text.*
 import System.Threading.*
 import System.Threading.Tasks.*
 import Microsoft.AspNetCore.Builder.*
-import Microsoft.AspNetCore.Http.*
-import Microsoft.AspNetCore.Mvc.*
+import Microsoft.Extensions.DependencyInjection.*
 
 let builder = WebApplication.CreateBuilder(args)
+builder.Services.AddOpenApi()
+
 use app = builder.Build()
+app.MapOpenApi()
 
-app.MapGet("/", func () => "Hello from Raven Minimal API")
+app.MapGet("/", func () => ApiInfo(
+    "Raven Pet Shelter",
+    "/openapi/v1.json"))
 
-app.MapGet("/del", func (context: HttpContext) => context.Response.WriteAsync("Hello World"))
-
-func ping(name: string) -> PingResult {
-    PingResult("pong $name")
-}
-
-app.MapGet("/ping0", ping)
-
-func ping1(name: string) -> Result<PingResult, CustomError> {
-    match name {
-        "Bob" | "bob" => Ok(PingResult("pong $name"))
-        _ => Error(CustomError("Invalid name"))
+func findPet(id: int) -> Pet {
+    match id {
+        1 => Dog("Rex", "Labrador")
+        2 => Cat("Luna", 9)
+        _ => Bird("Pip", true)
     }
 }
 
-app.MapGet("/ping1", ping1)
+app.MapGet("/pets/{id}", findPet)
 
-app.MapGet("/ping", func (name: string) => "pong $name")
+func lookupPet(lookup: PetLookup) -> Pet {
+    match lookup {
+        int id => findPet(id)
+        PetName(let name) => match name {
+            "Rex" | "rex" => findPet(1)
+            "Luna" | "luna" => findPet(2)
+            _ => findPet(3)
+        }
+    }
+}
 
-app.MapGet("/ping2", func (no: int = 2) => "pong $no")
+app.MapPost("/pets/find", lookupPet)
 
-app.MapGet("/async", async func () {
-    await Task.Delay(1)
-    return "Hello from async MapGet"
-})
+async func checkVaccinations(id: int) -> Task<VaccinationStatus> {
+    await Task.Delay(25)
 
-app.MapGet("/stream", async func ([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<Person> {
-    yield Person("Bob", 30)
-    if cancellationToken.IsCancellationRequested {
-        yield break
+    if id == 1 {
+        return VaccinationStatus.Current("2027-06-01")
     }
 
-    await Task.Delay(1000, cancellationToken)
-    yield Person("Alice", 20)
-    if cancellationToken.IsCancellationRequested {
-        yield break
-    }
+    return VaccinationStatus.Due("Rabies")
+}
 
-    await Task.Delay(2000, cancellationToken)
-    yield Person("Jane", 42)
-})
+app.MapGet("/pets/{id}/vaccinations", checkVaccinations)
 
-app.MapPost("/submit", async func (context: HttpContext) {
-    use reader = StreamReader(context.Request.Body, encoding: .UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false)
-    let content = await reader.ReadToEndAsync()
-    return "submitted: $content"
-})
+async func streamPets(
+    [EnumeratorCancellation] cancellationToken: CancellationToken
+) -> IAsyncEnumerable<Pet> {
+    yield findPet(1)
+    await Task.Delay(100, cancellationToken)
+    yield findPet(2)
+    await Task.Delay(100, cancellationToken)
+    yield findPet(3)
+}
 
-app.MapPost("/submit2", func (data: Data) => "submitted: ${data.Value}")
-
-app.MapPost("/submit-async", async func (content: string) {
-    await Task.Delay(1)
-    return "submitted async: $content"
-})
-
-app.MapPost("/person", async func (person: Person) -> Task<Result<string, CustomError>> {
-    await Task.Delay(1)
-
-    if let (name, age when >= 18) = person {
-        return Ok("Welcome, $name!")
-    }
-
-    return Error(CustomError("You are too young (You said: $age)"))
-})
+app.MapGet("/pets", streamPets)
 
 app.Run()
 
-/// **Title**
-/// Test
-record Data(val Value: string)
-
-record PingResult(val Message: string)
-
-record CustomError(val Message: string)
-
-record Person(
+record ApiInfo(
     val Name: string,
-    val Age: int
-)
+    val OpenApiDocument: string)
+
+record class Dog(val Name: string, val Breed: string)
+
+record class Cat(val Name: string, val LivesRemaining: int)
+
+record class Bird(val Name: string, val CanTalk: bool)
+
+union Pet(Dog | Cat | Bird)
+
+record class PetName(val Name: string)
+
+union PetLookup(int | PetName)
+
+union VaccinationStatus {
+    case Current(nextDueDate: string)
+    case Due(vaccine: string)
+}
