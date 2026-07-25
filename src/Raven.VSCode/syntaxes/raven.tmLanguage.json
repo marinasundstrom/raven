@@ -565,6 +565,10 @@
                     "match": "\\b(scoped)\\b(?=\\s*(?:(?:ref|out|in)\\s+)?(?:(?:params)\\s+)?(?:(?:let|val|var|const)\\s+)?[A-Za-z_][A-Za-z0-9_]*\\s*:)"
                 },
                 {
+                    "name": "keyword.modifier.variable.scoped.raven storage.modifier.variable.scoped.raven",
+                    "match": "\\b(scoped)\\b(?=\\s*(?:let|val|var|const)\\b)"
+                },
+                {
                     "name": "keyword.modifier.access.constructor.raven storage.modifier.access.raven",
                     "match": "\\b(public|internal|protected|private|fileprivate)\\b(?=\\s*\\()"
                 },

@@ -694,6 +694,8 @@ public interface ILocalSymbol : ISymbol
 {
     ITypeSymbol Type { get; }
 
+    ScopedKind ScopedKind => ScopedKind.None;
+
     bool IsMutable { get; }
 
     bool IsConst { get; }

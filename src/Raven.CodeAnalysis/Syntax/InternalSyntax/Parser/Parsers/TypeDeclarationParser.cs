@@ -1385,7 +1385,7 @@ internal class TypeDeclarationParser : SyntaxParser
         var declarators = new SyntaxList(
             [VariableDeclarator(identifier, typeAnnotation, initializer)]);
 
-        return new VariableDeclarationSyntax(bindingKeyword, declarators);
+        return new VariableDeclarationSyntax(Token(SyntaxKind.None), bindingKeyword, declarators);
     }
 
     private BasePropertyDeclarationSyntax ParsePropertyBindingDeclaration(SyntaxList attributeLists, SyntaxList modifiers)

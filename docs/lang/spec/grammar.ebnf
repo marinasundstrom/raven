@@ -347,7 +347,7 @@ Statement                ::= LocalDeclaration
 
 BlockStatement           ::= Block ;
 
-LocalDeclaration         ::= ('let' | 'val' | 'var' | 'const') LocalVariableDeclarators ;
+LocalDeclaration         ::= ScopedModifier? ('let' | 'val' | 'var' | 'const') LocalVariableDeclarators ;
 LetElseStatement         ::= BindingKeyword Pattern '=' Expression 'else' DivergingStatement ;
 (* Semantic rule: DivergingStatement must not have a reachable endpoint. It
    exits through return, throw, break, or continue; successful pattern

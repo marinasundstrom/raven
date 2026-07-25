@@ -865,6 +865,7 @@
     <Slot Name="AccessorList" Type="AccessorList" IsNullable="true" IsAbstract="true" />
   </Node>
   <Node Name="VariableDeclaration" Inherits="Node">
+    <Slot Name="ScopedKeyword" Type="Token" IsOptionalToken="true" />
     <Slot Name="BindingKeyword" Type="Token" />
     <Slot Name="Declarators" Type="SeparatedList" ElementType="VariableDeclarator" />
   </Node>

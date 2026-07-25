@@ -1139,6 +1139,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
         switch (token.Kind)
         {
+            case SyntaxKind.ScopedKeyword:
             case SyntaxKind.LetKeyword:
             case SyntaxKind.ValKeyword:
             case SyntaxKind.VarKeyword:
@@ -1442,6 +1443,13 @@ internal class StatementSyntaxParser : SyntaxParser
     private VariableDeclarationSyntax? ParseVariableDeclarationSyntax(bool isBindingKeywordOptional = false)
     {
         var t0 = PeekToken();
+        var scopedKeyword = Token(SyntaxKind.None);
+
+        if (t0.IsKind(SyntaxKind.ScopedKeyword))
+        {
+            scopedKeyword = ReadToken();
+            t0 = PeekToken();
+        }
 
         // Explicit binding keyword
         if (t0.IsKind(SyntaxKind.ValKeyword) ||
@@ -1450,7 +1458,7 @@ internal class StatementSyntaxParser : SyntaxParser
             t0.IsKind(SyntaxKind.ConstKeyword))
         {
             var bindingKeyword = ReadToken();
-            return FinishParseVariableDeclarationSyntax(bindingKeyword);
+            return FinishParseVariableDeclarationSyntax(scopedKeyword, bindingKeyword);
         }
 
         // No explicit keyword
@@ -1459,10 +1467,12 @@ internal class StatementSyntaxParser : SyntaxParser
 
         var syntheticBindingKeyword = Token(SyntaxKind.None);
 
-        return FinishParseVariableDeclarationSyntax(syntheticBindingKeyword);
+        return FinishParseVariableDeclarationSyntax(scopedKeyword, syntheticBindingKeyword);
     }
 
-    private VariableDeclarationSyntax FinishParseVariableDeclarationSyntax(SyntaxToken bindingKeyword)
+    private VariableDeclarationSyntax FinishParseVariableDeclarationSyntax(
+        SyntaxToken scopedKeyword,
+        SyntaxToken bindingKeyword)
     {
         List<GreenNode> declarators = new List<GreenNode>
         {
@@ -1475,7 +1485,7 @@ internal class StatementSyntaxParser : SyntaxParser
             declarators.Add(ParseVariableDeclarator());
         }
 
-        return new VariableDeclarationSyntax(bindingKeyword, List(declarators.ToArray()));
+        return new VariableDeclarationSyntax(scopedKeyword, bindingKeyword, List(declarators.ToArray()));
     }
 
     private VariableDeclaratorSyntax ParseVariableDeclarator()

@@ -93,6 +93,14 @@
     </Overload>
   </Factory>
 
+  <Factory Node="VariableDeclaration">
+    <Overload>
+      <Default Slot="ScopedKeyword" Token="None" />
+      <Parameter Slot="BindingKeyword" />
+      <Parameter Slot="Declarators" />
+    </Overload>
+  </Factory>
+
   <Factory Node="ReturnStatement">
     <Overload Summary="Creates a return statement that returns a value expression.">
       <Parameter Slot="Expression" />

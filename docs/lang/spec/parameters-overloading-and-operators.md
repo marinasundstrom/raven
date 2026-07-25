@@ -53,6 +53,11 @@ because that would let the restricted value escape the function.
 As in C#, `out` parameters and `ref` parameters whose type is ref-like are
 implicitly scoped even when the keyword is omitted.
 
+Local bindings use Raven's declaration order: `scoped val buffer: Span<int>`
+declares a scoped ref-like value, and `scoped val reference = &value` declares
+a scoped reference. The local symbol reports `ScopedValue` or `ScopedRef`
+according to its resulting type.
+
 ## Method overloading
 
 Use overloading when the same operation makes sense for different sets or types

@@ -348,6 +348,7 @@ partial class BlockBinder : Binder
         if (type is null)
             return null;
 
+        var scopedKind = GetLocalScopedKind(declaration, type);
         if (existingDeclaredLocal is not null &&
             ShouldUpgradeLocalDeclarationType(existingDeclaredLocal.Type, type))
         {
@@ -357,12 +358,13 @@ partial class BlockBinder : Binder
                 isMutable,
                 type,
                 isConst,
+                scopedKind: scopedKind,
                 recordDeclaration: false);
             _declarationState.ReplaceDeclaredLocal(existingDeclaredLocal, upgradedLocal, variableDeclarator);
             return upgradedLocal;
         }
 
-        return CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst);
+        return CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, scopedKind: scopedKind);
     }
 
     private static bool CanInferLocalTypeFromAvailableInitializerDuringDeclarationSeeding(VariableDeclaratorSyntax variableDeclarator)
@@ -938,12 +940,13 @@ partial class BlockBinder : Binder
         }
 
         ILocalSymbol localSymbol;
+        var scopedKind = GetLocalScopedKind(decl, type);
         if (existingDeclaredLocal is not null &&
             ShouldUpgradeLocalDeclarationType(existingDeclaredLocal.Type, type))
         {
             localSymbol = isFunctionValueAlias && functionValueTargetMethod is not null
                 ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod, recordDeclaration: false)
-                : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue, recordDeclaration: false);
+                : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue, scopedKind, recordDeclaration: false);
 
             _declarationState.ReplaceDeclaredLocal(existingDeclaredLocal, localSymbol, variableDeclarator);
         }
@@ -956,7 +959,7 @@ partial class BlockBinder : Binder
         {
             localSymbol = isFunctionValueAlias && functionValueTargetMethod is not null
                 ? CreateFunctionValueSymbol(variableDeclarator, name, isMutable, type, functionValueTargetMethod)
-                : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue);
+                : CreateLocalSymbol(variableDeclarator, name, isMutable, type, isConst, constantValue, scopedKind);
         }
 
         var declarator = new BoundVariableDeclarator(localSymbol, boundInitializer, fixedAddressInitializer, fixedPinnedLocal);
@@ -967,6 +970,16 @@ partial class BlockBinder : Binder
         CacheBoundNode(variableDeclarator, declarator);
 
         return declarator;
+    }
+
+    private static ScopedKind GetLocalScopedKind(
+        VariableDeclarationSyntax declaration,
+        ITypeSymbol type)
+    {
+        if (!declaration.ScopedKeyword.IsKind(SyntaxKind.ScopedKeyword))
+            return ScopedKind.None;
+
+        return type is RefTypeSymbol ? ScopedKind.ScopedRef : ScopedKind.ScopedValue;
     }
 
     private bool TryBindExistingLocalDeclaration(
@@ -1384,6 +1397,7 @@ partial class BlockBinder : Binder
         ITypeSymbol type,
         bool isConst = false,
         object? constantValue = null,
+        ScopedKind scopedKind = ScopedKind.None,
         bool recordDeclaration = true)
     {
         var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
@@ -1401,7 +1415,8 @@ partial class BlockBinder : Binder
             [location],
             [syntaxReference],
             isConst,
-            constantValue);
+            constantValue,
+            scopedKind);
 
         RegisterLocalForCurrentLookup(name, symbol);
         if (recordDeclaration)
