@@ -77,9 +77,16 @@ Its responsibilities are:
 - bind statements and expressions in execution order
 - create local, pattern, local-function, local-type, and label symbols
 - resolve local references before delegating lookup to parent binders
-- report body-level diagnostics
+- report diagnostics that require the local binding context
 - keep binder-owned declaration state for the block
 - snapshot and restore transient state during semantic queries
+
+Whole-body language rules should not make `BlockBinder` a second flow-analysis
+framework. Once a body is bound, standalone bound-tree walkers and analyses own
+rules that depend on provenance, escape scope, suspension points, captures, or
+other facts spanning multiple expressions. The binder only hands the completed
+body to those analyses and records their diagnostics. See
+[Ref safety analysis](ref-safety-analysis.md) for the required separation.
 
 The key rule is that declaration-producing syntax should be registered by the
 binder that owns that body. Examples:
