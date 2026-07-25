@@ -258,6 +258,10 @@
     Title="Allows ref struct constraint conflicts with class"
     Message="The 'allows ref struct' anti-constraint cannot be combined with the 'class' constraint"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0353" Identifier="ScopedValueCannotEscape"
+    Title="Scoped value cannot escape"
+    Message="A value obtained from scoped parameter '{parameterName}' cannot escape the declaring function"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

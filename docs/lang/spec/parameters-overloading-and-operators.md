@@ -48,6 +48,8 @@ cannot escape the call. It precedes the by-reference modifier:
 `scoped ref value: int` classifies a scoped reference. Raven follows the C#
 `scoped` lifetime model and exposes the distinction as `ScopedValue` and
 `ScopedRef` through the compiler symbol API.
+Returning a scoped ref-like parameter, or a local alias of it, is rejected
+because that would let the restricted value escape the function.
 
 ## Method overloading
 

@@ -47,6 +47,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   scoped ref-like values and by-reference parameters.
 - Emitted `ScopedRefAttribute` for explicitly scoped parameters when required
   by the C# metadata contract, including generic-safe metadata round trips.
+- Rejected returning scoped ref-like parameters through direct expressions or
+  local aliases.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

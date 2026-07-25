@@ -46,4 +46,36 @@ public sealed class ScopedParameterTests : CompilationTestBase
         Assert.Equal(RefKind.Ref, method.Parameters[0].RefKind);
         Assert.Equal(ScopedKind.ScopedRef, method.Parameters[0].ScopedKind);
     }
+
+    [Theory]
+    [InlineData("return value")]
+    [InlineData("val alias = value\nreturn alias")]
+    public void ScopedRefLikeParameter_CannotEscapeThroughReturn(string body)
+    {
+        var source = $$"""
+            func Leak(scoped value: System.Span<int>) -> System.Span<int> {
+                {{body}}
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV0353"));
+
+        Assert.Contains("value", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnscopedRefLikeParameter_CanBeReturned()
+    {
+        const string source = """
+            func Identity(value: System.Span<int>) -> System.Span<int> {
+                return value
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV0353");
+    }
 }
