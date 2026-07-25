@@ -5880,7 +5880,11 @@ public partial class SemanticModel
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
-                isVarParams);
+                isVarParams,
+                ParameterSyntaxUtilities.GetScopedKind(
+                    parameterSyntax,
+                    parameterType,
+                    classBinder.Diagnostics));
 
             parameters.Add(parameterSymbol);
 

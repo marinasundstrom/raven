@@ -35,4 +35,21 @@ internal static class ParameterSyntaxUtilities
             ? ScopedKind.ScopedRef
             : ScopedKind.ScopedValue;
     }
+
+    public static ScopedKind GetScopedKind(
+        ParameterSyntax parameter,
+        ITypeSymbol parameterType,
+        DiagnosticBag diagnostics)
+    {
+        var scopedKind = GetScopedKind(parameter);
+        if (scopedKind == ScopedKind.ScopedValue &&
+            parameterType.TypeKind != TypeKind.Error &&
+            !SemanticFacts.MayBeRefLike(parameterType))
+        {
+            diagnostics.ReportScopedModifierRequiresRefLikeTypeOrReference(
+                parameter.ScopedKeyword.GetLocation());
+        }
+
+        return scopedKind;
+    }
 }

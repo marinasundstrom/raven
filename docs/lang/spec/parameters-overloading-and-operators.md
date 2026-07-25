@@ -50,6 +50,8 @@ cannot escape the call. It precedes the by-reference modifier:
 `ScopedRef` through the compiler symbol API.
 Returning a scoped ref-like parameter, or a local alias of it, is rejected
 because that would let the restricted value escape the function.
+By-value `scoped` parameters must be ref-like; `scoped ref`, `scoped in`, and
+`scoped out` parameters may refer to ordinary value types.
 As in C#, `out` parameters and `ref` parameters whose type is ref-like are
 implicitly scoped even when the keyword is omitted.
 

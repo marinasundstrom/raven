@@ -800,6 +800,14 @@ internal static class MemberSignatureDeclarationPass
         var defaultEvaluation = TypeMemberBinder.EvaluateParameterDefaultValue(parameter, parameterType);
         var hasExplicitDefaultValue = defaultEvaluation is { HasDefaultSyntax: true, Success: true };
         var refKind = ParameterSyntaxUtilities.GetRefKind(parameter);
+        var scopedKind = ParameterSyntaxUtilities.GetScopedKind(parameter);
+        if (scopedKind == ScopedKind.ScopedValue &&
+            parameterType.TypeKind != TypeKind.Error &&
+            !SemanticFacts.MayBeRefLike(parameterType))
+        {
+            semanticModel.ReportDeclarationScopedModifierRequiresRefLikeTypeOrReference(
+                parameter.ScopedKeyword.GetLocation());
+        }
 
         return new SourceParameterSymbol(
             parameter.Identifier.ValueText,
@@ -814,7 +822,7 @@ internal static class MemberSignatureDeclarationPass
             hasExplicitDefaultValue ? defaultEvaluation.Value : null,
             isMutable: refKind is RefKind.Ref or RefKind.Out,
             isVarParams: TypeMemberBinder.IsVarParamsSyntax(parameter),
-            scopedKind: ParameterSyntaxUtilities.GetScopedKind(parameter));
+            scopedKind: scopedKind);
     }
 
     internal static ITypeSymbol ResolveSkeletonType(

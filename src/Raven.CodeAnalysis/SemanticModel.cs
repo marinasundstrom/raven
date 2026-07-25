@@ -8925,6 +8925,9 @@ public partial class SemanticModel
             parameterName,
             location);
 
+    internal void ReportDeclarationScopedModifierRequiresRefLikeTypeOrReference(Location location)
+        => _declarationDiagnostics.ReportScopedModifierRequiresRefLikeTypeOrReference(location);
+
     internal void ReportDeclarationParameterBindingKeywordNotAllowed(
         string keyword,
         string parameterName,

@@ -95,4 +95,32 @@ public sealed class ScopedParameterTests : CompilationTestBase
 
         Assert.Equal(ScopedKind.ScopedRef, Assert.Single(method.Parameters).ScopedKind);
     }
+
+    [Theory]
+    [InlineData("func Invalid(scoped value: int) {}")]
+    [InlineData("class C { func Invalid(scoped value: string) {} }")]
+    [InlineData("val invalid = (scoped value: int) => value")]
+    [InlineData("func Invalid(scoped params values: int[]) {}")]
+    public void ScopedOrdinaryValueParameter_IsRejected(string source)
+    {
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0354");
+    }
+
+    [Theory]
+    [InlineData("func Valid(scoped value: System.Span<int>) {}")]
+    [InlineData("func Valid(scoped ref value: int) {}")]
+    [InlineData("func Valid(scoped in value: int) {}")]
+    [InlineData("func Valid(scoped out value: int) { value = 0 }")]
+    public void ScopedRefLikeOrReferenceParameter_IsAllowed(string source)
+    {
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0354");
+    }
 }

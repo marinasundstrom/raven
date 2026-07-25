@@ -315,7 +315,7 @@ partial class BlockBinder
                 hasExplicitDefaultValue,
                 explicitDefaultValue,
                 isMutable: isMutable,
-                scopedKind: ParameterSyntaxUtilities.GetScopedKind(parameterSyntax)
+                scopedKind: ParameterSyntaxUtilities.GetScopedKind(parameterSyntax, parameterType, _diagnostics)
             );
 
             parameterSymbols.Add(symbol);
