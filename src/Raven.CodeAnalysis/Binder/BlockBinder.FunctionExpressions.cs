@@ -2321,31 +2321,10 @@ partial class BlockBinder
 
     private void ReportRefLikeCaptures(ImmutableArray<ISymbol> capturedVariables, Location fallbackLocation)
     {
-        foreach (var captured in capturedVariables)
-        {
-            var scopedKind = captured switch
-            {
-                IParameterSymbol parameter => parameter.ScopedKind,
-                ILocalSymbol local => local.ScopedKind,
-                _ => ScopedKind.None,
-            };
-            if (scopedKind != ScopedKind.None)
-            {
-                var scopedLocation = captured.Locations.FirstOrDefault() ?? fallbackLocation;
-                _diagnostics.ReportScopedVariableCannotBeCaptured(captured.Name, scopedLocation);
-                continue;
-            }
-
-            if (captured.UnwrapType() is not { } refLikeType ||
-                !SemanticFacts.MayBeRefLike(refLikeType))
-            {
-                continue;
-            }
-
-            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            var location = captured.Locations.FirstOrDefault() ?? fallbackLocation;
-            _diagnostics.ReportRefLikeVariableCannotBeCaptured(captured.Name, typeDisplay, location);
-        }
+        RefSafetyDiagnosticReporter.ReportCaptures(
+            capturedVariables,
+            fallbackLocation,
+            _diagnostics);
     }
 
     private bool HasExistingArgumentErrors(SeparatedSyntaxList<ArgumentSyntax> arguments)

@@ -1852,86 +1852,17 @@ internal abstract partial class Binder
 
     protected void ReportRefLikeLocalsAcrossAwait(BoundNode body)
     {
-        foreach (var local in AsyncLowerer.GetLocalsCapturedAcrossAwait(body))
-        {
-            if (local.ScopedKind != ScopedKind.None)
-            {
-                var scopedLocation = local.Locations.FirstOrDefault() ?? Location.None;
-                _diagnostics.ReportScopedVariableCannotCrossSuspension(local.Name, scopedLocation);
-                continue;
-            }
-
-            if (local.Type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
-                continue;
-
-            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            var location = local.Locations.FirstOrDefault() ?? Location.None;
-            _diagnostics.ReportRefLikeVariableCannotCrossAwait(local.Name, typeDisplay, location);
-        }
+        RefSafetyDiagnosticReporter.ReportLocalsAcrossAwait(body, _diagnostics);
     }
 
     protected void ReportRefLikeParametersAcrossAwait(ISymbol symbol)
     {
-        var parameters = symbol switch
-        {
-            IMethodSymbol method => method.Parameters,
-            _ => ImmutableArray<IParameterSymbol>.Empty,
-        };
-
-        foreach (var parameter in parameters)
-        {
-            if (parameter.ScopedKind != ScopedKind.None)
-            {
-                var scopedLocation = parameter.Locations.FirstOrDefault() ?? Location.None;
-                _diagnostics.ReportScopedVariableCannotCrossSuspension(parameter.Name, scopedLocation);
-                continue;
-            }
-
-            if (parameter.Type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
-                continue;
-
-            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            var location = parameter.Locations.FirstOrDefault() ?? Location.None;
-            _diagnostics.ReportRefLikeVariableCannotCrossAwait(parameter.Name, typeDisplay, location);
-        }
+        RefSafetyDiagnosticReporter.ReportParametersAcrossAwait(symbol, _diagnostics);
     }
 
     protected void ReportRefLikeIteratorStorage(BoundNode body, IMethodSymbol method)
     {
-        var locals = RefLikeIteratorLocalCollector.Collect(body);
-        foreach (var local in locals)
-            Report(local);
-
-        foreach (var parameter in method.Parameters)
-            Report(parameter);
-
-        void Report(ISymbol symbol)
-        {
-            var scopedKind = symbol switch
-            {
-                ILocalSymbol local => local.ScopedKind,
-                IParameterSymbol parameter => parameter.ScopedKind,
-                _ => ScopedKind.None,
-            };
-            if (scopedKind != ScopedKind.None)
-            {
-                _diagnostics.ReportScopedVariableCannotCrossSuspension(
-                    symbol.Name,
-                    symbol.Locations.FirstOrDefault() ?? Location.None);
-                return;
-            }
-
-            if (symbol.UnwrapType() is not { } type)
-                return;
-            if (!SemanticFacts.MayBeRefLike(type))
-                return;
-
-            var typeDisplay = type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            _diagnostics.ReportRefLikeVariableCannotBeStoredInIterator(
-                symbol.Name,
-                typeDisplay,
-                symbol.Locations.FirstOrDefault() ?? Location.None);
-        }
+        RefSafetyDiagnosticReporter.ReportIteratorStorage(body, method, _diagnostics);
     }
 
     protected void ReportStackAllocReturnEscape(
@@ -1946,40 +1877,6 @@ internal abstract partial class Binder
             _diagnostics);
     }
 
-
-    private sealed class RefLikeIteratorLocalCollector : BoundTreeWalker
-    {
-        private readonly HashSet<ILocalSymbol> _locals = new(SymbolEqualityComparer.Default);
-
-        public static ImmutableArray<ILocalSymbol> Collect(BoundNode body)
-        {
-            var collector = new RefLikeIteratorLocalCollector();
-            collector.Visit(body);
-            return collector._locals.ToImmutableArray();
-        }
-
-        public override void VisitVariableDeclarator(BoundVariableDeclarator node)
-        {
-            _locals.Add(node.Local);
-            base.VisitVariableDeclarator(node);
-        }
-
-        public override void VisitForStatement(BoundForStatement node)
-        {
-            if (node.Local is not null)
-                _locals.Add(node.Local);
-
-            base.VisitForStatement(node);
-        }
-
-        public override void VisitFunctionExpression(BoundFunctionExpression node)
-        {
-        }
-
-        public override void VisitFunctionStatement(BoundFunctionStatement node)
-        {
-        }
-    }
 
     private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)
     {
