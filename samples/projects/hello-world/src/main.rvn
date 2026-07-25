@@ -1,6 +1,7 @@
 import System.Console.*
 
 func Main() {
+    Write("Write a number: ")
     let input = ReadLine()!
     let Ok(no) = int.Parse(input) else {
         WriteLine("\"$input\" is not a number")
