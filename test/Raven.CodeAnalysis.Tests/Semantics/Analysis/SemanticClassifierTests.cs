@@ -11,6 +11,28 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class SemanticClassifierTests : CompilationTestBase
 {
     [Fact]
+    public void ScopedParameterModifier_IsClassifiedAsKeywordOnlyInModifierPosition()
+    {
+        const string source = """
+            func Consume(scoped value: System.Span<int>) {
+                val scoped = 1
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var result = SemanticClassifier.Classify(tree.GetRoot(), allowBinding: false);
+        var scopedTokens = tree.GetRoot().DescendantTokens()
+            .Where(token => token.Text == "scoped")
+            .ToArray();
+
+        Assert.Equal(SyntaxKind.ScopedKeyword, scopedTokens[0].Kind);
+        Assert.Equal(SemanticClassification.Keyword, result.Tokens[scopedTokens[0]]);
+        Assert.Equal(SyntaxKind.IdentifierToken, scopedTokens[1].Kind);
+        Assert.NotEqual(
+            SemanticClassification.Keyword,
+            result.Tokens.GetValueOrDefault(scopedTokens[1]));
+    }
+
+    [Fact]
     public void InterpolatedString_ClassifiesDelimiters()
     {
         var source = """
