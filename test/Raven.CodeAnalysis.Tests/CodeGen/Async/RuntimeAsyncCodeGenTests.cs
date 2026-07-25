@@ -65,6 +65,31 @@ class Program {
     }
 
     [Fact]
+    public void RuntimeAsyncEnabled_DoesNotMarkAsyncIteratorAsRuntimeAsync()
+    {
+        const string code = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+class Program {
+    async func Stream() -> IAsyncEnumerable<int> {
+        yield 1
+        await Task.Delay(1)
+        yield 2
+    }
+}
+""";
+
+        using var loaded = EmitAssembly(code, useRuntimeAsync: true);
+
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var methodFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        var streamMethod = programType.GetMethod("Stream", methodFlags)!;
+
+        Assert.Equal(0, ((int)streamMethod.GetMethodImplementationFlags()) & RuntimeAsyncMethodImplBit);
+    }
+
+    [Fact]
     public void RuntimeAsyncEnabled_DoesNotEmitAsyncStateMachineType()
     {
         const string code = """

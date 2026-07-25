@@ -519,6 +519,12 @@ internal class MethodGenerator
         if (!MethodSymbol.IsAsync)
             return;
 
+        if (MethodSymbol.IsIterator)
+            return;
+
+        if (AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, MethodSymbol.ReturnType) is null)
+            return;
+
         if (MethodBase is not MethodBuilder methodBuilder)
             return;
 

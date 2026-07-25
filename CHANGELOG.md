@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Restrict .NET 11 runtime-async method metadata to Task-like methods so async
+  iterators remain valid CLR types.
+
 - Allow multiline fluent expressions in typed `let ... else` declarations,
   including unparenthesized awaited invocations.
 
