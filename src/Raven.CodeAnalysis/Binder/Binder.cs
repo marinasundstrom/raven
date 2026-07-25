@@ -1939,39 +1939,11 @@ internal abstract partial class Binder
         Location fallbackLocation,
         bool expressionResultEscapes = false)
     {
-        var result = RefSafetyAnalysis.Analyze(body, expressionResultEscapes);
-        foreach (var violation in result.Violations)
-        {
-            var location = violation.Expression switch
-            {
-                BoundLocalAccess localAccess => localAccess.Local.Locations.FirstOrDefault(),
-                BoundVariableExpression variable => variable.Variable.Locations.FirstOrDefault(),
-                _ => violation.Origin?.Locations.FirstOrDefault(),
-            };
-
-            switch (violation.Kind)
-            {
-                case RefSafetyViolationKind.StackAllocationEscape:
-                    _diagnostics.ReportStackAllocValueCannotEscape(location ?? fallbackLocation);
-                    break;
-                case RefSafetyViolationKind.LocalReferenceEscape:
-                    _diagnostics.ReportStackBoundRefLikeValueCannotEscape(location ?? fallbackLocation);
-                    break;
-                case RefSafetyViolationKind.ScopedValueEscape
-                    when violation.Origin is IParameterSymbol parameter:
-                    _diagnostics.ReportScopedValueCannotEscape(
-                        parameter.Name,
-                        location ?? fallbackLocation);
-                    break;
-                case RefSafetyViolationKind.ScopedValueEscape
-                    when violation.Origin is { } origin:
-                    _diagnostics.ReportScopedLocalCannotEscape(
-                        origin.Name,
-                        location ?? fallbackLocation);
-                    break;
-            }
-        }
-
+        RefSafetyDiagnosticReporter.Report(
+            body,
+            fallbackLocation,
+            expressionResultEscapes,
+            _diagnostics);
     }
 
 
