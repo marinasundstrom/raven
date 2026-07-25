@@ -1175,7 +1175,7 @@ var compilation = workspace.GetCompilation(projectId);
 
 var projectDocumentationOptions = project.DocumentationOptions;
 var automaticDocumentationOutputs = new List<(DocumentationFormat Format, string OutputPath)>();
-var requiresWorkspaceDiagnostics = noEmit || project.AnalyzerReferences.Any();
+var requiresWorkspaceDiagnostics = noEmit || project.AnalyzerReferences.Any() || project.GeneratorReferences.Any();
 ImmutableArray<Diagnostic> diagnostics = requiresWorkspaceDiagnostics
     ? workspace.GetDiagnostics(projectId)
     : ImmutableArray<Diagnostic>.Empty;

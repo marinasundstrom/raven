@@ -174,7 +174,7 @@ public sealed class Solution
             throw new InvalidOperationException("Project not found");
 
         var attr = projInfo.Attributes with { Version = projInfo.Version.GetNewerVersion() };
-        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.MacroReferences, projInfo.AnalyzerReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName, projInfo.DocumentationOptions);
+        projInfo = new ProjectInfo(attr, projInfo.Documents, projInfo.ProjectReferences, projInfo.MetadataReferences, projInfo.MacroReferences, projInfo.AnalyzerReferences, projInfo.FilePath, projInfo.TargetFramework, compilationOptions, projInfo.AssemblyName, projInfo.DocumentationOptions, projInfo.GeneratorReferences);
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
@@ -214,6 +214,30 @@ public sealed class Solution
 
         var updated = projInfo.AnalyzerReferences.Add(reference);
         projInfo = projInfo.WithAnalyzerReferences(updated).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    /// <summary>Adds a source generator reference to the specified project.</summary>
+    public Solution AddGeneratorReference(ProjectId projectId, GeneratorReference reference)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        var updated = projInfo.GeneratorReferences.Add(reference);
+        projInfo = projInfo.WithGeneratorReferences(updated).WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
+    public Solution WithGeneratorReferences(ProjectId projectId, IEnumerable<GeneratorReference> references)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        projInfo = projInfo.WithGeneratorReferences(references).WithVersion(projInfo.Version.GetNewerVersion());
         var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
         var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);

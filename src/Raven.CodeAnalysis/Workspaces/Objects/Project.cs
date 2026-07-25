@@ -65,6 +65,9 @@ public sealed class Project
     /// <summary>An analyzer references for this project.</summary>
     public IReadOnlyList<AnalyzerReference> AnalyzerReferences => _info.AnalyzerReferences;
 
+    /// <summary>Source generator references for this project.</summary>
+    public IReadOnlyList<GeneratorReference> GeneratorReferences => _info.GeneratorReferences;
+
     /// <summary>Macro references for this project.</summary>
     public IReadOnlyList<MacroReference> MacroReferences => _info.MacroReferences;
 
@@ -119,6 +122,12 @@ public sealed class Project
     public Project AddAnalyzerReference(AnalyzerReference analyzerReference)
     {
         return Solution.AddAnalyzerReference(Id, analyzerReference).GetProject(Id);
+    }
+
+    /// <summary>Adds a source generator reference to this project.</summary>
+    public Project AddGeneratorReference(GeneratorReference generatorReference)
+    {
+        return Solution.AddGeneratorReference(Id, generatorReference).GetProject(Id);
     }
 
     public Project AddMacroReference(MacroReference macroReference)

@@ -76,6 +76,7 @@ public partial class Compilation
     private CompilationSymbolLookup? _symbolLookup;
     private SourceDeclarationIndex? _sourceDeclarationIndex;
     private Dictionary<string, PortableReferenceFingerprint>? _portableReferenceFingerprints;
+    private ImmutableArray<Diagnostic> _generatorDiagnostics = ImmutableArray<Diagnostic>.Empty;
 
     internal bool IsSourceNamespaceLookupDeclarationCompletionSuppressed =>
         Volatile.Read(ref _sourceNamespaceLookupDeclarationCompletionSuppression) > 0;
@@ -103,13 +104,22 @@ public partial class Compilation
         }
     }
 
-    private Compilation(string? assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, MacroReference[] macroReferences, CompilationOptions? options = null)
+    private Compilation(
+        string? assemblyName,
+        SyntaxTree[] syntaxTrees,
+        MetadataReference[] references,
+        MacroReference[] macroReferences,
+        CompilationOptions? options = null,
+        ImmutableArray<Diagnostic> generatorDiagnostics = default)
     {
         AssemblyName = string.IsNullOrWhiteSpace(assemblyName) ? "assembly" : assemblyName;
         _syntaxTrees = syntaxTrees;
         _references = references;
         _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
+        _generatorDiagnostics = generatorDiagnostics.IsDefault
+            ? ImmutableArray<Diagnostic>.Empty
+            : generatorDiagnostics;
     }
 
     internal GlobalBinder GlobalBinder => _globalBinder ??= new GlobalBinder(this);
@@ -138,6 +148,8 @@ public partial class Compilation
     public IEnumerable<IAssemblySymbol> ReferencedAssemblySymbols => Module.ReferencedAssemblySymbols;
 
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
+
+    public ImmutableArray<Diagnostic> GeneratorDiagnostics => _generatorDiagnostics;
 
     public INamespaceSymbol GlobalNamespace
     {
@@ -618,22 +630,31 @@ public partial class Compilation
 
     public Compilation AddSyntaxTrees(params SyntaxTree[] syntaxTrees)
     {
-        return new Compilation(AssemblyName, _syntaxTrees.Concat(syntaxTrees).ToArray(), _references, _macroReferences, Options);
+        return new Compilation(
+            AssemblyName,
+            _syntaxTrees.Concat(syntaxTrees).ToArray(),
+            _references,
+            _macroReferences,
+            Options,
+            _generatorDiagnostics);
     }
+
+    internal Compilation WithGeneratorDiagnostics(ImmutableArray<Diagnostic> diagnostics)
+        => new(AssemblyName, _syntaxTrees, _references, _macroReferences, Options, diagnostics);
 
     public Compilation AddReferences(params MetadataReference[] references)
     {
-        return new Compilation(AssemblyName, _syntaxTrees, references, _macroReferences, Options);
+        return new Compilation(AssemblyName, _syntaxTrees, references, _macroReferences, Options, _generatorDiagnostics);
     }
 
     public Compilation AddMacroReferences(params MacroReference[] macroReferences)
     {
-        return new Compilation(AssemblyName, _syntaxTrees, _references, macroReferences, Options);
+        return new Compilation(AssemblyName, _syntaxTrees, _references, macroReferences, Options, _generatorDiagnostics);
     }
 
     public Compilation WithAssemblyName(string? assemblyName)
     {
-        return new Compilation(assemblyName, _syntaxTrees, _references, _macroReferences, Options);
+        return new Compilation(assemblyName, _syntaxTrees, _references, _macroReferences, Options, _generatorDiagnostics);
     }
 
     public MetadataReference ToMetadataReference() => new CompilationReference(this);

@@ -15,6 +15,9 @@ public partial class Compilation
 
         EnsureSetup();
 
+        foreach (var diagnostic in _generatorDiagnostics)
+            Add(diagnostic);
+
         foreach (var syntaxTree in SyntaxTrees)
         {
             cancellationToken.ThrowIfCancellationRequested();

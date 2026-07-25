@@ -316,6 +316,19 @@ public class Workspace
         var compilation = Compilation.Create(assemblyName,
             syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
 
+        var generators = project.GeneratorReferences
+            .SelectMany(static reference => reference.GetGenerators())
+            .OrderBy(static generator => generator.GetType().FullName, StringComparer.Ordinal)
+            .ToArray();
+        if (generators.Length > 0)
+        {
+            _ = GeneratorDriver.Create(generators).RunGeneratorsAndUpdateCompilation(
+                compilation,
+                out compilation,
+                out _);
+            documentSetChanged = true;
+        }
+
         if (previousCompilation is not null)
         {
             compilation.InitializeIncrementalStateFrom(
