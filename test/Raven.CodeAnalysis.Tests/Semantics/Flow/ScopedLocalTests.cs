@@ -109,4 +109,52 @@ public sealed class ScopedLocalTests : CompilationTestBase
 
         Assert.Contains("local", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void RefLikeCallResultDerivedFromScopedLocal_CannotEscape()
+    {
+        const string source = """
+            func Identity(value: System.Span<int>) -> System.Span<int> {
+                return value
+            }
+
+            func Leak(value: System.Span<int>) -> System.Span<int> {
+                scoped val local = value
+                return Identity(local)
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0355");
+    }
+
+    [Fact]
+    public void ScopedCalleeParameter_DoesNotContributeToCallResultEscape()
+    {
+        const string source = """
+            func SelectOther(
+                scoped ignored: System.Span<int>,
+                other: System.Span<int>
+            ) -> System.Span<int> {
+                return other
+            }
+
+            func Allowed(
+                value: System.Span<int>,
+                other: System.Span<int>
+            ) -> System.Span<int> {
+                scoped val local = value
+                return SelectOther(local, other)
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0355");
+    }
 }

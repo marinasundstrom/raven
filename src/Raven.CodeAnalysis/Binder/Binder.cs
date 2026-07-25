@@ -2207,8 +2207,38 @@ internal abstract partial class Binder
                 BoundIfExpression conditional =>
                     TryGetScopedOrigin(conditional.ThenBranch) ??
                     (conditional.ElseBranch is { } elseBranch ? TryGetScopedOrigin(elseBranch) : null),
+                BoundInvocationExpression invocation => TryGetScopedInvocationOrigin(invocation),
                 _ => null,
             };
+        }
+
+        private ISymbol? TryGetScopedInvocationOrigin(BoundInvocationExpression invocation)
+        {
+            if (!SemanticFacts.MayBeRefLike(invocation.Type))
+                return null;
+
+            if (invocation.Receiver is { } receiver &&
+                TryGetScopedOrigin(receiver) is { } receiverOrigin)
+            {
+                return receiverOrigin;
+            }
+
+            if (invocation.ExtensionReceiver is { } extensionReceiver &&
+                TryGetScopedOrigin(extensionReceiver) is { } extensionReceiverOrigin)
+            {
+                return extensionReceiverOrigin;
+            }
+
+            foreach (var (argument, parameter) in invocation.Arguments.Zip(invocation.Method.Parameters))
+            {
+                if (parameter.ScopedKind != ScopedKind.None)
+                    continue;
+
+                if (TryGetScopedOrigin(argument) is { } argumentOrigin)
+                    return argumentOrigin;
+            }
+
+            return null;
         }
 
         public void AddScopedEscape(
