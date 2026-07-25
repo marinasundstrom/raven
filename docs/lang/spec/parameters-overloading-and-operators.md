@@ -61,6 +61,9 @@ a scoped reference. The local symbol reports `ScopedValue` or `ScopedRef`
 according to its resulting type.
 Applying `scoped` to an ordinary value local is invalid; scoped value locals
 must be ref-like, while scoped reference locals must have a by-reference type.
+Scoped ref-like locals cannot be returned directly or through an ordinary local
+alias, regardless of whether their initializer originally referred to
+caller-owned storage.
 
 ## Method overloading
 

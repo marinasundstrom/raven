@@ -67,4 +67,23 @@ public sealed class ScopedLocalTests : CompilationTestBase
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor.Id == "RAV0354");
     }
+
+    [Theory]
+    [InlineData("return local")]
+    [InlineData("val alias = local\nreturn alias")]
+    public void ScopedRefLikeLocal_CannotEscapeThroughReturn(string returnStatements)
+    {
+        var source = $$"""
+            func Leak(value: System.Span<int>) -> System.Span<int> {
+                scoped val local = value
+                {{returnStatements}}
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV0355"));
+
+        Assert.Contains("local", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
 }

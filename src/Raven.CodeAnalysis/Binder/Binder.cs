@@ -1924,9 +1924,9 @@ internal abstract partial class Binder
         if (expressionResultEscapes &&
             TryGetResultExpression(body) is { } scopedResult &&
             SemanticFacts.MayBeRefLike(scopedResult.Type) &&
-            analyzer.TryGetScopedParameter(scopedResult) is { } scopedParameter)
+            analyzer.TryGetScopedOrigin(scopedResult) is { } scopedOrigin)
         {
-            analyzer.AddScopedParameterEscape(scopedResult, scopedParameter);
+            analyzer.AddScopedEscape(scopedResult, scopedOrigin);
         }
 
         foreach (var escapingExpression in analyzer.EscapingExpressions)
@@ -1953,16 +1953,19 @@ internal abstract partial class Binder
             _diagnostics.ReportStackBoundRefLikeValueCannotEscape(location ?? fallbackLocation);
         }
 
-        foreach (var (escapingExpression, parameter) in analyzer.EscapingScopedParameterExpressions)
+        foreach (var (escapingExpression, origin) in analyzer.EscapingScopedExpressions)
         {
             var location = escapingExpression switch
             {
                 BoundLocalAccess localAccess => localAccess.Local.Locations.FirstOrDefault(),
                 BoundVariableExpression variable => variable.Variable.Locations.FirstOrDefault(),
-                _ => parameter.Locations.FirstOrDefault(),
+                _ => origin.Locations.FirstOrDefault(),
             };
 
-            _diagnostics.ReportScopedValueCannotEscape(parameter.Name, location ?? fallbackLocation);
+            if (origin is IParameterSymbol parameter)
+                _diagnostics.ReportScopedValueCannotEscape(parameter.Name, location ?? fallbackLocation);
+            else
+                _diagnostics.ReportScopedLocalCannotEscape(origin.Name, location ?? fallbackLocation);
         }
 
         static BoundExpression? TryGetResultExpression(BoundNode node)
@@ -1983,18 +1986,18 @@ internal abstract partial class Binder
             new(SymbolEqualityComparer.Default);
         private readonly HashSet<ILocalSymbol> _localReferenceBackedLocals =
             new(SymbolEqualityComparer.Default);
-        private readonly Dictionary<ILocalSymbol, IParameterSymbol> _scopedParameterBackedLocals =
+        private readonly Dictionary<ILocalSymbol, ISymbol> _scopedBackedLocals =
             new(SymbolEqualityComparer.Default);
         private readonly List<BoundExpression> _escapingExpressions = [];
         private readonly List<BoundExpression> _escapingLocalReferenceExpressions = [];
-        private readonly List<(BoundExpression Expression, IParameterSymbol Parameter)>
-            _escapingScopedParameterExpressions = [];
+        private readonly List<(BoundExpression Expression, ISymbol Origin)>
+            _escapingScopedExpressions = [];
 
         public IReadOnlyList<BoundExpression> EscapingExpressions => _escapingExpressions;
         public IReadOnlyList<BoundExpression> EscapingLocalReferenceExpressions =>
             _escapingLocalReferenceExpressions;
-        public IReadOnlyList<(BoundExpression Expression, IParameterSymbol Parameter)>
-            EscapingScopedParameterExpressions => _escapingScopedParameterExpressions;
+        public IReadOnlyList<(BoundExpression Expression, ISymbol Origin)>
+            EscapingScopedExpressions => _escapingScopedExpressions;
 
         public override void VisitVariableDeclarator(BoundVariableDeclarator node)
         {
@@ -2006,9 +2009,9 @@ internal abstract partial class Binder
                 _localReferenceBackedLocals.Add(node.Local);
             }
             if (node.Initializer is { } scopedInitializer &&
-                TryGetScopedParameter(scopedInitializer) is { } scopedParameter)
+                TryGetScopedOrigin(scopedInitializer) is { } scopedOrigin)
             {
-                _scopedParameterBackedLocals[node.Local] = scopedParameter;
+                _scopedBackedLocals[node.Local] = scopedOrigin;
             }
 
             base.VisitVariableDeclarator(node);
@@ -2027,9 +2030,9 @@ internal abstract partial class Binder
                 _localReferenceBackedLocals.Add(localAssignment.Local);
             }
             if (node is BoundLocalAssignmentExpression scopedAssignment &&
-                TryGetScopedParameter(scopedAssignment.Right) is { } scopedParameter)
+                TryGetScopedOrigin(scopedAssignment.Right) is { } scopedOrigin)
             {
-                _scopedParameterBackedLocals[scopedAssignment.Local] = scopedParameter;
+                _scopedBackedLocals[scopedAssignment.Local] = scopedOrigin;
             }
             if (node is BoundFieldAssignmentExpression
                 {
@@ -2069,9 +2072,9 @@ internal abstract partial class Binder
             }
             if (node.Expression is { } scopedExpression &&
                 SemanticFacts.MayBeRefLike(scopedExpression.Type) &&
-                TryGetScopedParameter(scopedExpression) is { } scopedParameter)
+                TryGetScopedOrigin(scopedExpression) is { } scopedOrigin)
             {
-                AddScopedParameterEscape(scopedExpression, scopedParameter);
+                AddScopedEscape(scopedExpression, scopedOrigin);
             }
 
             base.VisitReturnStatement(node);
@@ -2088,9 +2091,9 @@ internal abstract partial class Binder
             }
             if (node.Expression is { } scopedExpression &&
                 SemanticFacts.MayBeRefLike(scopedExpression.Type) &&
-                TryGetScopedParameter(scopedExpression) is { } scopedParameter)
+                TryGetScopedOrigin(scopedExpression) is { } scopedOrigin)
             {
-                AddScopedParameterEscape(scopedExpression, scopedParameter);
+                AddScopedEscape(scopedExpression, scopedOrigin);
             }
 
             base.VisitReturnExpression(node);
@@ -2173,34 +2176,38 @@ internal abstract partial class Binder
                 _escapingLocalReferenceExpressions.Add(expression);
         }
 
-        public IParameterSymbol? TryGetScopedParameter(BoundExpression expression)
+        public ISymbol? TryGetScopedOrigin(BoundExpression expression)
         {
             return expression switch
             {
                 BoundParameterAccess { Parameter.ScopedKind: not ScopedKind.None } parameterAccess =>
                     parameterAccess.Parameter,
-                BoundConversionExpression conversion => TryGetScopedParameter(conversion.Expression),
-                BoundParenthesizedExpression parenthesized => TryGetScopedParameter(parenthesized.Expression),
+                BoundLocalAccess { Local.ScopedKind: not ScopedKind.None } localAccess =>
+                    localAccess.Local,
+                BoundVariableExpression { Variable.ScopedKind: not ScopedKind.None } variable =>
+                    variable.Variable,
+                BoundConversionExpression conversion => TryGetScopedOrigin(conversion.Expression),
+                BoundParenthesizedExpression parenthesized => TryGetScopedOrigin(parenthesized.Expression),
                 BoundLocalAccess localAccess =>
-                    _scopedParameterBackedLocals.GetValueOrDefault(localAccess.Local),
+                    _scopedBackedLocals.GetValueOrDefault(localAccess.Local),
                 BoundVariableExpression variable =>
-                    _scopedParameterBackedLocals.GetValueOrDefault(variable.Variable),
+                    _scopedBackedLocals.GetValueOrDefault(variable.Variable),
                 BoundIfExpression conditional =>
-                    TryGetScopedParameter(conditional.ThenBranch) ??
-                    (conditional.ElseBranch is { } elseBranch ? TryGetScopedParameter(elseBranch) : null),
+                    TryGetScopedOrigin(conditional.ThenBranch) ??
+                    (conditional.ElseBranch is { } elseBranch ? TryGetScopedOrigin(elseBranch) : null),
                 _ => null,
             };
         }
 
-        public void AddScopedParameterEscape(
+        public void AddScopedEscape(
             BoundExpression expression,
-            IParameterSymbol parameter)
+            ISymbol origin)
         {
-            if (!_escapingScopedParameterExpressions.Any(item =>
+            if (!_escapingScopedExpressions.Any(item =>
                     ReferenceEquals(item.Expression, expression) &&
-                    SymbolEqualityComparer.Default.Equals(item.Parameter, parameter)))
+                    SymbolEqualityComparer.Default.Equals(item.Origin, origin)))
             {
-                _escapingScopedParameterExpressions.Add((expression, parameter));
+                _escapingScopedExpressions.Add((expression, origin));
             }
         }
     }

@@ -59,6 +59,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   ref-like nor by-reference.
 - Diagnosed by-value `scoped` parameters of non-ref-like type while permitting
   ordinary types behind `scoped ref`, `in`, and `out`.
+- Rejected returning scoped ref-like locals directly or through ordinary local
+  aliases.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.
