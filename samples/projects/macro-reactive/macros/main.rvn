@@ -16,8 +16,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        let property = context.CurrentDeclaration as PropertyDeclarationSyntax
-        if property is null {
+        let property: PropertyDeclarationSyntax = context.CurrentDeclaration else {
             return MacroExpansionResult.Empty
         }
 
@@ -47,14 +46,14 @@ class ObservableMacro : IAttachedDeclarationMacro {
         }
     }
 
-    func IsStorageProperty(property: PropertyDeclarationSyntax) -> bool {
+    static func IsStorageProperty(property: PropertyDeclarationSyntax) -> bool {
         let propertyText = property.ToFullString().Trim()
         property.BindingKeyword.ValueText == "var"
             && !propertyText.Contains("{")
             && !propertyText.Contains("=>")
     }
 
-    func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
+    static func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
         StoredPropertyDeclaration(
             List<AttributeListSyntax>(),
             TokenList([PrivateKeyword]),
@@ -64,7 +63,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             property.Initializer)
     }
 
-    func CreateSignalStorage(property: PropertyDeclarationSyntax, signalStorageName: string) -> PropertyDeclarationSyntax {
+    static func CreateSignalStorage(property: PropertyDeclarationSyntax, signalStorageName: string) -> PropertyDeclarationSyntax {
         let subjectType = CreateSubjectType(property.Type.Type)
 
         PropertyDeclaration(
@@ -79,7 +78,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
                     ArgumentList(SeparatedList<ArgumentSyntax>()))))
     }
 
-    func CreateSignalProperty(property: PropertyDeclarationSyntax, signalStorageName: string, signalMemberName: string) -> PropertyDeclarationSyntax {
+    static func CreateSignalProperty(property: PropertyDeclarationSyntax, signalStorageName: string, signalMemberName: string) -> PropertyDeclarationSyntax {
         let observableType = CreateObservableType(property.Type.Type)
 
         PropertyDeclaration(
@@ -91,7 +90,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             ArrowExpressionClause(IdentifierName(signalStorageName)))
     }
 
-    func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalStorageName: string) -> PropertyDeclarationSyntax {
+    static func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string, signalStorageName: string) -> PropertyDeclarationSyntax {
         property with {
             AttributeLists = FilterNonMacroAttributeLists(property.AttributeLists)
             AccessorList = CreateAccessorList(backingFieldName, signalStorageName)
@@ -101,7 +100,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         }
     }
 
-    func FilterNonMacroAttributeLists(attributeLists: SyntaxList<AttributeListSyntax>) -> SyntaxList<AttributeListSyntax> {
+    static func FilterNonMacroAttributeLists(attributeLists: SyntaxList<AttributeListSyntax>) -> SyntaxList<AttributeListSyntax> {
         List<AttributeListSyntax>([
             for attributeList in attributeLists
             if attributeList.Attributes.Count > 0 && !attributeList.Attributes[0].IsMacroAttribute()
@@ -109,7 +108,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         ])
     }
 
-    func CreateAccessorList(backingFieldName: string, signalStorageName: string) -> AccessorListSyntax {
+    static func CreateAccessorList(backingFieldName: string, signalStorageName: string) -> AccessorListSyntax {
         AccessorList(
             List<AccessorDeclarationSyntax>([
                 AccessorDeclaration(
@@ -127,7 +126,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             ]))
     }
 
-    func CreateSetterBody(backingFieldName: string, signalStorageName: string) -> BlockStatementSyntax {
+    static func CreateSetterBody(backingFieldName: string, signalStorageName: string) -> BlockStatementSyntax {
         BlockStatement(
             List<StatementSyntax>([
                 IfStatement(
@@ -168,7 +167,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             ]))
     }
 
-    func CreateSubjectType(valueType: TypeSyntax) -> TypeSyntax {
+    static func CreateSubjectType(valueType: TypeSyntax) -> TypeSyntax {
         GenericName(
             Identifier("Subject"),
             TypeArgumentList(
@@ -177,7 +176,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
                 ])))
     }
 
-    func CreateObservableType(valueType: TypeSyntax) -> TypeSyntax {
+    static func CreateObservableType(valueType: TypeSyntax) -> TypeSyntax {
         GenericName(
             Identifier("IObservable"),
             TypeArgumentList(
@@ -198,15 +197,13 @@ class SubscribeMacro : IFreestandingExpressionMacro {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        let propertyAccess = context.Arguments[0].Expression as MemberAccessExpressionSyntax
-        let callback = context.Arguments[1].Expression
-
-        if propertyAccess is null {
+        let propertyAccess: MemberAccessExpressionSyntax = context.Arguments[0].Expression else {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        let propertyIdentifier = propertyAccess.Name as IdentifierNameSyntax
-        if propertyIdentifier is null {
+        let callback = context.Arguments[1].Expression
+
+        let propertyIdentifier: IdentifierNameSyntax = propertyAccess.Name else {
             return FreestandingMacroExpansionResult.Empty
         }
 

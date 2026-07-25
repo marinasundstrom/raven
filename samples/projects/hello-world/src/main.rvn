@@ -2,7 +2,11 @@ import System.Console.*
 
 func Main() {
     Write("Enter a number: ")
-    let input = ReadLine()!
+    let input: string = ReadLine() else {
+        WriteLine("No input was provided")
+        return
+    }
+
     let Ok(no) = int.Parse(input) else {
         WriteLine("\"$input\" is not a number")
         return

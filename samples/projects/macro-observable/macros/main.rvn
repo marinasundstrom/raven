@@ -16,8 +16,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     val Targets: MacroTarget => MacroTarget.Property
 
     func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        let property = context.CurrentDeclaration as PropertyDeclarationSyntax
-        if property is null {
+        let property: PropertyDeclarationSyntax = context.CurrentDeclaration else {
             return MacroExpansionResult.Empty
         }
 
@@ -43,14 +42,14 @@ class ObservableMacro : IAttachedDeclarationMacro {
         }
     }
 
-    func IsStorageProperty(property: PropertyDeclarationSyntax) -> bool {
+    static func IsStorageProperty(property: PropertyDeclarationSyntax) -> bool {
         let propertyText = property.ToFullString().Trim()
         property.BindingKeyword.ValueText == "var"
             && !propertyText.Contains("{")
             && !propertyText.Contains("=>")
     }
 
-    func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
+    static func CreateBackingField(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
         SyntaxFactory.PropertyDeclaration(
             List<AttributeListSyntax>(),
             TokenList([PrivateKeyword]),
@@ -60,7 +59,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             property.Initializer)
     }
 
-    func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
+    static func CreateReplacementProperty(property: PropertyDeclarationSyntax, backingFieldName: string) -> PropertyDeclarationSyntax {
         property
             .WithAttributeLists(FilterNonMacroAttributeLists(property.AttributeLists))
             .WithAccessorList(CreateAccessorList(backingFieldName, property.Identifier.ValueText))
@@ -69,7 +68,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             .WithTerminatorToken(Token(SyntaxKind.None))
     }
 
-    func FilterNonMacroAttributeLists(attributeLists: SyntaxList<AttributeListSyntax>) -> SyntaxList<AttributeListSyntax> {
+    static func FilterNonMacroAttributeLists(attributeLists: SyntaxList<AttributeListSyntax>) -> SyntaxList<AttributeListSyntax> {
         List<AttributeListSyntax>([
             for attributeList in attributeLists
             if attributeList.Attributes.Count > 0 && !attributeList.Attributes[0].IsMacroAttribute()
@@ -77,7 +76,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
         ])
     }
 
-    func CreateAccessorList(backingFieldName: string, propertyName: string) -> AccessorListSyntax {
+    static func CreateAccessorList(backingFieldName: string, propertyName: string) -> AccessorListSyntax {
         AccessorList(
             List<AccessorDeclarationSyntax>([
                 CreateGetterAccessor(backingFieldName),
@@ -85,7 +84,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             ]))
     }
 
-    func CreateGetterAccessor(backingFieldName: string) -> AccessorDeclarationSyntax {
+    static func CreateGetterAccessor(backingFieldName: string) -> AccessorDeclarationSyntax {
         AccessorDeclaration(
             SyntaxKind.GetAccessorDeclaration,
             List<AttributeListSyntax>(),
@@ -94,7 +93,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             ArrowExpressionClause(IdentifierName(backingFieldName)))
     }
 
-    func CreateSetterAccessor(backingFieldName: string, propertyName: string) -> AccessorDeclarationSyntax {
+    static func CreateSetterAccessor(backingFieldName: string, propertyName: string) -> AccessorDeclarationSyntax {
         AccessorDeclaration(
             SyntaxKind.SetAccessorDeclaration,
             List<AttributeListSyntax>(),
@@ -103,14 +102,14 @@ class ObservableMacro : IAttachedDeclarationMacro {
             CreateSetterBody(backingFieldName, propertyName))
     }
 
-    func CreateSetterBody(backingFieldName: string, propertyName: string) -> BlockStatementSyntax {
+    static func CreateSetterBody(backingFieldName: string, propertyName: string) -> BlockStatementSyntax {
         BlockStatement(
             List<StatementSyntax>([
                 CreateValueChangedGuard(backingFieldName, propertyName)
             ]))
     }
 
-    func CreateValueChangedGuard(backingFieldName: string, propertyName: string) -> IfStatementSyntax {
+    static func CreateValueChangedGuard(backingFieldName: string, propertyName: string) -> IfStatementSyntax {
         IfStatement(
             CreateValueChangedCondition(backingFieldName),
             BlockStatement(
@@ -121,7 +120,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
                 ])))
     }
 
-    func CreateValueChangedCondition(backingFieldName: string) -> ExpressionSyntax {
+    static func CreateValueChangedCondition(backingFieldName: string) -> ExpressionSyntax {
         InfixOperatorExpression(
             SyntaxKind.NotEqualsExpression,
             IdentifierName("value"),
@@ -129,7 +128,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             IdentifierName(backingFieldName))
     }
 
-    func CreateOldValueDeclaration(backingFieldName: string) -> LocalDeclarationStatementSyntax {
+    static func CreateOldValueDeclaration(backingFieldName: string) -> LocalDeclarationStatementSyntax {
         LocalDeclarationStatement(
             VariableDeclaration(
                 ValKeyword,
@@ -142,7 +141,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
                 ])))
     }
 
-    func CreateBackingFieldAssignment(backingFieldName: string) -> AssignmentStatementSyntax {
+    static func CreateBackingFieldAssignment(backingFieldName: string) -> AssignmentStatementSyntax {
         AssignmentStatement(
             SyntaxKind.SimpleAssignmentStatement,
             IdentifierName(backingFieldName),
@@ -150,7 +149,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
             IdentifierName("value"))
     }
 
-    func CreateRaisePropertyChangedStatement(propertyName: string) -> ExpressionStatementSyntax {
+    static func CreateRaisePropertyChangedStatement(propertyName: string) -> ExpressionStatementSyntax {
         ExpressionStatement(
             InvocationExpression(
                 IdentifierName("RaisePropertyChanged"),

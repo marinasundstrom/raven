@@ -36,11 +36,9 @@ async func Main(args: string[]) -> Task {
     })
 
     app.MapGet("/vehicles/{id:guid}", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
-        let vehicle = await context.Vehicles
+        let vehicle: VehicleEntity = await context.Vehicles
             .Include(candidate => candidate.FuelConsumptions)
-            .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
-
-        if vehicle is null {
+            .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken) else {
             return Results.NotFound()
         }
 
@@ -60,11 +58,9 @@ async func Main(args: string[]) -> Task {
     })
 
     app.MapGet("/vehicles/{id:guid}/cost-prediction", async func (id: Guid, context: VehicleDbContext, cancellationToken: CancellationToken) {
-        let vehicle = await context.Vehicles
+        let vehicle: VehicleEntity = await context.Vehicles
             .Include(candidate => candidate.FuelConsumptions)
-            .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
-
-        if vehicle is null {
+            .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken) else {
             return Results.NotFound()
         }
 
@@ -90,11 +86,9 @@ async func Main(args: string[]) -> Task {
         request: AddFuelConsumptionRequest,
         context: VehicleDbContext,
         cancellationToken: CancellationToken) {
-        let vehicle = await context.Vehicles
+        let vehicle: VehicleEntity = await context.Vehicles
             .Include(candidate => candidate.FuelConsumptions)
-            .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken)
-
-        if vehicle is null {
+            .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken) else {
             return Results.NotFound()
         }
 

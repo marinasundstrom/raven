@@ -159,11 +159,11 @@ func ParsePriority(text: string) -> Result<Priority, FulfillmentError> {
 }
 
 func ToOption(text: string?) -> Option<string> {
-    if text is null {
+    let value: string = text else {
         return None
     }
 
-    let normalized = text.Trim()
+    let normalized = value.Trim()
     if normalized.Length == 0 {
         return None
     }
