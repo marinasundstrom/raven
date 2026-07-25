@@ -869,6 +869,10 @@ internal partial class TypeMemberBinder : Binder
                     isAbstract: isAbstract,
                     isExtern: isExtern,
                     declaredAccessibility: methodAccessibility));
+        var hadPriorPartialSignature = methodSymbol.IsPartialMember;
+        var priorPartialScopedKinds = hadPriorPartialSignature
+            ? methodSymbol.Parameters.Select(static parameter => parameter.ScopedKind).ToImmutableArray()
+            : ImmutableArray<ScopedKind>.Empty;
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
 
         if (isExtensionMember)
@@ -1128,6 +1132,14 @@ internal partial class TypeMemberBinder : Binder
 
         if (isPartial)
         {
+            if (hadPriorPartialSignature)
+            {
+                ReportMismatchedPartialScopedParameters(
+                    priorPartialScopedKinds,
+                    methodSymbol,
+                    methodDecl.ParameterList);
+            }
+
             if (TryMergePartialMethodDeclaration(
                     metadataName,
                     name,
@@ -2551,6 +2563,14 @@ internal partial class TypeMemberBinder : Binder
         if (hasImplementationBody ? existingPartial.HasPartialImplementation : existingPartial.HasPartialDefinition)
             return false;
 
+        if (!ReferenceEquals(existingPartial, methodSymbol))
+        {
+            ReportMismatchedPartialScopedParameters(
+                existingPartial.Parameters.Select(static parameter => parameter.ScopedKind).ToImmutableArray(),
+                methodSymbol,
+                methodDecl.ParameterList);
+        }
+
         if (_containingType is SourceNamedTypeSymbol containingSourceType)
             containingSourceType.RemoveMember(methodSymbol);
 
@@ -2584,6 +2604,27 @@ internal partial class TypeMemberBinder : Binder
         mergedMethodBinder = new MethodBinder(existingPartial, this);
         mergedMethodBinder.EnsureTypeParameterConstraintTypesResolved(existingPartial.TypeParameters);
         return true;
+    }
+
+    private void ReportMismatchedPartialScopedParameters(
+        ImmutableArray<ScopedKind> existingScopedKinds,
+        IMethodSymbol incomingPart,
+        ParameterListSyntax? incomingParameterList)
+    {
+        var count = Math.Min(existingScopedKinds.Length, incomingPart.Parameters.Length);
+        for (var i = 0; i < count; i++)
+        {
+            var incomingParameter = incomingPart.Parameters[i];
+            if (existingScopedKinds[i] == incomingParameter.ScopedKind)
+                continue;
+
+            var location = incomingParameterList is not null && i < incomingParameterList.Parameters.Count
+                ? incomingParameterList.Parameters[i].Identifier.GetLocation()
+                : incomingParameter.Locations.FirstOrDefault() ?? Location.None;
+            _diagnostics.ReportScopedParameterDoesNotMatchPartialDefinition(
+                incomingParameter.Name,
+                location);
+        }
     }
 
     private void ReportMemberNameMatchesContainingTypeIfNeeded(string memberName, Location location)

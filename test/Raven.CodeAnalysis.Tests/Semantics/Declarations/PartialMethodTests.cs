@@ -84,4 +84,47 @@ class C {
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, d => d.Descriptor.Id == "RAV0606");
     }
+
+    [Theory]
+    [InlineData("scoped ", "")]
+    [InlineData("", "scoped ")]
+    public void PartialMethodParameters_MustHaveMatchingScopedContracts(
+        string definitionModifier,
+        string implementationModifier)
+    {
+        var source = $$"""
+partial class C {
+    partial func M({{definitionModifier}}value: System.Span<int>) -> unit;
+    partial func M({{implementationModifier}}value: System.Span<int>) -> unit { }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0359");
+    }
+
+    [Fact]
+    public void PartialMethodParameters_WithMatchingScopedContracts_AreMerged()
+    {
+        const string source = """
+partial class C {
+    partial func M(scoped value: System.Span<int>) -> unit;
+    partial func M(scoped value: System.Span<int>) -> unit { }
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var declarations = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
+        var model = compilation.GetSemanticModel(tree);
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0359");
+        Assert.Same(
+            model.GetDeclaredSymbol(declarations[0]),
+            model.GetDeclaredSymbol(declarations[1]));
+    }
 }

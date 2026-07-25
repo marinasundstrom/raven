@@ -282,6 +282,10 @@
     Title="Scoped parameter contract cannot be weakened"
     Message="Parameter '{parameterName}' must be scoped to preserve the contract of '{memberName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0359" Identifier="ScopedParameterDoesNotMatchPartialDefinition"
+    Title="Scoped parameter does not match partial definition"
+    Message="The scoped modifier of parameter '{parameterName}' does not match the partial definition"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"
