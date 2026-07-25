@@ -87,6 +87,63 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void OpenProject_MsBuildProject_LoadsAnalyzerAndSourceGeneratorItems()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var dependencyDirectory = Path.Combine(root, "Dependency");
+            Directory.CreateDirectory(dependencyDirectory);
+            File.WriteAllText(Path.Combine(dependencyDirectory, "dependency.rvn"), "class Dependency { }");
+            var dependencyProjectPath = Path.Combine(dependencyDirectory, "Dependency.rvnproj");
+            File.WriteAllText(dependencyProjectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="dependency.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(root, "main.rvn"), "class C { }");
+            var extensionAssemblyPath = typeof(MsBuildProjectSystemServiceTests).Assembly.Location;
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                    <Analyzer Include="{{extensionAssemblyPath}}" />
+                    <SourceGenerator Include="{{extensionAssemblyPath}}" />
+                    <ProjectReference Include="{{Path.GetRelativePath(root, dependencyProjectPath)}}" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            MsBuildLocatorRegistration.EnsureRegistered();
+            var evaluation = MsBuildProjectEvaluator.Evaluate(projectPath, RavenProjectConventions.Default);
+            Assert.Contains(extensionAssemblyPath, evaluation.AnalyzerReferencePaths);
+            Assert.Contains(extensionAssemblyPath, evaluation.GeneratorReferencePaths);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            Assert.NotEmpty(project.AnalyzerReferences);
+            Assert.Single(project.GeneratorReferences);
+            Assert.Single(project.ProjectReferences);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_MsBuildProject_GeneratesPreludeFromImportItems()
     {
         var root = CreateTempDirectory();

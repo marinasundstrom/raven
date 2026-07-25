@@ -159,6 +159,18 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                 solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataPath));
         }
 
+        foreach (var analyzerReferencePath in evaluation.AnalyzerReferencePaths)
+        {
+            var assembly = ExtensionAssemblyLoader.LoadFromPath(analyzerReferencePath);
+            solution = solution.AddAnalyzerReference(projectId, new AnalyzerReference(assembly));
+        }
+
+        foreach (var generatorReferencePath in evaluation.GeneratorReferencePaths)
+        {
+            var assembly = ExtensionAssemblyLoader.LoadFromPath(generatorReferencePath);
+            solution = solution.AddGeneratorReference(projectId, new GeneratorReference(assembly));
+        }
+
         workspace.TryApplyChanges(solution);
         loadingProjectPaths.Remove(normalizedProjectPath);
         return projectId;

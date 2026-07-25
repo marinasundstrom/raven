@@ -4,8 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
-- Added Roslyn-shaped source generator APIs and dedicated workspace generator
-  references that run before binding and analyzer execution.
+- Added Roslyn-shaped source generator APIs, dedicated workspace generator
+  references, and `.rvnproj` `<Analyzer>` / `<SourceGenerator>` assembly items
+  that run extensions in normal project builds.
 
 - Reorganized spans, stack allocation, ref structs, ref safety, and unsafe
   interop into a dedicated systems-programming documentation section so these

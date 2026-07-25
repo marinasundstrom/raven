@@ -39,6 +39,7 @@
 
   <ItemGroup>
     <AvailableItemName Include="RavenCompile" />
+    <AvailableItemName Include="SourceGenerator" />
     <PropertyPageSchema Include="$(CommonXamlResourcesDirectory)CSharp.ProjectItemsSchema.xaml" Condition="'$(CommonXamlResourcesDirectory)' != ''" />
     <ProjectCapability Include="Managed" />
     <Compile Remove="**/*.cs" />
@@ -64,7 +65,7 @@
   <Target
     Name="CoreCompile"
     DependsOnTargets="$(CoreCompileDependsOn)"
-    Inputs="$(MSBuildProjectFullPath);@(RavenCompile);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference)"
+    Inputs="$(MSBuildProjectFullPath);@(RavenCompile);@(ReferencePath);@(ProjectReference);@(PackageReference);@(FrameworkReference);@(Analyzer);@(SourceGenerator)"
     Outputs="@(IntermediateAssembly)"
     Condition="'$(IsCrossTargetingBuild)' != 'true'">
     <PropertyGroup>

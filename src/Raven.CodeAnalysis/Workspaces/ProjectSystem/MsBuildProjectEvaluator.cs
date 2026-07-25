@@ -80,6 +80,18 @@ internal static class MsBuildProjectEvaluator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
 
+        var analyzerReferencePaths = project.GetItems("Analyzer")
+            .Select(item => GetFullPath(projectDirectory, item))
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+
+        var generatorReferencePaths = project.GetItems("SourceGenerator")
+            .Select(item => GetFullPath(projectDirectory, item))
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+
         var packageReferences = project.GetItems("PackageReference")
             .Select(item => new ProjectFile.PackageReferenceInfo(
                 item.EvaluatedInclude,
@@ -173,6 +185,8 @@ internal static class MsBuildProjectEvaluator
             metadataReferencePaths,
             projectReferencePaths,
             macroReferencePaths,
+            analyzerReferencePaths,
+            generatorReferencePaths,
             packageReferences,
             frameworkReferences,
             new ProjectPreludeOptions(generatePreludeImports, preludeImports),
@@ -401,6 +415,8 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ImmutableArray<string> MetadataReferencePaths,
     ImmutableArray<string> ProjectReferencePaths,
     ImmutableArray<string> MacroReferencePaths,
+    ImmutableArray<string> AnalyzerReferencePaths,
+    ImmutableArray<string> GeneratorReferencePaths,
     ImmutableArray<ProjectFile.PackageReferenceInfo> PackageReferences,
     ImmutableArray<ProjectFile.FrameworkReferenceInfo> FrameworkReferences,
     ProjectPreludeOptions PreludeOptions,
