@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Allow multiline fluent expressions in typed `let ... else` declarations,
+  including unparenthesized awaited invocations.
+
 - Added Roslyn-shaped source generator APIs, dedicated workspace generator
   references, and `.rvnproj` `<Analyzer>` / `<SourceGenerator>` assembly items
   that run extensions in normal project builds.

@@ -19,6 +19,27 @@ public class AssignmentStatementSyntaxTest
     }
 
     [Fact]
+    public void ParsesLetElsePatternDeclarationWithAwaitedInvocation()
+    {
+        var statement = SyntaxFactory.ParseStatement(
+            """
+            let value: string = await service
+                .GetAsync()
+                .ConfigureAwait(false) else {
+                return
+            }
+            """);
+        var declaration = Assert.IsType<PatternDeclarationAssignmentStatementSyntax>(statement);
+
+        var awaitExpression = Assert.IsType<PrefixOperatorExpressionSyntax>(declaration.Right);
+        Assert.Equal(SyntaxKind.AwaitExpression, awaitExpression.Kind);
+        Assert.IsType<InvocationExpressionSyntax>(awaitExpression.Expression);
+        Assert.NotNull(declaration.ElseClause);
+        Assert.IsType<BlockStatementSyntax>(declaration.ElseClause.Statement);
+        Assert.Empty(statement.GetDiagnostics());
+    }
+
+    [Fact]
     public void ParsesAssignmentStatement()
     {
         var tree = SyntaxTree.ParseText("x = 1");

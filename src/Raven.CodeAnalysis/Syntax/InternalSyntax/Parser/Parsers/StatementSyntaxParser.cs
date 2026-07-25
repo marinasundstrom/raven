@@ -1231,6 +1231,7 @@ internal class StatementSyntaxParser : SyntaxParser
             var kind = token.Kind;
             if (depth == 0 &&
                 kind != SyntaxKind.ElseKeyword &&
+                kind != SyntaxKind.DotToken &&
                 (HasLeadingEndOfLineTrivia(token) ||
                  HasTrailingEndOfLineTrivia(PeekToken(offset - 1))))
             {
