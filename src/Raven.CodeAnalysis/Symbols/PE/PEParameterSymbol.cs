@@ -52,6 +52,21 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
 
     public bool IsMutable => RefKind is RefKind.Ref or RefKind.Out;
 
+    public ScopedKind ScopedKind
+    {
+        get
+        {
+            var hasScopedRefAttribute = _parameterInfo.GetCustomAttributesData()
+                .Any(attribute =>
+                    attribute.AttributeType.FullName ==
+                    "System.Runtime.CompilerServices.ScopedRefAttribute");
+            if (!hasScopedRefAttribute)
+                return ScopedKind.None;
+
+            return RefKind.IsByRef ? ScopedKind.ScopedRef : ScopedKind.ScopedValue;
+        }
+    }
+
     private ITypeSymbol ResolveParameterType()
     {
         var resolved = _reflectionTypeLoader.ResolveType(_parameterInfo);

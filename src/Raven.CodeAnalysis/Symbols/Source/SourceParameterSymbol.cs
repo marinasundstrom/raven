@@ -14,7 +14,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         bool hasExplicitDefaultValue = false,
         object? explicitDefaultValue = null,
         bool isMutable = false,
-        bool isVarParams = false)
+        bool isVarParams = false,
+        ScopedKind scopedKind = ScopedKind.None)
         : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = parameterType;
@@ -23,6 +24,7 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         ExplicitDefaultValue = explicitDefaultValue;
         IsMutable = isMutable;
         IsVarParams = isVarParams;
+        ScopedKind = scopedKind;
     }
 
     public ITypeSymbol Type { get; }
@@ -30,6 +32,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
     public bool IsVarParams { get; }
 
     public RefKind RefKind { get; }
+
+    public ScopedKind ScopedKind { get; }
 
     public bool HasExplicitDefaultValue { get; }
 

@@ -97,6 +97,12 @@ consumed metadata fields. Their CLR field signatures use the standard `BYREF`
 element type. Dereferencing a managed ref field does not require unsafe mode;
 raw pointer dereferences still do.
 
+Consumed .NET parameters annotated with
+`System.Runtime.CompilerServices.ScopedRefAttribute` expose `ScopedRef` or
+`ScopedValue` through `IParameterSymbol.ScopedKind`, depending on whether the
+parameter is passed by reference or by value. Constructed generic symbols
+preserve that classification.
+
 A ref struct value cannot escape a function when one of its ref fields refers
 to a local variable, or when one of its ref-like fields contains
 `stackalloc`-backed storage. This restriction follows simple local aliases.

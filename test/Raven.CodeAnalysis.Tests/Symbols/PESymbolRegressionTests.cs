@@ -65,6 +65,26 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
     }
 
     [Fact]
+    public void MetadataParameters_ReportScopedKind()
+    {
+        var compilation = Compilation.Create("pe_scoped_parameters")
+            .AddReferences(TestMetadataReferences.DefaultWithExtensionMethods);
+        var fixture = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.ScopedParameterFixture"));
+
+        var scopedValue = Assert.Single(
+            fixture.GetMembers("Consume").OfType<IMethodSymbol>()).Parameters[0];
+        var scopedRef = Assert.Single(
+            fixture.GetMembers("ConsumeRef").OfType<IMethodSymbol>()).Parameters[0];
+        var unscoped = Assert.Single(
+            fixture.GetMembers("ConsumeUnscoped").OfType<IMethodSymbol>()).Parameters[0];
+
+        Assert.Equal(ScopedKind.ScopedValue, scopedValue.ScopedKind);
+        Assert.Equal(ScopedKind.ScopedRef, scopedRef.ScopedKind);
+        Assert.Equal(ScopedKind.None, unscoped.ScopedKind);
+    }
+
+    [Fact]
     public void MetadataTypes_ReportDeclaredAccessibility()
     {
         const string metadataSource = """

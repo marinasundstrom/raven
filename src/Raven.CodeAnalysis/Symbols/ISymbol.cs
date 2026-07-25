@@ -339,6 +339,8 @@ public interface IParameterSymbol : ISymbol
 
     RefKind RefKind { get; }
 
+    ScopedKind ScopedKind => ScopedKind.None;
+
     bool IsMutable { get; }
 
     bool IsOptional => HasExplicitDefaultValue;
@@ -357,6 +359,13 @@ public enum RefKind
     In,
     RefReadOnly,
     RefReadOnlyParameter
+}
+
+public enum ScopedKind
+{
+    None,
+    ScopedRef,
+    ScopedValue
 }
 
 

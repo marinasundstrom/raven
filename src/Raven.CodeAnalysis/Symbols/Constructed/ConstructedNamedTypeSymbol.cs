@@ -2426,6 +2426,7 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
     public bool IsVarParams => _original.IsVarParams;
     public RefKind RefKind => _original.RefKind;
+    public ScopedKind ScopedKind => _original.ScopedKind;
     public bool IsMutable => _original.IsMutable;
     public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;
     public object? ExplicitDefaultValue => _original.ExplicitDefaultValue;
