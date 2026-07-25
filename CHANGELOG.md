@@ -61,6 +61,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   ordinary types behind `scoped ref`, `in`, and `out`.
 - Rejected returning scoped ref-like locals directly or through ordinary local
   aliases.
+- Propagated scoped-local escape provenance through ref-like field containment.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

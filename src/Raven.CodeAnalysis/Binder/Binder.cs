@@ -2057,6 +2057,18 @@ internal abstract partial class Binder
             {
                 _stackAllocBackedLocals.Add(stackAllocReceiverLocal);
             }
+            if (node is BoundFieldAssignmentExpression
+                {
+                    Field.Type: { } scopedFieldType,
+                    Receiver: { } scopedReceiver,
+                    Right: { } scopedValue,
+                } &&
+                SemanticFacts.MayBeRefLike(scopedFieldType) &&
+                TryGetScopedOrigin(scopedValue) is { } fieldScopedOrigin &&
+                TryGetLocal(scopedReceiver) is { } scopedReceiverLocal)
+            {
+                _scopedBackedLocals[scopedReceiverLocal] = fieldScopedOrigin;
+            }
 
             base.VisitExpression(node);
         }

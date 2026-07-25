@@ -64,6 +64,8 @@ must be ref-like, while scoped reference locals must have a by-reference type.
 Scoped ref-like locals cannot be returned directly or through an ordinary local
 alias, regardless of whether their initializer originally referred to
 caller-owned storage.
+The restriction follows scoped values stored inside ref-like fields, so
+returning a containing ref struct does not bypass the local's scope.
 
 ## Method overloading
 

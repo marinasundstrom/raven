@@ -86,4 +86,27 @@ public sealed class ScopedLocalTests : CompilationTestBase
 
         Assert.Contains("local", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void RefStructContainingScopedLocal_CannotEscapeThroughReturn()
+    {
+        const string source = """
+            ref struct SpanHolder {
+                field Value: System.Span<int>
+            }
+
+            func Leak(value: System.Span<int>) -> SpanHolder {
+                scoped val local = value
+                var holder = SpanHolder()
+                holder.Value = local
+                return holder
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(d => d.Descriptor.Id == "RAV0355"));
+
+        Assert.Contains("local", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
 }
