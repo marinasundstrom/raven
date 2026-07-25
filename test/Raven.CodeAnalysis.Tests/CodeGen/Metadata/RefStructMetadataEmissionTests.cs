@@ -120,6 +120,7 @@ public sealed class RefStructMetadataEmissionTests
     [InlineData("scoped value: System.Span<int>", true)]
     [InlineData("scoped ref value: int", true)]
     [InlineData("scoped out value: int", false)]
+    [InlineData("ref value: System.Span<int>", false)]
     public void ScopedParameter_EmitsAttributeWhenItDiffersFromDefault(string parameter, bool expected)
     {
         var body = parameter.Contains(" out ", StringComparison.Ordinal) ? "{ value = 0 }" : "{}";

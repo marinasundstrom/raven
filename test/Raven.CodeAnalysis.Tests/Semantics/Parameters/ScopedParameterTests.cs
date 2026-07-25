@@ -78,4 +78,21 @@ public sealed class ScopedParameterTests : CompilationTestBase
 
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor.Id == "RAV0353");
     }
+
+    [Theory]
+    [InlineData("out value: int")]
+    [InlineData("ref value: System.Span<int>")]
+    public void CSharpDefaultScopedParameters_AreClassifiedAsScopedRef(string parameterSource)
+    {
+        var source = $"func Consume({parameterSource}) {{}}";
+        var (compilation, tree) = CreateCompilation(source);
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+            compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+
+        Assert.Equal(ScopedKind.ScopedRef, Assert.Single(method.Parameters).ScopedKind);
+    }
 }

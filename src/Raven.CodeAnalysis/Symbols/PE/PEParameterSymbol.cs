@@ -61,7 +61,14 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
                     attribute.AttributeType.FullName ==
                     "System.Runtime.CompilerServices.ScopedRefAttribute");
             if (!hasScopedRefAttribute)
-                return ScopedKind.None;
+            {
+                return RefKind switch
+                {
+                    RefKind.Out => ScopedKind.ScopedRef,
+                    RefKind.Ref when SemanticFacts.MayBeRefLike(Type) => ScopedKind.ScopedRef,
+                    _ => ScopedKind.None,
+                };
+            }
 
             return RefKind.IsByRef ? ScopedKind.ScopedRef : ScopedKind.ScopedValue;
         }

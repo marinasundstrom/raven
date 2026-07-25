@@ -302,7 +302,11 @@ internal class MethodGenerator
             if (fixedLengthArrayAttr is not null)
                 parameterBuilder.SetCustomAttribute(fixedLengthArrayAttr);
 
-            if (parameterSymbol.ScopedKind != ScopedKind.None && parameterSymbol.RefKind != RefKind.Out)
+            var hasImplicitScopedDefault =
+                parameterSymbol.RefKind == RefKind.Out ||
+                parameterSymbol.RefKind == RefKind.Ref &&
+                SemanticFacts.MayBeRefLike(parameterSymbol.Type);
+            if (parameterSymbol.ScopedKind != ScopedKind.None && !hasImplicitScopedDefault)
             {
                 var scopedRefAttr = TypeGenerator.CodeGen.CreateScopedRefAttributeBuilder();
                 if (scopedRefAttr is not null)

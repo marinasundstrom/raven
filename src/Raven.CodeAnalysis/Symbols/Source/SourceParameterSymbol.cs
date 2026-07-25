@@ -24,7 +24,14 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
         ExplicitDefaultValue = explicitDefaultValue;
         IsMutable = isMutable;
         IsVarParams = isVarParams;
-        ScopedKind = scopedKind;
+        ScopedKind = scopedKind != ScopedKind.None
+            ? scopedKind
+            : refKind switch
+            {
+                RefKind.Out => ScopedKind.ScopedRef,
+                RefKind.Ref when SemanticFacts.MayBeRefLike(parameterType) => ScopedKind.ScopedRef,
+                _ => ScopedKind.None,
+            };
     }
 
     public ITypeSymbol Type { get; }
