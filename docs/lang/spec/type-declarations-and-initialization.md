@@ -116,7 +116,8 @@ CLI `AllowByRefLike` (`0x20`) generic-parameter flag. Without the
 anti-constraint, a ref-like type such as `Span<T>` is rejected as a type
 argument. Within the generic declaration, the constrained type parameter is
 treated as potentially ref-like: it cannot be captured, stored in heap fields
-or arrays, or persisted across `await` and `yield`.
+or arrays, or persisted across `await` and `yield`. The anti-constraint must
+appear last, may be specified only once, and cannot be combined with `class`.
 
 ### Field declarations (low-level storage)
 

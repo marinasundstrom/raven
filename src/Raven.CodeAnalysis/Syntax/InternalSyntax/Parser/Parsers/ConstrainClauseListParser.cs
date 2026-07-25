@@ -110,8 +110,60 @@ internal class ConstrainClauseListParser : SyntaxParser
         }
 
         var constraints = List(constraintNodes);
+        ValidateTypeParameterConstraints(constraintNodes);
 
         return TypeParameterConstraintClause(whereKeyword, typeParameter, colonToken, constraints);
+    }
+
+    public void ValidateTypeParameterConstraints(IReadOnlyList<GreenNode> nodes)
+    {
+        var constraintCount = 0;
+        var allowsCount = 0;
+        var allowsOrdinal = -1;
+        var hasClassConstraint = false;
+
+        foreach (var node in nodes)
+        {
+            if (node is not TypeParameterConstraintSyntax constraint)
+                continue;
+
+            if (constraint is AllowsRefStructConstraintSyntax)
+            {
+                allowsCount++;
+                allowsOrdinal = constraintCount;
+            }
+            else if (constraint is ClassConstraintSyntax)
+            {
+                hasClassConstraint = true;
+            }
+
+            constraintCount++;
+        }
+
+        if (allowsCount == 0)
+            return;
+
+        var span = GetSpanOfLastToken();
+        if (allowsOrdinal != constraintCount - 1)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.AllowsRefStructConstraintMustBeLast,
+                span));
+        }
+
+        if (allowsCount > 1)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.DuplicateAllowsRefStructConstraint,
+                span));
+        }
+
+        if (hasClassConstraint)
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.AllowsRefStructConstraintConflictsWithClass,
+                span));
+        }
     }
 
     public TypeParameterConstraintSyntax ParseTypeParameterConstraint()

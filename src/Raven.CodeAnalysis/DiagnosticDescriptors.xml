@@ -246,6 +246,18 @@
     Title="Ref field cannot refer to a ref-like type"
     Message="Ref field '{memberName}' cannot refer to ref-like type '{typeName}'"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0350" Identifier="AllowsRefStructConstraintMustBeLast"
+    Title="Allows ref struct constraint must be last"
+    Message="The 'allows ref struct' anti-constraint must be the last constraint"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0351" Identifier="DuplicateAllowsRefStructConstraint"
+    Title="Duplicate allows ref struct constraint"
+    Message="The 'allows ref struct' anti-constraint cannot be specified more than once"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0352" Identifier="AllowsRefStructConstraintConflictsWithClass"
+    Title="Allows ref struct constraint conflicts with class"
+    Message="The 'allows ref struct' anti-constraint cannot be combined with the 'class' constraint"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"

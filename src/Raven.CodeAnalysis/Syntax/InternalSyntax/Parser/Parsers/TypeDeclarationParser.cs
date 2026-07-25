@@ -319,6 +319,7 @@ internal class TypeDeclarationParser : SyntaxParser
                         constraintNodes.Add(separator);
                     }
 
+                    new ConstrainClauseListParser(this).ValidateTypeParameterConstraints(constraintNodes);
                     constraints = List(constraintNodes);
                 }
 

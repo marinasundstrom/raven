@@ -37,6 +37,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   diagnostics for raw pointer dereferences.
 - Rejected ref fields whose referent is itself ref-like or is a generic type
   parameter that allows ref structs.
+- Diagnosed misplaced, duplicated, and `class`-conflicting
+  `allows ref struct` anti-constraints in both inline and `where` constraint
+  lists.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

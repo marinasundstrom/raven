@@ -504,6 +504,7 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
                     constraintNodes.Add(separator);
                 }
 
+                new ConstrainClauseListParser(this).ValidateTypeParameterConstraints(constraintNodes);
                 constraints = List(constraintNodes);
             }
 
