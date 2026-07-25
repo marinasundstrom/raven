@@ -1124,9 +1124,9 @@ internal partial class TypeMemberBinder : Binder
         methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
         if (overriddenMethod is not null)
-            ReportWeakenedScopedParameterContracts(overriddenMethod, methodSymbol, methodDecl.ParameterList);
+            ReportWeakenedScopedParameterContracts(overriddenMethod, methodSymbol, methodDecl.ParameterList?.Parameters ?? default);
         if (explicitInterfaceMember is not null)
-            ReportWeakenedScopedParameterContracts(explicitInterfaceMember, methodSymbol, methodDecl.ParameterList);
+            ReportWeakenedScopedParameterContracts(explicitInterfaceMember, methodSymbol, methodDecl.ParameterList?.Parameters ?? default);
         methodSymbol.MarkSignatureBindingComplete();
         RemoveStaleMethodSignatureSkeletons(metadataName, methodSymbol);
 
@@ -1169,7 +1169,7 @@ internal partial class TypeMemberBinder : Binder
     private void ReportWeakenedScopedParameterContracts(
         IMethodSymbol contractMethod,
         IMethodSymbol implementationMethod,
-        ParameterListSyntax? parameterList)
+        SeparatedSyntaxList<ParameterSyntax> parameterSyntaxes)
     {
         var count = Math.Min(contractMethod.Parameters.Length, implementationMethod.Parameters.Length);
         for (var i = 0; i < count; i++)
@@ -1182,8 +1182,8 @@ internal partial class TypeMemberBinder : Binder
                 continue;
             }
 
-            var location = parameterList is not null && i < parameterList.Parameters.Count
-                ? parameterList.Parameters[i].Identifier.GetLocation()
+            var location = i < parameterSyntaxes.Count
+                ? parameterSyntaxes[i].Identifier.GetLocation()
                 : implementationParameter.Locations.FirstOrDefault() ?? Location.None;
             _diagnostics.ReportScopedParameterContractCannotBeWeakened(
                 implementationParameter.Name,
@@ -3771,6 +3771,23 @@ internal partial class TypeMemberBinder : Binder
                         [accessor.GetReference()]));
                 }
                 methodSymbol.SetParameters(parameters);
+
+                var scopedContractAccessor = explicitInterfaceProperty is not null
+                    ? isGet
+                        ? explicitInterfaceProperty.GetMethod
+                        : explicitInterfaceProperty.SetMethod
+                    : accessorOverride
+                        ? isGet
+                            ? overriddenGetter
+                            : overriddenSetter
+                        : null;
+                if (scopedContractAccessor is not null)
+                {
+                    ReportWeakenedScopedParameterContracts(
+                        scopedContractAccessor,
+                        methodSymbol,
+                        indexerDecl.ParameterList.Parameters);
+                }
 
                 if (explicitInterfaceType is not null && explicitInterfaceProperty is not null)
                 {

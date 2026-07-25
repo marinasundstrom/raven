@@ -258,4 +258,28 @@ public sealed class ScopedParameterTests : CompilationTestBase
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor.Id == "RAV0353");
     }
+
+    [Fact]
+    public void IndexerOverride_CannotRemoveScopedContract()
+    {
+        const string source = """
+            open class Base {
+                virtual val self[scoped index: System.Span<int>]: int {
+                    get => 0
+                }
+            }
+
+            class Derived : Base {
+                override val self[index: System.Span<int>]: int {
+                    get => 0
+                }
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0358");
+    }
 }

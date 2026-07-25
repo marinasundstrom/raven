@@ -78,6 +78,8 @@ Scoped variables also cannot remain live across `await` or `yield`, because an
 async or iterator state machine would extend their storage lifetime.
 An override or explicit interface implementation may add a scoped restriction,
 but it cannot remove one required by the overridden or implemented contract.
+This rule applies to indexer parameters and their synthesized accessors as well
+as ordinary methods.
 The definition and implementation parts of a partial method must use identical
 scoped modifiers for corresponding parameters.
 
