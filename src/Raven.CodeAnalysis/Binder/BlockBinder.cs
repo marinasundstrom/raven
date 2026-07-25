@@ -16643,8 +16643,8 @@ partial class BlockBinder : Binder
 
                 if (containsAwait)
                 {
-                    ReportRefLikeLocalsAcrossAwait(boundBlock);
-                    ReportRefLikeParametersAcrossAwait(asyncMethod);
+                    RefSafetyDiagnosticReporter.ReportLocalsAcrossAwait(boundBlock, _diagnostics);
+                    RefSafetyDiagnosticReporter.ReportParametersAcrossAwait(asyncMethod, _diagnostics);
                 }
 
                 if (!containsAwait)
@@ -16662,15 +16662,24 @@ partial class BlockBinder : Binder
             functionBody is not null)
         {
             if (functionSourceMethod.IsIterator)
-                ReportRefLikeIteratorStorage(functionBody, functionSourceMethod);
+            {
+                RefSafetyDiagnosticReporter.ReportIteratorStorage(
+                    functionBody,
+                    functionSourceMethod,
+                    _diagnostics);
+            }
 
-            ReportStackAllocReturnEscape(
+            RefSafetyDiagnosticReporter.Report(
                 functionBody,
                 function.GetLocation(),
-                expressionResultEscapes: functionSourceMethod.ReturnType.SpecialType != SpecialType.System_Unit);
+                expressionResultEscapes: functionSourceMethod.ReturnType.SpecialType != SpecialType.System_Unit,
+                _diagnostics);
 
             var capturedVariables = AnalyzeFunctionCapturedVariables(functionBody, symbol);
-            ReportRefLikeCaptures(capturedVariables, function.GetLocation());
+            RefSafetyDiagnosticReporter.ReportCaptures(
+                capturedVariables,
+                function.GetLocation(),
+                _diagnostics);
             functionSourceMethod.SetCapturedVariables(capturedVariables);
             if (capturedVariables.Length != 0 && functionSourceMethod.ClosureFrameType is null)
                 functionSourceMethod.SetClosureFrameType(ClosureFrameSymbolFactory.Create(functionSourceMethod));

@@ -815,13 +815,17 @@ partial class BlockBinder
         lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntaxNode);
 
         var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, bodyExpr, lambdaSymbol);
-        ReportRefLikeCaptures(capturedVariables, syntax.GetLocation());
+        RefSafetyDiagnosticReporter.ReportCaptures(
+            capturedVariables,
+            syntax.GetLocation(),
+            _diagnostics);
         if (lambdaSymbol is SourceLambdaSymbol { IsIterator: true } iteratorLambda)
-            ReportRefLikeIteratorStorage(bodyExpr, iteratorLambda);
-        ReportStackAllocReturnEscape(
+            RefSafetyDiagnosticReporter.ReportIteratorStorage(bodyExpr, iteratorLambda, _diagnostics);
+        RefSafetyDiagnosticReporter.Report(
             bodyExpr,
             lambdaBodySyntaxNode.GetLocation(),
-            expressionResultEscapes: lambdaSymbol.ReturnType.SpecialType != SpecialType.System_Unit);
+            expressionResultEscapes: lambdaSymbol.ReturnType.SpecialType != SpecialType.System_Unit,
+            _diagnostics);
 
         if (isStaticLambda)
         {
@@ -881,8 +885,8 @@ partial class BlockBinder
 
             if (containsAwait)
             {
-                ReportRefLikeLocalsAcrossAwait(bodyExpr);
-                ReportRefLikeParametersAcrossAwait(asyncLambda);
+                RefSafetyDiagnosticReporter.ReportLocalsAcrossAwait(bodyExpr, _diagnostics);
+                RefSafetyDiagnosticReporter.ReportParametersAcrossAwait(asyncLambda, _diagnostics);
             }
 
             if (!containsAwait && !asyncLambda.IsIterator)
@@ -2038,7 +2042,10 @@ partial class BlockBinder
         lambdaBinder.SetLambdaBody(body);
         lambdaBinder.CacheLambdaBodyBinders(lambdaBodySyntax ?? syntax);
         var capturedVariables = CollectFunctionExpressionCaptures(lambdaBinder, body, lambdaSymbol);
-        ReportRefLikeCaptures(capturedVariables, syntax.GetLocation());
+        RefSafetyDiagnosticReporter.ReportCaptures(
+            capturedVariables,
+            syntax.GetLocation(),
+            _diagnostics);
 
         lambdaSymbol.SetCapturedVariables(capturedVariables);
         lambdaSymbol.SetClosureFrameType(capturedVariables.Length != 0
@@ -2317,14 +2324,6 @@ partial class BlockBinder
             capturedSet.Add(nestedCapture);
 
         return capturedSet.ToImmutableArray();
-    }
-
-    private void ReportRefLikeCaptures(ImmutableArray<ISymbol> capturedVariables, Location fallbackLocation)
-    {
-        RefSafetyDiagnosticReporter.ReportCaptures(
-            capturedVariables,
-            fallbackLocation,
-            _diagnostics);
     }
 
     private bool HasExistingArgumentErrors(SeparatedSyntaxList<ArgumentSyntax> arguments)

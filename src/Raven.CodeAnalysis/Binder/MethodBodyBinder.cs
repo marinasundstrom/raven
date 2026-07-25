@@ -173,12 +173,13 @@ class MethodBodyBinder : BlockBinder
             AnalyzeAsyncBody(bodySyntax, asyncMethod, bound);
 
         if (_methodSymbol is SourceMethodSymbol { IsIterator: true } iteratorMethod)
-            ReportRefLikeIteratorStorage(bound, iteratorMethod);
+            RefSafetyDiagnosticReporter.ReportIteratorStorage(bound, iteratorMethod, _diagnostics);
 
-        ReportStackAllocReturnEscape(
+        RefSafetyDiagnosticReporter.Report(
             bound,
             bodySyntax.GetLocation(),
-            expressionResultEscapes: GetTrailingExpressionTargetType(_methodSymbol).SpecialType != SpecialType.System_Unit);
+            expressionResultEscapes: GetTrailingExpressionTargetType(_methodSymbol).SpecialType != SpecialType.System_Unit,
+            _diagnostics);
 
         CacheBoundNode(bodySyntax, bound);
         return bound;
@@ -251,8 +252,8 @@ class MethodBodyBinder : BlockBinder
 
         if (containsAwait)
         {
-            ReportRefLikeLocalsAcrossAwait(bound);
-            ReportRefLikeParametersAcrossAwait(asyncMethod);
+            RefSafetyDiagnosticReporter.ReportLocalsAcrossAwait(bound, _diagnostics);
+            RefSafetyDiagnosticReporter.ReportParametersAcrossAwait(asyncMethod, _diagnostics);
         }
 
         if (!containsAwait)

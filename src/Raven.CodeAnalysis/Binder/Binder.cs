@@ -1850,33 +1850,6 @@ internal abstract partial class Binder
         return false;
     }
 
-    protected void ReportRefLikeLocalsAcrossAwait(BoundNode body)
-    {
-        RefSafetyDiagnosticReporter.ReportLocalsAcrossAwait(body, _diagnostics);
-    }
-
-    protected void ReportRefLikeParametersAcrossAwait(ISymbol symbol)
-    {
-        RefSafetyDiagnosticReporter.ReportParametersAcrossAwait(symbol, _diagnostics);
-    }
-
-    protected void ReportRefLikeIteratorStorage(BoundNode body, IMethodSymbol method)
-    {
-        RefSafetyDiagnosticReporter.ReportIteratorStorage(body, method, _diagnostics);
-    }
-
-    protected void ReportStackAllocReturnEscape(
-        BoundNode body,
-        Location fallbackLocation,
-        bool expressionResultEscapes = false)
-    {
-        RefSafetyDiagnosticReporter.Report(
-            body,
-            fallbackLocation,
-            expressionResultEscapes,
-            _diagnostics);
-    }
-
 
     private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)
     {
