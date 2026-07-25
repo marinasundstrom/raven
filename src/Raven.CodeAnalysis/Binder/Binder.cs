@@ -2067,6 +2067,23 @@ internal abstract partial class Binder
             {
                 _scopedBackedLocals[scopedAssignment.Local] = scopedOrigin;
             }
+            if (node is BoundParameterAssignmentExpression
+                {
+                    Parameter.RefKind: not RefKind.None,
+                    Right: { } parameterValue,
+                } &&
+                TryGetScopedOrigin(parameterValue) is { } parameterScopedOrigin)
+            {
+                AddScopedEscape(parameterValue, parameterScopedOrigin);
+            }
+            if (node is BoundByRefAssignmentExpression
+                {
+                    Right: { } byRefValue,
+                } &&
+                TryGetScopedOrigin(byRefValue) is { } byRefScopedOrigin)
+            {
+                AddScopedEscape(byRefValue, byRefScopedOrigin);
+            }
             if (node is BoundFieldAssignmentExpression
                 {
                     Field.RefKind: not RefKind.None,
@@ -2101,6 +2118,19 @@ internal abstract partial class Binder
                 TryGetLocal(scopedReceiver) is { } scopedReceiverLocal)
             {
                 _scopedBackedLocals[scopedReceiverLocal] = fieldScopedOrigin;
+            }
+            if (node is BoundFieldAssignmentExpression
+                {
+                    Field.Type: { } escapingFieldType,
+                    Receiver: { } escapingReceiver,
+                    Right: { } escapingFieldValue,
+                } &&
+                SemanticFacts.MayBeRefLike(escapingFieldType) &&
+                (escapingReceiver is BoundSelfExpression ||
+                 TryGetParameter(escapingReceiver) is { RefKind: not RefKind.None }) &&
+                TryGetScopedOrigin(escapingFieldValue) is { } escapingFieldOrigin)
+            {
+                AddScopedEscape(escapingFieldValue, escapingFieldOrigin);
             }
 
             base.VisitExpression(node);
@@ -2211,6 +2241,17 @@ internal abstract partial class Binder
                 BoundVariableExpression variable => variable.Variable,
                 BoundConversionExpression conversion => TryGetLocal(conversion.Expression),
                 BoundParenthesizedExpression parenthesized => TryGetLocal(parenthesized.Expression),
+                _ => null,
+            };
+        }
+
+        private static IParameterSymbol? TryGetParameter(BoundExpression expression)
+        {
+            return expression switch
+            {
+                BoundParameterAccess parameterAccess => parameterAccess.Parameter,
+                BoundConversionExpression conversion => TryGetParameter(conversion.Expression),
+                BoundParenthesizedExpression parenthesized => TryGetParameter(parenthesized.Expression),
                 _ => null,
             };
         }

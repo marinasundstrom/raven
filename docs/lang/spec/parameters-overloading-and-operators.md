@@ -66,6 +66,9 @@ alias, regardless of whether their initializer originally referred to
 caller-owned storage.
 The restriction follows scoped values stored inside ref-like fields, so
 returning a containing ref struct does not bypass the local's scope.
+Scoped values also cannot be assigned through `ref` or `out` parameters, or
+stored in fields through `self` or a by-reference receiver, because those
+storage locations can outlive the current call.
 Ref-like invocation results inherit the scope of receiver and argument values
 that flow through unscoped parameters. Arguments supplied to scoped parameters
 do not contribute to the result's escape scope.

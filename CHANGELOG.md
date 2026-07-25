@@ -74,6 +74,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   parameter's scoped contract.
 - Preserved scoped parameter attributes on emitted delegate `Invoke` methods,
   including generic delegates that allow ref-like type arguments.
+- Rejected assignments that expose scoped values through by-reference
+  parameters or fields of `self` and by-reference receivers.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

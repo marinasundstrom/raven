@@ -199,4 +199,63 @@ public sealed class ScopedParameterTests : CompilationTestBase
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor.Id == "RAV0358");
     }
+
+    [Fact]
+    public void ScopedValue_CannotBeAssignedThroughRefParameter()
+    {
+        const string source = """
+            func Store(
+                scoped value: System.Span<int>,
+                ref destination: System.Span<int>
+            ) {
+                destination = value
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0353");
+    }
+
+    [Fact]
+    public void ScopedValue_CannotBeStoredInFieldThroughRefParameter()
+    {
+        const string source = """
+            ref struct Holder {
+                field Value: System.Span<int>
+            }
+
+            func Store(scoped value: System.Span<int>, ref holder: Holder) {
+                holder.Value = value
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0353");
+    }
+
+    [Fact]
+    public void ScopedValue_CannotBeStoredInSelfField()
+    {
+        const string source = """
+            ref struct Holder {
+                field Value: System.Span<int>
+
+                func Store(scoped value: System.Span<int>) {
+                    self.Value = value
+                }
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0353");
+    }
 }
