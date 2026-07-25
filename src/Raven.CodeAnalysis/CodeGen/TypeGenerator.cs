@@ -1131,7 +1131,24 @@ internal class TypeGenerator
             for (var i = 0; i < invokeSymbol.Parameters.Length; i++)
             {
                 var parameter = invokeSymbol.Parameters[i];
-                invokeBuilder.DefineParameter(i + 1, GetParameterAttributes(parameter), parameter.Name);
+                var parameterBuilder = invokeBuilder.DefineParameter(
+                    i + 1,
+                    GetParameterAttributes(parameter),
+                    parameter.Name);
+                var hasImplicitScopedDefault =
+                    parameter.RefKind == RefKind.Out ||
+                    parameter.RefKind == RefKind.Ref &&
+                    SemanticFacts.MayBeRefLike(parameter.Type);
+                if (parameter.ScopedKind != ScopedKind.None && !hasImplicitScopedDefault)
+                {
+                    var scopedRefAttribute = CodeGen.CreateScopedRefAttributeBuilder();
+                    if (scopedRefAttribute is not null)
+                        parameterBuilder.SetCustomAttribute(scopedRefAttribute);
+                }
+
+                CodeGen.ApplyCustomAttributes(
+                    parameter.GetAttributes(),
+                    attribute => parameterBuilder.SetCustomAttribute(attribute));
             }
 
             CodeGen.ApplyCustomAttributes(invokeSymbol.GetAttributes(), attribute => invokeBuilder.SetCustomAttribute(attribute));

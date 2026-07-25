@@ -72,6 +72,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   scoped parameter contract while allowing implementations to strengthen it.
 - Required partial method declarations and implementations to agree on each
   parameter's scoped contract.
+- Preserved scoped parameter attributes on emitted delegate `Invoke` methods,
+  including generic delegates that allow ref-like type arguments.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

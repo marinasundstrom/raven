@@ -156,6 +156,58 @@ public sealed class RefStructMetadataEmissionTests
     }
 
     [Fact]
+    public void GenericMethodScopedParameter_RoundTripsThroughMetadata()
+    {
+        var image = EmitToImage("""
+            class Library {
+                static func Consume<T>(scoped value: T) where T: allows ref struct {}
+            }
+            """);
+        var reference = MetadataReference.CreateFromImage(image.ToArray());
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. TestMetadataReferences.Default, reference]);
+        var method = Assert.Single(
+            consumer.GetTypeByMetadataName("Library")!.GetMembers("Consume").OfType<IMethodSymbol>());
+
+        Assert.Equal(
+            TypeParameterConstraintKind.AllowByRefLike,
+            Assert.Single(method.TypeParameters).ConstraintKind & TypeParameterConstraintKind.AllowByRefLike);
+        Assert.Equal(ScopedKind.ScopedValue, Assert.Single(method.Parameters).ScopedKind);
+    }
+
+    [Fact]
+    public void GenericDelegateScopedParameter_RoundTripsThroughMetadata()
+    {
+        var image = EmitToImage(
+            "delegate Consumer<T>(scoped value: T) where T: allows ref struct");
+        var reference = MetadataReference.CreateFromImage(image.ToArray());
+        var consumer = Compilation.Create(
+                "consumer",
+                [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. TestMetadataReferences.Default, reference]);
+        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            consumer.GetTypeByMetadataName("Consumer`1"));
+        var spanDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            consumer.GetTypeByMetadataName("System.Span`1"));
+        var span = spanDefinition.Construct(consumer.GetSpecialType(SpecialType.System_Int32));
+        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(span));
+
+        Assert.Equal(
+            TypeParameterConstraintKind.AllowByRefLike,
+            Assert.Single(definition.TypeParameters).ConstraintKind & TypeParameterConstraintKind.AllowByRefLike);
+        Assert.Equal(
+            ScopedKind.ScopedValue,
+            Assert.Single(definition.GetDelegateInvokeMethod()!.Parameters).ScopedKind);
+        Assert.Equal(
+            ScopedKind.ScopedValue,
+            Assert.Single(constructed.GetDelegateInvokeMethod()!.Parameters).ScopedKind);
+    }
+
+    [Fact]
     public void GenericReadonlyRefStruct_RoundTripsThroughMetadataAndReflection()
     {
         const string source = """

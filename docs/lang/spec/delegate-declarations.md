@@ -18,4 +18,8 @@ Delegates are emitted as sealed, abstract types that inherit from `System.Multic
 * A constructor `.ctor(object, IntPtr)` that binds a target and method pointer.
 * An `Invoke` method whose parameters (including any `ref`/`out`/`in` modifiers) and return type match the declaration.
 
+The synthesized `Invoke` method also preserves parameter lifetime metadata.
+In particular, `scoped` parameters emit `ScopedRefAttribute` when required,
+including parameters that use generic types permitting ref-like arguments.
+
 If the return type clause is omitted, the delegate returns `unit`. Delegate declarations support generic type parameters and constraints using the same `where` clause rules as other type declarations. Accessibility defaults follow the standard type rules: top-level delegates are `public` unless marked `internal`, and an explicit top-level `public` modifier is redundant and diagnosed. Nested delegates default to `private` except when declared inside interfaces.
