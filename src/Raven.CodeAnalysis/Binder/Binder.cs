@@ -1962,43 +1962,37 @@ internal abstract partial class Binder
             analyzer.AddScopedEscape(scopedResult, scopedOrigin);
         }
 
-        foreach (var escapingExpression in analyzer.EscapingExpressions)
+        var result = analyzer.ToResult();
+        foreach (var violation in result.Violations)
         {
-            var location = escapingExpression switch
+            var location = violation.Expression switch
             {
                 BoundLocalAccess localAccess => localAccess.Local.Locations.FirstOrDefault(),
                 BoundVariableExpression variable => variable.Variable.Locations.FirstOrDefault(),
-                _ => null,
+                _ => violation.Origin?.Locations.FirstOrDefault(),
             };
 
-            _diagnostics.ReportStackAllocValueCannotEscape(location ?? fallbackLocation);
-        }
-
-        foreach (var escapingExpression in analyzer.EscapingLocalReferenceExpressions)
-        {
-            var location = escapingExpression switch
+            switch (violation.Kind)
             {
-                BoundLocalAccess localAccess => localAccess.Local.Locations.FirstOrDefault(),
-                BoundVariableExpression variable => variable.Variable.Locations.FirstOrDefault(),
-                _ => null,
-            };
-
-            _diagnostics.ReportStackBoundRefLikeValueCannotEscape(location ?? fallbackLocation);
-        }
-
-        foreach (var (escapingExpression, origin) in analyzer.EscapingScopedExpressions)
-        {
-            var location = escapingExpression switch
-            {
-                BoundLocalAccess localAccess => localAccess.Local.Locations.FirstOrDefault(),
-                BoundVariableExpression variable => variable.Variable.Locations.FirstOrDefault(),
-                _ => origin.Locations.FirstOrDefault(),
-            };
-
-            if (origin is IParameterSymbol parameter)
-                _diagnostics.ReportScopedValueCannotEscape(parameter.Name, location ?? fallbackLocation);
-            else
-                _diagnostics.ReportScopedLocalCannotEscape(origin.Name, location ?? fallbackLocation);
+                case RefSafetyViolationKind.StackAllocationEscape:
+                    _diagnostics.ReportStackAllocValueCannotEscape(location ?? fallbackLocation);
+                    break;
+                case RefSafetyViolationKind.LocalReferenceEscape:
+                    _diagnostics.ReportStackBoundRefLikeValueCannotEscape(location ?? fallbackLocation);
+                    break;
+                case RefSafetyViolationKind.ScopedValueEscape
+                    when violation.Origin is IParameterSymbol parameter:
+                    _diagnostics.ReportScopedValueCannotEscape(
+                        parameter.Name,
+                        location ?? fallbackLocation);
+                    break;
+                case RefSafetyViolationKind.ScopedValueEscape
+                    when violation.Origin is { } origin:
+                    _diagnostics.ReportScopedLocalCannotEscape(
+                        origin.Name,
+                        location ?? fallbackLocation);
+                    break;
+            }
         }
 
         static BoundExpression? TryGetResultExpression(BoundNode node)
@@ -2031,6 +2025,31 @@ internal abstract partial class Binder
             _escapingLocalReferenceExpressions;
         public IReadOnlyList<(BoundExpression Expression, ISymbol Origin)>
             EscapingScopedExpressions => _escapingScopedExpressions;
+
+        public RefSafetyAnalysisResult ToResult()
+        {
+            var violations = ImmutableArray.CreateBuilder<RefSafetyViolation>(
+                _escapingExpressions.Count +
+                _escapingLocalReferenceExpressions.Count +
+                _escapingScopedExpressions.Count);
+            violations.AddRange(
+                _escapingExpressions.Select(static expression =>
+                    new RefSafetyViolation(
+                        RefSafetyViolationKind.StackAllocationEscape,
+                        expression)));
+            violations.AddRange(
+                _escapingLocalReferenceExpressions.Select(static expression =>
+                    new RefSafetyViolation(
+                        RefSafetyViolationKind.LocalReferenceEscape,
+                        expression)));
+            violations.AddRange(
+                _escapingScopedExpressions.Select(static item =>
+                    new RefSafetyViolation(
+                        RefSafetyViolationKind.ScopedValueEscape,
+                        item.Expression,
+                        item.Origin)));
+            return new RefSafetyAnalysisResult(violations.ToImmutable());
+        }
 
         public override void VisitVariableDeclarator(BoundVariableDeclarator node)
         {
