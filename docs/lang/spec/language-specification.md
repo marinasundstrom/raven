@@ -104,6 +104,15 @@ and common rules are easy to find.
 * [Interfaces](interfaces.md)
 * [Extension members](extensions.md)
 
+### Systems programming and .NET interoperability
+
+These specialized topics are kept separate from the main language path:
+
+* [Systems programming and memory efficiency](systems-programming.md)
+* [Spans and stack allocation](spans-and-memory.md)
+* [Ref structs and ref safety](ref-structs-and-ref-safety.md)
+* [Unsafe code and interoperability](unsafe-code-and-interop.md)
+
 ### Metaprogramming
 
 * [Macros](macros.md)

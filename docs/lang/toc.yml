@@ -229,8 +229,15 @@
       href: spec/error-handling.md#try-expressions
     - name: Error propagation and carrier types
       href: spec/async-and-error-propagation.md
-- name: .NET interoperability
+- name: Systems programming and .NET interop
+  href: spec/systems-programming.md
   items:
+    - name: Overview
+      href: spec/systems-programming.md
+    - name: Spans and stack allocation
+      href: spec/spans-and-memory.md
+    - name: Ref structs and ref safety
+      href: spec/ref-structs-and-ref-safety.md
     - name: Unsafe code and interoperability
       href: spec/unsafe-code-and-interop.md
       items:

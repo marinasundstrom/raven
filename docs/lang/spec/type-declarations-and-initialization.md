@@ -58,72 +58,10 @@ overrides in derived types (`final override` in Raven, equivalent to C#'s
 
 ### Ref structs
 
-A struct may use the `ref` modifier to declare a ref-like value type:
-
-```raven
-ref struct Buffer<T> {
-    field Value: T
-}
-```
-
-The modifier is valid only on `struct` declarations and must appear consistently
-on every declaration of a partial struct. A source-declared ref struct is
-classified as ref-like by the semantic model, so the same storage, capture,
-generic-argument, async, and iterator restrictions that apply to consumed .NET
-ref-like types also apply to it. The emitted type definition carries
-`System.Runtime.CompilerServices.IsByRefLikeAttribute`, including when the ref
-struct itself is generic, so other .NET compilers and reflection classify it
-the same way.
-
-`readonly ref struct` additionally prevents mutable instance storage. Instance
-fields must use `readonly`, and property storage must use `val` rather than
-`var`. The emitted type carries both `IsByRefLikeAttribute` and
-`IsReadOnlyAttribute`; `INamedTypeSymbol.IsReadOnly` exposes the same fact for
-source and metadata types. Partial declarations must agree on both modifiers.
-
-Ref structs may declare managed-reference fields using the by-reference type
-syntax `&T`:
-
-```raven
-ref struct IntReference {
-    field Value: &int
-}
-```
-
-Ref fields are instance-only and cannot be declared in ordinary structs or
-classes, and their referent cannot itself be ref-like or a type parameter that
-allows ref structs. `IFieldSymbol.RefKind` reports `Ref` for both source and
-consumed metadata fields. Their CLR field signatures use the standard `BYREF`
-element type. Dereferencing a managed ref field does not require unsafe mode;
-raw pointer dereferences still do.
-
-Consumed .NET parameters annotated with
-`System.Runtime.CompilerServices.ScopedRefAttribute` expose `ScopedRef` or
-`ScopedValue` through `IParameterSymbol.ScopedKind`, depending on whether the
-parameter is passed by reference or by value. Constructed generic symbols
-preserve that classification.
-
-A ref struct value cannot escape a function when one of its ref fields refers
-to a local variable, or when one of its ref-like fields contains
-`stackalloc`-backed storage. This restriction follows simple local aliases.
-References and spans supplied by parameters may be stored and returned because
-their storage is owned by the caller rather than the current stack frame.
-
-Generic declarations opt into ref-like type arguments with the
-`allows ref struct` anti-constraint:
-
-```raven
-func Accept<T>() where T: allows ref struct {}
-```
-
-The semantic model exposes this as
-`TypeParameterConstraintKind.AllowByRefLike`, and emission sets the standard
-CLI `AllowByRefLike` (`0x20`) generic-parameter flag. Without the
-anti-constraint, a ref-like type such as `Span<T>` is rejected as a type
-argument. Within the generic declaration, the constrained type parameter is
-treated as potentially ref-like: it cannot be captured, stored in heap fields
-or arrays, or persisted across `await` and `yield`. The anti-constraint must
-appear last, may be specified only once, and cannot be combined with `class`.
+Ref structs are available for specialized stack-only and interop abstractions.
+Their declarations, managed-reference fields, lifetime rules, and generic
+anti-constraints are documented under
+[Ref structs and ref safety](ref-structs-and-ref-safety.md).
 
 ### Field declarations (low-level storage)
 

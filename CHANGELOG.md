@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Reorganized spans, stack allocation, ref structs, ref safety, and unsafe
+  interop into a dedicated systems-programming documentation section so these
+  specialized features no longer dominate the core language path.
+
 - Added first-class `Span<T>` and `ReadOnlySpan<T>` support across stack
   allocation, covariant conversions, generic inference, overload resolution,
   indexing, mutation, slicing, iteration, and span-targeted collection

@@ -108,30 +108,10 @@ val fixed: int[3] = [1, 2, 3]
 
 ### Spans and memory
 
-`System.Span<T>` and `System.ReadOnlySpan<T>` are first-class sequence views.
-They support indexed reads, mutation through `Span<T>`, slicing, and `for`
-iteration. `ReadOnlySpan<T>` indexers are not settable.
-
-The following implicit conversions are available:
-
-* a single-dimensional `T[]` to `Span<T>` or `ReadOnlySpan<T>`;
-* `Span<T>` to `ReadOnlySpan<T>`;
-* `string` to `ReadOnlySpan<char>`;
-* an array, `Span<T>`, or `ReadOnlySpan<T>` to `ReadOnlySpan<U>` when the
-  element reference conversion from `T` to `U` is covariant.
-
-Span conversions participate in generic type inference and overload resolution.
-When neither target exactly matches the source expression, a span conversion is
-preferred over a non-span conversion. Between equivalent mutable and read-only
-span targets, `ReadOnlySpan<T>` is preferred.
-
-Collection expressions can directly target either span type. `stackalloc`
-naturally produces `Span<T>` and can be explicitly targeted to
-`ReadOnlySpan<T>`; see [Unsafe code and interop](unsafe-code-and-interop.md).
-
-`System.Memory<T>` and `System.ReadOnlyMemory<T>` retain their normal .NET
-conversion behavior. Their `Span` properties interoperate with the same indexed
-and iterative span operations.
+`System.Span<T>` and `System.ReadOnlySpan<T>` are supported for
+allocation-sensitive and interop code. Their conversions, overload behavior,
+and stack-backed storage rules are documented separately under
+[Spans and stack allocation](spans-and-memory.md).
 
 ### Tuples
 

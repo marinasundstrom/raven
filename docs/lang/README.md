@@ -29,7 +29,7 @@ complete topic list. The reference is grouped into recognizable areas:
 * [Pattern matching](spec/language-specification.md#pattern-matching)
 * [Control flow](spec/language-specification.md#control-flow)
 * [Error handling](spec/language-specification.md#error-handling)
-* [.NET interoperability](spec/language-specification.md#net-interoperability)
+* [Systems programming and .NET interoperability](spec/language-specification.md#systems-programming-and-net-interoperability)
 
 ## Current shape in one screen
 

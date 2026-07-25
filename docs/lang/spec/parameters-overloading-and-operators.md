@@ -42,46 +42,10 @@ Increment(ref total)
 Console.WriteLine(total) // prints 42
 ```
 
-The `scoped` modifier restricts a parameter so that references obtained from it
-cannot escape the call. It precedes the by-reference modifier:
-`scoped value: Span<int>` classifies a scoped ref-like value, while
-`scoped ref value: int` classifies a scoped reference. Raven follows the C#
-`scoped` lifetime model and exposes the distinction as `ScopedValue` and
-`ScopedRef` through the compiler symbol API.
-Returning a scoped ref-like parameter, or a local alias of it, is rejected
-because that would let the restricted value escape the function.
-By-value `scoped` parameters must be ref-like; `scoped ref`, `scoped in`, and
-`scoped out` parameters may refer to ordinary value types.
-As in C#, `out` parameters and `ref` parameters whose type is ref-like are
-implicitly scoped even when the keyword is omitted.
-
-Local bindings use Raven's declaration order: `scoped val buffer: Span<int>`
-declares a scoped ref-like value, and `scoped val reference = &value` declares
-a scoped reference. The local symbol reports `ScopedValue` or `ScopedRef`
-according to its resulting type.
-Applying `scoped` to an ordinary value local is invalid; scoped value locals
-must be ref-like, while scoped reference locals must have a by-reference type.
-Scoped ref-like locals cannot be returned directly or through an ordinary local
-alias, regardless of whether their initializer originally referred to
-caller-owned storage.
-The restriction follows scoped values stored inside ref-like fields, so
-returning a containing ref struct does not bypass the local's scope.
-Scoped values also cannot be assigned through `ref` or `out` parameters, or
-stored in fields through `self` or a by-reference receiver, because those
-storage locations can outlive the current call.
-Ref-like invocation results inherit the scope of receiver and argument values
-that flow through unscoped parameters. Arguments supplied to scoped parameters
-do not contribute to the result's escape scope.
-Scoped parameters and locals cannot be captured by lambdas or local functions,
-including scoped references whose element type is not itself ref-like.
-Scoped variables also cannot remain live across `await` or `yield`, because an
-async or iterator state machine would extend their storage lifetime.
-An override or explicit interface implementation may add a scoped restriction,
-but it cannot remove one required by the overridden or implemented contract.
-This rule applies to indexer parameters and their synthesized accessors as well
-as ordinary methods.
-The definition and implementation parts of a partial method must use identical
-scoped modifiers for corresponding parameters.
+Low-level APIs may additionally use `scoped` parameters to restrict managed
+reference lifetimes. This is a specialized memory-safety feature; see
+[Ref structs and ref safety](ref-structs-and-ref-safety.md#scoped-parameters-and-locals)
+for its syntax and escape rules.
 
 ## Method overloading
 
