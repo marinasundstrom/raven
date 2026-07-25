@@ -1854,6 +1854,13 @@ internal abstract partial class Binder
     {
         foreach (var local in AsyncLowerer.GetLocalsCapturedAcrossAwait(body))
         {
+            if (local.ScopedKind != ScopedKind.None)
+            {
+                var scopedLocation = local.Locations.FirstOrDefault() ?? Location.None;
+                _diagnostics.ReportScopedVariableCannotCrossSuspension(local.Name, scopedLocation);
+                continue;
+            }
+
             if (local.Type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
                 continue;
 
@@ -1873,6 +1880,13 @@ internal abstract partial class Binder
 
         foreach (var parameter in parameters)
         {
+            if (parameter.ScopedKind != ScopedKind.None)
+            {
+                var scopedLocation = parameter.Locations.FirstOrDefault() ?? Location.None;
+                _diagnostics.ReportScopedVariableCannotCrossSuspension(parameter.Name, scopedLocation);
+                continue;
+            }
+
             if (parameter.Type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
                 continue;
 
@@ -1886,18 +1900,37 @@ internal abstract partial class Binder
     {
         var locals = RefLikeIteratorLocalCollector.Collect(body);
         foreach (var local in locals)
-            Report(local.Name, local.Type, local.Locations.FirstOrDefault());
+            Report(local);
 
         foreach (var parameter in method.Parameters)
-            Report(parameter.Name, parameter.Type, parameter.Locations.FirstOrDefault());
+            Report(parameter);
 
-        void Report(string name, ITypeSymbol? type, Location? location)
+        void Report(ISymbol symbol)
         {
-            if (type is not { } refLikeType || !SemanticFacts.MayBeRefLike(refLikeType))
+            var scopedKind = symbol switch
+            {
+                ILocalSymbol local => local.ScopedKind,
+                IParameterSymbol parameter => parameter.ScopedKind,
+                _ => ScopedKind.None,
+            };
+            if (scopedKind != ScopedKind.None)
+            {
+                _diagnostics.ReportScopedVariableCannotCrossSuspension(
+                    symbol.Name,
+                    symbol.Locations.FirstOrDefault() ?? Location.None);
+                return;
+            }
+
+            if (symbol.UnwrapType() is not { } type)
+                return;
+            if (!SemanticFacts.MayBeRefLike(type))
                 return;
 
-            var typeDisplay = refLikeType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
-            _diagnostics.ReportRefLikeVariableCannotBeStoredInIterator(name, typeDisplay, location ?? Location.None);
+            var typeDisplay = type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            _diagnostics.ReportRefLikeVariableCannotBeStoredInIterator(
+                symbol.Name,
+                typeDisplay,
+                symbol.Locations.FirstOrDefault() ?? Location.None);
         }
     }
 

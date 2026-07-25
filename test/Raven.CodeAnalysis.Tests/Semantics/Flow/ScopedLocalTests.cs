@@ -174,4 +174,46 @@ public sealed class ScopedLocalTests : CompilationTestBase
             compilation.GetDiagnostics(),
             diagnostic => diagnostic.Descriptor.Id == "RAV0356");
     }
+
+    [Fact]
+    public void ScopedReferenceLocal_CannotCrossAwait()
+    {
+        const string source = """
+            import System.Threading.Tasks.*
+
+            async func Run() -> Task {
+                val value = 1
+                scoped val reference = &value
+                await Task.CompletedTask
+                Console.WriteLine(*reference)
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0357");
+    }
+
+    [Fact]
+    public void ScopedReferenceLocal_CannotCrossYield()
+    {
+        const string source = """
+            import System.Collections.Generic.*
+
+            func Values() -> IEnumerable<int> {
+                val value = 1
+                scoped val reference = &value
+                yield return 0
+                yield return *reference
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0357");
+    }
 }

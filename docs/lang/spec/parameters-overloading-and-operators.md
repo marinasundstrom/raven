@@ -71,6 +71,8 @@ that flow through unscoped parameters. Arguments supplied to scoped parameters
 do not contribute to the result's escape scope.
 Scoped parameters and locals cannot be captured by lambdas or local functions,
 including scoped references whose element type is not itself ref-like.
+Scoped variables also cannot remain live across `await` or `yield`, because an
+async or iterator state machine would extend their storage lifetime.
 
 ## Method overloading
 
