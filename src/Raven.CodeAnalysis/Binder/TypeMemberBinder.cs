@@ -1124,9 +1124,17 @@ internal partial class TypeMemberBinder : Binder
         methodSymbol.SetReturnType(returnType);
         methodSymbol.SetParameters(parameters);
         if (overriddenMethod is not null)
-            ReportWeakenedScopedParameterContracts(overriddenMethod, methodSymbol, methodDecl.ParameterList?.Parameters ?? default);
+            RefSafetyContractAnalyzer.ReportWeakenedParameterContracts(
+                overriddenMethod,
+                methodSymbol,
+                methodDecl.ParameterList?.Parameters ?? default,
+                _diagnostics);
         if (explicitInterfaceMember is not null)
-            ReportWeakenedScopedParameterContracts(explicitInterfaceMember, methodSymbol, methodDecl.ParameterList?.Parameters ?? default);
+            RefSafetyContractAnalyzer.ReportWeakenedParameterContracts(
+                explicitInterfaceMember,
+                methodSymbol,
+                methodDecl.ParameterList?.Parameters ?? default,
+                _diagnostics);
         methodSymbol.MarkSignatureBindingComplete();
         RemoveStaleMethodSignatureSkeletons(metadataName, methodSymbol);
 
@@ -1134,10 +1142,11 @@ internal partial class TypeMemberBinder : Binder
         {
             if (hadPriorPartialSignature)
             {
-                ReportMismatchedPartialScopedParameters(
+                RefSafetyContractAnalyzer.ReportMismatchedPartialParameters(
                     priorPartialScopedKinds,
                     methodSymbol,
-                    methodDecl.ParameterList);
+                    methodDecl.ParameterList?.Parameters ?? default,
+                    _diagnostics);
             }
 
             if (TryMergePartialMethodDeclaration(
@@ -1164,32 +1173,6 @@ internal partial class TypeMemberBinder : Binder
         if (hasInvalidAsyncReturnType)
             methodSymbol.MarkAsyncReturnTypeError();
         return methodBinder;
-    }
-
-    private void ReportWeakenedScopedParameterContracts(
-        IMethodSymbol contractMethod,
-        IMethodSymbol implementationMethod,
-        SeparatedSyntaxList<ParameterSyntax> parameterSyntaxes)
-    {
-        var count = Math.Min(contractMethod.Parameters.Length, implementationMethod.Parameters.Length);
-        for (var i = 0; i < count; i++)
-        {
-            var contractParameter = contractMethod.Parameters[i];
-            var implementationParameter = implementationMethod.Parameters[i];
-            if (contractParameter.ScopedKind == ScopedKind.None ||
-                implementationParameter.ScopedKind != ScopedKind.None)
-            {
-                continue;
-            }
-
-            var location = i < parameterSyntaxes.Count
-                ? parameterSyntaxes[i].Identifier.GetLocation()
-                : implementationParameter.Locations.FirstOrDefault() ?? Location.None;
-            _diagnostics.ReportScopedParameterContractCannotBeWeakened(
-                implementationParameter.Name,
-                contractMethod.ToDisplayString(),
-                location);
-        }
     }
 
     private void RemoveStaleMethodSignatureSkeletons(
@@ -2565,10 +2548,11 @@ internal partial class TypeMemberBinder : Binder
 
         if (!ReferenceEquals(existingPartial, methodSymbol))
         {
-            ReportMismatchedPartialScopedParameters(
+            RefSafetyContractAnalyzer.ReportMismatchedPartialParameters(
                 existingPartial.Parameters.Select(static parameter => parameter.ScopedKind).ToImmutableArray(),
                 methodSymbol,
-                methodDecl.ParameterList);
+                methodDecl.ParameterList?.Parameters ?? default,
+                _diagnostics);
         }
 
         if (_containingType is SourceNamedTypeSymbol containingSourceType)
@@ -2604,27 +2588,6 @@ internal partial class TypeMemberBinder : Binder
         mergedMethodBinder = new MethodBinder(existingPartial, this);
         mergedMethodBinder.EnsureTypeParameterConstraintTypesResolved(existingPartial.TypeParameters);
         return true;
-    }
-
-    private void ReportMismatchedPartialScopedParameters(
-        ImmutableArray<ScopedKind> existingScopedKinds,
-        IMethodSymbol incomingPart,
-        ParameterListSyntax? incomingParameterList)
-    {
-        var count = Math.Min(existingScopedKinds.Length, incomingPart.Parameters.Length);
-        for (var i = 0; i < count; i++)
-        {
-            var incomingParameter = incomingPart.Parameters[i];
-            if (existingScopedKinds[i] == incomingParameter.ScopedKind)
-                continue;
-
-            var location = incomingParameterList is not null && i < incomingParameterList.Parameters.Count
-                ? incomingParameterList.Parameters[i].Identifier.GetLocation()
-                : incomingParameter.Locations.FirstOrDefault() ?? Location.None;
-            _diagnostics.ReportScopedParameterDoesNotMatchPartialDefinition(
-                incomingParameter.Name,
-                location);
-        }
     }
 
     private void ReportMemberNameMatchesContainingTypeIfNeeded(string memberName, Location location)
@@ -3783,10 +3746,11 @@ internal partial class TypeMemberBinder : Binder
                         : null;
                 if (scopedContractAccessor is not null)
                 {
-                    ReportWeakenedScopedParameterContracts(
+                    RefSafetyContractAnalyzer.ReportWeakenedParameterContracts(
                         scopedContractAccessor,
                         methodSymbol,
-                        indexerDecl.ParameterList.Parameters);
+                        indexerDecl.ParameterList.Parameters,
+                        _diagnostics);
                 }
 
                 if (explicitInterfaceType is not null && explicitInterfaceProperty is not null)
