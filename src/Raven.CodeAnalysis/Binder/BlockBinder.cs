@@ -883,6 +883,15 @@ partial class BlockBinder : Binder
         type = EnsureTypeAccessible(type, typeLocation);
         type = EnsureTypeValidForStorageLocation(type, typeLocation);
 
+        if (decl.ScopedKeyword.IsKind(SyntaxKind.ScopedKeyword) &&
+            type is not RefTypeSymbol &&
+            type.TypeKind != TypeKind.Error &&
+            !SemanticFacts.MayBeRefLike(type))
+        {
+            _diagnostics.ReportScopedModifierRequiresRefLikeTypeOrReference(
+                decl.ScopedKeyword.GetLocation());
+        }
+
         if (!constantValueComputed &&
             isConst &&
             initializer is not null &&

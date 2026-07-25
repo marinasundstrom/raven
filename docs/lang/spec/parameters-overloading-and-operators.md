@@ -57,6 +57,8 @@ Local bindings use Raven's declaration order: `scoped val buffer: Span<int>`
 declares a scoped ref-like value, and `scoped val reference = &value` declares
 a scoped reference. The local symbol reports `ScopedValue` or `ScopedRef`
 according to its resulting type.
+Applying `scoped` to an ordinary value local is invalid; scoped value locals
+must be ref-like, while scoped reference locals must have a by-reference type.
 
 ## Method overloading
 

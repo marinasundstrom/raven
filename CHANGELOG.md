@@ -55,6 +55,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   and the VS Code TextMate grammar without reserving identifier uses.
 - Added Raven-native `scoped val`/`var`/`let`/`const` local syntax, scoped-value
   versus scoped-reference symbol classification, and editor highlighting.
+- Diagnosed `scoped` local declarations whose resulting type is neither
+  ref-like nor by-reference.
 - Correctly materialized value-type `self` when Raven methods request its value
   while preserving the managed receiver for address-based access, keeping
   generic `Option` and `Result` instance behavior portable across runtimes.

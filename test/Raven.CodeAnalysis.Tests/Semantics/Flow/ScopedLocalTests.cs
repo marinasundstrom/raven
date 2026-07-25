@@ -48,4 +48,23 @@ public sealed class ScopedLocalTests : CompilationTestBase
         Assert.Equal(SyntaxKind.ScopedKeyword, declaration.ScopedKeyword.Kind);
         Assert.Equal(ScopedKind.ScopedRef, local.ScopedKind);
     }
+
+    [Theory]
+    [InlineData("scoped val value = 1")]
+    [InlineData("scoped var value: string = \"text\"")]
+    [InlineData("scoped const value = 1")]
+    public void ScopedOrdinaryValueLocal_IsRejected(string declaration)
+    {
+        var source = $$"""
+            func Invalid() {
+                {{declaration}}
+            }
+            """;
+
+        var (compilation, _) = CreateCompilation(source);
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor.Id == "RAV0354");
+    }
 }

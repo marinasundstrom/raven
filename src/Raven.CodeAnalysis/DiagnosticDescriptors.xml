@@ -262,6 +262,10 @@
     Title="Scoped value cannot escape"
     Message="A value obtained from scoped parameter '{parameterName}' cannot escape the declaring function"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0354" Identifier="ScopedModifierRequiresRefLikeTypeOrReference"
+    Title="Scoped modifier requires a ref-like type or reference"
+    Message="The 'scoped' modifier can only be used with a ref-like value or a reference"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0334" Identifier="SealedHierarchyInheritanceDeniedSameFile"
     Title="Cannot inherit from sealed type from a different file"
     Message="'{typeName}' cannot inherit from sealed type '{baseName}' because it is not declared in the same source file"
