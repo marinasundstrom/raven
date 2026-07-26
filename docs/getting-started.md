@@ -449,5 +449,5 @@ dotnet run --project path/to/App.rvnproj
   rules.
 - [Style guide](lang/style-guide.md) for source layout conventions.
 - [Compiler project system](compiler/project-system.md) for `.rvnproj` details.
-- [Samples on GitHub](https://github.com/marinasundstrom/raven/tree/main/samples)
-  for runnable examples.
+- [Sample projects on GitHub](https://github.com/marinasundstrom/raven/tree/main/samples/projects)
+  for complete, runnable examples.
