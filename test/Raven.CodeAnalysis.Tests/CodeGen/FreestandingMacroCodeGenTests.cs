@@ -21,6 +21,7 @@ public sealed class FreestandingMacroCodeGenTests
             import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
 
+            [LocalMacroPlugin]
             class LocalMacroPlugin : IRavenMacroPlugin {
                 val Name: string => "Local"
 

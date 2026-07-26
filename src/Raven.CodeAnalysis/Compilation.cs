@@ -181,7 +181,11 @@ public partial class Compilation
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
-    public INamespaceSymbol GetSourceGlobalNamespace() => SourceGlobalNamespace!.AsSourceNamespace();
+    public INamespaceSymbol GetSourceGlobalNamespace()
+    {
+        EnsureSetup();
+        return SourceGlobalNamespace.AsSourceNamespace();
+    }
 
     public Assembly CoreAssembly { get; private set; }
     public Assembly RuntimeCoreAssembly { get; private set; }
@@ -643,6 +647,33 @@ public partial class Compilation
             AssemblyName,
             _syntaxTrees.Concat(syntaxTrees).ToArray(),
             _macroSyntaxTrees,
+            _references,
+            _macroReferences,
+            Options,
+            _generatorDiagnostics);
+    }
+
+    /// <summary>
+    /// Adds ordinary source trees and automatically moves trees containing a
+    /// <see cref="LocalMacroPluginAttribute"/> declaration into the local macro
+    /// partition.
+    /// </summary>
+    public Compilation AddSyntaxTreesWithLocalMacros(params SyntaxTree[] syntaxTrees)
+    {
+        var localMacroTrees = new List<SyntaxTree>();
+        var consumerTrees = new List<SyntaxTree>();
+        foreach (var syntaxTree in syntaxTrees)
+        {
+            if (LocalMacroSyntaxClassifier.IsLocalMacroTree(syntaxTree))
+                localMacroTrees.Add(syntaxTree);
+            else
+                consumerTrees.Add(syntaxTree);
+        }
+
+        return new Compilation(
+            AssemblyName,
+            _syntaxTrees.Concat(consumerTrees).ToArray(),
+            _macroSyntaxTrees.Concat(localMacroTrees).ToArray(),
             _references,
             _macroReferences,
             Options,

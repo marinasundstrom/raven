@@ -128,17 +128,23 @@ public sealed class Document
             .Cast<SyntaxTree>()
             .ToArray();
 
-        return Compilation.Create(Project.Name, trees, [.. Project.MetadataReferences], [.. Project.MacroReferences]);
+        return Compilation.Create(
+                Project.Name,
+                syntaxTrees: [],
+                [.. Project.MetadataReferences],
+                [.. Project.MacroReferences])
+            .AddSyntaxTreesWithLocalMacros(trees);
     }
 
     private SyntaxTree? GetCompilationSyntaxTree(Compilation compilation, SyntaxTree tree)
     {
-        if (compilation.SyntaxTrees.Contains(tree))
+        if (compilation.SyntaxTrees.Contains(tree) || compilation.MacroSyntaxTrees.Contains(tree))
             return tree;
 
         var currentDocument = Solution.Workspace?.CurrentSolution.GetDocument(Id);
         var currentTree = currentDocument?.SyntaxTree;
-        if (currentTree is not null && compilation.SyntaxTrees.Contains(currentTree))
+        if (currentTree is not null &&
+            (compilation.SyntaxTrees.Contains(currentTree) || compilation.MacroSyntaxTrees.Contains(currentTree)))
             return currentTree;
 
         if (!string.IsNullOrWhiteSpace(FilePath))
@@ -146,12 +152,17 @@ public sealed class Document
             var match = compilation.SyntaxTrees.FirstOrDefault(compilationTree =>
                 !string.IsNullOrWhiteSpace(compilationTree.FilePath) &&
                 string.Equals(compilationTree.FilePath, FilePath, StringComparison.OrdinalIgnoreCase));
+            match ??= compilation.MacroSyntaxTrees.FirstOrDefault(compilationTree =>
+                !string.IsNullOrWhiteSpace(compilationTree.FilePath) &&
+                string.Equals(compilationTree.FilePath, FilePath, StringComparison.OrdinalIgnoreCase));
             if (match is not null)
                 return match;
         }
 
-        return compilation.SyntaxTrees.FirstOrDefault(compilationTree =>
-            string.Equals(compilationTree.GetText()?.ToString(), Text.ToString(), StringComparison.Ordinal));
+        return compilation.SyntaxTrees
+            .Concat(compilation.MacroSyntaxTrees)
+            .FirstOrDefault(compilationTree =>
+                string.Equals(compilationTree.GetText()?.ToString(), Text.ToString(), StringComparison.Ordinal));
     }
 
     /// <summary>Creates a new document with updated text using the owning solution.</summary>

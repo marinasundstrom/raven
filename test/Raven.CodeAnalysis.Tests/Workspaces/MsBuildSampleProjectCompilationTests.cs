@@ -119,6 +119,85 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_BuildsSameProjectMacroWithoutMacroProjectItem()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var projectRoot = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var sourceDirectory = Path.Combine(projectRoot, "src");
+            Directory.CreateDirectory(sourceDirectory);
+
+            var projectPath = Path.Combine(projectRoot, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>SameProjectMacro</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="src/**/*.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            File.WriteAllText(Path.Combine(sourceDirectory, "macros.rvn"), """
+                import System.Collections.Immutable.*
+                import Raven.CodeAnalysis.Macros.*
+
+                [LocalMacroPlugin]
+                class LocalMacroPlugin : IRavenMacroPlugin {
+                    val Name: string => "Local"
+
+                    func GetMacros() -> ImmutableArray<IMacroDefinition>
+                        => [LocalAnswerMacro()]
+                }
+
+                class LocalAnswerMacro : ITokenTreeExpressionMacro {
+                    val Name: string => "localAnswer"
+                    val Kind: MacroKind => MacroKind.FreestandingExpression
+                    val Targets: MacroTarget => MacroTarget.None
+
+                    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                        FreestandingMacroExpansionResult {
+                            Expression = #quote { 42 }
+                        }
+                    }
+                }
+                """);
+            File.WriteAllText(Path.Combine(sourceDirectory, "main.rvn"), """
+                class Harness {
+                    public static func Value() -> int => #localAnswer { }
+                }
+                """);
+
+            var result = RunProcess(
+                "dotnet",
+                $"build \"{projectPath}\" --property WarningLevel=0",
+                projectRoot,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(
+                result.ExitCode == 0,
+                $"dotnet build failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.True(
+                File.Exists(Path.Combine(projectRoot, "bin", "Debug", "net10.0", "SameProjectMacro.dll")),
+                "Expected the consumer assembly to be emitted.");
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(projectRoot);
+        }
+    }
+
+    [Fact]
     public void RavenProject_BuildsThroughDotnetBuild_WithRavenCoreRuntimeDependency()
     {
         var repoRoot = GetRepositoryRoot();

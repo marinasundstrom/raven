@@ -346,9 +346,9 @@ Validation record for this slice:
 * focused `MacroReferenceTests`: 5 passed
 * `scripts/test-feature-suite.sh macros`: 45 passed
 
-## Active slice: explicit same-project macro source partition
+## Active slice: same-project macro source partition
 
-Status: **implemented and validated at the compiler layer**
+Status: **dedicated-file MVP implemented and validated**
 
 * [x] accept explicitly classified macro implementation syntax trees through
   `Compilation.AddMacroSyntaxTrees`
@@ -360,15 +360,40 @@ Status: **implemented and validated at the compiler layer**
 * [x] include activated local macros in compiler-owned completion
 * [x] preserve compiler-only operation without `Workspace`, MSBuild, or an
   on-disk plugin artifact
-* [ ] automatically classify same-project macro declarations or files
+* [x] automatically classify a source file containing a
+  `[LocalMacroPlugin]` declaration in compiler and workspace construction
+* [x] preserve semantic-model access to the compile-time-only file
+* [x] build an SDK project that declares and consumes a macro without a
+  `RavenMacro` item or explicit compiler-contract reference
+* [ ] classify macro declarations independently from consumer declarations in
+  the same source file
 * [ ] cache the activated partition independently from consumer-only edits
 * [ ] invalidate dependent expansions when the partition changes
 * [ ] add declaration-granular dependency-cycle diagnostics
 
-The explicit partition is initially acyclic by construction: it receives
-metadata references and other macro references, but not consumer source
-declarations. This yields ordinary source diagnostics when macro code attempts
-to depend on the consumer partition.
+The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
+attribute named `LocalMacroPlugin` or `LocalMacroPluginAttribute` appears on a
+type declaration, the complete syntax tree is moved into the compile-time
+partition. The attribute itself is declared by `Raven.CodeAnalysis.Macros` and
+is distinct from both `#[...]` macro invocations and the future assembly-level
+provider marker for reusable compiler-plugin dependencies.
+
+Keeping the rule syntax-only avoids binding consumer source before plugin
+activation. Keeping it file-granular preserves the initial acyclic boundary:
+the marked file receives metadata references and other macro references, but
+not consumer source declarations. Macro implementations and supporting types
+therefore belong in a dedicated file for this MVP.
+
+`Compilation.AddSyntaxTreesWithLocalMacros` applies the same classification
+without requiring a `Workspace`. Workspace and SDK compilation construction use
+that API automatically. `AddMacroSyntaxTrees` remains available when a host
+already has an explicit partition.
+
+The current Playground uses a single user document, so a macro declaration and
+its consumer cannot yet share that editor buffer: the whole file would become
+compile-time-only. The in-memory Workspace path is now present, but the
+Playground experience requires declaration-granular partitioning before that
+mixed-file scenario is enabled.
 
 Layered project-local macro bootstrapping, where one local macro generates
 another macro implementation, remains out of scope until the phase model is
@@ -376,9 +401,10 @@ proven.
 
 Validation record for this slice:
 
-* `scripts/test-feature-suite.sh macros`: 47 passed
-* focused invalid-partition, runtime non-emission, and local-completion tests:
-  3 passed
+* `scripts/test-feature-suite.sh macros`: 48 passed
+* focused compiler automatic-partition test: passed
+* focused Workspace automatic-partition and semantic-model test: passed
+* focused SDK same-project build without `RavenMacro`: passed
 
 ## Architectural invariants
 

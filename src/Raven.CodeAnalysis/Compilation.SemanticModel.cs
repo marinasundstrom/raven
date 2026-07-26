@@ -52,12 +52,18 @@ public partial class Compilation
     {
         EnsureSetup();
 
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.GetSemanticModel(syntaxTree);
+
         return GetOrCreateSemanticModel(syntaxTree);
     }
 
     internal bool TryGetSemanticModel(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
         EnsureSetup();
+
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.TryGetSemanticModel(syntaxTree, out semanticModel);
 
         if (!_syntaxTrees.Contains(syntaxTree) &&
             !_generatedSemanticModels.ContainsKey(syntaxTree))
@@ -72,6 +78,12 @@ public partial class Compilation
 
     internal bool TryGetExistingSemanticModel(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
+        if (_macroSyntaxTrees.Contains(syntaxTree) &&
+            _macroPartitionCompilation is not null)
+        {
+            return _macroPartitionCompilation.TryGetExistingSemanticModel(syntaxTree, out semanticModel);
+        }
+
         if (_generatedSemanticModels.TryGetValue(syntaxTree, out semanticModel!))
             return true;
 
@@ -85,6 +97,9 @@ public partial class Compilation
     internal bool TryGetSemanticModelForDeclarationBinding(SyntaxTree syntaxTree, out SemanticModel semanticModel)
     {
         EnsureSetup();
+
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.TryGetSemanticModelForDeclarationBinding(syntaxTree, out semanticModel);
 
         if (!_syntaxTrees.Contains(syntaxTree) &&
             !_generatedSemanticModels.ContainsKey(syntaxTree))
@@ -115,6 +130,10 @@ public partial class Compilation
     internal SemanticModel CreateTransientSemanticModel(SyntaxTree syntaxTree)
     {
         EnsureSetup();
+
+        if (_macroSyntaxTrees.Contains(syntaxTree))
+            return _macroPartitionCompilation!.CreateTransientSemanticModel(syntaxTree);
+
         EnsureSourceDeclarationsComplete();
 
         if (_generatedSemanticModels.TryGetValue(syntaxTree, out var generatedSemanticModel))

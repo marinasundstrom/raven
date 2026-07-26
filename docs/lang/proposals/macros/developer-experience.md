@@ -420,12 +420,44 @@ plugins, and forwards their diagnostics through the consumer compilation.
 Completion reads from the same compiler macro registry and therefore includes
 successfully activated local macros.
 
-The explicit partition enforces the initial acyclic rule by construction: local
-macro code cannot bind against consumer declarations. The remaining
-same-project work is automatic declaration/file classification in the SDK and
-Playground, independent partition caching and invalidation, richer dependency
-resolution for the in-memory image, and dedicated cycle diagnostics when the
-classification model becomes declaration-granular.
+For the dedicated-file MVP, a project may instead mark a plugin declaration:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+
+[LocalMacroPlugin]
+class ProjectMacros: IRavenMacroPlugin {
+    // ...
+}
+```
+
+When syntax trees are added through
+`Compilation.AddSyntaxTreesWithLocalMacros`, or through normal Workspace and
+SDK project construction, the complete file containing that marker is
+classified into the local compile-time partition. No `RavenMacro` item,
+separate project, on-disk plugin assembly, or explicit project reference to
+`Raven.CodeAnalysis` is required. The local partition receives the compatible
+compiler contracts automatically.
+
+This is deliberately a syntax-only, file-granular rule. The macro plugin and
+its supporting implementation types must live in a dedicated source file;
+ordinary consumer declarations in that file would also be compile-time-only.
+`LocalMacroPluginAttribute` is a local source-partition marker, not a macro
+invocation and not the future assembly-level marker that opts reusable
+dependency outputs into compiler-plugin discovery.
+
+The partition enforces the initial acyclic rule by construction: local macro
+code cannot bind against consumer declarations. Workspace documents retain
+semantic-model access to a marked macro tree even though it is excluded from
+the runtime source assembly.
+
+The current Playground presents one user source buffer. Its in-memory Workspace
+now has the necessary automatic file classification, but declaring and
+consuming a macro in that same buffer requires declaration-granular
+partitioning; otherwise the complete buffer would be classified as
+compile-time-only. Remaining work also includes independent partition caching
+and invalidation, richer dependency resolution for the in-memory image, and
+dedicated cycle diagnostics.
 
 ## Expansion result construction
 

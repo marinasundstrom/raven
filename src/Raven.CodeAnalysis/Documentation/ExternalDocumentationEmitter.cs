@@ -104,7 +104,7 @@ internal static class ExternalDocumentationEmitter
     private static IEnumerable<DocumentationEntry> Collect(Compilation compilation, bool includeMarkdown = true)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var symbol in EnumerateDocumentableSymbols(compilation.Assembly.GlobalNamespace))
+        foreach (var symbol in EnumerateDocumentableSymbols(compilation.GetSourceGlobalNamespace()))
         {
             if (symbol.IsImplicitlyDeclared)
                 continue;

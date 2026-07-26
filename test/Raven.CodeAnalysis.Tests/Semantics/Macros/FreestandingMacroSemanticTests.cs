@@ -13,6 +13,24 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void MarkedLocalMacroPluginTree_IsAutomaticallyPartitioned()
+    {
+        var macroTree = CreateLocalAnswerMacroTree();
+        var consumerTree = SyntaxTree.ParseText("func Main() -> int => #localAnswer { }");
+        var compilation = Compilation.Create(
+                "LocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(macroTree, consumerTree);
+
+        Assert.Equal([consumerTree], compilation.SyntaxTrees);
+        Assert.Equal([macroTree], compilation.MacroSyntaxTrees);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void LocalMacroSyntaxTrees_CompileAndExpandWithoutWorkspace()
     {
         var macroTree = CreateLocalAnswerMacroTree();
@@ -96,6 +114,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
 
+            [LocalMacroPlugin]
             class LocalMacroPlugin : IRavenMacroPlugin {
                 val Name: string => "Local"
 

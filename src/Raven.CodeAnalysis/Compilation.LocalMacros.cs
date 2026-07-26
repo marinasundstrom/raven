@@ -9,6 +9,8 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
+    private Compilation? _macroPartitionCompilation;
+
     private MacroReference? CompileLocalMacroPartition()
     {
         if (_macroSyntaxTrees.Length == 0)
@@ -38,6 +40,7 @@ public partial class Compilation
             references,
             _macroReferences,
             Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        _macroPartitionCompilation = macroCompilation;
 
         using var image = new MemoryStream();
         var emitResult = macroCompilation.Emit(image);

@@ -54,6 +54,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   consumer binding, reports partition diagnostics through the consumer
   compilation, includes local macros in completion, and excludes plugin
   implementation types from runtime emit.
+- Added automatic dedicated-file discovery for same-project macros.
+  `[LocalMacroPlugin]` moves its complete source file into the compile-time
+  partition through compiler, Workspace, and SDK compilation paths, while
+  retaining semantic-model access and requiring neither a `RavenMacro` item nor
+  an explicit compiler-contract project reference.
 - Changed `Compilation.AddReferences` to append metadata references, matching
   its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member

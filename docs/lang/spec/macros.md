@@ -368,10 +368,34 @@ in-memory library and activated before consumer binding. Their diagnostics are
 reported by the consumer compilation, their macros participate in completion,
 and their implementation declarations are excluded from runtime emit.
 
-The explicit partition is acyclic: macro source can reference metadata and
-other macro plugins but cannot bind against consumer source declarations.
-Automatic classification of declarations or files into this partition is not
-yet implemented by the SDK or Playground.
+The dedicated-file MVP can classify this partition automatically. A type that
+implements the local plugin entry point is marked with an ordinary attribute:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+
+[LocalMacroPlugin]
+class ProjectMacros: IRavenMacroPlugin {
+    // ...
+}
+```
+
+`Compilation.AddSyntaxTreesWithLocalMacros`, Workspace compilation, and the SDK
+move the complete file containing that marker into the compile-time partition.
+The SDK form needs neither a `RavenMacro` item nor an explicit project reference
+to the compiler contracts. `LocalMacroPluginAttribute` is not written with
+`#[...]`: it classifies compiler-plugin implementation source rather than
+invoking a macro.
+
+The automatic rule is intentionally syntax-only and file-granular. Local macro
+plugins and their supporting types must be kept in a dedicated source file;
+consumer declarations in a marked file are not emitted into the runtime
+assembly. The partition remains acyclic: macro source can reference metadata
+and other macro plugins but cannot bind against consumer source declarations.
+
+The current single-buffer Playground cannot yet declare and consume a macro in
+one file. Its in-memory Workspace supports the file-classification foundation,
+but that mixed-file experience requires declaration-granular partitioning.
 
 Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
 

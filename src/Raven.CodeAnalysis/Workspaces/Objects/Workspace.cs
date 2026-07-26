@@ -313,8 +313,13 @@ public class Workspace
         var assemblyName = !string.IsNullOrWhiteSpace(project.AssemblyName)
             ? project.AssemblyName
             : project.Name;
-        var compilation = Compilation.Create(assemblyName,
-            syntaxTrees.ToArray(), references.ToArray(), [.. project.MacroReferences], project.CompilationOptions);
+        var compilation = Compilation.Create(
+                assemblyName,
+                syntaxTrees: [],
+                references.ToArray(),
+                [.. project.MacroReferences],
+                project.CompilationOptions)
+            .AddSyntaxTreesWithLocalMacros([.. syntaxTrees]);
 
         var generators = project.GeneratorReferences
             .SelectMany(static reference => reference.GetGenerators())
