@@ -489,6 +489,12 @@ code cannot bind against consumer declarations. Dedicated-file Workspace
 documents retain semantic-model access to a marked macro tree even though it is
 excluded from the runtime source assembly.
 
+When local macro code directly references a declaration in the consumer
+partition, Raven reports `RAVM003` at the authored reference instead of leaving
+the author with only a generic missing-name error. The message explains that
+consumer binding depends on macro activation and recommends moving shared
+compile-time support into the local partition or a referenced assembly.
+
 The Playground uses the declaration marker to declare and consume macros in one
 user source buffer. The included local-macro example covers attached,
 argument-style expression, and raw token-tree expression macros; a second
@@ -496,8 +502,7 @@ example demonstrates `#quote` directly.
 
 Macro-author hover, completion, navigation, and semantic queries across the two
 derived projections remain future developer-experience work. Remaining
-compiler work includes richer dependency resolution for the in-memory image
-and dedicated cycle diagnostics.
+compiler work includes richer dependency resolution for the in-memory image.
 
 ## Expansion result construction
 

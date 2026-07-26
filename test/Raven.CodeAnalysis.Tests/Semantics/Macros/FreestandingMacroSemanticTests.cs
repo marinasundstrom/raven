@@ -148,9 +148,119 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Contains(
             compilation.GetDiagnostics(macroTree),
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "RAVM003");
         Assert.DoesNotContain(
             compilation.GetDiagnostics(consumerTree),
             diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, macroTree));
+    }
+
+    [Fact]
+    public void MarkedLocalMacroDeclaration_ConsumerDependencyReportsCycle()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            class ConsumerConfiguration {
+                static val Answer: int => 42
+            }
+
+            [LocalMacro]
+            class ProjectMacros : IRavenMacroPlugin {
+                val Name: string => "Local"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [AnswerMacro()]
+            }
+
+            [LocalMacro]
+            class AnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "answer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    val answer = ConsumerConfiguration.Answer
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+
+            func Main() -> int => #answer { }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "LocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics()
+                .Where(static diagnostic => diagnostic.Id == "RAVM003"));
+
+        Assert.Contains("ConsumerConfiguration", diagnostic.GetMessage());
+        Assert.Equal("main.rvn", diagnostic.Location.SourceTree?.FilePath);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic =>
+                diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+                diagnostic.GetMessage().Contains("ConsumerConfiguration", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DedicatedLocalMacroFile_ConsumerDependencyReportsCycle()
+    {
+        var macroTree = SyntaxTree.ParseText(
+            """
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            [LocalMacroPlugin]
+            class ProjectMacros : IRavenMacroPlugin {
+                val Name: string => "Local"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [AnswerMacro()]
+            }
+
+            class AnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "answer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    val answer = ConsumerConfiguration.Answer
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+            """,
+            path: "local-macros.rvn");
+        var consumerTree = SyntaxTree.ParseText(
+            """
+            class ConsumerConfiguration {
+                static val Answer: int => 42
+            }
+
+            func Main() -> int => #answer { }
+            """,
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "LocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(macroTree, consumerTree);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics()
+                .Where(static diagnostic => diagnostic.Id == "RAVM003"));
+
+        Assert.Contains("ConsumerConfiguration", diagnostic.GetMessage());
+        Assert.Same(macroTree, diagnostic.Location.SourceTree);
     }
 
     [Fact]

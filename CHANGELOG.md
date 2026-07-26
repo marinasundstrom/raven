@@ -66,6 +66,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Reused emitted same-project macro partition artifacts across consumer-only
   incremental edits, while invalidating them for macro or reference changes and
   remapping cached partition diagnostics to the current syntax-tree projection.
+- Added `RAVM003` for local macro implementations that depend on consumer
+  declarations, identifying the compile-time activation cycle at the authored
+  reference in both dedicated and mixed-source macro layouts.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

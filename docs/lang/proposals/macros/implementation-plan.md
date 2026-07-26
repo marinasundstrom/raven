@@ -371,7 +371,7 @@ Status: **same-project and incremental-cache MVP implemented and validated**
 * [x] add runnable Playground examples for `#quote` and project-local macros
 * [x] cache the activated partition independently from consumer-only edits
 * [x] invalidate dependent expansions when the partition changes
-* [ ] add declaration-granular dependency-cycle diagnostics
+* [x] add declaration-granular dependency-cycle diagnostics
 
 The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
 attribute named `LocalMacroPlugin` or `LocalMacroPluginAttribute` appears on a
@@ -413,6 +413,14 @@ reference change invalidates the artifact; ordinary consumer-only edits do not.
 Dependent expansions are consequently rebuilt from the current macro registry
 when the artifact changes.
 
+If an unresolved reference in the local macro compilation resolves only when
+the consumer projection is added, Raven replaces the generic missing-name
+diagnostic with `RAVM003`. The diagnostic explains the phase cycle at the
+authored macro reference and directs the author to move the dependency into the
+local macro partition or a referenced assembly. The semantic probe avoids
+misclassifying ordinary typos or genuinely missing dependencies as cycles and
+works for both mixed and dedicated macro files.
+
 Macro-author semantic features over the projected declarations remain a later
 developer-experience slice. This MVP prioritizes correct compilation,
 diagnostics, expansion, emit, and execution; the ordinary consumer projection
@@ -424,14 +432,20 @@ proven.
 
 Validation record for this slice:
 
-* `scripts/test-feature-suite.sh macros`: 49 passed
+* `scripts/test-feature-suite.sh macros`: 51 passed
 * focused compiler automatic-partition test: passed
 * focused Workspace automatic-partition and semantic-model test: passed
 * focused Workspace partition reuse, invalidation, and diagnostic-remapping
   tests: passed
 * focused SDK same-project build without `RavenMacro`: passed
 * focused mixed-declaration compiler test: passed
+* focused mixed-file and dedicated-file dependency-cycle tests: passed
 * browser Playground smoke test, including every example: passed
+
+Next planned slice: make semantic queries over authored local macro
+declarations consistently resolve through the current macro projection, then
+use that compiler-owned view for macro-author hover, completion, navigation,
+and analyzer participation.
 
 ## Architectural invariants
 

@@ -392,6 +392,9 @@ plugins and their supporting types must be kept in a dedicated source file;
 consumer declarations in a marked file are not emitted into the runtime
 assembly. The partition remains acyclic: macro source can reference metadata
 and other macro plugins but cannot bind against consumer source declarations.
+If a reference in local macro code resolves only to a declaration in the
+consumer partition, the compiler reports `RAVM003` at that reference. The
+dependency must move into the local macro partition or a referenced assembly.
 
 A mixed source file uses `[LocalMacro]` instead:
 

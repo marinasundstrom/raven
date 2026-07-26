@@ -5,11 +5,21 @@ using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
+    private static readonly DiagnosticDescriptor s_localMacroDependencyCycle = DiagnosticDescriptor.Create(
+        "RAVM003",
+        "Local macro dependency cycle",
+        "Local macro implementations are compiled before consumer declarations.",
+        string.Empty,
+        "Local macro code cannot reference consumer declaration '{0}' because consumer binding depends on local macro activation. Move the dependency into the local macro partition or a referenced assembly.",
+        "Macros",
+        DiagnosticSeverity.Error);
+
     private Compilation? _macroPartitionCompilation;
     private LocalMacroPartitionArtifact? _localMacroPartitionArtifact;
     private bool _hasReusedLocalMacroPartitionArtifact;
@@ -38,7 +48,7 @@ public partial class Compilation
 
         using var image = new MemoryStream();
         var emitResult = _macroPartitionCompilation.Emit(image);
-        _macroPartitionDiagnostics = emitResult.Diagnostics;
+        _macroPartitionDiagnostics = RewriteLocalMacroDependencyCycles(emitResult.Diagnostics);
         PerformanceInstrumentation.Macros.RecordLocalPartitionCompilation();
 
         var reference = emitResult.Success
@@ -51,6 +61,55 @@ public partial class Compilation
             _macroPartitionDiagnostics,
             _macroSyntaxTrees);
         return reference;
+    }
+
+    private ImmutableArray<Diagnostic> RewriteLocalMacroDependencyCycles(
+        ImmutableArray<Diagnostic> diagnostics)
+    {
+        if (_syntaxTrees.Length == 0 ||
+            !diagnostics.Any(static diagnostic =>
+                diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id))
+        {
+            return diagnostics;
+        }
+
+        var probeCompilation = new Compilation(
+            $"{AssemblyName}.MacroDependencyProbe",
+            _macroSyntaxTrees.Concat(_syntaxTrees).ToArray(),
+            [],
+            EnsureMacroContractsReference(_references),
+            _macroReferences,
+            Options.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var unresolvedProbeLocations = _macroSyntaxTrees
+            .SelectMany(tree => probeCompilation.GetDiagnostics(tree))
+            .Where(static diagnostic =>
+                diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id)
+            .Select(static diagnostic => new LocalMacroDiagnosticLocation(
+                diagnostic.Location.SourceTree,
+                diagnostic.Location.SourceSpan))
+            .ToHashSet();
+
+        var builder = ImmutableArray.CreateBuilder<Diagnostic>(diagnostics.Length);
+        foreach (var diagnostic in diagnostics)
+        {
+            if (diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
+                diagnostic.Location.SourceTree is not null &&
+                !unresolvedProbeLocations.Contains(new LocalMacroDiagnosticLocation(
+                    diagnostic.Location.SourceTree,
+                    diagnostic.Location.SourceSpan)))
+            {
+                builder.Add(Diagnostic.Create(
+                    s_localMacroDependencyCycle,
+                    diagnostic.Location,
+                    diagnostic.GetMessageArgs()));
+            }
+            else
+            {
+                builder.Add(diagnostic);
+            }
+        }
+
+        return builder.ToImmutable();
     }
 
     internal void TryReuseLocalMacroPartitionFrom(Compilation previousCompilation)
@@ -180,4 +239,8 @@ public partial class Compilation
         SyntaxTree[] SyntaxTrees);
 
     private readonly record struct LocalMacroTreeSegment(int Start, string Text);
+
+    private readonly record struct LocalMacroDiagnosticLocation(
+        SyntaxTree? SyntaxTree,
+        TextSpan Span);
 }

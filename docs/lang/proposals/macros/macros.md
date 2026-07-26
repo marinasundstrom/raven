@@ -235,13 +235,17 @@ contracts. The provider project/package should declare its compiler-plugin
 output once; consumers should receive that asset through an ordinary dependency
 rather than separately importing macro assemblies.
 
-The compiler can activate an emitted macro assembly directly from memory. This
-is the activation boundary for the future same-project and Playground paths;
-the compiler API additionally accepts explicitly classified local macro trees
-through `Compilation.AddMacroSyntaxTrees`. These trees compile and activate in
-memory before consumer binding and are excluded from runtime emit. Automatic
-classification of a mixed source project remains future SDK and Playground
-work.
+The compiler can activate an emitted macro assembly directly from memory. The
+compiler API accepts explicitly classified local macro trees through
+`Compilation.AddMacroSyntaxTrees`, while normal compiler, Workspace, SDK, and
+Playground paths automatically classify `[LocalMacroPlugin]` files and
+declaration-granular `[LocalMacro]` types. These trees compile and activate in
+memory before consumer binding and are excluded from runtime emit.
+
+When a local macro implementation references a declaration that exists only in
+the consumer partition, the compiler reports `RAVM003` at that reference. This
+is a phase dependency cycle: consumer binding requires local macro activation,
+so local macro activation cannot depend on consumer declarations.
 
 ---
 
