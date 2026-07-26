@@ -76,6 +76,25 @@ public sealed class QueryMacroCodeGenTests
         Assert.Equal("where", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
     }
 
+    [Fact]
+    public void QueryMacro_MalformedEmbeddedExpression_ReportsParserDiagnosticAtAuthoredLocation()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            func Main() -> int => #query {
+                from value in [1, 2, 3]
+                where value.Equals(1, )
+                select value
+            }
+            """);
+
+        var compilation = CreateCompilation(syntaxTree);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAV1525"));
+
+        Assert.Same(syntaxTree, diagnostic.Location.SourceTree);
+        Assert.Equal(")", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
+    }
+
     private static object? InvokeRun(string source)
     {
         var syntaxTree = SyntaxTree.ParseText(source);
@@ -172,30 +191,34 @@ public sealed class QueryMacroCodeGenTests
             var sourceEnd = whereKeyword.Kind == SyntaxKind.WhereKeyword
                 ? whereKeyword.SpanStart
                 : selectKeyword.SpanStart;
-            var source = context.ParseExpression(
+            var sourceResult = context.ParseExpressionResult(
                 TextSpan.FromBounds(inKeyword.Span.End, sourceEnd));
-            ExpressionSyntax query = source;
+            ExpressionSyntax query = sourceResult.Syntax;
+            var diagnostics = sourceResult.Diagnostics;
 
             if (whereKeyword.Kind == SyntaxKind.WhereKeyword)
             {
-                var predicate = context.ParseExpression(
+                var predicateResult = context.ParseExpressionResult(
                     TextSpan.FromBounds(whereKeyword.Span.End, selectKeyword.SpanStart));
+                diagnostics = diagnostics.AddRange(predicateResult.Diagnostics);
                 query = InvokeQueryOperator(
                     query,
                     "Where",
-                    CreateLambda(rangeVariable.ValueText, predicate));
+                    CreateLambda(rangeVariable.ValueText, predicateResult.Syntax));
             }
 
-            var selector = context.ParseExpression(
+            var selectorResult = context.ParseExpressionResult(
                 TextSpan.FromBounds(selectKeyword.Span.End, context.BodySpan.Length));
+            diagnostics = diagnostics.AddRange(selectorResult.Diagnostics);
             query = InvokeQueryOperator(
                 query,
                 "Select",
-                CreateLambda(rangeVariable.ValueText, selector));
+                CreateLambda(rangeVariable.ValueText, selectorResult.Syntax));
 
             return new FreestandingMacroExpansionResult
             {
-                Expression = query
+                Expression = query,
+                Diagnostics = diagnostics
             };
         }
 

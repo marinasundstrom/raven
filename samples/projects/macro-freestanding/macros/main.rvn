@@ -243,28 +243,36 @@ class QueryMacro : ITokenTreeExpressionMacro, IMacroKeywordProvider {
             selectKeyword.SpanStart
         }
 
-        let source = context.ParseExpression(
+        let sourceResult = context.ParseExpressionResult(
             TextSpan.FromBounds(inKeyword.Span.End, sourceEnd))
-        var query: ExpressionSyntax = source
+        var query: ExpressionSyntax = sourceResult.Syntax
+        var diagnostics = sourceResult.Diagnostics
 
         if whereKeyword.Kind == SyntaxKind.WhereKeyword {
-            let predicate = context.ParseExpression(
+            let predicateResult = context.ParseExpressionResult(
                 TextSpan.FromBounds(whereKeyword.Span.End, selectKeyword.SpanStart))
+            if diagnostics.Length == 0 && predicateResult.HasErrors {
+                diagnostics = predicateResult.Diagnostics
+            }
             query = InvokeQueryOperator(
                 query,
                 "Where",
-                CreateLambda(rangeVariable.ValueText, predicate))
+                CreateLambda(rangeVariable.ValueText, predicateResult.Syntax))
         }
 
-        let selector = context.ParseExpression(
+        let selectorResult = context.ParseExpressionResult(
             TextSpan.FromBounds(selectKeyword.Span.End, context.BodySpan.Length))
+        if diagnostics.Length == 0 && selectorResult.HasErrors {
+            diagnostics = selectorResult.Diagnostics
+        }
         query = InvokeQueryOperator(
             query,
             "Select",
-            CreateLambda(rangeVariable.ValueText, selector))
+            CreateLambda(rangeVariable.ValueText, selectorResult.Syntax))
 
         FreestandingMacroExpansionResult {
             Expression = query
+            Diagnostics = diagnostics
         }
     }
 

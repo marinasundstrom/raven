@@ -77,6 +77,13 @@ Raven lexer diagnostics.
 the complete body or a selected body-relative span. This supports both complete
 custom parsing and hybrid DSLs with embedded Raven expressions.
 
+`ParseExpression()` and `ParseExpression(span)` return recovered Raven syntax
+directly. The corresponding `ParseExpressionResult` overloads return a
+`MacroSyntaxParseResult<ExpressionSyntax>` containing that syntax, immutable
+native parser diagnostics, and `HasErrors`. These diagnostics retain locations
+in the authored invocation tree and may be forwarded through
+`FreestandingMacroExpansionResult.Diagnostics`.
+
 Token-tree expression macros implement `ITokenTreeExpressionMacro`. A
 token-tree-only macro must be invoked with braces; an argument-based macro must
 be invoked with parentheses.

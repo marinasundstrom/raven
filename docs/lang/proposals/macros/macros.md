@@ -290,17 +290,18 @@ Remapping:
 
 # 8. Embedded Raven Parsing
 
-`MacroContext` provides parser entrypoints:
+`TokenTreeMacroContext` provides parser entrypoints:
 
-* `ParseExpression(stopCondition)`
-* `ParseStatement(stopCondition)`
-* (optional) `ParseType`, `ParseMember`
+* `ParseExpression(bodyRelativeSpan)`
+* `ParseExpressionResult(bodyRelativeSpan)`
+* planned `ParseStatement`, `ParseType`, and `ParseMember` counterparts
 
 These:
 
-* Consume tokens from the macro cursor
+* Parse the selected authored body span
 * Use Raven’s real parser
 * Preserve original token spans
+* In the result-bearing form, preserve native Raven parser diagnostics
 
 This ensures precise source mapping for embedded Raven fragments.
 
@@ -426,15 +427,20 @@ This enables:
 
 When completion occurs inside an embedded Raven fragment:
 
-1. The macro parses the fragment using `ParseExpression` or `ParseStatement`
-2. A temporary binder overlay is created
-3. Normal Raven completion is executed
+1. The retained macro structure identifies the body-relative region and its
+   expected Raven category, including empty recovery slots.
+2. The compiler maps the position into that region and invokes ordinary Raven
+   completion in the caller's semantic context.
+3. If the DSL introduces bindings visible in the region, the macro's structure
+   supplies a compiler-owned scope bridge for those names.
 
 This allows:
 
 * Member completion (e.g. `user.`)
 * Type-aware suggestions
 * Full semantic completion inside macro bodies
+* Raven completion at incomplete expression, statement, type, pattern, or
+  member slots
 
 ---
 
@@ -448,6 +454,8 @@ Macros may optionally provide:
 * Quick info
 
 These integrate with Raven’s tooling pipeline without requiring macro expansion.
+The language server presents compiler results; it does not recreate the DSL
+parser, semantic bridge, or expansion independently.
 
 ---
 

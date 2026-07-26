@@ -26,6 +26,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   `where`, and one `select` clause, directly lowering caller-scoped Raven
   fragments to ordinary `Where`/`Select` calls and authored range-variable
   lambdas.
+- Added diagnostic-bearing embedded Raven expression parsing for token-tree
+  macros. `ParseExpressionResult` returns recovered syntax plus immutable
+  native parser diagnostics mapped to the authored invocation, while the
+  existing `ParseExpression` convenience API remains available.
 - Clarified that Raven-authored enums are closed by default for declared-member
   match exhaustiveness, with no source modifier, and locked complete enum
   matches with focused semantic coverage.

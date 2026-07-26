@@ -164,6 +164,20 @@ name becomes the parameter of ordinary generated `Where` and `Select` lambdas,
 so it scopes over the predicate and projection without leaking outside the
 expansion. No hidden macro-generated name is needed in this subset.
 
+Fragment parsing has two API shapes. `ParseExpression(span)` is the concise
+syntax-only convenience for macros that deliberately handle invalid input
+themselves. `ParseExpressionResult(span)` returns
+`MacroSyntaxParseResult<ExpressionSyntax>`, containing the recovered syntax,
+native Raven parser diagnostics, and `HasErrors`. Diagnostic locations are
+mapped to the invocation's original syntax tree, so a macro can forward them
+through `FreestandingMacroExpansionResult.Diagnostics` without translating
+generated-tree positions or wrapping them as macro failures.
+
+The parse-result type is generic so later statement, type, pattern, member, and
+quote fragment entry points can share the same developer experience. Adding
+those category-specific parsers remains incremental work; the generic result
+does not make Raven's ordinary syntax hierarchy extensible.
+
 For example, a query DSL can parse its clauses itself while treating a filter
 body as a Raven expression:
 
@@ -179,9 +193,9 @@ All lexer tokens, wrapper nodes, diagnostics, completion edits, and delegated
 Raven fragments use one body-relative coordinate system. Compiler APIs map
 those spans back to the authored syntax tree.
 
-Raven fragment helpers should eventually return both syntax and mapped parser
-diagnostics for expressions, statements, patterns, types, members,
-declarations, and compilation units.
+Expression fragment helpers return both syntax and mapped parser diagnostics.
+The same result shape should extend incrementally to statements, patterns,
+types, members, declarations, and compilation units.
 
 ## Macro capability hooks
 
@@ -202,6 +216,26 @@ ordering.
 Editor capabilities should share the same cached token and structure snapshot
 as expansion. A completion provider should not silently tokenize or parse the
 body under different rules from the macro expander.
+
+Retained structure is also the routing map for mixed-language editor services.
+A structure snapshot should be able to mark a body-relative region or recovery
+slot as expecting a Raven expression, statement, type, pattern, member, or
+other supported fragment category. At a completion position, the compiler can
+then choose between:
+
+* macro-owned completion for DSL tokens and structure
+* ordinary Raven completion for a marked Raven fragment
+* a macro-provided semantic bridge when the DSL introduces names visible
+  inside that fragment, such as a query range variable
+
+Recovery slots matter as much as successfully parsed child nodes because
+completion is commonly requested at an empty or incomplete location. The
+compiler-owned snapshot must therefore retain expected categories and spans
+even when no valid Raven fragment exists yet.
+
+The exact scope-bridge API remains future work. It must preserve caller scope,
+macro hygiene, and compiler-owned semantic caching rather than requiring the
+language server to reconstruct an expansion or call the plugin directly.
 
 ## Diagnostics
 

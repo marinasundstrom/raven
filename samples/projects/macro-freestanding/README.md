@@ -50,6 +50,9 @@ Current status:
   optional `where`, and one `select`. The authored range variable becomes the
   parameter of generated `Where` and `Select` lambdas, while the source,
   predicate, and projection remain independently parsed Raven expressions.
+- The query uses `ParseExpressionResult` so recovered syntax and native Raven
+  parser diagnostics stay together. The first invalid embedded fragment is
+  forwarded with its authored source location.
 - The query MVP generates no hidden temporary names and retains no custom DSL
   tree. Additional generators, repeated clauses, ordering, joins, and editor
   services remain future work.

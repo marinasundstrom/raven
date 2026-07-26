@@ -37,6 +37,12 @@ internal class LanguageParser
     }
 
     public SyntaxNode? ParseSyntax(Type requestedSyntaxType, SourceText sourceText, int position)
+        => ParseSyntaxWithDiagnostics(requestedSyntaxType, sourceText, position)?.Root;
+
+    public ParseResult? ParseSyntaxWithDiagnostics(
+        Type requestedSyntaxType,
+        SourceText sourceText,
+        int position)
     {
         using var textReader = sourceText.GetTextReader(position);
 
@@ -45,7 +51,10 @@ internal class LanguageParser
 
         try
         {
-            return ParseRequestedType(parseContext, requestedSyntaxType);
+            var root = ParseRequestedType(parseContext, requestedSyntaxType);
+            return root is null
+                ? null
+                : new ParseResult(root, parseContext.Diagnostics);
         }
         catch (NotSupportedException)
         {

@@ -208,7 +208,7 @@ Validation record for this slice:
 
 * Raven-authored macro project build: passed
 * sample application runtime output: `42`, `False`, `correct`, `70`
-* focused `QueryMacroCodeGenTests`: 3 passed
+* focused `QueryMacroCodeGenTests`: 4 passed
 * `scripts/test-feature-suite.sh macros`: 41 passed
 
 The MVP generates no hidden temporary identifiers: the only introduced binding
@@ -216,6 +216,34 @@ is the explicitly authored range variable used as each lambda parameter. This
 keeps the initial hygiene story observable and deterministic. Repeated
 generators, joins, ordering, continuation clauses, and retained query structure
 remain later slices.
+
+## Active slice: diagnostic-bearing Raven fragments
+
+Status: **implemented**
+
+Hybrid macros can now retain Raven parser recovery and diagnostics together:
+
+```raven
+let predicate = context.ParseExpressionResult(predicateSpan)
+
+FreestandingMacroExpansionResult {
+    Expression = predicate.Syntax
+    Diagnostics = predicate.Diagnostics
+}
+```
+
+* [x] preserve the existing `ParseExpression` syntax-only convenience API
+* [x] add `ParseExpressionResult` for the complete body and selected spans
+* [x] return recovered syntax, immutable diagnostics, and `HasErrors`
+* [x] map native parser diagnostics to the authored invocation syntax tree
+* [x] make the result generic for later syntax fragment categories
+* [x] propagate embedded parser diagnostics through the query MVP
+* [x] cover a malformed query fragment at its authored token location
+
+The parser result is intentionally not a custom DSL syntax tree. It is the
+shared boundary for delegating selected spans back to Raven. A macro remains
+free to retain separate DSL structure before translating it to ordinary Raven
+syntax.
 
 ## Architectural invariants
 
@@ -284,6 +312,14 @@ Editor providers consume the same body text and tokenization snapshot used by
 expansion. Results remain compiler-owned and versioned with the containing
 document snapshot.
 
+Retained DSL structure should mark incomplete slots and parsed regions with an
+expected language category. Completion routing can then delegate expression,
+statement, type, pattern, or member regions to Raven's ordinary completion
+service while leaving clause and DSL-specific positions with the macro
+provider. When DSL bindings such as query range variables are visible inside a
+Raven region, the macro/compiler contract must also describe that semantic
+scope without leaking generated implementation names.
+
 ### Custom DSL syntax trees
 
 Allow a macro parser to build a secondary syntax tree over its token stream.
@@ -324,6 +360,8 @@ capabilities:
   syntax
 * editor services: completion, classifications, hover, and signature help over
   the token/structure snapshot
+* Raven-fragment regions: expected syntax categories plus any macro-introduced
+  semantic scope needed for ordinary Raven tooling inside the DSL
 
 The compiler resolves these capabilities through the macro registry, associates
 derived tokens and wrapper trees with the invocation plus document snapshot,

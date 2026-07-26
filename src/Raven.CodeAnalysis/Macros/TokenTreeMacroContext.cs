@@ -100,9 +100,15 @@ public sealed class TokenTreeMacroContext
     }
 
     public ExpressionSyntax ParseExpression()
-        => ParseExpression(new TextSpan(0, BodySpan.Length));
+        => ParseExpressionResult().Syntax;
 
     public ExpressionSyntax ParseExpression(TextSpan bodyRelativeSpan)
+        => ParseExpressionResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult()
+        => ParseExpressionResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(TextSpan bodyRelativeSpan)
     {
         if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
             throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
@@ -111,11 +117,24 @@ public sealed class TokenTreeMacroContext
         var fragmentText = bodyText.Substring(bodyRelativeSpan.Start, bodyRelativeSpan.Length);
         var absoluteStart = BodySpan.Start + bodyRelativeSpan.Start;
         var sourceText = SourceText.From(new string(' ', absoluteStart) + fragmentText);
-
-        return SyntaxFactory.ParseExpression(
+        var parser = new Syntax.InternalSyntax.Parser.LanguageParser(
+            Syntax.SyntaxTree?.FilePath,
+            Syntax.SyntaxTree?.Options ?? new ParseOptions());
+        var parseResult = parser.ParseSyntaxWithDiagnostics(
+            typeof(ExpressionSyntax),
             sourceText,
-            Syntax.SyntaxTree?.Options,
             absoluteStart);
+        var expression = parseResult?.Root.CreateRed() as ExpressionSyntax
+            ?? new ExpressionSyntax.Missing();
+        var diagnostics = parseResult?.Diagnostics
+            .Select(diagnostic => Diagnostic.Create(
+                diagnostic.Descriptor,
+                Syntax.SyntaxTree?.GetLocation(diagnostic.Span) ?? Location.None,
+                diagnostic.Args))
+            .ToImmutableArray()
+            ?? ImmutableArray<Diagnostic>.Empty;
+
+        return new MacroSyntaxParseResult<ExpressionSyntax>(expression, diagnostics);
     }
 
     public MacroExpansionDiagnostic CreateDiagnostic(
