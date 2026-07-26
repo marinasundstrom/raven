@@ -336,16 +336,16 @@ public sealed class DocumentationComment
     {
         return name switch
         {
-            "param" => DocumentationTagKind.Param,
-            "typeparam" => DocumentationTagKind.TypeParam,
-            "returns" => DocumentationTagKind.Returns,
+            "param" or "parameter" => DocumentationTagKind.Param,
+            "typeparam" or "typeparameter" => DocumentationTagKind.TypeParam,
+            "return" or "returns" or "result" => DocumentationTagKind.Returns,
             "value" => DocumentationTagKind.Value,
-            "remarks" => DocumentationTagKind.Remarks,
-            "example" => DocumentationTagKind.Example,
-            "exception" => DocumentationTagKind.Exception,
+            "remarks" or "notes" => DocumentationTagKind.Remarks,
+            "example" or "examples" => DocumentationTagKind.Example,
+            "exception" or "throws" => DocumentationTagKind.Exception,
             "see" => DocumentationTagKind.See,
             "seealso" => DocumentationTagKind.SeeAlso,
-            "inheritdoc" => DocumentationTagKind.InheritDoc,
+            "inheritdoc" or "inherit" => DocumentationTagKind.InheritDoc,
             _ => DocumentationTagKind.Unknown
         };
     }

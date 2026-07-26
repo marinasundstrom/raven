@@ -70,6 +70,22 @@ prevent an editor or RavenDoc from presenting the author's Markdown faithfully.
 XML input maps recognized elements into the same roles. Unrecognized XML should
 be preserved where practical instead of being mistaken for Markdown.
 
+The initial compiler API represents this as `RavenDocumentation`:
+
+- ordered `DocumentationSection` values carry narrative roles such as summary,
+  details, result, remarks, and examples
+- `DocumentationAssociation` values attach content to subjects such as
+  parameters, errors, and related links
+- `SourceFormat` and `SourceText` preserve the loaded representation at the
+  adapter boundary
+- `InheritedFrom` carries an optional symbol relationship without exposing an
+  XML element
+
+`RavenDocumentationLoader` adapts Markdown or XML comments into this model.
+Projectors consume the model and choose the target vocabulary. The older
+format-shaped extraction types remain compatibility helpers while consumers
+migrate to the Raven model.
+
 ## Tags, roles, and aliases
 
 .NET XML documentation defines important compatibility semantics, but its
@@ -101,6 +117,21 @@ This compatibility should be permissive:
 The supported role and alias table should be versioned and documented as it
 grows. Adding an XML projection mapping does not automatically require adding a
 new source tag.
+
+The initial Markdown aliases are intentionally small:
+
+| Raven role | Accepted Markdown names | .NET XML projection |
+| --- | --- | --- |
+| parameter | `@param`, `@parameter` | `<param>` |
+| type parameter | `@typeparam`, `@typeparameter` | `<typeparam>` |
+| result | `@return`, `@returns`, `@result` | `<returns>` |
+| remarks | `@remarks`, `@notes` | `<remarks>` |
+| example | `@example`, `@examples` | `<example>` |
+| error | `@exception`, `@throws` | `<exception>` |
+| inherited documentation | `@inheritdoc`, `@inherit` | `<inheritdoc>` |
+
+These names are authoring conveniences. The Raven API exposes roles, not the
+chosen spelling.
 
 ## Projection
 

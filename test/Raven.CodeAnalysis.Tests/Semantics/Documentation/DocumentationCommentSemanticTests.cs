@@ -148,4 +148,42 @@ and metadata loading scenarios.
         Assert.True(string.IsNullOrWhiteSpace(structure.AdditionalBody));
         Assert.DoesNotContain("### Remarks", structure.Body);
     }
+
+    [Fact]
+    public void RavenDocumentationLoader_NormalizesMarkdownAndXmlIntoTheSameRoles()
+    {
+        var markdown = DocumentationComment.Create(
+            DocumentationFormat.Markdown,
+            """
+Parses a widget.
+
+@parameter text Input text.
+@result The parsed widget.
+@throws T:System.FormatException Invalid input.
+""");
+        var xml = DocumentationComment.Create(
+            DocumentationFormat.Xml,
+            """
+<summary>Parses a widget.</summary>
+<param name="text">Input text.</param>
+<returns>The parsed widget.</returns>
+<exception cref="T:System.FormatException">Invalid input.</exception>
+""");
+
+        var markdownDocumentation = RavenDocumentationLoader.Load(markdown);
+        var xmlDocumentation = RavenDocumentationLoader.Load(xml);
+
+        Assert.Equal("Parses a widget.", markdownDocumentation.GetSection(DocumentationSectionKind.Summary));
+        Assert.Equal(
+            markdownDocumentation.GetSection(DocumentationSectionKind.Result),
+            xmlDocumentation.GetSection(DocumentationSectionKind.Result));
+
+        var markdownParameter = Assert.Single(markdownDocumentation.GetAssociations(DocumentationAssociationKind.Parameter));
+        var xmlParameter = Assert.Single(xmlDocumentation.GetAssociations(DocumentationAssociationKind.Parameter));
+        Assert.Equal(markdownParameter, xmlParameter);
+
+        var markdownError = Assert.Single(markdownDocumentation.GetAssociations(DocumentationAssociationKind.Error));
+        var xmlError = Assert.Single(xmlDocumentation.GetAssociations(DocumentationAssociationKind.Error));
+        Assert.Equal(markdownError, xmlError);
+    }
 }

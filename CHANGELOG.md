@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Added the format-neutral `RavenDocumentation` compiler API. Markdown and XML
+  inputs now normalize into Raven-owned section and association roles before
+  XML projection, with a small compatibility alias set including `@parameter`,
+  `@result`, and `@throws`.
 - Raven library projects now emit both Raven Markdown documentation sidecars
   and compatible .NET XML documentation by default. Raven consumes Markdown
   first and falls back to XML for libraries without Raven documentation;

@@ -307,8 +307,9 @@ public class Widget {}
 public class WidgetParser {
     /// Parses a widget title.
     ///
-    /// @param text Input text to parse.
-    /// @returns The parsed title.
+    /// @parameter text Input text to parse.
+    /// @result The parsed title.
+    /// @throws T:System.FormatException The text is invalid.
     public func Parse(text: string) -> string {
         text
     }
@@ -356,6 +357,7 @@ public class WidgetParser {
             Assert.Contains("<remarks>This is culture-invariant.</remarks>", xml, StringComparison.Ordinal);
             Assert.Contains("<param name=\"text\">Input text to parse.</param>", xml, StringComparison.Ordinal);
             Assert.Contains("<returns>The parsed title.</returns>", xml, StringComparison.Ordinal);
+            Assert.Contains("<exception cref=\"T:System.FormatException\">The text is invalid.</exception>", xml, StringComparison.Ordinal);
             Assert.DoesNotContain("@param", xml, StringComparison.Ordinal);
             Assert.DoesNotContain("///", xml, StringComparison.Ordinal);
         }

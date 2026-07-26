@@ -202,33 +202,43 @@ internal static class ExternalDocumentationEmitter
 
     private static void AppendMarkdownAsXml(StringBuilder builder, DocumentationComment comment)
     {
-        var structure = DocumentationStructureExtractor.Extract(comment);
+        var documentation = RavenDocumentationLoader.Load(comment);
 
-        AppendXmlElement(builder, "summary", MarkdownDocumentationTextConverter.ToPlainText(structure.Summary));
+        AppendXmlSection(builder, documentation, DocumentationSectionKind.Summary, "summary");
 
-        foreach (var entry in structure.TypeParameters)
-            AppendXmlElement(builder, "typeparam", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("name", entry.Name));
+        foreach (var association in documentation.GetAssociations(DocumentationAssociationKind.TypeParameter))
+            AppendXmlElement(builder, "typeparam", MarkdownDocumentationTextConverter.ToPlainText(association.Content), ("name", association.Name));
 
-        foreach (var entry in structure.Parameters)
-            AppendXmlElement(builder, "param", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("name", entry.Name));
+        foreach (var association in documentation.GetAssociations(DocumentationAssociationKind.Parameter))
+            AppendXmlElement(builder, "param", MarkdownDocumentationTextConverter.ToPlainText(association.Content), ("name", association.Name));
 
-        AppendXmlElement(builder, "returns", MarkdownDocumentationTextConverter.ToPlainText(structure.Returns));
-        AppendXmlElement(builder, "value", MarkdownDocumentationTextConverter.ToPlainText(structure.Value));
-        AppendXmlElement(builder, "remarks", MarkdownDocumentationTextConverter.ToPlainText(structure.Remarks));
-        AppendXmlElement(builder, "example", MarkdownDocumentationTextConverter.ToPlainText(structure.Example));
+        AppendXmlSection(builder, documentation, DocumentationSectionKind.Result, "returns");
+        AppendXmlSection(builder, documentation, DocumentationSectionKind.Value, "value");
+        AppendXmlSection(builder, documentation, DocumentationSectionKind.Remarks, "remarks");
+        AppendXmlSection(builder, documentation, DocumentationSectionKind.Example, "example");
 
-        foreach (var entry in structure.Exceptions)
-            AppendXmlElement(builder, "exception", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("cref", entry.Reference));
+        foreach (var association in documentation.GetAssociations(DocumentationAssociationKind.Error))
+            AppendXmlElement(builder, "exception", MarkdownDocumentationTextConverter.ToPlainText(association.Content), ("cref", association.Reference));
 
-        foreach (var entry in structure.See)
-            AppendXmlElement(builder, "see", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("cref", entry.Reference));
+        foreach (var association in documentation.GetAssociations(DocumentationAssociationKind.Link))
+            AppendXmlElement(builder, "see", MarkdownDocumentationTextConverter.ToPlainText(association.Content), ("cref", association.Reference));
 
-        foreach (var entry in structure.SeeAlso)
-            AppendXmlElement(builder, "seealso", MarkdownDocumentationTextConverter.ToPlainText(entry.Content), ("cref", entry.Reference));
+        foreach (var association in documentation.GetAssociations(DocumentationAssociationKind.RelatedLink))
+            AppendXmlElement(builder, "seealso", MarkdownDocumentationTextConverter.ToPlainText(association.Content), ("cref", association.Reference));
 
-        if (!string.IsNullOrWhiteSpace(structure.InheritDocReference))
-            AppendXmlElement(builder, "inheritdoc", attributes: [("cref", structure.InheritDocReference)]);
+        if (!string.IsNullOrWhiteSpace(documentation.InheritedFrom))
+            AppendXmlElement(builder, "inheritdoc", attributes: [("cref", documentation.InheritedFrom)]);
     }
+
+    private static void AppendXmlSection(
+        StringBuilder builder,
+        RavenDocumentation documentation,
+        DocumentationSectionKind sectionKind,
+        string elementName)
+        => AppendXmlElement(
+            builder,
+            elementName,
+            MarkdownDocumentationTextConverter.ToPlainText(documentation.GetSection(sectionKind)));
 
     private static void AppendXmlElement(
         StringBuilder builder,
