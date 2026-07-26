@@ -362,15 +362,16 @@ dependency and must be available in the Playground. `#quote` is the first such
 macro; future defaults such as `#embedFile` may be compiler intrinsics or
 SDK-bundled plugins without exposing that distinction at the invocation site.
 
-Same-project macro declarations are part of the intended language model but are
-not implemented by the current SDK. They require the compiler to stage an
-acyclic compile-time macro partition before binding dependent invocations. The
-design must work from an in-memory project snapshot so the Playground does not
-depend on a separate macro project or an on-disk plugin assembly.
+The compiler API supports an explicit same-project macro source partition.
+Trees supplied through `Compilation.AddMacroSyntaxTrees` are compiled as an
+in-memory library and activated before consumer binding. Their diagnostics are
+reported by the consumer compilation, their macros participate in completion,
+and their implementation declarations are excluded from runtime emit.
 
-The compiler API can activate an already-emitted macro assembly from an
-in-memory image. Automatic source partitioning and compilation of same-project
-macro declarations are not yet implemented.
+The explicit partition is acyclic: macro source can reference metadata and
+other macro plugins but cannot bind against consumer source declarations.
+Automatic classification of declarations or files into this partition is not
+yet implemented by the SDK or Playground.
 
 Macro-reported validation failures currently surface through the shared compiler diagnostic `RAVM021`, with the macro name and custom message embedded in the diagnostic text. The diagnostic location may point either at the macro site or at a specific argument.
 

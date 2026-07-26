@@ -53,6 +53,12 @@ public class CompilationOptions
 
     public OutputKind OutputKind { get; }
 
+    /// <summary>
+    /// Creates options with the specified output kind.
+    /// </summary>
+    public CompilationOptions WithOutputKind(OutputKind outputKind)
+        => new(outputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _membersPublicByDefault, _returnedValueHandlingMode, FrameworkProjectionMode);
+
     public ImmutableDictionary<string, ReportDiagnostic> SpecificDiagnosticOptions { get; }
 
     public bool RunAnalyzers { get; }

@@ -11,6 +11,56 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public sealed class CompletionServiceMacroTests
 {
     [Fact]
+    public void GetCompletions_InFreestandingMacroName_ReturnsLocalMacro()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        val answer = #local()
+    }
+}
+""";
+        var macroTree = SyntaxTree.ParseText("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            class LocalMacroPlugin : IRavenMacroPlugin {
+                val Name: string => "Local"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [LocalAnswerMacro()]
+            }
+
+            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "localAnswer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+            """);
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroSyntaxTrees(macroTree)
+            .AddSyntaxTrees(syntaxTree);
+
+        var position = code.IndexOf('(', code.IndexOf("#local", StringComparison.Ordinal));
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        var localAnswer = Assert.Single(items.Where(static item => item.DisplayText == "localAnswer"));
+        Assert.Equal("localAnswer { }", localAnswer.InsertionText);
+    }
+
+    [Fact]
     public void GetCompletions_InFreestandingMacroName_ReturnsIntrinsicQuote()
     {
         const string code = """

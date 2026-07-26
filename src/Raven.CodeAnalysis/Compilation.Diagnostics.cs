@@ -18,6 +18,9 @@ public partial class Compilation
         foreach (var diagnostic in _generatorDiagnostics)
             Add(diagnostic);
 
+        foreach (var diagnostic in _macroPartitionDiagnostics)
+            Add(diagnostic);
+
         foreach (var syntaxTree in SyntaxTrees)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -123,12 +126,28 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(syntaxTree);
 
-        if (!SyntaxTrees.Contains(syntaxTree))
+        var isConsumerTree = SyntaxTrees.Contains(syntaxTree);
+        var isMacroTree = MacroSyntaxTrees.Contains(syntaxTree);
+        if (!isConsumerTree && !isMacroTree)
             throw new ArgumentException("Syntax tree is not part of compilation", nameof(syntaxTree));
 
         var diagnostics = new List<Diagnostic>();
 
         EnsureSetup();
+
+        if (isMacroTree)
+        {
+            foreach (var diagnostic in _macroPartitionDiagnostics)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (BelongsToTree(diagnostic, syntaxTree))
+                    Add(diagnostic);
+            }
+
+            return diagnostics
+                .OrderBy(static diagnostic => diagnostic, DiagnosticComparer.Instance)
+                .ToImmutableArray();
+        }
 
         foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
         {

@@ -13,6 +13,73 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public sealed class FreestandingMacroSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void LocalMacroSyntaxTrees_CompileAndExpandWithoutWorkspace()
+    {
+        var macroTree = CreateLocalAnswerMacroTree();
+        var consumerTree = SyntaxTree.ParseText("func Main() -> int => #localAnswer { }");
+        var compilation = Compilation.Create(
+                "LocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroSyntaxTrees(macroTree)
+            .AddSyntaxTrees(consumerTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(macroTree, compilation.SyntaxTrees);
+        Assert.Contains(macroTree, compilation.MacroSyntaxTrees);
+
+        var expression = consumerTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(expression);
+
+        Assert.NotNull(expansion);
+        Assert.Equal("42", expansion!.Expression!.ToString());
+    }
+
+    [Fact]
+    public void InvalidLocalMacroPartition_ReportsItsDiagnosticsAndDoesNotRegisterMacros()
+    {
+        var macroTree = SyntaxTree.ParseText("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            class BrokenMacroPlugin : IRavenMacroPlugin {
+                val Name: string => "Broken"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [MissingMacro()]
+            }
+            """, path: "local-macros.rvn");
+        var consumerTree = SyntaxTree.ParseText(
+            "func Main() -> int => #localAnswer { }",
+            path: "main.rvn");
+        var compilation = Compilation.Create(
+                "BrokenLocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroSyntaxTrees(macroTree)
+            .AddSyntaxTrees(consumerTree);
+
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.Contains(
+            diagnostics,
+            diagnostic =>
+                diagnostic.Severity == DiagnosticSeverity.Error &&
+                ReferenceEquals(diagnostic.Location.SourceTree, macroTree));
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAVM010");
+        Assert.Contains(
+            compilation.GetDiagnostics(macroTree),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(consumerTree),
+            diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, macroTree));
+    }
+
+    [Fact]
     public void UnknownFreestandingMacro_ReportsUnknownMacroDiagnostic()
     {
         var (compilation, _) = CreateCompilation("""
@@ -23,6 +90,31 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var diagnostic = Assert.Single(diagnostics.Where(static diagnostic => diagnostic.Id == "RAVM010"));
         Assert.Contains("answer", diagnostic.GetMessage());
     }
+
+    private static SyntaxTree CreateLocalAnswerMacroTree()
+        => SyntaxTree.ParseText("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            class LocalMacroPlugin : IRavenMacroPlugin {
+                val Name: string => "Local"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [LocalAnswerMacro()]
+            }
+
+            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "localAnswer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+            """, path: "local-macros.rvn");
 
     [Fact]
     public void GetMacroExpansion_ReturnsFreestandingExpansionResult()

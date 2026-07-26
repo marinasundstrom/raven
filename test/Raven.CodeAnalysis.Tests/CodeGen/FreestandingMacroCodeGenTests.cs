@@ -15,6 +15,58 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class FreestandingMacroCodeGenTests
 {
     [Fact]
+    public void LocalMacroSyntaxTrees_ExpandButAreNotEmittedIntoConsumerAssembly()
+    {
+        var macroTree = SyntaxTree.ParseText("""
+            import System.Collections.Immutable.*
+            import Raven.CodeAnalysis.Macros.*
+
+            class LocalMacroPlugin : IRavenMacroPlugin {
+                val Name: string => "Local"
+
+                func GetMacros() -> ImmutableArray<IMacroDefinition>
+                    => [LocalAnswerMacro()]
+            }
+
+            class LocalAnswerMacro : ITokenTreeExpressionMacro {
+                val Name: string => "localAnswer"
+                val Kind: MacroKind => MacroKind.FreestandingExpression
+                val Targets: MacroTarget => MacroTarget.None
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+                    FreestandingMacroExpansionResult {
+                        Expression = #quote { 42 }
+                    }
+                }
+            }
+            """);
+        var consumerTree = SyntaxTree.ParseText("""
+            class Harness {
+                public static func Run() -> int => #localAnswer { }
+            }
+            """);
+        var compilation = Compilation.Create(
+                "LocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroSyntaxTrees(macroTree)
+            .AddSyntaxTrees(consumerTree);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var method = loaded.Assembly
+            .GetType("Harness", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.Equal(42, method!.Invoke(null, null));
+        Assert.Null(loaded.Assembly.GetType("LocalMacroPlugin"));
+        Assert.Null(loaded.Assembly.GetType("LocalAnswerMacro"));
+    }
+
+    [Fact]
     public void FreestandingMacro_ExpandedExpression_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""

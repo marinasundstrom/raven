@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Macros;
 
@@ -125,6 +126,14 @@ internal sealed class MacroRegistry
 
     public bool TryResolveFreestandingMacro(string macroName, out LoadedFreestandingMacro macro)
         => _freestandingMacros.TryGetValue(macroName, out macro);
+
+    public IEnumerable<IMacroDefinition> GetMacros(MacroKind kind)
+        => kind switch
+        {
+            MacroKind.AttachedDeclaration => _attachedMacros.Values.Select(static loaded => (IMacroDefinition)loaded.Macro),
+            MacroKind.FreestandingExpression => _freestandingMacros.Values.Select(static loaded => loaded.Macro),
+            _ => []
+        };
 }
 
 internal readonly record struct LoadedAttachedMacro(IRavenMacroPlugin Plugin, IAttachedDeclarationMacro Macro);

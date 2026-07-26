@@ -346,31 +346,39 @@ Validation record for this slice:
 * focused `MacroReferenceTests`: 5 passed
 * `scripts/test-feature-suite.sh macros`: 45 passed
 
-## Future compiler integration: same-project macros
+## Active slice: explicit same-project macro source partition
 
-Make project-local macro declaration and consumption a first-class compiler
-path:
+Status: **implemented and validated at the compiler layer**
 
-* partition one parsed project snapshot into compile-time macro implementation
-  code and ordinary consumer code;
-* compile and activate the macro partition before binding dependent
-  invocations;
-* diagnose compile-time/runtime dependency cycles without using textual order;
-* exclude compile-time-only implementation details from runtime emit by
-  default;
-* cache the activated macro partition independently from consumer-only edits;
-* invalidate all dependent expansions when that partition changes; and
-* expose an in-memory execution-host path suitable for the Playground, without
-  MSBuild or on-disk plugin artifacts.
+* [x] accept explicitly classified macro implementation syntax trees through
+  `Compilation.AddMacroSyntaxTrees`
+* [x] compile and activate that partition in memory before binding consumer
+  invocations
+* [x] automatically reference the compiler macro contracts from the partition
+* [x] forward partition diagnostics through the consumer compilation
+* [x] exclude compile-time-only macro implementation types from runtime emit
+* [x] include activated local macros in compiler-owned completion
+* [x] preserve compiler-only operation without `Workspace`, MSBuild, or an
+  on-disk plugin artifact
+* [ ] automatically classify same-project macro declarations or files
+* [ ] cache the activated partition independently from consumer-only edits
+* [ ] invalidate dependent expansions when the partition changes
+* [ ] add declaration-granular dependency-cycle diagnostics
 
-The final activation bullet now has a compiler API foundation:
-`MacroReference.CreateFromImage` loads an emitted macro assembly from memory.
-The remaining work begins at source partitioning and phase orchestration.
+The explicit partition is initially acyclic by construction: it receives
+metadata references and other macro references, but not consumer source
+declarations. This yields ordinary source diagnostics when macro code attempts
+to depend on the consumer partition.
 
-The first implementation should support one acyclic local macro partition.
 Layered project-local macro bootstrapping, where one local macro generates
 another macro implementation, remains out of scope until the phase model is
 proven.
+
+Validation record for this slice:
+
+* `scripts/test-feature-suite.sh macros`: 47 passed
+* focused invalid-partition, runtime non-emission, and local-completion tests:
+  3 passed
 
 ## Architectural invariants
 

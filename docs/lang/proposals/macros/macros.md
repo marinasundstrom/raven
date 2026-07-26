@@ -237,7 +237,11 @@ rather than separately importing macro assemblies.
 
 The compiler can activate an emitted macro assembly directly from memory. This
 is the activation boundary for the future same-project and Playground paths;
-automatic partitioning of a mixed source project remains future work.
+the compiler API additionally accepts explicitly classified local macro trees
+through `Compilation.AddMacroSyntaxTrees`. These trees compile and activate in
+memory before consumer binding and are excluded from runtime emit. Automatic
+classification of a mixed source project remains future SDK and Playground
+work.
 
 ---
 

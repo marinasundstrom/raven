@@ -46,7 +46,9 @@ In a macro you can put any content and parse it however you want.
   emit, cache independently from consumer edits, and diagnose dependency
   cycles.
   * [x] Activate an already-emitted macro assembly from an in-memory image.
-  * [ ] Identify, compile, cache, and invalidate the local source partition.
+  * [x] Compile and activate an explicitly classified local source partition.
+  * [ ] Automatically classify local macro declarations or files.
+  * [ ] Cache the partition independently and invalidate dependent expansions.
 * Grow the automatically registered default macro environment beyond `#quote`.
   A future `#embedFile` must use compiler-owned resource resolution and
   dependency tracking rather than unrestricted direct file I/O.

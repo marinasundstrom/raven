@@ -403,8 +403,29 @@ diagnostics, and isolation appropriate to untrusted interactive code.
 
 The compiler now accepts an emitted macro assembly image directly as a
 `MacroReference`. This proves the disk-free activation boundary needed by the
-Playground and future same-project staging. Source partitioning, compilation
-phase orchestration, caching, and cycle diagnostics remain to be implemented.
+Playground and same-project staging.
+
+The compiler-only MVP now also accepts an explicit local source partition:
+
+```csharp
+var compilation = Compilation.Create("App", options)
+    .AddReferences(references)
+    .AddMacroSyntaxTrees(macroTree)
+    .AddSyntaxTrees(consumerTree);
+```
+
+`AddMacroSyntaxTrees` keeps those trees out of the runtime source assembly,
+compiles them as an in-memory library before consumer binding, activates their
+plugins, and forwards their diagnostics through the consumer compilation.
+Completion reads from the same compiler macro registry and therefore includes
+successfully activated local macros.
+
+The explicit partition enforces the initial acyclic rule by construction: local
+macro code cannot bind against consumer declarations. The remaining
+same-project work is automatic declaration/file classification in the SDK and
+Playground, independent partition caching and invalidation, richer dependency
+resolution for the in-memory image, and dedicated cycle diagnostics when the
+classification model becomes declaration-granular.
 
 ## Expansion result construction
 

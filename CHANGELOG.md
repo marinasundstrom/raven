@@ -49,6 +49,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   environment and added `MacroReference.CreateFromImage`, allowing emitted
   Raven macro plugins to be activated directly from memory as a foundation for
   same-project macros and the Playground.
+- Added an explicit compile-time-only macro source partition to `Compilation`.
+  `AddMacroSyntaxTrees` compiles Raven macro declarations in memory before
+  consumer binding, reports partition diagnostics through the consumer
+  compilation, includes local macros in completion, and excludes plugin
+  implementation types from runtime emit.
 - Changed `Compilation.AddReferences` to append metadata references, matching
   its Roslyn-style additive contract instead of replacing existing references.
 - Clarified that Raven-authored enums are closed by default for declared-member

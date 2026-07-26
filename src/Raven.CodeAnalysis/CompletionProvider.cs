@@ -2994,48 +2994,7 @@ public static class CompletionProvider
     }
 
     private static IEnumerable<IMacroDefinition> EnumerateMacros(Compilation compilation, MacroKind kind)
-    {
-        foreach (var plugin in DefaultMacroEnvironment.Plugins)
-        {
-            foreach (var macro in plugin.GetMacros())
-            {
-                if (macro.Kind == kind)
-                    yield return macro;
-            }
-        }
-
-        foreach (var macroReference in compilation.MacroReferences)
-        {
-            IEnumerable<IRavenMacroPlugin> plugins;
-            try
-            {
-                plugins = macroReference.GetPlugins().ToArray();
-            }
-            catch
-            {
-                continue;
-            }
-
-            foreach (var plugin in plugins)
-            {
-                ImmutableArray<IMacroDefinition> macros;
-                try
-                {
-                    macros = plugin.GetMacros();
-                }
-                catch
-                {
-                    continue;
-                }
-
-                foreach (var macro in macros)
-                {
-                    if (macro.Kind == kind)
-                        yield return macro;
-                }
-            }
-        }
-    }
+        => compilation.GetMacroRegistry().GetMacros(kind);
 
     private static string CreateMacroDescription(IMacroDefinition macro)
     {
