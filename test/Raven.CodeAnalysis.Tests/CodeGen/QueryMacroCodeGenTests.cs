@@ -215,11 +215,7 @@ public sealed class QueryMacroCodeGenTests
                 "Select",
                 CreateLambda(rangeVariable.ValueText, selectorResult.Syntax));
 
-            return new FreestandingMacroExpansionResult
-            {
-                Expression = query,
-                Diagnostics = diagnostics
-            };
+            return FreestandingMacroExpansionResult.FromExpression(query, diagnostics);
         }
 
         private static ExpressionSyntax CreateLambda(string parameterName, ExpressionSyntax expression)
@@ -254,12 +250,7 @@ public sealed class QueryMacroCodeGenTests
             TokenTreeMacroContext context,
             TextSpan span,
             string message)
-            => new()
-            {
-                MacroDiagnostics =
-                [
-                    context.CreateBodyDiagnostic(span, message, code: "QUERY001")
-                ]
-            };
+            => FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateBodyDiagnostic(span, message, code: "QUERY001"));
     }
 }

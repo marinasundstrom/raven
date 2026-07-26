@@ -46,11 +46,11 @@ class TwiceMacro : IFreestandingExpressionMacro {
             return FreestandingMacroExpansionResult.Empty
         }
 
-        FreestandingMacroExpansionResult {
-            Expression = #quote {
+        FreestandingMacroExpansionResult.FromExpression(
+            #quote {
                 #(context.Arguments[0].Expression) * 2
             }
-        }
+        )
     }
 }
 
@@ -63,11 +63,11 @@ class UnlessMacro : ITokenTreeExpressionMacro {
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         let condition = context.ParseExpression()
 
-        FreestandingMacroExpansionResult {
-            Expression = #quote {
+        FreestandingMacroExpansionResult.FromExpression(
+            #quote {
                 !#(condition)
             }
-        }
+        )
     }
 }
 

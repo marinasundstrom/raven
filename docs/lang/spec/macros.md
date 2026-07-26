@@ -109,6 +109,13 @@ syntax-only API for one complete Raven statement. Their
 `MacroSyntaxParseResult<StatementSyntax>` with native diagnostics mapped to the
 authored body. Both expression and statement helpers reject trailing input.
 
+`FreestandingMacroExpansionResult.FromExpression(...)` creates an expression
+result, optionally forwarding native parser diagnostics.
+`FromDiagnostic(...)` and `FromDiagnostics(...)` create macro-authored,
+native-parser, or combined diagnostic results without requiring property
+initializers. `Empty` represents an explicit no-change result. Mutable
+properties remain available for compatibility.
+
 Token-tree expression macros implement `ITokenTreeExpressionMacro`. A
 token-tree-only macro must be invoked with braces; an argument-based macro must
 be invoked with parentheses.

@@ -517,26 +517,28 @@ The language server now uses the position-aware view for hover, completion,
 definition, references, and rename, so macro implementation declarations
 receive ordinary Raven tooling from their compile-time scope. References and
 rename scan the compiler-owned macro and consumer projections while reporting
-ranges against the authored source. Analyzer hosts still need to adopt the same
-semantic boundary. Remaining compiler work includes richer dependency
-resolution for the in-memory image.
+ranges against the authored source. Workspace analyzers traverse both
+projections with their owning semantic models. Retained embedded-fragment
+analysis remains future work. Remaining compiler work includes richer
+dependency resolution for the in-memory image.
 
 ## Expansion result construction
 
-Macro result types should eventually provide category-aware factory methods so
-authors do not have to discover valid property combinations through object
-initializers. The factories should cover at least:
+Freestanding expression macros can use
+`FreestandingMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
+`FromDiagnostics` instead of discovering valid property combinations through
+object initializers. The overloads cover expression success, forwarded Raven
+parser diagnostics, macro-authored diagnostics, and combined diagnostic
+results; default immutable arrays are normalized.
 
-* a successful expression, statement, member, or declaration expansion;
-* successful syntax plus forwarded Raven parser diagnostics;
-* one or more macro-authored diagnostics with no expansion;
+The remaining category-aware factories should cover:
+
 * replacement plus introduced members for attached macros; and
-* an explicitly empty/no-change result.
+* peer declarations and combined attached-macro results.
 
-The final names remain open, but the factories should normalize default
-immutable arrays, reject contradictory combinations, and preserve the typed
-output contract. Property initialization can remain as a low-level or
-compatibility path rather than being the primary authoring experience.
+`Empty` remains the explicit no-change result. Property initialization remains
+a low-level compatibility path. Statement, member, and declaration carrier
+results will need equivalent typed factories when those categories are added.
 
 ## Documenting macros
 

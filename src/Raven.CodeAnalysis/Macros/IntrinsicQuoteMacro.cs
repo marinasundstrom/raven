@@ -28,21 +28,14 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
         if (!splicePreparation.Diagnostics.IsEmpty ||
             !splicePreparation.MacroDiagnostics.IsEmpty)
         {
-            return new FreestandingMacroExpansionResult
-            {
-                Diagnostics = splicePreparation.Diagnostics,
-                MacroDiagnostics = splicePreparation.MacroDiagnostics
-            };
+            return FreestandingMacroExpansionResult.FromDiagnostics(
+                splicePreparation.Diagnostics,
+                splicePreparation.MacroDiagnostics);
         }
 
         var fragment = context.ParseExpressionResult(splicePreparation.BodyText);
         if (!fragment.Diagnostics.IsEmpty)
-        {
-            return new FreestandingMacroExpansionResult
-            {
-                Diagnostics = fragment.Diagnostics
-            };
-        }
+            return FreestandingMacroExpansionResult.FromDiagnostics(fragment.Diagnostics);
 
         var missingTokens = fragment.Syntax
             .DescendantTokens()
@@ -56,16 +49,11 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
                     missingTokens[0].SpanStart - context.BodySpan.Start,
                     0,
                     context.BodySpan.Length);
-            return new FreestandingMacroExpansionResult
-            {
-                MacroDiagnostics =
-                [
-                    context.CreateBodyDiagnostic(
-                        new TextSpan(bodyPosition, 0),
-                        "Quoted expression is incomplete.",
-                        code: IncompleteQuoteCode)
-                ]
-            };
+            return FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateBodyDiagnostic(
+                    new TextSpan(bodyPosition, 0),
+                    "Quoted expression is incomplete.",
+                    code: IncompleteQuoteCode));
         }
 
         if (context.Compilation.GetTypeByMetadataName(
@@ -124,10 +112,7 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
                 code: ExpansionFailedCode);
         }
 
-        return new FreestandingMacroExpansionResult
-        {
-            Expression = expansionExpression
-        };
+        return FreestandingMacroExpansionResult.FromExpression(expansionExpression);
     }
 
     private static ExpressionSyntax RedistributePlaceholderTrivia(
@@ -316,13 +301,8 @@ internal sealed class IntrinsicQuoteMacro : ITokenTreeExpressionMacro
         TokenTreeMacroContext context,
         string message,
         string code)
-        => new()
-        {
-            MacroDiagnostics =
-            [
-                context.CreateDiagnostic(message, code: code)
-            ]
-        };
+        => FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateDiagnostic(message, code: code));
 
     private sealed record SplicePreparation(
         string BodyText,

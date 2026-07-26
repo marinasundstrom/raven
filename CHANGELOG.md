@@ -85,6 +85,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
   documents. Syntax-node, symbol, operation, and syntax-tree actions now see
   both ordinary consumer code and Raven macro implementation code with the
   semantic model that owns each projection.
+- Added `FreestandingMacroExpansionResult` factory methods for expression
+  results, forwarded parser diagnostics, macro-authored diagnostics, and
+  combined diagnostic results. The built-in `#quote` macro and Playground
+  local-macro example now use the factory path.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

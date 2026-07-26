@@ -296,13 +296,18 @@ dependency recording, incremental invalidation, determinism, cancellation, and
 file-access policy. Direct file I/O is not promoted as the public resource
 contract.
 
-## Future API ergonomics: expansion-result factories
+## API ergonomics: expansion-result factories
 
-Add category-aware factory methods to macro expansion result types after the
-supported result combinations stabilize. These should make success,
-success-with-forwarded-diagnostics, diagnostic-only failure, attached
-replacement-plus-introduced-members, and no-change results explicit without
-requiring authors to assign mutable properties in the correct combination.
+The freestanding expression MVP now provides
+`FreestandingMacroExpansionResult.FromExpression`, `FromDiagnostic`, and
+`FromDiagnostics`. These cover plain expression success, success with
+forwarded parser diagnostics, macro-authored diagnostic-only results, and
+combined native/macro diagnostics while normalizing default immutable arrays.
+The built-in quote implementation and representative query and Playground
+macros use these factories. Mutable properties remain for compatibility.
+
+Attached replacement-plus-introduced-members and peer-declaration factories
+remain deferred until those result combinations stabilize.
 
 ## Future SDK integration: provider-declared compiler plugins
 
