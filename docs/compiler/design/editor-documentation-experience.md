@@ -62,8 +62,10 @@ documentation view as the full reading surface.
 
 ## Documentation content model
 
-The editor and RavenDoc should share the same logical documentation model, even
-if they render it differently.
+The editor, compiler, and RavenDoc should share the
+[Raven documentation model](./raven-documentation-model.md), even if they
+render it differently. Markdown and XML are inputs and projections; neither is
+the canonical in-memory model.
 
 The model should distinguish between:
 
@@ -146,16 +148,22 @@ generation.
 
 Markdown and XML continue to serve different purposes:
 
-- Markdown is presentation-oriented authored content.
-- XML is structured interoperability data.
+- Markdown is the default Raven authoring format and preferred projection.
+- XML is an explicit authoring option and interoperability projection.
 
 Editor rendering should respect that distinction:
 
 - Markdown can be rendered directly as Markdown content.
 - XML can be rendered through the structured fields Raven already understands.
 
-The editor should not flatten both into one storage format just to simplify the
-UI story.
+Both are interpreted through the shared semantic model. Renderers should also
+retain the original Markdown when available so normalization does not erase
+author intent.
+
+The language server should eventually offer Markdown-aware highlighting,
+completion, links, and diagnostics directly inside documentation comments.
+Literal code spans and fenced code blocks must remain code, not documentation
+syntax.
 
 ## Future assembly model
 

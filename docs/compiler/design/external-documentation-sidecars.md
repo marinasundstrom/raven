@@ -59,10 +59,11 @@ Source symbols still use attached source documentation comments directly.
 
 ## Documentation model
 
-Markdown and XML serve different purposes and should remain distinct:
+Raven normalizes authored documentation into a Raven-native semantic model and
+then emits or renders projections from that model:
 
-- Markdown is authored presentation content.
-- XML is structured interoperability data.
+- Markdown is the default authored content and preferred Raven projection.
+- XML is an explicit input and a compatibility projection.
 - RavenDoc is the HTML/documentation-site layer, not the storage format for
   either one.
 
@@ -70,8 +71,13 @@ This means:
 
 - Markdown sidecars store raw Markdown exactly as authored.
 - Adjacent XML sidecars remain XML and are not treated as Markdown artifacts.
-- The symbol API returns the loaded format as-is, so consumers such as the IDE
-  or RavenDoc can decide how to render it.
+- Consumers can use the structured model while renderers retain access to the
+  source representation.
+- Raven documentation roles and aliases project to the established .NET XML
+  element names; Raven source does not have to imitate XML syntax exactly.
+
+See [Raven Documentation Model](./raven-documentation-model.md) for the
+authoring, projection, and editor principles.
 
 ## Manifest
 
@@ -206,16 +212,20 @@ For the editor-facing presentation story built on top of these sidecars, see
 
 ## Project properties
 
-The first project-system knobs for this convention are:
+Library projects emit both sidecars by default. The project-system knobs are:
+
+- `RavenGenerateDocumentation`
+  Controls the default documentation bundle. It defaults to `true` for
+  libraries. Setting it to `false` disables both outputs unless an individual
+  output property is explicitly enabled.
 
 - `GenerateDocumentationFile`
-  Emits adjacent XML documentation.
+  Emits adjacent XML documentation. Defaults to the bundle setting.
 - `GenerateMarkdownDocumentationFile`
-  Emits assembly-adjacent Markdown sidecars.
+  Emits assembly-adjacent Markdown sidecars. Defaults to the bundle setting.
 - `GenerateXmlDocumentationFromMarkdownComments`
-  Opts into projecting Markdown-authored documentation comments into emitted
-  XML documentation. Without this flag, XML emission only includes XML-authored
-  documentation comments.
+  Projects Markdown-authored comments into compatible XML documentation.
+  Defaults to the bundle setting.
 - `DocumentationFile`
   Optional explicit XML output path.
 - `MarkdownDocumentationOutputPath`
@@ -233,6 +243,7 @@ Implemented:
 - manifest-based Markdown lookup
 - compiler emission of `.docs/` sidecars from source documentation comments
   under an invariant locale root
+- default dual Markdown and XML emission for Raven library projects
 - Markdown-over-XML precedence for metadata symbols
 - XML fallback from adjacent sidecar XML documentation files
 

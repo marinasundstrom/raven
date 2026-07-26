@@ -35,6 +35,11 @@
     <ProduceReferenceAssembly Condition="'$(ProduceReferenceAssembly)' == ''">false</ProduceReferenceAssembly>
     <EnableDefaultCompileItems Condition="'$(EnableDefaultCompileItems)' == ''">false</EnableDefaultCompileItems>
     <EnableDefaultEmbeddedResourceItems Condition="'$(EnableDefaultEmbeddedResourceItems)' == ''">false</EnableDefaultEmbeddedResourceItems>
+    <RavenGenerateDocumentation Condition="'$(RavenGenerateDocumentation)' == '' and '$(OutputType)' == 'Library'">true</RavenGenerateDocumentation>
+    <RavenGenerateDocumentation Condition="'$(RavenGenerateDocumentation)' == ''">false</RavenGenerateDocumentation>
+    <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">$(RavenGenerateDocumentation)</GenerateDocumentationFile>
+    <GenerateMarkdownDocumentationFile Condition="'$(GenerateMarkdownDocumentationFile)' == ''">$(RavenGenerateDocumentation)</GenerateMarkdownDocumentationFile>
+    <GenerateXmlDocumentationFromMarkdownComments Condition="'$(GenerateXmlDocumentationFromMarkdownComments)' == ''">$(RavenGenerateDocumentation)</GenerateXmlDocumentationFromMarkdownComments>
   </PropertyGroup>
 
   <ItemGroup>
@@ -109,13 +114,25 @@
   <Target
     Name="_CopyRavenDocumentationFileToOutputDirectory"
     AfterTargets="CopyFilesToOutputDirectory"
-    Condition="'$(GenerateDocumentationFile)' == 'true' and Exists('$(DocumentationFile)')">
+    Condition="'$(GenerateDocumentationFile)' == 'true' or '$(GenerateMarkdownDocumentationFile)' == 'true'">
+    <ItemGroup>
+      <_RavenMarkdownDocumentationFiles
+        Include="$(IntermediateOutputPath)$(TargetName).docs/**/*"
+        Condition="'$(GenerateMarkdownDocumentationFile)' == 'true'" />
+    </ItemGroup>
     <Copy
       SourceFiles="$(DocumentationFile)"
       DestinationFiles="$(OutDir)$(TargetName).xml"
-      SkipUnchangedFiles="true" />
+      SkipUnchangedFiles="true"
+      Condition="'$(GenerateDocumentationFile)' == 'true' and Exists('$(DocumentationFile)')" />
+    <Copy
+      SourceFiles="@(_RavenMarkdownDocumentationFiles)"
+      DestinationFiles="@(_RavenMarkdownDocumentationFiles->'$(OutDir)$(TargetName).docs/%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'@(_RavenMarkdownDocumentationFiles)' != ''" />
     <ItemGroup>
-      <FileWrites Include="$(OutDir)$(TargetName).xml" />
+      <FileWrites Include="$(OutDir)$(TargetName).xml" Condition="'$(GenerateDocumentationFile)' == 'true' and Exists('$(DocumentationFile)')" />
+      <FileWrites Include="@(_RavenMarkdownDocumentationFiles->'$(OutDir)$(TargetName).docs/%(RecursiveDir)%(Filename)%(Extension)')" />
     </ItemGroup>
   </Target>
 </Project>

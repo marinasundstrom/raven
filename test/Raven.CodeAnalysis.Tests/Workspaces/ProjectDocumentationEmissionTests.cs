@@ -8,6 +8,69 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class ProjectDocumentationEmissionTests(ITestOutputHelper output)
 {
     [Fact]
+    public void MsBuildLibrary_EmitsMarkdownAndCompatibleXmlDocumentationByDefault()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), """
+/// Creates a documented widget.
+///
+/// @remarks Authored as Markdown.
+public class Widget {
+    /// Returns the current title.
+    ///
+    /// @returns The widget title.
+    public func GetTitle() -> string => "Hello"
+}
+""");
+
+            var projectPath = Path.Combine(root, "Docs.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>DocsProject</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var compilerDllPath = EnsureCompilerBuilt();
+            var outputDirectory = Path.Combine(root, "bin");
+            Directory.CreateDirectory(outputDirectory);
+
+            var result = RunProcess(
+                "dotnet",
+                $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputDirectory}\"",
+                root,
+                300_000);
+
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+            Assert.Equal(0, result.ExitCode);
+
+            var docsRoot = Path.Combine(outputDirectory, "DocsProject.docs");
+            var xmlPath = Path.Combine(outputDirectory, "DocsProject.xml");
+            Assert.True(File.Exists(Path.Combine(docsRoot, "manifest.json")));
+            Assert.True(File.Exists(xmlPath));
+
+            var xml = File.ReadAllText(xmlPath);
+            Assert.Contains("<member name=\"T:Widget\">", xml, StringComparison.Ordinal);
+            Assert.Contains("<summary>Creates a documented widget.</summary>", xml, StringComparison.Ordinal);
+            Assert.Contains("<remarks>Authored as Markdown.</remarks>", xml, StringComparison.Ordinal);
+            Assert.DoesNotContain("@remarks", xml, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void MsBuildProject_EmitsMarkdownDocumentation_WhenConfigured()
     {
         var root = CreateTempDirectory();
@@ -99,7 +162,7 @@ public class Widget {}
 
             var result = RunProcess(
                 "dotnet",
-                $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputDirectory}\"",
+                $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputDirectory}\" --doc-format xml",
                 root,
                 300_000);
 
@@ -170,7 +233,55 @@ class Widget {
             Assert.True(File.Exists(Path.Combine(docsRoot, "manifest.json")));
             Assert.True(File.Exists(xmlPath));
             var xml = File.ReadAllText(xmlPath);
-            Assert.DoesNotContain("<member name=\"T:Widget\">", xml, StringComparison.Ordinal);
+            Assert.Contains("<member name=\"T:Widget\">", xml, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void MsBuildLibrary_DefaultDocumentationBundle_CanBeDisabled()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), """
+/// Creates a documented widget.
+public class Widget {}
+""");
+
+            var projectPath = Path.Combine(root, "Docs.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>DocsProject</AssemblyName>
+                    <OutputType>Library</OutputType>
+                    <RavenGenerateDocumentation>false</RavenGenerateDocumentation>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <RavenCompile Include="main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var compilerDllPath = EnsureCompilerBuilt();
+            var outputDirectory = Path.Combine(root, "bin");
+            Directory.CreateDirectory(outputDirectory);
+
+            var result = RunProcess(
+                "dotnet",
+                $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputDirectory}\"",
+                root,
+                300_000);
+
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+            Assert.Equal(0, result.ExitCode);
+            Assert.False(Directory.Exists(Path.Combine(outputDirectory, "DocsProject.docs")));
+            Assert.False(File.Exists(Path.Combine(outputDirectory, "DocsProject.xml")));
         }
         finally
         {

@@ -164,10 +164,13 @@ internal static class MsBuildProjectEvaluator
         var generatedSourceDirectory = GetGeneratedSourceDirectory(projectDirectory, intermediateOutputPath, configuration, conventions);
         var name = GetProjectName(project, projectFilePath);
         var assemblyName = GetPropertyOrDefault(project, "AssemblyName", Path.GetFileNameWithoutExtension(projectFilePath));
+        var generateDocumentationByDefault =
+            ParseOutputKind(outputType) == OutputKind.DynamicallyLinkedLibrary &&
+            (GetBooleanProperty(project, "RavenGenerateDocumentation") ?? true);
         var documentationOptions = new ProjectDocumentationOptions(
-            GenerateXmlDocumentation: GetBooleanProperty(project, "GenerateDocumentationFile") ?? false,
-            GenerateMarkdownDocumentation: GetBooleanProperty(project, "GenerateMarkdownDocumentationFile") ?? false,
-            GenerateXmlDocumentationFromMarkdownComments: GetBooleanProperty(project, "GenerateXmlDocumentationFromMarkdownComments") ?? false,
+            GenerateXmlDocumentation: GetExplicitProjectBooleanProperty(project, "GenerateDocumentationFile") ?? generateDocumentationByDefault,
+            GenerateMarkdownDocumentation: GetExplicitProjectBooleanProperty(project, "GenerateMarkdownDocumentationFile") ?? generateDocumentationByDefault,
+            GenerateXmlDocumentationFromMarkdownComments: GetExplicitProjectBooleanProperty(project, "GenerateXmlDocumentationFromMarkdownComments") ?? generateDocumentationByDefault,
             XmlDocumentationFile: GetOptionalProperty(project, "DocumentationFile"),
             MarkdownDocumentationOutputPath: GetOptionalProperty(project, "MarkdownDocumentationOutputPath"));
 
@@ -239,6 +242,15 @@ internal static class MsBuildProjectEvaluator
             project,
             "RootNamespace",
             Path.GetFileNameWithoutExtension(projectFilePath));
+    }
+
+    private static bool? GetExplicitProjectBooleanProperty(MSBuildProject project, string propertyName)
+    {
+        var property = project.Xml.Properties.LastOrDefault(property =>
+            string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+        return property is null || !bool.TryParse(property.Value, out var value)
+            ? null
+            : value;
     }
 
     private static string GetGeneratedSourceDirectory(

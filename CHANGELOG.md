@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 
 ## Unreleased
 
+- Raven library projects now emit both Raven Markdown documentation sidecars
+  and compatible .NET XML documentation by default. Raven consumes Markdown
+  first and falls back to XML for libraries without Raven documentation;
+  Markdown remains the default source comment format and XML authoring remains
+  explicit.
 - `Raven.Core` now emits and ships `Raven.Core.xml`, with documentation for its
   public types, carrier members, LINQ helpers, JSON converters, and framework
   projection adapters. Projected framework methods forward their adapter

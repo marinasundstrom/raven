@@ -2866,7 +2866,19 @@ static string ResolveDocumentationOutputPath(
         {
             var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath));
             if (!string.IsNullOrWhiteSpace(projectDirectory))
-                return Path.GetFullPath(Path.Combine(projectDirectory, path));
+            {
+                var projectRelativePath = Path.GetFullPath(Path.Combine(projectDirectory, path));
+                var configuredDirectory = Path.GetDirectoryName(projectRelativePath);
+                if (string.Equals(
+                        Path.TrimEndingDirectorySeparator(configuredDirectory ?? string.Empty),
+                        Path.TrimEndingDirectorySeparator(Path.GetFullPath(outputDirectory)),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return projectRelativePath;
+                }
+
+                return Path.ChangeExtension(outputFilePath, ".xml");
+            }
         }
 
         return Path.GetFullPath(Path.Combine(outputDirectory, path));

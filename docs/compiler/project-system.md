@@ -25,6 +25,22 @@ Primary MSBuild properties Raven currently consumes:
   or `None` for the ordinary .NET API surface)
 - `IntermediateOutputPath`
 - `Configuration`
+- `RavenGenerateDocumentation` (`true` by default for libraries)
+- `GenerateDocumentationFile`
+- `GenerateMarkdownDocumentationFile`
+- `GenerateXmlDocumentationFromMarkdownComments`
+- `DocumentationFile`
+- `MarkdownDocumentationOutputPath`
+
+Library projects emit both Raven Markdown sidecars and compatible .NET XML
+documentation by default. Raven-authored comments are Markdown unless the XML
+format is explicitly selected. Set `RavenGenerateDocumentation` to `false` to
+disable the default bundle, or override the individual properties to select one
+projection. When consuming metadata, Raven prefers the Markdown sidecar and
+falls back to adjacent XML documentation.
+
+See [Raven Documentation Model](design/raven-documentation-model.md) and
+[External Documentation Sidecars](design/external-documentation-sidecars.md).
 
 Primary MSBuild items Raven currently consumes:
 
