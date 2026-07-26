@@ -47,6 +47,27 @@ internal static class LocalMacroSyntaxClassifier
             CreateMacroProjection(syntaxTree, declarations));
     }
 
+    public static bool IsLocalMacroPosition(SyntaxTree syntaxTree, int position)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+
+        if ((uint)position > (uint)syntaxTree.Length)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        if (IsLocalMacroTree(syntaxTree))
+            return true;
+
+        return GetTopLevelTypeDeclarations(syntaxTree)
+            .Where(static declaration => declaration.Parent is CompilationUnitSyntax)
+            .Where(static declaration => HasMarkerAttribute(
+                declaration,
+                DeclarationMarkerName,
+                DeclarationMarkerAttributeName))
+            .Any(declaration =>
+                position >= declaration.FullSpan.Start &&
+                position < declaration.FullSpan.End);
+    }
+
     private static IEnumerable<TypeDeclarationSyntax> GetTopLevelTypeDeclarations(SyntaxTree syntaxTree)
         => syntaxTree.GetRoot()
             .DescendantNodes()

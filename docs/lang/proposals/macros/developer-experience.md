@@ -500,9 +500,15 @@ user source buffer. The included local-macro example covers attached,
 argument-style expression, and raw token-tree expression macros; a second
 example demonstrates `#quote` directly.
 
-Macro-author hover, completion, navigation, and semantic queries across the two
-derived projections remain future developer-experience work. Remaining
-compiler work includes richer dependency resolution for the in-memory image.
+`Compilation.GetSemanticModel(tree, position)` and
+`Document.GetSemanticModelAsync(position)` now select the current macro or
+consumer projection from an authored position. This works with or without a
+Workspace. Macro authors and tooling can query nodes from the returned model's
+position-preserving `SyntaxTree` through the ordinary semantic APIs.
+Positionless calls continue to select the consumer view for compatibility.
+Hover, completion, navigation, and analyzer hosts still need to adopt the
+position-aware API. Remaining compiler work includes richer dependency
+resolution for the in-memory image.
 
 ## Expansion result construction
 

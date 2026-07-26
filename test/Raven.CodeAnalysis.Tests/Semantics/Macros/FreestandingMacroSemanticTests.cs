@@ -69,6 +69,46 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
     }
 
     [Fact]
+    public void GetSemanticModel_AuthoredPositionRoutesWithoutWorkspace()
+    {
+        var sourceTree = SyntaxTree.ParseText(
+            """
+            [LocalMacro]
+            class MacroSupport {
+                val Value: int => 42
+            }
+
+            func Main() -> int => 0
+            """);
+        var compilation = Compilation.Create(
+                "LocalMacroConsumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(sourceTree);
+
+        var source = sourceTree.GetText()!.ToString();
+        var macroModel = compilation.GetSemanticModel(
+            sourceTree,
+            source.IndexOf("MacroSupport", StringComparison.Ordinal));
+        var consumerModel = compilation.GetSemanticModel(
+            sourceTree,
+            source.IndexOf("Main", StringComparison.Ordinal));
+
+        Assert.Contains(macroModel.SyntaxTree, compilation.MacroSyntaxTrees);
+        Assert.Contains(consumerModel.SyntaxTree, compilation.SyntaxTrees);
+        var macroDeclaration = macroModel.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Single();
+        var mainDeclaration = consumerModel.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single();
+        Assert.Equal("MacroSupport", macroModel.GetDeclaredSymbol(macroDeclaration)?.Name);
+        Assert.Equal("Main", consumerModel.GetDeclaredSymbol(mainDeclaration)?.Name);
+    }
+
+    [Fact]
     public void MarkedLocalMacroPluginTree_IsAutomaticallyPartitioned()
     {
         var macroTree = CreateLocalAnswerMacroTree();

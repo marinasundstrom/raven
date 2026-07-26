@@ -80,6 +80,30 @@ public sealed class Document
 
     /// <summary>Asynchronously gets the semantic model for this document, if supported.</summary>
     public Task<SemanticModel?> GetSemanticModelAsync(CancellationToken cancellationToken = default)
+        => GetSemanticModelCoreAsync(position: null);
+
+    /// <summary>
+    /// Asynchronously gets the semantic model that owns an authored position in
+    /// this document.
+    /// </summary>
+    /// <remarks>
+    /// For a document containing declaration-granular local macros, positions
+    /// inside a declaration marked with <see cref="LocalMacroAttribute"/>
+    /// resolve through the compile-time macro projection. Other positions
+    /// resolve through the consumer projection. Query nodes from the returned
+    /// model's <see cref="SemanticModel.SyntaxTree"/>.
+    /// </remarks>
+    public Task<SemanticModel?> GetSemanticModelAsync(
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        if ((uint)position > (uint)Text.Length)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        return GetSemanticModelCoreAsync(position);
+    }
+
+    private Task<SemanticModel?> GetSemanticModelCoreAsync(int? position)
     {
         if (!SupportsSemanticModel)
             return Task.FromResult<SemanticModel?>(null);
@@ -89,6 +113,14 @@ public sealed class Document
             return Task.FromResult<SemanticModel?>(null);
 
         var compilation = CreateCompilation();
+        if (position is { } authoredPosition)
+        {
+            var currentDocument = Solution.Workspace?.CurrentSolution.GetDocument(Id);
+            var authoredTree = currentDocument?.SyntaxTree ?? tree;
+            return Task.FromResult<SemanticModel?>(
+                compilation.GetSemanticModel(authoredTree, authoredPosition));
+        }
+
         tree = GetCompilationSyntaxTree(compilation, tree);
         if (tree is null)
             return Task.FromResult<SemanticModel?>(null);
@@ -145,16 +177,28 @@ public sealed class Document
         var currentTree = currentDocument?.SyntaxTree;
         if (currentTree is not null &&
             (compilation.SyntaxTrees.Contains(currentTree) || compilation.MacroSyntaxTrees.Contains(currentTree)))
+        {
             return currentTree;
+        }
+        var authoredTree = currentTree ?? tree;
 
         if (!string.IsNullOrWhiteSpace(FilePath))
         {
+            var match = FindTreeByPath(compilation.SyntaxTrees, FilePath);
+            match ??= FindTreeByPath(compilation.MacroSyntaxTrees, FilePath);
+            if (match is not null)
+                return match;
+        }
+
+        var consumerProjection = LocalMacroSyntaxClassifier.Partition(authoredTree).ConsumerTree;
+        var consumerText = consumerProjection?.GetText()?.ToString();
+        if (consumerText is not null)
+        {
             var match = compilation.SyntaxTrees.FirstOrDefault(compilationTree =>
-                !string.IsNullOrWhiteSpace(compilationTree.FilePath) &&
-                string.Equals(compilationTree.FilePath, FilePath, StringComparison.OrdinalIgnoreCase));
-            match ??= compilation.MacroSyntaxTrees.FirstOrDefault(compilationTree =>
-                !string.IsNullOrWhiteSpace(compilationTree.FilePath) &&
-                string.Equals(compilationTree.FilePath, FilePath, StringComparison.OrdinalIgnoreCase));
+                string.Equals(
+                    compilationTree.GetText()?.ToString(),
+                    consumerText,
+                    StringComparison.Ordinal));
             if (match is not null)
                 return match;
         }
@@ -163,6 +207,11 @@ public sealed class Document
             .Concat(compilation.MacroSyntaxTrees)
             .FirstOrDefault(compilationTree =>
                 string.Equals(compilationTree.GetText()?.ToString(), Text.ToString(), StringComparison.Ordinal));
+
+        static SyntaxTree? FindTreeByPath(IEnumerable<SyntaxTree> trees, string filePath)
+            => trees.FirstOrDefault(compilationTree =>
+                !string.IsNullOrWhiteSpace(compilationTree.FilePath) &&
+                string.Equals(compilationTree.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>Creates a new document with updated text using the owning solution.</summary>

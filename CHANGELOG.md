@@ -69,6 +69,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-05-09**.
 - Added `RAVM003` for local macro implementations that depend on consumer
   declarations, identifying the compile-time activation cycle at the authored
   reference in both dedicated and mixed-source macro layouts.
+- Added position-aware semantic-model lookup for mixed local-macro documents.
+  `Compilation.GetSemanticModel(tree, position)` and
+  `Document.GetSemanticModelAsync(position)` now route macro declaration
+  positions to the current macro projection while preserving the consumer model
+  for ordinary source positions and existing positionless calls.
 - Added runnable Playground examples for constructing syntax with `#quote` and
   for defining local attached, argument-style expression, and token-tree
   expression macros.

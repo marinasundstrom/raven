@@ -372,6 +372,9 @@ Status: **same-project and incremental-cache MVP implemented and validated**
 * [x] cache the activated partition independently from consumer-only edits
 * [x] invalidate dependent expansions when the partition changes
 * [x] add declaration-granular dependency-cycle diagnostics
+* [x] route authored positions to the current macro or consumer semantic
+  projection through `Compilation.GetSemanticModel(tree, position)` and
+  `Document.GetSemanticModelAsync(position)`
 
 The automatic MVP uses a syntax-only, dedicated-file rule. When an ordinary
 attribute named `LocalMacroPlugin` or `LocalMacroPluginAttribute` appears on a
@@ -421,10 +424,16 @@ local macro partition or a referenced assembly. The semantic probe avoids
 misclassifying ordinary typos or genuinely missing dependencies as cycles and
 works for both mixed and dedicated macro files.
 
-Macro-author semantic features over the projected declarations remain a later
-developer-experience slice. This MVP prioritizes correct compilation,
-diagnostics, expansion, emit, and execution; the ordinary consumer projection
-continues to drive existing editor services.
+The compiler and Workspace APIs now accept an authored position when requesting
+a semantic model. `Compilation.GetSemanticModel(tree, position)` supports
+one-shot compiler hosts, and `Document.GetSemanticModelAsync(position)`
+delegates the same decision for Workspace callers. Positions inside a
+declaration marked `[LocalMacro]` route to the current macro projection; other
+positions route to the consumer projection. The returned model exposes its
+projected `SyntaxTree`, whose position-preserving nodes can be passed directly
+to ordinary semantic queries. Routing is recomputed for each Workspace snapshot
+and also works for documents without file paths. Existing positionless calls
+retain their consumer-oriented behavior.
 
 Layered project-local macro bootstrapping, where one local macro generates
 another macro implementation, remains out of scope until the phase model is
@@ -432,7 +441,7 @@ proven.
 
 Validation record for this slice:
 
-* `scripts/test-feature-suite.sh macros`: 51 passed
+* `scripts/test-feature-suite.sh macros`: 52 passed
 * focused compiler automatic-partition test: passed
 * focused Workspace automatic-partition and semantic-model test: passed
 * focused Workspace partition reuse, invalidation, and diagnostic-remapping
@@ -440,12 +449,12 @@ Validation record for this slice:
 * focused SDK same-project build without `RavenMacro`: passed
 * focused mixed-declaration compiler test: passed
 * focused mixed-file and dedicated-file dependency-cycle tests: passed
+* focused position-aware semantic routing and incremental-edit tests: passed
 * browser Playground smoke test, including every example: passed
 
-Next planned slice: make semantic queries over authored local macro
-declarations consistently resolve through the current macro projection, then
-use that compiler-owned view for macro-author hover, completion, navigation,
-and analyzer participation.
+Next planned slice: use the position-aware compiler semantic view for
+macro-author hover and completion, then extend it to navigation and analyzer
+participation.
 
 ## Architectural invariants
 

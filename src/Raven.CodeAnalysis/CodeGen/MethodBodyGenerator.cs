@@ -449,7 +449,7 @@ internal class MethodBodyGenerator
             return _allSemanticModels;
 
         _allSemanticModels = Compilation.SyntaxTrees
-            .Select(Compilation.GetSemanticModel)
+            .Select(tree => Compilation.GetSemanticModel(tree))
             .ToArray();
         return _allSemanticModels;
     }

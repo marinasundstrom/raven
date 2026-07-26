@@ -417,6 +417,14 @@ breaks and replacing declarations from the opposite partition with whitespace.
 This preserves authored offsets for diagnostics while keeping macro
 implementation types out of runtime emit.
 
+Compiler hosts may use `Compilation.GetSemanticModel(tree, position)`, and
+Workspace callers may use `Document.GetSemanticModelAsync(position)`, to select
+the semantic projection that owns an authored position. A position inside a
+declaration marked `[LocalMacro]` returns the macro-partition semantic model;
+other positions return the consumer model. Nodes for semantic queries must come
+from the returned model's `SyntaxTree`. The projections preserve authored
+positions, so the same position can be used to find the corresponding node.
+
 The browser Playground supports this form in its single user buffer. Semantic
 editor services inside the projected macro declarations are not yet complete;
 the current implementation prioritizes compilation, expansion, diagnostics,
